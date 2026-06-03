@@ -128,7 +128,25 @@ Foundational documents are complete. Architecture, schema, and initial applicati
 
 ## License
 
-[To be determined] — OurSay intends to publish under an open source license. License selection will be finalized before the first code is merged. Preferably GPL/AGPL to prevent forks from shutting out auditability. 
+OurSay.ca is licensed under the GNU General Public License v3.0 (GPL v3).
+Why GPL v3?
+OurSay is civic infrastructure. It is designed to be deployed by other provinces, municipalities, and democracies as-is or with adaptation. GPL v3 ensures that:
+
+OurSay remains open. Any adaptation, deployment, or derivative of OurSay must remain open source. This prevents proprietary forks and ensures the community benefits from improvements made anywhere.
+The public retains the public good. Civic infrastructure should not be privatized. If someone builds on OurSay's code, the public gets access to the improvements.
+Contributors are protected. Your work cannot be enclosed and sold back to the public as a proprietary service.
+
+This is not a restriction on commercial use — companies can deploy OurSay, modify it, and offer services around it. They simply must publish their modifications back to the community.
+What this means for you
+
+You can use, modify, and deploy OurSay freely
+If you modify OurSay, publish your changes under GPL v3
+You cannot create a closed-source derivative and sell it without publishing the source
+
+For full details, see LICENSE in this repository, or visit gnu.org/licenses/gpl-3.0.html.
+Contributing under GPL v3
+By contributing to OurSay, you agree that your contribution is licensed under GPL v3. The project retains no copyright over contributions — contributors retain copyright and license their work to OurSay under GPL v3.
+If you have questions about licensing, open an issue.
 
 ---
 
