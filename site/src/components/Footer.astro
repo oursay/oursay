@@ -1,0 +1,64 @@
+---
+import Logo from "./Logo.astro";
+import { site, nonAffiliationDisclaimer, license, navLinks } from "../data/site";
+
+const year = new Date().getFullYear();
+---
+
+<footer class="border-t border-slate-800 bg-slate-900 text-slate-300">
+  <div class="mx-auto max-w-6xl px-6 py-14">
+    <div class="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr]">
+      <div>
+        <div class="[&_span]:text-white [&_svg]:text-brand-400">
+          <Logo />
+        </div>
+        <p class="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
+          Verified, auditable public opinion for any democracy. Open source.
+          Launching in Alberta.
+        </p>
+      </div>
+
+      <nav class="text-sm">
+        <h2 class="mb-3 font-semibold text-white">Explore</h2>
+        <ul class="space-y-2">
+          {
+            navLinks.map((link) => (
+              <li>
+                <a href={link.href} class="text-slate-400 hover:text-white">
+                  {link.label}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+
+      <nav class="text-sm">
+        <h2 class="mb-3 font-semibold text-white">Project</h2>
+        <ul class="space-y-2">
+          <li><a href="/sources" class="text-slate-400 hover:text-white">Sources</a></li>
+          <li><a href="/privacy" class="text-slate-400 hover:text-white">Privacy</a></li>
+          <li>
+            <a href={site.githubUrl} target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-white">GitHub</a>
+          </li>
+          <li>
+            <a href={`mailto:${site.contactEmail}`} class="text-slate-400 hover:text-white">{site.contactEmail}</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+
+    <!-- Required non-affiliation disclaimer (Contributor Spec §13.3) -->
+    <p class="mt-12 rounded-lg border border-slate-700 bg-slate-800/50 p-4 text-xs leading-relaxed text-slate-400">
+      {nonAffiliationDisclaimer}
+    </p>
+
+    <div class="mt-8 flex flex-col gap-2 border-t border-slate-800 pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+      <p>© {year} {site.name}. Not affiliated with any political party or government body.</p>
+      <p>
+        Licensed under the
+        <a href={license.url} target="_blank" rel="noopener noreferrer" class="font-medium text-slate-400 hover:text-white">{license.shortName}</a>.
+      </p>
+    </div>
+  </div>
+</footer>

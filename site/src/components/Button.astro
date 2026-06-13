@@ -1,0 +1,33 @@
+---
+interface Props {
+  href: string;
+  variant?: "primary" | "secondary" | "ghost";
+  /** Adds target=_blank + rel for off-site links (e.g. Google Forms, GitHub). */
+  external?: boolean;
+  class?: string;
+}
+
+const {
+  href,
+  variant = "primary",
+  external = false,
+  class: extra = "",
+} = Astro.props;
+
+const base =
+  "inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold transition-colors duration-150 focus-visible:outline-2";
+
+const variants: Record<string, string> = {
+  primary: "bg-brand-600 text-white hover:bg-brand-700 shadow-sm",
+  secondary:
+    "bg-white text-brand-700 ring-1 ring-inset ring-brand-200 hover:bg-brand-50",
+  ghost: "text-brand-700 hover:bg-brand-50",
+};
+
+const rel = external ? "noopener noreferrer" : undefined;
+const target = external ? "_blank" : undefined;
+---
+
+<a href={href} class={`${base} ${variants[variant]} ${extra}`} rel={rel} target={target}>
+  <slot />
+</a>

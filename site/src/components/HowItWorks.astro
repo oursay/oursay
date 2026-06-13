@@ -1,0 +1,69 @@
+---
+import Section from "./Section.astro";
+
+const steps = [
+  {
+    name: "Beliefs",
+    desc: "Anyone can post a statement. Others agree or disagree. It's the starting point for civic conversation — informal, but counted.",
+  },
+  {
+    name: "Petitions",
+    desc: "A formal call to action addressed to a specific authority. Signatures are collected and can be delivered to named officials.",
+  },
+  {
+    name: "Public Votes",
+    desc: "A formal yes/no or multiple-choice vote on a specific question. Choices are final once cast, and results are published openly.",
+  },
+  {
+    name: "Results",
+    desc: "The permanent, auditable record of a closed public vote — broken down by area and verification tier, designed to be tamper-resistant.",
+  },
+];
+---
+
+<Section id="how-it-works" tone="paper">
+  <div class="mx-auto max-w-3xl text-center">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      How it works
+    </p>
+    <h2 class="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+      From a quiet belief to an undeniable result
+    </h2>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      Four connected layers, each more formal than the last. A result can be
+      traced all the way back to the grassroots beliefs that shaped it.
+    </p>
+  </div>
+
+  <ol class="mt-14 grid gap-5 md:grid-cols-4">
+    {
+      steps.map((step, i) => (
+        <li class="relative flex flex-col rounded-2xl border border-slate-200 bg-white p-6">
+          <span class="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-bold text-white">
+            {i + 1}
+          </span>
+          <h3 class="mt-4 text-lg font-bold text-slate-900">{step.name}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">{step.desc}</p>
+          {i < steps.length - 1 && (
+            <span
+              class="absolute -right-3 top-10 hidden text-brand-300 md:block"
+              aria-hidden="true"
+            >
+              <svg viewBox="0 0 24 24" class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          )}
+        </li>
+      ))
+    }
+  </ol>
+
+  <div class="mx-auto mt-10 max-w-3xl rounded-2xl bg-brand-50 p-6 text-center text-sm leading-relaxed text-brand-900 sm:text-base">
+    <strong class="font-semibold">Verified and unverified both count.</strong>
+    Anyone can take part. Users who confirm their identity are shown as a distinct
+    verification tier in every count and filter — so a number from confirmed
+    residents is never confused with a number from anonymous accounts. Everything
+    can be filtered by geographic area.
+  </div>
+</Section>

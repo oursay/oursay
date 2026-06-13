@@ -1,0 +1,35 @@
+---
+/*
+  LiveStats — forward-compat stub.
+
+  Post-launch, this will fetch aggregate counts (participants, verified users,
+  petitions, public votes, discussions) from OurSay's read-only public API
+  (Contributor Spec §7) and render them here as a live trust signal.
+
+  It is DISABLED for v1 — we never show invented numbers (see the site's claims
+  policy). Flip `ENABLED` to true and implement the fetch once the API is live.
+
+  Example (client-side island, post-launch):
+    const res = await fetch("https://api.oursay.ca/v1/stats");
+    const { participants, verified, petitions, publicVotes } = await res.json();
+*/
+const ENABLED = false;
+---
+
+{
+  ENABLED && (
+    <dl class="mx-auto mt-14 grid max-w-2xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
+      {[
+        ["Participants", "—"],
+        ["Verified", "—"],
+        ["Petitions", "—"],
+        ["Public votes", "—"],
+      ].map(([label, value]) => (
+        <div class="bg-white px-4 py-5 text-center">
+          <dd class="text-2xl font-bold text-slate-900">{value}</dd>
+          <dt class="mt-1 text-xs font-medium uppercase tracking-wide text-slate-500">{label}</dt>
+        </div>
+      ))}
+    </dl>
+  )
+}

@@ -1,0 +1,83 @@
+[
+  {
+    "id": "petition-fee",
+    "value": "$500 → $25,000",
+    "claim": "Alberta raised the application fee to start a citizen-initiative petition from $500 to $25,000 — a 50× increase — by Order in Council in December 2025.",
+    "sourceName": "CBC News",
+    "sourceUrl": "https://www.cbc.ca/news/canada/edmonton/citizen-petition-referendum-increase-9.7021761",
+    "date": "December 2025",
+    "confidence": "Confirmed"
+  },
+  {
+    "id": "referendum-threshold",
+    "value": "~600,000 → ~177,000",
+    "claim": "Bill 54 (Election Statutes Amendment Act, 2025) changed the signature threshold for a constitutional referendum petition from roughly 20% of registered voters to 10% of ballots cast in the last election — lowering the count from about 600,000 to roughly 177,000 — and extended the collection window from 90 to 120 days.",
+    "sourceName": "Bennett Jones / CanLII (SA 2025, c 7)",
+    "sourceUrl": "https://www.canlii.org/en/ab/laws/astat/sa-2025-c-7/latest/sa-2025-c-7.html",
+    "date": "2025",
+    "confidence": "Confirmed"
+  },
+  {
+    "id": "petition-court",
+    "value": "Struck down twice",
+    "claim": "Alberta's citizen-initiated separation petition was quashed in court twice — first in December 2025 (Justice Feasby) and again on May 13, 2026 (Justice Leonard), the latter on the Crown's duty to consult First Nations.",
+    "sourceName": "CBC News",
+    "sourceUrl": "https://www.cbc.ca/news/canada/edmonton/alberta-separation-petition-court-decision-treaty-rights-9.7200323",
+    "date": "December 2025 – May 2026",
+    "confidence": "Confirmed"
+  },
+  {
+    "id": "elector-data-exposure",
+    "value": "~2.9 million",
+    "claim": "In 2026, the personal details of roughly 2.9 million Alberta electors were posted in a publicly searchable database online by a third-party group. Elections Alberta has stated its own systems were not breached — the data came from a copy of the List of Electors that a registered political party is entitled to receive under the Election Act, then allegedly misused.",
+    "sourceName": "Global News",
+    "sourceUrl": "https://globalnews.ca/news/11823997/alberta-elector-list-breach/",
+    "date": "2026",
+    "confidence": "Reported"
+  },
+  {
+    "id": "pipa-parties-gap",
+    "value": "Not covered",
+    "claim": "Alberta's Personal Information Protection Act does not apply to political parties, and the province's Information and Privacy Commissioner has no jurisdiction over how parties handle the elector data they receive. British Columbia is the only Canadian jurisdiction whose privacy law expressly covers political parties.",
+    "sourceName": "Office of the Information and Privacy Commissioner of Alberta",
+    "sourceUrl": "https://oipc.ab.ca/resource/faqs-for-the-public-about-the-unauthorized-distribution-of-the-list-of-electors/",
+    "date": "2026",
+    "confidence": "Confirmed"
+  },
+  {
+    "id": "ceo-cannot-prevent",
+    "value": "Cannot be controlled",
+    "claim": "Alberta's Chief Electoral Officer stated that, as the law is currently written, Elections Alberta cannot prevent the unauthorized distribution or use of the List of Electors once it has been provided to an authorized party, and recommended pausing the sharing of the list until the law is strengthened.",
+    "sourceName": "CBC News",
+    "sourceUrl": "https://www.cbc.ca/news/canada/edmonton/livestory/elections-alberta-electors-list-9.7182971",
+    "date": "2026",
+    "confidence": "Confirmed"
+  },
+  {
+    "id": "election-cost-2023",
+    "value": "$36.7 million",
+    "claim": "The 2023 Alberta provincial general election cost about $36.7 million to administer — roughly $12.50 per registered elector — and required over 13,000 election workers.",
+    "sourceName": "Elections Alberta — 2023 Provincial General Election Report",
+    "sourceUrl": "https://www.elections.ab.ca/resources/reports/general-elections/",
+    "date": "2023",
+    "confidence": "Confirmed"
+  },
+  {
+    "id": "referendum-cost-estimate",
+    "value": "$50–100 million",
+    "claim": "Independent analysts have estimated that running a single stand-alone, province-wide referendum in Alberta could cost on the order of $50–100 million and require 60,000–90,000 election workers. Elections Alberta has not published an official cost estimate for such an event.",
+    "sourceName": "The Deep Dive / CBC News",
+    "sourceUrl": "https://www.cbc.ca/news/canada/edmonton/elections-alberta-recruitment-campaign-9.7227460",
+    "date": "2026",
+    "confidence": "Estimate"
+  },
+  {
+    "id": "oursay-build-cost",
+    "value": "~$100,000",
+    "claim": "OurSay estimates the platform can be built for roughly $100,000 — and, because it is open source, the same code can be reused by any jurisdiction rather than rebuilt from scratch for each vote. This is OurSay's own projection, not an external figure.",
+    "sourceName": "OurSay estimate",
+    "sourceUrl": "https://github.com/OurSay/oursay",
+    "date": "2026",
+    "confidence": "OurSay estimate"
+  }
+]

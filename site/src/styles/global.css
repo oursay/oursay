@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+/*
+  OurSay design tokens.
+  Brand = violet (deliberately non-partisan — the blend of red and blue,
+  a "both sides of the aisle" signal). Verify = emerald (the platform's
+  verified/auditable accent). Ink = slate. Paper = warm off-white.
+  Other shades use Tailwind's built-in palette directly in markup.
+*/
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+
+  --color-paper: #faf9f6;
+
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+
+  --color-verify-100: #d1fae5;
+  --color-verify-300: #6ee7b7;
+  --color-verify-500: #10b981;
+  --color-verify-600: #059669;
+  --color-verify-700: #047857;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Keep anchored sections clear of the sticky nav. */
+  scroll-padding-top: 5rem;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-slate-800);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: var(--color-brand-200);
+  color: var(--color-brand-900);
+}
+
+/* Consistent, visible focus for keyboard users (accessibility). */
+:where(a, button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

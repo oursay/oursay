@@ -1,0 +1,65 @@
+---
+import Cite from "./Cite.astro";
+
+const features = [
+  {
+    title: "Audit your own signature",
+    body: "Every action you take produces a private receipt only you hold. Check it against the public, tamper-resistant record and confirm your vote was counted exactly as you cast it.",
+  },
+  {
+    title: "Anonymous, but still verifiable",
+    body: "You can act anonymously and still be counted in the verified total. Verification never means your name appears on a public list.",
+  },
+  {
+    title: "Reproduce any result yourself",
+    body: "The whole platform is open source, and every build is fingerprinted and published. Recount any public vote with the tools in the repository — no need to trust our servers.",
+  },
+  {
+    title: "No central honeypot of personal data",
+    body: "Instead of spreadsheets of voter details that can be copied and leaked, cryptographic records prove a distinct verified person acted — without storing who they are.",
+  },
+];
+---
+
+<section id="audit" class="scroll-mt-20 bg-slate-900 text-slate-100">
+  <div class="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+    <div class="grid gap-12 lg:grid-cols-2 lg:items-start">
+      <div class="lg:sticky lg:top-24">
+        <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-300">
+          Auditability &amp; cryptography
+        </p>
+        <h2 class="text-balance text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          Don't trust us — verify us
+        </h2>
+        <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-300">
+          When 2.9 million Albertans' voter details ended up in a public database,
+          the cause wasn't a hacker — it was the architecture.<Cite id="elector-data-exposure" />
+          Once the list is handed out as a copy, no one can control where it
+          goes.<Cite id="ceo-cannot-prevent" />
+        </p>
+        <p class="mt-4 text-pretty text-lg leading-relaxed text-slate-300">
+          OurSay is built the other way around. Modern cryptography lets us prove
+          your participation is real <em>without</em> holding a pile of personal
+          data that can leak. You can check the record yourself — and so can a
+          journalist, a researcher, or a court.
+        </p>
+      </div>
+
+      <ul class="grid gap-4 sm:grid-cols-2">
+        {
+          features.map((f) => (
+            <li class="rounded-2xl border border-slate-700 bg-slate-800/60 p-6">
+              <div class="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-verify-500/15 text-verify-300">
+                <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
+              <h3 class="text-base font-semibold text-white">{f.title}</h3>
+              <p class="mt-2 text-sm leading-relaxed text-slate-300">{f.body}</p>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>

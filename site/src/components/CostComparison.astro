@@ -1,0 +1,86 @@
+---
+import Section from "./Section.astro";
+import Cite from "./Cite.astro";
+import { getFact } from "../data/facts";
+
+// Linear scale against a $100M ceiling. OurSay gets a visible floor width.
+const bars = [
+  {
+    id: "election-cost-2023",
+    label: "2023 Alberta general election",
+    sublabel: "actual cost to administer",
+    width: 37,
+    tone: "bg-slate-400",
+  },
+  {
+    id: "referendum-cost-estimate",
+    label: "One province-wide referendum",
+    sublabel: "independent estimate",
+    width: 100,
+    tone: "bg-slate-500",
+  },
+  {
+    id: "oursay-build-cost",
+    label: "Building OurSay",
+    sublabel: "reusable by any jurisdiction",
+    width: 2,
+    tone: "bg-brand-600",
+  },
+];
+---
+
+<Section id="cost" tone="paper">
+  <div class="mx-auto max-w-3xl text-center">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      The cost
+    </p>
+    <h2 class="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+      Roughly $100k — not $50 million
+    </h2>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      A single province-wide referendum is a one-day event costing tens of
+      millions and tens of thousands of workers. OurSay is continuous civic
+      infrastructure — built once, open source, and reusable anywhere.
+    </p>
+  </div>
+
+  <div class="mx-auto mt-14 max-w-3xl space-y-7">
+    {
+      bars.map((bar) => {
+        const fact = getFact(bar.id);
+        return (
+          <div>
+            <div class="mb-2 flex items-baseline justify-between gap-4">
+              <div>
+                <span class="font-semibold text-slate-900">{bar.label}</span>
+                <span class="ml-2 text-xs text-slate-500">{bar.sublabel}</span>
+              </div>
+              <span class="shrink-0 text-lg font-bold text-slate-900">
+                {fact?.value}
+                <Cite id={bar.id} />
+              </span>
+            </div>
+            <div class="h-5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                class={`h-full rounded-full ${bar.tone}`}
+                style={`width: ${bar.width}%`}
+              />
+            </div>
+          </div>
+        );
+      })
+    }
+    <p class="text-center text-xs text-slate-500">
+      Bars shown on a linear scale to $100M. OurSay's bar is enlarged to stay
+      visible — at true scale it would be a thin line.
+    </p>
+  </div>
+
+  <p class="mx-auto mt-10 max-w-3xl text-pretty text-center text-sm leading-relaxed text-slate-500">
+    OurSay is not a legal referendum and doesn't replace one — it's a verified,
+    auditable, always-on record of public opinion that costs a fraction of a
+    single official vote, and gets more secure and transparent the more people
+    can check it. Figures for future events are estimates; see
+    <a href="/sources" class="font-medium text-brand-700 hover:underline">sources</a>.
+  </p>
+</Section>

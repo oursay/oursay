@@ -1,0 +1,20 @@
+---
+import { factIndex, getFact } from "../data/facts";
+
+interface Props {
+  id: string;
+}
+
+const { id } = Astro.props;
+const i = factIndex(id);
+const fact = getFact(id);
+const n = i >= 0 ? i + 1 : "?";
+---
+
+<a
+  href={`/sources#${id}`}
+  class="ml-0.5 align-super text-[0.65em] font-semibold text-brand-600 no-underline hover:text-brand-800 hover:underline"
+  title={fact ? `Source: ${fact.sourceName} (${fact.confidence})` : "Source"}
+  aria-label={fact ? `Source ${n}: ${fact.sourceName}` : `Source ${n}`}
+  >[{n}]</a
+>

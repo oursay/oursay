@@ -1,0 +1,23 @@
+{
+  "name": "oursay",
+  "version": "0.0.0",
+  "private": true,
+  "description": "OurSay — an open-source, verified, auditable civic platform. Workspace monorepo.",
+  "license": "GPL-3.0-or-later",
+  "homepage": "https://oursay.ca",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/OurSay/oursay"
+  },
+  "workspaces": [
+    "site"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace site",
+    "build": "npm run build --workspace site",
+    "preview": "npm run preview --workspace site"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,95 @@
+---
+import Base from "../layouts/Base.astro";
+import { site } from "../data/site";
+
+const effectiveDate = "June 2026";
+---
+
+<Base
+  path="/privacy"
+  title="Privacy — OurSay"
+  description="How OurSay handles the limited information collected through the waitlist and contact forms on this site."
+>
+  <article class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      Privacy
+    </p>
+    <h1 class="text-balance text-4xl font-bold tracking-tight text-slate-900">
+      Privacy notice — this website
+    </h1>
+    <p class="mt-3 text-sm text-slate-500">Effective {effectiveDate}</p>
+
+    <div class="mt-8 space-y-6 text-slate-700">
+      <p class="leading-relaxed">
+        This notice covers only the OurSay marketing website at {site.domain} —
+        specifically the waitlist and contact forms. It does not describe the
+        OurSay platform itself, which will publish its own privacy and data
+        practices before launch.
+      </p>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">What we collect</h2>
+        <p class="mt-2 leading-relaxed">
+          When you choose to join the waitlist or contact us, we collect only
+          what you submit: your email address, an optional name, the type of
+          participant you identify as (for example, constituent, representative,
+          or journalist), and any optional message. We don't require anything
+          else, and we don't track you to collect it.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">Why we collect it</h2>
+        <p class="mt-2 leading-relaxed">
+          To let you know when OurSay launches, to gauge interest across
+          different audiences, and to respond to representatives and journalists
+          who reach out. We use it for these purposes only. We do not sell it,
+          and we do not use it for advertising.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">Consent</h2>
+        <p class="mt-2 leading-relaxed">
+          Submitting a form is voluntary and acts as your consent for us to
+          contact you about OurSay. You can withdraw that consent at any time —
+          every email we send will include a clear way to unsubscribe, and you
+          can also email us directly to be removed.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">Where the data goes</h2>
+        <p class="mt-2 leading-relaxed">
+          For now, these forms are run through Google Forms, so submissions are
+          processed and stored by Google under its own terms and privacy policy.
+          We keep the information only as long as needed to contact you about the
+          launch, and we'll migrate to our own infrastructure as the platform
+          matures. We never commit this data to our public code repository.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">Your rights</h2>
+        <p class="mt-2 leading-relaxed">
+          You can ask us what we hold about you, ask us to correct it, or ask us
+          to delete it. Under Alberta's Personal Information Protection Act (PIPA)
+          and Canada's anti-spam legislation (CASL), you have the right to access
+          your information and to withdraw consent to be contacted. To exercise
+          any of these, email{" "}
+          <a class="font-medium text-brand-700 hover:underline" href={`mailto:${site.contactEmail}`}>{site.contactEmail}</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">Contact</h2>
+        <p class="mt-2 leading-relaxed">
+          Questions about this notice? Reach us at{" "}
+          <a class="font-medium text-brand-700 hover:underline" href={`mailto:${site.contactEmail}`}>{site.contactEmail}</a>.
+          This notice may be updated as our practices evolve; the effective date
+          above will change when it does.
+        </p>
+      </section>
+    </div>
+  </article>
+</Base>

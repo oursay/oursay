@@ -1,0 +1,61 @@
+---
+import Section from "./Section.astro";
+import Button from "./Button.astro";
+import { audiences } from "../data/audiences";
+import { forms } from "../data/forms";
+
+const formFor = (kind: "waitlist" | "contact") =>
+  kind === "waitlist" ? forms.waitlist.url : forms.contact.url;
+---
+
+<Section id="who-its-for" tone="white">
+  <div class="mx-auto max-w-3xl text-center">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      Who it's for
+    </p>
+    <h2 class="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+      One platform, every side of the table
+    </h2>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      Whether you want to be heard, to listen, to report, or to organize — OurSay
+      is built for people who value transparency and accountability, wherever
+      they sit on the spectrum.
+    </p>
+  </div>
+
+  <div class="mt-14 grid gap-6 lg:grid-cols-2">
+    {
+      audiences.map((a) => (
+        <div class="flex flex-col rounded-2xl border border-slate-200 bg-paper p-7">
+          <p class="text-xs font-semibold uppercase tracking-wide text-brand-600">
+            {a.label}
+          </p>
+          <h3 class="mt-2 text-pretty text-xl font-bold text-slate-900">
+            {a.headline}
+          </h3>
+          <p class="mt-3 text-sm leading-relaxed text-slate-600">{a.body}</p>
+          <ul class="mt-5 space-y-2.5">
+            {a.points.map((point) => (
+              <li class="flex gap-2.5 text-sm text-slate-700">
+                <svg viewBox="0 0 24 24" class="mt-0.5 h-4 w-4 shrink-0 text-verify-600" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                <span>{point}</span>
+              </li>
+            ))}
+          </ul>
+          <div class="mt-6 pt-1">
+            <Button
+              href={formFor(a.cta.kind)}
+              external
+              variant={a.cta.kind === "waitlist" ? "primary" : "secondary"}
+              class="!px-6 !py-2.5"
+            >
+              {a.cta.label}
+            </Button>
+          </div>
+        </div>
+      ))
+    }
+  </div>
+</Section>

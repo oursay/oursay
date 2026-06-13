@@ -1,0 +1,94 @@
+---
+import Button from "./Button.astro";
+import { forms, isFormConfigured } from "../data/forms";
+import { site } from "../data/site";
+
+const shareUrl = `https://${site.domain}`;
+const shareText =
+  "OurSay — verified, auditable public opinion for any democracy. It's time to make Our Say.";
+
+const shareLinks = [
+  {
+    label: "Share on X",
+    href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`,
+  },
+  {
+    label: "Share on Facebook",
+    href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
+  },
+  {
+    label: "Share on LinkedIn",
+    href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+  },
+];
+
+const waitlistEmbedded = isFormConfigured(forms.waitlist) && forms.waitlist.embedUrl;
+---
+
+<section id="join" class="scroll-mt-20 bg-white">
+  <div class="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+    <div class="overflow-hidden rounded-3xl bg-gradient-to-br from-brand-700 to-brand-900 px-6 py-14 text-center text-white sm:px-12">
+      <h2 class="text-balance text-3xl font-bold tracking-tight sm:text-4xl">
+        It's time to make your voice heard
+      </h2>
+      <p class="mx-auto mt-4 max-w-2xl text-pretty text-lg leading-relaxed text-brand-100">
+        We're building OurSay in the open and launching in Alberta. Get on the
+        waitlist, or — if you're a representative or a journalist — reach out
+        directly.
+      </p>
+
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <Button href={forms.waitlist.url} external variant="secondary" class="!px-8 !py-3.5 text-base">
+          Join the waitlist
+        </Button>
+        <Button
+          href={forms.contact.url}
+          external
+          variant="ghost"
+          class="!px-8 !py-3.5 text-base !text-white ring-1 ring-inset ring-white/40 hover:!bg-white/10"
+        >
+          I'm a representative or journalist
+        </Button>
+      </div>
+
+      {
+        waitlistEmbedded && (
+          <div class="mx-auto mt-10 max-w-2xl overflow-hidden rounded-2xl bg-white">
+            <iframe
+              src={forms.waitlist.embedUrl}
+              title="Join the OurSay waitlist"
+              class="h-[900px] w-full"
+              style={`height: ${forms.waitlist.embedHeight ?? 900}px`}
+              loading="lazy"
+            />
+          </div>
+        )
+      }
+
+      <div class="mt-10 flex flex-col items-center gap-4 border-t border-white/15 pt-8 sm:flex-row sm:justify-center sm:gap-6">
+        <a
+          href={site.githubUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-sm font-medium text-brand-100 hover:text-white"
+        >
+          ★ Star us on GitHub
+        </a>
+        <div class="flex items-center gap-4">
+          {
+            shareLinks.map((s) => (
+              <a
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-sm font-medium text-brand-100 hover:text-white"
+              >
+                {s.label}
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

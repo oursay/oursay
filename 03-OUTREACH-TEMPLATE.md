@@ -31,7 +31,7 @@ That question is not unique to Alberta. But the way Alberta is asking it, and th
 
 We are writing to introduce you to **OurSay.ca**.
 
-OurSay is a civic platform being built by Albertans, for Albertans, to fill a gap that 300 years of representative democracy has left open: a verified, auditable, real-time mechanism for citizens to express their political beliefs, sign petitions, and vote on referendum questions — and for anyone to see those results, broken down by riding, with a clear distinction between verified electors and the general public.
+OurSay is a civic platform being built by Albertans, for Albertans, to fill a gap that 300 years of representative democracy has left open: a verified, auditable, real-time mechanism for citizens to express their political beliefs, sign petitions, and participate in public votes — and for anyone to see those results, broken down by district, with a clear distinction between verified participants and the general public.
 
 We are not affiliated with any political party. We accept no corporate funding. Our code is completely open source and publicly auditable by anyone. We have no agenda except giving Albertans an infrastructure for their voice.
 
@@ -55,17 +55,17 @@ None of it gives you a clear, verified picture of what your riding actually thin
 
 **OurSay changes that.**
 
-When a verified elector in your riding signs a petition or votes on a referendum question on OurSay, that action is permanently tied to your riding and made publicly visible. You can see — not guess, not interpret, not commission a poll — what confirmed Albertans in your constituency think. A direct, auditable count, broken down by verified vs. unverified, available to you and to every one of your constituents simultaneously.
+When a verified participant in your district signs a petition or votes on a public vote on OurSay, that action is permanently tied to your constituency and made publicly visible. You can see — not guess, not interpret, not commission a poll — what confirmed, identity-verified residents in your constituency think. A direct, auditable count, broken down by verification tier, available to you and to every one of your constituents simultaneously.
 
-This is as useful to you as it is to the people you represent. When your position aligns with your riding's verified sentiment, you have public evidence of that alignment. When a party directive conflicts with your riding's documented will, you have that in writing too. That is information worth having.
+This is as useful to you as it is to the people you represent. When your position aligns with your constituency's verified sentiment, you have public evidence of that alignment. When a party directive conflicts with your constituents' documented will, you have that in writing too. That is information worth having.
 
-We are also building functionality for public officials to post official responses to petitions and referendums that touch their constituency. When Albertans in your riding raise an issue on OurSay, you will be able to respond directly — on the record, permanently, tied to the specific petition or referendum they raised.
+We are also building functionality for public officials to post official responses to petitions and public votes that touch their constituency. When residents in your district raise an issue on OurSay, you will be able to respond directly — on the record, permanently, tied to the specific petition or public vote they raised.
 
 **Alberta's sovereignty debate, federal overreach tensions, and resource revenue disputes are not abstract to your constituents.** They are expressing views on these issues every day through informal channels that carry no weight and leave no record. OurSay gives those views infrastructure.
 
 **We are asking two things:**
 
-1. Create a public official profile on OurSay.ca linked to your riding. Your verified presence signals to constituents that you take their participation seriously — and it gives you a direct channel back to them.
+1. Create a public official profile on OurSay.ca linked to your constituency. Your verified presence signals to constituents that you take their participation seriously — and it gives you a direct channel back to them.
 2. Encourage your constituents to participate. The more verified Albertans who engage, the more meaningful and defensible the data becomes for every elected official in this province.
 
 We would welcome the opportunity to meet with you or your office.
@@ -86,23 +86,25 @@ We would welcome the opportunity to meet with you or your office.
 
 Elections Alberta's mandate is to administer fair, accessible, and trustworthy elections. We share that commitment — and we believe OurSay.ca can meaningfully extend it.
 
-We are currently using commercial identity verification services to confirm elector eligibility and riding assignment for our users. This approach works. But it is inherently an approximation: commercial KYC providers infer eligibility from address data and public records. They are capable tools, but they are not Elections Alberta. You are the authoritative source on who is eligible to vote in this province.
+We are currently using commercial identity verification services to confirm identity, age, and Alberta residency for our users, and to assign participants to their geographic districts. This approach works, but commercial KYC providers are not Elections Alberta. They confirm residency from address data and public records — meaningful, but not the same as official electoral validation.
+
+You are the authoritative source.
 
 We are writing to open a formal conversation about a data partnership or integration pathway between OurSay.ca and Elections Alberta.
 
 **What a partnership would enable:**
 
-A direct integration with the official voters' list would allow us to verify elector eligibility with the same precision and legitimacy as the official electoral process itself — not an inference, but a confirmation from the authoritative source. Riding assignments would reflect the official electoral geography rather than address-based approximations. Users' verified status on OurSay would carry the weight of official electoral validation.
+A direct integration would allow us to offer a distinct, higher verification tier — validated by the official electoral authority rather than a commercial provider — with its own status indicator, clearly differentiated from standard identity and residency verification. District assignments would reflect the official electoral geography. This tier would not replace commercial verification; it would sit above it as an optional, higher-trust upgrade path available only through this partnership.
 
 **What we bring to this conversation:**
 
-OurSay is completely open source. Every line of our code is public and reviewable. Our data structures, audit mechanisms, and privacy architecture are all documented and available for your team to examine before any conversation about integration proceeds. We do not sell user data. We do not monetize participation. We are building civic infrastructure, and we want it to stand on the most legitimate foundation available.
+OurSay is completely open source. Every line of our code is public and reviewable. Our data structures, audit mechanisms, and privacy architecture are all documented and available for your team to examine before any conversation about integration proceeds. We do not sell user data. We do not monetize participation. We want to stand on the most legitimate foundation available.
 
-We understand this conversation would require careful consideration of privacy legislation, data governance frameworks, and the boundaries of Elections Alberta's institutional mandate. We are prepared to invest the time and resources that process requires. We will build to any technical specification you set.
+We understand this would require careful consideration of privacy legislation, data governance frameworks, and the boundaries of Elections Alberta's institutional mandate. We are prepared to invest the time and resources that process requires and will build to any technical specification you set.
 
 **Why this matters now:**
 
-Alberta's current political climate has produced an unprecedented level of public interest in questions of democratic legitimacy and representation. A civic platform built on Elections Alberta's data is a meaningfully different proposition than one built on commercial verification — for users, for elected officials, and for the institutional credibility of democratic processes in this province.
+Alberta's current political climate has produced unprecedented public interest in questions of democratic legitimacy and representation. A platform offering an Elections Alberta-validated verification tier is a meaningfully different proposition than one built on commercial verification alone — for users, for elected officials, and for the institutional credibility of democratic participation in this province.
 
 We are asking for the opportunity to meet with your leadership team to discuss whether a partnership is feasible, what it would require, and how we might work together.
 
@@ -110,9 +112,13 @@ We are asking for the opportunity to meet with your leadership team to discuss w
 
 ---
 
-## AUDIENCE 3: Federal Members of Parliament (Alberta Ridings)
+## AUDIENCE 3: Federal Members of Parliament (Alberta Constituencies)
 
-**Suggested subject line:** Albertans want to be heard — here's a tool that makes that undeniable
+**Suggested subject lines:**
+- Albertans want to be heard — here's a tool that makes that undeniable
+- What your Alberta constituents actually think — verified, by district, in real time
+- A verified record of Alberta public opinion — legal input needed
+- Democratic accountability infrastructure — for the officials who need it most
 
 ---
 
@@ -128,11 +134,11 @@ OurSay.ca does not take a position on sovereignty. What it does is give Albertan
 
 **For you, that has concrete value.**
 
-When your caucus or the federal government takes a position that affects Alberta, OurSay can show — in real time, by riding, with verified elector counts — what Albertans actually think. Not what a partisan poll commissioned for a media cycle suggests. Not what the most vocal activists on either side are saying. What verified, confirmed electors in your specific riding said, on the record, in a public database that anyone can audit.
+When your caucus or the federal government takes a position that affects Alberta, OurSay can show — in real time, by district, with verified participant counts — what Albertans actually think. Not what a partisan poll commissioned for a media cycle suggests. Not what the most vocal activists on either side are saying. What verified, identity-confirmed residents in your specific constituency said, on the record, in a public database that anyone can audit.
 
 That is a different kind of constituent feedback. It is documented, permanent, and impossible to dismiss as unrepresentative.
 
-We are also building for national scale. Every province. Every federal riding. A verified, auditable record of what Canadians think on the issues that shape this country — available to every elected official, every journalist, and every citizen who wants to look.
+We are also building for national scale. Every province. Every federal constituency. A verified, auditable record of what Canadians think on the issues that shape this country — available to every elected official, every journalist, and every citizen who wants to look.
 
 If you believe that Albertans deserve to be heard clearly, and that their frustration with federal institutions would be better addressed through legitimate, documented democratic participation than through escalation, OurSay is infrastructure worth supporting.
 
@@ -160,9 +166,9 @@ Municipal government is democracy at its most direct. You are not separated from
 
 And yet, even at the municipal level, your formal input mechanisms are limited. Public hearings attended by whoever shows up. Online surveys that are difficult to validate. Social media that amplifies the loudest voices, not the most representative ones.
 
-**OurSay is being built to address exactly that gap — and it starts at the riding level, not the national level.**
+**OurSay is being built to address exactly that gap — and its geographic filtering works at any level, not just provincial.**
 
-While our launch scope covers Alberta provincial ridings, our data model is designed to accommodate municipal geographies from the beginning. As the platform grows, we will add ward-level and municipal district filtering so that the verified voice of your specific community is distinguishable from provincial noise.
+While our launch scope covers Alberta provincial districts, our data model is designed to accommodate municipal geographies from the beginning. As the platform grows, we will add ward-level and municipal district filtering so that the verified voice of your specific community is distinguishable from provincial noise.
 
 A petition with 2,000 verified signatures from within your ward is a fundamentally different document than 2,000 signatures drawn from across the province. OurSay makes that distinction automatic and permanent.
 
@@ -194,16 +200,16 @@ You cover Alberta politics. You know the gap between what politicians say their 
 
 **OurSay.ca is something different.**
 
-It is a civic platform where verified Alberta electors — confirmed through identity verification, tied to a specific riding — express political beliefs, sign petitions, and vote on referendum questions. Every result is public. Every result is broken down by riding. Every result is auditable, independently, by anyone, without relying on OurSay's word or infrastructure to verify it.
+It is a civic platform where verified Alberta residents — confirmed through identity verification, tied to a specific district — express political beliefs, sign petitions, and participate in public votes. Every result is public. Every result is broken down by district. Every result is auditable, independently, by anyone, without relying on OurSay's word or infrastructure to verify it.
 
-That means you can report on verified public opinion the same way you report on electoral results. Not "a poll of 1,200 respondents suggests." Not "an online petition has gathered signatures." "Here is what verified electors in [riding] said, and here is the public record anyone can check."
+That means you can report on verified community opinion the same way you report on electoral results. Not "a poll of 1,200 respondents suggests." Not "an online petition has gathered signatures." "Here is what verified residents in [district] said, and here is the public record anyone can check."
 
 **Alberta's sovereignty and federal overreach conversations are producing real civic energy right now.** The question every political reporter in this province is trying to answer — what do Albertans actually want, beneath the rhetoric on both sides — is exactly what OurSay is built to surface. With receipts.
 
 **Some stories worth considering:**
 
-- *The verification gap:* How different is sentiment between verified Alberta electors and the general online public on [issue]? OurSay makes that comparison visible for the first time.
-- *Riding-level accountability:* How does your MLA's voting record compare to what verified constituents in their own riding have said on OurSay?
+- *The verification gap:* How different is sentiment between verified Alberta residents and the general online public on [issue]? OurSay makes that comparison visible for the first time.
+- *District-level accountability:* How does your MLA's voting record compare to what verified constituents in their own district have said on OurSay?
 - *The sovereignty question, measured:* What do verified Albertans actually think — the full spectrum, not the loudest voices at either end?
 - *Democratic infrastructure from Alberta:* A province known for political innovation is building the civic technology that representative democracy has been missing for 300 years.
 
