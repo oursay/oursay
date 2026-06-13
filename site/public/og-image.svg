@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6d28d9" />
+      <stop offset="1" stop-color="#4c1d95" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <g transform="translate(96 150)">
+    <g transform="translate(0 -8)">
+      <rect width="72" height="72" rx="16" fill="#ffffff" opacity="0.14" />
+      <path d="m20 38 12 12 26-28" stroke="#a78bfa" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    </g>
+    <text x="96" y="46" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="44" font-weight="700" fill="#ffffff">OurSay.ca</text>
+  </g>
+  <text x="96" y="330" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="76" font-weight="800" fill="#ffffff">It's time to make Our Say.</text>
+  <text x="96" y="410" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="36" font-weight="400" fill="#ede9fe">Verified, auditable public opinion for any democracy.</text>
+  <text x="96" y="462" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="36" font-weight="400" fill="#ede9fe">Open source. Launching in Alberta.</text>
+  <text x="96" y="560" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="26" font-weight="600" fill="#c4b5fd">Open source &#183; Independently auditable &#183; No party, no agenda</text>
+</svg>

@@ -1,0 +1,61 @@
+---
+import "../styles/global.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+
+export interface Props {
+  title?: string;
+  description?: string;
+  /** Path for the canonical URL, e.g. "/sources". Defaults to "/". */
+  path?: string;
+  ogImage?: string;
+}
+
+const {
+  title = "OurSay — verified, auditable public opinion for any democracy",
+  description =
+    "OurSay is an open-source civic platform for verified, auditable public opinion — beliefs, petitions, and public votes anyone can independently verify. Launching in Alberta.",
+  path = "/",
+  // NOTE: SVG placeholder. Export a 1200×630 PNG and switch this before launch —
+  // Facebook/X do not reliably render SVG share images.
+  ogImage = "/og-image.svg",
+} = Astro.props;
+
+const canonical = new URL(path, Astro.site ?? "https://oursay.ca").href;
+const ogImageUrl = new URL(ogImage, Astro.site ?? "https://oursay.ca").href;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="OurSay" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImageUrl} />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <meta name="generator" content={Astro.generator} />
+  </head>
+  <body class="flex min-h-screen flex-col font-sans">
+    <Nav />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

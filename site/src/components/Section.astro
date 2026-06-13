@@ -1,0 +1,23 @@
+---
+interface Props {
+  id?: string;
+  /** Background treatment. */
+  tone?: "paper" | "white" | "ink" | "brand";
+  class?: string;
+}
+
+const { id, tone = "paper", class: extra = "" } = Astro.props;
+
+const tones: Record<string, string> = {
+  paper: "bg-paper text-slate-800",
+  white: "bg-white text-slate-800",
+  ink: "bg-slate-900 text-slate-100",
+  brand: "bg-brand-700 text-white",
+};
+---
+
+<section id={id} class={`scroll-mt-20 ${tones[tone]} ${extra}`}>
+  <div class="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+    <slot />
+  </div>
+</section>

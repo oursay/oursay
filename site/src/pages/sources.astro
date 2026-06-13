@@ -1,0 +1,82 @@
+---
+import Base from "../layouts/Base.astro";
+import { facts } from "../data/facts";
+
+const confidenceStyles: Record<string, string> = {
+  Confirmed: "bg-verify-100 text-verify-700",
+  Reported: "bg-amber-100 text-amber-800",
+  Estimate: "bg-amber-100 text-amber-800",
+  "OurSay estimate": "bg-brand-100 text-brand-700",
+};
+---
+
+<Base
+  path="/sources"
+  title="Sources — OurSay"
+  description="Every statistic on OurSay.ca, with its source, date, and a note on how solid it is. We don't publish a number without a citation."
+>
+  <article class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      Sources &amp; claims
+    </p>
+    <h1 class="text-balance text-4xl font-bold tracking-tight text-slate-900">
+      Every number, with its receipt
+    </h1>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      A platform about transparency has to be transparent about its own claims.
+      Every statistic on this site is listed below with a source, a date, and an
+      honest note on how solid it is. Each entry's number links back here. If you
+      think we've got something wrong, <a class="font-medium text-brand-700 hover:underline" href="https://github.com/OurSay/oursay">tell us on GitHub</a>.
+    </p>
+
+    <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-relaxed text-amber-900">
+      <strong class="font-semibold">Confidence labels:</strong>
+      <em>Confirmed</em> = reported by official sources or multiple named outlets ·
+      <em>Reported</em> = reported by credible outlets, details still developing ·
+      <em>Estimate</em> = projection, not an official figure ·
+      <em>OurSay estimate</em> = our own projection.
+    </div>
+
+    <ol class="mt-10 space-y-8">
+      {
+        facts.map((fact, i) => (
+          <li id={fact.id} class="scroll-mt-24 border-t border-slate-200 pt-8">
+            <div class="flex items-start justify-between gap-4">
+              <div class="flex items-baseline gap-3">
+                <span class="text-sm font-bold text-brand-600">[{i + 1}]</span>
+                <span class="text-2xl font-extrabold tracking-tight text-slate-900">
+                  {fact.value}
+                </span>
+              </div>
+              <span class={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${confidenceStyles[fact.confidence] ?? "bg-slate-100 text-slate-600"}`}>
+                {fact.confidence}
+              </span>
+            </div>
+            <p class="mt-3 text-pretty leading-relaxed text-slate-700">
+              {fact.claim}
+            </p>
+            <p class="mt-3 text-sm text-slate-500">
+              Source:{" "}
+              <a
+                href={fact.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="font-medium text-brand-700 hover:underline"
+              >
+                {fact.sourceName}
+              </a>
+              <span class="mx-2 text-slate-300">·</span>
+              {fact.date}
+            </p>
+          </li>
+        ))
+      }
+    </ol>
+
+    <p class="mt-12 border-t border-slate-200 pt-8 text-sm leading-relaxed text-slate-500">
+      Links point to third-party sources we don't control; their content may
+      change over time. Estimates for future events are inherently uncertain and
+      are labelled as such. This page is maintained as facts develop.
+    </p>
+  </article>
+</Base>

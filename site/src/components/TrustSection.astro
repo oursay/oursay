@@ -1,0 +1,48 @@
+---
+import Section from "./Section.astro";
+
+const commitments = [
+  {
+    title: "We claim no endorsements",
+    body: "OurSay is a private platform. We don't claim support, certification, or approval from any government body, electoral authority, or party. Where you see a claim, you'll see a source.",
+  },
+  {
+    title: "Verification isn't a voter check",
+    body: "Identity verification is done by a commercial provider. It confirms you're a real person at a real address — it is not a determination of electoral eligibility or voter registration.",
+  },
+  {
+    title: "Open from day one",
+    body: "Every line of code, every infrastructure choice, and every published result is public. If we get something wrong, anyone can see it — and tell us.",
+  },
+  {
+    title: "Trust is earned, not assumed",
+    body: "We're new. We'll earn support, certifications, and credibility from the ground up, with every step aligned to these values. We'd rather under-claim and over-deliver.",
+  },
+];
+---
+
+<Section id="trust" tone="white">
+  <div class="mx-auto max-w-3xl text-center">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      Our honest footing
+    </p>
+    <h2 class="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+      We'd rather earn your trust than ask for it
+    </h2>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      A platform about accountability has to hold itself to the same standard.
+      Here's what we will and won't claim.
+    </p>
+  </div>
+
+  <dl class="mt-14 grid gap-6 sm:grid-cols-2">
+    {
+      commitments.map((c) => (
+        <div class="rounded-2xl border border-slate-200 bg-paper p-6">
+          <dt class="text-base font-bold text-slate-900">{c.title}</dt>
+          <dd class="mt-2 text-sm leading-relaxed text-slate-600">{c.body}</dd>
+        </div>
+      ))
+    }
+  </dl>
+</Section>

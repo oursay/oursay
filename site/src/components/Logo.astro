@@ -1,0 +1,31 @@
+---
+interface Props {
+  class?: string;
+}
+const { class: extra = "" } = Astro.props;
+---
+
+<a href="/" class={`group inline-flex items-center gap-2 ${extra}`} aria-label="OurSay home">
+  <!-- Speech mark + check = "verified say" -->
+  <svg
+    viewBox="0 0 32 32"
+    class="h-7 w-7 text-brand-600"
+    fill="none"
+    aria-hidden="true"
+  >
+    <path
+      d="M6 4h20a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H13l-6 5v-5H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
+      fill="currentColor"
+    />
+    <path
+      d="m11 13 3.2 3.2L21 9.5"
+      stroke="white"
+      stroke-width="2.4"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </svg>
+  <span class="text-lg font-bold tracking-tight text-slate-900">
+    Our<span class="text-brand-600">Say</span>
+  </span>
+</a>

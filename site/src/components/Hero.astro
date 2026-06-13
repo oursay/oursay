@@ -1,0 +1,49 @@
+---
+import Button from "./Button.astro";
+import LiveStats from "./LiveStats.astro";
+import { forms } from "../data/forms";
+---
+
+<section class="relative overflow-hidden bg-paper">
+  <!-- soft brand glow -->
+  <div
+    class="pointer-events-none absolute -top-40 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 rounded-full bg-brand-200/40 blur-3xl"
+    aria-hidden="true"
+  >
+  </div>
+
+  <div class="relative mx-auto max-w-4xl px-6 pb-20 pt-20 text-center sm:pt-28">
+    <p
+      class="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-700"
+    >
+      <span class="h-2 w-2 rounded-full bg-verify-500"></span>
+      Open source · Launching in Alberta
+    </p>
+
+    <h1 class="text-balance text-5xl font-extrabold leading-[1.05] tracking-tight text-slate-900 sm:text-6xl">
+      It's time to make
+      <span class="text-brand-600">Our Say.</span>
+    </h1>
+
+    <p class="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600 sm:text-xl">
+      A verified, auditable way to express what you believe, sign petitions, and
+      vote on the questions that matter — with results anyone can independently
+      check. Built for any democracy, starting in Alberta.
+    </p>
+
+    <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <Button href={forms.waitlist.url} external class="!px-8 !py-3.5 text-base">
+        Join the waitlist
+      </Button>
+      <Button href="#how-it-works" variant="secondary" class="!px-8 !py-3.5 text-base">
+        See how it works
+      </Button>
+    </div>
+
+    <p class="mt-6 text-sm text-slate-500">
+      Open source · Independently auditable · No political party, no agenda
+    </p>
+
+    <LiveStats />
+  </div>
+</section>

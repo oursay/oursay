@@ -1,0 +1,59 @@
+---
+import Cite from "./Cite.astro";
+import { getFact } from "../data/facts";
+
+const cards = [
+  { id: "petition-fee", caption: "to file a citizen-initiative petition in Alberta — up from $500" },
+  { id: "referendum-cost-estimate", caption: "estimated to run one province-wide referendum — plus 60,000–90,000 workers" },
+  { id: "elector-data-exposure", caption: "Albertans' voter details posted in a public, searchable database online" },
+  { id: "petition-court", caption: "Alberta's separation petition was quashed in court — twice in six months" },
+];
+---
+
+<section id="problem" class="scroll-mt-20 bg-white">
+  <div class="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+    <div class="mx-auto max-w-3xl text-center">
+      <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+        The problem
+      </p>
+      <h2 class="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        Democracy has a gap between elections
+      </h2>
+      <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+        Representative democracy was designed for a world without instant
+        communication. Between elections, you have no verified, lasting,
+        auditable way to make your views known. Polls can be commissioned for a
+        conclusion. Online petitions can't confirm a single signature is real.
+        Social media rewards the loudest voice, not the most representative one.
+      </p>
+    </div>
+
+    <dl class="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {
+        cards.map(({ id, caption }) => {
+          const fact = getFact(id);
+          return (
+            <div class="flex flex-col rounded-2xl border border-slate-200 bg-paper p-6">
+              <dt class="text-3xl font-extrabold tracking-tight text-brand-700">
+                {fact?.value}
+              </dt>
+              <dd class="mt-3 text-sm leading-relaxed text-slate-600">
+                {caption}
+                <Cite id={id} />
+              </dd>
+            </div>
+          );
+        })
+      }
+    </dl>
+
+    <p class="mx-auto mt-12 max-w-3xl text-pretty text-center text-base leading-relaxed text-slate-500">
+      These are recent Alberta examples, and they're not about one party — they
+      show what happens when a 300-year-old system meets 21st-century problems.
+      Raising the barrier to be heard, and handing copies of the voter list to
+      organizations that privacy law doesn't even cover,<Cite id="pipa-parties-gap" />
+      are symptoms of the same thing: the tools haven't kept up. OurSay is built
+      to fix the tools — for whoever is in power.
+    </p>
+  </div>
+</section>
