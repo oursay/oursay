@@ -1,8 +1,8 @@
 # OurSay.ca
 
-**A verified, auditable civic platform for Albertans — and eventually, all Canadians.**
+**An open source, verified, auditable civic platform — built for any democratic system, anywhere.**
 
-OurSay gives citizens a structured way to express political beliefs, sign petitions, and vote on referendum questions between elections. Every result is public, broken down by riding, and verifiable by anyone — independently, without taking our word for it.
+OurSay gives communities a structured way to express political beliefs, sign petitions, and participate in public votes. Every result is public, broken down by geographic area, and verifiable by anyone — independently, without taking our word for it. It launches in Alberta, Canada and is designed to be deployed for any jurisdiction in the world.
 
 This repository contains the complete source code, infrastructure configuration, and foundational documentation for OurSay.ca. Everything here is public and auditable by design.
 
@@ -18,12 +18,12 @@ OurSay fills that gap. Not as a replacement for elections — as the infrastruct
 
 ## What the Platform Does
 
-- **Beliefs** — Citizens create statements. Others agree or disagree. Counts are public, filterable by riding and verification status.
-- **Petitions** — Formal calls to action addressed to a specific authority. Signatures are collected, verified and unverified counts shown separately, and petitions can be delivered directly to named officials.
-- **Referendums** — Formal votes on specific questions. Votes are final once cast. Results are published publicly and anchored in a distributed public database that anyone can audit.
-- **Results** — The immutable, permanent record of a closed referendum, broken down by riding, province, and elector verification status.
+- **Beliefs** — Participants create statements. Others agree or disagree. Counts are public, filterable by geographic area and verification tier.
+- **Petitions** — Formal calls to action addressed to a specific authority. Signatures are collected, broken down by verification tier, and can be delivered to named officials.
+- **Public Votes** — Formal votes on specific questions. Votes are final once cast. Results are published publicly and anchored in a distributed public database that anyone can audit.
+- **Results** — The permanent record of a closed public vote, designed to be tamper-resistant, broken down by geographic area and verification tier.
 
-All content types link together. A referendum can trace back to the petitions and grassroots beliefs that shaped it.
+All content types link together. A public vote can trace back to the petitions and grassroots beliefs that shaped it.
 
 ---
 
@@ -31,7 +31,7 @@ All content types link together. A referendum can trace back to the petitions an
 
 Anyone can participate on OurSay without verifying their identity. Unverified participation counts and is publicly visible.
 
-Verified users have confirmed their identity and elector eligibility through a KYC process. Their actions are distinguished in every count and filter. Verification has a real cost — users pay it directly, at cost, with no markup. Users who cannot afford verification can join a public waitlist and receive community sponsorships.
+Verified users have confirmed their identity and residency through a pluggable KYC process, configurable per region. Their actions are distinguished by verification tier in every count and filter. Verification has a real cost — users pay it directly, at cost, with no markup. Users who cannot afford verification can join a public waitlist and receive community sponsorships.
 
 ---
 
@@ -66,15 +66,15 @@ These three documents define the project. Before writing any code, read the cont
 
 The canonical product specification. Covers what the system does and why — not how to implement it. When a design question comes up, this document answers it. If it doesn't, the answer belongs in a GitHub issue, then in this document before the issue closes.
 
-Covers: guiding principles, user roles, KYC and verification flows, sponsorship and waitlist mechanics, geographic riding data, the full content model (beliefs, petitions, referendums, results), the anonymity model, the distributed public ledger, build verification, and contributor decision-making.
+Covers: guiding principles, verification tiers, pluggable KYC provider architecture, sponsorship and waitlist mechanics, generic geographic area model, public API, the full content model (beliefs, petitions, public votes, results), the anonymity model, the distributed public ledger, build verification, forkability and global adaptability, and contributor decision-making.
 
 **Read this before touching the schema, the API, or the frontend.**
 
 ### [`docs/02-PUBLIC-EXPLAINER.md`](docs/02-PUBLIC-EXPLAINER.md) — Public Platform Overview
 
-A plain-language explanation of OurSay for users. Explains why representative democracy hasn't kept up with the world, what OurSay does, why verification matters, how anonymity and auditability coexist, and the cost model behind verification.
+A plain-language explanation of OurSay for users. Explains why representative democracy hasn't kept up with the world, what OurSay does, why the verification tier distinction matters, how anonymity and auditability coexist, and the cost model behind verification. Written for the Alberta launch but reflects the platform's broader mission.
 
-Not aimed at contributors — aimed at Albertans.
+Not aimed at contributors — aimed at participants.
 
 ### [`docs/03-OUTREACH-TEMPLATE.md`](docs/03-OUTREACH-TEMPLATE.md) — Outreach Templates
 
@@ -89,9 +89,10 @@ Some decisions are made and should be treated as constraints:
 | Concern | Decision |
 |---|---|
 | Hosting | Google Cloud Platform or AWS |
-| KYC / Identity Verification | Equifax Connect (preferred) |
+| KYC / Identity Verification | Pluggable, configurable per region — Equifax Connect preferred for Alberta launch |
 | Distributed public database | See contributor spec — internal implementation detail |
 | Source control | This repository (GitHub, public) |
+| Public API | Read-only, unauthenticated, OpenAPI spec in repository |
 | Build auditability | Every deployment hashed and published in `DEPLOYMENTS.md` and on-chain |
 
 Everything else — backend framework, frontend framework, database technology, API design — is a contributor decision, informed by the spec.
@@ -128,31 +129,37 @@ Foundational documents are complete. Architecture, schema, and initial applicati
 
 ## License
 
-OurSay.ca is licensed under the GNU General Public License v3.0 (GPL v3).
-Why GPL v3?
+OurSay.ca is licensed under the **GNU General Public License v3.0** (GPL v3).
+
+### Why GPL v3?
+
 OurSay is civic infrastructure. It is designed to be deployed by other provinces, municipalities, and democracies as-is or with adaptation. GPL v3 ensures that:
 
-OurSay remains open. Any adaptation, deployment, or derivative of OurSay must remain open source. This prevents proprietary forks and ensures the community benefits from improvements made anywhere.
-The public retains the public good. Civic infrastructure should not be privatized. If someone builds on OurSay's code, the public gets access to the improvements.
-Contributors are protected. Your work cannot be enclosed and sold back to the public as a proprietary service.
+- **OurSay remains open.** Any adaptation, deployment, or derivative must remain open source. This prevents proprietary forks and ensures the community benefits from improvements made anywhere.
+- **The public retains the public good.** Civic infrastructure should not be privatized. If someone builds on OurSay's code, the public gets access to the improvements.
+- **Contributors are protected.** Your work cannot be enclosed and sold back to the public as a proprietary service.
 
-This is not a restriction on commercial use — companies can deploy OurSay, modify it, and offer services around it. They simply must publish their modifications back to the community.
-What this means for you
+> **Note:** The platform's fork requirements — that *any deployment* must keep source public and auditable — may more precisely require **AGPL v3**, which covers network use as distribution and therefore requires source publication for hosted instances. GPL v3 may not require this for web-based deployments. This should be resolved before the first public deployment. See open GitHub issue [TBD].
 
-You can use, modify, and deploy OurSay freely
-If you modify OurSay, publish your changes under GPL v3
-You cannot create a closed-source derivative and sell it without publishing the source
+### What this means for you
 
-For full details, see LICENSE in this repository, or visit gnu.org/licenses/gpl-3.0.html.
-Contributing under GPL v3
+- You can use, modify, and deploy OurSay freely
+- If you modify OurSay, publish your changes under GPL v3
+- You cannot create a closed-source derivative and sell it without publishing the source
+
+For full details, see [`LICENSE`](LICENSE) in this repository, or visit [gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html).
+
+### Contributing under GPL v3
+
 By contributing to OurSay, you agree that your contribution is licensed under GPL v3. The project retains no copyright over contributions — contributors retain copyright and license their work to OurSay under GPL v3.
+
 If you have questions about licensing, open an issue.
 
 ---
 
 ## Contact
 
-[contact@oursay.ca] *(placeholder — update before publishing)*
+oursay.ca@gmail.com
 
 ---
 
