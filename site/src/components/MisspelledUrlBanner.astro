@@ -1,0 +1,109 @@
+---
+import { misspelledRedirect } from "../data/site";
+
+const { intendedUrl, intendedDomain } = misspelledRedirect;
+---
+
+<div
+  id="misspelled-url-banner"
+  hidden
+  class="border-b border-amber-200 bg-amber-50 text-amber-950"
+  role="status"
+  aria-live="polite"
+>
+  <div class="mx-auto flex max-w-6xl items-start gap-3 px-6 py-3">
+    <p class="flex-1 text-pretty text-sm leading-relaxed">
+      Did you mean to visit{" "}
+      <a
+        href={intendedUrl}
+        class="font-semibold text-amber-900 underline decoration-amber-400 underline-offset-2 hover:text-amber-950"
+      >
+        {intendedDomain}
+      </a>
+      ? You may have misspelled the URL. This website is not affiliated with any
+      political party or agency in any official capacity. However, we do believe
+      in giving people a place to share their political opinions — and that's
+      the platform we are building.
+    </p>
+    <button
+      type="button"
+      id="misspelled-url-banner-dismiss"
+      class="shrink-0 rounded-md p-1 text-amber-700 transition-colors hover:bg-amber-100 hover:text-amber-900"
+      aria-label="Dismiss notice"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        class="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        aria-hidden="true"
+      >
+        <path d="M6 6l12 12M18 6L6 18" stroke-linecap="round" />
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script
+  is:inline
+  define:vars={{
+    queryKey: misspelledRedirect.queryKey,
+    fromValues: misspelledRedirect.fromValues,
+    utmSources: misspelledRedirect.utmSources,
+    sessionKey: misspelledRedirect.sessionKey,
+    dismissedKey: misspelledRedirect.dismissedKey,
+  }}
+>
+  (function () {
+    const banner = document.getElementById("misspelled-url-banner");
+    const dismissBtn = document.getElementById("misspelled-url-banner-dismiss");
+    if (!banner || !dismissBtn) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const fromParam = params.get(queryKey);
+    const utmParam = params.get("utm_source");
+    const fromMatch = fromParam !== null && fromValues.includes(fromParam);
+    const utmMatch = utmParam !== null && utmSources.includes(utmParam);
+    const arrivedViaRedirect = fromMatch || utmMatch;
+
+    if (arrivedViaRedirect) {
+      try {
+        sessionStorage.setItem(sessionKey, "1");
+      } catch {
+        /* private browsing */
+      }
+
+      if (fromMatch) params.delete(queryKey);
+      if (utmMatch) params.delete("utm_source");
+      const query = params.toString();
+      const cleanUrl = query
+        ? `${window.location.pathname}?${query}`
+        : window.location.pathname;
+      history.replaceState(null, "", cleanUrl);
+    }
+
+    let showBanner = false;
+    try {
+      showBanner =
+        arrivedViaRedirect ||
+        (sessionStorage.getItem(sessionKey) === "1" &&
+          sessionStorage.getItem(dismissedKey) !== "1");
+    } catch {
+      showBanner = arrivedViaRedirect;
+    }
+
+    if (showBanner) {
+      banner.hidden = false;
+    }
+
+    dismissBtn.addEventListener("click", () => {
+      try {
+        sessionStorage.setItem(dismissedKey, "1");
+      } catch {
+        /* private browsing */
+      }
+      banner.hidden = true;
+    });
+  })();
+</script>

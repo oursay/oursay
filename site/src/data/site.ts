@@ -28,3 +28,23 @@ export const license = {
   shortName: "GPL v3",
   url: "https://www.gnu.org/licenses/gpl-3.0.html",
 } as const;
+
+/**
+ * Misspelled-domain redirect banner.
+ *
+ * A plain 301 from albertareferrendum2026.ca → oursay.ca does not tell the app
+ * which hostname the visitor typed. Append a query param on the redirect target:
+ *
+ *   https://oursay.ca/?utm_source=albertareferrendum2026.ca
+ *
+ * (`?from=albertareferrendum2026.ca` and older shorthand values are also recognized.)
+ */
+export const misspelledRedirect = {
+  intendedUrl: "https://albertareferendum2026.ca",
+  intendedDomain: "albertareferendum2026.ca",
+  queryKey: "from",
+  fromValues: ["albertareferrendum2026.ca", "albertareferrendum"],
+  utmSources: ["albertareferrendum2026.ca", "albertareferrendum2026"],
+  sessionKey: "oursay:misspelled-redirect",
+  dismissedKey: "oursay:misspelled-banner-dismissed",
+} as const;

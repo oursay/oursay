@@ -1,5 +1,6 @@
 ---
 import "../styles/global.css";
+import MisspelledUrlBanner from "../components/MisspelledUrlBanner.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
 
@@ -52,6 +53,7 @@ const ogImageUrl = new URL(ogImage, Astro.site ?? "https://oursay.ca").href;
     <meta name="generator" content={Astro.generator} />
   </head>
   <body class="flex min-h-screen flex-col font-sans">
+    <MisspelledUrlBanner />
     <Nav />
     <main class="flex-1">
       <slot />
