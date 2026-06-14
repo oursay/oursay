@@ -20,13 +20,13 @@ export interface FormConfig {
 export const forms: { waitlist: FormConfig; contact: FormConfig } = {
   // Citizens / general public — join the launch waitlist.
   waitlist: {
-    url: "https://forms.gle/REPLACE_WITH_WAITLIST_FORM",
+    url: "https://forms.gle/QdmLuxqnJD96XQtN8",
     embedUrl: "",
     embedHeight: 900,
   },
   // Representatives & journalists — get in touch.
   contact: {
-    url: "https://forms.gle/REPLACE_WITH_CONTACT_FORM",
+    url: "https://forms.gle/xEASEFgwekCpsCCu8",
     embedUrl: "",
     embedHeight: 900,
   },
