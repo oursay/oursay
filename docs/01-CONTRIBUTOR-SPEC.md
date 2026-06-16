@@ -94,7 +94,7 @@ The **anchor target is pluggable**, and more than one may be used at once. The *
 
 The worked design lives in [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) (normative requirements) and [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md) (modules, schemas, connectors).
 
-> **⚠️ Internal documentation only.** Never refer to immudb, Ethereum, blockchain, cryptocurrency, wallets, keypairs, Merkle roots, anchoring, or on-chain in any public-facing interface, documentation, or communication. All public-facing references use "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
+> **⚠️ Internal documentation only.** Never refer to Ethereum, Solana, blockchain, cryptocurrency, wallets, keypairs, or on-chain in any public-facing interface, documentation, or communication. (Plain technical terms such as cryptographic hash, content commitment, Merkle root, digital signature, anchoring, and append-only record are acceptable in public when needed; product names like immudb are allowed but not required on user-facing surfaces.) All public-facing references prefer "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
 
 ### 3.5 Build Verification
 
@@ -417,7 +417,7 @@ Every content item — belief, petition, public vote, result — has an associat
 
 ## 11. The Public Record (Internal: immudb + external anchoring)
 
-> **⚠️ Internal documentation only.** Never use the terms immudb, Ethereum, blockchain, cryptocurrency, wallet, keypair, Merkle, anchor, or on-chain in any public-facing context. All public language uses "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
+> **⚠️ Internal documentation only.** Never use the terms Ethereum, Solana, blockchain, cryptocurrency, wallet, keypair, or on-chain in any public-facing context. (Cryptographic hash, content commitment, Merkle root, digital signature, anchoring, and append-only record are fine in public; immudb may be named but is not required on user-facing surfaces.) Public language prefers "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
 
 The public record is an **append-only, tamper-evident verifiable ledger (immudb)** holding **only salted hash commitments + public metadata**, paired with a **separate mutable store (Postgres)** for raw content + salts + PII. The ledger's root is periodically **anchored to external public infrastructure** (preferred: Ethereum; pluggable — see §3.4). The trust root is the **externally-anchored root + an offline independent verifier**, not the ledger or the platform. Worked design: [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) and [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md).
 
@@ -460,7 +460,8 @@ Every user must be able to view all their recorded actions from within their acc
 - ✅ "Your action is recorded in a distributed public database that anyone can audit"
 - ✅ "Results are verified against a public, tamper-resistant ledger"
 - ✅ "Every verified action is permanently recorded in a public record"
-- ❌ Blockchain, Ethereum, Solana, immudb, cryptocurrency, wallet, keypair, Merkle, anchor, on-chain, smart contract
+- ❌ Blockchain, Ethereum, Solana, cryptocurrency, wallet, keypair, on-chain, smart contract
+- ✅ Acceptable in public when needed: cryptographic hash / digital fingerprint, content commitment, Merkle root, digital signature, anchoring, append-only record (product names like immudb are allowed but not required on user-facing surfaces)
 
 ---
 
