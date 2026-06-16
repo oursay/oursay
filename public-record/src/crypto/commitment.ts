@@ -14,6 +14,15 @@ export function canonicalJson(value: unknown): string {
   return JSON.stringify(sortDeep(value));
 }
 
+/**
+ * Deterministic JSON with sorted keys AND indentation — for human-readable, git-friendly,
+ * reproducible artifacts on disk (e.g. block bundle files). Same key order as canonicalJson;
+ * NOT used for hashing (hashes always use the compact `canonicalJson`).
+ */
+export function canonicalStringify(value: unknown, space = 2): string {
+  return JSON.stringify(sortDeep(value), null, space);
+}
+
 function sortDeep(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortDeep);
   if (value && typeof value === "object") {

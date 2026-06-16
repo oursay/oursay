@@ -2,14 +2,18 @@
 
 _First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0**
 (PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via
-tsx). **24 tests across 8 suites, all green (~3s).** Signing is stubbed this phase; the
-per-entity hash chain and verification are real._
+tsx). **35 tests across 9 suites, all green (~5s).** Signing is stubbed this phase; the
+per-entity hash chain, block anchoring, and offline verification are real._
 
 ## TL;DR
 
 - **The model works.** Create/edit/delete are append-only transactions; current state is a
   fold over the log; the append-only chain (immudb) holds only commitments while the raw
-  content lives in mutable Postgres. All 24 tests pass.
+  content lives in mutable Postgres. All 35 tests pass.
+- **Third parties can now verify the record without the platform.** Incremental blocks are
+  anchored to a pluggable target (a file target ships); an **offline verifier** checks a single
+  entry or a whole block against a root fetched independently from the target — no DB/immudb.
+  See suite 09.
 - **Platform removal without breaking the audit trail is implemented and tested** (your
   question): **redaction** withholds plaintext from every response while **retaining** the raw
   in the mutable store; **erasure** destroys it. In both cases the commitment stands in and the
@@ -100,7 +104,7 @@ by its hash.
 
 ---
 
-## 3. Test inventory (8 suites · 24 tests)
+## 3. Test inventory (9 suites · 35 tests)
 
 | Suite | Tests | What it proves |
 |---|---|---|
@@ -112,6 +116,7 @@ by its hash.
 | 06 chain | 3 | full create→update chain verifies; raw-content tampering in Postgres is detected; true erasure still verifies (hash-only) |
 | 07 projections | 3 | `getThread` (nested comments + reaction tallies); poll results by option; active signature counts (minus revoked) |
 | 08 redaction | 2 | redaction withholds from responses while retaining raw + chain intact; erasure destroys raw + chain verifies on hashes |
+| 09 anchoring | 11 | incremental block close (reproducible roots, on-disk artifacts); bundleMerkleRoot ↔ Merkle over envelopes; immudbRoot captured; append-only target; offline full-block + single-entry verify against an independently-fetched root; block chaining; redacted/erased withheld; seq-range + target-integrity + tamper detection |
 
 Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record`.
 
@@ -139,9 +144,16 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 - **Real signatures.** `authorPubkey`/`signature` are stubs; author-match is pubkey equality.
   No cryptographic signing/verification yet (Turnkey/BIP32 is a later phase). The per-entity
   **hash chain is real**; the **signature layer is not**.
-- **External anchoring.** immudb's root is read (`immudb_state()`) but not yet anchored to
-  Ethereum/GitHub, and there is no offline Merkle-bundle verifier (later phase). `verifyRow`
-  is **server-side** (server-trusting) — the zero-trust guarantee arrives with anchoring.
+- **Anchoring — file target only (covered); chain/Git targets pending.** Block anchoring + an
+  offline verifier now exist behind a pluggable `AnchorTarget`, with a **file target** as the
+  required implementation (the primitive under a future Git transparency-log connector). Still
+  pending: pushing the anchor to **Ethereum / a Git remote**, and a **close scheduler** (N/day) —
+  today `closeBlock` is an explicit call. immudb's own `verifyRow` remains server-side; the
+  zero-trust guarantee now comes from the externally-published `bundleMerkleRoot` + offline
+  verifier (full trustlessness completes when the file is pushed to infra OurSay doesn't control).
+- **Offline verifier scope (deferred).** The offline verifier proves **Merkle inclusion + reveal**
+  against the anchored root. It does **not** yet re-check each tx's per-entity `prevHash` witness
+  (that linkage is verified live in `verifyEntityChain`). A documented follow-up.
 - **Concurrency.** The per-entity `prevHash` assumes a single writer per entity (sequential).
   Concurrent writes to the same entity would need optimistic locking — untested.
 - **Write atomicity.** `PublicChain.append` writes Postgres then immudb; a crash between them
@@ -158,7 +170,7 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 ```bash
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire :5443) + postgres 16 (:5442)
-npm run test    --workspace public-record   # 24 tests
+npm run test    --workspace public-record   # 35 tests
 npm run seed    --workspace public-record   # dev DB: folded state + chain-verify summary
 npm run db:down --workspace public-record   # tear down (wipes volumes)
 ```

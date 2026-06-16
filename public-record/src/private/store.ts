@@ -225,6 +225,21 @@ export class PrivateStore {
     return r.rows.map(mapStoredTx);
   }
 
+  /** The highest seq currently in the log (0 if empty) — the upper bound for a block close. */
+  async getMaxSeq(): Promise<number> {
+    const r = await this.pool.query(`SELECT COALESCE(max(seq), 0) AS max FROM record_tx`);
+    return Number(r.rows[0].max);
+  }
+
+  /** Transactions in the seq range `(fromExclusive, toInclusive]`, ordered by seq — one block. */
+  async getTxsBySeqRange(fromExclusive: number, toInclusive: number): Promise<StoredTx[]> {
+    const r = await this.pool.query(
+      `SELECT * FROM record_tx WHERE seq > $1 AND seq <= $2 ORDER BY seq ASC`,
+      [fromExclusive, toInclusive],
+    );
+    return r.rows.map(mapStoredTx);
+  }
+
   /**
    * The active "singleton" entity (reaction / vote / petition_signature) by this author on
    * this parent, if any — used to enforce one-per-author-per-parent and to locate the entity

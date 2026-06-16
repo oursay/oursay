@@ -32,9 +32,20 @@ export {
 export { getThread, reactionTallies } from "./projection.js";
 export type { Thread, ThreadComment } from "./projection.js";
 
-// Verification
+// Verification (live, against immudb)
 export { verifyEntityChain } from "./verify.js";
 export type { ChainReport, TxVerdict } from "./verify.js";
+
+// Block-based external anchoring
+export { BlockBuilder } from "./anchor/block.js";
+export type { CloseBlockOptions } from "./anchor/block.js";
+export { FileAnchorTarget } from "./anchor/file.target.js";
+export type { AnchorTarget } from "./anchor/target.js";
+export type { AnchorRecord, BlockBundle, BlockEntry, ImmudbRootRef } from "./anchor/types.js";
+
+// Offline anchor verifier (no DB / no platform)
+export { verifyEntry, verifyBlock, verifyChainLink } from "./anchor/verify.js";
+export type { EntryVerdict, BlockReport } from "./anchor/verify.js";
 
 // Crypto (also what an independent auditor reimplements against)
 export { canonicalJson, contentCommitment, newSalt, sha256Hex } from "./crypto/commitment.js";

@@ -65,13 +65,38 @@ text).
 # from the repo root
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + postgres 16
-npm run test    --workspace public-record   # 24 tests (8 suites)
+npm run test    --workspace public-record   # 35 tests (9 suites)
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
 npm run db:down --workspace public-record   # tear down (wipes volumes)
 ```
 
 Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
 stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.
+
+## Anchoring (third-party verifiability)
+
+The record is sliced into **incremental blocks** and published through a pluggable
+`AnchorTarget`, so anyone can verify it **without the platform**. Each closed block produces two
+roots — an app-level `bundleMerkleRoot` over the block's envelopes (offline verification) and the
+`immudbRoot` at close (ledger witness) — plus chaining metadata (`prevBlockRoot`,
+`prevAnchorHash`) for incremental audit.
+
+```ts
+const builder = new BlockBuilder(store, connector);
+const target = new FileAnchorTarget("./.anchors");
+await builder.closeBlock(target);          // append-only: anchors.jsonl + blocks/block-NNNNN.json
+
+// Auditor — offline, no DB/immudb. Root is fetched independently from the target.
+const anchor = await target.fetchAnchor(1);
+const bundle = await target.fetchBundle(1);
+verifyBlock(bundle, anchor.bundleMerkleRoot);                 // whole block
+verifyEntry(bundle.entries[0], anchor, anchor.bundleMerkleRoot); // a single entry
+```
+
+`FileAnchorTarget` writes human-readable, git-friendly files (an append-only `anchors.jsonl`
+index + one bundle file per block) and is the primitive under a future Git/chain connector.
+Anchor output dirs are gitignored. The anchoring tests run as part of `npm run test` (suite 09)
+and write to a throwaway temp dir — nothing is committed.
 
 ## Layout
 
@@ -87,7 +112,8 @@ stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`
 | `src/record.ts` | `RecordService` — validated CRUD + governance + semantic helpers |
 | `src/governance.ts` | rules/deadline gating for vote-change & signature-revoke |
 | `src/projection.ts` | `getThread` and reaction tallies (entity- and revision-pinned) |
+| `src/anchor/*` | block builder, `AnchorTarget` + `FileAnchorTarget`, offline verifier |
 | `src/verify.ts` | `verifyEntityChain` — per-entity chain + commitment verification |
 | `scripts/seed.ts` | dev seed |
-| `test/*.spec.ts` | 8 suites (create, attach, state-fold, governance, revision-pinning, chain, projections, redaction) |
+| `test/*.spec.ts` | 9 suites (create, attach, state-fold, governance, revision-pinning, chain, projections, redaction, anchoring) |
 | `TESTING-REPORT.md` | results, flow, scenario coverage, and known gaps |
