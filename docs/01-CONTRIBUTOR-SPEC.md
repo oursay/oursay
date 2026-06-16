@@ -324,12 +324,14 @@ A belief is an informal expression of sentiment. A result is the formal, audited
 > |---|---|---|
 > | Belief | `post` | Generic primitive; "Belief" is the Alberta deployment's label for a `post`. |
 > | Petition | `petition` | |
-> | Public Vote | `vote` | |
+> | (signing a petition) | `petition_signature` | A first-class record; revocable only where the petition's rules permit. |
+> | Public Vote | `poll` | The question/container (generic; legally safer than "referendum"). |
+> | (casting a vote) | `vote` | The signed cast ballot on a `poll`; changeable only where the poll's rules permit. |
 > | Discussion comment (§10) | `comment` | A first-class committed record type. |
-> | Reaction (lightweight signal) | `reaction` | A first-class committed record type. |
-> | Result (§8.4) | `result` (derived) | **Published/derived** from a closed vote — not a user append. |
+> | Reaction (lightweight signal) | `reaction` | A first-class committed record type (`check`/`cross`). |
+> | Result (§8.4) | `result` (derived) | **Published/derived** from a closed poll — not a user append. |
 >
-> The MVP record types are `post`, `petition`, `comment`, `vote`, `reaction` (plus derived `result`). The set is **not fixed** — it is extensible by configuration; candidate future types include `discussion` (a topic/thread container), `bill` (a tracked legislative item), `official_response` (an official's reply to a petition, §8.2 / §4.5), and `poll` (a lightweight non-binding vote). See [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) R1.
+> The implemented record types are `post`, `comment`, `reaction`, `petition`, `petition_signature`, `poll`, `vote` — each appended as create/update/delete transactions, with **per-entity governance rules** (deadlines; whether votes may change / signatures may be revoked). The set is **not fixed** — it is extensible by configuration; candidate future types include `discussion` (a topic/thread container), `bill` (a tracked legislative item), and `official_response` (an official's reply to a petition, §8.2 / §4.5). See [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) R1 and [`../public-record/README.md`](../public-record/README.md).
 
 ### 8.1 Beliefs
 
@@ -345,7 +347,7 @@ Formal calls to action that collect signatures, addressed to a specific authorit
 
 **Core attributes:** Title, full petition text, author (may be anonymous), addressed to (may link to an official profile), links to beliefs (optional, many), links to public votes (optional, many), signature count (total | by tier), optional deadline, status (open | closed | delivered | responded), discussion thread.
 
-**Behaviour:** Any registered user may create or sign. Signatories may include an optional comment, hidden if signing anonymously. Signatures may be withdrawn. When a petition is marked as delivered to an official with a platform account, the system notifies that official and prompts an official response.
+**Behaviour:** Any registered user may create or sign. Signatories may include an optional comment, hidden if signing anonymously. Signatures are final by default; withdrawal before the deadline is supported only where the petition's governance rules permit it. When a petition is marked as delivered to an official with a platform account, the system notifies that official and prompts an official response.
 
 ### 8.3 Public Votes
 
@@ -353,7 +355,7 @@ Formal votes — binary or multiple-choice — put to the community. Carry the g
 
 **Core attributes:** Question/title, full description providing context, vote options (minimum: Yes / No; additional options permitted), author, links to petitions (optional, many), voting period (open and close timestamps), vote counts per option (total | by verification tier), status (upcoming | active | closed | result published), discussion thread.
 
-**Behaviour:** Any registered user may vote. Anonymous voting is permitted. Votes are final once cast — no changes. Voting is open for a defined period. After the period closes, a result is generated. Public vote creation may be gated by a threshold (e.g., a linked petition reaching a configurable verified signature count).
+**Behaviour:** Any registered user may vote. Anonymous voting is permitted. **Votes are final once cast by default** — the real-world analog. Changing a vote before the deadline is *technically supported but off by default*, enabled only where the poll's governance rules permit it (e.g., a riding/region whose process allows it). Voting is open for a defined period. After the period closes, a result is generated. Public vote creation may be gated by a threshold (e.g., a linked petition reaching a configurable verified signature count).
 
 ### 8.4 Results
 
