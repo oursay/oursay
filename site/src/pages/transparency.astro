@@ -35,7 +35,7 @@ import { site } from "../data/site";
       <section>
         <h2 class="text-xl font-bold text-slate-900">What we publish</h2>
         <ul class="mt-2 list-disc space-y-2 pl-5 leading-relaxed">
-          <li>The public record of actions — who took part (without exposing who they are) and what they did.</li>
+          <li>The public record of actions — anonymized, signed, and attested by us. Every verified action is there to audit, without revealing who took it.</li>
           <li>The results of every public vote, broken down by area and verification tier.</li>
           <li>Every line of code that runs the platform, and a digital fingerprint of every released version, so anyone can confirm the app you use is the code we published.</li>
         </ul>
@@ -86,7 +86,8 @@ import { site } from "../data/site";
         <h2 class="text-xl font-bold text-slate-900">For officials</h2>
         <ul class="mt-2 list-disc space-y-2 pl-5 leading-relaxed">
           <li>You can respond on the record to petitions and public votes that name your office.</li>
-          <li>You can independently verify what verified residents in your area actually said — you don't have to take our count on faith.</li>
+          <li>You can independently audit the signed record itself — every verified action is anonymized, attested by us, and yours to check, without taking our word for it.</li>
+          <li>The one thing that isn't yet trustless is confirming a verified voice belongs to your specific riding — that rests on address verification today. The fully independent path is an electoral-authority integration, and any resident can choose to prove their own record to you.</li>
           <li>We claim no endorsement, certification, or approval from any government body or electoral authority.</li>
           <li>Identity verification confirms a real person at a real address; it is not a determination of electoral eligibility or voter registration.</li>
         </ul>
@@ -101,7 +102,8 @@ import { site } from "../data/site";
           <strong>digital signature</strong> <span class="text-slate-500">(rolling out before launch)</span>.
           Entries are summarized in batches into a <strong>Merkle root</strong>, and those roots are
           <strong>anchored to independent public locations</strong> so the record can't be quietly
-          changed after the fact.
+          changed after the fact. We also publish a signed <strong>attestation</strong> over the set
+          of valid records, so the list you audit is provably the one we stand behind.
         </p>
         <p class="mt-3 leading-relaxed text-slate-700">
           Verification runs <strong>offline</strong>: given the published data and a root obtained

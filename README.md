@@ -53,6 +53,8 @@ Verified users have confirmed their identity and residency through a pluggable K
 │   ├── 02-PUBLIC-EXPLAINER.md     # Public-facing platform overview
 │   ├── 03-OUTREACH-TEMPLATE.md    # Audience-specific outreach templates
 │   ├── 04-LEGAL-OUTREACH.md       # Legal & regulatory outreach materials
+│   ├── 05-TRUST-REVIEW.md         # What's trustless vs. trust-based, and the roadmap to close the gap
+│   ├── 06-PRIVACY-REVIEW.md       # Disclosure matrix, re-identification risk, and mitigations
 │   ├── PHILOSOPHY.md              # Monorepo philosophy: structure & how code matures
 │   └── VALUES.md                  # Engineering values that constrain design
 ├── site/                          # Public marketing & explainer website (Astro) [workspace]
@@ -91,6 +93,14 @@ Audience-specific email templates for outreach to Alberta MLAs, Elections Albert
 ### [`docs/04-LEGAL-OUTREACH.md`](docs/04-LEGAL-OUTREACH.md) — Legal & Regulatory Outreach
 
 Materials for outreach to legal and regulatory bodies, addressing the platform's compliance posture and the questions a regulator is likely to raise.
+
+### [`docs/05-TRUST-REVIEW.md`](docs/05-TRUST-REVIEW.md) — Trust Review
+
+An honest accounting of what a third party can verify **without trusting OurSay** (record integrity + the anonymized, attested signed record) versus the one real trust gap (confirming a verified action belongs to a specific geographic area), the authentication model, and the roadmap to shrink the trusted base.
+
+### [`docs/06-PRIVACY-REVIEW.md`](docs/06-PRIVACY-REVIEW.md) — Privacy Review
+
+The most information each audience (public, representatives, media, independent auditors) may receive, the re-identification risk for fully-public users near multiple boundary lines, and the mitigations — including per-governmental-level key compartmentalization.
 
 ### [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) — Monorepo Philosophy
 
