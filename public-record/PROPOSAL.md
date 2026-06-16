@@ -1,7 +1,17 @@
 # Proposal: `@oursay/public-record`
 
-_Status: **Draft for review** · Supersedes nothing · Graduates from `immudb-test` and
-`turnkey-test`_
+_Status: **Partially implemented** · Graduates from `immudb-test` and `turnkey-test`_
+
+> **Implementation note (event-sourced model).** The initial schema + verification chain are
+> built — see [`README.md`](./README.md) and `src/`. The implemented model is **event-sourced**:
+> every create/edit/delete is an append-only transaction (`TxEnvelope`) on a **per-entity hash
+> chain**, and current state is a **fold** over the log. This refines §3 and §5 below (which
+> described an earlier flat, one-row-per-record model): the immudb table is `record_chain`
+> (one row per transaction) and the Postgres store is the `record_tx` event log + fold-on-read
+> views. The content model is the **7 types** in §5.3 (post, comment, reaction, petition,
+> petition_signature, poll, vote) with governance rules + dual (entity/revision) attachment.
+> The connector seam (§4), identity (§6), exports (§7), and anchoring (§8) remain as written —
+> forward-looking. Signing is **stubbed** this phase.
 
 This proposal defines the **public record** workspace: the production library that writes
 OurSay's verifiable civic record, holds the private data behind it, and ships the tooling to
@@ -376,32 +386,43 @@ For the gRPC connector the same envelope is stored as a key-value entry under
 `"<type>:<id>"` — both connectors carry the identical `PublicEnvelope`, which is what keeps
 `export`/`verifier` connector-agnostic.
 
-### 5.3 The public envelope (wire format, versioned)
+### 5.3 The transaction envelope (implemented, event-sourced)
 
-Extends `immudb-test`'s `PublicEnvelope` with the signing fields R2 requires
-("all data appended must be signed by a per-thread key"):
+The unit appended to the chain is a **transaction**, not a record. See `src/schema/types.ts`:
 
 ```ts
-export type RecordType = "post" | "petition" | "comment" | "vote" | "reaction";
+export type RecordType =
+  | "post" | "comment" | "reaction"
+  | "petition" | "petition_signature"
+  | "poll" | "vote";
+export type Op = "create" | "update" | "delete";
 
-export interface PublicEnvelope {
+export interface TxEnvelope {
   v: 1;
+  txId: string;                // unique per transaction (the chain's primary key)
   type: RecordType;
-  id: string;
-  parentId?: string;      // parent thread
-  authorPubkey: string;   // per-thread public key (pseudonymous)
-  signature: string;      // signature over canonicalJson(envelope-without-signature)
-  createdAt: string;      // ISO 8601
-  contentHash: string;    // salted sha256 commitment — NEVER the plaintext
+  entityId: string;            // stable across the entity's lifecycle
+  op: Op;
+  parentType?: RecordType;
+  parentId?: string;           // ENTITY-level parent (follows edits)
+  parentRevisionTxId?: string; // REVISION-level: the parent's head tx …
+  parentRevisionHash?: string; // … its content-addressed revision id (parent txHash)
+  authorPubkey: string;        // stubbed this phase
+  signature: string;           // stubbed this phase
+  createdAt: string;           // ISO 8601
+  prevHash: string | null;     // per-entity chain link = prior tx's txHash for entityId
+  contentHash: string;         // salted commitment — NEVER the plaintext
 }
+// txHash = hashLeaf(canonicalJson(envelope)); the next same-entity tx sets prevHash = txHash
 ```
 
-> Note on the types: `REQUIREMENTS.md` R1 names the MVP set **`post`, `petition`, `comment`,
-> `vote`, `reaction`**. `post` is the generic primitive the product surfaces as a "Belief"
-> (deployment label, not a wire value). A closed public `vote` yields a derived `result` record
-> (published, not appended). The set is **config-extensible**, not hardcoded beyond the wire
-> `type` string (Values §7) — candidate future types: `discussion`, `bill`, `official_response`,
-> `poll`.
+> **Types.** `post` is the generic primitive the product surfaces as a "Belief". A `poll` is the
+> question/container (legally safer than "referendum"); a `vote` is the cast ballot on a poll; a
+> `petition_signature` is a signature on a petition. Votes/signatures are **final by default**,
+> changeable/revocable only when the parent's governance `rules` + `deadline` permit (see
+> `governance.ts`). Comments/reactions carry **dual attachment** (entity + revision). A closed
+> poll's **`result`** is a derived/published record (a later phase), not a user append. The set
+> is **config-extensible** — candidate future types: `discussion`, `bill`, `official_response`.
 
 ---
 

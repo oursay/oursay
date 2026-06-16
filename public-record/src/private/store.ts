@@ -1,0 +1,368 @@
+import pg from "pg";
+import type { PgConfig } from "../config.js";
+import { POSTGRES_DDL } from "../schema/postgres.sql.js";
+import type { Op, RecordType } from "../schema/types.js";
+
+/** A full event-log row (the private, mutable record of one transaction). */
+export interface StoredTx {
+  txId: string;
+  seq: number;
+  type: RecordType;
+  entityId: string;
+  op: Op;
+  parentType: RecordType | null;
+  parentId: string | null;
+  parentRevisionTxId: string | null;
+  parentRevisionHash: string | null;
+  authorPubkey: string;
+  signature: string;
+  createdAt: string;
+  prevHash: string | null;
+  contentHash: string;
+  txHash: string;
+  envelope: string;
+  salt: string | null;
+  content: unknown;
+  redactedAt: string | null;
+  erasedAt: string | null;
+}
+
+/** What `appendTx` needs: the envelope fields + the raw (erasable) content + salt. */
+export interface AppendTxInput {
+  txId: string;
+  type: RecordType;
+  entityId: string;
+  op: Op;
+  parentType?: RecordType;
+  parentId?: string;
+  parentRevisionTxId?: string;
+  parentRevisionHash?: string;
+  authorPubkey: string;
+  signature: string;
+  createdAt: string;
+  prevHash: string | null;
+  contentHash: string;
+  txHash: string;
+  envelope: string;
+  salt: string;
+  content: unknown;
+}
+
+/** The current folded state of an entity (latest transaction wins). */
+export interface EntityState {
+  entityId: string;
+  type: RecordType;
+  latestOp: Op;
+  content: unknown;
+  contentHash: string;
+  authorPubkey: string;
+  parentType: RecordType | null;
+  parentId: string | null;
+  parentRevisionHash: string | null;
+  headTxId: string;
+  headTxHash: string;
+  isDeleted: boolean;
+  isRedacted: boolean;
+  isErased: boolean;
+}
+
+/**
+ * The PUBLIC, response-safe view of an entity: content is WITHHELD (null) when the entity is
+ * redacted or erased — the commitment (`contentHash`) stands in. Redaction keeps the raw
+ * content in this store (retained for lawful access) but the platform never serves it; erasure
+ * destroys it. Build every public response from this, not from the internal `EntityState`.
+ */
+export interface PublicEntityView {
+  entityId: string;
+  type: RecordType;
+  latestOp: Op;
+  contentHash: string;
+  content: unknown | null; // null when withheld
+  withheld: boolean; // true if redacted or erased
+  isDeleted: boolean;
+  isRedacted: boolean;
+  isErased: boolean;
+}
+
+export function toPublicView(s: EntityState): PublicEntityView {
+  const withheld = s.isRedacted || s.isErased;
+  return {
+    entityId: s.entityId,
+    type: s.type,
+    latestOp: s.latestOp,
+    contentHash: s.contentHash,
+    content: withheld ? null : s.content,
+    withheld,
+    isDeleted: s.isDeleted,
+    isRedacted: s.isRedacted,
+    isErased: s.isErased,
+  };
+}
+
+export interface ReactionCount {
+  kind: string;
+  count: number;
+}
+
+/**
+ * The PRIVATE, mutable store: the `record_tx` event log holding raw content + salt (erasable),
+ * identity stubs, and the fold-on-read projection views. immudb holds only commitments; this
+ * holds the data whose integrity those commitments protect.
+ */
+export class PrivateStore {
+  private pool: pg.Pool;
+
+  constructor(cfg: PgConfig) {
+    this.pool = new pg.Pool({
+      host: cfg.host,
+      port: cfg.port,
+      user: cfg.user,
+      password: cfg.password,
+      database: cfg.database,
+      max: 4,
+    });
+  }
+
+  async init(): Promise<void> {
+    await this.pool.query(POSTGRES_DDL);
+  }
+
+  /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
+  async reset(): Promise<void> {
+    await this.pool.query("TRUNCATE record_tx, users, thread_keys");
+  }
+
+  async appendTx(input: AppendTxInput): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO record_tx
+        (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_tx_id,
+         parent_revision_hash, author_pubkey, signature, created_at, prev_hash, content_hash,
+         tx_hash, envelope, salt, content)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [
+        input.txId,
+        input.type,
+        input.entityId,
+        input.op,
+        input.parentType ?? null,
+        input.parentId ?? null,
+        input.parentRevisionTxId ?? null,
+        input.parentRevisionHash ?? null,
+        input.authorPubkey,
+        input.signature,
+        input.createdAt,
+        input.prevHash,
+        input.contentHash,
+        input.txHash,
+        input.envelope,
+        input.salt,
+        JSON.stringify(input.content),
+      ],
+    );
+  }
+
+  /** The entity's current head transaction (for the per-entity prevHash link). */
+  async getEntityHead(
+    entityId: string,
+  ): Promise<{ txHash: string; op: Op; type: RecordType; authorPubkey: string } | undefined> {
+    const r = await this.pool.query(
+      `SELECT tx_hash, op, type, author_pubkey FROM record_tx
+       WHERE entity_id = $1 ORDER BY seq DESC LIMIT 1`,
+      [entityId],
+    );
+    if (r.rows.length === 0) return undefined;
+    const row = r.rows[0];
+    return { txHash: row.tx_hash, op: row.op, type: row.type, authorPubkey: row.author_pubkey };
+  }
+
+  /** The entity's full latest transaction row (for carry-forward of parent fields on update/delete). */
+  async getHeadTx(entityId: string): Promise<StoredTx | undefined> {
+    const r = await this.pool.query(
+      `SELECT * FROM record_tx WHERE entity_id = $1 ORDER BY seq DESC LIMIT 1`,
+      [entityId],
+    );
+    return r.rows.length === 0 ? undefined : mapStoredTx(r.rows[0]);
+  }
+
+  /** The latest non-deleted content revision (create/update) of an entity: its hash + tx id. */
+  async getCurrentRevision(entityId: string): Promise<{ hash: string; txId: string } | undefined> {
+    const r = await this.pool.query(
+      `SELECT revision_hash, revision_tx_id FROM entity_current_revision WHERE entity_id = $1`,
+      [entityId],
+    );
+    if (r.rows.length === 0) return undefined;
+    return { hash: r.rows[0].revision_hash, txId: r.rows[0].revision_tx_id };
+  }
+
+  /** The entity's current folded state (INTERNAL — includes retained-but-redacted content). */
+  async getEntityState(entityId: string): Promise<EntityState | undefined> {
+    const r = await this.pool.query(`SELECT * FROM entity_state WHERE entity_id = $1`, [entityId]);
+    if (r.rows.length === 0) return undefined;
+    return mapEntityState(r.rows[0]);
+  }
+
+  /** The PUBLIC, response-safe state: content withheld when redacted/erased (the hash stands in). */
+  async getEntityStatePublic(entityId: string): Promise<PublicEntityView | undefined> {
+    const s = await this.getEntityState(entityId);
+    return s ? toPublicView(s) : undefined;
+  }
+
+  /** The hash of the latest non-deleted content revision (create/update) of an entity. */
+  async getCurrentRevisionHash(entityId: string): Promise<string | undefined> {
+    const r = await this.pool.query(
+      `SELECT revision_hash FROM entity_current_revision WHERE entity_id = $1`,
+      [entityId],
+    );
+    return r.rows.length === 0 ? undefined : (r.rows[0].revision_hash as string);
+  }
+
+  /** Full transaction history of an entity, oldest → newest (for chain verification). */
+  async getEntityHistory(entityId: string): Promise<StoredTx[]> {
+    const r = await this.pool.query(
+      `SELECT * FROM record_tx WHERE entity_id = $1 ORDER BY seq ASC`,
+      [entityId],
+    );
+    return r.rows.map(mapStoredTx);
+  }
+
+  /**
+   * The active "singleton" entity (reaction / vote / petition_signature) by this author on
+   * this parent, if any — used to enforce one-per-author-per-parent and to locate the entity
+   * to update/revoke. Returns the entity_id + its head, or undefined.
+   */
+  async getActiveSingleton(
+    type: RecordType,
+    authorPubkey: string,
+    parentId: string,
+  ): Promise<{ entityId: string; headTxHash: string } | undefined> {
+    const r = await this.pool.query(
+      `SELECT entity_id, head_tx_hash FROM entity_state
+       WHERE type = $1 AND author_pubkey = $2 AND parent_id = $3 AND NOT is_deleted`,
+      [type, authorPubkey, parentId],
+    );
+    if (r.rows.length === 0) return undefined;
+    return { entityId: r.rows[0].entity_id, headTxHash: r.rows[0].head_tx_hash };
+  }
+
+  async getReactionCountsByEntity(parentId: string): Promise<ReactionCount[]> {
+    const r = await this.pool.query(
+      `SELECT kind, count FROM reaction_counts_by_entity WHERE parent_id = $1`,
+      [parentId],
+    );
+    return r.rows.map((x) => ({ kind: x.kind, count: Number(x.count) }));
+  }
+
+  async getReactionCountsByRevision(revisionHash: string): Promise<ReactionCount[]> {
+    const r = await this.pool.query(
+      `SELECT kind, count FROM reaction_counts_by_revision WHERE parent_revision_hash = $1`,
+      [revisionHash],
+    );
+    return r.rows.map((x) => ({ kind: x.kind, count: Number(x.count) }));
+  }
+
+  async getPetitionSignatureCount(petitionId: string): Promise<number> {
+    const r = await this.pool.query(
+      `SELECT count FROM petition_signature_counts WHERE petition_id = $1`,
+      [petitionId],
+    );
+    return r.rows.length === 0 ? 0 : Number(r.rows[0].count);
+  }
+
+  async getPollResults(pollId: string): Promise<{ option: string; count: number }[]> {
+    const r = await this.pool.query(
+      `SELECT option, count FROM poll_results WHERE poll_id = $1 ORDER BY option`,
+      [pollId],
+    );
+    return r.rows.map((x) => ({ option: x.option, count: Number(x.count) }));
+  }
+
+  /** Comments attached to a parent entity (entity-pinned), oldest → newest. */
+  async getChildComments(parentId: string): Promise<EntityState[]> {
+    const r = await this.pool.query(
+      `SELECT es.* FROM entity_state es
+       WHERE es.type = 'comment' AND es.parent_id = $1
+       ORDER BY es.created_at ASC`,
+      [parentId],
+    );
+    return r.rows.map(mapEntityState);
+  }
+
+  /** REDACTION: withhold plaintext from any public export, but RETAIN it privately. */
+  async redact(txId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE record_tx SET redacted_at = now() WHERE tx_id = $1 AND redacted_at IS NULL`,
+      [txId],
+    );
+  }
+
+  /** TRUE ERASURE: physically destroy the plaintext + salt; the hash chain still verifies. */
+  async erase(txId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE record_tx SET content = NULL, salt = NULL, erased_at = now() WHERE tx_id = $1`,
+      [txId],
+    );
+  }
+
+  async putUser(u: { id: string; handle?: string }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO users(id, handle) VALUES($1,$2) ON CONFLICT (id) DO UPDATE SET handle = EXCLUDED.handle`,
+      [u.id, u.handle ?? null],
+    );
+  }
+
+  async putThreadKey(k: { pubkey: string; userId?: string; threadId?: string }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO thread_keys(pubkey, user_id, thread_id) VALUES($1,$2,$3)
+       ON CONFLICT (pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id`,
+      [k.pubkey, k.userId ?? null, k.threadId ?? null],
+    );
+  }
+
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
+}
+
+function mapEntityState(row: pg.QueryResultRow): EntityState {
+  return {
+    entityId: row.entity_id,
+    type: row.type,
+    latestOp: row.latest_op,
+    content: row.content,
+    contentHash: row.content_hash,
+    authorPubkey: row.author_pubkey,
+    parentType: row.parent_type,
+    parentId: row.parent_id,
+    parentRevisionHash: row.parent_revision_hash,
+    headTxId: row.head_tx_id,
+    headTxHash: row.head_tx_hash,
+    isDeleted: row.is_deleted,
+    isRedacted: row.is_redacted,
+    isErased: row.is_erased,
+  };
+}
+
+function mapStoredTx(row: pg.QueryResultRow): StoredTx {
+  return {
+    txId: row.tx_id,
+    seq: Number(row.seq),
+    type: row.type,
+    entityId: row.entity_id,
+    op: row.op,
+    parentType: row.parent_type,
+    parentId: row.parent_id,
+    parentRevisionTxId: row.parent_revision_tx_id,
+    parentRevisionHash: row.parent_revision_hash,
+    authorPubkey: row.author_pubkey,
+    signature: row.signature,
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+    prevHash: row.prev_hash,
+    contentHash: row.content_hash,
+    txHash: row.tx_hash,
+    envelope: row.envelope,
+    salt: row.salt,
+    content: row.content,
+    redactedAt: row.redacted_at ? new Date(row.redacted_at).toISOString() : null,
+    erasedAt: row.erased_at ? new Date(row.erased_at).toISOString() : null,
+  };
+}

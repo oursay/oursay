@@ -12,7 +12,8 @@
   "workspaces": [
     "site",
     "turnkey-test",
-    "immudb-test"
+    "immudb-test",
+    "public-record"
   ],
   "scripts": {
     "dev": "npm run dev --workspace site",

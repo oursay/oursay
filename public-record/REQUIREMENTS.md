@@ -41,15 +41,29 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 
 ## 2. Authorship & signing
 
-- **R1 [Invariant]** — Users MUST be able to append the MVP record types — **`post`,
-  `petition`, `comment`, `vote`, and `reaction`** — to the public record. `post` is the
-  **generic primitive** the product surfaces under a deployment label (the Alberta launch calls
-  it a **"Belief"**); keeping the type generic satisfies "generic by design" (Values §7). A
-  closed **public vote** produces a derived **`result`** record (published, not user-appended).
-  The type set MUST be **extensible by configuration**, not hardcoded — candidate future types
-  include `discussion` (topic/thread container), `bill` (tracked legislative item),
-  `official_response` (an official's reply to a petition), and `poll` (lightweight non-binding
-  vote). _The set is a starting point, not fixed._
+- **R1 [Invariant]** — Users MUST be able to append the record types — **`post`, `comment`,
+  `reaction`, `petition`, `petition_signature`, `poll`, `vote`** — to the public record, as
+  **append-only transactions** (create / update / delete). `post` is the **generic primitive**
+  the product surfaces under a deployment label (the Alberta launch calls it a **"Belief"**); a
+  `poll` is the question/container; a `vote` is the cast ballot on a poll; a `petition_signature`
+  is a signature on a petition. A closed poll's **`result`** is a derived/published record (not a
+  user append). Attachment & op rules (enforced by the service):
+  - `comment` → post / petition / poll / comment, **nesting depth ≤ 3**;
+  - `reaction` → post / comment only (kinds `check`/`cross`, **mutually exclusive** per author per
+    target; extensible to custom emoji);
+  - `petition_signature` → petition; `vote` → poll.
+  The type set MUST be **extensible by configuration**, not hardcoded — candidate future types:
+  `discussion`, `bill`, `official_response`. _A starting point, not fixed._
+- **R1a [Invariant]** — **Governance is per-entity.** A `poll`/`petition` create transaction
+  sets its rules (`region`, `deadline`, `allowChange`/`allowRevoke`); a **platform-signed**
+  update may change them. A vote is **cast** and a signature is **signed FINAL by default**
+  (the real-world analog); changing a vote or revoking a signature MUST be **technically
+  possible** but permitted only when the entity's rules + deadline allow it (so a riding/region
+  can follow its own mechanism).
+- **R1b [Invariant]** — **Dual attachment.** Every comment and reaction MUST record BOTH the
+  parent **entity** (follows edits) and the exact parent **revision** (content-addressed
+  txHash). The record MUST be able to count support per-entity AND per-revision, so an edit to a
+  parent does not transfer endorsements its old content earned to the new content.
 - **R2 [Invariant]** — Every entry appended to the public record MUST be **signed by a
   per-thread key** controlled by its author.
 - **R3 [Invariant]** — Per-thread keys MUST be **derived deterministically by the user** from
@@ -110,6 +124,13 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
   infrastructure, not from the platform).
 
 ## 6. Censorship, redaction & erasure
+
+> **CRUD-delete vs. content-erase (two different operations).** A user **delete** is an appended
+> `delete` transaction: it tombstones the folded state but the full history (and its hashes)
+> remain on the chain. **Redaction/erasure** act on the *raw content* in the mutable store: the
+> commitment (and thus the per-entity chain) is untouched, so the chain still verifies — after
+> erasure on hashes alone (see `verifyEntityChain`). The two compose: a deleted entity can also
+> have its content erased.
 
 - **R17 [Invariant]** — The platform MUST be able to **redact specific content in the most
   minimal way possible**. Only the message content is withheld; the timestamp, public signing

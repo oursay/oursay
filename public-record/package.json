@@ -1,0 +1,34 @@
+{
+  "name": "@oursay/public-record",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OurSay public verifiable record: event-sourced CRUD as append-only commitments (immudb) + private mutable store (Postgres), per-entity hash chain, fold-on-read state.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down -v",
+    "db:logs": "docker compose logs -f",
+    "seed": "tsx scripts/seed.ts",
+    "test": "mocha",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.7.1",
+    "@noble/curves": "^1.8.1",
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.13.10",
+    "@types/pg": "^8.11.10",
+    "chai": "^5.1.2",
+    "mocha": "^11.0.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}
