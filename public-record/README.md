@@ -6,9 +6,12 @@ physically removed; current state is a **fold** over that log. The append-only c
 holds only **hash commitments**; the raw content lives in a separate **mutable Postgres** store
 whose integrity those commitments protect.
 
-> Status: **initial schema + verification chain + tests** (this phase). Real signing
-> (Turnkey/BIP32), external anchoring, and KYC are later phases. The design doc is
-> [`PROPOSAL.md`](./PROPOSAL.md); the normative requirements are [`REQUIREMENTS.md`](./REQUIREMENTS.md).
+> Status: **schema + verification chain + block anchoring (dev)**. Incremental blocks, an
+> offline verifier, and a **file** `AnchorTarget` are implemented and tested. **External**
+> anchoring — publishing roots to infra we do not control (Git transparency log, EVM, Solana) —
+> is not yet wired; that is the earliest point we can claim third-party verifiability (testnet during
+> development, production targets later). Real signing (Turnkey/BIP32) and KYC are also later.
+> See [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ## Architecture
 
@@ -21,10 +24,12 @@ whose integrity those commitments protect.
             prev_hash, content_hash, tx_hash,          fold-on-read views:
             envelope (commitment only)                   entity_state, reaction_counts_by_*,
                  │                                       petition_signature_counts, poll_results
-                 │ immudb_state() root  ── (future: external anchor)
+                 │ immudb_state() root
                  ▼
-        verifyEntityChain()  — recompute txHash, check prev_hash linkage,
-                               confirm immudb agrees, recompute content commitment
+        BlockBuilder.closeBlock()  ──►  FileAnchorTarget (dev; local files)
+                 │                    future: Git · EVM · Solana connectors
+                 ▼
+        verifyEntityChain() (live)   verifyBlock / verifyEntry (offline, vs published root)
 ```
 
 - **Per-entity hash chain.** Each transaction's signed envelope carries `prevHash` = the prior
@@ -73,13 +78,22 @@ npm run db:down --workspace public-record   # tear down (wipes volumes)
 Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
 stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.
 
-## Anchoring (third-party verifiability)
+## Block anchoring (dev) — external targets future
 
-The record is sliced into **incremental blocks** and published through a pluggable
-`AnchorTarget`, so anyone can verify it **without the platform**. Each closed block produces two
-roots — an app-level `bundleMerkleRoot` over the block's envelopes (offline verification) and the
-`immudbRoot` at close (ledger witness) — plus chaining metadata (`prevBlockRoot`,
-`prevAnchorHash`) for incremental audit.
+The record can be sliced into **incremental blocks** and published through a pluggable
+`AnchorTarget`. Each closed block produces two roots — an app-level `bundleMerkleRoot` over the
+block's envelopes (offline verification) and the `immudbRoot` at close (ledger witness) — plus
+chaining metadata (`prevBlockRoot`, `prevAnchorHash`) for incremental audit.
+
+**What ships today:** `FileAnchorTarget` writes append-only local files for development and
+testing. An **offline verifier** can check a block or a single entry against a root read from
+those files — this exercises the publish/verify pipeline without the platform DB.
+
+**What does not ship yet (external anchoring):** connectors that push anchors to infrastructure
+we do not control — **Git** transparency log, **EVM** (L1/L2/testnet), **Solana**. R14's
+“verify without trusting the platform” claim applies only once those targets are implemented,
+verified, and used in dev (testnet) or production. The file target is the primitive those
+connectors will publish the same artifacts through.
 
 ```ts
 const builder = new BlockBuilder(store, connector);
@@ -94,9 +108,8 @@ verifyEntry(bundle.entries[0], anchor, anchor.bundleMerkleRoot); // a single ent
 ```
 
 `FileAnchorTarget` writes human-readable, git-friendly files (an append-only `anchors.jsonl`
-index + one bundle file per block) and is the primitive under a future Git/chain connector.
-Anchor output dirs are gitignored. The anchoring tests run as part of `npm run test` (suite 09)
-and write to a throwaway temp dir — nothing is committed.
+index + one bundle file per block). Anchor output dirs are gitignored. Suite 09 tests use a
+throwaway temp dir — nothing is committed.
 
 ## Layout
 

@@ -3,17 +3,19 @@
 _First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0**
 (PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via
 tsx). **35 tests across 9 suites, all green (~5s).** Signing is stubbed this phase; the
-per-entity hash chain, block anchoring, and offline verification are real._
+per-entity hash chain, block-close pipeline, file target, and offline verifier are real.
+**External** anchoring (Git / EVM / Solana) is not yet implemented._
 
 ## TL;DR
 
 - **The model works.** Create/edit/delete are append-only transactions; current state is a
   fold over the log; the append-only chain (immudb) holds only commitments while the raw
   content lives in mutable Postgres. All 35 tests pass.
-- **Third parties can now verify the record without the platform.** Incremental blocks are
-  anchored to a pluggable target (a file target ships); an **offline verifier** checks a single
-  entry or a whole block against a root fetched independently from the target — no DB/immudb.
-  See suite 09.
+- **Block anchoring pipeline works (dev).** Incremental blocks close to a **file** target; an
+  **offline verifier** checks a single entry or a whole block against a root read from that
+  target — no DB/immudb at verify time. See suite 09. **External** anchoring (publishing to
+  Git / EVM testnet / production chain) is still future; that is when we can claim verification
+  without trusting the platform.
 - **Platform removal without breaking the audit trail is implemented and tested** (your
   question): **redaction** withholds plaintext from every response while **retaining** the raw
   in the mutable store; **erasure** destroys it. In both cases the commitment stands in and the
@@ -132,10 +134,13 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 | R1b dual attachment (entity vs revision pinning) | 05 |
 | R4/R5 commitments-only ledger + hiding (salted) | 01, 06 |
 | R6 mutable private store (redact/erase real) | 08 |
-| R12/R13 reconstruct + verify per entity | 06 |
-| R17/R18 minimal redaction + retain privately | 08 |
-| R19 true erasure + tombstone, still verifies | 06, 08 |
-| R20 auditor recomputes commitment / tamper caught | 06 |
+| R12/R13 reconstruct + verify (per-entity live; per-block/per-entry offline mechanics) | 06 (live), 09 (block + single-entry) |
+| R14 external anchoring (block model + two roots + chaining; **external targets pending**) | 09 (mechanism only) |
+| R15 pluggable anchor target (file ships; Git / EVM / Solana **future**) | 09 |
+| R16 offline verification vs independently-fetched root (**full R16 when external target live**) | 09 (file target) |
+| R17/R18 minimal redaction + retain privately (withheld from published bundle) | 08, 09 |
+| R19 true erasure + tombstone, still verifies | 06, 08, 09 |
+| R20 auditor recomputes commitment / tamper caught (live + offline) | 06, 09 |
 
 ---
 
@@ -144,13 +149,12 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 - **Real signatures.** `authorPubkey`/`signature` are stubs; author-match is pubkey equality.
   No cryptographic signing/verification yet (Turnkey/BIP32 is a later phase). The per-entity
   **hash chain is real**; the **signature layer is not**.
-- **Anchoring — file target only (covered); chain/Git targets pending.** Block anchoring + an
-  offline verifier now exist behind a pluggable `AnchorTarget`, with a **file target** as the
-  required implementation (the primitive under a future Git transparency-log connector). Still
-  pending: pushing the anchor to **Ethereum / a Git remote**, and a **close scheduler** (N/day) —
-  today `closeBlock` is an explicit call. immudb's own `verifyRow` remains server-side; the
-  zero-trust guarantee now comes from the externally-published `bundleMerkleRoot` + offline
-  verifier (full trustlessness completes when the file is pushed to infra OurSay doesn't control).
+- **External anchoring (not yet).** Block close, bundle export, offline verify, and a **file**
+  `AnchorTarget` are implemented (suite 09) — the dev/test primitive. **Still future:** Git
+  transparency-log, **EVM** (testnet in dev, production L1/L2 later), and **Solana** connectors
+  that publish roots to infra we do not control; a close scheduler (N/day). Until those ship and
+  are verified, we cannot claim R14 “without trusting the platform.” `closeBlock` is an explicit
+  call today. immudb `verifyRow` remains server-side.
 - **Offline verifier scope (deferred).** The offline verifier proves **Merkle inclusion + reveal**
   against the anchored root. It does **not** yet re-check each tx's per-entity `prevHash` witness
   (that linkage is verified live in `verifyEntityChain`). A documented follow-up.

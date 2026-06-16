@@ -82,6 +82,10 @@ export function verifyBlock(bundle: BlockBundle, anchoredRoot: string): BlockRep
  * Verify that block `curr` correctly chains onto a TRUSTED prior anchor `prev` — contiguous seq
  * ranges, height + 1, matching prev root, and the tamper-evident `prevAnchorHash`. An auditor who
  * already trusts `prev`'s root can validate `curr`'s chain metadata WITHOUT re-merkling `prev`.
+ *
+ * Note (v1): this checks the chain LINK only. `txCount` and `immudbRoot` progression are not part
+ * of the link — `immudbRoot` is an external witness, not required monotonic here, and `txCount` is
+ * validated against the actual entries by `verifyBlock`. Tightening either is a future option.
  */
 export function verifyChainLink(curr: AnchorRecord, prev: AnchorRecord): boolean {
   return (

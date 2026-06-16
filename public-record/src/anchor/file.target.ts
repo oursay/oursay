@@ -85,10 +85,17 @@ export class FileAnchorTarget implements AnchorTarget {
   }
 
   async fetchBundle(blockHeight: number): Promise<BlockBundle | undefined> {
-    this.readAnchors(); // integrity gate
+    const anchors = this.readAnchors(); // integrity gate
     const path = this.blockPath(blockHeight);
     if (!existsSync(path)) return undefined;
-    return JSON.parse(readFileSync(path, "utf8")) as BlockBundle;
+    const bundle = JSON.parse(readFileSync(path, "utf8")) as BlockBundle;
+    // Cross-check: the bundle's embedded anchor must match the anchors.jsonl line, so a bundle
+    // file cannot be swapped independently of the published (independently-fetched) anchor.
+    const line = anchors.find((a) => a.blockHeight === blockHeight);
+    if (!line || canonicalJson(line) !== canonicalJson(bundle.anchor)) {
+      throw new Error(`anchor target corrupt: block ${blockHeight} bundle anchor does not match anchors.jsonl`);
+    }
+    return bundle;
   }
 
   async listAnchors(): Promise<AnchorRecord[]> {

@@ -214,4 +214,23 @@ describe("09 anchoring: incremental blocks, file target, offline verification", 
     // wrong anchored root
     expect(verifyBlock(block, "0".repeat(64)).ok).to.equal(false);
   });
+
+  it("returns null when there is nothing to close", async () => {
+    const { target } = freshTarget();
+    expect(await builder.closeBlock(target)).to.equal(null);
+  });
+
+  it("rejects a bundle file whose embedded anchor diverges from anchors.jsonl", async () => {
+    await makePosts(2);
+    const { dir, target } = freshTarget();
+    await builder.closeBlock(target);
+
+    // Swap the bundle file's embedded anchor without touching the published anchors.jsonl line.
+    const blockPath = join(dir, "blocks", "block-00001.json");
+    const bundle = JSON.parse(readFileSync(blockPath, "utf8"));
+    bundle.anchor.bundleMerkleRoot = "0".repeat(64);
+    writeFileSync(blockPath, JSON.stringify(bundle));
+
+    expect(await rejects(target.fetchBundle(1))).to.equal(true);
+  });
 });
