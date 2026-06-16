@@ -10,7 +10,9 @@
     "url": "https://github.com/OurSay/oursay"
   },
   "workspaces": [
-    "site"
+    "site",
+    "turnkey-test",
+    "immudb-test"
   ],
   "scripts": {
     "dev": "npm run dev --workspace site",

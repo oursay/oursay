@@ -15,10 +15,19 @@ dist/
 .env
 .env.*
 !.env.example
+*.key.json
+*.key
+*.pem
+*credentials*.json
 
 # Logs
 *.log
 npm-debug.log*
+
+# immudb-test — local container data (bind mount) and generated artifacts
+immudb-test/.immudb-data/
+immudb-test/.state/
+immudb-test/out/
 
 # OS / editor
 .DS_Store

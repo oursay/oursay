@@ -23,7 +23,7 @@
 8. [Content Model](#8-content-model)
 9. [User Actions](#9-user-actions)
 10. [Discussions](#10-discussions)
-11. [The Distributed Public Ledger (Internal: Solana)](#11-the-distributed-public-ledger-internal-solana)
+11. [The Public Record (Internal: immudb + external anchoring)](#11-the-public-record-internal-immudb--external-anchoring)
 12. [Transparency & Source Code Auditability](#12-transparency--source-code-auditability)
 13. [Forkability & Global Adaptability](#13-forkability--global-adaptability)
 14. [Notifications & Communication](#14-notifications--communication)
@@ -88,13 +88,17 @@ An integration with an official electoral authority (e.g., Elections Alberta) is
 
 ### 3.4 Distributed Public Ledger
 
-Internally, OurSay uses the **Solana blockchain** to store verified participant signoffs and auditable action records.
+Internally, OurSay's public record is an **append-only, tamper-evident verifiable ledger (immudb)** that stores **only salted hash commitments and public metadata** for each civic action — never raw content or PII. Raw content, salts, and PII live in a **separate, mutable store (Postgres)** so that redaction and erasure remain possible (an append-only ledger can never delete). Periodically (on block close — at N actions or daily), the ledger's root is **anchored to external public infrastructure that the platform does not control**, so anyone can verify the public record's integrity without trusting OurSay.
 
-> **⚠️ Internal documentation only.** Never refer to Solana, blockchain, cryptocurrency, wallets, keypairs, or on-chain in any public-facing interface, documentation, or communication. All public-facing references use "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
+The **anchor target is pluggable**, and more than one may be used at once. The **preferred primary anchor is Ethereum** (the most decentralized option), with a public **transparency log** (e.g. a GitHub-hosted append-only file) as a low-cost complement, and an EVM L2 or other chain available as alternatives. _(Solana was originally considered as the anchor venue; it is now one valid optional target rather than "the ledger.")_ The architecture does not depend on any specific chain — the chain is only where the root is pinned.
+
+The worked design lives in [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) (normative requirements) and [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md) (modules, schemas, connectors).
+
+> **⚠️ Internal documentation only.** Never refer to immudb, Ethereum, blockchain, cryptocurrency, wallets, keypairs, Merkle roots, anchoring, or on-chain in any public-facing interface, documentation, or communication. All public-facing references use "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
 
 ### 3.5 Build Verification
 
-Every production deployment must produce a publicly verifiable hash, published in the repository (e.g., `DEPLOYMENTS.md`) and anchored on the distributed ledger. Any person can build the published source and confirm it matches the deployed application.
+Every production deployment must produce a publicly verifiable hash, published in the repository (e.g., `DEPLOYMENTS.md`) and anchored to the same external public infrastructure as the public record's root (see §3.4). Any person can build the published source and confirm it matches the deployed application.
 
 ---
 
@@ -173,7 +177,7 @@ A provider that confirms only identity awards `identity_verified`. A provider th
 2. User reviews the exact cost and consents to payment before proceeding
 3. The platform routes to the configured provider for the user's region
 4. The provider returns a result and capability output
-5. On **pass**: the platform awards the appropriate tier, records any geographic area assignment, and creates a distributed ledger record linking the user's pseudonymous identity to their verification tier — no personally identifiable information is stored on-chain
+5. On **pass**: the platform awards the appropriate tier, records any geographic area assignment, and creates a public-record entry linking the user's pseudonymous identity to their verification tier — no personally identifiable information is committed to the public record
 6. On **failure**: user is notified with guidance. No ledger record is created.
 
 ### 5.4 Verification States
@@ -314,6 +318,19 @@ Beliefs  →  Petitions  →  Public Votes  →  Results
 
 A belief is an informal expression of sentiment. A result is the formal, audited outcome of a community vote. Links between levels allow a result to be traced back to the beliefs that shaped it.
 
+> **Product concepts vs. public-record types.** The names above (Belief, Petition, Public Vote, Result) are **product/public-facing concepts**. Underneath, the public record commits a small set of **generic record types**, each a primitive the platform can surface under a jurisdiction-appropriate label (consistent with §13.1, generic by design):
+>
+> | Product concept | Public-record type | Notes |
+> |---|---|---|
+> | Belief | `post` | Generic primitive; "Belief" is the Alberta deployment's label for a `post`. |
+> | Petition | `petition` | |
+> | Public Vote | `vote` | |
+> | Discussion comment (§10) | `comment` | A first-class committed record type. |
+> | Reaction (lightweight signal) | `reaction` | A first-class committed record type. |
+> | Result (§8.4) | `result` (derived) | **Published/derived** from a closed vote — not a user append. |
+>
+> The MVP record types are `post`, `petition`, `comment`, `vote`, `reaction` (plus derived `result`). The set is **not fixed** — it is extensible by configuration; candidate future types include `discussion` (a topic/thread container), `bill` (a tracked legislative item), `official_response` (an official's reply to a petition, §8.2 / §4.5), and `poll` (a lightweight non-binding vote). See [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) R1.
+
 ### 8.1 Beliefs
 
 Informal statements that users create and others agree or disagree with. The starting point for civic conversation.
@@ -396,48 +413,52 @@ Every content item — belief, petition, public vote, result — has an associat
 
 ---
 
-## 11. The Distributed Public Ledger (Internal: Solana)
+## 11. The Public Record (Internal: immudb + external anchoring)
 
-> **⚠️ Internal documentation only.** Never use the terms Solana, blockchain, cryptocurrency, wallet, keypair, or on-chain in any public-facing context. All public language uses "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
+> **⚠️ Internal documentation only.** Never use the terms immudb, Ethereum, blockchain, cryptocurrency, wallet, keypair, Merkle, anchor, or on-chain in any public-facing context. All public language uses "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
 
-### 11.1 What Goes On-Chain
+The public record is an **append-only, tamper-evident verifiable ledger (immudb)** holding **only salted hash commitments + public metadata**, paired with a **separate mutable store (Postgres)** for raw content + salts + PII. The ledger's root is periodically **anchored to external public infrastructure** (preferred: Ethereum; pluggable — see §3.4). The trust root is the **externally-anchored root + an offline independent verifier**, not the ledger or the platform. Worked design: [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) and [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md).
 
-- Verified participant signoffs (pseudonymous identity linked to verification tier — no PII stored on-chain)
+### 11.1 What Is Committed to the Public Record vs. Anchored
+
+The public record stores, for each action, a **commitment** (a salted hash of the content) plus **public metadata** — never raw content or PII. The kinds of action committed:
+
+- Verified participant signoffs (pseudonymous per-thread identity linked to verification tier — no PII committed)
 - Public vote votes (by verified users)
 - Petition signatures (by verified users)
-- Belief agreements and disagreements (by verified users)
-- Discussion comment hashes (all registered users)
-- Published result records (final counts of closed public votes)
+- Post agreements and disagreements (by verified users) — "posts" are the generic record type the Alberta deployment surfaces as "Beliefs" (see §8)
+- Discussion comment commitments (all registered users)
+- Published result records (final counts of closed public votes — derived/published, not user-appended)
 - Build hashes (production deployment records)
 
-Unverified user actions are stored in the off-chain database only.
+Only the **periodic root** of the ledger (a Merkle root over committed entries) is **anchored externally** — not every individual entry. Unverified user actions are stored in the mutable off-record database only.
 
 ### 11.2 Pseudonymous Identity
 
-Each verified user has a Solana keypair. Their public key is their on-chain identity. Their private key signs their on-chain actions. The mapping between a user's platform account and their keypair is known to the platform, not published publicly, and accessible to the user themselves for self-audit purposes.
+Each verified user controls a master key from which **per-thread keys are derived deterministically (BIP32, secp256k1)**; key custody uses the approach evaluated in `../turnkey-test`. Each action is signed by the user's **per-thread key**, whose public key is its pseudonymous identity in the public record. The platform can prove a per-thread key belongs to a verified user **without exposing which user**. The mapping between a user's account and their keys (including the account-level extended public key, which links a user's threads and is therefore PII, encrypted at rest) is known to the platform, never published, and accessible to the user themselves for self-audit.
 
-A user's public key reveals nothing about their real-world identity. What the ledger proves: each recorded action was taken by a distinct participant at the recorded verification tier.
+A per-thread public key reveals nothing about a user's real-world identity. What the record proves: each recorded action was taken by a distinct verified participant at the recorded verification tier.
 
 ### 11.3 Public Auditability
 
 Any person must be able to independently:
-- Query the public ledger for total counts on any public vote, by tier
-- Verify that each on-chain entry represents a distinct verified participant (no duplicate voting)
-- Confirm that a published result matches the on-chain record
-- Reproduce any platform-published result
+- Query the public record for total counts on any public vote, by tier
+- Verify that each entry represents a distinct verified participant (no duplicate voting)
+- Confirm that a published result matches the public record
+- Reproduce any platform-published result **offline**, against the externally-anchored root, without using OurSay's tooling or servers
 
-All on-chain data structures must be documented in the repository so that independent auditors can write their own queries without using OurSay's tooling.
+All public-record data structures, commitment construction, and the verification procedure must be documented in the repository so that independent auditors can verify the published data themselves.
 
 ### 11.4 User Self-Audit
 
-Every user must be able to view all their on-chain actions from within their account, access the transaction ID or hash for each, verify each action against the public ledger via a direct link, and export their complete action history.
+Every user must be able to view all their recorded actions from within their account, access the commitment and anchor reference for each, verify each action against the public record via a direct link, and export their complete action history.
 
 ### 11.5 Required Public Language Reference
 
 - ✅ "Your action is recorded in a distributed public database that anyone can audit"
 - ✅ "Results are verified against a public, tamper-resistant ledger"
 - ✅ "Every verified action is permanently recorded in a public record"
-- ❌ Blockchain, Solana, cryptocurrency, wallet, keypair, on-chain, smart contract
+- ❌ Blockchain, Ethereum, Solana, immudb, cryptocurrency, wallet, keypair, Merkle, anchor, on-chain, smart contract
 
 ---
 
@@ -452,7 +473,7 @@ The entire codebase — backend, frontend, infrastructure-as-code, data migratio
 Every production deployment:
 1. Produces a hash of the deployed build
 2. Publishes the hash in the repository (e.g., `DEPLOYMENTS.md`)
-3. Anchors the hash on the distributed ledger
+3. Anchors the hash to external public infrastructure (see §3.4)
 4. Can be independently reproduced by anyone with the published source
 
 ### 12.3 Independent Audit Tooling
@@ -486,7 +507,7 @@ Any fork, adaptation, or deployment of OurSay must:
 
 These requirements are enforced by the platform's open source license.
 
-> **License note for contributors:** The platform currently uses GPL v3. The requirement that *any deployment* must keep source public is more precisely served by AGPL v3, which treats network use as distribution and therefore requires source publication for hosted instances. This distinction should be resolved before the first public deployment. See open GitHub issue [TBD].
+> **License note for contributors:** The platform currently uses GPL v3. The requirement that *any deployment* must keep source public is more precisely served by AGPL v3, which treats network use as distribution and therefore requires source publication for hosted instances. This distinction should be resolved before the first public deployment.
 
 ### 13.3 Government Non-Affiliation Disclaimer
 
