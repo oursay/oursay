@@ -55,6 +55,7 @@ Verified users have confirmed their identity and residency through a pluggable K
 │   ├── 04-LEGAL-OUTREACH.md       # Legal & regulatory outreach materials
 │   ├── 05-TRUST-REVIEW.md         # What's trustless vs. trust-based, and the roadmap to close the gap
 │   ├── 06-PRIVACY-REVIEW.md       # Disclosure matrix, re-identification risk, and mitigations
+│   ├── 07-DECENTRALIZATION-ALIGNMENT.md  # North star: build centralized, stay ready to decentralize
 │   ├── PHILOSOPHY.md              # Monorepo philosophy: structure & how code matures
 │   └── VALUES.md                  # Engineering values that constrain design
 ├── site/                          # Public marketing & explainer website (Astro) [workspace]
@@ -101,6 +102,18 @@ An honest accounting of what a third party can verify **without trusting OurSay*
 ### [`docs/06-PRIVACY-REVIEW.md`](docs/06-PRIVACY-REVIEW.md) — Privacy Review
 
 The most information each audience (public, representatives, media, independent auditors) may receive, the re-identification risk for fully-public users near multiple boundary lines, and the mitigations — including per-governmental-level key compartmentalization.
+
+### [`docs/07-DECENTRALIZATION-ALIGNMENT.md`](docs/07-DECENTRALIZATION-ALIGNMENT.md) — Decentralization Alignment
+
+The north-star constraint behind every design decision: OurSay runs centralized today but must stay
+able to become a permissioned consortium and, eventually, an open network where anyone who can
+validate identity (including public auditors) can run a node — *consensus as a possibility, not
+dictated by us*. Defines the design invariants (timestamps are never the ordering authority,
+authority is a configurable role not a hardcoded "us," blocks carry a consensus-ready header, every
+record is independently verifiable), a readiness checklist for contributors, and an honest ledger of
+the centralization we accept today with each one's migration path.
+
+**Read this before any decision about the record model, ordering, signing, anchoring, or authority.**
 
 ### [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) — Monorepo Philosophy
 
