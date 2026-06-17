@@ -2,7 +2,7 @@
 
 _First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0**
 (PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via
-tsx). **41 tests across 10 suites, all green (~9s).** Signing is stubbed this phase; the
+tsx). **45 tests across 10 suites, all green (~12s).** Signing is stubbed this phase; the
 per-entity hash chain, block-close pipeline, file target, offline verifier, and the
 transactional outbox are real. **External** anchoring (Git / EVM / Solana) is not yet implemented._
 
@@ -10,11 +10,14 @@ transactional outbox are real. **External** anchoring (Git / EVM / Solana) is no
 
 - **The model works.** Create/edit/delete are append-only transactions; current state is a
   fold over the log; the append-only chain (immudb) holds only commitments while the raw
-  content lives in mutable Postgres. All 41 tests pass.
+  content lives in mutable Postgres. All 45 tests pass.
 - **Two-store writes are durable (transactional outbox).** The private Postgres write
   **atomically enqueues** the immudb commitment in the same transaction; the relay delivers it
   **idempotently**, and a `flushOutbox()` recovery sweep completes anything left pending. A crash
-  between the two stores can no longer orphan a record without its commitment. See suite 10.
+  between the two stores can no longer orphan a record without its commitment. On a failed relay
+  the sweep applies a **healthcheck-gated retry policy** (default "3-3-3", env-configurable; `0` =
+  indefinite): retry while immudb is healthy, back off and re-healthcheck while it is down. See
+  suite 10.
 - **Block anchoring pipeline works (dev).** Incremental blocks close to a **file** target; an
   **offline verifier** checks a single entry or a whole block against a root read from that
   target — no DB/immudb at verify time. See suite 09. **External** anchoring (publishing to
@@ -110,7 +113,7 @@ by its hash.
 
 ---
 
-## 3. Test inventory (10 suites · 41 tests)
+## 3. Test inventory (10 suites · 45 tests)
 
 | Suite | Tests | What it proves |
 |---|---|---|
@@ -123,7 +126,7 @@ by its hash.
 | 07 projections | 3 | `getThread` (nested comments + reaction tallies); poll results by option; active signature counts (minus revoked) |
 | 08 redaction | 2 | redaction withholds from responses while retaining raw + chain intact; erasure destroys raw + chain verifies on hashes |
 | 09 anchoring | 11 | incremental block close (reproducible roots, on-disk artifacts); bundleMerkleRoot ↔ Merkle over envelopes; immudbRoot captured; append-only target; offline full-block + single-entry verify against an independently-fetched root; block chaining; redacted/erased withheld; seq-range + target-integrity + tamper detection |
-| 10 outbox | 4 | atomic enqueue (private write + commitment queued in one Postgres tx); a crash-orphaned write is recovered by an idempotent `flushOutbox()` sweep so the chain verifies; duplicate / pre-delivered commitments never double-write (immudb `PRIMARY KEY` + `getEnvelope` guard); an enqueue failure rolls the private write back (true atomicity) |
+| 10 outbox | 8 | atomic enqueue (private write + commitment queued in one Postgres tx); a crash-orphaned write is recovered by an idempotent `flushOutbox()` sweep so the chain verifies; duplicate / pre-delivered commitments never double-write (immudb `PRIMARY KEY` + `getEnvelope` guard); an enqueue failure rolls the private write back (true atomicity); the retry policy retries while healthy, backs off + re-healthchecks while down, gives up after `healthcheckAttempts` (leaving the row pending) and `0` = indefinite |
 
 Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record`.
 
@@ -166,10 +169,11 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 - **Concurrency.** The per-entity `prevHash` assumes a single writer per entity (sequential).
   Concurrent writes to the same entity would need optimistic locking — untested.
 - **Outbox relay has no scheduler yet.** Write atomicity is now solved (suite 10): the private
-  write + commitment enqueue are one Postgres transaction, and a `flushOutbox()` sweep recovers
-  anything pending after a crash. What is still missing is an **automatic** background relay /
-  retry scheduler — today the sweep is an explicit call (like `closeBlock`), plus the best-effort
-  immediate relay on `append`.
+  write + commitment enqueue are one Postgres transaction, and a `flushOutbox()` sweep — with a
+  healthcheck-gated retry/back-off policy (default "3-3-3", env-configurable; `0` = indefinite) —
+  recovers anything pending after a crash or an immudb outage. What is still missing is an
+  **automatic** background trigger for that sweep on a timer; today it is an explicit call (like
+  `closeBlock`), plus the best-effort immediate relay on `append`.
 - **Redaction granularity.** Redaction targets a transaction (a revision). Withholding the
   *current* content means redacting the head revision; redacting an older revision withholds
   only that revision. Bulk "redact this entity and all its revisions" is not a single call yet.

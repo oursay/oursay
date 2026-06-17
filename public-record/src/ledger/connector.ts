@@ -44,6 +44,9 @@ export interface LedgerConnector {
   /** Append one transaction's commitment row. Append-only. */
   appendTx(row: ChainRow): Promise<void>;
 
+  /** Liveness probe — true if the chain is reachable. Used by the outbox relay's retry policy. */
+  healthcheck(): Promise<boolean>;
+
   /** Read back the canonical envelope for a transaction id (undefined if absent). */
   getEnvelope(txId: string): Promise<string | undefined>;
 

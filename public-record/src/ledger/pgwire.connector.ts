@@ -62,6 +62,15 @@ export class PgWireLedgerConnector implements LedgerConnector {
     );
   }
 
+  async healthcheck(): Promise<boolean> {
+    try {
+      await this.client.query("SELECT 1");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   async getEnvelope(txId: string): Promise<string | undefined> {
     // Literal point read: avoids the stale-portal and param-binding quirks. txIds are UUIDs.
     const lit = txId.replace(/'/g, "''");

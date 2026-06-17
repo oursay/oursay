@@ -40,6 +40,9 @@ class DownConnector implements LedgerConnector {
   async appendTx(): Promise<void> {
     throw new Error("immudb unavailable");
   }
+  async healthcheck(): Promise<boolean> {
+    return false;
+  }
   async getEnvelope(): Promise<string | undefined> {
     return undefined;
   }
@@ -50,6 +53,45 @@ class DownConnector implements LedgerConnector {
     throw new Error("immudb unavailable");
   }
 }
+
+/**
+ * Wraps the real connector but fails the first `failAppends` writes and returns a scripted
+ * `healthSequence` (the last value repeats) — drives the relay's healthcheck-gated retry policy
+ * while still landing the eventual write in the real immudb so the chain verifies.
+ */
+class FlakyConnector implements LedgerConnector {
+  readonly transport = "pgwire" as const;
+  appendCalls = 0;
+  healthCalls = 0;
+  constructor(
+    private readonly real: LedgerConnector,
+    private readonly failAppends: number,
+    private readonly healthSequence: boolean[],
+  ) {}
+  async connect(): Promise<void> {}
+  async close(): Promise<void> {}
+  async appendTx(row: ChainRow): Promise<void> {
+    this.appendCalls += 1;
+    if (this.appendCalls <= this.failAppends) throw new Error("immudb append failed (flaky)");
+    return this.real.appendTx(row);
+  }
+  async healthcheck(): Promise<boolean> {
+    const i = this.healthCalls++;
+    return this.healthSequence[Math.min(i, this.healthSequence.length - 1)];
+  }
+  getEnvelope(txId: string): Promise<string | undefined> {
+    return this.real.getEnvelope(txId);
+  }
+  state(): Promise<LedgerRoot> {
+    return this.real.state();
+  }
+  verifyRow(txId: string): Promise<RowVerification> {
+    return this.real.verifyRow(txId);
+  }
+}
+
+/** A fast policy for tests — no real minutes-long waits; `sleeps` counts the back-off calls. */
+const fastCfg = { retryAttempts: 3, healthcheckWaitMs: 0, healthcheckAttempts: 3 };
 
 /** The transactional outbox makes the Postgres → immudb write durable across a crash between them. */
 describe("10 outbox: durable two-store writes", () => {
@@ -163,5 +205,85 @@ describe("10 outbox: durable two-store writes", () => {
     expect(await recordTxExists(txId), "record_tx rolled back").to.equal(false);
     expect(await outboxStatus(txId), "no outbox row").to.equal(undefined);
     expect(await store.getEntityState(entityId), "no folded state").to.equal(undefined);
+  });
+
+  /** Create an orphan (private row + pending outbox, immudb missing) and return its pending payload. */
+  async function makeOrphan(store: Awaited<ReturnType<typeof getWorld>>["store"], author: string) {
+    const downSvc = new RecordService(new PublicChain(new DownConnector(), store), store);
+    const ref = await downSvc.create({ type: "post", author, content: { body: `orphan-${author}` } });
+    const [pending] = (await store.getPendingOutbox()).filter((p) => p.txId === ref.txId);
+    return { ref, payload: pending.payload };
+  }
+
+  it("retries while immudb is healthy until the relay lands (retryAttempts)", async () => {
+    const { store, connector } = await getWorld();
+    const { ref, payload } = await makeOrphan(store, "erin");
+
+    // Healthy throughout, but the first two writes fail — the retry loop must keep going.
+    const flaky = new FlakyConnector(connector, 2, [true]);
+    let sleeps = 0;
+    const relay = new OutboxRelay(store, flaky, fastCfg, async () => void sleeps++);
+
+    const outcome = await relay.relayWithRetry(ref.txId, payload);
+    expect(outcome.delivered, "eventually delivered").to.equal(true);
+    expect(flaky.appendCalls, "two failures + one success").to.equal(3);
+    expect(sleeps, "no back-off needed while healthy").to.equal(0);
+    expect(await outboxStatus(ref.txId)).to.equal("sent");
+    expect((await verifyEntityChain(store, connector, ref.entityId)).ok).to.equal(true);
+  });
+
+  it("backs off and re-healthchecks while immudb is down, then delivers on recovery", async () => {
+    const { store, connector } = await getWorld();
+    const { ref, payload } = await makeOrphan(store, "frank");
+
+    // First write fails; immudb then reports down twice before recovering on the third check.
+    const flaky = new FlakyConnector(connector, 1, [false, false, true]);
+    let sleeps = 0;
+    const relay = new OutboxRelay(store, flaky, fastCfg, async () => void sleeps++);
+
+    const outcome = await relay.relayWithRetry(ref.txId, payload);
+    expect(outcome.delivered).to.equal(true);
+    expect(sleeps, "waited once per failed healthcheck before recovery").to.equal(2);
+    expect(await outboxStatus(ref.txId)).to.equal("sent");
+    expect((await verifyEntityChain(store, connector, ref.entityId)).ok).to.equal(true);
+  });
+
+  it("gives up after healthcheckAttempts and leaves the row pending; flushOutbox bails", async () => {
+    const { store } = await getWorld();
+    const { ref } = await makeOrphan(store, "grace");
+    const [pending] = (await store.getPendingOutbox()).filter((p) => p.txId === ref.txId);
+
+    const down = new DownConnector();
+    let sleeps = 0;
+    const relay = new OutboxRelay(store, down, fastCfg, async () => void sleeps++);
+
+    const outcome = await relay.relayWithRetry(ref.txId, pending.payload);
+    expect(outcome.delivered).to.equal(false);
+    expect(outcome.gaveUpUnhealthy, "stopped because immudb stayed down").to.equal(true);
+    expect(sleeps, "waited between healthchecks, not after the final one").to.equal(2);
+    expect(await outboxStatus(ref.txId), "row remains pending for the next sweep").to.equal("pending");
+
+    const result = await relay.flushOutbox();
+    expect(result.failed, "the sweep reports the undelivered row and bails").to.be.greaterThan(0);
+  });
+
+  it("0 means indefinite: keeps re-healthchecking past the finite limit until recovery", async () => {
+    const { store, connector } = await getWorld();
+    const { ref, payload } = await makeOrphan(store, "heidi");
+
+    // Down for FOUR checks — a finite limit of 3 would give up, but 0 = indefinite must hold on.
+    const flaky = new FlakyConnector(connector, 1, [false, false, false, false, true]);
+    let sleeps = 0;
+    const relay = new OutboxRelay(
+      store,
+      flaky,
+      { retryAttempts: 0, healthcheckWaitMs: 0, healthcheckAttempts: 0 },
+      async () => void sleeps++,
+    );
+
+    const outcome = await relay.relayWithRetry(ref.txId, payload);
+    expect(outcome.delivered, "never gave up despite > 3 down checks").to.equal(true);
+    expect(flaky.healthCalls, "kept checking until immudb returned").to.equal(5);
+    expect(await outboxStatus(ref.txId)).to.equal("sent");
   });
 });

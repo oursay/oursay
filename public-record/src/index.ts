@@ -83,5 +83,5 @@ export type {
 } from "./schema/types.js";
 
 // Config
-export { immudbPgConfig, pgConfig } from "./config.js";
-export type { PgConfig } from "./config.js";
+export { immudbPgConfig, pgConfig, outboxConfig } from "./config.js";
+export type { PgConfig, OutboxConfig } from "./config.js";

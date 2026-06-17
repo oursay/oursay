@@ -40,4 +40,25 @@ export const pgConfig: PgConfig = {
   database: env("PGDATABASE", "oursay_public_record"),
 };
 
+/**
+ * Outbox relay retry policy (the "3-3-3" default). When a relay to immudb fails, the relay
+ * healthchecks immudb and: if healthy, retries the delivery `retryAttempts` times; if unhealthy,
+ * waits `healthcheckWaitMs` and re-healthchecks up to `healthcheckAttempts` times.
+ *
+ * A count of **0 means indefinite** — keep retrying / re-healthchecking until it succeeds (used to
+ * ride out an arbitrarily long immudb outage). `healthcheckWaitMs` is configured in MINUTES via
+ * env; 0 minutes = re-healthcheck with no delay.
+ */
+export interface OutboxConfig {
+  retryAttempts: number; // relay retries while immudb is healthy (0 = indefinite)
+  healthcheckWaitMs: number; // delay between healthchecks while immudb is down
+  healthcheckAttempts: number; // healthchecks before giving up while down (0 = indefinite)
+}
+
+export const outboxConfig: OutboxConfig = {
+  retryAttempts: Number(env("OUTBOX_RETRY_ATTEMPTS", "3")),
+  healthcheckWaitMs: Number(env("OUTBOX_HEALTHCHECK_WAIT_MINUTES", "3")) * 60_000,
+  healthcheckAttempts: Number(env("OUTBOX_HEALTHCHECK_ATTEMPTS", "3")),
+};
+
 export const paths = { packageRoot, repoRoot };
