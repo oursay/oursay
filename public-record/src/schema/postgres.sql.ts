@@ -33,6 +33,22 @@ CREATE INDEX IF NOT EXISTS record_tx_parent     ON record_tx (parent_id);
 CREATE INDEX IF NOT EXISTS record_tx_parent_rev ON record_tx (parent_revision_hash);
 CREATE INDEX IF NOT EXISTS record_tx_type       ON record_tx (type);
 
+-- Transactional outbox. Each record_tx insert atomically enqueues its commitment here (same
+-- Postgres transaction), so a crash between the private write and the immudb append can never
+-- orphan a record: the pending row is relayed to immudb idempotently by OutboxRelay. The payload
+-- is the exact ChainRow (commitments + canonical envelope ONLY — never plaintext/salt), so the
+-- relay is self-contained and unaffected by later redaction/erasure of record_tx.
+CREATE TABLE IF NOT EXISTS record_outbox (
+  tx_id       UUID PRIMARY KEY REFERENCES record_tx(tx_id),
+  payload     JSONB        NOT NULL,
+  status      TEXT         NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent')),
+  attempts    INT          NOT NULL DEFAULT 0,
+  last_error  TEXT,
+  enqueued_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  sent_at     TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (enqueued_at) WHERE status = 'pending';
+
 -- Identity stubs (full Turnkey/BIP32 module is a later phase).
 CREATE TABLE IF NOT EXISTS users (
   id         UUID PRIMARY KEY,

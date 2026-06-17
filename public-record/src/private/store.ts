@@ -1,5 +1,6 @@
 import pg from "pg";
 import type { PgConfig } from "../config.js";
+import type { ChainRow } from "../ledger/connector.js";
 import { POSTGRES_DDL } from "../schema/postgres.sql.js";
 import type { Op, RecordType } from "../schema/types.js";
 
@@ -129,35 +130,83 @@ export class PrivateStore {
 
   /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
   async reset(): Promise<void> {
-    await this.pool.query("TRUNCATE record_tx, users, thread_keys");
+    await this.pool.query("TRUNCATE record_outbox, record_tx, users, thread_keys");
   }
 
-  async appendTx(input: AppendTxInput): Promise<void> {
+  /**
+   * Append the private record AND enqueue its commitment for immudb in ONE Postgres transaction.
+   * Either both rows land or neither does — so a crash can never leave a record_tx orphaned
+   * without a pending outbox row to relay it (see OutboxRelay). The outbox `payload` is the exact
+   * ChainRow (commitments only — never plaintext/salt).
+   */
+  async appendTxAndEnqueue(input: AppendTxInput, chainRow: ChainRow): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO record_tx
+          (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_tx_id,
+           parent_revision_hash, author_pubkey, signature, created_at, prev_hash, content_hash,
+           tx_hash, envelope, salt, content)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+        [
+          input.txId,
+          input.type,
+          input.entityId,
+          input.op,
+          input.parentType ?? null,
+          input.parentId ?? null,
+          input.parentRevisionTxId ?? null,
+          input.parentRevisionHash ?? null,
+          input.authorPubkey,
+          input.signature,
+          input.createdAt,
+          input.prevHash,
+          input.contentHash,
+          input.txHash,
+          input.envelope,
+          input.salt,
+          JSON.stringify(input.content),
+        ],
+      );
+      await client.query(
+        `INSERT INTO record_outbox (tx_id, payload) VALUES ($1, $2)`,
+        [input.txId, JSON.stringify(chainRow)],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ── Transactional outbox (immudb relay queue) ───────────────────────────────────────────
+
+  /** Pending commitments awaiting relay to immudb, oldest first. */
+  async getPendingOutbox(limit = 100): Promise<{ txId: string; payload: ChainRow }[]> {
+    const r = await this.pool.query(
+      `SELECT tx_id, payload FROM record_outbox
+       WHERE status = 'pending' ORDER BY enqueued_at ASC LIMIT $1`,
+      [limit],
+    );
+    return r.rows.map((row) => ({ txId: row.tx_id, payload: row.payload as ChainRow }));
+  }
+
+  /** Mark a commitment as successfully relayed to immudb. */
+  async markOutboxSent(txId: string): Promise<void> {
     await this.pool.query(
-      `INSERT INTO record_tx
-        (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_tx_id,
-         parent_revision_hash, author_pubkey, signature, created_at, prev_hash, content_hash,
-         tx_hash, envelope, salt, content)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [
-        input.txId,
-        input.type,
-        input.entityId,
-        input.op,
-        input.parentType ?? null,
-        input.parentId ?? null,
-        input.parentRevisionTxId ?? null,
-        input.parentRevisionHash ?? null,
-        input.authorPubkey,
-        input.signature,
-        input.createdAt,
-        input.prevHash,
-        input.contentHash,
-        input.txHash,
-        input.envelope,
-        input.salt,
-        JSON.stringify(input.content),
-      ],
+      `UPDATE record_outbox SET status = 'sent', sent_at = now() WHERE tx_id = $1`,
+      [txId],
+    );
+  }
+
+  /** Record a failed relay attempt; the row stays pending for the next sweep. */
+  async markOutboxFailed(txId: string, error: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE record_outbox SET attempts = attempts + 1, last_error = $2 WHERE tx_id = $1`,
+      [txId, error],
     );
   }
 

@@ -20,6 +20,9 @@ export { PublicChain, txHashOf } from "./ledger/chain.js";
 export { PgWireLedgerConnector } from "./ledger/pgwire.connector.js";
 export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow } from "./ledger/connector.js";
 
+// Transactional outbox relay (durable Postgres → immudb delivery)
+export { OutboxRelay } from "./ledger/outbox.js";
+
 // Governance
 export {
   rulesOf,
