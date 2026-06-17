@@ -15,10 +15,23 @@ dist/
 .env
 .env.*
 !.env.example
+*.key.json
+*.key
+*.pem
+*credentials*.json
 
 # Logs
 *.log
 npm-debug.log*
+
+# immudb-test — local container data (bind mount) and generated artifacts
+immudb-test/.immudb-data/
+immudb-test/.state/
+immudb-test/out/
+
+# public-record — anchor output (anchors.jsonl + per-block bundle files)
+public-record/.anchors/
+public-record/out/
 
 # OS / editor
 .DS_Store
@@ -26,3 +39,4 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.ignore/

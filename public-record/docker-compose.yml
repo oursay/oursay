@@ -1,0 +1,52 @@
+# public-record local stack.
+#
+#   immudb    -> public, verifiable, append-only chain (stores hash commitments only)
+#                reached over the PostgreSQL wire protocol (immudb 1.11.0)
+#   postgres  -> private, MUTABLE store (record_tx event log + raw content + salt) — erasable
+#
+# Host ports are deliberately offset from immudb-test (5432/5433/8080-8081) so both
+# workspaces' stacks can run simultaneously.
+services:
+  # immudb 1.11.0 over the PostgreSQL wire protocol — the modern, maintained path.
+  # Verification is available as SQL functions: immudb_state(), immudb_verify_row().
+  immudb:
+    image: codenotary/immudb:1.11.0
+    container_name: oursay-public-record-immudb
+    environment:
+      IMMUDB_ADDRESS: "0.0.0.0"
+      IMMUDB_PGSQL_SERVER: "true"
+    ports:
+      - "5443:5432" # PostgreSQL wire protocol
+      - "8082:8080" # web console
+    volumes:
+      - immudb-data:/var/lib/immudb
+    healthcheck:
+      test: ["CMD", "immuadmin", "status"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: oursay-public-record-pg
+    environment:
+      POSTGRES_USER: oursay
+      POSTGRES_PASSWORD: oursay
+      POSTGRES_DB: oursay_public_record
+    ports:
+      - "5442:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oursay -d oursay_public_record"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+volumes:
+  immudb-data:
+    name: oursay_public_record_immudb
+  pg-data:
+    name: oursay_public_record_pg

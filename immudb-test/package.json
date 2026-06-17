@@ -1,0 +1,33 @@
+{
+  "name": "@oursay/immudb-test",
+  "version": "0.0.0",
+  "private": true,
+  "description": "immudb evaluation: public verifiable ledger, tamper-evidence, Online Harms Act redaction, and external anchoring.",
+  "type": "module",
+  "scripts": {
+    "db:up": "docker compose up -d --wait immudb immudb-pg postgres",
+    "db:down": "docker compose down -v",
+    "db:logs": "docker compose logs -f",
+    "test": "mocha",
+    "test:unit": "mocha --grep @physical --invert",
+    "test:physical": "mocha --grep @physical",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
+    "dotenv": "^16.4.7",
+    "immudb-node": "^1.0.10",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.13.10",
+    "@types/pg": "^8.11.10",
+    "chai": "^5.1.2",
+    "mocha": "^11.0.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

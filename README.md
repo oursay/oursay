@@ -51,16 +51,26 @@ Verified users have confirmed their identity and residency through a pluggable K
 ├── docs/
 │   ├── 01-CONTRIBUTOR-SPEC.md     # Canonical product specification — read this first
 │   ├── 02-PUBLIC-EXPLAINER.md     # Public-facing platform overview
-│   └── 03-OUTREACH-TEMPLATE.md    # Audience-specific outreach templates
+│   ├── 03-OUTREACH-TEMPLATE.md    # Audience-specific outreach templates
+│   ├── 04-LEGAL-OUTREACH.md       # Legal & regulatory outreach materials
+│   ├── 05-TRUST-REVIEW.md         # What's trustless vs. trust-based, and the roadmap to close the gap
+│   ├── 06-PRIVACY-REVIEW.md       # Disclosure matrix, re-identification risk, and mitigations
+│   ├── PHILOSOPHY.md              # Monorepo philosophy: structure & how code matures
+│   └── VALUES.md                  # Engineering values that constrain design
+├── site/                          # Public marketing & explainer website (Astro) [workspace]
+├── turnkey-test/                  # Spike: per-user HD wallets & per-thread keys [workspace]
+├── immudb-test/                   # Spike: tamper-evident verifiable-ledger evaluation [workspace]
+├── public-record/                 # Proposal & requirements for the verifiable public-record library
 ├── DEPLOYMENTS.md                 # Published build hashes for every production deployment
-└── ...                            # Source code, infrastructure config (in progress)
+├── LICENSE                        # GNU General Public License v3.0
+└── package.json                   # npm-workspaces monorepo root
 ```
 
 ---
 
 ## Start Here: Foundational Documents
 
-These three documents define the project. Before writing any code, read the contributor spec.
+These documents define the project. Before writing any code, read the contributor spec — then the monorepo philosophy and engineering values before contributing code.
 
 ### [`docs/01-CONTRIBUTOR-SPEC.md`](docs/01-CONTRIBUTOR-SPEC.md) — Contributor Reference
 
@@ -79,6 +89,26 @@ Not aimed at contributors — aimed at participants.
 ### [`docs/03-OUTREACH-TEMPLATE.md`](docs/03-OUTREACH-TEMPLATE.md) — Outreach Templates
 
 Audience-specific email templates for outreach to Alberta MLAs, Elections Alberta, federal MPs, municipal politicians, and media and political creators. Each section is tailored to the recipient's core values and concerns.
+
+### [`docs/04-LEGAL-OUTREACH.md`](docs/04-LEGAL-OUTREACH.md) — Legal & Regulatory Outreach
+
+Materials for outreach to legal and regulatory bodies, addressing the platform's compliance posture and the questions a regulator is likely to raise.
+
+### [`docs/05-TRUST-REVIEW.md`](docs/05-TRUST-REVIEW.md) — Trust Review
+
+An honest accounting of what a third party can verify **without trusting OurSay** (record integrity + the anonymized, attested signed record) versus the one real trust gap (confirming a verified action belongs to a specific geographic area), the authentication model, and the roadmap to shrink the trusted base.
+
+### [`docs/06-PRIVACY-REVIEW.md`](docs/06-PRIVACY-REVIEW.md) — Privacy Review
+
+The most information each audience (public, representatives, media, independent auditors) may receive, the re-identification risk for fully-public users near multiple boundary lines, and the mitigations — including per-governmental-level key compartmentalization.
+
+### [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) — Monorepo Philosophy
+
+How this repository is organized and why, the three kinds of workspace (product, evaluation spike, library), and the path a capability travels from a throwaway experiment to civic infrastructure. Read this before adding a workspace or proposing where new code should live.
+
+### [`docs/VALUES.md`](docs/VALUES.md) — Engineering Values
+
+The engineering commitments that constrain how we build — auditability-as-code, minimal trust, anonymity preservation, censorship-minimalism, determinism, and more — each stating what it rules out. Read this before making a design decision with security or trust implications.
 
 ---
 
@@ -139,7 +169,7 @@ OurSay is civic infrastructure. It is designed to be deployed by other provinces
 - **The public retains the public good.** Civic infrastructure should not be privatized. If someone builds on OurSay's code, the public gets access to the improvements.
 - **Contributors are protected.** Your work cannot be enclosed and sold back to the public as a proprietary service.
 
-> **Note:** The platform's fork requirements — that *any deployment* must keep source public and auditable — may more precisely require **AGPL v3**, which covers network use as distribution and therefore requires source publication for hosted instances. GPL v3 may not require this for web-based deployments. This should be resolved before the first public deployment. See open GitHub issue [TBD].
+> **Note:** The platform's fork requirements — that *any deployment* must keep source public and auditable — may more precisely require **AGPL v3**, which covers network use as distribution and therefore requires source publication for hosted instances. GPL v3 may not require this for web-based deployments. This should be resolved before the first public deployment.
 
 ### What this means for you
 

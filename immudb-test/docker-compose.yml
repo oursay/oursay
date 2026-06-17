@@ -1,0 +1,78 @@
+# immudb-test local stack.
+#
+#   immudb    -> public, verifiable, append-only ledger (stores hash commitments only)
+#   postgres  -> private, MUTABLE store (users, keys, raw content + salt) — erasable
+#
+# The immudb data lives in an explicitly-named volume so the @physical tamper test can
+# corrupt it from a throwaway sidecar container (cross-platform, no host bind mount).
+services:
+  # NOTE: pinned to 1.1.0 on purpose. The maintained `immudb-node` npm client (1.1.1)
+  # predates the v1.2 transaction-header format change, so its cryptographic proofs only
+  # verify against immudb <= 1.1.x. See FINDINGS.md ("Version compatibility").
+  immudb:
+    image: codenotary/immudb:1.1.0
+    container_name: oursay-immudb-test
+    environment:
+      IMMUDB_ADDRESS: "0.0.0.0"
+      IMMUDB_PORT: "3322"
+      IMMUDB_AUTH: "true"
+    ports:
+      - "3322:3322" # gRPC API
+      - "8080:8080" # embedded web console
+      - "9497:9497" # metrics
+    volumes:
+      - immudb-data:/var/lib/immudb
+    healthcheck:
+      test: ["CMD", "immuadmin", "status"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # immudb 1.11.0 reached over the PostgreSQL wire protocol — the modern path. The same
+  # immudb data is queried with a plain `pg` client, and verification is available as SQL
+  # functions: immudb_state(), immudb_verify_row(), immudb_verify_tx(). See FINDINGS.md.
+  immudb-pg:
+    image: codenotary/immudb:1.11.0
+    container_name: oursay-immudb-test-pg-wire
+    environment:
+      IMMUDB_ADDRESS: "0.0.0.0"
+      IMMUDB_PGSQL_SERVER: "true"
+    ports:
+      - "5433:5432" # PostgreSQL wire protocol
+      - "3323:3322" # gRPC (not used here; exposed for parity)
+      - "8081:8080" # web console
+    volumes:
+      - immudb-pg-data:/var/lib/immudb
+    healthcheck:
+      test: ["CMD", "immuadmin", "status"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: oursay-immudb-test-pg
+    environment:
+      POSTGRES_USER: oursay
+      POSTGRES_PASSWORD: oursay
+      POSTGRES_DB: oursay_private
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oursay -d oursay_private"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+volumes:
+  immudb-data:
+    name: oursay_immudb_test_data
+  immudb-pg-data:
+    name: oursay_immudb_test_data_v2
+  pg-data:
+    name: oursay_immudb_test_pg

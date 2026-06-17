@@ -1,0 +1,130 @@
+---
+import Base from "../layouts/Base.astro";
+import { site } from "../data/site";
+---
+
+<Base
+  path="/transparency"
+  title="Transparency & accountability — OurSay"
+  description="How OurSay keeps a public record you can trust: one custodian not the source of truth, minimal lawful removals that never rewrite history, and an open invitation to auditors to keep their own copy and hold us accountable."
+>
+  <article class="mx-auto max-w-3xl px-6 py-16 sm:py-24">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      Transparency &amp; accountability
+    </p>
+    <h1 class="text-balance text-4xl font-bold tracking-tight text-slate-900">
+      We don't take "public record" lightly
+    </h1>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      A public record only means something if people can trust it — and you shouldn't have to
+      trust us to do that. This page explains, in plain terms, how we keep the record honest, how
+      we follow the law when something has to come down, and how anyone can hold us to account.
+    </p>
+
+    <div class="mt-10 space-y-10 text-slate-700">
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">We are one custodian — not the source of truth</h2>
+        <p class="mt-2 leading-relaxed">
+          OurSay keeps the public record, but we don't own it. It's designed to be held by many
+          people at once: everything that goes on the record is published so anyone can keep their
+          own copy. The truth of the record doesn't live only on our servers — it lives in every
+          copy people keep. That's the whole point of calling it <em>public</em>.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">What we publish</h2>
+        <ul class="mt-2 list-disc space-y-2 pl-5 leading-relaxed">
+          <li>The public record of actions — anonymized, signed, and attested by us. Every verified action is there to audit, without revealing who took it.</li>
+          <li>The results of every public vote, broken down by area and verification tier.</li>
+          <li>Every line of code that runs the platform, and a digital fingerprint of every released version, so anyone can confirm the app you use is the code we published.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">A public record, but private people</h2>
+        <p class="mt-2 leading-relaxed">
+          The record holds a <strong>digital fingerprint</strong> of each action — not your personal
+          message and not your name. Your identity stays off the public record. You can take part
+          anonymously and still be counted in the verified total. We'd rather prove a real person
+          acted than keep a pile of personal details that could leak.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">When we must remove something</h2>
+        <p class="mt-2 leading-relaxed">
+          Sometimes the law requires content to come down — a court order, content that breaks
+          Canada's online-harms rules, or a person exercising their right to be forgotten. We take
+          those obligations seriously, and we handle them in the most minimal way possible:
+        </p>
+        <ul class="mt-3 list-disc space-y-2 pl-5 leading-relaxed">
+          <li><strong>We remove the least possible.</strong> The message is hidden or deleted — but the rest of the entry (when it happened, that a real participant acted, its digital fingerprint) stays public.</li>
+          <li><strong>We never silently rewrite history.</strong> A removed entry still shows that something existed at that moment; its fingerprint remains, and every other record still checks out.</li>
+          <li><strong>Where the law requires us to keep removed content for lawful access, we keep it privately — never published.</strong> It is disclosed only to the authorities entitled to it.</li>
+        </ul>
+        <p class="mt-3 leading-relaxed">
+          The result: we can comply with a takedown without breaking the record. The fingerprint
+          that's left is enough to prove the entry was real and that everything around it is intact.
+        </p>
+      </section>
+
+      <section class="rounded-2xl border border-brand-200 bg-brand-50 p-6">
+        <h2 class="text-xl font-bold text-slate-900">Keep your own copy — and hold us accountable</h2>
+        <p class="mt-2 leading-relaxed text-slate-700">
+          This is the most important assurance on this page, and it only works if people act on it:
+          <strong>keep your own copy of the public record.</strong> Because every entry carries a
+          digital fingerprint, anyone holding an earlier copy can later prove whether something was
+          changed, redacted, or erased — and confirm we acted in good faith. We actively encourage
+          independent auditors, journalists, researchers, and officials to do exactly that. The more
+          people who keep a copy, the less anyone — including us — could ever quietly alter the
+          record.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">For officials</h2>
+        <ul class="mt-2 list-disc space-y-2 pl-5 leading-relaxed">
+          <li>You can respond on the record to petitions and public votes that name your office.</li>
+          <li>You can independently audit the signed record itself — every verified action is anonymized, attested by us, and yours to check, without taking our word for it.</li>
+          <li>The one thing that isn't yet trustless is confirming a verified voice belongs to your specific riding — that rests on address verification today. The fully independent path is an electoral-authority integration, and any resident can choose to prove their own record to you.</li>
+          <li>We claim no endorsement, certification, or approval from any government body or electoral authority.</li>
+          <li>Identity verification confirms a real person at a real address; it is not a determination of electoral eligibility or voter registration.</li>
+        </ul>
+      </section>
+
+      <section class="rounded-2xl border border-slate-300 bg-slate-50 p-6">
+        <p class="text-sm font-semibold uppercase tracking-wide text-slate-500">For the technically inclined</p>
+        <p class="mt-3 leading-relaxed text-slate-700">
+          The public record is an <strong>append-only</strong> log. For each action we store a
+          <strong>content commitment</strong> — a salted <strong>cryptographic hash</strong> of the
+          content — never the plaintext. Each action is signed with the participant's own
+          <strong>digital signature</strong> <span class="text-slate-500">(rolling out before launch)</span>.
+          Entries are summarized in batches into a <strong>Merkle root</strong>, and those roots are
+          <strong>anchored to independent public locations</strong> so the record can't be quietly
+          changed after the fact. We also publish a signed <strong>attestation</strong> over the set
+          of valid records, so the list you audit is provably the one we stand behind.
+        </p>
+        <p class="mt-3 leading-relaxed text-slate-700">
+          Verification runs <strong>offline</strong>: given the published data and a root obtained
+          independently, anyone can check a single entry or a whole batch — without trusting our
+          servers. A removed entry still verifies on its fingerprint alone, which is exactly how a
+          takedown can comply with the law while leaving the record provably intact. The tools to do
+          all of this are in our
+          <a class="font-medium text-brand-700 hover:underline" href={site.githubUrl} target="_blank" rel="noopener noreferrer">open-source repository</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2 class="text-xl font-bold text-slate-900">Questions, or think we got something wrong?</h2>
+        <p class="mt-2 leading-relaxed">
+          Everything here is open to inspection. Read the code on
+          <a class="font-medium text-brand-700 hover:underline" href={site.githubUrl} target="_blank" rel="noopener noreferrer">GitHub</a>,
+          or email us at
+          <a class="font-medium text-brand-700 hover:underline" href={`mailto:${site.contactEmail}`}>{site.contactEmail}</a>.
+          If we've got something wrong, we want to know.
+        </p>
+      </section>
+    </div>
+  </article>
+</Base>

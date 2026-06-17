@@ -1,0 +1,57 @@
+---
+import Section from "./Section.astro";
+
+const points = [
+  {
+    title: "One custodian, not the last word",
+    body: "You never have to take our word that the record hasn't changed. Because it's public and anyone can keep a copy, the truth doesn't live only on our servers.",
+  },
+  {
+    title: "When removal is required, we remove the least possible",
+    body: "A court order, harmful content, or a person's right to be forgotten can mean a message must come down. When that happens we hide or delete that message — but its digital fingerprint stays on the record, so it still shows that something existed at that moment and was accounted for. We never quietly rewrite history.",
+  },
+  {
+    title: "Keep us honest — hold your own copy",
+    body: "We encourage auditors, journalists, and officials to keep their own copies of the public record. If we ever redact or erase something, anyone holding an earlier copy can see exactly what changed — and confirm everything else still adds up.",
+  },
+];
+---
+
+<Section id="public-record" tone="white">
+  <div class="mx-auto max-w-3xl text-center">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      The public record
+    </p>
+    <h2 class="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+      A public record you can keep
+    </h2>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      We call it a <em>public</em> record because it belongs to the public — not to us.
+      Everything that goes on the record is published so anyone can keep their own copy and
+      check it for themselves. We're one custodian of it, not its owner.
+    </p>
+  </div>
+
+  <dl class="mt-14 grid gap-6 md:grid-cols-3">
+    {
+      points.map((p) => (
+        <div class="rounded-2xl border border-slate-200 bg-paper p-6">
+          <dt class="text-base font-bold text-slate-900">{p.title}</dt>
+          <dd class="mt-2 text-sm leading-relaxed text-slate-600">{p.body}</dd>
+        </div>
+      ))
+    }
+  </dl>
+
+  <div class="mt-10 text-center">
+    <a
+      href="/transparency"
+      class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-900"
+    >
+      Read our full transparency &amp; accountability commitments
+      <svg viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="m9 6 6 6-6 6" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </a>
+  </div>
+</Section>
