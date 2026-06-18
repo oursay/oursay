@@ -59,9 +59,11 @@ and the code must keep them as distinct properties.
   **without exposing which user** (keys are HKDF-derived on-device from a level master; the
   linking material is PII held privately, not on the record).
 - Material that links a user's actions together (the platform's per-thread **registration
-  bindings** and **commitment openings**) is **PII, encrypted at rest**, never published, and
-  accessible to the user for self-audit or authorized per-thread reveal. Nothing published links
-  one thread to another — each on-record per-thread commitment is opaque.
+  bindings** and **commitment openings** — `user_id`, `salt_t`) is **PII, encrypted at rest**,
+  never published, and accessible to the user for self-audit or authorized per-thread reveal.
+  Nothing published links one thread to another — published records carry only `thread_pubkey`, and
+  the per-thread commitment is opaque and appears only in the platform's signed settlement
+  attestation metadata.
 - "Verified" and "identified" are **different fields**: a verified anonymous action counts
   in its tier total while displaying no identity. Never conflate them anywhere in the
   system.

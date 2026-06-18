@@ -40,11 +40,13 @@ but real class of users:
   definitions **change over time** (adding independent data points per redraw), accumulated
   constraints can **pinpoint an address**.
 - The **linkability vector is the platform's private account/identity link** — the registration
-  bindings and the per-thread commitment openings the platform holds. Crucially, there is **no
-  public cross-thread linker at all**: each per-thread commitment on the record is **opaque**, so
-  nothing published ties one thread to another (a strict improvement over the old account-level
-  xpub, which tied *all* of a user's threads together in a single disclosable value). The residual
-  risk is **behavioural/geographic inference** over the public signed data, not a published key.
+  bindings and the per-thread commitment openings (`user_id`, `salt_t`) the platform holds.
+  Crucially, there is **no public cross-thread linker at all**: individual records carry only
+  `thread_pubkey`, and the per-thread commitment — which appears solely in the platform's
+  **settlement attestation metadata**, referenced by `thread_pubkey` — is **opaque**, so nothing
+  published ties one thread to another (a strict improvement over the old account-level xpub, which
+  tied *all* of a user's threads together in a single disclosable value). The residual risk is
+  **behavioural/geographic inference** over the public signed data, not a published key.
 
 This is not a flaw in the cryptography; it is the unavoidable cost of letting individuals be both
 **publicly expressive** and **verifiable**. We cannot fully eliminate it for users who choose maximal

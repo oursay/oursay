@@ -24,10 +24,11 @@ The **integrity of the record** and the **record itself** are independently audi
 - Actions are linked in a **per-entity hash chain**; batches roll up into **Merkle roots** that are
   **anchored to external public infrastructure** (planned; the file-target anchor + offline verifier
   exist today — see `../public-record`).
-- The **full signed record is anonymized and publishable**: per-thread P-256 action signatures,
-  content fingerprints, per-thread public keys, tier/region metadata, and opaque per-thread
-  commitments carry no names and no cross-thread link. Anyone can hold a complete copy and recompute
-  every total.
+- The **full signed record is anonymized and publishable**: each record (envelope) carries a
+  per-thread P-256 action signature, a content fingerprint, its per-thread public key, and
+  tier/region metadata — only `thread_pubkey`, **never the identity commitment**. None of it carries
+  a name or a cross-thread link, and anyone can hold a complete copy and recompute every total. (The
+  opaque per-thread commitments appear separately, in the settlement attestation metadata below.)
 - Authorship, linkage, and the published set are **three separate proofs**: (1) the **action
   signature** proves authorship under a thread key; (2) a **private platform registration binding**
   proves the platform linked that key to one opaque account commitment at registration; (3) the

@@ -104,8 +104,10 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
   **verified user, without exposing which user** in the public record. This is established by a
   **private platform registration binding** created before any verified-tier append: the platform
   signs a binding committing to `thread_pubkey, thread_id, level, kyc_tier, region` and an **opaque
-  per-thread commitment** `H(user_id, salt_t, thread_id, level)`. The commitment lives only in the
-  private binding; the public envelope carries `thread_pubkey` only.
+  per-thread commitment** `H(user_id, salt_t, thread_id, level)`. The commitment is held in the
+  private binding and surfaced only — opaquely — in the platform's **settlement attestation
+  metadata** (referenced by `thread_pubkey`); the public envelope carries `thread_pubkey` only, and
+  the opening (`user_id`, `salt_t`) stays private until selective reveal (R11).
   > **Pivot flag (mechanism change):** ownership is now proven via the private registration binding
   > + opaque commitment, **not** via deriving the key from an account `xpub`. See §6.
 - **R8 [Invariant]** — A user MAY participate **anonymously**, or MAY publicly **claim**
