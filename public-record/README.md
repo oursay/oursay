@@ -12,7 +12,7 @@ targets publish those blocks on their own cadence.
 > tested. **External** anchoring — publishing roots to infra we do not control (Git transparency
 > log, EVM, Solana) — is not yet wired; that is the earliest point we can claim third-party
 > verifiability (testnet during development, production targets later). Real signing
-> (Turnkey/BIP32) and KYC are also later. See [`PROPOSAL.md`](./PROPOSAL.md) and
+> (passkey-derived per-thread P-256 keys) and KYC are also later. See [`PROPOSAL.md`](./PROPOSAL.md) and
 > [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ## Architecture

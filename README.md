@@ -59,7 +59,7 @@ Verified users have confirmed their identity and residency through a pluggable K
 │   ├── PHILOSOPHY.md              # Monorepo philosophy: structure & how code matures
 │   └── VALUES.md                  # Engineering values that constrain design
 ├── site/                          # Public marketing & explainer website (Astro) [workspace]
-├── turnkey-test/                  # Spike: per-user HD wallets & per-thread keys [workspace]
+├── turnkey-test/                  # Spike (historical): HD wallets/per-thread keys — NOT adopted; see its FINDINGS.md [workspace]
 ├── immudb-test/                   # Spike: tamper-evident verifiable-ledger evaluation [workspace]
 ├── public-record/                 # Proposal & requirements for the verifiable public-record library
 ├── DEPLOYMENTS.md                 # Published build hashes for every production deployment

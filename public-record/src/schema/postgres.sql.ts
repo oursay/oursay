@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS record_outbox (
 ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS chain_id TEXT NOT NULL DEFAULT 'oursay-local';
 CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enqueued_at) WHERE status = 'pending';
 
--- Identity stubs (full Turnkey/BIP32 module is a later phase).
+-- Identity stubs (full passkey/P-256 identity + per-thread bindings is a later phase).
 CREATE TABLE IF NOT EXISTS users (
   id         UUID PRIMARY KEY,
   handle     TEXT,

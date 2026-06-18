@@ -66,9 +66,16 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
   parent does not transfer endorsements its old content earned to the new content.
 - **R2 [Invariant]** — Every entry appended to the public record MUST be **signed by a
   per-thread key** controlled by its author.
-- **R3 [Invariant]** — Per-thread keys MUST be **derived deterministically by the user** from
-  a single master secret, so a user (or an auditor the user authorizes) can reproduce and
-  prove them. _Rationale: enables R7, R10, and R11 without the platform holding signing keys._
+- **R3 [Invariant]** — Per-thread keys MUST be **derived deterministically on the user's device**
+  via **domain-separated derivation (HKDF or equivalent)** from a **level-scoped master key** (one
+  master per governmental level), so a user (or an auditor the user authorizes) can reproduce and
+  prove them. Per-thread keys MUST sign envelopes with the single canonical algorithm (**P-256**,
+  passkey-native). Cross-device reproduction requires **recovery/sync of the level-master
+  material** — the passkey alone (which authenticates and may *unlock* derivation material) is not
+  sufficient. _Rationale: enables R7, R10, and R11 without the platform holding signing keys._
+  > **Pivot flag (normative change):** previously "derived from a single master secret." This
+  > invariant now mandates **level-scoped masters + on-device HKDF** (not BIP32 paths) as the
+  > structural compartmentalization mechanism. See [`PROPOSAL.md`](./PROPOSAL.md) §6.
 
 ## 3. Data model & confidentiality
 
@@ -83,18 +90,40 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 
 ## 4. Anonymity & identity
 
+> **Identity-model pivot (2026).** This section's invariants were updated when OurSay moved its
+> identity backbone from **BIP32/xpub + remote Turnkey custody** to **passkey auth + level-scoped
+> masters + on-device HKDF per-thread keys (P-256) + private per-thread platform bindings +
+> selective reveal**. The normative changes are flagged inline at **R3** (derivation), **R7**
+> (ownership mechanism), and **R11** (selective reveal vs xpub sharing). The pseudonymous
+> public-ownership channel (claim/unclaim, R8/R9) is unchanged and is kept distinct from the
+> identity-to-auditor reveal channel (R11). Rationale and the discarded approach:
+> [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md); worked design:
+> [`PROPOSAL.md`](./PROPOSAL.md) §6.
+
 - **R7 [Invariant]** — The platform MUST be able to verify that a per-thread key belongs to a
-  **verified user, without exposing which user** in the public record.
+  **verified user, without exposing which user** in the public record. This is established by a
+  **private platform registration binding** created before any verified-tier append: the platform
+  signs a binding committing to `thread_pubkey, thread_id, level, kyc_tier, region` and an **opaque
+  per-thread commitment** `H(user_id, salt_t, thread_id, level)`. The commitment lives only in the
+  private binding; the public envelope carries `thread_pubkey` only.
+  > **Pivot flag (mechanism change):** ownership is now proven via the private registration binding
+  > + opaque commitment, **not** via deriving the key from an account `xpub`. See §6.
 - **R8 [Invariant]** — A user MAY participate **anonymously**, or MAY publicly **claim**
   ownership of a thread's activity, exposing that activity as theirs.
 - **R9 [Invariant]** — Claiming a thread MUST be **reversible**.
 - **R10 [Invariant]** — A user MUST retain a **receipt/proof of each action** and be able to
   **self-audit** it against the public record at any time.
-- **R11 [Future]** — A user MUST be able to authorize an **independent organization** to
-  verify their thread activity (e.g. by sharing their account public key / xpub), with no
-  platform involvement. The independent organization is responsible for binding that key to
-  the user's real identity (its own KYC). _MVP must remain compatible; full realization is
-  Future._
+- **R11 [Future]** — A user MUST be able to authorize an **independent organization** to verify
+  their thread activity by **selectively revealing specific threads** — publishing the opening
+  `(user_id, salt_t, thread_id, level)` plus the platform binding **for those threads only**, never
+  a single key that exposes all activity at a scope. The organization recomputes the commitment,
+  confirms the platform's binding signature, and is responsible for binding the identity to the
+  user's real-world identity (its own KYC). _MVP must remain compatible; full realization is
+  Future._ A **user-signed** binding (in addition to the platform's) is the stronger end-state:
+  it lets the organization verify ownership **without platform cooperation**.
+  > **Pivot flag (normative change):** previously "sharing their account public key / xpub." R11 is
+  > now **per-thread selective reveal** of binding openings, not xpub sharing — disclosure is
+  > scoped to chosen threads, not all activity under a key. See §6.
 
 ## 5. Auditability & anchoring
 
@@ -193,11 +222,14 @@ original assertions._
   metadata only; a **mutable Postgres store** holds raw content, salts, and PII. This split is
   what makes both auditability (R4, R12) and redaction/erasure (R17–R19) possible at once. See
   [`../immudb-test/FINDINGS.md`](../immudb-test/FINDINGS.md).
-- **Per-thread keys.** Users hold a BIP32 master key; per-thread keys are derived at
-  deterministic paths (R3). The account-level xpub links a user's anonymous actions, so it is
-  PII — **encrypted at rest, never published**. Sharing the xpub with an independent
-  organization is what enables R11. Key custody is delegated to a provider (see
-  [`../turnkey-test`](../turnkey-test)).
+- **Per-thread keys.** Users hold a **level-scoped master key per governmental level**; per-thread
+  keys are derived **on-device via HKDF** from the matching level master (R3) and sign envelopes
+  with **P-256**. The platform links a thread key to a verified user through a **private
+  registration binding** carrying an **opaque per-thread commitment** — this binding, its `salt_t`,
+  and any commitment opening are PII, **encrypted at rest, never published** until the user
+  authorizes a **selective reveal** of specific threads (R11). Custody is the user's device/passkey;
+  Turnkey is an **optional recovery** path only. The discarded BIP32/xpub/Turnkey-custody spike is
+  documented in [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md).
 - **Pool → settle → publish.** Actions are first **pooled** (Postgres `record_outbox`, `pending`,
   tagged with their `chainId`); nothing reaches the ledger on the user's action. A **block** is
   **settled** when its trigger fires — `BLOCK_MAX_PENDING` records accumulated **or** the oldest
@@ -227,15 +259,15 @@ Where each requirement is addressed in the design. Sections refer to
 |---|---|
 | R1 record types (post/petition/comment/vote/reaction) | §3 (append flow), §5.3 (envelope `RecordType`) |
 | R2 per-thread signing | §3, §5.2 (`signature`, `author_pubkey`), §5.3 |
-| R3 deterministic derivation | §6 (`identity/derivation.ts`) |
+| R3 deterministic derivation | §6 (on-device HKDF from a level master, `identity/derivation.ts`) |
 | R4 commitments-only ledger | §3, §5.2, §5.3; Philosophy §5 |
 | R5 hiding (salted) commitments | §3 (append flow), §5.1 (`raw_content.salt`); Values §6 |
 | R6 mutable private store | §5.1; Philosophy §5 |
-| R7 ownership without exposure | §6 (`identity/ownership.ts`) |
+| R7 ownership without exposure | §6 (private registration binding + opaque commitment, `identity/binding.ts`) |
 | R8 anonymous or claim | §5.1 (`thread_keys.claimed`), §6 |
 | R9 claim reversible | §5.1 (`claimed_at` nullable), §6 (`unclaimThread`) |
 | R10 user self-audit receipt | §3 (append returns id/salt), §7 (`verifyBundle`) |
-| R11 independent-org verification | §6 (xpub-based ownership), §9 Q5 |
+| R11 independent-org verification | §6 (selective reveal of binding openings, `revealThread`), §9 Q5 |
 | R12 reconstruct all hashes | §7 (crypto exports), `verifier.ts` |
 | R13 entry/block/record audit | §7, §8 (blocks) |
 | R14 external anchoring | §8; Values §1–2 |

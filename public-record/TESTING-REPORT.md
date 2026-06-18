@@ -172,8 +172,8 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 ## 5. What is NOT yet covered (honest gaps)
 
 - **Real signatures.** `authorPubkey`/`signature` are stubs; author-match is pubkey equality.
-  No cryptographic signing/verification yet (Turnkey/BIP32 is a later phase). The per-entity
-  **hash chain is real**; the **signature layer is not**.
+  No cryptographic signing/verification yet (passkey-derived per-thread P-256 signing is a later
+  phase). The per-entity **hash chain is real**; the **signature layer is not**.
 - **External anchoring (not yet).** Block settlement, publication, offline verify, and a **file**
   `AnchorTarget` are implemented (suites 09/11) — the dev/test primitive. **Still future:** Git
   transparency-log, **EVM** (testnet in dev, production L1/L2 later), and **Solana** connectors
