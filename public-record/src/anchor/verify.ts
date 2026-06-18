@@ -110,13 +110,21 @@ export function verifyChainLink(curr: AnchorRecord, prev: AnchorRecord): boolean
 }
 
 /**
- * Walk a full chain of anchors (ascending by height) and confirm it is intact end to end: genesis
- * has no predecessors, every block links to the one before it (verifyChainLink), and each block's
- * own chain-tip fold is self-consistent. Returns the verified tip, or null if any link is broken —
- * the cheap "is the whole chain intact, and what is the tip?" check.
+ * Walk a full chain of anchors (ascending by height) and confirm it is intact end to end: every
+ * anchor belongs to ONE chain (and matches `expectedChainId` if given — so an auditor checking a
+ * known genesis can't be fed another chain's anchors), genesis has no predecessors, every block
+ * links to the one before it (verifyChainLink), and each block's own chain-tip fold is self-
+ * consistent. Returns the verified tip, or null if any check fails — the cheap "is the whole chain
+ * intact, which chain, and what is the tip?" check.
  */
-export function verifyChain(anchors: AnchorRecord[]): { ok: boolean; tipHash: string | null } {
+export function verifyChain(
+  anchors: AnchorRecord[],
+  expectedChainId?: string,
+): { ok: boolean; tipHash: string | null } {
   if (anchors.length === 0) return { ok: true, tipHash: null };
+  const chainId = anchors[0].chainId;
+  if (expectedChainId !== undefined && chainId !== expectedChainId) return { ok: false, tipHash: null };
+  if (anchors.some((a) => a.chainId !== chainId)) return { ok: false, tipHash: null }; // no mixing chains
   const genesis = anchors[0];
   const genesisOk =
     genesis.blockHeight === 1 &&

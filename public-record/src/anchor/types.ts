@@ -1,4 +1,5 @@
 import type { MerkleStep } from "../crypto/merkle.js";
+import type { BlockAttestation } from "../ledger/connector.js";
 import type { Op, RecordType } from "../schema/types.js";
 
 /** immudb's cryptographic root at block close — the ledger integrity witness. */
@@ -15,6 +16,12 @@ export interface ImmudbRootRef {
  */
 export interface AnchorRecord {
   v: 1;
+  /**
+   * The genesis/network id this block belongs to (mirrors the immudb BlockHeader). Lets an offline
+   * auditor bind a published bundle to its chain/jurisdiction, and lets `verifyChain` reject a set
+   * that mixes chains. `record_chain` rows carry the same tag.
+   */
+  chainId: string;
   blockHeight: number; // 1-based; block 1 is genesis
   fromSeq: number; // exclusive lower bound (previous block's toSeq; 0 at genesis)
   toSeq: number; // inclusive upper bound
@@ -30,6 +37,8 @@ export interface AnchorRecord {
    */
   chainTipHash: string;
   prevChainTipHash: string | null; // block N-1's chainTipHash (null at genesis)
+  proposer: string | null; // the attesting actor (reserved; null in stage 1) — mirrors the header
+  attestations: BlockAttestation[]; // signature set over the block (reserved; empty in stage 1)
   /**
    * Plain `sha256Hex(canonicalJson(prev AnchorRecord AS WRITTEN, including its capturedAt))`.
    * NOT a Merkle leaf hash (those are `hashLeaf` of envelopes). null at genesis.

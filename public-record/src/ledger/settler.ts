@@ -43,6 +43,12 @@ export interface SettleOptions {
  * Resilient: a failed chain append triggers the same healthcheck-gated retry policy as the old relay
  * (default "3-3-3", see {@link OutboxConfig}; `0` = indefinite). If immudb stays unreachable the
  * settle throws and the pool is left intact for the next attempt.
+ *
+ * Single proposer (stage 1): settlement is NOT concurrency-safe — there is no lock between reading
+ * the tip (`fetchLatestBlock`) and writing the header (`appendBlock`), so exactly one settler per
+ * `chainId` must run at a time. Concurrent proposers are a stage-2 consensus concern (doc 07 §4/§5),
+ * not a single-custodian one. The settler only ever drains/commits its own `chainId`, so a shared
+ * Postgres pool / shared immudb can host other chains' settlers without interference.
  */
 export class BlockSettler {
   constructor(
@@ -59,7 +65,7 @@ export class BlockSettler {
    * Pure read — performs no writes. `now` defaults to the wall clock (cadence only; never ordering).
    */
   async evaluateTrigger(now: number = Date.now()): Promise<SettleDecision> {
-    const { count, oldestEnqueuedAt } = await this.store.getPendingPoolStats();
+    const { count, oldestEnqueuedAt } = await this.store.getPendingPoolStats(this.chainId);
     const oldestAgeMs = oldestEnqueuedAt === null ? null : now - Date.parse(oldestEnqueuedAt);
     if (count < this.cfg.minTxs) {
       return { shouldSettle: false, reason: null, pendingCount: count, oldestAgeMs };
@@ -82,20 +88,29 @@ export class BlockSettler {
    * triggers. Returns the settled header, or null if nothing is pending. Used by recovery and seed.
    */
   async settleBlock(opts: SettleOptions = {}): Promise<BlockHeader | null> {
-    const pending = await this.store.getPendingForSettlement(this.cfg.maxBlockTxs);
-    if (pending.length === 0) return null;
-
     const prev = await this.connector.fetchLatestBlock(this.chainId);
     const fromSeq = prev?.toSeq ?? 0;
 
-    // Reconcile a crash AFTER the header landed but BEFORE the pool was marked: those rows are
-    // already on-chain in the settled tip (seq ≤ fromSeq) — mark them sent, never re-block them.
-    const alreadySettled = pending.filter((p) => p.seq <= fromSeq);
-    if (alreadySettled.length > 0) {
-      await this.store.markOutboxSentBatch(alreadySettled.map((p) => p.txId));
+    // Find the next genuine batch (seq > fromSeq), reconciling any already-settled rows (seq ≤
+    // fromSeq) that a crash AFTER the header but BEFORE the pool-mark left marked-pending. We LOOP
+    // so a full reconcile window (≥ maxBlockTxs already-settled rows) can't stall the drain: each
+    // pass marks those rows sent, and the next query excludes them and reaches the fresh ones (F1).
+    let batch: { txId: string; seq: number; payload: ChainRow }[] = [];
+    for (;;) {
+      const pending = await this.store.getPendingForSettlement(this.chainId, this.cfg.maxBlockTxs);
+      if (pending.length === 0) return null;
+      const alreadySettled = pending.filter((p) => p.seq <= fromSeq);
+      const fresh = pending.filter((p) => p.seq > fromSeq);
+      if (alreadySettled.length > 0) {
+        await this.store.markOutboxSentBatch(alreadySettled.map((p) => p.txId));
+      }
+      if (fresh.length > 0) {
+        batch = fresh;
+        break;
+      }
+      if (alreadySettled.length === 0) return null; // nothing new and nothing left to reconcile
+      // else: the whole window was reconcile rows — loop; they are now 'sent' and excluded next pass.
     }
-    const batch = pending.filter((p) => p.seq > fromSeq);
-    if (batch.length === 0) return null;
 
     const toSeq = batch[batch.length - 1].seq;
     // Leaves over the EXACT canonical envelopes in seq order — identical to the offline verifier.
@@ -119,6 +134,8 @@ export class BlockSettler {
       prevBlockRoot: prev?.bundleMerkleRoot ?? null,
       prevChainTipHash,
       immudbRoot: { db: immu.db, txId: immu.txId, txHashHex: immu.txHashHex },
+      proposer: null, // reserved (doc 07 §4): single-custodian stage 1 settles unsigned
+      attestations: [], // reserved: the custodian-quorum signature set attaches here in stage 2
       capturedAt: opts.capturedAt ?? new Date().toISOString(),
     };
 
@@ -172,7 +189,7 @@ export class BlockSettler {
 
   private async tryAppend(rows: ChainRow[]): Promise<boolean> {
     try {
-      await this.connector.appendTxBatch(rows);
+      await this.connector.appendTxBatch(this.chainId, rows);
       return true;
     } catch {
       return false;

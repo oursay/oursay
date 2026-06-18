@@ -111,8 +111,9 @@ Honesty over aspiration — these are deliberate, temporary, and each has a know
 | Today (centralized) | Why it's fine now | How it decentralizes |
 |---|---|---|
 | One writer; per-entity `prevHash` assumes a single sequential writer | No contention with one custodian | Optimistic concurrency / BFT ordering; the per-entity chain still verifies per node |
-| One signer attests the block / valid-record set | Single operator of record | Header's signature set grows to a custodian **quorum** (stage 2) |
-| One proposer settles blocks on a local count/time trigger; a single `chainId` genesis | One custodian sets the settlement cadence; immudb is never reset, so blocks are keyed by `(chainId, height)` | The trigger becomes a proposer/quorum cadence under BFT; the age trigger stays *cadence only* (never ordering); `chainId` becomes an agreed, on-record, membership-gated genesis |
+| One signer attests the block / valid-record set; block header reserves `proposer` + `attestations` but they are empty | Single operator of record; signing is stubbed this phase | The header's reserved signature set fills with a custodian **quorum** (stage 2) — no header/anchor format change needed |
+| One proposer settles blocks on a local count/time trigger | One custodian sets the settlement cadence | The trigger becomes a proposer/quorum cadence under BFT; the age trigger stays *cadence only* (never ordering) |
+| Block tip + commitments are chain-scoped by `chainId`, but the Postgres event log + fold-on-read views are single-tenant (one Postgres = one body) | A shared immudb already hosts many chains by `(chainId, …)`; running one body per Postgres keeps content views simple | `chainId` becomes an agreed, on-record, membership-gated genesis; multi-tenant content views (chain-scoped `record_tx` + projections) are a later step if several bodies must share one Postgres |
 | `seq` is a single Postgres sequence | Global order is trivial locally | Order becomes block-relative (height + position), agreed by consensus |
 | Platform key signs governance / rules updates | Operator governs | "Platform" becomes an on-record **validator role**, then a quorum vote |
 | immudb `verifyRow` is server-side | Dev-stage witness | External anchoring + offline verifier is the node-agnostic trust root |

@@ -10,9 +10,8 @@ import type {
   RowVerification,
 } from "../src/ledger/connector.js";
 import { BlockSettler } from "../src/ledger/settler.js";
-import { RecordService } from "../src/record.js";
 import { verifyEntityChain } from "../src/verify.js";
-import { getWorld } from "./helpers/world.js";
+import { freshChainWorld, getWorld } from "./helpers/world.js";
 
 /** Read one outbox row's status directly. */
 async function outboxStatus(txId: string): Promise<string | undefined> {
@@ -98,13 +97,13 @@ class FlakyConnector implements LedgerConnector {
   ) {}
   async connect(): Promise<void> {}
   async close(): Promise<void> {}
-  appendTx(row: ChainRow): Promise<void> {
-    return this.real.appendTx(row);
+  appendTx(chainId: string, row: ChainRow): Promise<void> {
+    return this.real.appendTx(chainId, row);
   }
-  async appendTxBatch(rows: ChainRow[]): Promise<void> {
+  async appendTxBatch(chainId: string, rows: ChainRow[]): Promise<void> {
     this.batchCalls += 1;
     if (this.batchCalls <= this.failBatches) throw new Error("immudb batch failed (flaky)");
-    return this.real.appendTxBatch(rows);
+    return this.real.appendTxBatch(chainId, rows);
   }
   appendBlock(header: BlockHeader): Promise<void> {
     return this.real.appendBlock(header);
@@ -143,18 +142,17 @@ async function rejects(p: Promise<unknown>): Promise<boolean> {
 }
 
 /**
- * `append` now only POOLS a tx (atomic record_tx + pending outbox); the commitment reaches the
- * append-only chain at block SETTLEMENT. These tests cover the pool→chain settlement: durability
- * across a crash, idempotency, and the healthcheck-gated retry while immudb is down.
+ * `append` now only POOLS a tx (atomic record_tx + pending outbox, tagged with its chainId); the
+ * commitment reaches the append-only chain at block SETTLEMENT. These tests cover the pool→chain
+ * settlement: durability across a crash, idempotency, and the healthcheck-gated retry while immudb
+ * is down. Each test binds its pooling svc and its settler to ONE fresh chainId (freshChainWorld).
  */
 describe("10 settlement: durable pool → chain, idempotent and crash-safe", () => {
-  let svc: RecordService;
   let store: Awaited<ReturnType<typeof getWorld>>["store"];
   let connector: Awaited<ReturnType<typeof getWorld>>["connector"];
 
   before(async () => {
     const w = await getWorld();
-    svc = w.svc;
     store = w.store;
     connector = w.connector;
   });
@@ -164,13 +162,13 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("append only pools the tx; it reaches the chain on settlement", async () => {
+    const { svc, settler } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "alice", content: { body: "pool v1" } });
 
     expect(await recordTxExists(post.txId), "record_tx written").to.equal(true);
     expect(await outboxStatus(post.txId), "pooled, not yet settled").to.equal("pending");
     expect(await connector.getEnvelope(post.txId), "chain does NOT have it before settlement").to.equal(undefined);
 
-    const settler = new BlockSettler(store, connector, randomUUID(), blockConfig);
     const header = await settler.settleBlock();
     expect(header, "a block was settled").to.not.equal(null);
     expect(await outboxStatus(post.txId), "marked sent after settlement").to.equal("sent");
@@ -178,6 +176,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("recovers an orphaned pool tx: pending → settle → chain verifies", async () => {
+    const { svc, settler } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "bob", content: { body: "orphan" } });
 
     // Verification must FAIL while the commitment is unsettled.
@@ -189,7 +188,6 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     }
     expect(verifiedBefore, "chain cannot verify before settlement").to.equal(false);
 
-    const settler = new BlockSettler(store, connector, randomUUID(), blockConfig);
     const headers = await settler.flushPendingSettlement();
     expect(headers.length, "the orphan was settled").to.be.greaterThan(0);
 
@@ -200,22 +198,22 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("is idempotent: a pre-delivered commitment and a re-settle never double-write", async () => {
+    const { chainId, svc, settler } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "carol", content: { body: "idem" } });
 
     // Simulate "commitment already on the chain but outbox not yet marked" (crash between).
-    const [mine] = (await store.getPendingForSettlement(100)).filter((p) => p.txId === post.txId);
+    const [mine] = (await store.getPendingForSettlement(chainId, 100)).filter((p) => p.txId === post.txId);
     expect(mine, "pending payload available").to.not.equal(undefined);
-    await connector.appendTxBatch([mine.payload]);
+    await connector.appendTxBatch(chainId, [mine.payload]);
 
     // Settlement's batch append is idempotent — it skips the already-present row, no duplicate insert.
-    const settler = new BlockSettler(store, connector, randomUUID(), blockConfig);
     await settler.settleBlock();
     expect(await outboxStatus(post.txId), "marked sent via the idempotency guard").to.equal("sent");
 
     // Backstop: a raw duplicate append of the same row WOULD throw — proving idempotency mattered.
     let dupThrew = false;
     try {
-      await connector.appendTx(mine.payload);
+      await connector.appendTx(chainId, mine.payload);
     } catch {
       dupThrew = true;
     }
@@ -223,8 +221,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("reconciles a crash after the header but before the mark: no new block, just marks sent", async () => {
-    const chainId = randomUUID();
-    const settler = new BlockSettler(store, connector, chainId, blockConfig);
+    const { chainId, svc, settler } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "dave", content: { body: "recon" } });
     const header1 = (await settler.settleBlock())!;
     expect(header1.blockHeight).to.equal(1);
@@ -238,6 +235,31 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     expect((await connector.fetchLatestBlock(chainId))!.blockHeight, "still one block").to.equal(1);
   });
 
+  it("a full reconcile window still fully drains (no early stop)", async () => {
+    // Settle a small full block, then reopen ALL of it AND add fresh pending. With a tiny
+    // maxBlockTxs the reopened (already-settled) rows fill the first settle window — the drain must
+    // still reach the genuinely-pending rows rather than stopping after a reconcile-only pass (F1).
+    const tinyCfg = { maxPending: 0, maxPendingAgeMs: 0, maxBlockTxs: 2, minTxs: 1 };
+    const { chainId, svc, settler } = await freshChainWorld(tinyCfg);
+    const settled = await Promise.all(
+      [0, 1].map((i) => svc.create({ type: "post", author: "erin", content: { body: `s${i}` } })),
+    );
+    const h1 = (await settler.settleBlock())!;
+    expect(h1.txCount).to.equal(2);
+
+    // Reopen the whole settled block (crash-after-header on a FULL block) + add 2 fresh pending.
+    for (const p of settled) await reopenOutbox(p.txId);
+    const fresh = await Promise.all(
+      [0, 1].map((i) => svc.create({ type: "post", author: "erin", content: { body: `f${i}` } })),
+    );
+
+    const headers = await settler.flushPendingSettlement();
+    // The reopened rows reconcile (no new block); the fresh rows settle into block 2.
+    expect(headers.map((h) => h.blockHeight)).to.deep.equal([2]);
+    expect((await store.getPendingPoolStats(chainId)).count, "everything drained").to.equal(0);
+    for (const p of fresh) expect(await connector.getEnvelope(p.txId)).to.not.equal(undefined);
+  });
+
   it("rolls back the private write when the outbox enqueue fails (true atomicity)", async () => {
     const txId = randomUUID();
     const entityId = randomUUID();
@@ -246,7 +268,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
       type: "post" as const,
       entityId,
       op: "create" as const,
-      authorPubkey: "erin",
+      authorPubkey: "frank",
       signature: "unsigned",
       createdAt: new Date().toISOString(),
       prevHash: null,
@@ -261,7 +283,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     // transaction must roll back; neither row may survive.
     let threw = false;
     try {
-      await store.appendTxAndEnqueue(input, undefined as unknown as ChainRow);
+      await store.appendTxAndEnqueue(input, undefined as unknown as ChainRow, randomUUID());
     } catch {
       threw = true;
     }
@@ -272,11 +294,12 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("retries the batch while immudb is healthy until it lands (retryAttempts)", async () => {
-    const ref = await svc.create({ type: "post", author: "frank", content: { body: "retry" } });
+    const { chainId, svc } = await freshChainWorld();
+    const ref = await svc.create({ type: "post", author: "grace", content: { body: "retry" } });
 
     const flaky = new FlakyConnector(connector, 2, [true]); // two failures, then success
     let sleeps = 0;
-    const settler = new BlockSettler(store, flaky, randomUUID(), blockConfig, fastRetry, async () => void sleeps++);
+    const settler = new BlockSettler(store, flaky, chainId, blockConfig, fastRetry, async () => void sleeps++);
 
     const header = await settler.settleBlock();
     expect(header, "eventually settled").to.not.equal(null);
@@ -287,11 +310,12 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("backs off and re-healthchecks while immudb is down, then settles on recovery", async () => {
-    const ref = await svc.create({ type: "post", author: "grace", content: { body: "down-then-up" } });
+    const { chainId, svc } = await freshChainWorld();
+    const ref = await svc.create({ type: "post", author: "heidi", content: { body: "down-then-up" } });
 
     const flaky = new FlakyConnector(connector, 1, [false, false, true]);
     let sleeps = 0;
-    const settler = new BlockSettler(store, flaky, randomUUID(), blockConfig, fastRetry, async () => void sleeps++);
+    const settler = new BlockSettler(store, flaky, chainId, blockConfig, fastRetry, async () => void sleeps++);
 
     const header = await settler.settleBlock();
     expect(header).to.not.equal(null);
@@ -301,11 +325,12 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("gives up after healthcheckAttempts and leaves the pool pending", async () => {
-    const ref = await svc.create({ type: "post", author: "heidi", content: { body: "stays down" } });
+    const { chainId, svc } = await freshChainWorld();
+    const ref = await svc.create({ type: "post", author: "ivan", content: { body: "stays down" } });
 
     const down = new DownConnector();
     let sleeps = 0;
-    const settler = new BlockSettler(store, down, randomUUID(), blockConfig, fastRetry, async () => void sleeps++);
+    const settler = new BlockSettler(store, down, chainId, blockConfig, fastRetry, async () => void sleeps++);
 
     expect(await rejects(settler.settleBlock()), "settle throws when immudb stays down").to.equal(true);
     expect(sleeps, "waited between healthchecks, not after the final one").to.equal(2);
@@ -313,7 +338,8 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("0 means indefinite: keeps re-healthchecking past the finite limit until recovery", async () => {
-    const ref = await svc.create({ type: "post", author: "ivan", content: { body: "indefinite" } });
+    const { chainId, svc } = await freshChainWorld();
+    const ref = await svc.create({ type: "post", author: "judy", content: { body: "indefinite" } });
 
     // Down for FOUR checks — a finite limit of 3 would give up, but 0 = indefinite must hold on.
     const flaky = new FlakyConnector(connector, 1, [false, false, false, false, true]);
@@ -321,7 +347,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     const settler = new BlockSettler(
       store,
       flaky,
-      randomUUID(),
+      chainId,
       blockConfig,
       { retryAttempts: 0, healthcheckWaitMs: 0, healthcheckAttempts: 0 },
       async () => void sleeps++,

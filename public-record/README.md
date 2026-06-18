@@ -44,10 +44,15 @@ targets publish those blocks on their own cadence.
 - **Per-entity hash chain.** Each transaction's signed envelope carries `prevHash` = the prior
   transaction *of the same entity*, so an entity's history is an unbroken chain. The chain (immudb)
   provides the global append-only witness + the anchorable root.
-- **Block tip on the chain.** `record_blocks` is keyed by `(chainId, blockHeight)` — a genesis id
-  so the never-reset chain can host many genesis lines (a stable id per deployment, a fresh id per
-  test/seed run). Each block carries a `chainTipHash` (cumulative fold of the prior tip + this
-  block's Merkle root) so "is the whole chain intact?" is one walk from genesis.
+- **Block tip on the chain, chain-scoped.** `record_blocks` is keyed by `(chainId, blockHeight)` —
+  a genesis/network id so one never-reset immudb can host many chains (one per governing body; a
+  stable id per deployment, a fresh id per test/seed run). `record_chain` and the settlement pool
+  (`record_outbox`) carry the same `chainId`, so a settler drains/commits only its own chain; the
+  published `AnchorRecord` carries it too, and `verifyChain(anchors, chainId)` binds an audit to one
+  genesis. Each block carries a `chainTipHash` (cumulative fold of the prior tip + this block's
+  Merkle root) so "is the whole chain intact?" is one walk from genesis, plus reserved
+  `proposer`/`attestations` for a future custodian quorum. (Postgres fold-on-read views stay
+  single-tenant — one Postgres per body; multi-tenant content views are out of scope.)
 - **Two stores.** immudb commits hashes; Postgres holds the data. Deleting appends a `delete`
   tx (state tombstoned); **erasing** destroys the plaintext + salt while the chain still
   verifies from hashes alone.
@@ -83,7 +88,7 @@ text).
 # from the repo root
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + postgres 16
-npm run test    --workspace public-record   # 51 tests (11 suites)
+npm run test    --workspace public-record   # 53 tests (11 suites)
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
 npm run db:down --workspace public-record   # tear down (wipes volumes)
 ```
@@ -132,7 +137,7 @@ const anchor = await target.fetchAnchor(1);
 const bundle = await target.fetchBundle(1);
 verifyBlock(bundle, anchor.bundleMerkleRoot);                    // whole block
 verifyEntry(bundle.entries[0], anchor, anchor.bundleMerkleRoot); // a single entry
-verifyChain(await target.listAnchors());                         // whole chain → { ok, tipHash }
+verifyChain(await target.listAnchors(), chainId);                // whole chain (bound to a genesis) → { ok, tipHash }
 ```
 
 `FileAnchorTarget` writes human-readable, git-friendly files (an append-only `anchors.jsonl`

@@ -37,10 +37,21 @@ export interface ChainRow {
 }
 
 /**
+ * Who attests a block — reserved for doc 07 §4's consensus-ready header. Stage 1 settles with no
+ * proposer and an empty attestation set (signing is stubbed); reserving the shape now means a
+ * custodian quorum later is not a breaking change to the header / anchor format.
+ */
+export interface BlockAttestation {
+  pubkey: string;
+  signature: string;
+}
+
+/**
  * A settled block's header on the append-only chain — the unit of agreement (doc 07 invariant 4).
  * `chainId` is the genesis/network id (see BLOCKS_DDL); `(chainId, blockHeight)` identifies a block.
  * Carries both the seq range it settles and the two chaining values: `prevBlockRoot` (the prior
  * block's Merkle root) and `chainTipHash` (the cumulative tip linking this block to all prior ones).
+ * `proposer` + `attestations` separate WHO attests from WHAT is committed (reserved; empty today).
  */
 export interface BlockHeader {
   chainId: string;
@@ -53,6 +64,8 @@ export interface BlockHeader {
   prevBlockRoot: string | null; // block N-1's bundleMerkleRoot (null at genesis)
   prevChainTipHash: string | null; // block N-1's chainTipHash (null at genesis)
   immudbRoot: { db: string; txId: number; txHashHex: string }; // captured AFTER the batch tx append
+  proposer: string | null; // the attesting actor (reserved; null in stage 1)
+  attestations: BlockAttestation[]; // signature set over the block (reserved; empty in stage 1)
   capturedAt: string; // ISO; operational cadence metadata, never an ordering authority
 }
 
@@ -61,14 +74,15 @@ export interface LedgerConnector {
   connect(): Promise<void>;
   close(): Promise<void>;
 
-  /** Append one transaction's commitment row. Append-only. */
-  appendTx(row: ChainRow): Promise<void>;
+  /** Append one transaction's commitment row, tagged to `chainId`. Append-only. */
+  appendTx(chainId: string, row: ChainRow): Promise<void>;
 
   /**
-   * Append a batch of commitment rows at settlement. Idempotent: a row already present (by tx_id)
-   * is skipped, so a re-run after a crash mid-batch never double-writes / violates the PRIMARY KEY.
+   * Append a batch of commitment rows at settlement, all tagged to `chainId`. Idempotent: a row
+   * already present (by tx_id) is skipped, so a re-run after a crash mid-batch never double-writes
+   * / violates the PRIMARY KEY.
    */
-  appendTxBatch(rows: ChainRow[]): Promise<void>;
+  appendTxBatch(chainId: string, rows: ChainRow[]): Promise<void>;
 
   /**
    * Append a settled block's header. Idempotent on `(chainId, blockHeight)`: re-settling the same

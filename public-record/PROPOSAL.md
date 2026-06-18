@@ -10,8 +10,21 @@ _Status: **Partially implemented** · Graduates from `immudb-test` and `turnkey-
 > (one row per transaction) and the Postgres store is the `record_tx` event log + fold-on-read
 > views. The content model is the **7 types** in §5.3 (post, comment, reaction, petition,
 > petition_signature, poll, vote) with governance rules + dual (entity/revision) attachment.
-> The connector seam (§4), identity (§6), exports (§7), and anchoring (§8) remain as written —
-> forward-looking. Signing is **stubbed** this phase.
+> The connector seam (§4), identity (§6), and exports (§7) remain as written. Signing is
+> **stubbed** this phase.
+>
+> **Implementation note (pool → settle → publish).** Anchoring (§8) is now **built**, and the
+> as-built flow supersedes §3's per-tx append and §5.1's Postgres `anchors` mirror:
+> `append` only **pools** a tx (atomic `record_tx` + `record_outbox` `pending`) — it does NOT
+> write the chain. A **block** is settled from the pool by `BlockSettler` when the trigger fires
+> (≥ `BLOCK_MAX_PENDING` pending **or** the oldest waited ≥ `BLOCK_MAX_PENDING_AGE_HOURS`, capped
+> at `BLOCK_MAX_TXS`): the commitments are batch-appended to `record_chain` and a **block header**
+> lands in **`record_blocks` on immudb** — the canonical block tip, keyed by `(chainId, height)`
+> so one shared immudb hosts several chains (one per governing body). Block/anchor bookkeeping is
+> therefore on the chain, NOT mirrored in Postgres. `AnchorPublisher` then replicates settled
+> blocks to each `AnchorTarget` on its own cadence; the offline verifier checks a block / entry /
+> whole chain (`verifyChain`) against an independently-fetched root. The block header reserves
+> `proposer` + `attestations` for a stage-2 custodian quorum (doc 07 §4). See README + TESTING-REPORT.
 
 This proposal defines the **public record** workspace: the production library that writes
 OurSay's verifiable civic record, holds the private data behind it, and ships the tooling to
@@ -155,8 +168,9 @@ Two stores, one boundary, enforced by Philosophy §5:
   content plus public metadata (type, id, parent thread, public signing key ref, timestamp,
   `contentHash`). **Never** plaintext, **never** PII. Append-only is a feature here.
 - **Postgres (private store)** holds everything mutable and sensitive: raw content + salt,
-  user PII, account xpub (encrypted), per-thread keys, KYC attestations, sponsorships, and
-  our local mirror of block/anchor bookkeeping. Mutable so `redact()` and `erase()` are real.
+  user PII, account xpub (encrypted), per-thread keys, KYC attestations, sponsorships, and the
+  **settlement pool** (`record_outbox`). Block/anchor bookkeeping is NOT mirrored here — the
+  canonical block tip lives on immudb (`record_blocks`). Mutable so `redact()`/`erase()` are real.
 
 The **trust root is the externally-anchored Merkle root + the offline verifier** (Values §1–2),
 not immudb itself and not whichever connector we use.
@@ -167,13 +181,15 @@ not immudb itself and not whichever connector we use.
    The signature + public key are part of the public envelope; the platform first checks the
    thread key belongs to a verified user (§6) **without recording who**.
 2. Generate a fresh 32-byte **salt**; compute `contentHash = commitment(id, salt, content)`.
-3. Write `{ salt, content }` → **Postgres** `raw_content` (erasable).
-4. Write the `PublicEnvelope` (commitment + metadata + signature) → **immudb** via the
-   configured `LedgerConnector` (append-only).
-5. Return the id, key, envelope, and salt to the caller.
+3. Write `{ salt, content }` + the exact envelope → **Postgres** `record_tx` (erasable) AND
+   atomically enqueue the commitment in `record_outbox` (`pending`), in ONE transaction.
+4. Return the id, key, envelope, and salt to the caller. **The chain is not touched here** —
+   the commitment reaches **immudb** only when a block is **settled** from the pool (see the
+   pool→settle→publish note above and §8). Settlement, not `append`, is the sole chain writer.
 
-This is exactly the `immudb-test` `Ledger.append()` flow, generalized to (a) carry the
-per-thread signature and (b) write through a connector rather than a hardcoded client.
+This generalizes the `immudb-test` `Ledger.append()` flow to (a) carry the per-thread signature,
+(b) write through a connector rather than a hardcoded client, and (c) **defer the chain write to
+block settlement** so immudb receives agreed blocks, not one row per action.
 
 ---
 
@@ -344,24 +360,20 @@ CREATE TABLE sponsorships (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Local mirror of block/anchor bookkeeping (the immudb root + bundle root we published).
-CREATE TABLE anchors (
-  id                 UUID PRIMARY KEY,
-  bundle_merkle_root TEXT NOT NULL,
-  immudb_tx_id       BIGINT NOT NULL,
-  immudb_tx_hash     TEXT NOT NULL,
-  tx_count           INTEGER NOT NULL,
-  target             TEXT NOT NULL,         -- 'github' | 'evm' | …
-  external_ref       TEXT,                  -- commit/tag or chain tx id
-  captured_at        TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+-- NOTE (as-built): there is NO Postgres `anchors` mirror table. Block/anchor bookkeeping is the
+-- block header on immudb (`record_blocks`: height, seq range, bundleMerkleRoot, chainTipHash,
+-- immudbRoot, prev links, proposer/attestations), keyed by (chain_id, block_height). The pool to
+-- settle from is `record_outbox` (above). "Which txs are in block N" is derived from the header's
+-- (from_seq, to_seq] range via record_tx — no mutable Postgres block index. (This supersedes the
+-- earlier `anchors` table sketch.)
 ```
 
-`PrivateStore` exposes typed methods over these: `putContent`, `getContent`, `redact`,
-`erase`, `isRevealable` (promoted from `immudb-test`), plus `putUser`, `putAccountKey`,
-`putThreadKey`, `claimThread`/`unclaimThread`, `putAttestation`, `putSponsorship`,
-`recordAnchor`. Encryption of `xpub_enc`/`email_enc` uses a KMS-managed key (Values §9: the
-key is never committed; see §8 open question on key management).
+`PrivateStore` exposes typed methods over these: `appendTxAndEnqueue` (pool a tx), the settlement
+pool reads (`getPendingForSettlement`, `getPendingPoolStats`, `markOutboxSentBatch`), `redact`,
+`erase` (promoted from `immudb-test`), plus `putUser`/`putThreadKey` and the fold-on-read queries;
+identity/KYC/sponsorship methods (`putAccountKey`, `putAttestation`, `putSponsorship`) are
+forward-looking. Encryption of `xpub_enc`/`email_enc` uses a KMS-managed key (Values §9: the key is
+never committed; see §8 open question on key management).
 
 ### 5.2 immudb ledger row (pg-wire connector)
 
@@ -504,17 +516,19 @@ published record with no server access (Values §1; spec §11.3, §12.3).
 
 Per REQUIREMENTS.md R14–R16 and FINDINGS §4:
 
-- Accumulate appends into a **block**; **anchor on block close** — at **N actions** (proposal:
-  start at a small N in dev, target ~10k) **or daily**, whichever comes first. The closing
-  builds an export bundle, computes `bundleMerkleRoot`, reads the immudb root, and writes an
-  `AnchorRecord`.
+- Accumulate pooled appends into a **block**; **settle on the trigger** — at **N actions**
+  (`BLOCK_MAX_PENDING`, default 250) **or** when the oldest pending tx has waited X
+  (`BLOCK_MAX_PENDING_AGE_HOURS`, default 12h), whichever comes first, capped at `BLOCK_MAX_TXS`.
+  Settlement batch-appends the commitments to `record_chain` and writes the block header to
+  `record_blocks` (height, `bundleMerkleRoot`, `chainTipHash`, immudb root, prev links). Publishing
+  the bundle to external targets is a **separate per-target cadence** (`AnchorPublisher`).
 - **Pluggable targets behind `AnchorTarget`** (R15; Values §8), supporting more than one
   simultaneously: a **transparency log** (GitHub `anchors.jsonl` + tag — cheap, human-auditable)
   and a **chain** (`anchor(bytes32)` of the bundle root). Signing for the chain target is
   delegated to the same custody layer as `turnkey-test` (`signRawPayload`,
   `HASH_FUNCTION_NO_OP`, secp256k1); broadcasting is the one thin step left for a follow-up.
-- `anchors` table (§5.1) mirrors what we published so the platform can show users a direct
-  link from their action → block → anchor (spec §11.4 self-audit).
+- The action → block → anchor link for self-audit (spec §11.4) is derived from the block header's
+  seq range on immudb (`record_blocks`), not a Postgres mirror.
 
 > **Spec reconciliation — resolved.** Contributor spec §3.4 and §11 now describe this model
 > directly: immudb is the off-chain verifiable record, the chain is only a **pluggable anchor
@@ -556,9 +570,10 @@ transport.
 derivation, private ownership proof, xpub-based independent verification, claim/unclaim.
 KYC attestation + sponsorship tables wired.
 
-**Phase 3 — Anchoring.** `anchor/*` with GitHub + chain targets; block-close cadence; the
-`anchors` mirror; end-to-end test mirroring immudb-test 07–08 (anchor → offline verify
-against externally-fetched root).
+**Phase 3 — Settlement & anchoring.** **(built, dev)** `BlockSettler` (pool → `record_chain` +
+`record_blocks` on the count/age trigger) + `AnchorPublisher` with the file target on a per-target
+cadence; chain-scoped by `chainId`; offline block / entry / whole-chain verification against an
+externally-fetched root. **Still future:** GitHub + EVM/Solana targets.
 
 **Phase 4 — Watchdog (optional).** `GrpcLedgerConnector` as a continuous independent
 auditor beside the pg-wire writer (FINDINGS §5b).

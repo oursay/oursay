@@ -39,8 +39,14 @@ CREATE INDEX IF NOT EXISTS record_tx_type       ON record_tx (type);
 -- rows into a block). enqueued_at is the ingestion clock the settlement age-trigger reads. The
 -- payload is the exact ChainRow (commitments + canonical envelope ONLY — never plaintext/salt), so
 -- settlement is self-contained and unaffected by later redaction/erasure of record_tx.
+--
+-- chain_id tags which chain a pooled tx settles to (set at append time, default the deployment's
+-- CHAIN_ID). A BlockSettler drains ONLY its own chain_id, so one shared immudb can host several
+-- chains and a settler can never sweep another chain's pending. (The fold-on-read views above stay
+-- single-tenant: one Postgres = one body. Multi-tenant content views are out of scope.)
 CREATE TABLE IF NOT EXISTS record_outbox (
   tx_id       UUID PRIMARY KEY REFERENCES record_tx(tx_id),
+  chain_id    TEXT         NOT NULL DEFAULT 'oursay-local',
   payload     JSONB        NOT NULL,
   status      TEXT         NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent')),
   attempts    INT          NOT NULL DEFAULT 0,
@@ -48,7 +54,9 @@ CREATE TABLE IF NOT EXISTS record_outbox (
   enqueued_at TIMESTAMPTZ  NOT NULL DEFAULT now(),
   sent_at     TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (enqueued_at) WHERE status = 'pending';
+-- Idempotent migration for a persistent dev DB created before chain_id existed.
+ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS chain_id TEXT NOT NULL DEFAULT 'oursay-local';
+CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enqueued_at) WHERE status = 'pending';
 
 -- Identity stubs (full Turnkey/BIP32 module is a later phase).
 CREATE TABLE IF NOT EXISTS users (

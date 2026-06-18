@@ -2,16 +2,16 @@
 
 _First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0**
 (PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via
-tsx). **51 tests across 11 suites, all green (~12s).** Signing is stubbed this phase; the
-per-entity hash chain, the **pool → block-settlement** boundary, the file target + publish
-cadence, and the offline verifier are real. **External** anchoring (Git / EVM / Solana) is not
-yet implemented._
+tsx). **53 tests across 11 suites, all green (~12s).** Signing is stubbed this phase; the
+per-entity hash chain, the **pool → block-settlement** boundary (chain-scoped by `chainId`), the
+file target + publish cadence, and the offline verifier are real. **External** anchoring (Git /
+EVM / Solana) is not yet implemented._
 
 ## TL;DR
 
 - **The model works.** Create/edit/delete are append-only transactions; current state is a
   fold over the log; the append-only chain (immudb) holds only commitments while the raw
-  content lives in mutable Postgres. All 51 tests pass.
+  content lives in mutable Postgres. All 53 tests pass.
 - **Writes are pooled, then settled in blocks (durable + crash-safe).** `append` writes the
   private row and **atomically enqueues** the commitment (`record_outbox`, `pending`) in one
   Postgres transaction — nothing reaches the chain yet. A **block** is settled from the pool when
@@ -129,7 +129,7 @@ by its hash.
 
 ---
 
-## 3. Test inventory (11 suites · 51 tests)
+## 3. Test inventory (11 suites · 53 tests)
 
 | Suite | Tests | What it proves |
 |---|---|---|
@@ -141,9 +141,9 @@ by its hash.
 | 06 chain | 3 | full create→update chain verifies; raw-content tampering in Postgres is detected; true erasure still verifies (hash-only) |
 | 07 projections | 3 | `getThread` (nested comments + reaction tallies); poll results by option; active signature counts (minus revoked) |
 | 08 redaction | 2 | redaction withholds from responses while retaining raw + chain intact; erasure destroys raw + chain verifies on hashes |
-| 09 anchoring | 14 | settle a block then publish it to a target; reproducible bundles across two independent targets; `bundleMerkleRoot` ↔ Merkle over envelopes; genesis chain-tip fold; `immudbRoot` captured after the batch; append-only target; offline full-block + single-entry + whole-chain (`verifyChain`) verify against an independently-fetched root; block chaining (`prevBlockRoot`/`chainTipHash`/`prevAnchorHash`); redacted/erased withheld at publish; seq-range + target-integrity + tamper detection |
-| 10 settlement | 9 | `append` only pools (private row + `pending` outbox; not on the chain until settled); a crash-orphaned pool tx settles on a later sweep so the chain verifies; pre-delivered / re-settle never double-write (immudb `PRIMARY KEY` + `getEnvelope` guard); crash-after-header is reconciled to "sent" with no second block; an enqueue failure rolls the private write back (true atomicity); the retry policy retries while healthy, backs off + re-healthchecks while down, gives up after `healthcheckAttempts` (pool stays pending), and `0` = indefinite |
-| 11 settlement-cadence | 4 | count trigger holds below N then settles, capping the block at `BLOCK_MAX_TXS`; age trigger settles a lone old pending tx below the count (via injected `now`); file target publishes every 2 settled blocks, in order, and the bundles verify offline; re-evaluating with no new pending is a no-op |
+| 09 anchoring | 14 | settle a block then publish it to a target; reproducible bundles across two independent targets; `bundleMerkleRoot` ↔ Merkle over envelopes; genesis chain-tip fold + reserved empty `proposer`/`attestations`; published anchor carries `chainId`; `immudbRoot` captured after the batch; append-only target; offline full-block + single-entry + whole-chain (`verifyChain(.., chainId)`, incl. wrong-chain rejection) verify against an independently-fetched root; block chaining (`prevBlockRoot`/`chainTipHash`/`prevAnchorHash`); redacted/erased withheld at publish; seq-range + target-integrity + tamper detection |
+| 10 settlement | 10 | `append` only pools (private row + `pending` outbox tagged with `chainId`; not on the chain until settled); a crash-orphaned pool tx settles on a later sweep so the chain verifies; pre-delivered / re-settle never double-write (immudb `PRIMARY KEY` + `getEnvelope` guard); crash-after-header is reconciled to "sent" with no second block, and a FULL reconcile window still fully drains (no early stop); an enqueue failure rolls the private write back (true atomicity); the retry policy retries while healthy, backs off + re-healthchecks while down, gives up after `healthcheckAttempts` (pool stays pending), and `0` = indefinite |
+| 11 settlement-cadence | 5 | count trigger holds below N then settles, capping the block at `BLOCK_MAX_TXS`; age trigger settles a lone old pending tx below the count (via injected `now`); file target publishes every 2 settled blocks, in order, and the bundles verify offline; re-evaluating with no new pending is a no-op; **chain isolation** — two chains share one Postgres pool + immudb and each settler drains/commits only its own `chainId` (neither sweeps the other; both start at height 1) |
 
 Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record`.
 
@@ -202,7 +202,7 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 ```bash
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire :5443) + postgres 16 (:5442)
-npm run test    --workspace public-record   # 51 tests (11 suites)
+npm run test    --workspace public-record   # 53 tests (11 suites)
 npm run seed    --workspace public-record   # dev DB: folded state + settle + publish + verify
 npm run db:down --workspace public-record   # tear down (wipes volumes)
 ```

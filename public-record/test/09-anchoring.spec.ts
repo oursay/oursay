@@ -1,11 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect } from "chai";
-import { blockConfig } from "../src/config.js";
-import { BundleAssembler } from "../src/anchor/assembler.js";
-import { AnchorPublisher } from "../src/anchor/publisher.js";
 import { FileAnchorTarget } from "../src/anchor/file.target.js";
 import { everyNBlocks } from "../src/anchor/target.js";
 import {
@@ -17,40 +13,28 @@ import {
 } from "../src/anchor/verify.js";
 import { canonicalJson, sha256Hex } from "../src/crypto/commitment.js";
 import { hashLeaf, merkleRoot } from "../src/crypto/merkle.js";
-import { BlockSettler } from "../src/ledger/settler.js";
-import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import type { RecordService } from "../src/record.js";
-import { getWorld, rejects } from "./helpers/world.js";
+import { type ChainWorld, freshChainWorld, getWorld, rejects } from "./helpers/world.js";
 
 const T = "2026-06-16T00:00:00.000Z"; // injected capturedAt for deterministic chain-link asserts
 
 describe("09 anchoring: settle to the chain, publish to a target, verify offline", () => {
-  let svc: RecordService;
   let store: PrivateStore;
-  let connector: PgWireLedgerConnector;
 
   before(async () => {
     const w = await getWorld();
-    svc = w.svc;
     store = w.store;
-    connector = w.connector;
   });
 
   beforeEach(async () => {
     await store.reset(); // clean the pool so each test settles a known range
   });
 
-  /**
-   * A fresh genesis per test: a new chainId means block heights start at 1 every time (immudb is
-   * never reset). `publish` here force-publishes every settled block; cadence is exercised in 11.
-   */
-  function freshChain() {
-    const chainId = randomUUID();
-    const settler = new BlockSettler(store, connector, chainId, blockConfig);
-    const assembler = new BundleAssembler(store);
-    const publisher = new AnchorPublisher(connector, assembler, chainId);
-    return { chainId, settler, publisher };
+  /** A fresh genesis per test: new chainId ⇒ heights start at 1 (immudb is never reset); the bound
+   *  svc pools to that chainId so the settler drains it. `publish` here force-publishes every block. */
+  async function chain(): Promise<ChainWorld> {
+    return freshChainWorld();
   }
 
   function freshTarget() {
@@ -58,19 +42,20 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
     return { dir, target: new FileAnchorTarget(dir, everyNBlocks(1)) };
   }
 
-  async function makePosts(n: number): Promise<void> {
+  async function makePosts(svc: RecordService, n: number): Promise<void> {
     for (let i = 0; i < n; i++) {
       await svc.create({ type: "post", author: "alice", content: { body: `post-${i}` } });
     }
   }
 
   it("settles a block over a known range; metadata is reproducible across targets, artifacts land", async () => {
-    await makePosts(3);
-    const { settler, publisher } = freshChain();
+    const { chainId, svc, settler, publisher } = await chain();
+    await makePosts(svc, 3);
     const header = (await settler.settleBlock({ capturedAt: T }))!;
     expect(header.blockHeight).to.equal(1);
     expect(header.fromSeq).to.equal(0);
     expect(header.txCount).to.equal(3);
+    expect(header.chainId).to.equal(chainId);
 
     // The settled block replicates to TWO independent targets → identical bundles (reproducible).
     const a = freshTarget();
@@ -83,6 +68,7 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
 
     const blockA = (await a.target.fetchBundle(1))!;
     const blockB = (await b.target.fetchBundle(1))!;
+    expect(blockA.anchor.chainId).to.equal(chainId);
     expect(blockA.anchor.blockHeight).to.equal(1);
     expect(blockA.anchor.fromSeq).to.equal(0);
     expect(blockA.anchor.txCount).to.equal(3);
@@ -92,8 +78,8 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("bundleMerkleRoot equals an independent Merkle over the envelopes in seq order", async () => {
-    await makePosts(4);
-    const { settler, publisher } = freshChain();
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 4);
     await settler.settleBlock();
     const { target } = freshTarget();
     await publisher.publish(target);
@@ -105,38 +91,42 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
     expect(seqs).to.deep.equal([...seqs].sort((x, y) => x - y));
   });
 
-  it("the genesis chain-tip folds null with the block hash", async () => {
-    await makePosts(2);
-    const { settler, publisher } = freshChain();
+  it("the genesis chain-tip folds null with the block hash; proposer/attestations reserved empty", async () => {
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 2);
     const header = (await settler.settleBlock())!;
     expect(header.prevChainTipHash).to.equal(null);
     expect(header.chainTipHash).to.equal(computeChainTipHash(null, header.bundleMerkleRoot));
+    expect(header.proposer).to.equal(null);
+    expect(header.attestations).to.deep.equal([]);
 
     const { target } = freshTarget();
     await publisher.publish(target);
     const anchor = (await target.fetchAnchor(1))!;
     expect(anchor.chainTipHash).to.equal(computeChainTipHash(null, anchor.bundleMerkleRoot));
+    expect(anchor.proposer).to.equal(null);
+    expect(anchor.attestations).to.deep.equal([]);
   });
 
   it("captures immudbRoot AFTER the batch append", async () => {
-    await makePosts(2);
-    const { settler } = freshChain();
+    const { svc, settler } = await chain();
+    await makePosts(svc, 2);
     const header = (await settler.settleBlock())!;
     expect(header.immudbRoot.txId).to.be.greaterThan(0);
     expect(header.immudbRoot.txHashHex).to.match(/^[0-9a-f]{64}$/);
   });
 
   it("is append-only: publishing block 2 does not rewrite block 1's artifacts", async () => {
-    const { settler, publisher } = freshChain();
+    const { svc, settler, publisher } = await chain();
     const { dir, target } = freshTarget();
-    await makePosts(2);
+    await makePosts(svc, 2);
     await settler.settleBlock({ capturedAt: T });
     await publisher.publish(target);
 
     const block1File = readFileSync(join(dir, "blocks", "block-00001.json"), "utf8");
     const firstLine = readFileSync(join(dir, "anchors.jsonl"), "utf8").split("\n")[0];
 
-    await makePosts(2);
+    await makePosts(svc, 2);
     await settler.settleBlock({ capturedAt: T });
     await publisher.publish(target);
 
@@ -146,8 +136,8 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("verifies a full block offline using a root fetched independently from the target", async () => {
-    await makePosts(3);
-    const { settler, publisher } = freshChain();
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 3);
     await settler.settleBlock();
     const { target } = freshTarget();
     await publisher.publish(target);
@@ -161,11 +151,11 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("verifies a single entry with only its proof + the block's anchored root", async () => {
-    const { settler, publisher } = freshChain();
+    const { svc, settler, publisher } = await chain();
     const { target } = freshTarget();
-    await makePosts(2);
+    await makePosts(svc, 2);
     await settler.settleBlock({ capturedAt: T }); // block 1
-    await makePosts(2);
+    await makePosts(svc, 2);
     await settler.settleBlock({ capturedAt: T }); // block 2
     await publisher.publish(target);
 
@@ -177,11 +167,11 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("chains block 2 onto block 1; verifyChainLink + verifyChain pass on the published anchors", async () => {
-    const { settler, publisher } = freshChain();
+    const { chainId, svc, settler, publisher } = await chain();
     const { target } = freshTarget();
-    await makePosts(2);
+    await makePosts(svc, 2);
     await settler.settleBlock({ capturedAt: T });
-    await makePosts(3);
+    await makePosts(svc, 3);
     await settler.settleBlock({ capturedAt: T });
     await publisher.publish(target);
 
@@ -195,18 +185,20 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
     expect(anchor2.prevAnchorHash).to.equal(sha256Hex(canonicalJson(anchor1)));
     expect(verifyChainLink(anchor2, anchor1)).to.equal(true);
 
-    // The whole-chain walker confirms the tip end to end.
-    const chain = verifyChain([anchor1, anchor2]);
-    expect(chain.ok).to.equal(true);
-    expect(chain.tipHash).to.equal(anchor2.chainTipHash);
+    // The whole-chain walker confirms the tip end to end — and binds it to the expected chainId.
+    const chk = verifyChain([anchor1, anchor2], chainId);
+    expect(chk.ok).to.equal(true);
+    expect(chk.tipHash).to.equal(anchor2.chainTipHash);
+    // A wrong expected chainId is rejected even though the chain itself is intact.
+    expect(verifyChain([anchor1, anchor2], "some-other-chain").ok).to.equal(false);
   });
 
   it("withholds reveals for redacted/erased entries (store retains raw); reveals recompute", async () => {
+    const { svc, settler, publisher } = await chain();
     const post = await svc.create({ type: "post", author: "alice", content: { body: "visible" } });
     const redacted = await svc.create({ type: "comment", author: "bob", content: { body: "hateful content" }, parent: { type: "post", id: post.entityId } });
     const erased = await svc.create({ type: "comment", author: "bob", content: { body: "gone soon" }, parent: { type: "post", id: post.entityId } });
 
-    const { settler, publisher } = freshChain();
     await settler.settleBlock(); // commitments settled over the intact envelopes
     await store.redact(redacted.txId); // redaction/erasure happen AFTER settlement, BEFORE publish
     await store.erase(erased.txId);
@@ -231,8 +223,8 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("rejects an entry whose seq falls outside the anchor range", async () => {
-    await makePosts(2);
-    const { settler, publisher } = freshChain();
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 2);
     await settler.settleBlock();
     const { target } = freshTarget();
     await publisher.publish(target);
@@ -245,8 +237,8 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("fails loudly on a corrupt target (missing block file or a height gap)", async () => {
-    const { settler, publisher } = freshChain();
-    await makePosts(2);
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 2);
     await settler.settleBlock();
 
     // (a) missing block file
@@ -264,8 +256,8 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("detects tampering: altered envelope, altered reveal, and wrong anchored root", async () => {
-    await makePosts(3);
-    const { settler, publisher } = freshChain();
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 3);
     await settler.settleBlock();
     const { target } = freshTarget();
     await publisher.publish(target);
@@ -286,13 +278,13 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
   });
 
   it("settleBlock returns null when the pool is empty", async () => {
-    const { settler } = freshChain();
+    const { settler } = await chain();
     expect(await settler.settleBlock()).to.equal(null);
   });
 
   it("rejects a bundle file whose embedded anchor diverges from anchors.jsonl", async () => {
-    await makePosts(2);
-    const { settler, publisher } = freshChain();
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 2);
     await settler.settleBlock();
     const { dir, target } = freshTarget();
     await publisher.publish(target);

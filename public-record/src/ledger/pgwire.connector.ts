@@ -1,7 +1,14 @@
 import pg from "pg";
 import type { PgConfig } from "../config.js";
 import { BLOCKS_DDL, BLOCKS_TABLE, LEDGER_DDL, TABLE } from "../schema/ledger.sql.js";
-import type { BlockHeader, ChainRow, LedgerConnector, LedgerRoot, RowVerification } from "./connector.js";
+import type {
+  BlockAttestation,
+  BlockHeader,
+  ChainRow,
+  LedgerConnector,
+  LedgerRoot,
+  RowVerification,
+} from "./connector.js";
 
 /**
  * immudb 1.11.0 reached over the PostgreSQL wire protocol — the modern, maintained path
@@ -37,15 +44,16 @@ export class PgWireLedgerConnector implements LedgerConnector {
     await this.client.query(BLOCKS_DDL);
   }
 
-  async appendTx(row: ChainRow): Promise<void> {
+  async appendTx(chainId: string, row: ChainRow): Promise<void> {
     // immudb dislikes NULLs in indexed VARCHAR columns; absent parent fields become "".
     await this.client.query(
       `INSERT INTO ${TABLE}
-        (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_hash,
+        (tx_id, chain_id, type, entity_id, op, parent_type, parent_id, parent_revision_hash,
          author_pubkey, signature, created_at, prev_hash, content_hash, tx_hash, envelope)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         row.txId,
+        chainId,
         row.type,
         row.entityId,
         row.op,
@@ -63,11 +71,11 @@ export class PgWireLedgerConnector implements LedgerConnector {
     );
   }
 
-  async appendTxBatch(rows: ChainRow[]): Promise<void> {
+  async appendTxBatch(chainId: string, rows: ChainRow[]): Promise<void> {
     // Idempotent: skip rows already on the chain (crash-after-batch / re-settle safety). The
     // getEnvelope guard is the fast path; immudb's tx_id PRIMARY KEY is the backstop.
     for (const row of rows) {
-      if ((await this.getEnvelope(row.txId)) === undefined) await this.appendTx(row);
+      if ((await this.getEnvelope(row.txId)) === undefined) await this.appendTx(chainId, row);
     }
   }
 
@@ -78,8 +86,9 @@ export class PgWireLedgerConnector implements LedgerConnector {
     await this.client.query(
       `INSERT INTO ${BLOCKS_TABLE}
         (chain_id, block_height, from_seq, to_seq, tx_count, bundle_merkle_root, chain_tip_hash,
-         prev_block_root, prev_chain_tip_hash, immudb_db, immudb_tx_id, immudb_tx_hash, captured_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+         prev_block_root, prev_chain_tip_hash, immudb_db, immudb_tx_id, immudb_tx_hash,
+         proposer, attestations, captured_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
         header.chainId,
         header.blockHeight,
@@ -93,6 +102,8 @@ export class PgWireLedgerConnector implements LedgerConnector {
         header.immudbRoot.db,
         header.immudbRoot.txId,
         header.immudbRoot.txHashHex,
+        header.proposer ?? "", // reserved; "" ↔ null on read
+        JSON.stringify(header.attestations ?? []), // reserved; JSON array, "[]" in stage 1
         header.capturedAt,
       ],
     );
@@ -156,9 +167,15 @@ export class PgWireLedgerConnector implements LedgerConnector {
   }
 }
 
-/** Map a record_blocks row to a BlockHeader: "" prev fields ↔ null; numerics coerced. */
+/** Map a record_blocks row to a BlockHeader: "" prev/proposer fields ↔ null; numerics coerced. */
 function mapBlockHeader(row: pg.QueryResultRow): BlockHeader {
   const orNull = (v: unknown): string | null => (v == null || v === "" ? null : (v as string));
+  let attestations: BlockAttestation[] = [];
+  try {
+    if (row.attestations) attestations = JSON.parse(row.attestations as string) as BlockAttestation[];
+  } catch {
+    attestations = [];
+  }
   return {
     chainId: row.chain_id,
     blockHeight: Number(row.block_height),
@@ -170,6 +187,8 @@ function mapBlockHeader(row: pg.QueryResultRow): BlockHeader {
     prevBlockRoot: orNull(row.prev_block_root),
     prevChainTipHash: orNull(row.prev_chain_tip_hash),
     immudbRoot: { db: row.immudb_db, txId: Number(row.immudb_tx_id), txHashHex: row.immudb_tx_hash },
+    proposer: orNull(row.proposer),
+    attestations,
     capturedAt: row.captured_at,
   };
 }

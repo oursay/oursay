@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { BundleAssembler } from "../../src/anchor/assembler.js";
+import { AnchorPublisher } from "../../src/anchor/publisher.js";
 import { blockConfig, immudbPgConfig, pgConfig } from "../../src/config.js";
 import { PublicChain } from "../../src/ledger/chain.js";
 import { PgWireLedgerConnector } from "../../src/ledger/pgwire.connector.js";
@@ -16,6 +18,15 @@ export interface World {
   chainId: string;
 }
 
+/** A self-contained chain over the shared store+connector: the pooling svc and its settler/publisher
+ *  all share one fresh `chainId`, so the pool tag matches what the settler drains. */
+export interface ChainWorld {
+  chainId: string;
+  svc: RecordService;
+  settler: BlockSettler;
+  publisher: AnchorPublisher;
+}
+
 let world: World | undefined;
 
 /**
@@ -30,11 +41,26 @@ export async function getWorld(): Promise<World> {
   const store = new PrivateStore(pgConfig);
   await store.init();
   await store.reset();
-  const chain = new PublicChain(connector, store);
   const chainId = randomUUID();
+  const chain = new PublicChain(store, chainId);
   const settler = new BlockSettler(store, connector, chainId, blockConfig);
   world = { connector, store, chain, svc: new RecordService(chain, store), settler, chainId };
   return world;
+}
+
+/**
+ * Build a fresh chain over the shared store+connector: a new `chainId` with its own pooling svc,
+ * settler, and publisher all bound to it. Because `append` tags the pool with the svc's `chainId`
+ * and the settler drains only that `chainId`, the producer and consumer always agree — and block
+ * heights start at 1 (a fresh genesis on the never-reset immudb). Callers `store.reset()` per test.
+ */
+export async function freshChainWorld(cfg = blockConfig): Promise<ChainWorld> {
+  const { store, connector } = await getWorld();
+  const chainId = randomUUID();
+  const svc = new RecordService(new PublicChain(store, chainId), store);
+  const settler = new BlockSettler(store, connector, chainId, cfg);
+  const publisher = new AnchorPublisher(connector, new BundleAssembler(store), chainId);
+  return { chainId, svc, settler, publisher };
 }
 
 /**

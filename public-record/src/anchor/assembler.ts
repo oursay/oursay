@@ -58,6 +58,7 @@ export class BundleAssembler {
 
     const anchor: AnchorRecord = {
       v: 1,
+      chainId: header.chainId,
       blockHeight: header.blockHeight,
       fromSeq: header.fromSeq,
       toSeq: header.toSeq,
@@ -67,6 +68,8 @@ export class BundleAssembler {
       prevBlockRoot: header.prevBlockRoot,
       chainTipHash: header.chainTipHash,
       prevChainTipHash: header.prevChainTipHash,
+      proposer: header.proposer,
+      attestations: header.attestations,
       // Plain SHA-256 over the canonical prev anchor AS WRITTEN — not a hashLeaf.
       prevAnchorHash: prevPublishedAnchor ? sha256Hex(canonicalJson(prevPublishedAnchor)) : null,
       capturedAt: header.capturedAt,

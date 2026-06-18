@@ -18,7 +18,7 @@ export { PublicChain, txHashOf } from "./ledger/chain.js";
 
 // Connectors (pluggable transport to the append-only chain)
 export { PgWireLedgerConnector } from "./ledger/pgwire.connector.js";
-export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow, BlockHeader } from "./ledger/connector.js";
+export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow, BlockHeader, BlockAttestation } from "./ledger/connector.js";
 
 // Block settlement (pool → append-only chain, on the trigger policy)
 export { BlockSettler } from "./ledger/settler.js";
