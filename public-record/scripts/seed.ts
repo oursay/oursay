@@ -4,9 +4,19 @@
  * and a chain-verification summary. Run with: `npm run seed --workspace public-record`
  * (after `npm run db:up --workspace public-record`).
  */
-import { immudbPgConfig, pgConfig } from "../src/config.js";
+import { randomUUID } from "node:crypto";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { BundleAssembler } from "../src/anchor/assembler.js";
+import { AnchorPublisher } from "../src/anchor/publisher.js";
+import { FileAnchorTarget } from "../src/anchor/file.target.js";
+import { everyNBlocks } from "../src/anchor/target.js";
+import { verifyChain } from "../src/anchor/verify.js";
+import { blockConfig, immudbPgConfig, pgConfig } from "../src/config.js";
 import { PublicChain } from "../src/ledger/chain.js";
 import { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
+import { BlockSettler } from "../src/ledger/settler.js";
 import { PrivateStore } from "../src/private/store.js";
 import { getThread } from "../src/projection.js";
 import { RecordService } from "../src/record.js";
@@ -22,6 +32,7 @@ async function main(): Promise<void> {
   const store = new PrivateStore(pgConfig);
   await store.init();
   await store.reset();
+  const chainId = randomUUID(); // fresh genesis per seed run (immudb is never reset)
   const svc = new RecordService(new PublicChain(connector, store), store);
 
   console.log("\n=== seeding ===");
@@ -78,7 +89,29 @@ async function main(): Promise<void> {
   console.log("deleted post is tombstoned:", (await store.getEntityState(doomed.entityId))!.isDeleted);
   void edited;
 
-  console.log("\n=== chain verification ===");
+  // ── Settlement: drain the pool into block(s) on the append-only chain ────────────────────
+  console.log("\n=== settlement ===");
+  const settler = new BlockSettler(store, connector, chainId, blockConfig);
+  const headers = await settler.flushPendingSettlement();
+  console.log(`settled ${headers.length} block(s) on chain ${chainId}`);
+  for (const h of headers) {
+    console.log(
+      `  block ${h.blockHeight}: seq (${h.fromSeq}, ${h.toSeq}], ${h.txCount} tx,` +
+        ` root ${h.bundleMerkleRoot.slice(0, 12)}…, tip ${h.chainTipHash.slice(0, 12)}…`,
+    );
+  }
+
+  // ── External anchoring: publish the settled blocks to a file target, then verify offline ──
+  console.log("\n=== external anchoring ===");
+  const anchorDir = mkdtempSync(join(tmpdir(), "oursay-seed-anchor-"));
+  const target = new FileAnchorTarget(anchorDir, everyNBlocks(1));
+  const publisher = new AnchorPublisher(connector, new BundleAssembler(store), chainId);
+  const published = await publisher.publish(target);
+  console.log(`published block(s) ${JSON.stringify(published)} to ${anchorDir}`);
+  const chain = verifyChain(await target.listAnchors());
+  console.log(`offline chain verify: ${chain.ok ? "OK" : "FAILED"} (tip ${chain.tipHash?.slice(0, 12)}…)`);
+
+  console.log("\n=== chain verification (per entity) ===");
   for (const [label, id] of [["post", post.entityId], ["poll", poll.entityId], ["petition", petition.entityId]] as const) {
     const report = await verifyEntityChain(store, connector, id);
     console.log(`${label}: ${report.ok ? "OK" : "FAILED"} (${report.verdicts.length} tx)`);

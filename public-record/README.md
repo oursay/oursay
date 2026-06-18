@@ -2,39 +2,52 @@
 
 The OurSay public record: civic actions modelled as **event-sourced CRUD over an append-only
 verifiable chain**. Every create / edit / delete is a signed transaction that is never
-physically removed; current state is a **fold** over that log. The append-only chain (immudb)
-holds only **hash commitments**; the raw content lives in a separate **mutable Postgres** store
-whose integrity those commitments protect.
+physically removed; current state is a **fold** over that log. Writes are first **pooled** in a
+**mutable Postgres** store (which also holds the raw content); the **append-only chain** (immudb)
+receives the commitments — and a block header — only at **block settlement**, and external anchor
+targets publish those blocks on their own cadence.
 
-> Status: **schema + verification chain + block anchoring (dev)**. Incremental blocks, an
-> offline verifier, and a **file** `AnchorTarget` are implemented and tested. **External**
-> anchoring — publishing roots to infra we do not control (Git transparency log, EVM, Solana) —
-> is not yet wired; that is the earliest point we can claim third-party verifiability (testnet during
-> development, production targets later). Real signing (Turnkey/BIP32) and KYC are also later.
-> See [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
+> Status: **schema + verification chain + block settlement & anchoring (dev)**. Pooled writes,
+> the settlement boundary, an offline verifier, and a **file** `AnchorTarget` are implemented and
+> tested. **External** anchoring — publishing roots to infra we do not control (Git transparency
+> log, EVM, Solana) — is not yet wired; that is the earliest point we can claim third-party
+> verifiability (testnet during development, production targets later). Real signing
+> (Turnkey/BIP32) and KYC are also later. See [`PROPOSAL.md`](./PROPOSAL.md) and
+> [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ## Architecture
 
 ```
-        PUBLIC, append-only (immudb, pg-wire)          PRIVATE, mutable (Postgres)
-        ─────────────────────────────────────          ───────────────────────────
- append ─► record_chain                         <-->   record_tx  (event log)
-            tx_id, type, entity_id, op,                  + raw content + salt (erasable)
-            parent_id, parent_revision_hash,             + exact canonical envelope
-            prev_hash, content_hash, tx_hash,          fold-on-read views:
-            envelope (commitment only)                   entity_state, reaction_counts_by_*,
-                 │                                       petition_signature_counts, poll_results
-                 │ immudb_state() root
-                 ▼
-        BlockBuilder.closeBlock()  ──►  FileAnchorTarget (dev; local files)
-                 │                    future: Git · EVM · Solana connectors
-                 ▼
-        verifyEntityChain() (live)   verifyBlock / verifyEntry (offline, vs published root)
+   PRIVATE, mutable (Postgres)            PUBLIC, append-only (immudb, pg-wire)
+   ───────────────────────────           ─────────────────────────────────────
+ append ─► record_tx (event log)         record_chain   (commitments, batched at settle)
+   (POOL)   + raw content + salt          record_blocks (height, seq range, bundleMerkleRoot,
+            + canonical envelope                          chainTipHash, immudbRoot, prev links)
+            + record_outbox (pending)            ▲
+   fold-on-read views:                           │  BlockSettler.settleBlock()
+     entity_state, reaction_counts_by_*,         │  (trigger: ≥ N pending OR oldest ≥ X hours)
+     petition_signature_counts, poll_results     │
+                                                 ▼
+                       AnchorPublisher.maybePublish ──► FileAnchorTarget (dev; local files)
+                          (per-target cadence)          future: Git · EVM · Solana connectors
+                                                 │
+   verifyEntityChain() (live, post-settle)       ▼   verifyBlock / verifyEntry / verifyChain
+                                                     (offline, vs an independently-fetched root)
 ```
 
+- **Pool, then settle.** `append` writes the private row and atomically enqueues its commitment
+  (`record_outbox`, status `pending`) — nothing touches the chain yet. A **block** is settled from
+  the pool when the trigger fires (≥ `BLOCK_MAX_PENDING` pending **or** the oldest has waited
+  `BLOCK_MAX_PENDING_AGE_HOURS`, whichever first; never empty): its commitments are batch-appended
+  to `record_chain` and a header lands in `record_blocks`. The age trigger is **operational cadence
+  only** — it decides *when* to cut a block, never transaction order.
 - **Per-entity hash chain.** Each transaction's signed envelope carries `prevHash` = the prior
-  transaction *of the same entity*, so an entity's history is an unbroken chain. immudb provides
-  the global append-only ordering + the anchorable root.
+  transaction *of the same entity*, so an entity's history is an unbroken chain. The chain (immudb)
+  provides the global append-only witness + the anchorable root.
+- **Block tip on the chain.** `record_blocks` is keyed by `(chainId, blockHeight)` — a genesis id
+  so the never-reset chain can host many genesis lines (a stable id per deployment, a fresh id per
+  test/seed run). Each block carries a `chainTipHash` (cumulative fold of the prior tip + this
+  block's Merkle root) so "is the whole chain intact?" is one walk from genesis.
 - **Two stores.** immudb commits hashes; Postgres holds the data. Deleting appends a `delete`
   tx (state tombstoned); **erasing** destroys the plaintext + salt while the chain still
   verifies from hashes alone.
@@ -70,7 +83,7 @@ text).
 # from the repo root
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + postgres 16
-npm run test    --workspace public-record   # 35 tests (9 suites)
+npm run test    --workspace public-record   # 51 tests (11 suites)
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
 npm run db:down --workspace public-record   # tear down (wipes volumes)
 ```
@@ -78,16 +91,23 @@ npm run db:down --workspace public-record   # tear down (wipes volumes)
 Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
 stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.
 
-## Block anchoring (dev) — external targets future
+## Block settlement & anchoring (dev) — external targets future
 
-The record can be sliced into **incremental blocks** and published through a pluggable
-`AnchorTarget`. Each closed block produces two roots — an app-level `bundleMerkleRoot` over the
-block's envelopes (offline verification) and the `immudbRoot` at close (ledger witness) — plus
-chaining metadata (`prevBlockRoot`, `prevAnchorHash`) for incremental audit.
+Two decoupled phases. **Settlement** drains the pending pool into a block on the append-only chain
+(`record_chain` commitments + a `record_blocks` header) when the trigger fires. **Publication**
+replicates settled blocks to a pluggable `AnchorTarget` on each target's own cadence. Each block
+carries an app-level `bundleMerkleRoot` over its envelopes (offline verification), the `immudbRoot`
+captured after the batch (ledger witness), and chaining metadata (`prevBlockRoot`,
+`prevChainTipHash`, the cumulative `chainTipHash`, and `prevAnchorHash` linking published anchors).
+
+**Settlement trigger** (`BlockConfig`, env-tunable): settle when `≥ BLOCK_MAX_PENDING` txs are
+pending **or** the oldest pending tx has waited `≥ BLOCK_MAX_PENDING_AGE_HOURS` — whichever comes
+first, never empty, capped at `BLOCK_MAX_TXS` per block. `0` disables a dimension. The trigger is
+invoked explicitly (`maybeSettleBlock`) — wiring it to a worker/API is a later concern.
 
 **What ships today:** `FileAnchorTarget` writes append-only local files for development and
-testing. An **offline verifier** can check a block or a single entry against a root read from
-those files — this exercises the publish/verify pipeline without the platform DB.
+testing. An **offline verifier** checks a block, a single entry, or the whole chain against a root
+read from those files — exercising the publish/verify pipeline without the platform DB.
 
 **What does not ship yet (external anchoring):** connectors that push anchors to infrastructure
 we do not control — **Git** transparency log, **EVM** (L1/L2/testnet), **Solana**. R14's
@@ -96,19 +116,27 @@ verified, and used in dev (testnet) or production. The file target is the primit
 connectors will publish the same artifacts through.
 
 ```ts
-const builder = new BlockBuilder(store, connector);
+// 1. Pool writes (RecordService.create/update/... → PublicChain.append) accumulate in Postgres.
+// 2. Settle a block from the pool onto the append-only chain.
+const settler = new BlockSettler(store, connector, chainId);
+await settler.maybeSettleBlock();          // settles iff the count/age trigger fires
+// or settler.settleBlock() to force one, settler.flushPendingSettlement() to drain everything.
+
+// 3. Publish settled blocks to a target (append-only: anchors.jsonl + blocks/block-NNNNN.json).
 const target = new FileAnchorTarget("./.anchors");
-await builder.closeBlock(target);          // append-only: anchors.jsonl + blocks/block-NNNNN.json
+const publisher = new AnchorPublisher(connector, new BundleAssembler(store), chainId);
+await publisher.maybePublish(target);      // respects the target's cadence; .publish() forces it
 
 // Auditor — offline, no DB/immudb. Root is fetched independently from the target.
 const anchor = await target.fetchAnchor(1);
 const bundle = await target.fetchBundle(1);
-verifyBlock(bundle, anchor.bundleMerkleRoot);                 // whole block
+verifyBlock(bundle, anchor.bundleMerkleRoot);                    // whole block
 verifyEntry(bundle.entries[0], anchor, anchor.bundleMerkleRoot); // a single entry
+verifyChain(await target.listAnchors());                         // whole chain → { ok, tipHash }
 ```
 
 `FileAnchorTarget` writes human-readable, git-friendly files (an append-only `anchors.jsonl`
-index + one bundle file per block). Anchor output dirs are gitignored. Suite 09 tests use a
+index + one bundle file per block). Anchor output dirs are gitignored. Suites 09/11 use a
 throwaway temp dir — nothing is committed.
 
 ## Layout
@@ -117,16 +145,17 @@ throwaway temp dir — nothing is committed.
 |------|---------|
 | `src/schema/types.ts` | record types, ops, `EntityRules`, `TxEnvelope`, parent/op tables |
 | `src/schema/postgres.sql.ts` | `record_tx` event log + identity stubs + fold-on-read views |
-| `src/schema/ledger.sql.ts` | immudb `record_chain` DDL (commitments only) |
+| `src/schema/ledger.sql.ts` | immudb `record_chain` (commitments) + `record_blocks` (block headers) DDL |
 | `src/crypto/*` | canonical JSON + salted commitment + RFC-6962 Merkle (promoted from immudb-test) |
-| `src/ledger/connector.ts` · `pgwire.connector.ts` | pluggable chain transport (immudb pg-wire) |
-| `src/ledger/chain.ts` | `PublicChain` — dual write (private store + append-only chain) |
-| `src/private/store.ts` | `PrivateStore` — event log + redact/erase + fold queries + public (withholding) reads |
+| `src/ledger/connector.ts` · `pgwire.connector.ts` | pluggable chain transport (immudb pg-wire); tx + block batch/fetch |
+| `src/ledger/chain.ts` | `PublicChain` — pooled write (private store + pending outbox; no per-tx chain write) |
+| `src/ledger/settler.ts` | `BlockSettler` — settle the pool into a block (trigger policy + crash-safe retry) |
+| `src/private/store.ts` | `PrivateStore` — event log + pool stats + redact/erase + fold queries + public reads |
 | `src/record.ts` | `RecordService` — validated CRUD + governance + semantic helpers |
 | `src/governance.ts` | rules/deadline gating for vote-change & signature-revoke |
 | `src/projection.ts` | `getThread` and reaction tallies (entity- and revision-pinned) |
-| `src/anchor/*` | block builder, `AnchorTarget` + `FileAnchorTarget`, offline verifier |
+| `src/anchor/*` | `BundleAssembler`, `AnchorPublisher`, `AnchorTarget` + `FileAnchorTarget`, offline verifier |
 | `src/verify.ts` | `verifyEntityChain` — per-entity chain + commitment verification |
-| `scripts/seed.ts` | dev seed |
-| `test/*.spec.ts` | 9 suites (create, attach, state-fold, governance, revision-pinning, chain, projections, redaction, anchoring) |
+| `scripts/seed.ts` | dev seed (creates, settles a block, publishes + verifies offline) |
+| `test/*.spec.ts` | 11 suites (create, attach, state-fold, governance, revision-pinning, chain, projections, redaction, anchoring, settlement, settlement-cadence) |
 | `TESTING-REPORT.md` | results, flow, scenario coverage, and known gaps |

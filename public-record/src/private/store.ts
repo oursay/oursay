@@ -134,9 +134,9 @@ export class PrivateStore {
   }
 
   /**
-   * Append the private record AND enqueue its commitment for immudb in ONE Postgres transaction.
+   * Append the private record AND enqueue its commitment for the chain in ONE Postgres transaction.
    * Either both rows land or neither does — so a crash can never leave a record_tx orphaned
-   * without a pending outbox row to relay it (see OutboxRelay). The outbox `payload` is the exact
+   * without a pending outbox row to settle it (see BlockSettler). The outbox `payload` is the exact
    * ChainRow (commitments only — never plaintext/salt).
    */
   async appendTxAndEnqueue(input: AppendTxInput, chainRow: ChainRow): Promise<void> {
@@ -199,6 +199,52 @@ export class PrivateStore {
     await this.pool.query(
       `UPDATE record_outbox SET status = 'sent', sent_at = now() WHERE tx_id = $1`,
       [txId],
+    );
+  }
+
+  // ── Settlement pool (block-close trigger) ───────────────────────────────────────────────
+
+  /**
+   * Pool stats for the settlement trigger: how many txs are unsettled, and when the OLDEST one was
+   * ingested. `enqueued_at` is a server-side ingestion clock (atomic with the write), used ONLY as
+   * an operational cadence signal — never as an ordering authority (doc 07 §3.2). `oldestEnqueuedAt`
+   * is null when the pool is empty.
+   */
+  async getPendingPoolStats(): Promise<{ count: number; oldestEnqueuedAt: string | null }> {
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS count, MIN(enqueued_at) AS oldest
+       FROM record_outbox WHERE status = 'pending'`,
+    );
+    const row = r.rows[0];
+    return {
+      count: Number(row.count),
+      oldestEnqueuedAt: row.oldest ? new Date(row.oldest).toISOString() : null,
+    };
+  }
+
+  /**
+   * The next pending commitments to settle, oldest `seq` first (so a block always covers a
+   * contiguous prefix of the unsettled stream). Returns the global `seq` (the block's upper bound)
+   * and the exact `ChainRow` payload (commitments only) the chain batch needs.
+   */
+  async getPendingForSettlement(
+    limit: number,
+  ): Promise<{ txId: string; seq: number; payload: ChainRow }[]> {
+    const r = await this.pool.query(
+      `SELECT o.tx_id, t.seq, o.payload
+       FROM record_outbox o JOIN record_tx t ON t.tx_id = o.tx_id
+       WHERE o.status = 'pending' ORDER BY t.seq ASC LIMIT $1`,
+      [limit],
+    );
+    return r.rows.map((row) => ({ txId: row.tx_id, seq: Number(row.seq), payload: row.payload as ChainRow }));
+  }
+
+  /** Mark a whole settled block's commitments sent in one statement (atomic with respect to readers). */
+  async markOutboxSentBatch(txIds: string[]): Promise<void> {
+    if (txIds.length === 0) return;
+    await this.pool.query(
+      `UPDATE record_outbox SET status = 'sent', sent_at = now() WHERE tx_id = ANY($1::uuid[])`,
+      [txIds],
     );
   }
 

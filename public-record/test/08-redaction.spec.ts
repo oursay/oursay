@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { getThread } from "../src/projection.js";
 import { verifyEntityChain } from "../src/verify.js";
-import { getWorld } from "./helpers/world.js";
+import { getWorld, settleAll } from "./helpers/world.js";
 
 /**
  * Platform "removal" without breaking the audit trail: REDACTION withholds the plaintext from
@@ -19,6 +19,8 @@ describe("08 redaction & erasure: withhold from responses, retain or destroy the
       content: { body: "hateful content" },
       parent: { type: "post", id: post.entityId },
     });
+
+    await settleAll(); // commit the comment to the chain before redacting
 
     // Platform redacts the comment's current revision.
     const head = await store.getHeadTx(comment.entityId);
@@ -54,6 +56,7 @@ describe("08 redaction & erasure: withhold from responses, retain or destroy the
       content: { body: "to be erased" },
       parent: { type: "post", id: post.entityId },
     });
+    await settleAll(); // commit the comment to the chain before erasing
     const head = await store.getHeadTx(comment.entityId);
     await store.erase(head!.txId);
 

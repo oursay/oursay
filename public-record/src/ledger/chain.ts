@@ -3,7 +3,6 @@ import { hashLeaf } from "../crypto/merkle.js";
 import type { PrivateStore } from "../private/store.js";
 import type { TxEnvelope } from "../schema/types.js";
 import type { ChainRow, LedgerConnector } from "./connector.js";
-import { OutboxRelay } from "./outbox.js";
 
 /** The transaction hash = hash of the canonical envelope. It is this revision's identity and
  *  the value the next same-entity transaction references as `prevHash`. */
@@ -12,28 +11,20 @@ export function txHashOf(envelope: TxEnvelope): string {
 }
 
 /**
- * Writes one transaction to BOTH stores: the raw content + exact envelope to the private
- * (mutable) Postgres store, and the commitment row to the public (append-only) immudb chain.
- *
- * Durability comes from a transactional outbox: the private write atomically enqueues the
- * commitment (same Postgres transaction), then we relay it to immudb. A crash, an immudb outage,
- * or a thrown relay can never orphan a record — the pending outbox row is completed by a later
- * `flushOutbox()` sweep, idempotently. The immediate relay below is a happy-path optimization so
- * immudb is current the moment `append` returns; correctness does not depend on it.
+ * Accepts one transaction into the local POOL: it writes the raw content + exact envelope to the
+ * private (mutable) Postgres store and atomically enqueues the commitment in the same Postgres
+ * transaction (`record_outbox`, status `pending`). It does NOT touch the append-only chain — the
+ * commitment reaches immudb only when {@link BlockSettler} settles a block from the pool. So a
+ * `append` returns as soon as the pool accepts the tx; settlement (and external anchoring) run on
+ * their own cadence. Either both Postgres rows land or neither does, so a crash can never orphan a
+ * record without a pending outbox row to settle it.
  */
 export class PublicChain {
-  private readonly relay: OutboxRelay;
-
   constructor(
     private readonly connector: LedgerConnector,
     private readonly store: PrivateStore,
   ) {
-    this.relay = new OutboxRelay(store, connector);
-  }
-
-  /** Drain any commitments not yet relayed to immudb (recovery sweep). */
-  async flushOutbox(): Promise<{ sent: number; failed: number }> {
-    return this.relay.flushOutbox();
+    void this.connector; // retained for symmetry / future read-paths; settlement owns chain writes
   }
 
   /** The entity's current head txHash (null if it has no transactions yet). */
@@ -64,7 +55,8 @@ export class PublicChain {
       envelope: envJson,
     };
 
-    // Atomic: the private record + its outbox entry land together (or not at all).
+    // Atomic: the private record + its outbox entry land together (or not at all). The commitment
+    // stays `pending` until a block is settled — no per-tx immudb write here.
     await this.store.appendTxAndEnqueue(
       {
         txId: envelope.txId,
@@ -87,10 +79,6 @@ export class PublicChain {
       },
       chainRow,
     );
-
-    // Best-effort immediate relay so immudb is current on return. relayOne never throws — on
-    // failure the outbox row stays pending and a later flushOutbox() completes it.
-    await this.relay.relayOne(envelope.txId, chainRow);
 
     return { txHash };
   }

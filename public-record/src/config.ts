@@ -61,4 +61,58 @@ export const outboxConfig: OutboxConfig = {
   healthcheckAttempts: Number(env("OUTBOX_HEALTHCHECK_ATTEMPTS", "3")),
 };
 
+/**
+ * The chain (genesis/network) identity. immudb is append-only and never reset, so block headers are
+ * keyed by `(chainId, blockHeight)`: a stable `chainId` per deployment, a fresh one per test/seed run
+ * (see BLOCKS_DDL). Stages 2–3 (consortium / open network) replace this single id with an on-record,
+ * agreed genesis — the seam is the same.
+ */
+export interface ChainConfig {
+  chainId: string;
+}
+
+export const chainConfig: ChainConfig = {
+  chainId: env("CHAIN_ID", "oursay-local"),
+};
+
+/**
+ * Block SETTLEMENT trigger policy. A block is cut from the pending pool when there is at least
+ * `minTxs` (always ≥ 1, so we never settle an empty block) AND either the count threshold OR the
+ * age threshold is met — whichever comes first:
+ *   - `maxPending` (N): settle once this many txs have accumulated unsettled. **0 disables** this
+ *     dimension (rely on age alone).
+ *   - `maxPendingAgeMs` (X): settle once the OLDEST unsettled tx has waited this long — the quiet-
+ *     period fallback so the record is never left unsettled indefinitely. Configured in HOURS via
+ *     env, stored in ms. **0 disables** this dimension. This is a cadence trigger only; it decides
+ *     *when* to cut a block, never transaction order/eligibility (doc 07 §3.2).
+ * A block is capped at `maxBlockTxs` rows; a larger backlog settles across several blocks.
+ */
+export interface BlockConfig {
+  maxPending: number; // N — count trigger (0 = disabled)
+  maxPendingAgeMs: number; // X — age trigger, ms (0 = disabled)
+  maxBlockTxs: number; // hard cap on txs per settled block
+  minTxs: number; // minimum pending to settle (clamped to ≥ 1)
+}
+
+export const blockConfig: BlockConfig = {
+  maxPending: Number(env("BLOCK_MAX_PENDING", "250")),
+  maxPendingAgeMs: Number(env("BLOCK_MAX_PENDING_AGE_HOURS", "12")) * 3_600_000,
+  maxBlockTxs: Number(env("BLOCK_MAX_TXS", "250")),
+  minTxs: Math.max(1, Number(env("BLOCK_MIN_TXS", "1"))),
+};
+
+/**
+ * Per-target external-anchor publish cadence. Settlement (above) and publication are separate
+ * phases: a block is settled to the chain on the trigger policy, then replicated to each anchor
+ * target on its own cadence. The file target publishes every `fileEveryNBlocks` settled blocks
+ * (still in order, no gaps — see AnchorPublisher).
+ */
+export interface AnchorTargetsConfig {
+  fileEveryNBlocks: number;
+}
+
+export const anchorTargetsConfig: AnchorTargetsConfig = {
+  fileEveryNBlocks: Math.max(1, Number(env("FILE_ANCHOR_EVERY_BLOCKS", "2"))),
+};
+
 export const paths = { packageRoot, repoRoot };

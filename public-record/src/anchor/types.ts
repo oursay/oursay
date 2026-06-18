@@ -19,9 +19,17 @@ export interface AnchorRecord {
   fromSeq: number; // exclusive lower bound (previous block's toSeq; 0 at genesis)
   toSeq: number; // inclusive upper bound
   txCount: number;
-  bundleMerkleRoot: string; // app-level Merkle root over this block's envelopes (offline verify)
+  bundleMerkleRoot: string; // app-level Merkle root over this block's envelopes (offline verify); the "block hash"
   immudbRoot: ImmudbRootRef; // ledger integrity witness captured at close
   prevBlockRoot: string | null; // block N-1's bundleMerkleRoot (chaining; null at genesis)
+  /**
+   * The cumulative CHAIN TIP: `sha256Hex(canonicalJson({ prevChainTipHash, bundleMerkleRoot }))`.
+   * Each block folds the previous tip with its own block hash, so this single value commits to the
+   * whole block history up to here. An auditor recomputes it from genesis to answer "is the chain
+   * intact?" and compares the tip to what is externally anchored. (See computeChainTipHash.)
+   */
+  chainTipHash: string;
+  prevChainTipHash: string | null; // block N-1's chainTipHash (null at genesis)
   /**
    * Plain `sha256Hex(canonicalJson(prev AnchorRecord AS WRITTEN, including its capturedAt))`.
    * NOT a Merkle leaf hash (those are `hashLeaf` of envelopes). null at genesis.

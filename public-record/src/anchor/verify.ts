@@ -79,9 +79,20 @@ export function verifyBlock(bundle: BlockBundle, anchoredRoot: string): BlockRep
 }
 
 /**
+ * The cumulative chain-tip fold: each block hashes the previous tip together with its own block
+ * hash (`bundleMerkleRoot`), so one value commits to the entire block history. Genesis folds a
+ * `null` previous tip. Producer (settlement) and verifier MUST agree byte-for-byte, so it is defined
+ * once here and reused by the settler.
+ */
+export function computeChainTipHash(prevChainTipHash: string | null, bundleMerkleRoot: string): string {
+  return sha256Hex(canonicalJson({ prevChainTipHash, bundleMerkleRoot }));
+}
+
+/**
  * Verify that block `curr` correctly chains onto a TRUSTED prior anchor `prev` — contiguous seq
- * ranges, height + 1, matching prev root, and the tamper-evident `prevAnchorHash`. An auditor who
- * already trusts `prev`'s root can validate `curr`'s chain metadata WITHOUT re-merkling `prev`.
+ * ranges, height + 1, matching prev root, the cumulative chain-tip fold, and the tamper-evident
+ * `prevAnchorHash`. An auditor who already trusts `prev`'s root can validate `curr`'s chain metadata
+ * WITHOUT re-merkling `prev`.
  *
  * Note (v1): this checks the chain LINK only. `txCount` and `immudbRoot` progression are not part
  * of the link — `immudbRoot` is an external witness, not required monotonic here, and `txCount` is
@@ -92,6 +103,31 @@ export function verifyChainLink(curr: AnchorRecord, prev: AnchorRecord): boolean
     curr.blockHeight === prev.blockHeight + 1 &&
     curr.fromSeq === prev.toSeq &&
     curr.prevBlockRoot === prev.bundleMerkleRoot &&
+    curr.prevChainTipHash === prev.chainTipHash &&
+    curr.chainTipHash === computeChainTipHash(curr.prevChainTipHash, curr.bundleMerkleRoot) &&
     curr.prevAnchorHash === sha256Hex(canonicalJson(prev))
   );
+}
+
+/**
+ * Walk a full chain of anchors (ascending by height) and confirm it is intact end to end: genesis
+ * has no predecessors, every block links to the one before it (verifyChainLink), and each block's
+ * own chain-tip fold is self-consistent. Returns the verified tip, or null if any link is broken —
+ * the cheap "is the whole chain intact, and what is the tip?" check.
+ */
+export function verifyChain(anchors: AnchorRecord[]): { ok: boolean; tipHash: string | null } {
+  if (anchors.length === 0) return { ok: true, tipHash: null };
+  const genesis = anchors[0];
+  const genesisOk =
+    genesis.blockHeight === 1 &&
+    genesis.fromSeq === 0 &&
+    genesis.prevBlockRoot === null &&
+    genesis.prevChainTipHash === null &&
+    genesis.prevAnchorHash === null &&
+    genesis.chainTipHash === computeChainTipHash(null, genesis.bundleMerkleRoot);
+  if (!genesisOk) return { ok: false, tipHash: null };
+  for (let i = 1; i < anchors.length; i++) {
+    if (!verifyChainLink(anchors[i], anchors[i - 1])) return { ok: false, tipHash: null };
+  }
+  return { ok: true, tipHash: anchors[anchors.length - 1].chainTipHash };
 }

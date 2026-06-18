@@ -18,10 +18,11 @@ export { PublicChain, txHashOf } from "./ledger/chain.js";
 
 // Connectors (pluggable transport to the append-only chain)
 export { PgWireLedgerConnector } from "./ledger/pgwire.connector.js";
-export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow } from "./ledger/connector.js";
+export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow, BlockHeader } from "./ledger/connector.js";
 
-// Transactional outbox relay (durable Postgres → immudb delivery)
-export { OutboxRelay } from "./ledger/outbox.js";
+// Block settlement (pool → append-only chain, on the trigger policy)
+export { BlockSettler } from "./ledger/settler.js";
+export type { SettleDecision, SettleOptions } from "./ledger/settler.js";
 
 // Governance
 export {
@@ -39,15 +40,17 @@ export type { Thread, ThreadComment } from "./projection.js";
 export { verifyEntityChain } from "./verify.js";
 export type { ChainReport, TxVerdict } from "./verify.js";
 
-// Block-based external anchoring
-export { BlockBuilder } from "./anchor/block.js";
-export type { CloseBlockOptions } from "./anchor/block.js";
+// Block bundle assembly + external anchoring (settled block → published bundle, per-target cadence)
+export { BundleAssembler } from "./anchor/assembler.js";
+export type { AssembleOptions } from "./anchor/assembler.js";
+export { AnchorPublisher } from "./anchor/publisher.js";
 export { FileAnchorTarget } from "./anchor/file.target.js";
-export type { AnchorTarget } from "./anchor/target.js";
+export { everyNBlocks } from "./anchor/target.js";
+export type { AnchorTarget, AnchorPublishPolicy } from "./anchor/target.js";
 export type { AnchorRecord, BlockBundle, BlockEntry, ImmudbRootRef } from "./anchor/types.js";
 
 // Offline anchor verifier (no DB / no platform)
-export { verifyEntry, verifyBlock, verifyChainLink } from "./anchor/verify.js";
+export { verifyEntry, verifyBlock, verifyChainLink, verifyChain, computeChainTipHash } from "./anchor/verify.js";
 export type { EntryVerdict, BlockReport } from "./anchor/verify.js";
 
 // Crypto (also what an independent auditor reimplements against)
@@ -83,5 +86,5 @@ export type {
 } from "./schema/types.js";
 
 // Config
-export { immudbPgConfig, pgConfig, outboxConfig } from "./config.js";
-export type { PgConfig, OutboxConfig } from "./config.js";
+export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, blockConfig, anchorTargetsConfig } from "./config.js";
+export type { PgConfig, OutboxConfig, ChainConfig, BlockConfig, AnchorTargetsConfig } from "./config.js";

@@ -33,11 +33,12 @@ CREATE INDEX IF NOT EXISTS record_tx_parent     ON record_tx (parent_id);
 CREATE INDEX IF NOT EXISTS record_tx_parent_rev ON record_tx (parent_revision_hash);
 CREATE INDEX IF NOT EXISTS record_tx_type       ON record_tx (type);
 
--- Transactional outbox. Each record_tx insert atomically enqueues its commitment here (same
--- Postgres transaction), so a crash between the private write and the immudb append can never
--- orphan a record: the pending row is relayed to immudb idempotently by OutboxRelay. The payload
--- is the exact ChainRow (commitments + canonical envelope ONLY — never plaintext/salt), so the
--- relay is self-contained and unaffected by later redaction/erasure of record_tx.
+-- Settlement pool / transactional outbox. Each record_tx insert atomically enqueues its commitment
+-- here (same Postgres transaction) as 'pending', so a crash before settlement can never orphan a
+-- record: the pending row is settled to immudb idempotently by BlockSettler (which batches pending
+-- rows into a block). enqueued_at is the ingestion clock the settlement age-trigger reads. The
+-- payload is the exact ChainRow (commitments + canonical envelope ONLY — never plaintext/salt), so
+-- settlement is self-contained and unaffected by later redaction/erasure of record_tx.
 CREATE TABLE IF NOT EXISTS record_outbox (
   tx_id       UUID PRIMARY KEY REFERENCES record_tx(tx_id),
   payload     JSONB        NOT NULL,

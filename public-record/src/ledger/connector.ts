@@ -36,6 +36,26 @@ export interface ChainRow {
   envelope: string; // canonical JSON of the TxEnvelope — the verified value
 }
 
+/**
+ * A settled block's header on the append-only chain — the unit of agreement (doc 07 invariant 4).
+ * `chainId` is the genesis/network id (see BLOCKS_DDL); `(chainId, blockHeight)` identifies a block.
+ * Carries both the seq range it settles and the two chaining values: `prevBlockRoot` (the prior
+ * block's Merkle root) and `chainTipHash` (the cumulative tip linking this block to all prior ones).
+ */
+export interface BlockHeader {
+  chainId: string;
+  blockHeight: number; // 1-based within a chainId; block 1 is genesis
+  fromSeq: number; // exclusive lower bound (prev block's toSeq; 0 at genesis)
+  toSeq: number; // inclusive upper bound
+  txCount: number;
+  bundleMerkleRoot: string; // app-level Merkle root over this block's envelopes (the "block hash")
+  chainTipHash: string; // cumulative tip: sha256(prevChainTipHash, bundleMerkleRoot)
+  prevBlockRoot: string | null; // block N-1's bundleMerkleRoot (null at genesis)
+  prevChainTipHash: string | null; // block N-1's chainTipHash (null at genesis)
+  immudbRoot: { db: string; txId: number; txHashHex: string }; // captured AFTER the batch tx append
+  capturedAt: string; // ISO; operational cadence metadata, never an ordering authority
+}
+
 /** A pluggable transport to the append-only immudb chain. */
 export interface LedgerConnector {
   connect(): Promise<void>;
@@ -44,7 +64,25 @@ export interface LedgerConnector {
   /** Append one transaction's commitment row. Append-only. */
   appendTx(row: ChainRow): Promise<void>;
 
-  /** Liveness probe — true if the chain is reachable. Used by the outbox relay's retry policy. */
+  /**
+   * Append a batch of commitment rows at settlement. Idempotent: a row already present (by tx_id)
+   * is skipped, so a re-run after a crash mid-batch never double-writes / violates the PRIMARY KEY.
+   */
+  appendTxBatch(rows: ChainRow[]): Promise<void>;
+
+  /**
+   * Append a settled block's header. Idempotent on `(chainId, blockHeight)`: re-settling the same
+   * height is a no-op, so a crash between the tx batch and the header (or a re-run) is safe.
+   */
+  appendBlock(header: BlockHeader): Promise<void>;
+
+  /** The latest settled block for a chain — the tip the next settlement continues from. */
+  fetchLatestBlock(chainId: string): Promise<BlockHeader | undefined>;
+
+  /** A settled block header by height (the publisher's source when assembling a bundle). */
+  fetchBlockByHeight(chainId: string, blockHeight: number): Promise<BlockHeader | undefined>;
+
+  /** Liveness probe — true if the chain is reachable. Used by the settlement retry policy. */
   healthcheck(): Promise<boolean>;
 
   /** Read back the canonical envelope for a transaction id (undefined if absent). */
