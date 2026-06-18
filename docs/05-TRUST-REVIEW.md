@@ -105,6 +105,11 @@ signed and in good faith, but not yet third-party-trustless.
   comes from the **external anchor + offline verifier**, which is built against a file target but not
   yet published to infrastructure we don't control. Until external anchoring ships, "verify without
   trusting us" is a design guarantee, not yet a live one.
+- **Commitments reach the ledger at settlement, not on the action.** A civic action is first pooled
+  in the mutable store; its commitment is written to immudb only when a **block is settled** (on a
+  count/age trigger), and settled blocks are anchored externally as a separate step. So a just-taken
+  action is durably recorded (pooled) but not yet ledger-committed or externally anchored until the
+  next settlement/publish — a short, bounded window, not a gap in the eventual guarantee.
 - **Signing not yet enforced.** Per-action digital signatures are designed and promised (rolling out
   before launch); they are stubbed in the current build.
 - **Geographic attribution not independently verifiable** before an electoral integration.

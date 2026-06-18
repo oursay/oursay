@@ -88,7 +88,15 @@ An integration with an official electoral authority (e.g., Elections Alberta) is
 
 ### 3.4 Distributed Public Ledger
 
-Internally, OurSay's public record is an **append-only, tamper-evident verifiable ledger (immudb)** that stores **only salted hash commitments and public metadata** for each civic action — never raw content or PII. Raw content, salts, and PII live in a **separate, mutable store (Postgres)** so that redaction and erasure remain possible (an append-only ledger can never delete). Periodically (on block close — at N actions or daily), the ledger's root is **anchored to external public infrastructure that the platform does not control**, so anyone can verify the public record's integrity without trusting OurSay.
+Internally, OurSay's public record is an **append-only, tamper-evident verifiable ledger (immudb)** that holds **only salted hash commitments and public metadata** — never raw content or PII. Raw content, salts, and PII live in a **separate, mutable store (Postgres)** so that redaction and erasure remain possible (an append-only ledger can never delete).
+
+The write path has three decoupled phases:
+
+1. **Pool.** Each civic action is accepted into a local pending queue in Postgres (`record_outbox`, tagged with its `chainId`). Nothing touches the ledger yet — pooling is a pure Postgres write.
+2. **Settle.** A `BlockSettler` cuts a **block** from the pool when its trigger fires — a record-count threshold **or** an age fallback (oldest pending tx), whichever comes first — batch-committing the block's commitments to the ledger (`record_chain`) and writing a **block header** (`record_blocks`). The canonical block tip lives on the ledger, keyed by `(chainId, height)` — never in Postgres or in anchor files. Commitments reach immudb **at settlement**, not on the user's action.
+3. **Publish / anchor.** Settled blocks are replicated to **external public infrastructure that the platform does not control**, on each target's own cadence, so anyone can verify the record's integrity without trusting OurSay. **Settlement and external anchoring are distinct steps** — a block exists on the ledger before, and independently of, any external anchor.
+
+Each public record is its **own chain** (`chainId` = one legal/custodial record, e.g. the Alberta deployment — not a single global OurSay chain); one shared ledger can host several. Naming + lifecycle are documented in [`../public-record/README.md`](../public-record/README.md).
 
 The **anchor target is pluggable**, and more than one may be used at once. The **preferred primary anchor is Ethereum** (the most decentralized option), with a public **transparency log** (e.g. a GitHub-hosted append-only file) as a low-cost complement, and an EVM L2 or other chain available as alternatives. _(Solana was originally considered as the anchor venue; it is now one valid optional target rather than "the ledger.")_ The architecture does not depend on any specific chain — the chain is only where the root is pinned.
 
@@ -419,7 +427,7 @@ Every content item — belief, petition, public vote, result — has an associat
 
 > **⚠️ Internal documentation only.** Never use the terms Ethereum, Solana, blockchain, cryptocurrency, wallet, keypair, or on-chain in any public-facing context. (Cryptographic hash, content commitment, Merkle root, digital signature, anchoring, and append-only record are fine in public; immudb may be named but is not required on user-facing surfaces.) Public language prefers "distributed public database," "public audit ledger," or "cryptographically verifiable public record." This document and all internal developer materials may use these terms freely.
 
-The public record is an **append-only, tamper-evident verifiable ledger (immudb)** holding **only salted hash commitments + public metadata**, paired with a **separate mutable store (Postgres)** for raw content + salts + PII. The ledger's root is periodically **anchored to external public infrastructure** (preferred: Ethereum; pluggable — see §3.4). The trust root is the **externally-anchored root + an offline independent verifier**, not the ledger or the platform. Worked design: [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) and [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md).
+The public record is an **append-only, tamper-evident verifiable ledger (immudb)** holding **only salted hash commitments + public metadata**, paired with a **separate mutable store (Postgres)** for raw content + salts + PII. Actions are **pooled** in Postgres, **settled** into blocks on the ledger (commitments + a `(chainId, height)` block header) on a count/age trigger, and settled blocks are then **published/anchored to external public infrastructure** on a per-target cadence — settlement and anchoring are distinct (preferred anchor: Ethereum; pluggable — see §3.4). The trust root is the **published anchor + an offline independent verifier**, not the ledger or the platform. Worked design: [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) and [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md).
 
 ### 11.1 What Is Committed to the Public Record vs. Anchored
 
@@ -433,7 +441,7 @@ The public record stores, for each action, a **commitment** (a salted hash of th
 - Published result records (final counts of closed public votes — derived/published, not user-appended)
 - Build hashes (production deployment records)
 
-Only the **periodic root** of the ledger (a Merkle root over committed entries) is **anchored externally** — not every individual entry. Unverified user actions are stored in the mutable off-record database only.
+Commitments are committed to the ledger **in blocks at settlement** (each block carries a Merkle root over its entries); it is the **settled block** (its root / `(chainId, height)` tip) that is **published externally** — not every individual entry, and not a separate Postgres copy. Unverified user actions are stored in the mutable off-record database only.
 
 ### 11.2 Pseudonymous Identity
 

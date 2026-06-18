@@ -59,6 +59,22 @@ targets publish those blocks on their own cadence.
 - **Signatures are stubbed** in this phase (`authorPubkey`/`signature` fields + author-match by
   equality); the per-entity hashing/verification is real.
 
+### Chain identity (`CHAIN_ID`)
+
+A `chainId` names **one public record** — one legal/custodial chain (e.g. one government body's
+record), **not** a single global OurSay chain. Block headers and commitments are keyed by it, so one
+shared immudb can host several independent records side by side.
+
+- **Production:** a stable, human-auditable slug — e.g. `ca-ab-gov` (the Alberta first deployment).
+  Set it once per deployment via the `CHAIN_ID` env var and never change it for that record.
+- **Dev / test:** a fresh `randomUUID()` per run (immudb is never reset, so a new id keeps block
+  heights starting at 1). `CHAIN_ID` defaults to `oursay-local` — for local development only.
+- **Never reuse** a production id for a new genesis. If you ever intentionally start a fresh chain
+  for the same body, bump a suffix (e.g. `ca-ab-gov-v2`); reusing the id would collide with the
+  existing append-only history.
+- The published `AnchorRecord.chainId` always matches the settled block header's `chainId`, and
+  `verifyChain(anchors, expectedChainId)` lets an auditor bind a record to the genesis they expect.
+
 ## Content model
 
 | type | parent(s) | ops | notes |

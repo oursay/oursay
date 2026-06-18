@@ -198,12 +198,18 @@ original assertions._
   PII — **encrypted at rest, never published**. Sharing the xpub with an independent
   organization is what enables R11. Key custody is delegated to a provider (see
   [`../turnkey-test`](../turnkey-test)).
-- **Blocks & anchoring.** Entries accumulate into blocks; a block is closed and its root
-  anchored at **N actions or daily**, whichever comes first. The **anchor target is pluggable**
-  (R15): **Ethereum is the preferred primary anchor** on decentralization grounds, with a
-  transparency-log target (GitHub) as a low-cost complement and other chains (EVM L2, Solana)
-  available. _Solana was originally considered for delivery-partner reasons; that is not a
-  binding constraint, and anchoring remains pluggable._
+- **Pool → settle → publish.** Actions are first **pooled** (Postgres `record_outbox`, `pending`,
+  tagged with their `chainId`); nothing reaches the ledger on the user's action. A **block** is
+  **settled** when its trigger fires — `BLOCK_MAX_PENDING` records accumulated **or** the oldest
+  pending tx has waited `BLOCK_MAX_PENDING_AGE_HOURS` (env-configurable; `0` disables a dimension),
+  whichever comes first, capped at `BLOCK_MAX_TXS` — committing the block's commitments to immudb
+  (`record_chain`) and writing a `(chainId, height)` block header (`record_blocks`, the canonical
+  block tip). **Publishing/anchoring is a separate, per-target cadence** (`AnchorPublisher`), not the
+  same step as settlement.
+- **Anchor targets are pluggable** (R15): **Ethereum is the preferred primary anchor** on
+  decentralization grounds, with a transparency-log target (GitHub) as a low-cost complement and
+  other chains (EVM L2, Solana) available. _Solana was originally considered for delivery-partner
+  reasons; that is not a binding constraint, and anchoring remains pluggable._
 - **Pluggable transport.** The ledger is reachable over multiple connectors (Postgres wire
   protocol recommended; gRPC optional) — see [`PROPOSAL.md`](./PROPOSAL.md) §4. The trust root
   is the externally-anchored root + offline verifier (R14, R16), independent of transport.
