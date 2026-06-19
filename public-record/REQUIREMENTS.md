@@ -260,12 +260,12 @@ Where each requirement is addressed in the design. Sections refer to
 | Requirement | Addressed in |
 |---|---|
 | R1 record types (post/petition/comment/vote/reaction) | §3 (append flow), §5.3 (envelope `RecordType`) |
-| R2 per-thread signing | **Implemented (slice):** `identity/envelope.ts` (`signEnvelope`/`verifyEnvelope`, P-256) + `RecordService.appendSigned` gate; suites 10/12. Generic create/update path still unsigned (dev). |
+| R2 per-thread signing | **Implemented (full write path):** `identity/envelope.ts` (`signEnvelope`/`verifyEnvelope`, P-256) + `RecordService.prepareAppend`/`appendSigned` over all civic ops — creates (2a) and updates/deletes (2b, cryptographic author-match + optimistic concurrency); suites 10/12/13. The unsigned dev path is retained for dev/seeds. |
 | R3 deterministic derivation | **Implemented (slice):** `identity/derive.ts` (on-device HKDF from a level master → P-256); suite 10 |
 | R4 commitments-only ledger | §3, §5.2, §5.3; Philosophy §5 |
 | R5 hiding (salted) commitments | §3 (append flow), §5.1 (`raw_content.salt`); Values §6 |
 | R6 mutable private store | §5.1; Philosophy §5 |
-| R7 ownership without exposure | **Implemented (slice):** private registration binding + opaque `threadCommitment` (`crypto/commitment.ts`); `PrivateStore.registerThreadBinding` + `identity/verify.ts` `verifyThreadBinding` (re-verifies `binding_sig`); suite 12 |
+| R7 ownership without exposure | **Implemented:** private registration binding + opaque `threadCommitment` (`crypto/commitment.ts`); `PrivateStore.registerThreadBinding` + `identity/verify.ts` `verifyThreadBinding` (re-verifies `binding_sig`); enforced on every signed op (create + update/delete) in `appendSigned`; suites 12/13 |
 | R8 anonymous or claim | §5.1 (`thread_keys.claimed`), §6 — **claim/unclaim Future** |
 | R9 claim reversible | §5.1 (`claimed_at` nullable), §6 — **Future** |
 | R10 user self-audit receipt | §3 (append returns id/salt), §7 (offline verifier) |

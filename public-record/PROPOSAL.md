@@ -515,9 +515,10 @@ What this buys: the public record shows only `thread_pubkey`, the action signatu
 metadata, and (via the attestation) an opaque commitment — **never `user_id`, never cross-thread
 linkability**. The linkage gap shrinks from "trust our database" to "verify our signed bindings."
 
-### Module (`src/identity/*` — partially implemented, Track A slice)
+### Module (`src/identity/*` — implemented; full verified write path)
 
-**Implemented** (promoted from `passkey-test`; suites `10-identity-crypto`, `12-signed-append`):
+**Implemented** (promoted from `passkey-test`; suites `10-identity-crypto`, `12-signed-append`,
+`13-signed-ops`):
 
 - **`derive.ts`** — `deriveThreadKey({ levelMaster, threadId, level })` / `deriveThreadPrivateKey`
   / `threadDomainInfo`: on-device HKDF→P-256 derivation, domain-separated by `(thread_id, level)`,
@@ -535,11 +536,25 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
   `binding_sig` (defense-in-depth).
 - `threadCommitment(...)` lives in **`crypto/commitment.js`** (the opaque
   `H(user_id, salt_t, thread_id, level)`).
-- The verified-tier gate is **`RecordService.appendSigned({ envelope, salt, content })`**: verifies
-  the signature + the binding + that `{salt, content}` reproduce `contentHash`, then delegates to the
-  existing pool path. **Slice scope: a root `post` create only** (`op=create`, `type=post`,
-  `prevHash=null`). The platform stores only the **public** master (`level_master_keys`) and the
-  **public** thread key (`thread_keys.pubkey`).
+- The verified-tier gate is **`RecordService.appendSigned({ envelope, salt, content })`**, fed by
+  **`prepareAppend(intent)`** (the server-derived fields the client must sign over). It covers
+  **all civic ops**:
+  - **2a — creates** (post/poll/petition + comment/reaction/vote/petition_signature): verifies the
+    signature + binding + `contentHash`, content-model rules (shared `validateCreate`), thread-scope,
+    parent-revision concurrency, and the **nullifier gate**. A **platform-attested nullifier**
+    (`H(level-secret, parentId)`, scoped to the **singleton parent** — poll/petition for vote/
+    signature, the immediate post/comment for a reaction) is the authoritative one-per-`(user,parent)`
+    dedupe — minted + signed on the **create** only; tallies dedupe by nullifier.
+  - **2b — updates/deletes** (edits, vote-change, signature-revoke, deletes): shared
+    `validateUpdate`/`validateDelete` (op rules + governance via `canChangeVote`/`canRevokeSignature`);
+    **author-match is cryptographic** (`verifyEnvelope` proves control of `authorPubkey`, which must
+    equal the entity's author); **optimistic concurrency** rejects a stale `prevHash` or a moved
+    parent/parent-revision (reject-and-retry); singleton update/delete **carry the original
+    nullifier forward** (no re-mint, no dup-check); a `delete` must carry `DELETE_MARKER`.
+- The platform stores only the **public** master (`level_master_keys`), the **public** thread key
+  (`thread_keys.pubkey`), and the private `thread_bindings` / `nullifier_attestations`.
+- The **unsigned dev path** (`create/update/delete/react/vote`) is retained for dev/seeds and now
+  shares the same `validateCreate`/`validateUpdate`/`validateDelete` validators.
 
 **Still future (NOT implemented):**
 
@@ -550,8 +565,8 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
   user-controlled pseudonymous-ownership channel, distinct from the reveal channel.
 - *User-signed binding (strengthens R11):* the binding additionally signed by the **user**, so an
   auditor verifies ownership **without platform cooperation**.
-- Signed paths for the **other record types** (update/delete/comment/reaction/vote) and at-rest
-  encryption of `salt_t`/openings (slice keeps `salt_t` client-held).
+- At-rest encryption of `salt_t`/openings (the path keeps `salt_t` client-held; KMS milestone), the
+  HTTP API, passkey sessions, and full KYC provider integration.
 
 The binding, `salt_t`, and commitment openings are **PII, never published** except on the user's
 explicit per-thread authorization (Values §3); at-rest encryption is the KMS milestone. This module
@@ -677,16 +692,20 @@ Per REQUIREMENTS.md R14–R16 and FINDINGS §4:
 Outcome: signed appends, commitments-only ledger, offline audit — over the recommended
 transport.
 
-**Phase 2 — Identity & ownership.** **(partially built — Track A slice).** **Done:** `identity/*`
+**Phase 2 — Identity & ownership.** **(built — full verified write path).** **Done:** `identity/*`
 (on-device HKDF per-thread derivation, P-256 envelope signing, client binding inputs, platform
-`signBinding`/`verifyBinding`, `verifyThreadBinding` with `binding_sig` re-verify); `threadCommitment`
-in `crypto/commitment`; the `RecordService.appendSigned` verified-tier gate (root `post` create);
-schema (`level_master_keys`, `thread_keys`, `thread_bindings`, `kyc_attestations` stub) +
-`PrivateStore.registerThreadBinding`/`getThreadBinding`/`putLevelMaster`. Suites `10-identity-crypto`
-+ `12-signed-append`. **Remaining:** the HTTP API (`@oursay/api`), passkey **sessions** + registration
-UX, full **KYC** provider, **claim/unclaim** (R8/R9), **selective reveal** / **user-signed bindings**
-(R11), at-rest PII/KMS encryption (`salt_t` stays client-held), signed paths for the **other record
-types**, and the sponsorships table.
+`signBinding`/`verifyBinding` + nullifier attestation, `verifyThreadBinding` with `binding_sig`
+re-verify, `nullifier.ts`); `threadCommitment` in `crypto/commitment`; `prepareAppend` +
+`RecordService.appendSigned` covering **all civic ops** — **2a creates** (post/poll/petition +
+comment/reaction/vote/petition_signature) with the platform-attested per-`(user,parent)` nullifier as
+the authoritative dedupe, and **2b updates/deletes** (edits, vote-change, signature-revoke, deletes)
+with cryptographic author-match, optimistic concurrency, and nullifier carry-forward; shared
+`validateCreate`/`validateUpdate`/`validateDelete` used by both signed + unsigned paths. Schema
+(`level_master_keys`, `thread_keys`, `thread_bindings`, `nullifier_attestations`, `kyc_attestations`
+stub, `record_tx.nullifier`). Suites `10-identity-crypto`, `12-signed-append`, `13-signed-ops`.
+**Remaining:** the HTTP API (`@oursay/api`), passkey **sessions** + registration UX, full **KYC**
+provider, **claim/unclaim** (R8/R9), **selective reveal** / **user-signed bindings** (R11), at-rest
+PII/KMS encryption (`salt_t` stays client-held), and the sponsorships table.
 
 **Phase 3 — Settlement & anchoring.** **(built, dev)** `BlockSettler` (pool → `record_chain` +
 `record_blocks` on the count/age trigger) + `AnchorPublisher` with the file target on a per-target

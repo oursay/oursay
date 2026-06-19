@@ -13,19 +13,26 @@ targets publish those blocks on their own cadence.
 > log, EVM, Solana) — is not yet wired; that is the earliest point we can claim third-party
 > verifiability (testnet during development, production targets later).
 >
-> **Identity (Track A slice — implemented):** real **per-thread P-256 signing** is now wired for the
-> **verified-tier `post` (Belief) create** path. A client derives a per-thread key (HKDF from a
-> level master), signs a canonical `TxEnvelope`, and `RecordService.appendSigned` verifies the
-> signature **and** a private platform **registration binding** (opaque per-thread commitment, with
-> the platform's `binding_sig` re-verified) before the action enters the existing pool → settle
-> path. See `src/identity/*`, `threadCommitment` in `src/crypto/commitment.js`, and suites
-> `10-identity-crypto` + `12-signed-append`.
+> **Identity (implemented — full verified write path):** real **per-thread P-256 signing** is wired
+> for **every civic op**. A client derives a per-thread key (HKDF from a level master), runs
+> `prepareAppend` for the server-derived fields, signs a canonical `TxEnvelope`, and
+> `RecordService.appendSigned` verifies the signature, the private platform **registration binding**
+> (opaque per-thread commitment, `binding_sig` re-verified), the content-model rules, thread-scope,
+> and optimistic concurrency before the action enters the existing pool → settle path.
+> - **2a — creates:** post/poll/petition + comment/reaction/vote/petition_signature. A
+>   **platform-attested nullifier** (`H(level-secret, parentId)`) is the authoritative
+>   one-per-`(user, parent)` dedupe — minted on the **create** only.
+> - **2b — updates/deletes:** signed edits, vote-change, signature-revoke, deletes. Author-match is
+>   **cryptographic** (the signature proves control of the entity's thread key). Singleton
+>   update/delete **carry the original nullifier forward** (never re-minted); stale `prevHash` or a
+>   moved parent revision is rejected (reject-and-retry).
+> See `src/identity/*`, `threadCommitment` in `src/crypto/commitment.js`, and suites
+> `10-identity-crypto`, `12-signed-append`, `13-signed-ops`. The **unsigned dev path**
+> (`create/update/delete/react/vote`) is retained for dev/seeds.
 >
 > **Still later (NOT done):** the HTTP API (`@oursay/api`), passkey **sessions** + user registration
 > UX, full **KYC provider** integration (only a tier stub today), **claim/unclaim** (R8/R9),
-> **selective reveal** / user-signed bindings (R11), at-rest PII/KMS encryption, and signed paths for
-> the other record types (only root `post` create is gated so far). The generic
-> `create/update/delete/react/vote` path is still the **unsigned dev path**. See
+> **selective reveal** / user-signed bindings (R11), and at-rest PII/KMS encryption. See
 > [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ## Architecture

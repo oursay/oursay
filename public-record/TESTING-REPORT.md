@@ -2,9 +2,10 @@
 
 _First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0**
 (PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via
-tsx). **66 tests across 13 suites, all green.** Real **per-thread P-256 signing** is now wired for
-the **verified-tier `post` create** path (`RecordService.appendSigned` + `identity/*`); the generic
-create/update path remains unsigned (dev). The per-entity hash chain, the **pool → block-settlement**
+tsx). **78 tests across 14 suites, all green.** Real **per-thread P-256 signing** is wired for the
+**full verified write path** — all creates (2a) and updates/deletes (2b) — via
+`prepareAppend` + `RecordService.appendSigned` + `identity/*`; the unsigned dev path is retained for
+seeds. The per-entity hash chain, the **pool → block-settlement**
 boundary (chain-scoped by `chainId`), the file target + publish cadence, and the offline verifier are
 real. **External** anchoring (Git / EVM / Solana) is not yet implemented._
 
@@ -12,7 +13,7 @@ real. **External** anchoring (Git / EVM / Solana) is not yet implemented._
 
 - **The model works.** Create/edit/delete are append-only transactions; current state is a
   fold over the log; the append-only chain (immudb) holds only commitments while the raw
-  content lives in mutable Postgres. All 66 tests pass.
+  content lives in mutable Postgres. All 78 tests pass.
 - **Writes are pooled, then settled in blocks (durable + crash-safe).** `append` writes the
   private row and **atomically enqueues** the commitment (`record_outbox`, `pending`) in one
   Postgres transaction — nothing reaches the chain yet. A **block** is settled from the pool when
@@ -130,7 +131,7 @@ by its hash.
 
 ---
 
-## 3. Test inventory (13 suites · 66 tests)
+## 3. Test inventory (14 suites · 78 tests)
 
 | Suite | Tests | What it proves |
 |---|---|---|
@@ -145,8 +146,9 @@ by its hash.
 | 09 anchoring | 14 | settle a block then publish it to a target; reproducible bundles across two independent targets; `bundleMerkleRoot` ↔ Merkle over envelopes; genesis chain-tip fold + reserved empty `proposer`/`attestations`; published anchor carries `chainId`; `immudbRoot` captured after the batch; append-only target; offline full-block + single-entry + whole-chain (`verifyChain(.., chainId)`, incl. wrong-chain rejection) verify against an independently-fetched root; block chaining (`prevBlockRoot`/`chainTipHash`/`prevAnchorHash`); redacted/erased withheld at publish; seq-range + target-integrity + tamper detection |
 | 10 settlement | 10 | `append` only pools (private row + `pending` outbox tagged with `chainId`; not on the chain until settled); a crash-orphaned pool tx settles on a later sweep so the chain verifies; pre-delivered / re-settle never double-write (immudb `PRIMARY KEY` + `getEnvelope` guard); crash-after-header is reconciled to "sent" with no second block, and a FULL reconcile window still fully drains (no early stop); an enqueue failure rolls the private write back (true atomicity); the retry policy retries while healthy, backs off + re-healthchecks while down, gives up after `healthcheckAttempts` (pool stays pending), and `0` = indefinite |
 | 11 settlement-cadence | 5 | count trigger holds below N then settles, capping the block at `BLOCK_MAX_TXS`; age trigger settles a lone old pending tx below the count (via injected `now`); file target publishes every 2 settled blocks, in order, and the bundles verify offline; re-evaluating with no new pending is a no-op; **chain isolation** — two chains share one Postgres pool + immudb and each settler drains/commits only its own `chainId` (neither sweeps the other; both start at height 1) |
-| 10 identity-crypto | 8 | **(no DB)** HKDF per-thread derivation deterministic + domain-separated by `thread_id`/`level`, valid P-256 scalar (frozen `threadPubkey` vector); `signEnvelope`/`verifyEnvelope` sign+verify, tamper ⇒ reject, leaf == `txHashOf` over the full signed envelope (frozen `signature`/`txHash`); `threadCommitment` deterministic, opaque, changes on any input (frozen vector) |
+| 10 identity-crypto | 11 | **(no DB)** HKDF per-thread derivation deterministic + domain-separated by `thread_id`/`level`, valid P-256 scalar (frozen `threadPubkey` vector); `signEnvelope`/`verifyEnvelope` sign+verify, tamper ⇒ reject, leaf == `txHashOf` (frozen `signature`/`txHash`); `threadCommitment` deterministic/opaque; **nullifier** derivation deterministic, unlinkable across parents/levels, distinct from the thread key |
 | 12 signed-append | 5 | `verifyThreadBinding` true for a registered key / false for an unregistered one; verified-tier `post` create flows register → sign → `appendSigned` → settle, commitment lands on immudb (`verifyRow`) with the envelope carrying `thread_pubkey` only (no commitment / `salt_t` / `user_id` / plaintext); rejects an unregistered key (no pool row), a tampered signature, a `contentHash` mismatch, and a non-`create` op |
+| 13 signed-ops | 9 | **2a creates** — every type (post/poll/petition + comment/reaction/vote/petition_signature) via prepare→sign→append→settle, tallies count one verified participant; **reaction one-per-(user,parent)** (distinct comments OK, repeat on same comment rejected); same-user re-vote + cross-user nullifier replay rejected; non-singleton-with-nullifier / stale parent-revision rejected. **2b updates/deletes** — signed post edit; vote change (allowed w/ rules, rejected when final); signature revoke (allowed w/ rules, else rejected); reaction kind change (same nullifier, count 1); **stale `prevHash`** + **cross-author edit** rejected |
 
 Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record`
 (suite 10-identity-crypto also runs standalone without the DB).
@@ -159,9 +161,9 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 |---|---|
 | R1 record types + attachment/op rules + depth ≤ 3 | 02 |
 | R1 reaction kinds mutually exclusive | 03 |
-| R1a governance (vote-change / signature-revoke gating; platform rules update) | 04 |
+| R1a governance (vote-change / signature-revoke gating; platform rules update) | 04 (unsigned); 13 (on the **signed** path) |
 | R1b dual attachment (entity vs revision pinning) | 05 |
-| R2 per-thread signing (verified-tier `post` create) | 10, 12 (`signEnvelope`/`verifyEnvelope` + `appendSigned`) |
+| R2 per-thread signing (all civic ops — creates + updates/deletes) | 10, 12, 13 (`signEnvelope`/`verifyEnvelope` + `prepareAppend`/`appendSigned`) |
 | R3 deterministic per-thread derivation (HKDF→P-256) | 10 |
 | R7 ownership without exposure (private binding + opaque commitment; `binding_sig` re-verify) | 12 |
 | R4/R5 commitments-only ledger + hiding (salted) | 01, 06 |
@@ -178,11 +180,13 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 
 ## 5. What is NOT yet covered (honest gaps)
 
-- **Real signatures — partial.** Real per-thread **P-256** signing + verification are now wired for
-  the **verified-tier `post` create** path (`RecordService.appendSigned`, `identity/*`; suites
-  10/12), gated on a registered platform binding. The **generic `create/update/delete/react/vote`
-  path is still unsigned** (`signature: "unsigned"`, author-match by pubkey equality), and signed
-  paths for the other record types remain future. The per-entity hash chain is real throughout.
+- **Real signatures — full verified write path.** Real per-thread **P-256** signing + verification
+  are wired for **every civic op** — creates (2a) and updates/deletes (2b) — via `prepareAppend` +
+  `RecordService.appendSigned` + `identity/*` (suites 10/12/13), gated on a registered platform
+  binding, with the nullifier as the authoritative singleton dedupe (mint on create; carried forward
+  on singleton update/delete). The **unsigned dev path** (`signature: "unsigned"`, pubkey-equality
+  author check) is **retained for dev/seeds**. Production auth/session that drives the signed path
+  end-to-end (passkey sessions, the API) is still future.
 - **External anchoring (not yet).** Block settlement, publication, offline verify, and a **file**
   `AnchorTarget` are implemented (suites 09/11) — the dev/test primitive. **Still future:** Git
   transparency-log, **EVM** (testnet in dev, production L1/L2 later), and **Solana** connectors
@@ -211,7 +215,7 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 ```bash
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire :5443) + postgres 16 (:5442)
-npm run test    --workspace public-record   # 66 tests (13 suites)
+npm run test    --workspace public-record   # 78 tests (14 suites)
 npm run seed    --workspace public-record   # dev DB: folded state + settle + publish + verify
 npm run db:down --workspace public-record   # tear down (wipes volumes)
 ```

@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { contentCommitment, newSalt } from "./crypto/commitment.js";
+import { canonicalJson, contentCommitment, newSalt } from "./crypto/commitment.js";
 import { canRevokeSignature, canChangeVote } from "./governance.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
 import { platformPublicKey, signNullifierAttestation } from "./identity/platform-binding.js";
 import type { PublicChain } from "./ledger/chain.js";
-import type { PrivateStore } from "./private/store.js";
+import type { PrivateStore, StoredTx } from "./private/store.js";
 import {
   ALLOWED_OPS,
   COMMENT_MAX_DEPTH,
@@ -75,58 +75,82 @@ export class RecordService {
 
   /**
    * Server-derived fields the client needs to assemble a canonical envelope it can sign. Pure read.
-   * For singleton types it also returns `nullifierParentId` — the parent the client must scope its
-   * nullifier to (poll/petition for vote/signature; the immediate post/comment for a reaction).
-   * Phase 2a: creates only.
+   * Creates return `nullifierParentId` (the parent the client must scope a NEW nullifier to);
+   * updates/deletes return the head `prevHash`, the PRESERVED parent revision, and the EXISTING
+   * `nullifier` (singleton entities) so the client carries it forward — never re-minted.
    */
   async prepareAppend(input: {
     op: Op;
-    type: RecordType;
+    type?: RecordType;
     author: string;
     parent?: ParentRef;
     entityId?: string;
     content?: unknown;
   }): Promise<{
     prevHash: string | null;
+    parentType?: RecordType;
+    parentId?: string;
     parentRevisionHash?: string;
     parentRevisionTxId?: string;
     rootEntityId: string;
     nullifierParentId?: string;
+    nullifier?: string;
   }> {
-    if (input.op !== "create") throw new Error("prepareAppend: only create ops in this phase (update/delete = 2b)");
-    const entityId = input.entityId ?? randomUUID();
-    const r = await this.validateCreate({
-      type: input.type,
-      author: input.author,
-      content: input.content ?? {},
-      parent: input.parent,
-      entityId,
-    });
+    if (input.op === "create") {
+      if (!input.type) throw new Error("prepareAppend: create requires a type");
+      const entityId = input.entityId ?? randomUUID();
+      const r = await this.validateCreate({
+        type: input.type,
+        author: input.author,
+        content: input.content ?? {},
+        parent: input.parent,
+        entityId,
+      });
+      return {
+        prevHash: null,
+        parentRevisionHash: r.parentRevisionHash,
+        parentRevisionTxId: r.parentRevisionTxId,
+        rootEntityId: r.rootEntityId,
+        nullifierParentId: r.isSingleton && input.parent ? input.parent.id : undefined,
+      };
+    }
+    if (!input.entityId) throw new Error("prepareAppend: update/delete requires entityId");
+    const v =
+      input.op === "update"
+        ? await this.validateUpdate(input.entityId, input.author)
+        : await this.validateDelete(input.entityId, input.author);
     return {
-      prevHash: null,
-      parentRevisionHash: r.parentRevisionHash,
-      parentRevisionTxId: r.parentRevisionTxId,
-      rootEntityId: r.rootEntityId,
-      nullifierParentId: r.isSingleton && input.parent ? input.parent.id : undefined,
+      prevHash: v.head.txHash,
+      parentType: v.head.parentType ?? undefined,
+      parentId: v.head.parentId ?? undefined,
+      parentRevisionHash: v.head.parentRevisionHash ?? undefined,
+      parentRevisionTxId: v.head.parentRevisionTxId ?? undefined,
+      rootEntityId: v.rootEntityId,
+      nullifier: v.head.nullifier ?? undefined,
     };
   }
 
   /**
-   * Accept a CLIENT-SIGNED create envelope into the pool, gated by the verified-tier checks:
+   * Accept a CLIENT-SIGNED envelope into the pool, gated by the verified-tier checks. Covers the
+   * full civic op surface — `create` (2a) and `update`/`delete` (2b). Shared pre-checks for all ops:
    *   1. P-256 signature verifies against `authorPubkey`; `{salt,content}` reproduce `contentHash`;
-   *   2. the thread key is REGISTERED (binding exists + `binding_sig` re-verifies);
-   *   3. content-model rules re-run (`validateCreate`) — parent/depth/kind/parent-revision/root;
-   *   4. thread-scope: the key is the registered thread for `(user, rootEntityId)`;
-   *   5. optimistic concurrency: the envelope's parent revision still matches current;
-   *   6. **nullifier gate (singleton creates):** `envelope.nullifier` equals the platform-attested
-   *      nullifier for `(user, parentId)` (minted+signed here on first use), and no active singleton
-   *      on that parent already bears it (the authoritative one-per-(user,parent) dedupe).
-   * Phase 2a: creates only (update/delete = 2b). The unsigned dev path is unchanged.
+   *   2. the thread key is REGISTERED (binding exists + `binding_sig` re-verifies); thread-scope holds.
+   * **create:** content-model rules (`validateCreate`); parent-revision concurrency; **nullifier gate**
+   *   for singletons — `envelope.nullifier` equals the platform-attested nullifier for `(user,parentId)`
+   *   (minted+signed here on first use) and no active singleton on that parent already bears it (the
+   *   authoritative one-per-(user,parent) dedupe).
+   * **update/delete:** `validateUpdate`/`validateDelete` (op rules + governance); **cryptographic
+   *   author-match** (signature proves control of `authorPubkey`, which must equal the entity's
+   *   author); **optimistic concurrency** — `envelope.prevHash` must equal the current head and the
+   *   parent/parent-revision must be preserved (stale ⇒ reject-and-retry); a `delete` carries
+   *   `DELETE_MARKER`; singleton update/delete **carry the original nullifier forward** (no re-mint,
+   *   no dup-check). The unsigned dev path (`create`/`update`/`delete`) shares the same validators.
    */
   async appendSigned(input: { envelope: TxEnvelope; salt: string; content: unknown }): Promise<Ref> {
     const { envelope, salt, content } = input;
-    if (envelope.op !== "create") throw new Error("appendSigned: only create ops in this phase (update/delete = 2b)");
-    if (envelope.prevHash !== null) throw new Error("appendSigned: a create must have prevHash=null");
+    if (envelope.op !== "create" && envelope.op !== "update" && envelope.op !== "delete") {
+      throw new Error(`appendSigned: unsupported op '${envelope.op}'`);
+    }
     if (!this.platformPubKeyHex) throw new Error("appendSigned: platform binding key not configured");
     if (!verifyEnvelope(envelope)) throw new Error("appendSigned: invalid per-thread signature");
 
@@ -137,46 +161,76 @@ export class RecordService {
       throw new Error("appendSigned: thread key is not registered (verified tier required)");
     }
 
-    const parent =
-      envelope.parentType && envelope.parentId ? { type: envelope.parentType, id: envelope.parentId } : undefined;
-    const r = await this.validateCreate({
-      type: envelope.type,
-      author: envelope.authorPubkey,
-      content,
-      parent,
-      entityId: envelope.entityId,
-    });
-
     // thread-scope: the signing key must be the registered thread key for this action's root.
     const tk = await this.store.getThreadKey(envelope.authorPubkey);
     if (!tk) throw new Error("appendSigned: unknown thread key");
-    if (tk.threadId !== r.rootEntityId) {
-      throw new Error("appendSigned: thread key is not scoped to this action's root entity");
-    }
 
-    // optimistic concurrency: parent revision the client signed must still be current.
-    if ((envelope.parentRevisionHash ?? undefined) !== r.parentRevisionHash) {
-      throw new Error("appendSigned: stale parent revision; re-prepare and re-sign");
-    }
+    const parent =
+      envelope.parentType && envelope.parentId ? { type: envelope.parentType, id: envelope.parentId } : undefined;
 
-    // nullifier gate (authoritative singleton dedupe).
-    if (r.isSingleton) {
-      if (!parent) throw new Error("appendSigned: a singleton action requires a parent");
-      if (!envelope.nullifier) throw new Error("appendSigned: singleton create requires a nullifier");
-      const attested = await this.store.getAttestedNullifier(tk.userId, parent.id);
-      if (attested && attested !== envelope.nullifier) {
-        throw new Error("appendSigned: nullifier does not match the attested one for (user, parent)");
+    if (envelope.op === "create") {
+      if (envelope.prevHash !== null) throw new Error("appendSigned: a create must have prevHash=null");
+      const r = await this.validateCreate({ type: envelope.type, author: envelope.authorPubkey, content, parent, entityId: envelope.entityId });
+      if (tk.threadId !== r.rootEntityId) {
+        throw new Error("appendSigned: thread key is not scoped to this action's root entity");
       }
-      if (!attested) {
-        if (!this.platformPrivKeyHex) throw new Error("appendSigned: platform private key required to attest a nullifier");
-        const sig = signNullifierAttestation(parent.id, envelope.nullifier, this.platformPrivKeyHex);
-        await this.store.attestNullifier({ userId: tk.userId, parentId: parent.id, nullifier: envelope.nullifier, platformSig: sig });
+      // optimistic concurrency: parent revision the client signed must still be current.
+      if ((envelope.parentRevisionHash ?? undefined) !== r.parentRevisionHash) {
+        throw new Error("appendSigned: stale parent revision; re-prepare and re-sign");
       }
-      if (await this.store.hasActiveSingletonByNullifier(parent.id, envelope.nullifier)) {
-        throw new Error("appendSigned: an active singleton with this nullifier already exists on the parent (update instead)");
+      // nullifier gate (authoritative singleton dedupe).
+      if (r.isSingleton) {
+        if (!parent) throw new Error("appendSigned: a singleton action requires a parent");
+        if (!envelope.nullifier) throw new Error("appendSigned: singleton create requires a nullifier");
+        const attested = await this.store.getAttestedNullifier(tk.userId, parent.id);
+        if (attested && attested !== envelope.nullifier) {
+          throw new Error("appendSigned: nullifier does not match the attested one for (user, parent)");
+        }
+        if (!attested) {
+          if (!this.platformPrivKeyHex) throw new Error("appendSigned: platform private key required to attest a nullifier");
+          const sig = signNullifierAttestation(parent.id, envelope.nullifier, this.platformPrivKeyHex);
+          await this.store.attestNullifier({ userId: tk.userId, parentId: parent.id, nullifier: envelope.nullifier, platformSig: sig });
+        }
+        if (await this.store.hasActiveSingletonByNullifier(parent.id, envelope.nullifier)) {
+          throw new Error("appendSigned: an active singleton with this nullifier already exists on the parent (update instead)");
+        }
+      } else if (envelope.nullifier) {
+        throw new Error("appendSigned: a non-singleton create must not carry a nullifier");
       }
-    } else if (envelope.nullifier) {
-      throw new Error("appendSigned: a non-singleton create must not carry a nullifier");
+    } else {
+      // ── update / delete ──
+      const head = await this.store.getHeadTx(envelope.entityId);
+      if (!head) throw new Error(`appendSigned: entity ${envelope.entityId} not found`);
+      // optimistic concurrency on the per-entity head.
+      if (envelope.prevHash !== head.txHash) throw new Error("appendSigned: stale prevHash; re-prepare and re-sign");
+      // author-match (proven by the signature over authorPubkey) + governance + op rules.
+      const v =
+        envelope.op === "update"
+          ? await this.validateUpdate(envelope.entityId, envelope.authorPubkey)
+          : await this.validateDelete(envelope.entityId, envelope.authorPubkey);
+      if (tk.threadId !== v.rootEntityId) {
+        throw new Error("appendSigned: thread key is not scoped to this action's root entity");
+      }
+      // preserved fields: an update/delete may not move the parent or re-pin the parent revision.
+      if (
+        (envelope.parentType ?? undefined) !== (head.parentType ?? undefined) ||
+        (envelope.parentId ?? undefined) !== (head.parentId ?? undefined) ||
+        (envelope.parentRevisionHash ?? undefined) !== (head.parentRevisionHash ?? undefined)
+      ) {
+        throw new Error("appendSigned: update/delete must preserve the original parent and parent revision");
+      }
+      if (envelope.op === "delete" && canonicalJson(content) !== canonicalJson(DELETE_MARKER)) {
+        throw new Error("appendSigned: a delete must carry the DELETE_MARKER content");
+      }
+      // nullifier carry-forward (no mint, no dup-check): singleton edits keep the original nullifier.
+      if (SINGLETON_PER_AUTHOR_PARENT.includes(head.type)) {
+        if (!head.nullifier) throw new Error("appendSigned: singleton entity has no nullifier to carry forward");
+        if (envelope.nullifier !== head.nullifier) {
+          throw new Error("appendSigned: a singleton update/delete must carry the original nullifier");
+        }
+      } else if (envelope.nullifier) {
+        throw new Error("appendSigned: a non-singleton update/delete must not carry a nullifier");
+      }
     }
 
     const { txHash } = await this.chain.append(envelope, { salt, content });
@@ -240,6 +294,46 @@ export class RecordService {
     return curId;
   }
 
+  /** The root ancestor entityId for an entity given its head (itself if a root type). */
+  private async rootOf(head: StoredTx): Promise<string> {
+    if (isRootType(head.type) || !head.parentType || !head.parentId) return head.entityId;
+    return this.resolveRoot({ type: head.parentType, id: head.parentId });
+  }
+
+  /** Validate an UPDATE against the entity's head (shared by the unsigned + signed paths). `actor`
+   *  is the claimed author (unsigned) or the signed `authorPubkey` (signed, where the signature
+   *  PROVES control). Throws on any rule violation; returns the head + the root entity. */
+  private async validateUpdate(entityId: string, actor: string): Promise<{ head: StoredTx; rootEntityId: string }> {
+    const head = await this.store.getHeadTx(entityId);
+    if (!head) throw new Error(`entity ${entityId} not found`);
+    if (head.op === "delete") throw new Error(`entity ${entityId} is deleted`);
+    if (!opAllowed(head.type, "update")) throw new Error(`update not allowed for ${head.type}`);
+    this.assertAuthor(head.authorPubkey, actor, entityId);
+    if (head.type === "vote") {
+      if (!head.parentId) throw new Error("vote has no parent poll");
+      if (!(await canChangeVote(this.store, head.parentId))) {
+        throw new Error(`vote change not permitted for poll ${head.parentId} (rules/deadline)`);
+      }
+    }
+    return { head, rootEntityId: await this.rootOf(head) };
+  }
+
+  /** Validate a DELETE against the entity's head (shared by the unsigned + signed paths). */
+  private async validateDelete(entityId: string, actor: string): Promise<{ head: StoredTx; rootEntityId: string }> {
+    const head = await this.store.getHeadTx(entityId);
+    if (!head) throw new Error(`entity ${entityId} not found`);
+    if (head.op === "delete") throw new Error(`entity ${entityId} already deleted`);
+    if (!opAllowed(head.type, "delete")) throw new Error(`delete not allowed for ${head.type}`);
+    this.assertAuthor(head.authorPubkey, actor, entityId);
+    if (head.type === "petition_signature") {
+      if (!head.parentId) throw new Error("signature has no parent petition");
+      if (!(await canRevokeSignature(this.store, head.parentId))) {
+        throw new Error(`signature revoke not permitted for petition ${head.parentId} (rules/deadline)`);
+      }
+    }
+    return { head, rootEntityId: await this.rootOf(head) };
+  }
+
   // ── Generic CRUD ──────────────────────────────────────────────────────────────────────
 
   async create(input: {
@@ -286,19 +380,7 @@ export class RecordService {
     createdAt?: string;
     signature?: string;
   }): Promise<Ref> {
-    const head = await this.store.getHeadTx(input.entityId);
-    if (!head) throw new Error(`entity ${input.entityId} not found`);
-    if (head.op === "delete") throw new Error(`entity ${input.entityId} is deleted`);
-    if (!opAllowed(head.type, "update")) throw new Error(`update not allowed for ${head.type}`);
-    this.assertAuthor(head.authorPubkey, input.author, input.entityId);
-
-    if (head.type === "vote") {
-      if (!head.parentId) throw new Error("vote has no parent poll");
-      if (!(await canChangeVote(this.store, head.parentId))) {
-        throw new Error(`vote change not permitted for poll ${head.parentId} (rules/deadline)`);
-      }
-    }
-
+    const { head } = await this.validateUpdate(input.entityId, input.author);
     return this.append({
       type: head.type,
       entityId: input.entityId,
@@ -320,19 +402,7 @@ export class RecordService {
     createdAt?: string;
     signature?: string;
   }): Promise<Ref> {
-    const head = await this.store.getHeadTx(input.entityId);
-    if (!head) throw new Error(`entity ${input.entityId} not found`);
-    if (head.op === "delete") throw new Error(`entity ${input.entityId} already deleted`);
-    if (!opAllowed(head.type, "delete")) throw new Error(`delete not allowed for ${head.type}`);
-    this.assertAuthor(head.authorPubkey, input.author, input.entityId);
-
-    if (head.type === "petition_signature") {
-      if (!head.parentId) throw new Error("signature has no parent petition");
-      if (!(await canRevokeSignature(this.store, head.parentId))) {
-        throw new Error(`signature revoke not permitted for petition ${head.parentId} (rules/deadline)`);
-      }
-    }
-
+    const { head } = await this.validateDelete(input.entityId, input.author);
     return this.append({
       type: head.type,
       entityId: input.entityId,

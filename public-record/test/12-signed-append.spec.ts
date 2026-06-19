@@ -146,7 +146,8 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
     // contentHash mismatch: change content but keep the signed envelope's hash
     expect(await rejects(svc.appendSigned({ envelope: signed.envelope, salt: signed.salt, content: { body: "different" } }))).to.equal(true);
 
-    // non-create op (re-sign so the signature is valid but the slice guard rejects)
+    // op=update is a supported op (2b), but this still rejects: the post was never committed, so an
+    // update finds no head — and an update's prevHash must match the current head (stale ⇒ reject).
     const updateBase: TxEnvelope = { ...signed.envelope, op: "update", authorPubkey: "", signature: "" };
     const updateSigned = signEnvelope(updateBase, privKey).envelope;
     expect(await rejects(svc.appendSigned({ envelope: updateSigned, salt: signed.salt, content: { body: "ok" } }))).to.equal(true);
