@@ -1,0 +1,159 @@
+import { expect } from "chai";
+import { randomUUID } from "node:crypto";
+import { p256 } from "@noble/curves/p256";
+import { bytesToHex } from "@noble/hashes/utils";
+import { blockConfig } from "../src/config.js";
+import { contentCommitment, newSalt } from "../src/crypto/commitment.js";
+import { deriveThreadKey } from "../src/identity/derive.js";
+import { signEnvelope } from "../src/identity/envelope.js";
+import { buildThreadBindingInputs } from "../src/identity/binding.js";
+import { signBinding, platformPublicKey } from "../src/identity/platform-binding.js";
+import { verifyThreadBinding } from "../src/identity/verify.js";
+import { PublicChain } from "../src/ledger/chain.js";
+import { BlockSettler } from "../src/ledger/settler.js";
+import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
+import type { PrivateStore } from "../src/private/store.js";
+import { RecordService } from "../src/record.js";
+import type { TxEnvelope } from "../src/schema/types.js";
+import { getWorld, rejects } from "./helpers/world.js";
+import { levelMaster } from "./fixtures/identity-vectors.js";
+
+/**
+ * The identity vertical slice end-to-end (Track A): a client derives a per-thread P-256 key, the
+ * platform registers a private binding, the client signs a `post` envelope, the server gate
+ * (`appendSigned`) verifies signature + binding + commitment, and the action flows through the
+ * existing pool → settle path onto immudb. Full offline-bundle verification is covered by suites
+ * 08/11; here we assert the commitment lands on the tamper-evident ledger (server verifyRow) and the
+ * envelope leaks nothing private.
+ */
+describe("12 signed append: register → sign → appendSigned → settle (verified-tier post)", () => {
+  // Ephemeral platform binding key for this run (env-required in prod; never committed).
+  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const platformPub = platformPublicKey(platformPriv);
+  const level = "federal";
+  const kycTier = "residency_verified";
+  const region = "ca-ab";
+
+  let store: PrivateStore;
+  let connector: PgWireLedgerConnector;
+  let chainId: string;
+  let svc: RecordService;
+  let settler: BlockSettler;
+
+  before(async () => {
+    const w = await getWorld();
+    store = w.store;
+    connector = w.connector;
+    await store.reset();
+    chainId = randomUUID();
+    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPubKeyHex: platformPub });
+    settler = new BlockSettler(store, connector, chainId, blockConfig);
+  });
+
+  /** Register a fresh verified thread; returns the derived key + ids. */
+  async function registerThread(): Promise<{ userId: string; threadId: string; privKey: Uint8Array; threadPubkey: string }> {
+    const userId = randomUUID();
+    const threadId = `thread-${randomUUID()}`;
+    await store.putUser({ id: userId });
+    const lm = levelMaster();
+    // For the slice the level master doubles as a P-256 seed so we can record a public master ref;
+    // the append gate does not depend on it (it checks the per-thread binding).
+    await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
+    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: lm, threadId, level });
+    const { binding } = buildThreadBindingInputs({ userId, threadPubkey, threadId, level, kycTier, region, saltT: newSalt() });
+    const bindingSig = signBinding(binding, platformPriv);
+    await store.putAttestation({ userId, provider: "dev-stub", tier: kycTier, region });
+    await store.registerThreadBinding({
+      threadPubkey, userId, threadId, level, kycTier, region, commitment: binding.commitment, bindingSig,
+    });
+    return { userId, threadId, privKey, threadPubkey };
+  }
+
+  /** Client-build + sign a root `post` create envelope. */
+  function buildSignedPost(privKey: Uint8Array, content: unknown): { envelope: TxEnvelope; salt: string; content: unknown } {
+    const txId = randomUUID();
+    const salt = newSalt();
+    const contentHash = contentCommitment({ id: txId, salt, content });
+    const base: TxEnvelope = {
+      v: 1, txId, type: "post", entityId: randomUUID(), op: "create",
+      authorPubkey: "", signature: "", createdAt: new Date().toISOString(), prevHash: null, contentHash,
+    };
+    const { envelope } = signEnvelope(base, privKey);
+    return { envelope, salt, content };
+  }
+
+  it("DB unit: verifyThreadBinding is true for a registered key, false for an unregistered one", async () => {
+    const { threadPubkey } = await registerThread();
+    expect(await verifyThreadBinding(store, threadPubkey, platformPub)).to.equal(true);
+    expect(await verifyThreadBinding(store, "02" + "ab".repeat(32), platformPub)).to.equal(false);
+  });
+
+  it("accepts a verified-tier signed post; the commitment lands on immudb and server-verifies", async () => {
+    const { privKey } = await registerThread();
+    const { envelope, salt, content } = buildSignedPost(privKey, { title: "Belief", body: "secret civic text" });
+    const ref = await svc.appendSigned({ envelope, salt, content });
+    await settler.flushPendingSettlement();
+
+    const onchain = await connector.getEnvelope(ref.txId);
+    expect(onchain, "row present in immudb").to.exist;
+    const v = await connector.verifyRow(ref.txId);
+    expect(v.verified).to.equal(true);
+
+    // The on-chain envelope carries the thread pubkey + commitment-to-content, but NOTHING private.
+    expect(onchain!).to.include(envelope.authorPubkey); // thread_pubkey
+    expect(onchain!).to.include("contentHash");
+    expect(onchain!).to.not.include("secret civic text");
+
+    // Postgres holds the plaintext.
+    const state = await store.getEntityState(ref.entityId);
+    expect(state!.type).to.equal("post");
+    expect((state!.content as { body: string }).body).to.equal("secret civic text");
+  });
+
+  it("the on-chain envelope carries thread_pubkey only — never the commitment or opening", async () => {
+    const userId = randomUUID();
+    const threadId = `thread-${randomUUID()}`;
+    await store.putUser({ id: userId });
+    const lm = levelMaster();
+    await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
+    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: lm, threadId, level });
+    const saltT = newSalt();
+    const { binding } = buildThreadBindingInputs({ userId, threadPubkey, threadId, level, kycTier, region, saltT });
+    await store.registerThreadBinding({
+      threadPubkey, userId, threadId, level, kycTier, region, commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
+    });
+    const { envelope, salt, content } = buildSignedPost(privKey, { body: "x" });
+    const ref = await svc.appendSigned({ envelope, salt, content });
+    await settler.flushPendingSettlement();
+
+    const onchain = await connector.getEnvelope(ref.txId);
+    expect(onchain!).to.not.include(binding.commitment);
+    expect(onchain!).to.not.include(saltT);
+    expect(onchain!).to.not.include(userId);
+  });
+
+  it("rejects an unregistered thread key (unverified tier) and writes no pool row", async () => {
+    // Derive a key but DO NOT register it.
+    const { privKey } = deriveThreadKey({ levelMaster: levelMaster(), threadId: `thread-${randomUUID()}`, level });
+    const { envelope, salt, content } = buildSignedPost(privKey, { body: "should not land" });
+    expect(await rejects(svc.appendSigned({ envelope, salt, content }))).to.equal(true);
+    expect(await store.getEntityState(envelope.entityId), "nothing written").to.not.exist;
+  });
+
+  it("rejects an invalid signature, a contentHash mismatch, and a non-create op", async () => {
+    const { privKey } = await registerThread();
+    const signed = buildSignedPost(privKey, { body: "ok" });
+
+    // tampered signature
+    const badSig = { ...signed.envelope, signature: signed.envelope.signature.replace(/.$/, (c) => (c === "0" ? "1" : "0")) };
+    expect(await rejects(svc.appendSigned({ ...signed, envelope: badSig }))).to.equal(true);
+
+    // contentHash mismatch: change content but keep the signed envelope's hash
+    expect(await rejects(svc.appendSigned({ envelope: signed.envelope, salt: signed.salt, content: { body: "different" } }))).to.equal(true);
+
+    // non-create op (re-sign so the signature is valid but the slice guard rejects)
+    const updateBase: TxEnvelope = { ...signed.envelope, op: "update", authorPubkey: "", signature: "" };
+    const updateSigned = signEnvelope(updateBase, privKey).envelope;
+    expect(await rejects(svc.appendSigned({ envelope: updateSigned, salt: signed.salt, content: { body: "ok" } }))).to.equal(true);
+  });
+});

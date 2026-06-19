@@ -58,3 +58,34 @@ export function contentCommitment(input: { id: string; salt: string; content: un
     canonicalJson({ ds: CONTENT_DOMAIN, id: input.id, salt: input.salt, content: input.content }),
   );
 }
+
+/** Domain-separation tag for the opaque per-thread identity commitment (distinct from content). */
+export const THREAD_COMMITMENT_DOMAIN = "oursay/v1/thread-commitment";
+
+export interface ThreadCommitmentInput {
+  userId: string;
+  /** 32-byte salt as a HEX STRING (client-generated; e.g. from {@link newSalt}). */
+  saltT: string;
+  threadId: string;
+  level: string;
+}
+
+/**
+ * The opaque per-thread commitment bound into a private platform registration binding (§6):
+ *   sha256( canonicalJson({ ds, user_id, salt_t, thread_id, level }) )
+ *
+ * `salt_t` is carried as a hex string so the encoding is unambiguous. The commitment is hiding:
+ * it reveals nothing about `user_id`/`salt_t` without the opening, and it NEVER appears on the
+ * public envelope (which carries `thread_pubkey` only). Promoted from the `passkey-test` spike.
+ */
+export function threadCommitment(input: ThreadCommitmentInput): string {
+  return sha256Hex(
+    canonicalJson({
+      ds: THREAD_COMMITMENT_DOMAIN,
+      user_id: input.userId,
+      salt_t: input.saltT,
+      thread_id: input.threadId,
+      level: input.level,
+    }),
+  );
+}

@@ -13,6 +13,7 @@ export type {
   ReactionCount,
   StoredTx,
   AppendTxInput,
+  ThreadBindingRow,
 } from "./private/store.js";
 export { PublicChain, txHashOf } from "./ledger/chain.js";
 
@@ -54,9 +55,22 @@ export { verifyEntry, verifyBlock, verifyChainLink, verifyChain, computeChainTip
 export type { EntryVerdict, BlockReport } from "./anchor/verify.js";
 
 // Crypto (also what an independent auditor reimplements against)
-export { canonicalJson, contentCommitment, newSalt, sha256Hex } from "./crypto/commitment.js";
+export { canonicalJson, contentCommitment, newSalt, sha256Hex, threadCommitment } from "./crypto/commitment.js";
+export type { ThreadCommitmentInput } from "./crypto/commitment.js";
 export { hashLeaf, merkleRoot, merkleProof, verifyMerkleProof } from "./crypto/merkle.js";
 export type { MerkleStep } from "./crypto/merkle.js";
+
+// Identity — per-thread keys, envelope signing, binding inputs (promoted from passkey-test).
+// Browser-safe client helpers; also re-exported via the "./identity/*" subpaths.
+export { deriveThreadKey, deriveThreadPrivateKey, threadDomainInfo } from "./identity/derive.js";
+export type { DeriveInput, ThreadKey } from "./identity/derive.js";
+export { signEnvelope, verifyEnvelope, UNSIGNED } from "./identity/envelope.js";
+export type { SignResult } from "./identity/envelope.js";
+export { buildThreadBindingInputs } from "./identity/binding.js";
+export type { ThreadBindingInputs, ThreadBindingPublic, ThreadBindingOpening, BuildBindingInput } from "./identity/binding.js";
+// Server-side binding (platform signs/verifies the registration binding).
+export { signBinding, verifyBinding, bindingDigest, platformPublicKey } from "./identity/platform-binding.js";
+export { verifyThreadBinding, bindingFromRow } from "./identity/verify.js";
 
 // Schema / model
 export {

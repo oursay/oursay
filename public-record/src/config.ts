@@ -115,4 +115,19 @@ export const anchorTargetsConfig: AnchorTargetsConfig = {
   fileEveryNBlocks: Math.max(1, Number(env("FILE_ANCHOR_EVERY_BLOCKS", "2"))),
 };
 
+/**
+ * Identity / platform binding. The platform signs each per-thread registration binding (§6) with a
+ * P-256 key. This is **env-required with NO committed default** (VALUES §9: no secrets in git): a
+ * deployment sets `PLATFORM_BINDING_PRIVKEY` (hex), and tests generate an ephemeral key per run and
+ * inject it. KMS-managed keys are a later milestone. Empty string when unset — `signBinding` and the
+ * `appendSigned` gate fail loudly rather than signing/verifying with a placeholder.
+ */
+export interface IdentityConfig {
+  platformBindingPrivKeyHex: string;
+}
+
+export const identityConfig: IdentityConfig = {
+  platformBindingPrivKeyHex: env("PLATFORM_BINDING_PRIVKEY", ""),
+};
+
 export const paths = { packageRoot, repoRoot };

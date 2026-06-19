@@ -8,7 +8,8 @@
     ".": "./src/index.ts",
     "./crypto/*": "./src/crypto/*.ts",
     "./schema/types": "./src/schema/types.ts",
-    "./ledger/chain": "./src/ledger/chain.ts"
+    "./ledger/chain": "./src/ledger/chain.ts",
+    "./identity/*": "./src/identity/*.ts"
   },
   "scripts": {
     "db:up": "docker compose up -d --wait",

@@ -1,8 +1,20 @@
+import { randomUUID } from "node:crypto";
 import pg from "pg";
 import type { PgConfig } from "../config.js";
 import type { ChainRow } from "../ledger/connector.js";
 import { POSTGRES_DDL } from "../schema/postgres.sql.js";
 import type { Op, RecordType } from "../schema/types.js";
+
+/** A private per-thread registration binding row (never published). */
+export interface ThreadBindingRow {
+  threadPubkey: string;
+  threadId: string;
+  level: string;
+  kycTier: string;
+  region: string | null;
+  commitment: string;
+  bindingSig: string;
+}
 
 /** A full event-log row (the private, mutable record of one transaction). */
 export interface StoredTx {
@@ -130,7 +142,9 @@ export class PrivateStore {
 
   /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
   async reset(): Promise<void> {
-    await this.pool.query("TRUNCATE record_outbox, record_tx, users, thread_keys");
+    await this.pool.query(
+      "TRUNCATE record_outbox, record_tx, thread_bindings, thread_keys, level_master_keys, kyc_attestations, users CASCADE",
+    );
   }
 
   /**
@@ -403,11 +417,80 @@ export class PrivateStore {
     );
   }
 
-  async putThreadKey(k: { pubkey: string; userId?: string; threadId?: string }): Promise<void> {
+  /** Record a user's PUBLIC level master key (root for on-device per-thread derivation). */
+  async putLevelMaster(m: { userId: string; level: string; masterPubkey: string }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO thread_keys(pubkey, user_id, thread_id) VALUES($1,$2,$3)
-       ON CONFLICT (pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id`,
-      [k.pubkey, k.userId ?? null, k.threadId ?? null],
+      `INSERT INTO level_master_keys(user_id, level, master_pubkey) VALUES($1,$2,$3)
+       ON CONFLICT (user_id, level) DO UPDATE SET master_pubkey = EXCLUDED.master_pubkey`,
+      [m.userId, m.level, m.masterPubkey],
+    );
+  }
+
+  /**
+   * Register a per-thread key and its private platform binding in ONE transaction (verified-tier
+   * pre-registration). The binding carries the opaque commitment + the platform's signature; it is
+   * never published. Upserts so a re-registration of the same thread key is idempotent.
+   */
+  async registerThreadBinding(input: {
+    threadPubkey: string;
+    userId: string;
+    threadId: string;
+    level: string;
+    kycTier: string;
+    region?: string | null;
+    commitment: string;
+    bindingSig: string;
+  }): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO thread_keys(id, user_id, thread_id, level, pubkey) VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT (pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id, level = EXCLUDED.level`,
+        [randomUUID(), input.userId, input.threadId, input.level, input.threadPubkey],
+      );
+      await client.query(
+        `INSERT INTO thread_bindings(thread_pubkey, thread_id, level, kyc_tier, region, commitment, binding_sig)
+         VALUES($1,$2,$3,$4,$5,$6,$7)
+         ON CONFLICT (thread_pubkey) DO UPDATE SET
+           thread_id = EXCLUDED.thread_id, level = EXCLUDED.level, kyc_tier = EXCLUDED.kyc_tier,
+           region = EXCLUDED.region, commitment = EXCLUDED.commitment, binding_sig = EXCLUDED.binding_sig`,
+        [input.threadPubkey, input.threadId, input.level, input.kycTier, input.region ?? null, input.commitment, input.bindingSig],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** The private binding for a thread key, or null if the key is not registered. */
+  async getThreadBinding(threadPubkey: string): Promise<ThreadBindingRow | null> {
+    const r = await this.pool.query(
+      `SELECT thread_pubkey, thread_id, level, kyc_tier, region, commitment, binding_sig
+       FROM thread_bindings WHERE thread_pubkey = $1`,
+      [threadPubkey],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    return {
+      threadPubkey: row.thread_pubkey,
+      threadId: row.thread_id,
+      level: row.level,
+      kycTier: row.kyc_tier,
+      region: row.region ?? null,
+      commitment: row.commitment,
+      bindingSig: row.binding_sig,
+    };
+  }
+
+  /** KYC attestation stub — carries the tier; no provider integration this phase. */
+  async putAttestation(a: { userId: string; provider: string; tier: string; region?: string | null }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO kyc_attestations(id, user_id, provider, tier, region) VALUES($1,$2,$3,$4,$5)`,
+      [randomUUID(), a.userId, a.provider, a.tier, a.region ?? null],
     );
   }
 

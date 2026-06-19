@@ -1,5 +1,13 @@
 # passkey-test
 
+> **Historical spike — kept for reference.** The crypto primitives proven here (HKDF per-thread
+> derivation, P-256 envelope signing, the opaque per-thread commitment) have been **promoted into the
+> production library** at `public-record/src/identity/*` and `public-record/src/crypto/commitment.ts`
+> (`threadCommitment`). That is their production home; build on those, not on this spike. This
+> workspace stays intact as the evaluation record (per `docs/PHILOSOPHY.md` §2.2). Note: the library's
+> envelope `signature`/`txHash` vectors differ from this spike's by design — production binds
+> `contentHash` to `txId` (see `public-record/test/fixtures/identity-vectors.ts`).
+
 Evaluation spike for OurSay's **web identity path** — the browser realization of
 `public-record/PROPOSAL.md` §6. It answers four questions with tests/evidence and records them in
 [`FINDINGS.md`](./FINDINGS.md) (the primary output). It is **not** a multi-platform library; no

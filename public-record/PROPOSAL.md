@@ -515,30 +515,47 @@ What this buys: the public record shows only `thread_pubkey`, the action signatu
 metadata, and (via the attestation) an opaque commitment — **never `user_id`, never cross-thread
 linkability**. The linkage gap shrinks from "trust our database" to "verify our signed bindings."
 
-### Module (`identity/*`, planned — Phase 2)
+### Module (`src/identity/*` — partially implemented, Track A slice)
 
-- **`derivation.ts`** — `deriveThreadKey(levelMaster, threadId, level)`: on-device HKDF derivation
-  and public-key validation. No private material leaves the device.
-- **`binding.ts`** —
-  - *Platform-side, private:* `registerThreadBinding(...)` creates and signs the binding above;
-    `verifyThreadBinding(...)` confirms a `thread_pubkey` is bound to a verified user **without
-    storing or publishing which user**.
-  - *Selective reveal (R11):* `revealThread(thread_pubkey)` publishes the opening
-    `(user_id, salt_t, thread_id, level)` **plus** the platform binding **for chosen threads
-    only** — an independent org recomputes the commitment, confirms the platform's signature, and
-    binds it to identity via its own KYC. The platform is not otherwise in the loop (Values §3).
-  - *Claim / unclaim (R8, R9):* `claimThread()` flips `thread_keys.claimed` and may publish a claim
-    record; reversible per R9. This is the user-controlled **pseudonymous public-ownership**
-    channel — kept distinct from the **identity-to-auditor** reveal channel above.
+**Implemented** (promoted from `passkey-test`; suites `10-identity-crypto`, `12-signed-append`):
 
-> **Future (strengthens R11):** the binding can additionally be **signed by the user** (not only
-> the platform). A **user-signed binding** lets an auditor verify thread ownership from the
-> published opening alone, **without platform cooperation** — removing the platform from the R11
-> verification path entirely.
+- **`derive.ts`** — `deriveThreadKey({ levelMaster, threadId, level })` / `deriveThreadPrivateKey`
+  / `threadDomainInfo`: on-device HKDF→P-256 derivation, domain-separated by `(thread_id, level)`,
+  with a pinned scalar mapping. No private material leaves the device.
+- **`envelope.ts`** — `signEnvelope(env, privKey)` / `verifyEnvelope(env)` (+ `UNSIGNED`): P-256
+  signing/verification over the **signing digest** (`signature=""`), with the leaf computed via the
+  reused `txHashOf`.
+- **`binding.ts`** — `buildThreadBindingInputs(...)`: the client-side `{ binding, opening }` inputs.
+- **`platform-binding.ts`** — `signBinding(binding, platformPriv)` / `verifyBinding(...)` /
+  `platformPublicKey(...)`: the platform signs/verifies the registration binding. The platform key
+  is **env-required** (`PLATFORM_BINDING_PRIVKEY`); tests use an ephemeral key. (KMS is a later
+  milestone.)
+- **`verify.ts`** — `verifyThreadBinding(store, threadPubkey, platformPubKeyHex)`: confirms a
+  `thread_pubkey` is registered **without exposing which user**, and **re-verifies** the stored
+  `binding_sig` (defense-in-depth).
+- `threadCommitment(...)` lives in **`crypto/commitment.js`** (the opaque
+  `H(user_id, salt_t, thread_id, level)`).
+- The verified-tier gate is **`RecordService.appendSigned({ envelope, salt, content })`**: verifies
+  the signature + the binding + that `{salt, content}` reproduce `contentHash`, then delegates to the
+  existing pool path. **Slice scope: a root `post` create only** (`op=create`, `type=post`,
+  `prevHash=null`). The platform stores only the **public** master (`level_master_keys`) and the
+  **public** thread key (`thread_keys.pubkey`).
 
-The binding, `salt_t`, and commitment openings are **PII, encrypted at rest, never published**
-except on the user's explicit per-thread authorization (Values §3). This module never writes
-private key material anywhere; signing keys stay on the user's device.
+**Still future (NOT implemented):**
+
+- *Selective reveal (R11):* `revealThread(thread_pubkey)` — publish the opening
+  `(user_id, salt_t, thread_id, level)` + binding for chosen threads so an independent org recomputes
+  the commitment and binds it to identity via its own KYC.
+- *Claim / unclaim (R8, R9):* flip `thread_keys.claimed` (+ optional public claim record) — the
+  user-controlled pseudonymous-ownership channel, distinct from the reveal channel.
+- *User-signed binding (strengthens R11):* the binding additionally signed by the **user**, so an
+  auditor verifies ownership **without platform cooperation**.
+- Signed paths for the **other record types** (update/delete/comment/reaction/vote) and at-rest
+  encryption of `salt_t`/openings (slice keeps `salt_t` client-held).
+
+The binding, `salt_t`, and commitment openings are **PII, never published** except on the user's
+explicit per-thread authorization (Values §3); at-rest encryption is the KMS milestone. This module
+never writes private key material anywhere; signing keys stay on the user's device.
 
 ---
 
@@ -547,41 +564,52 @@ private key material anywhere; signing keys stay on the user's device.
 What product workspaces and audit tooling import. Deliberately small; internals stay internal
 (Philosophy §2.3).
 
+Mirrors the actual `src/index.ts` (abbreviated to the load-bearing names):
+
 ```ts
-// Append + read the verifiable record
-export { PublicLedger } from "./ledger/ledger.js";
-export type { AppendInput, AppendResult } from "./ledger/ledger.js";
+// Orchestrator
+export { RecordService } from "./record.js";          // incl. appendSigned (verified-tier gate)
+export type { Ref } from "./record.js";
 
-// Connectors (choose transport by config; default pgwire)
-export type { LedgerConnector, LedgerRoot, RowVerification } from "./ledger/connector.js";
+// Stores & chain
+export { PrivateStore, toPublicView } from "./private/store.js";
+export type { EntityState, PublicEntityView, StoredTx, AppendTxInput, ThreadBindingRow } from "./private/store.js";
+export { PublicChain, txHashOf } from "./ledger/chain.js";
+
+// Connectors (pluggable transport; pg-wire default)
 export { PgWireLedgerConnector } from "./ledger/pgwire.connector.js";
-export { GrpcLedgerConnector } from "./ledger/grpc.connector.js"; // optional
+export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow, BlockHeader } from "./ledger/connector.js";
 
-// Private store (server-only; never bundled into the public site)
-export { PrivateStore } from "./private/store.js";
+// Settlement + anchoring (assembler / publisher / file target / target policy / types)
+export { BlockSettler } from "./ledger/settler.js";
+export { BundleAssembler } from "./anchor/assembler.js";
+export { AnchorPublisher } from "./anchor/publisher.js";
+export { FileAnchorTarget } from "./anchor/file.target.js";
+export { everyNBlocks } from "./anchor/target.js";
+export type { AnchorTarget, AnchorRecord, BlockBundle } from "./anchor/types.js";
 
-// Identity / per-thread keys (planned — Phase 2)
-export { deriveThreadKey } from "./identity/derivation.js";                       // on-device HKDF
-export { registerThreadBinding, verifyThreadBinding, revealThread } from "./identity/binding.js";
-export { claimThread, unclaimThread } from "./identity/binding.js";              // pseudonymous public ownership
-
-// Publish + audit
-export { buildBundle } from "./export.js";
-export { verifyBundle } from "./verifier.js";          // OFFLINE — the public audit entry point
-export type { PublicBundle, AnchorRecord, BundleEntry } from "./schema/envelope.js";
-
-// Anchoring
-export type { AnchorTarget } from "./anchor/anchor.js";
-export { GithubAnchorTarget } from "./anchor/github.target.js";
-export { EvmAnchorTarget } from "./anchor/evm.target.js";
+// Verification — live (against immudb) + OFFLINE (no DB / no platform)
+export { verifyEntityChain } from "./verify.js";
+export { verifyEntry, verifyBlock, verifyChainLink, verifyChain, computeChainTipHash } from "./anchor/verify.js";
 
 // Shared crypto (also what independent auditors reimplement against)
-export { canonicalJson, contentCommitment, newSalt } from "./crypto/commitment.js";
-export { merkleRoot, merkleProof, verifyMerkleProof, hashLeaf } from "./crypto/merkle.js";
+export { canonicalJson, contentCommitment, newSalt, sha256Hex, threadCommitment } from "./crypto/commitment.js";
+export { hashLeaf, merkleRoot, merkleProof, verifyMerkleProof } from "./crypto/merkle.js";
 
-// Schemas / wire types
-export type { PublicEnvelope, RecordType } from "./schema/envelope.js";
+// Identity (Track A slice) — also re-exported via the "./identity/*" subpaths
+export { deriveThreadKey, deriveThreadPrivateKey, threadDomainInfo } from "./identity/derive.js";
+export { signEnvelope, verifyEnvelope, UNSIGNED } from "./identity/envelope.js";
+export { buildThreadBindingInputs } from "./identity/binding.js";
+export { signBinding, verifyBinding, bindingDigest, platformPublicKey } from "./identity/platform-binding.js";
+export { verifyThreadBinding, bindingFromRow } from "./identity/verify.js";
+
+// Schema + config
+export type { RecordType, Op, EntityRules, TxEnvelope /* + content types */ } from "./schema/types.js";
+export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, blockConfig, anchorTargetsConfig } from "./config.js";
 ```
+
+> Note: `config.ts` also defines `identityConfig` (`PLATFORM_BINDING_PRIVKEY`); it is read internally
+> by the server identity path and is **not** part of the public `index.ts` surface.
 
 The **`verifyBundle` + crypto exports are the documented audit surface**: an outside party
 can either import them or reimplement them from the documented schemas, and verify the
@@ -649,10 +677,16 @@ Per REQUIREMENTS.md R14–R16 and FINDINGS §4:
 Outcome: signed appends, commitments-only ledger, offline audit — over the recommended
 transport.
 
-**Phase 2 — Identity & ownership.** Build `identity/*`: on-device HKDF per-thread derivation,
-private platform **registration bindings** (with the opaque per-thread commitment), **selective
-reveal** for independent verification, and claim/unclaim. KYC attestation + sponsorship tables
-wired.
+**Phase 2 — Identity & ownership.** **(partially built — Track A slice).** **Done:** `identity/*`
+(on-device HKDF per-thread derivation, P-256 envelope signing, client binding inputs, platform
+`signBinding`/`verifyBinding`, `verifyThreadBinding` with `binding_sig` re-verify); `threadCommitment`
+in `crypto/commitment`; the `RecordService.appendSigned` verified-tier gate (root `post` create);
+schema (`level_master_keys`, `thread_keys`, `thread_bindings`, `kyc_attestations` stub) +
+`PrivateStore.registerThreadBinding`/`getThreadBinding`/`putLevelMaster`. Suites `10-identity-crypto`
++ `12-signed-append`. **Remaining:** the HTTP API (`@oursay/api`), passkey **sessions** + registration
+UX, full **KYC** provider, **claim/unclaim** (R8/R9), **selective reveal** / **user-signed bindings**
+(R11), at-rest PII/KMS encryption (`salt_t` stays client-held), signed paths for the **other record
+types**, and the sponsorships table.
 
 **Phase 3 — Settlement & anchoring.** **(built, dev)** `BlockSettler` (pool → `record_chain` +
 `record_blocks` on the count/age trigger) + `AnchorPublisher` with the file target on a per-target

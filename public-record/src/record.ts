@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { contentCommitment, newSalt } from "./crypto/commitment.js";
 import { canRevokeSignature, canChangeVote } from "./governance.js";
+import { verifyEnvelope } from "./identity/envelope.js";
+import { verifyThreadBinding } from "./identity/verify.js";
 import type { PublicChain } from "./ledger/chain.js";
 import type { PrivateStore } from "./private/store.js";
 import {
@@ -54,10 +56,49 @@ interface AppendSpec {
  * the fold-on-read views resolve current state by "latest snapshot wins".
  */
 export class RecordService {
+  private readonly platformBindingPubKeyHex?: string;
+
   constructor(
     private readonly chain: PublicChain,
     private readonly store: PrivateStore,
-  ) {}
+    opts?: { platformBindingPubKeyHex?: string },
+  ) {
+    this.platformBindingPubKeyHex = opts?.platformBindingPubKeyHex;
+  }
+
+  // ── Verified-tier signed append (client-builds-and-signs; promoted from passkey-test) ───
+
+  /**
+   * Accept a CLIENT-SIGNED envelope into the pool, gated by the verified-tier checks (§6):
+   *   1. the per-thread P-256 signature verifies against `authorPubkey`;
+   *   2. the thread key is REGISTERED (a private binding exists and its platform signature verifies)
+   *      — an unregistered key is unverified-tier and is rejected (stays off the verified ledger);
+   *   3. the supplied {salt, content} reproduce the envelope's `contentHash` (id = txId).
+   * Slice scope: a root `post` create (op=create, type=post, prevHash=null). The unsigned dev path
+   * (create/update/…) is unchanged. Delegates to the existing `chain.append` pool path.
+   */
+  async appendSigned(input: { envelope: TxEnvelope; salt: string; content: unknown }): Promise<Ref> {
+    const { envelope, salt, content } = input;
+    if (envelope.op !== "create" || envelope.type !== "post" || envelope.prevHash !== null) {
+      throw new Error("appendSigned (slice): only a root `post` create (prevHash=null) is supported");
+    }
+    if (!this.platformBindingPubKeyHex) {
+      throw new Error("appendSigned: platform binding public key not configured");
+    }
+    if (!verifyEnvelope(envelope)) {
+      throw new Error("appendSigned: invalid per-thread signature");
+    }
+    const registered = await verifyThreadBinding(this.store, envelope.authorPubkey, this.platformBindingPubKeyHex);
+    if (!registered) {
+      throw new Error("appendSigned: thread key is not registered (verified tier required)");
+    }
+    const expected = contentCommitment({ id: envelope.txId, salt, content });
+    if (expected !== envelope.contentHash) {
+      throw new Error("appendSigned: contentHash does not match the supplied salt+content");
+    }
+    const { txHash } = await this.chain.append(envelope, { salt, content });
+    return { txId: envelope.txId, entityId: envelope.entityId, txHash };
+  }
 
   // ── Generic CRUD ──────────────────────────────────────────────────────────────────────
 

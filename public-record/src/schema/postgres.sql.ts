@@ -58,16 +58,65 @@ CREATE TABLE IF NOT EXISTS record_outbox (
 ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS chain_id TEXT NOT NULL DEFAULT 'oursay-local';
 CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enqueued_at) WHERE status = 'pending';
 
--- Identity stubs (full passkey/P-256 identity + per-thread bindings is a later phase).
+-- Identity (verified-tier append path). Primitives promoted into public-record/src/identity/*.
+-- NOTE: session/passkey_credential tables (auth milestone) and encrypted PII (email_enc, salt_t_enc;
+-- KMS milestone) are intentionally NOT here yet — see the Track A plan's roadmap.
 CREATE TABLE IF NOT EXISTS users (
   id         UUID PRIMARY KEY,
   handle     TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE TABLE IF NOT EXISTS thread_keys (
-  pubkey    TEXT PRIMARY KEY,
-  user_id   UUID REFERENCES users(id),
-  thread_id TEXT
+
+-- Level-scoped master PUBLIC keys: one per (user, governmental level); the root a client derives
+-- per-thread keys from on-device (HKDF). The platform stores only the public master.
+CREATE TABLE IF NOT EXISTS level_master_keys (
+  user_id       UUID NOT NULL REFERENCES users(id),
+  level         TEXT NOT NULL,
+  master_pubkey TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, level)
+);
+
+-- thread_keys / thread_bindings are reshaped from the earlier stub. They carry no durable
+-- production data yet, so DROP+CREATE keeps the shape deterministic across a reused dev volume.
+DROP TABLE IF EXISTS thread_bindings CASCADE;
+DROP TABLE IF EXISTS thread_keys CASCADE;
+
+-- Per-thread public keys. pubkey is the public author identity that appears in the envelope.
+CREATE TABLE thread_keys (
+  id         UUID PRIMARY KEY,
+  user_id    UUID NOT NULL REFERENCES users(id),
+  thread_id  TEXT NOT NULL,
+  level      TEXT NOT NULL,
+  pubkey     TEXT NOT NULL UNIQUE,            -- compressed SEC1 P-256, hex
+  claimed    BOOLEAN NOT NULL DEFAULT false,  -- user has publicly claimed this thread (R8; future)
+  claimed_at TIMESTAMPTZ,                     -- nullable; claim may be undone (R9; future)
+  UNIQUE (user_id, thread_id)
+);
+CREATE INDEX IF NOT EXISTS thread_keys_pubkey ON thread_keys (pubkey);
+
+-- Private platform registration binding (NEVER published). Commits the thread key to one opaque
+-- account commitment; the platform signs over the binding fields. salt_t escrow / at-rest encryption
+-- is a later (KMS) milestone — salt_t stays client-held for now, so it is NOT stored here.
+CREATE TABLE thread_bindings (
+  thread_pubkey TEXT PRIMARY KEY REFERENCES thread_keys(pubkey),
+  thread_id     TEXT NOT NULL,
+  level         TEXT NOT NULL,
+  kyc_tier      TEXT NOT NULL,
+  region        TEXT,
+  commitment    TEXT NOT NULL,                -- opaque H(user_id, salt_t, thread_id, level), hex
+  binding_sig   TEXT NOT NULL,                -- platform P-256 signature over the binding, hex
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- KYC attestation STUB (tier carrier only; no provider integration this phase).
+CREATE TABLE IF NOT EXISTS kyc_attestations (
+  id          UUID PRIMARY KEY,
+  user_id     UUID NOT NULL REFERENCES users(id),
+  provider    TEXT NOT NULL,
+  tier        TEXT NOT NULL,
+  region      TEXT,
+  attested_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ── Fold-on-read projections (the "get latest state" views) ─────────────────────────────

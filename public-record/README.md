@@ -11,9 +11,22 @@ targets publish those blocks on their own cadence.
 > the settlement boundary, an offline verifier, and a **file** `AnchorTarget` are implemented and
 > tested. **External** anchoring — publishing roots to infra we do not control (Git transparency
 > log, EVM, Solana) — is not yet wired; that is the earliest point we can claim third-party
-> verifiability (testnet during development, production targets later). Real signing
-> (passkey-derived per-thread P-256 keys) and KYC are also later. See [`PROPOSAL.md`](./PROPOSAL.md) and
-> [`REQUIREMENTS.md`](./REQUIREMENTS.md).
+> verifiability (testnet during development, production targets later).
+>
+> **Identity (Track A slice — implemented):** real **per-thread P-256 signing** is now wired for the
+> **verified-tier `post` (Belief) create** path. A client derives a per-thread key (HKDF from a
+> level master), signs a canonical `TxEnvelope`, and `RecordService.appendSigned` verifies the
+> signature **and** a private platform **registration binding** (opaque per-thread commitment, with
+> the platform's `binding_sig` re-verified) before the action enters the existing pool → settle
+> path. See `src/identity/*`, `threadCommitment` in `src/crypto/commitment.js`, and suites
+> `10-identity-crypto` + `12-signed-append`.
+>
+> **Still later (NOT done):** the HTTP API (`@oursay/api`), passkey **sessions** + user registration
+> UX, full **KYC provider** integration (only a tier stub today), **claim/unclaim** (R8/R9),
+> **selective reveal** / user-signed bindings (R11), at-rest PII/KMS encryption, and signed paths for
+> the other record types (only root `post` create is gated so far). The generic
+> `create/update/delete/react/vote` path is still the **unsigned dev path**. See
+> [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ## Architecture
 

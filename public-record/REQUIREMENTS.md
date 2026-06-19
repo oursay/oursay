@@ -260,16 +260,16 @@ Where each requirement is addressed in the design. Sections refer to
 | Requirement | Addressed in |
 |---|---|
 | R1 record types (post/petition/comment/vote/reaction) | §3 (append flow), §5.3 (envelope `RecordType`) |
-| R2 per-thread signing | §3, §5.2 (`signature`, `author_pubkey`), §5.3 |
-| R3 deterministic derivation | §6 (on-device HKDF from a level master, `identity/derivation.ts`) |
+| R2 per-thread signing | **Implemented (slice):** `identity/envelope.ts` (`signEnvelope`/`verifyEnvelope`, P-256) + `RecordService.appendSigned` gate; suites 10/12. Generic create/update path still unsigned (dev). |
+| R3 deterministic derivation | **Implemented (slice):** `identity/derive.ts` (on-device HKDF from a level master → P-256); suite 10 |
 | R4 commitments-only ledger | §3, §5.2, §5.3; Philosophy §5 |
 | R5 hiding (salted) commitments | §3 (append flow), §5.1 (`raw_content.salt`); Values §6 |
 | R6 mutable private store | §5.1; Philosophy §5 |
-| R7 ownership without exposure | §6 (private registration binding + opaque commitment, `identity/binding.ts`) |
-| R8 anonymous or claim | §5.1 (`thread_keys.claimed`), §6 |
-| R9 claim reversible | §5.1 (`claimed_at` nullable), §6 (`unclaimThread`) |
-| R10 user self-audit receipt | §3 (append returns id/salt), §7 (`verifyBundle`) |
-| R11 independent-org verification | §6 (selective reveal of binding openings, `revealThread`), §9 Q5 |
+| R7 ownership without exposure | **Implemented (slice):** private registration binding + opaque `threadCommitment` (`crypto/commitment.ts`); `PrivateStore.registerThreadBinding` + `identity/verify.ts` `verifyThreadBinding` (re-verifies `binding_sig`); suite 12 |
+| R8 anonymous or claim | §5.1 (`thread_keys.claimed`), §6 — **claim/unclaim Future** |
+| R9 claim reversible | §5.1 (`claimed_at` nullable), §6 — **Future** |
+| R10 user self-audit receipt | §3 (append returns id/salt), §7 (offline verifier) |
+| R11 independent-org verification | §6 (selective reveal of binding openings; `revealThread` + user-signed binding) — **Future**, §9 Q5 |
 | R12 reconstruct all hashes | §7 (crypto exports), `verifier.ts` |
 | R13 entry/block/record audit | §7, §8 (blocks) |
 | R14 external anchoring | §8; Values §1–2 |

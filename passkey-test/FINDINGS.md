@@ -117,8 +117,14 @@ When PRF is unavailable, derivation material must come from elsewhere without we
 - **Identity commitment (encoding defined here):**
   `sha256Hex(canonicalJson({ ds:"oursay/v1/thread-commitment", user_id, salt_t, thread_id, level }))`
   with **`salt_t` as a hex string** (matching `newSalt()`), mirroring `contentCommitment`'s
-  domain-tagged pattern. **Recommendation:** port a matching `threadCommitment()` into
-  `public-record/src/crypto/commitment.ts` in the library pass so production and these vectors agree.
+  domain-tagged pattern. **Ported (done):** this is now `threadCommitment()` in
+  `../public-record/src/crypto/commitment.ts`, and `derive`/`envelope`/`binding` were promoted into
+  `../public-record/src/identity/*` (with `signBinding`/`verifyThreadBinding` + the
+  `RecordService.appendSigned` verified-tier gate added server-side). The pure derivation and
+  `threadCommitment` vectors carry over unchanged; the production envelope `signature`/`txHash`
+  vectors differ because production binds `contentHash` to `txId` — see
+  `../public-record/test/fixtures/identity-vectors.ts` and suites `10-identity-crypto` /
+  `12-signed-append`.
 
 **Frozen vectors** (`src/vectors.ts`; regenerate with `npx tsx scripts/compute-vectors.ts`):
 
