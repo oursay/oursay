@@ -6,6 +6,7 @@ import { bytesToNumberBE } from "@noble/curves/abstract/utils";
 import { deriveThreadKey, deriveThreadPrivateKey } from "../src/identity/derive.js";
 import { signEnvelope, verifyEnvelope, UNSIGNED } from "../src/identity/envelope.js";
 import { threadCommitment } from "../src/crypto/commitment.js";
+import { deriveNullifierSecret, threadNullifier } from "../src/identity/nullifier.js";
 import { hashLeaf } from "../src/crypto/merkle.js";
 import { canonicalJson } from "../src/crypto/commitment.js";
 import { txHashOf } from "../src/ledger/chain.js";
@@ -79,5 +80,30 @@ describe("10 crypto/threadCommitment", () => {
     expect(threadCommitment({ ...base, userId: "user-bob" })).to.not.equal(c);
     expect(threadCommitment({ ...base, threadId: "thread-other" })).to.not.equal(c);
     expect(threadCommitment({ ...base, level: "municipal" })).to.not.equal(c);
+  });
+});
+
+describe("10 identity/nullifier", () => {
+  const secret = () => deriveNullifierSecret(levelMaster(), LEVEL);
+
+  it("is deterministic per (secret, parent) and a 32-byte opaque hex", () => {
+    const n = threadNullifier(secret(), "poll-1");
+    expect(n).to.equal(threadNullifier(secret(), "poll-1"));
+    expect(n).to.match(/^[0-9a-f]{64}$/);
+    expect(n).to.not.contain("poll-1");
+  });
+
+  it("is unlinkable across parents and across levels", () => {
+    const n1 = threadNullifier(secret(), "poll-1");
+    expect(threadNullifier(secret(), "poll-2")).to.not.equal(n1); // different parent
+    const otherLevelSecret = deriveNullifierSecret(levelMaster(), LEVEL_2);
+    expect(threadNullifier(otherLevelSecret, "poll-1")).to.not.equal(n1); // different level
+  });
+
+  it("the nullifier secret is distinct from the thread-derivation output", () => {
+    // sanity: secret derived under a different domain than thread keys
+    expect(bytesToNumberBE(secret())).to.not.equal(
+      bytesToNumberBE(deriveThreadPrivateKey({ levelMaster: levelMaster(), threadId: "poll-1", level: LEVEL })),
+    );
   });
 });

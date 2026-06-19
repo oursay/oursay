@@ -66,10 +66,12 @@ export { deriveThreadKey, deriveThreadPrivateKey, threadDomainInfo } from "./ide
 export type { DeriveInput, ThreadKey } from "./identity/derive.js";
 export { signEnvelope, verifyEnvelope, UNSIGNED } from "./identity/envelope.js";
 export type { SignResult } from "./identity/envelope.js";
+export { deriveNullifierSecret, threadNullifier } from "./identity/nullifier.js";
 export { buildThreadBindingInputs } from "./identity/binding.js";
 export type { ThreadBindingInputs, ThreadBindingPublic, ThreadBindingOpening, BuildBindingInput } from "./identity/binding.js";
 // Server-side binding (platform signs/verifies the registration binding).
 export { signBinding, verifyBinding, bindingDigest, platformPublicKey } from "./identity/platform-binding.js";
+export { signNullifierAttestation, verifyNullifierAttestation, nullifierAttestationDigest } from "./identity/platform-binding.js";
 export { verifyThreadBinding, bindingFromRow } from "./identity/verify.js";
 
 // Schema / model

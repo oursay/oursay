@@ -38,3 +38,27 @@ export function verifyBinding(binding: ThreadBindingPublic, sigHex: string, plat
     return false;
   }
 }
+
+// ── Nullifier attestation (platform-attested tier) ──────────────────────────────────────────
+// The platform attests that a nullifier is a distinct verified user's single tag for one parent.
+// (Issuance Sybil-resistance = the KYC trust gap; a future zk membership proof makes it trustless.)
+
+/** Digest the platform signs to attest a `(parentId, nullifier)` pair. */
+export function nullifierAttestationDigest(parentId: string, nullifier: string): Uint8Array {
+  return sha256(utf8ToBytes(canonicalJson({ ds: "oursay/v1/nullifier-attestation", parentId, nullifier })));
+}
+
+export function signNullifierAttestation(parentId: string, nullifier: string, platformPrivKeyHex: string): string {
+  if (!platformPrivKeyHex) throw new Error("platform binding private key not configured");
+  const sig = p256.sign(nullifierAttestationDigest(parentId, nullifier), hexToBytes(platformPrivKeyHex));
+  return bytesToHex(sig.toCompactRawBytes());
+}
+
+export function verifyNullifierAttestation(parentId: string, nullifier: string, sigHex: string, platformPubKeyHex: string): boolean {
+  if (!sigHex || !platformPubKeyHex) return false;
+  try {
+    return p256.verify(hexToBytes(sigHex), nullifierAttestationDigest(parentId, nullifier), hexToBytes(platformPubKeyHex));
+  } catch {
+    return false;
+  }
+}

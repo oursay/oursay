@@ -74,6 +74,7 @@ export class PublicChain {
         createdAt: envelope.createdAt,
         prevHash: envelope.prevHash,
         contentHash: envelope.contentHash,
+        nullifier: envelope.nullifier,
         txHash,
         envelope: envJson,
         salt: raw.salt,

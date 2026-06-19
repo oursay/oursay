@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS record_tx (
   created_at            TIMESTAMPTZ NOT NULL,      -- the envelope's createdAt (part of the hash)
   prev_hash             TEXT,                      -- per-entity chain link
   content_hash          TEXT NOT NULL,
+  nullifier             TEXT,                      -- singleton dedupe tag (vote/signature/reaction); NULL otherwise
   tx_hash               TEXT NOT NULL,             -- hash of the canonical envelope (this revision's id)
   envelope              TEXT NOT NULL,             -- exact canonical JSON envelope (byte-exact; feeds tx_hash)
   salt                  TEXT,                      -- hex; NULL after erasure
@@ -32,6 +33,8 @@ CREATE INDEX IF NOT EXISTS record_tx_entity_seq ON record_tx (entity_id, seq);
 CREATE INDEX IF NOT EXISTS record_tx_parent     ON record_tx (parent_id);
 CREATE INDEX IF NOT EXISTS record_tx_parent_rev ON record_tx (parent_revision_hash);
 CREATE INDEX IF NOT EXISTS record_tx_type       ON record_tx (type);
+-- Idempotent migration for a persistent dev DB created before the nullifier column existed.
+ALTER TABLE record_tx ADD COLUMN IF NOT EXISTS nullifier TEXT;
 
 -- Settlement pool / transactional outbox. Each record_tx insert atomically enqueues its commitment
 -- here (same Postgres transaction) as 'pending', so a crash before settlement can never orphan a
@@ -119,6 +122,21 @@ CREATE TABLE IF NOT EXISTS kyc_attestations (
   attested_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Platform-attested nullifiers — the authoritative one-per-(user, parent) dedupe for singleton
+-- actions (vote/petition_signature/reaction). PK(user_id, parent_id) ⇒ one nullifier per user per
+-- parent; UNIQUE(parent_id, nullifier) ⇒ no two users share a nullifier on a parent. platform_sig
+-- is the platform's P-256 attestation that this nullifier belongs to a distinct verified user
+-- (issuance trust = the KYC gap; a future zk proof makes it trustless). Created at first use.
+CREATE TABLE IF NOT EXISTS nullifier_attestations (
+  user_id      UUID NOT NULL REFERENCES users(id),
+  parent_id    TEXT NOT NULL,
+  nullifier    TEXT NOT NULL,
+  platform_sig TEXT NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, parent_id),
+  UNIQUE (parent_id, nullifier)
+);
+
 -- ── Fold-on-read projections (the "get latest state" views) ─────────────────────────────
 
 -- Recreate the view tree from scratch so this DDL stays idempotent as the projection columns
@@ -136,6 +154,7 @@ SELECT DISTINCT ON (entity_id)
   content,
   content_hash,
   author_pubkey,
+  nullifier,
   parent_type,
   parent_id,
   parent_revision_hash,
@@ -162,38 +181,44 @@ ORDER BY entity_id, seq DESC;
 
 -- Active reactions: the latest state of each reaction entity that is not deleted.
 CREATE OR REPLACE VIEW active_reactions AS
-SELECT entity_id, author_pubkey, parent_id, parent_revision_hash, content->>'kind' AS kind
+SELECT entity_id, author_pubkey, nullifier, parent_id, parent_revision_hash, content->>'kind' AS kind
 FROM entity_state
 WHERE type = 'reaction' AND NOT is_deleted;
 
 -- Reaction tallies, two ways: pinned to the parent ENTITY (follows edits) …
+-- Tallies dedupe BY NULLIFIER (the authoritative one-per-(user,parent) key) so an auditor
+-- reconstructing from the public record counts distinct verified participants, not rows.
+-- Dedupe by the strongest available participant key: the NULLIFIER for signed singletons, falling
+-- back to author_pubkey for unsigned dev-path rows (which carry no nullifier). So an auditor counts
+-- distinct verified participants on the signed path while legacy/unsigned data still tallies.
 CREATE OR REPLACE VIEW reaction_counts_by_entity AS
-SELECT parent_id, kind, COUNT(*)::int AS count
+SELECT parent_id, kind, COUNT(DISTINCT COALESCE(nullifier, author_pubkey))::int AS count
 FROM active_reactions
 GROUP BY parent_id, kind;
 
 -- … and pinned to the exact parent REVISION the reaction was given to (defeats edit-based
 -- fake support: support stays bound to the content it endorsed).
 CREATE OR REPLACE VIEW reaction_counts_by_revision AS
-SELECT parent_revision_hash, kind, COUNT(*)::int AS count
+SELECT parent_revision_hash, kind, COUNT(DISTINCT COALESCE(nullifier, author_pubkey))::int AS count
 FROM active_reactions
 GROUP BY parent_revision_hash, kind;
 
 -- Active (non-revoked) petition signatures + counts.
 CREATE OR REPLACE VIEW active_signatures AS
-SELECT entity_id, author_pubkey, parent_id, parent_revision_hash
+SELECT entity_id, author_pubkey, nullifier, parent_id, parent_revision_hash
 FROM entity_state
 WHERE type = 'petition_signature' AND NOT is_deleted;
 
 CREATE OR REPLACE VIEW petition_signature_counts AS
-SELECT parent_id AS petition_id, COUNT(*)::int AS count
+SELECT parent_id AS petition_id, COUNT(DISTINCT COALESCE(nullifier, author_pubkey))::int AS count
 FROM active_signatures
 GROUP BY parent_id;
 
 -- Poll results: the latest non-deleted vote per voter, tallied by option (a changed vote
--- counts once — the latest wins).
+-- counts once — the latest wins). Deduped by nullifier (one verified participant per poll),
+-- falling back to author_pubkey for unsigned dev-path votes.
 CREATE OR REPLACE VIEW poll_results AS
-SELECT parent_id AS poll_id, content->>'option' AS option, COUNT(*)::int AS count
+SELECT parent_id AS poll_id, content->>'option' AS option, COUNT(DISTINCT COALESCE(nullifier, author_pubkey))::int AS count
 FROM entity_state
 WHERE type = 'vote' AND NOT is_deleted
 GROUP BY parent_id, content->>'option';

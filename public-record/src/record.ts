@@ -3,6 +3,7 @@ import { contentCommitment, newSalt } from "./crypto/commitment.js";
 import { canRevokeSignature, canChangeVote } from "./governance.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
+import { platformPublicKey, signNullifierAttestation } from "./identity/platform-binding.js";
 import type { PublicChain } from "./ledger/chain.js";
 import type { PrivateStore } from "./private/store.js";
 import {
@@ -56,48 +57,187 @@ interface AppendSpec {
  * the fold-on-read views resolve current state by "latest snapshot wins".
  */
 export class RecordService {
-  private readonly platformBindingPubKeyHex?: string;
+  private readonly platformPrivKeyHex?: string;
+  private readonly platformPubKeyHex?: string;
 
   constructor(
     private readonly chain: PublicChain,
     private readonly store: PrivateStore,
-    opts?: { platformBindingPubKeyHex?: string },
+    opts?: { platformBindingPubKeyHex?: string; platformBindingPrivKeyHex?: string },
   ) {
-    this.platformBindingPubKeyHex = opts?.platformBindingPubKeyHex;
+    this.platformPrivKeyHex = opts?.platformBindingPrivKeyHex;
+    this.platformPubKeyHex =
+      opts?.platformBindingPubKeyHex ??
+      (this.platformPrivKeyHex ? platformPublicKey(this.platformPrivKeyHex) : undefined);
   }
 
-  // ── Verified-tier signed append (client-builds-and-signs; promoted from passkey-test) ───
+  // ── Verified-tier signed path (client-builds-and-signs; promoted from passkey-test) ──────
 
   /**
-   * Accept a CLIENT-SIGNED envelope into the pool, gated by the verified-tier checks (§6):
-   *   1. the per-thread P-256 signature verifies against `authorPubkey`;
-   *   2. the thread key is REGISTERED (a private binding exists and its platform signature verifies)
-   *      — an unregistered key is unverified-tier and is rejected (stays off the verified ledger);
-   *   3. the supplied {salt, content} reproduce the envelope's `contentHash` (id = txId).
-   * Slice scope: a root `post` create (op=create, type=post, prevHash=null). The unsigned dev path
-   * (create/update/…) is unchanged. Delegates to the existing `chain.append` pool path.
+   * Server-derived fields the client needs to assemble a canonical envelope it can sign. Pure read.
+   * For singleton types it also returns `nullifierParentId` — the parent the client must scope its
+   * nullifier to (poll/petition for vote/signature; the immediate post/comment for a reaction).
+   * Phase 2a: creates only.
+   */
+  async prepareAppend(input: {
+    op: Op;
+    type: RecordType;
+    author: string;
+    parent?: ParentRef;
+    entityId?: string;
+    content?: unknown;
+  }): Promise<{
+    prevHash: string | null;
+    parentRevisionHash?: string;
+    parentRevisionTxId?: string;
+    rootEntityId: string;
+    nullifierParentId?: string;
+  }> {
+    if (input.op !== "create") throw new Error("prepareAppend: only create ops in this phase (update/delete = 2b)");
+    const entityId = input.entityId ?? randomUUID();
+    const r = await this.validateCreate({
+      type: input.type,
+      author: input.author,
+      content: input.content ?? {},
+      parent: input.parent,
+      entityId,
+    });
+    return {
+      prevHash: null,
+      parentRevisionHash: r.parentRevisionHash,
+      parentRevisionTxId: r.parentRevisionTxId,
+      rootEntityId: r.rootEntityId,
+      nullifierParentId: r.isSingleton && input.parent ? input.parent.id : undefined,
+    };
+  }
+
+  /**
+   * Accept a CLIENT-SIGNED create envelope into the pool, gated by the verified-tier checks:
+   *   1. P-256 signature verifies against `authorPubkey`; `{salt,content}` reproduce `contentHash`;
+   *   2. the thread key is REGISTERED (binding exists + `binding_sig` re-verifies);
+   *   3. content-model rules re-run (`validateCreate`) — parent/depth/kind/parent-revision/root;
+   *   4. thread-scope: the key is the registered thread for `(user, rootEntityId)`;
+   *   5. optimistic concurrency: the envelope's parent revision still matches current;
+   *   6. **nullifier gate (singleton creates):** `envelope.nullifier` equals the platform-attested
+   *      nullifier for `(user, parentId)` (minted+signed here on first use), and no active singleton
+   *      on that parent already bears it (the authoritative one-per-(user,parent) dedupe).
+   * Phase 2a: creates only (update/delete = 2b). The unsigned dev path is unchanged.
    */
   async appendSigned(input: { envelope: TxEnvelope; salt: string; content: unknown }): Promise<Ref> {
     const { envelope, salt, content } = input;
-    if (envelope.op !== "create" || envelope.type !== "post" || envelope.prevHash !== null) {
-      throw new Error("appendSigned (slice): only a root `post` create (prevHash=null) is supported");
-    }
-    if (!this.platformBindingPubKeyHex) {
-      throw new Error("appendSigned: platform binding public key not configured");
-    }
-    if (!verifyEnvelope(envelope)) {
-      throw new Error("appendSigned: invalid per-thread signature");
-    }
-    const registered = await verifyThreadBinding(this.store, envelope.authorPubkey, this.platformBindingPubKeyHex);
-    if (!registered) {
+    if (envelope.op !== "create") throw new Error("appendSigned: only create ops in this phase (update/delete = 2b)");
+    if (envelope.prevHash !== null) throw new Error("appendSigned: a create must have prevHash=null");
+    if (!this.platformPubKeyHex) throw new Error("appendSigned: platform binding key not configured");
+    if (!verifyEnvelope(envelope)) throw new Error("appendSigned: invalid per-thread signature");
+
+    const expected = contentCommitment({ id: envelope.txId, salt, content });
+    if (expected !== envelope.contentHash) throw new Error("appendSigned: contentHash does not match salt+content");
+
+    if (!(await verifyThreadBinding(this.store, envelope.authorPubkey, this.platformPubKeyHex))) {
       throw new Error("appendSigned: thread key is not registered (verified tier required)");
     }
-    const expected = contentCommitment({ id: envelope.txId, salt, content });
-    if (expected !== envelope.contentHash) {
-      throw new Error("appendSigned: contentHash does not match the supplied salt+content");
+
+    const parent =
+      envelope.parentType && envelope.parentId ? { type: envelope.parentType, id: envelope.parentId } : undefined;
+    const r = await this.validateCreate({
+      type: envelope.type,
+      author: envelope.authorPubkey,
+      content,
+      parent,
+      entityId: envelope.entityId,
+    });
+
+    // thread-scope: the signing key must be the registered thread key for this action's root.
+    const tk = await this.store.getThreadKey(envelope.authorPubkey);
+    if (!tk) throw new Error("appendSigned: unknown thread key");
+    if (tk.threadId !== r.rootEntityId) {
+      throw new Error("appendSigned: thread key is not scoped to this action's root entity");
     }
+
+    // optimistic concurrency: parent revision the client signed must still be current.
+    if ((envelope.parentRevisionHash ?? undefined) !== r.parentRevisionHash) {
+      throw new Error("appendSigned: stale parent revision; re-prepare and re-sign");
+    }
+
+    // nullifier gate (authoritative singleton dedupe).
+    if (r.isSingleton) {
+      if (!parent) throw new Error("appendSigned: a singleton action requires a parent");
+      if (!envelope.nullifier) throw new Error("appendSigned: singleton create requires a nullifier");
+      const attested = await this.store.getAttestedNullifier(tk.userId, parent.id);
+      if (attested && attested !== envelope.nullifier) {
+        throw new Error("appendSigned: nullifier does not match the attested one for (user, parent)");
+      }
+      if (!attested) {
+        if (!this.platformPrivKeyHex) throw new Error("appendSigned: platform private key required to attest a nullifier");
+        const sig = signNullifierAttestation(parent.id, envelope.nullifier, this.platformPrivKeyHex);
+        await this.store.attestNullifier({ userId: tk.userId, parentId: parent.id, nullifier: envelope.nullifier, platformSig: sig });
+      }
+      if (await this.store.hasActiveSingletonByNullifier(parent.id, envelope.nullifier)) {
+        throw new Error("appendSigned: an active singleton with this nullifier already exists on the parent (update instead)");
+      }
+    } else if (envelope.nullifier) {
+      throw new Error("appendSigned: a non-singleton create must not carry a nullifier");
+    }
+
     const { txHash } = await this.chain.append(envelope, { salt, content });
     return { txId: envelope.txId, entityId: envelope.entityId, txHash };
+  }
+
+  // ── Shared validation (used by the unsigned dev path AND the signed path) ────────────────
+
+  /** Validate a CREATE intent and resolve the server-derived fields. Throws on any rule violation.
+   *  Does NOT enforce dedupe — the caller applies it (unsigned: getActiveSingleton; signed: nullifier). */
+  private async validateCreate(i: {
+    type: RecordType;
+    author: string;
+    content: unknown;
+    parent?: ParentRef;
+    entityId: string;
+  }): Promise<{ parentRevisionHash?: string; parentRevisionTxId?: string; rootEntityId: string; isSingleton: boolean }> {
+    if (!opAllowed(i.type, "create")) throw new Error(`create not allowed for ${i.type}`);
+    let parentRevisionHash: string | undefined;
+    let parentRevisionTxId: string | undefined;
+    let rootEntityId = i.entityId;
+
+    if (isRootType(i.type)) {
+      if (i.parent) throw new Error(`${i.type} is a root type and takes no parent`);
+    } else {
+      const parent = i.parent;
+      if (!parent) throw new Error(`${i.type} requires a parent`);
+      if (!parentAllowed(i.type, parent.type)) throw new Error(`${i.type} cannot attach to ${parent.type}`);
+      const ps = await this.store.getEntityState(parent.id);
+      if (!ps) throw new Error(`parent ${parent.id} not found`);
+      if (ps.type !== parent.type) throw new Error(`parent ${parent.id} is a ${ps.type}, not ${parent.type}`);
+      if (ps.isDeleted) throw new Error(`parent ${parent.id} is deleted`);
+      if (i.type === "comment") {
+        const depth = await this.newCommentDepth(parent);
+        if (depth > COMMENT_MAX_DEPTH) throw new Error(`comment nesting exceeds max depth ${COMMENT_MAX_DEPTH}`);
+      }
+      if (i.type === "reaction") {
+        const kind = (i.content as { kind?: ReactionKind } | undefined)?.kind;
+        if (!kind || !REACTION_KINDS.includes(kind)) {
+          throw new Error(`reaction kind must be one of: ${REACTION_KINDS.join(", ")}`);
+        }
+      }
+      const rev = await this.store.getCurrentRevision(parent.id);
+      if (rev) {
+        parentRevisionHash = rev.hash;
+        parentRevisionTxId = rev.txId;
+      }
+      rootEntityId = await this.resolveRoot(parent);
+    }
+    return { parentRevisionHash, parentRevisionTxId, rootEntityId, isSingleton: SINGLETON_PER_AUTHOR_PARENT.includes(i.type) };
+  }
+
+  /** Walk the parent chain to the root ancestor's entityId (the thread/signing-key scope). */
+  private async resolveRoot(parent: ParentRef): Promise<string> {
+    let curId = parent.id;
+    let cur = await this.store.getEntityState(curId);
+    while (cur && !isRootType(cur.type) && cur.parentId) {
+      curId = cur.parentId;
+      cur = await this.store.getEntityState(curId);
+    }
+    return curId;
   }
 
   // ── Generic CRUD ──────────────────────────────────────────────────────────────────────
@@ -112,61 +252,26 @@ export class RecordService {
     signature?: string;
   }): Promise<Ref> {
     const { type, author } = input;
-    if (!opAllowed(type, "create")) throw new Error(`create not allowed for ${type}`);
+    const entityId = input.entityId ?? randomUUID();
+    const r = await this.validateCreate({ type, author, content: input.content, parent: input.parent, entityId });
 
-    let parentRevisionHash: string | undefined;
-    let parentRevisionTxId: string | undefined;
-
-    if (isRootType(type)) {
-      if (input.parent) throw new Error(`${type} is a root type and takes no parent`);
-    } else {
-      const parent = input.parent;
-      if (!parent) throw new Error(`${type} requires a parent`);
-      if (!parentAllowed(type, parent.type)) {
-        throw new Error(`${type} cannot attach to ${parent.type}`);
-      }
-      const ps = await this.store.getEntityState(parent.id);
-      if (!ps) throw new Error(`parent ${parent.id} not found`);
-      if (ps.type !== parent.type) {
-        throw new Error(`parent ${parent.id} is a ${ps.type}, not ${parent.type}`);
-      }
-      if (ps.isDeleted) throw new Error(`parent ${parent.id} is deleted`);
-
-      if (type === "comment") {
-        const depth = await this.newCommentDepth(parent);
-        if (depth > COMMENT_MAX_DEPTH) {
-          throw new Error(`comment nesting exceeds max depth ${COMMENT_MAX_DEPTH}`);
-        }
-      }
-      if (type === "reaction") {
-        const kind = (input.content as { kind?: ReactionKind } | undefined)?.kind;
-        if (!kind || !REACTION_KINDS.includes(kind)) {
-          throw new Error(`reaction kind must be one of: ${REACTION_KINDS.join(", ")}`);
-        }
-      }
-      if (SINGLETON_PER_AUTHOR_PARENT.includes(type)) {
-        const existing = await this.store.getActiveSingleton(type, author, parent.id);
-        if (existing) {
-          throw new Error(`${author} already has an active ${type} on ${parent.id}; update it instead`);
-        }
-      }
-
-      // Capture the parent's CURRENT revision so support stays pinned to the content it endorsed.
-      const rev = await this.store.getCurrentRevision(parent.id);
-      if (rev) {
-        parentRevisionHash = rev.hash;
-        parentRevisionTxId = rev.txId;
+    // Unsigned dev path keeps the legacy per-author-pubkey singleton check (the signed path uses the
+    // nullifier instead — see appendSigned).
+    if (r.isSingleton && input.parent) {
+      const existing = await this.store.getActiveSingleton(type, author, input.parent.id);
+      if (existing) {
+        throw new Error(`${author} already has an active ${type} on ${input.parent.id}; update it instead`);
       }
     }
 
     return this.append({
       type,
-      entityId: input.entityId ?? randomUUID(),
+      entityId,
       op: "create",
       author,
       parent: input.parent,
-      parentRevisionHash,
-      parentRevisionTxId,
+      parentRevisionHash: r.parentRevisionHash,
+      parentRevisionTxId: r.parentRevisionTxId,
       prevHash: null,
       content: input.content,
       createdAt: input.createdAt,

@@ -50,32 +50,33 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
     settler = new BlockSettler(store, connector, chainId, blockConfig);
   });
 
-  /** Register a fresh verified thread; returns the derived key + ids. */
-  async function registerThread(): Promise<{ userId: string; threadId: string; privKey: Uint8Array; threadPubkey: string }> {
+  /** Register a verified thread for a specific ROOT entity (thread = root). Returns the key + opening. */
+  async function registerThreadFor(rootEntityId: string): Promise<{
+    userId: string; privKey: Uint8Array; threadPubkey: string; commitment: string; saltT: string;
+  }> {
     const userId = randomUUID();
-    const threadId = `thread-${randomUUID()}`;
     await store.putUser({ id: userId });
     const lm = levelMaster();
     // For the slice the level master doubles as a P-256 seed so we can record a public master ref;
     // the append gate does not depend on it (it checks the per-thread binding).
     await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
-    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: lm, threadId, level });
-    const { binding } = buildThreadBindingInputs({ userId, threadPubkey, threadId, level, kycTier, region, saltT: newSalt() });
-    const bindingSig = signBinding(binding, platformPriv);
+    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: lm, threadId: rootEntityId, level });
+    const saltT = newSalt();
+    const { binding } = buildThreadBindingInputs({ userId, threadPubkey, threadId: rootEntityId, level, kycTier, region, saltT });
     await store.putAttestation({ userId, provider: "dev-stub", tier: kycTier, region });
     await store.registerThreadBinding({
-      threadPubkey, userId, threadId, level, kycTier, region, commitment: binding.commitment, bindingSig,
+      threadPubkey, userId, threadId: rootEntityId, level, kycTier, region, commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
     });
-    return { userId, threadId, privKey, threadPubkey };
+    return { userId, privKey, threadPubkey, commitment: binding.commitment, saltT };
   }
 
-  /** Client-build + sign a root `post` create envelope. */
-  function buildSignedPost(privKey: Uint8Array, content: unknown): { envelope: TxEnvelope; salt: string; content: unknown } {
+  /** Client-build + sign a root `post` create with a given entityId (= its thread/root id). */
+  function buildSignedPost(privKey: Uint8Array, entityId: string, content: unknown): { envelope: TxEnvelope; salt: string; content: unknown } {
     const txId = randomUUID();
     const salt = newSalt();
     const contentHash = contentCommitment({ id: txId, salt, content });
     const base: TxEnvelope = {
-      v: 1, txId, type: "post", entityId: randomUUID(), op: "create",
+      v: 1, txId, type: "post", entityId, op: "create",
       authorPubkey: "", signature: "", createdAt: new Date().toISOString(), prevHash: null, contentHash,
     };
     const { envelope } = signEnvelope(base, privKey);
@@ -83,14 +84,15 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   }
 
   it("DB unit: verifyThreadBinding is true for a registered key, false for an unregistered one", async () => {
-    const { threadPubkey } = await registerThread();
+    const { threadPubkey } = await registerThreadFor(randomUUID());
     expect(await verifyThreadBinding(store, threadPubkey, platformPub)).to.equal(true);
     expect(await verifyThreadBinding(store, "02" + "ab".repeat(32), platformPub)).to.equal(false);
   });
 
   it("accepts a verified-tier signed post; the commitment lands on immudb and server-verifies", async () => {
-    const { privKey } = await registerThread();
-    const { envelope, salt, content } = buildSignedPost(privKey, { title: "Belief", body: "secret civic text" });
+    const entityId = randomUUID();
+    const { privKey } = await registerThreadFor(entityId);
+    const { envelope, salt, content } = buildSignedPost(privKey, entityId, { title: "Belief", body: "secret civic text" });
     const ref = await svc.appendSigned({ envelope, salt, content });
     await settler.flushPendingSettlement();
 
@@ -111,38 +113,31 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   });
 
   it("the on-chain envelope carries thread_pubkey only — never the commitment or opening", async () => {
-    const userId = randomUUID();
-    const threadId = `thread-${randomUUID()}`;
-    await store.putUser({ id: userId });
-    const lm = levelMaster();
-    await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
-    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: lm, threadId, level });
-    const saltT = newSalt();
-    const { binding } = buildThreadBindingInputs({ userId, threadPubkey, threadId, level, kycTier, region, saltT });
-    await store.registerThreadBinding({
-      threadPubkey, userId, threadId, level, kycTier, region, commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
-    });
-    const { envelope, salt, content } = buildSignedPost(privKey, { body: "x" });
+    const entityId = randomUUID();
+    const { privKey, userId, commitment, saltT } = await registerThreadFor(entityId);
+    const { envelope, salt, content } = buildSignedPost(privKey, entityId, { body: "x" });
     const ref = await svc.appendSigned({ envelope, salt, content });
     await settler.flushPendingSettlement();
 
     const onchain = await connector.getEnvelope(ref.txId);
-    expect(onchain!).to.not.include(binding.commitment);
+    expect(onchain!).to.not.include(commitment);
     expect(onchain!).to.not.include(saltT);
     expect(onchain!).to.not.include(userId);
   });
 
   it("rejects an unregistered thread key (unverified tier) and writes no pool row", async () => {
     // Derive a key but DO NOT register it.
-    const { privKey } = deriveThreadKey({ levelMaster: levelMaster(), threadId: `thread-${randomUUID()}`, level });
-    const { envelope, salt, content } = buildSignedPost(privKey, { body: "should not land" });
+    const entityId = randomUUID();
+    const { privKey } = deriveThreadKey({ levelMaster: levelMaster(), threadId: entityId, level });
+    const { envelope, salt, content } = buildSignedPost(privKey, entityId, { body: "should not land" });
     expect(await rejects(svc.appendSigned({ envelope, salt, content }))).to.equal(true);
     expect(await store.getEntityState(envelope.entityId), "nothing written").to.not.exist;
   });
 
   it("rejects an invalid signature, a contentHash mismatch, and a non-create op", async () => {
-    const { privKey } = await registerThread();
-    const signed = buildSignedPost(privKey, { body: "ok" });
+    const entityId = randomUUID();
+    const { privKey } = await registerThreadFor(entityId);
+    const signed = buildSignedPost(privKey, entityId, { body: "ok" });
 
     // tampered signature
     const badSig = { ...signed.envelope, signature: signed.envelope.signature.replace(/.$/, (c) => (c === "0" ? "1" : "0")) };

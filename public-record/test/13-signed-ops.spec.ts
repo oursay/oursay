@@ -1,0 +1,209 @@
+import { expect } from "chai";
+import { randomUUID } from "node:crypto";
+import { p256 } from "@noble/curves/p256";
+import { bytesToHex } from "@noble/hashes/utils";
+import { blockConfig } from "../src/config.js";
+import { contentCommitment, newSalt } from "../src/crypto/commitment.js";
+import { deriveThreadKey } from "../src/identity/derive.js";
+import { deriveNullifierSecret, threadNullifier } from "../src/identity/nullifier.js";
+import { signEnvelope } from "../src/identity/envelope.js";
+import { buildThreadBindingInputs } from "../src/identity/binding.js";
+import { signBinding } from "../src/identity/platform-binding.js";
+import { PublicChain } from "../src/ledger/chain.js";
+import { BlockSettler } from "../src/ledger/settler.js";
+import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
+import type { PrivateStore } from "../src/private/store.js";
+import { RecordService } from "../src/record.js";
+import type { RecordType, TxEnvelope } from "../src/schema/types.js";
+import { getWorld, rejects } from "./helpers/world.js";
+
+/**
+ * The signed write path across the full CREATE surface (phase 2a): root creates (post/poll/petition)
+ * and attachments (comment/reaction/vote/petition_signature), via prepare → sign → commit, with the
+ * platform-attested nullifier as the authoritative one-per-(user,parent) dedupe.
+ */
+describe("13 signed ops: all create types via prepare → sign → appendSigned", () => {
+  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const level = "federal";
+  const kycTier = "residency_verified";
+  const region = "ca-ab";
+
+  let store: PrivateStore;
+  let connector: PgWireLedgerConnector;
+  let svc: RecordService;
+  let settler: BlockSettler;
+
+  before(async () => {
+    const w = await getWorld();
+    store = w.store;
+    connector = w.connector;
+    await store.reset();
+    const chainId = randomUUID();
+    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv });
+    settler = new BlockSettler(store, connector, chainId, blockConfig);
+  });
+
+  interface U { userId: string; lm: Uint8Array; nsecret: Uint8Array }
+
+  async function newUser(): Promise<U> {
+    const userId = randomUUID();
+    await store.putUser({ id: userId });
+    const lm = p256.utils.randomPrivateKey(); // a valid 32-byte level master (also a P-256 seed)
+    await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
+    return { userId, lm, nsecret: deriveNullifierSecret(lm, level) };
+  }
+
+  /** Register this user's thread for a ROOT entity (thread = root). */
+  async function registerThread(u: U, rootId: string): Promise<{ privKey: Uint8Array; threadPubkey: string }> {
+    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: u.lm, threadId: rootId, level });
+    const { binding } = buildThreadBindingInputs({ userId: u.userId, threadPubkey, threadId: rootId, level, kycTier, region, saltT: newSalt() });
+    await store.registerThreadBinding({
+      threadPubkey, userId: u.userId, threadId: rootId, level, kycTier, region,
+      commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
+    });
+    return { privKey, threadPubkey };
+  }
+
+  /** prepare → derive nullifier (singletons) → build+sign → appendSigned. */
+  async function act(
+    u: U,
+    threadPriv: Uint8Array,
+    threadPubkey: string,
+    spec: { type: RecordType; entityId: string; parent?: { type: RecordType; id: string }; content: unknown },
+  ) {
+    const prep = await svc.prepareAppend({
+      op: "create", type: spec.type, author: threadPubkey, parent: spec.parent, entityId: spec.entityId, content: spec.content,
+    });
+    const txId = randomUUID();
+    const salt = newSalt();
+    const base: TxEnvelope = {
+      v: 1, txId, type: spec.type, entityId: spec.entityId, op: "create",
+      ...(spec.parent ? { parentType: spec.parent.type, parentId: spec.parent.id } : {}),
+      ...(prep.parentRevisionHash ? { parentRevisionHash: prep.parentRevisionHash } : {}),
+      ...(prep.parentRevisionTxId ? { parentRevisionTxId: prep.parentRevisionTxId } : {}),
+      authorPubkey: "", signature: "", createdAt: new Date().toISOString(), prevHash: null,
+      contentHash: contentCommitment({ id: txId, salt, content: spec.content }),
+      ...(prep.nullifierParentId ? { nullifier: threadNullifier(u.nsecret, prep.nullifierParentId) } : {}),
+    };
+    const { envelope } = signEnvelope(base, threadPriv);
+    return svc.appendSigned({ envelope, salt, content: spec.content });
+  }
+
+  it("appends every create type through the verified path; tallies count one verified participant", async () => {
+    const author = await newUser();
+    const postId = randomUUID();
+    const aPost = await registerThread(author, postId);
+    await act(author, aPost.privKey, aPost.threadPubkey, { type: "post", entityId: postId, content: { body: "belief" } });
+
+    const pollId = randomUUID();
+    const aPoll = await registerThread(author, pollId);
+    await act(author, aPoll.privKey, aPoll.threadPubkey, { type: "poll", entityId: pollId, content: { question: "Fix the road?", options: ["yes", "no"] } });
+
+    const petId = randomUUID();
+    const aPet = await registerThread(author, petId);
+    await act(author, aPet.privKey, aPet.threadPubkey, { type: "petition", entityId: petId, content: { title: "T", text: "..." } });
+
+    const bob = await newUser();
+    const bPost = await registerThread(bob, postId);
+    await act(bob, bPost.privKey, bPost.threadPubkey, { type: "comment", entityId: randomUUID(), parent: { type: "post", id: postId }, content: { body: "agree" } });
+    await act(bob, bPost.privKey, bPost.threadPubkey, { type: "reaction", entityId: randomUUID(), parent: { type: "post", id: postId }, content: { kind: "check" } });
+    const bPoll = await registerThread(bob, pollId);
+    await act(bob, bPoll.privKey, bPoll.threadPubkey, { type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "yes" } });
+    const bPet = await registerThread(bob, petId);
+    await act(bob, bPet.privKey, bPet.threadPubkey, { type: "petition_signature", entityId: randomUUID(), parent: { type: "petition", id: petId }, content: {} });
+
+    await settler.flushPendingSettlement();
+
+    expect((await store.getPollResults(pollId)).find((r) => r.option === "yes")!.count).to.equal(1);
+    expect(await store.getPetitionSignatureCount(petId)).to.equal(1);
+    expect((await store.getReactionCountsByEntity(postId)).find((r) => r.kind === "check")!.count).to.equal(1);
+  });
+
+  it("reaction is one-per-(user,parent): two different comments OK, a repeat on the SAME comment rejected", async () => {
+    const author = await newUser();
+    const postId = randomUUID();
+    const ak = await registerThread(author, postId);
+    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { body: "p" } });
+    const c1 = randomUUID();
+    const c2 = randomUUID();
+    await act(author, ak.privKey, ak.threadPubkey, { type: "comment", entityId: c1, parent: { type: "post", id: postId }, content: { body: "c1" } });
+    await act(author, ak.privKey, ak.threadPubkey, { type: "comment", entityId: c2, parent: { type: "post", id: postId }, content: { body: "c2" } });
+
+    const bob = await newUser();
+    const bk = await registerThread(bob, postId);
+    await act(bob, bk.privKey, bk.threadPubkey, { type: "reaction", entityId: randomUUID(), parent: { type: "comment", id: c1 }, content: { kind: "check" } });
+    await act(bob, bk.privKey, bk.threadPubkey, { type: "reaction", entityId: randomUUID(), parent: { type: "comment", id: c2 }, content: { kind: "check" } });
+    // second reaction on the SAME comment c1 ⇒ duplicate nullifier ⇒ rejected
+    expect(await rejects(act(bob, bk.privKey, bk.threadPubkey, { type: "reaction", entityId: randomUUID(), parent: { type: "comment", id: c1 }, content: { kind: "cross" } }))).to.equal(true);
+
+    await settler.flushPendingSettlement();
+    expect((await store.getReactionCountsByEntity(c1)).find((r) => r.kind === "check")!.count).to.equal(1);
+    expect((await store.getReactionCountsByEntity(c2)).find((r) => r.kind === "check")!.count).to.equal(1);
+  });
+
+  it("a second vote by the same user, and a replay of another user's nullifier, are both rejected", async () => {
+    const author = await newUser();
+    const pollId = randomUUID();
+    const ak = await registerThread(author, pollId);
+    await act(author, ak.privKey, ak.threadPubkey, { type: "poll", entityId: pollId, content: { question: "Q?", options: ["yes", "no"] } });
+
+    const alice = await newUser();
+    const alicePoll = await registerThread(alice, pollId);
+    await act(alice, alicePoll.privKey, alicePoll.threadPubkey, { type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "yes" } });
+    // Alice votes again on the same poll ⇒ duplicate (her own nullifier already active) ⇒ rejected.
+    expect(await rejects(act(alice, alicePoll.privKey, alicePoll.threadPubkey, { type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "no" } }))).to.equal(true);
+
+    // Bob tries to REPLAY Alice's nullifier value on the same poll ⇒ UNIQUE(parent,nullifier) collision ⇒ rejected.
+    const aliceNullifier = threadNullifier(alice.nsecret, pollId);
+    const bob = await newUser();
+    const bobPoll = await registerThread(bob, pollId);
+    const txId = randomUUID();
+    const salt = newSalt();
+    const content = { option: "no" };
+    const base: TxEnvelope = {
+      v: 1, txId, type: "vote", entityId: randomUUID(), op: "create",
+      parentType: "poll", parentId: pollId, authorPubkey: "", signature: "",
+      createdAt: new Date().toISOString(), prevHash: null,
+      contentHash: contentCommitment({ id: txId, salt, content }), nullifier: aliceNullifier,
+    };
+    const { envelope } = signEnvelope(base, bobPoll.privKey);
+    expect(await rejects(svc.appendSigned({ envelope, salt, content }))).to.equal(true);
+
+    await settler.flushPendingSettlement();
+    expect((await store.getPollResults(pollId)).find((r) => r.option === "yes")!.count).to.equal(1);
+    expect((await store.getPollResults(pollId)).find((r) => r.option === "no")).to.be.undefined;
+  });
+
+  it("rejects a non-singleton create that carries a nullifier, and a stale parent revision", async () => {
+    const author = await newUser();
+    const postId = randomUUID();
+    const ak = await registerThread(author, postId);
+    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { body: "p" } });
+
+    const bob = await newUser();
+    const bk = await registerThread(bob, postId);
+
+    // a comment (non-singleton) MUST NOT carry a nullifier
+    const prep = await svc.prepareAppend({ op: "create", type: "comment", author: bk.threadPubkey, parent: { type: "post", id: postId }, entityId: randomUUID(), content: { body: "c" } });
+    const txId = randomUUID();
+    const salt = newSalt();
+    const content = { body: "c" };
+    const withNullifier: TxEnvelope = {
+      v: 1, txId, type: "comment", entityId: randomUUID(), op: "create",
+      parentType: "post", parentId: postId,
+      ...(prep.parentRevisionHash ? { parentRevisionHash: prep.parentRevisionHash } : {}),
+      authorPubkey: "", signature: "", createdAt: new Date().toISOString(), prevHash: null,
+      contentHash: contentCommitment({ id: txId, salt, content }), nullifier: "deadbeef".repeat(8),
+    };
+    expect(await rejects(svc.appendSigned({ envelope: signEnvelope(withNullifier, bk.privKey).envelope, salt, content }))).to.equal(true);
+
+    // stale parent revision ⇒ rejected
+    const stale: TxEnvelope = {
+      v: 1, txId: randomUUID(), type: "comment", entityId: randomUUID(), op: "create",
+      parentType: "post", parentId: postId, parentRevisionHash: "00".repeat(32),
+      authorPubkey: "", signature: "", createdAt: new Date().toISOString(), prevHash: null,
+      contentHash: contentCommitment({ id: txId, salt, content }),
+    };
+    expect(await rejects(svc.appendSigned({ envelope: signEnvelope(stale, bk.privKey).envelope, salt, content }))).to.equal(true);
+  });
+});

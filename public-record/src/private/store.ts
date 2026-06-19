@@ -32,6 +32,7 @@ export interface StoredTx {
   createdAt: string;
   prevHash: string | null;
   contentHash: string;
+  nullifier: string | null;
   txHash: string;
   envelope: string;
   salt: string | null;
@@ -55,6 +56,7 @@ export interface AppendTxInput {
   createdAt: string;
   prevHash: string | null;
   contentHash: string;
+  nullifier?: string;
   txHash: string;
   envelope: string;
   salt: string;
@@ -69,6 +71,7 @@ export interface EntityState {
   content: unknown;
   contentHash: string;
   authorPubkey: string;
+  nullifier: string | null;
   parentType: RecordType | null;
   parentId: string | null;
   parentRevisionHash: string | null;
@@ -143,7 +146,7 @@ export class PrivateStore {
   /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
   async reset(): Promise<void> {
     await this.pool.query(
-      "TRUNCATE record_outbox, record_tx, thread_bindings, thread_keys, level_master_keys, kyc_attestations, users CASCADE",
+      "TRUNCATE record_outbox, record_tx, thread_bindings, nullifier_attestations, thread_keys, level_master_keys, kyc_attestations, users CASCADE",
     );
   }
 
@@ -161,8 +164,8 @@ export class PrivateStore {
         `INSERT INTO record_tx
           (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_tx_id,
            parent_revision_hash, author_pubkey, signature, created_at, prev_hash, content_hash,
-           tx_hash, envelope, salt, content)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+           nullifier, tx_hash, envelope, salt, content)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
         [
           input.txId,
           input.type,
@@ -177,6 +180,7 @@ export class PrivateStore {
           input.createdAt,
           input.prevHash,
           input.contentHash,
+          input.nullifier ?? null,
           input.txHash,
           input.envelope,
           input.salt,
@@ -486,6 +490,48 @@ export class PrivateStore {
     };
   }
 
+  /** Resolve a thread key to its `(user, thread=root, level)` — the thread-scope lookup. */
+  async getThreadKey(pubkey: string): Promise<{ userId: string; threadId: string; level: string } | null> {
+    const r = await this.pool.query(
+      `SELECT user_id, thread_id, level FROM thread_keys WHERE pubkey = $1`,
+      [pubkey],
+    );
+    const row = r.rows[0];
+    return row ? { userId: row.user_id, threadId: row.thread_id, level: row.level } : null;
+  }
+
+  /** The platform-attested nullifier for `(user, parent)`, or null if none has been attested yet. */
+  async getAttestedNullifier(userId: string, parentId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT nullifier FROM nullifier_attestations WHERE user_id = $1 AND parent_id = $2`,
+      [userId, parentId],
+    );
+    return r.rows[0]?.nullifier ?? null;
+  }
+
+  /**
+   * Record the platform's attestation that `nullifier` is this verified user's single nullifier for
+   * `parentId`. Idempotent per `(user, parent)` (a re-attest keeps the first). Throws if that
+   * nullifier value is already attested for a DIFFERENT user on this parent
+   * (UNIQUE(parent_id, nullifier) collision — someone replayed another user's nullifier).
+   */
+  async attestNullifier(input: { userId: string; parentId: string; nullifier: string; platformSig: string }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO nullifier_attestations(user_id, parent_id, nullifier, platform_sig) VALUES($1,$2,$3,$4)
+       ON CONFLICT (user_id, parent_id) DO NOTHING`,
+      [input.userId, input.parentId, input.nullifier, input.platformSig],
+    );
+  }
+
+  /** True if an ACTIVE singleton on `parentId` already bears `nullifier` (the per-parent dedupe). */
+  async hasActiveSingletonByNullifier(parentId: string, nullifier: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `SELECT 1 FROM entity_state WHERE parent_id = $1 AND nullifier = $2 AND NOT is_deleted LIMIT 1`,
+      [parentId, nullifier],
+    );
+    return r.rows.length > 0;
+  }
+
   /** KYC attestation stub — carries the tier; no provider integration this phase. */
   async putAttestation(a: { userId: string; provider: string; tier: string; region?: string | null }): Promise<void> {
     await this.pool.query(
@@ -507,6 +553,7 @@ function mapEntityState(row: pg.QueryResultRow): EntityState {
     content: row.content,
     contentHash: row.content_hash,
     authorPubkey: row.author_pubkey,
+    nullifier: row.nullifier ?? null,
     parentType: row.parent_type,
     parentId: row.parent_id,
     parentRevisionHash: row.parent_revision_hash,
@@ -534,6 +581,7 @@ function mapStoredTx(row: pg.QueryResultRow): StoredTx {
     createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
     prevHash: row.prev_hash,
     contentHash: row.content_hash,
+    nullifier: row.nullifier ?? null,
     txHash: row.tx_hash,
     envelope: row.envelope,
     salt: row.salt,

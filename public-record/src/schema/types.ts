@@ -60,6 +60,7 @@ export interface TxEnvelope {
   createdAt: string; // ISO 8601 — part of the hash
   prevHash: string | null; // per-entity link = txHash of the prior tx for entityId (null on create)
   contentHash: string; // salted commitment of THIS tx's content
+  nullifier?: string; // singleton dedupe tag (vote/petition_signature/reaction); part of txHash, NOT contentHash
 }
 
 // ── Validation tables ───────────────────────────────────────────────────────────────────
