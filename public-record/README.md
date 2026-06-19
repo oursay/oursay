@@ -26,6 +26,9 @@ targets publish those blocks on their own cadence.
 >   **cryptographic** (the signature proves control of the entity's thread key). Singleton
 >   update/delete **carry the original nullifier forward** (never re-minted); stale `prevHash` or a
 >   moved parent revision is rejected (reject-and-retry).
+> - **Freshness gate:** `appendSigned` rejects a signed envelope whose `createdAt` is too old (or too
+>   far ahead of the server clock) — configurable via `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120;
+>   `0` disables). Uses the existing `createdAt` (already signed) — no schema/wire change.
 > See `src/identity/*`, `threadCommitment` in `src/crypto/commitment.js`, and suites
 > `10-identity-crypto`, `12-signed-append`, `13-signed-ops`. The **unsigned dev path**
 > (`create/update/delete/react/vote`) is retained for dev/seeds.

@@ -551,6 +551,10 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
     equal the entity's author); **optimistic concurrency** rejects a stale `prevHash` or a moved
     parent/parent-revision (reject-and-retry); singleton update/delete **carry the original
     nullifier forward** (no re-mint, no dup-check); a `delete` must carry `DELETE_MARKER`.
+- **Freshness gate (all signed ops):** `appendSigned` rejects an envelope whose `createdAt` is older
+  than `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120; `0` disables) or more than the allowed future skew
+  ahead of the server clock — using the already-signed `createdAt` (no schema/wire change; clients set
+  it at sign time). The clock is injectable for tests.
 - The platform stores only the **public** master (`level_master_keys`), the **public** thread key
   (`thread_keys.pubkey`), and the private `thread_bindings` / `nullifier_attestations`.
 - The **unsigned dev path** (`create/update/delete/react/vote`) is retained for dev/seeds and now

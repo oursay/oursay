@@ -46,7 +46,7 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
     connector = w.connector;
     await store.reset();
     chainId = randomUUID();
-    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPubKeyHex: platformPub });
+    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPubKeyHex: platformPub, signedEnvelopeMaxAgeSec: 0 });
     settler = new BlockSettler(store, connector, chainId, blockConfig);
   });
 

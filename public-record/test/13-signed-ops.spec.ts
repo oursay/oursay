@@ -39,7 +39,7 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     connector = w.connector;
     await store.reset();
     const chainId = randomUUID();
-    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv });
+    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0 });
     settler = new BlockSettler(store, connector, chainId, blockConfig);
   });
 
@@ -335,5 +335,44 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const mallory = await newUser();
     const mk = await registerThread(mallory, postId);
     expect(await rejects(actMutation(mk.privKey, mk.threadPubkey, { op: "update", type: "post", entityId: postId, content: { body: "hijack" } }))).to.equal(true);
+  });
+
+  it("freshness gate: accepts a fresh createdAt, rejects an expired one and excessive future skew", async () => {
+    const NOW = Date.parse("2026-06-19T12:00:00.000Z");
+    // a dedicated service with the gate ON (120s max age, 60s future skew) + an injected clock.
+    const gated = new RecordService(new PublicChain(store, randomUUID()), store, {
+      platformBindingPrivKeyHex: platformPriv,
+      signedEnvelopeMaxAgeSec: 120,
+      signedEnvelopeFutureSkewSec: 60,
+      now: () => NOW,
+    });
+
+    // Build + sign a `post` create with a chosen createdAt, registering (user, entityId) first.
+    const signedPostAt = async (createdAt: string) => {
+      const u = await newUser();
+      const entityId = randomUUID();
+      const { privKey } = await registerThread(u, entityId);
+      const txId = randomUUID();
+      const salt = newSalt();
+      const content = { body: "x" };
+      const base: TxEnvelope = {
+        v: 1, txId, type: "post", entityId, op: "create",
+        authorPubkey: "", signature: "", createdAt, prevHash: null,
+        contentHash: contentCommitment({ id: txId, salt, content }),
+      };
+      return { envelope: signEnvelope(base, privKey).envelope, salt, content };
+    };
+    const msg = async (p: Promise<unknown>): Promise<string> => {
+      try { await p; return ""; } catch (e) { return (e as Error).message; }
+    };
+
+    // fresh (now) ⇒ accepted
+    await gated.appendSigned(await signedPostAt(new Date(NOW).toISOString()));
+    // 3 minutes old (> 120s) ⇒ expired
+    expect(await msg(gated.appendSigned(await signedPostAt(new Date(NOW - 180_000).toISOString())))).to.include("expired");
+    // 5 minutes in the future (> 60s skew) ⇒ clock-skew rejection (distinct message)
+    expect(await msg(gated.appendSigned(await signedPostAt(new Date(NOW + 300_000).toISOString())))).to.include("future");
+    // within the future skew (30s) ⇒ accepted
+    await gated.appendSigned(await signedPostAt(new Date(NOW + 30_000).toISOString()));
   });
 });

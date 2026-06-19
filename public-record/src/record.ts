@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { canonicalJson, contentCommitment, newSalt } from "./crypto/commitment.js";
+import { identityConfig } from "./config.js";
 import { canRevokeSignature, canChangeVote } from "./governance.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
@@ -59,16 +60,31 @@ interface AppendSpec {
 export class RecordService {
   private readonly platformPrivKeyHex?: string;
   private readonly platformPubKeyHex?: string;
+  private readonly signedEnvelopeMaxAgeSec: number;
+  private readonly signedEnvelopeFutureSkewSec: number;
+  private readonly now: () => number;
 
   constructor(
     private readonly chain: PublicChain,
     private readonly store: PrivateStore,
-    opts?: { platformBindingPubKeyHex?: string; platformBindingPrivKeyHex?: string },
+    opts?: {
+      platformBindingPubKeyHex?: string;
+      platformBindingPrivKeyHex?: string;
+      /** Override the signed-envelope freshness window (seconds); `0` disables. Defaults to config. */
+      signedEnvelopeMaxAgeSec?: number;
+      /** Override the accepted future-clock-skew (seconds). Defaults to config. */
+      signedEnvelopeFutureSkewSec?: number;
+      /** Injectable clock (ms since epoch) for tests; defaults to `Date.now`. */
+      now?: () => number;
+    },
   ) {
     this.platformPrivKeyHex = opts?.platformBindingPrivKeyHex;
     this.platformPubKeyHex =
       opts?.platformBindingPubKeyHex ??
       (this.platformPrivKeyHex ? platformPublicKey(this.platformPrivKeyHex) : undefined);
+    this.signedEnvelopeMaxAgeSec = opts?.signedEnvelopeMaxAgeSec ?? identityConfig.signedEnvelopeMaxAgeSec;
+    this.signedEnvelopeFutureSkewSec = opts?.signedEnvelopeFutureSkewSec ?? identityConfig.signedEnvelopeFutureSkewSec;
+    this.now = opts?.now ?? Date.now;
   }
 
   // ── Verified-tier signed path (client-builds-and-signs; promoted from passkey-test) ──────
@@ -159,6 +175,17 @@ export class RecordService {
 
     if (!(await verifyThreadBinding(this.store, envelope.authorPubkey, this.platformPubKeyHex))) {
       throw new Error("appendSigned: thread key is not registered (verified tier required)");
+    }
+
+    // Freshness gate (all signed ops): reject a `createdAt` that is too old, or too far ahead of the
+    // server clock. Disabled when maxAge = 0. `createdAt` is part of the signing digest, so this
+    // needs no schema/wire change. Clients MUST set `createdAt` at SIGN time, not prepare time.
+    if (this.signedEnvelopeMaxAgeSec > 0) {
+      const createdAtMs = Date.parse(envelope.createdAt);
+      if (Number.isNaN(createdAtMs)) throw new Error("appendSigned: envelope createdAt is not a valid ISO 8601 timestamp");
+      const deltaSec = (this.now() - createdAtMs) / 1000; // > 0 = in the past
+      if (deltaSec > this.signedEnvelopeMaxAgeSec) throw new Error("appendSigned: envelope createdAt expired");
+      if (-deltaSec > this.signedEnvelopeFutureSkewSec) throw new Error("appendSigned: envelope createdAt is in the future beyond allowed clock skew");
     }
 
     // thread-scope: the signing key must be the registered thread key for this action's root.

@@ -124,10 +124,18 @@ export const anchorTargetsConfig: AnchorTargetsConfig = {
  */
 export interface IdentityConfig {
   platformBindingPrivKeyHex: string;
+  /** Reject a signed envelope at commit if `serverNow - createdAt` exceeds this many seconds.
+   *  `0` disables the freshness gate (today's behavior — no rejection). Default 120 (dev). */
+  signedEnvelopeMaxAgeSec: number;
+  /** Tolerance (seconds) for a client clock running slightly fast: an envelope whose `createdAt` is
+   *  ahead of server time by at most this much is accepted; beyond it is rejected as clock skew. */
+  signedEnvelopeFutureSkewSec: number;
 }
 
 export const identityConfig: IdentityConfig = {
   platformBindingPrivKeyHex: env("PLATFORM_BINDING_PRIVKEY", ""),
+  signedEnvelopeMaxAgeSec: Number(env("SIGNED_ENVELOPE_MAX_AGE_SEC", "120")),
+  signedEnvelopeFutureSkewSec: Number(env("SIGNED_ENVELOPE_FUTURE_SKEW_SEC", "60")),
 };
 
 export const paths = { packageRoot, repoRoot };

@@ -2,7 +2,7 @@
 
 _First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0**
 (PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via
-tsx). **78 tests across 14 suites, all green.** Real **per-thread P-256 signing** is wired for the
+tsx). **79 tests across 14 suites, all green.** Real **per-thread P-256 signing** is wired for the
 **full verified write path** — all creates (2a) and updates/deletes (2b) — via
 `prepareAppend` + `RecordService.appendSigned` + `identity/*`; the unsigned dev path is retained for
 seeds. The per-entity hash chain, the **pool → block-settlement**
@@ -13,7 +13,7 @@ real. **External** anchoring (Git / EVM / Solana) is not yet implemented._
 
 - **The model works.** Create/edit/delete are append-only transactions; current state is a
   fold over the log; the append-only chain (immudb) holds only commitments while the raw
-  content lives in mutable Postgres. All 78 tests pass.
+  content lives in mutable Postgres. All 79 tests pass.
 - **Writes are pooled, then settled in blocks (durable + crash-safe).** `append` writes the
   private row and **atomically enqueues** the commitment (`record_outbox`, `pending`) in one
   Postgres transaction — nothing reaches the chain yet. A **block** is settled from the pool when
@@ -131,7 +131,7 @@ by its hash.
 
 ---
 
-## 3. Test inventory (14 suites · 78 tests)
+## 3. Test inventory (14 suites · 79 tests)
 
 | Suite | Tests | What it proves |
 |---|---|---|
@@ -148,7 +148,7 @@ by its hash.
 | 11 settlement-cadence | 5 | count trigger holds below N then settles, capping the block at `BLOCK_MAX_TXS`; age trigger settles a lone old pending tx below the count (via injected `now`); file target publishes every 2 settled blocks, in order, and the bundles verify offline; re-evaluating with no new pending is a no-op; **chain isolation** — two chains share one Postgres pool + immudb and each settler drains/commits only its own `chainId` (neither sweeps the other; both start at height 1) |
 | 10 identity-crypto | 11 | **(no DB)** HKDF per-thread derivation deterministic + domain-separated by `thread_id`/`level`, valid P-256 scalar (frozen `threadPubkey` vector); `signEnvelope`/`verifyEnvelope` sign+verify, tamper ⇒ reject, leaf == `txHashOf` (frozen `signature`/`txHash`); `threadCommitment` deterministic/opaque; **nullifier** derivation deterministic, unlinkable across parents/levels, distinct from the thread key |
 | 12 signed-append | 5 | `verifyThreadBinding` true for a registered key / false for an unregistered one; verified-tier `post` create flows register → sign → `appendSigned` → settle, commitment lands on immudb (`verifyRow`) with the envelope carrying `thread_pubkey` only (no commitment / `salt_t` / `user_id` / plaintext); rejects an unregistered key (no pool row), a tampered signature, a `contentHash` mismatch, and a non-`create` op |
-| 13 signed-ops | 9 | **2a creates** — every type (post/poll/petition + comment/reaction/vote/petition_signature) via prepare→sign→append→settle, tallies count one verified participant; **reaction one-per-(user,parent)** (distinct comments OK, repeat on same comment rejected); same-user re-vote + cross-user nullifier replay rejected; non-singleton-with-nullifier / stale parent-revision rejected. **2b updates/deletes** — signed post edit; vote change (allowed w/ rules, rejected when final); signature revoke (allowed w/ rules, else rejected); reaction kind change (same nullifier, count 1); **stale `prevHash`** + **cross-author edit** rejected |
+| 13 signed-ops | 10 | **2a creates** — every type (post/poll/petition + comment/reaction/vote/petition_signature) via prepare→sign→append→settle, tallies count one verified participant; **reaction one-per-(user,parent)** (distinct comments OK, repeat on same comment rejected); same-user re-vote + cross-user nullifier replay rejected; non-singleton-with-nullifier / stale parent-revision rejected. **2b updates/deletes** — signed post edit; vote change (allowed w/ rules, rejected when final); signature revoke (allowed w/ rules, else rejected); reaction kind change (same nullifier, count 1); **stale `prevHash`** + **cross-author edit** rejected. **Freshness gate** — with max-age 120s + injected clock: fresh accepted, 3-min-old `createdAt` rejected (expired), 5-min-future rejected (clock skew), 30s-future accepted |
 
 Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record`
 (suite 10-identity-crypto also runs standalone without the DB).
@@ -215,7 +215,7 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 ```bash
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire :5443) + postgres 16 (:5442)
-npm run test    --workspace public-record   # 78 tests (14 suites)
+npm run test    --workspace public-record   # 79 tests (14 suites)
 npm run seed    --workspace public-record   # dev DB: folded state + settle + publish + verify
 npm run db:down --workspace public-record   # tear down (wipes volumes)
 ```
