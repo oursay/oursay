@@ -121,6 +121,9 @@ export class DevPasskeyConnector implements PasskeyConnector {
 
   /** Wipe ALL dev passkey material (the `.oursay-dev/` directory). Idempotent. */
   destroyAll(): void {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("DevPasskeyConnector.destroyAll() must never run with NODE_ENV=production");
+    }
     rmSync(this.rootDir, { recursive: true, force: true });
   }
 

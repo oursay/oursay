@@ -131,8 +131,12 @@ npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + postgres 16
 npm run test    --workspace public-record   # 53 tests (11 suites)
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
-npm run db:down --workspace public-record   # tear down (wipes volumes)
+npm run db:down --workspace public-record   # tear down (wipes volumes; blocked when NODE_ENV=production)
 ```
+
+Destructive npm scripts (`db:down`, `seed`, `reset`) and `PrivateStore.reset()` refuse to run when
+`NODE_ENV=production`. Raw `docker compose down -v` is not gated — production hosts must not expose
+the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` §11).
 
 Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
 stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.

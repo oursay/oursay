@@ -13,7 +13,7 @@
   },
   "scripts": {
     "db:up": "docker compose up -d --wait",
-    "db:down": "docker compose down -v",
+    "db:down": "tsx ../scripts/destructive-guard.ts db:down && docker compose down -v",
     "db:logs": "docker compose logs -f",
     "seed": "tsx scripts/seed.ts",
     "test": "mocha",

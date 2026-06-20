@@ -8,7 +8,10 @@ import { rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
 import { defaultDevDir } from "../src/client/dev-connector.js";
+
+assertDestructiveAllowed("npm run reset (@oursay/identity)");
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", ".."); // identity/scripts → repo root
 const publicRecordDir = join(repoRoot, "public-record");

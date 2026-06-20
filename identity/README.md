@@ -88,6 +88,10 @@ This runs `public-record`'s `docker compose down -v` (Postgres + immudb volumes)
 | `DevPasskeyConnector.destroyAll()` / `.oursay-dev/` wipe | simulated passkey custody | full key reset |
 | `npm run reset` (here) | **all of the above** | one clean slate |
 
+All destructive npm scripts and `PrivateStore.reset()` **refuse when `NODE_ENV=production`** (see
+`scripts/destructive-guard.ts`). There is no in-production override — take the deployment offline and
+restore from backup instead.
+
 ## Production intent
 
 Verified writes go through the **device-signed** path — `IdentityRegistry` builds its

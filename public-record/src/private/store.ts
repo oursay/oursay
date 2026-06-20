@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
+import { assertDestructiveAllowed } from "../../../scripts/destructive-guard.js";
 import type { PgConfig } from "../config.js";
 import type { ChainRow } from "../ledger/connector.js";
 import { POSTGRES_DDL } from "../schema/postgres.sql.js";
@@ -145,6 +146,7 @@ export class PrivateStore {
 
   /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
   async reset(): Promise<void> {
+    assertDestructiveAllowed("PrivateStore.reset()");
     await this.pool.query(
       "TRUNCATE record_outbox, record_tx, thread_signers, device_keys, thread_bindings, nullifier_attestations, thread_keys, level_master_keys, kyc_attestations, users CASCADE",
     );

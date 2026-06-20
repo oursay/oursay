@@ -431,7 +431,40 @@ replace platform nullifier attestation as the dedupe trust root.
 
 ---
 
-## 11. Decision checklist for pull requests
+## 11. Production data retention
+
+The civic record is **append-only by design**. Wiping live Postgres rows, Docker volumes, or chain
+state in production is **prohibited** — recovery is always **restore from backup** and/or **stand up
+a fresh node, replay anchors, and reconcile**; never `TRUNCATE` or `docker compose down -v` against
+production data.
+
+**In-repo guards (today).** `scripts/destructive-guard.ts` blocks when `NODE_ENV=production`:
+
+| Surface | Operation |
+|---------|-----------|
+| `public-record` / `immudb-test` `npm run db:down` | `docker compose down -v` |
+| `@oursay/identity` `npm run reset` | dev custody wipe + `db:down -v` |
+| `PrivateStore.reset()` | `TRUNCATE` all private tables |
+| `DevPasskeyConnector` | construct / `destroyAll()` (dev only) |
+
+There is **no** production override env var. To run destructive dev tooling, the process must not be
+in production mode.
+
+**Before production (ops checklist — not enforced in code).**
+
+- [ ] Managed Postgres (or equivalent) with **no** `TRUNCATE`/`DROP` on the application DB role.
+- [ ] Application hosts **without** Docker socket access; compose stacks are dev/CI only.
+- [ ] Automated backups + tested restore; external anchors (Git / chain) as the public witness.
+- [ ] Runbook for mass corruption: freeze writes → restore snapshot → verify anchors → reconcile delta.
+- [ ] `NODE_ENV=production` on all production Node processes (API, workers).
+- [ ] Secrets/IAM: only break-glass roles can drop databases; actions audited.
+
+Raw `docker` / `psql` / cloud-console deletes are **not** gated by npm — defense is infrastructure
+and access control.
+
+---
+
+## 12. Decision checklist for pull requests
 
 Before merging changes that touch identity or user data, confirm:
 
@@ -444,10 +477,11 @@ Before merging changes that touch identity or user data, confirm:
 - [ ] User-initiated linkability (claim / reveal) is not foreclosed by schema or API choices.
 - [ ] No stable **device** identifier is published in a form that could link the same user across threads (§5.3, Method 5).
 - [ ] Envelope or attestation layout remains compatible with a future ZK proof slot (§5.5).
+- [ ] New destructive tooling calls `assertDestructiveAllowed` or is documented as dev-only (§11).
 
 ---
 
-## 12. Related documents
+## 13. Related documents
 
 | Document | Role |
 |----------|------|

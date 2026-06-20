@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": ["node", "mocha"]
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts", "../scripts/destructive-guard.ts"]
 }
