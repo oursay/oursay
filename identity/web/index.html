@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OurSay · WebPasskeyConnector demo</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+      button { font: inherit; padding: 0.5rem 0.9rem; margin: 0.25rem 0.25rem 0.25rem 0; cursor: pointer; }
+      pre { background: #f5f5f5; padding: 0.8rem; border-radius: 6px; overflow-x: auto; }
+      .note { color: #555; }
+    </style>
+    <!-- Bundler-free: @noble loaded via import map (CDN). The connector's crypto is identical. -->
+    <script type="importmap">
+      { "imports": { "@noble/hashes/": "https://esm.sh/@noble/hashes@1.7.1/" } }
+    </script>
+  </head>
+  <body>
+    <h1>OurSay · WebPasskeyConnector (manual demo)</h1>
+    <p class="note">
+      Proves the browser half of <code>@oursay/identity/client</code>'s <code>WebPasskeyConnector</code>:
+      a passkey register, then a PRF-backed unlock that yields a deterministic 32-byte root which
+      HKDF-expands into the device/level/nullifier secrets. The full enroll → join → device-sign →
+      <code>appendSigned</code> path is proven headlessly by the <code>DevPasskeyConnector</code> E2E.
+    </p>
+    <button id="enroll">1 · Enroll passkey</button>
+    <button id="unlock">2 · Unlock (PRF)</button>
+    <button id="again">3 · Unlock again (determinism)</button>
+    <pre id="out">(nothing yet)</pre>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

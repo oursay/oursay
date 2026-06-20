@@ -14,7 +14,8 @@
     "turnkey-test",
     "immudb-test",
     "public-record",
-    "passkey-test"
+    "passkey-test",
+    "identity"
   ],
   "scripts": {
     "dev": "npm run dev --workspace site",

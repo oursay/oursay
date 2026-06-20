@@ -1,0 +1,21 @@
+// @oursay/identity/client — passkey custody + client-side signing. Import this from the browser/app.
+
+export type { PasskeyConnector, DeviceCredential, UnlockedSession } from "./connector.js";
+export { DevPasskeyConnector, defaultDevDir } from "./dev-connector.js";
+export type { DevPasskeyOptions } from "./dev-connector.js";
+export { WebPasskeyConnector } from "./web-connector.js";
+export type { WebPasskeyOptions } from "./web-connector.js";
+export { IdentitySession } from "./session.js";
+
+// Shared DTOs convenient for client callers.
+export type {
+  ThreadRef,
+  ParentRef,
+  Intent,
+  CreateIntent,
+  MutateIntent,
+  PreparedAppend,
+  SignedSubmission,
+  DeviceEnrollment,
+  ThreadRegistration,
+} from "../shared/types.js";

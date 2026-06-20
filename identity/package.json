@@ -1,0 +1,33 @@
+{
+  "name": "@oursay/identity",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OurSay client identity layer: passkey connectors (Web + simulated Dev), client-side signing (IdentitySession), and in-process server helpers (IdentityRegistry) over @oursay/public-record. Pre-API; the future @oursay/api wraps the server surface as HTTP.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client/index.ts",
+    "./server": "./src/server/index.ts",
+    "./shared/*": "./src/shared/*.ts"
+  },
+  "scripts": {
+    "serve": "tsx web/server.ts",
+    "test": "mocha",
+    "typecheck": "tsc --noEmit",
+    "reset": "tsx scripts/reset.ts"
+  },
+  "dependencies": {
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
+    "@oursay/public-record": "*"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.13.10",
+    "chai": "^5.1.2",
+    "mocha": "^11.0.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

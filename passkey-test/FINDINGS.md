@@ -196,5 +196,33 @@ interface PlatformAdapter {
 | `test/04-binding-inputs.spec.ts` | Public binding has exactly the §6 fields; commitment binds the opening; fresh `salt_t` when unsupplied; **envelope carries `thread_pubkey` only** (no commitment/opening). |
 | `web/` demo (manual) | Q1 register/auth (P-256); Q2 PRF availability + deterministic 32-byte output; renders the §2 support-matrix row. |
 
+The connector seam validated here (`PasskeyConnector` + `DevPasskeyConnector`, §8) **graduated** to
+`@oursay/identity`; its tests (env guard, determinism, custody, full wipe, and a Docker E2E) live
+there now — this spike keeps only the durable findings + the browser PRF probe.
+
 Run: `npm test` (suites), `npm run serve` then open the demo (manual Q1/Q2). See
 [`README.md`](./README.md).
+
+## 8. Connector seam → graduates to `@oursay/identity` (June 2026)
+
+The `PlatformAdapter` sketch (§5) is realized as a **`PasskeyConnector`** seam with two backends
+behind one interface, and **graduates out of this spike** into the importable library
+`@oursay/identity` (subpaths `./client` + `./server`). This spike keeps the durable findings and
+the browser PRF probe; the connector/session/registry code lives in the library.
+
+- **`WebPasskeyConnector`** — the real WebAuthn path (this spike's `web/app.js` logic): ES256
+  (`-7`), PRF read at **auth time** (the §2 gotcha), secure-storage fallback when PRF is absent.
+- **`DevPasskeyConnector`** — **simulated passkey for dev + CI**. No browser, no Touch ID, no
+  prompts. **Impossible to enable in production by accident:** the constructor throws unless
+  `OURSAY_DEV_PASSKEY=1` **and** `NODE_ENV !== "production"`. Deterministic from a seed (frozen
+  vectors); custody under **`.oursay-dev/`** at the repo root, wiped by `destroyAll()`.
+
+**Custody model carried forward (Method 3, §5.4):** `deviceRoot` (per device) → thread-scoped
+device **signer** keys; `levelMaster`/`nullifierRoot` are **user-level** (shared across a user's
+devices, modelling passkey sync) → the thread **persona** and singleton nullifiers respectively.
+Verified writes use the device-signed path (`requireDeviceSigner`); persona-only signing is a
+dev/test fallback. Envelope `proof` (Method 4 / ZK) stays reserve-and-reject until ZK exists.
+
+**Keep/discard delta vs §6:** _keep_ the `PasskeyConnector` interface, the `DevPasskeyConnector`
+for headless CI, and the user-level-vs-device-root custody split; _discard_ the idea that the spike
+itself is imported — the library is the imported artifact (PHILOSOPHY §2: spikes are leaves).

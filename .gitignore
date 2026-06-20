@@ -33,6 +33,9 @@ immudb-test/out/
 public-record/.anchors/
 public-record/out/
 
+# @oursay/identity — simulated dev passkey custody (DevPasskeyConnector). NEVER commit key material.
+.oursay-dev/
+
 # OS / editor
 .DS_Store
 Thumbs.db

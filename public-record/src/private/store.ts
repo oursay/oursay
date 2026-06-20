@@ -518,6 +518,18 @@ export class PrivateStore {
     return r.rows[0].id as string;
   }
 
+  /** Resolve an enrolled device by its account-level public key (the DB id stays off the client). */
+  async getDeviceKeyByPubkey(
+    devicePubkey: string,
+  ): Promise<{ id: string; userId: string; revoked: boolean } | null> {
+    const r = await this.pool.query(
+      `SELECT id, user_id, (revoked_at IS NOT NULL) AS revoked FROM device_keys WHERE device_pubkey = $1`,
+      [devicePubkey],
+    );
+    const row = r.rows[0];
+    return row ? { id: row.id, userId: row.user_id, revoked: row.revoked } : null;
+  }
+
   /** Revoke an enrolled device (lost/retired). Its thread-scoped signers stop being usable. */
   async revokeDeviceKey(devicePubkey: string): Promise<void> {
     await this.pool.query(
