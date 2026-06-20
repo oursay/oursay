@@ -407,7 +407,10 @@ for test detail.
 | Multi-device enrollment registry + thread-scoped signers (library) | Implemented (tests) |
 | Cross-device editing (any enrolled device of the same user) | Implemented (tests) |
 | User-level nullifier root (shared across a user's devices) | Implemented (framing + tests) |
-| Passkey sessions + production Web client adapter | Not built |
+| Account-auth passkey sessions (server, `@oursay/api`) | Implemented (tests) — WebAuthn register + passkey login over `@simplewebauthn/server`; opaque DB-backed sessions. This passkey is the **account-login** factor (§2) and is **separate** from the civic thread-signing keys above. |
+| Email-OTP registration + recovery (server, `@oursay/api`) | Implemented (tests) — OTP is bootstrap/recovery only; passkey is day-to-day login. Hashed codes, rate limits, pluggable mailer (Postmark/SMTP/SES + dev noop). |
+| KYC-gated recovery branch (`@oursay/api`) | Stub — recovery reads `public.kyc_attestations`; unverified → re-enroll passkey, verified → KYC re-verification required (provider stubbed, §3.3). |
+| Production Web client adapter (browser passkey UX) | Not built |
 | Non-exportable Web Crypto signing path | **Policy decided; code not built** |
 | Claim / unclaim public ownership (R8, R9) | Schema stub only |
 | Selective reveal to institutions (R11) | Not built |

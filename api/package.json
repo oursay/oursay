@@ -1,0 +1,47 @@
+{
+  "name": "@oursay/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OurSay account API: email-OTP registration, WebAuthn passkey auth (passkey-primary), and OTP recovery. OpenAPI-first Fastify service over a layered helpers/repo/services/http core.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./http": "./src/http/server.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/http/serve.ts",
+    "start": "NODE_ENV=production tsx src/http/serve.ts",
+    "cli": "tsx src/cli/index.ts",
+    "openapi:dump": "tsx scripts/openapi-dump.ts",
+    "db:up": "npm run db:up -w @oursay/public-record",
+    "db:down": "npm run db:down -w @oursay/public-record",
+    "test": "mocha",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sesv2": "^3.700.0",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/rate-limit": "^10.2.2",
+    "@fastify/swagger": "^9.4.2",
+    "@fastify/swagger-ui": "^5.2.1",
+    "@noble/hashes": "^1.7.1",
+    "@oursay/public-record": "*",
+    "@simplewebauthn/server": "^13.1.1",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
+    "nodemailer": "^6.9.16",
+    "pg": "^8.13.1",
+    "postmark": "^4.0.5"
+  },
+  "devDependencies": {
+    "@types/chai": "^5.0.1",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.13.10",
+    "@types/nodemailer": "^6.4.17",
+    "@types/pg": "^8.11.10",
+    "chai": "^5.1.2",
+    "mocha": "^11.0.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

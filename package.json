@@ -2,6 +2,7 @@
   "name": "oursay",
   "version": "0.0.0",
   "private": true,
+  "type": "module",
   "description": "OurSay — an open-source, verified, auditable civic platform. Workspace monorepo.",
   "license": "GPL-3.0-or-later",
   "homepage": "https://oursay.ca",
@@ -15,7 +16,8 @@
     "immudb-test",
     "public-record",
     "passkey-test",
-    "identity"
+    "identity",
+    "api"
   ],
   "scripts": {
     "dev": "npm run dev --workspace site",

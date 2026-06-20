@@ -1,0 +1,104 @@
+// DDL for the @oursay/api `auth` schema: account PII (profiles), account-login WebAuthn
+// credentials, opaque DB-backed sessions, email OTP, and OTP rate-limit buckets.
+//
+// This lives in the SAME Postgres database as @oursay/public-record and FKs `public.users(id)`.
+// `public.users` (+ `public.kyc_attestations`) must already exist — @oursay/api applies
+// PrivateStore's base schema first (see db.ts). Idempotent: safe to run on every boot.
+//
+// IMPORTANT: `auth.passkey_credentials` is the ACCOUNT-LOGIN factor (proves who is logged in). It
+// is deliberately SEPARATE from public-record's civic `device_keys` / `thread_signers` (which sign
+// civic actions per docs/08 §2). The login passkey never signs the public record.
+
+export const AUTH_DDL = `
+CREATE SCHEMA IF NOT EXISTS auth;
+
+-- Private account profile / PII. Display name is NOT here — it lives on public.users.handle (the
+-- single source of truth, the only field intended for future public surfacing). Address is stored
+-- as GENERIC components + a free memo for region-specific extras; the front-end owns localized
+-- labels. No riding/district binding is persisted (boundaries shift over time; region membership is
+-- resolved dynamically by future resolvers against platform-defined boundaries). Encryption-at-rest
+-- is a follow-on (KMS); these columns are the extension point.
+CREATE TABLE IF NOT EXISTS auth.profiles (
+  user_id         UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  address_line1   TEXT,
+  address_line2   TEXT,
+  city            TEXT,
+  region          TEXT,                 -- province/state/etc. (FE-labelled)
+  postal_code     TEXT,
+  country         TEXT NOT NULL DEFAULT 'CA',
+  address_memo    TEXT,                 -- region-specific extra field
+  birthdate       DATE NOT NULL,        -- age gate enforced at registration (service layer)
+  email           TEXT NOT NULL,        -- as the user typed it
+  email_canonical TEXT NOT NULL UNIQUE, -- normalized; uniqueness + all lookups use this form
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Coarse geographic narrowing only (never the full street address in query predicates).
+CREATE INDEX IF NOT EXISTS profiles_region ON auth.profiles (region);
+CREATE INDEX IF NOT EXISTS profiles_postal ON auth.profiles (postal_code);
+
+-- Account-login WebAuthn credentials (passkey-primary auth). NOT civic signing keys.
+CREATE TABLE IF NOT EXISTS auth.passkey_credentials (
+  id            UUID PRIMARY KEY,
+  user_id       UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  credential_id TEXT NOT NULL UNIQUE,           -- base64url credential id
+  public_key    BYTEA NOT NULL,                 -- COSE public key bytes
+  counter       BIGINT NOT NULL DEFAULT 0,      -- signature counter (clone detection)
+  transports    TEXT,                           -- CSV (e.g. "internal,hybrid")
+  aaguid        TEXT,
+  label         TEXT,                           -- optional human label
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS passkey_credentials_user ON auth.passkey_credentials (user_id);
+
+-- Short-lived WebAuthn ceremony challenges (register + login). Consumed once, expired on TTL.
+CREATE TABLE IF NOT EXISTS auth.webauthn_challenges (
+  id              UUID PRIMARY KEY,
+  user_id         UUID REFERENCES public.users(id) ON DELETE CASCADE, -- nullable (usernameless login)
+  email_canonical TEXT,                          -- set for login-by-email
+  challenge       TEXT NOT NULL,                 -- base64url
+  purpose         TEXT NOT NULL CHECK (purpose IN ('register','login')),
+  expires_at      TIMESTAMPTZ NOT NULL,
+  consumed_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS webauthn_challenges_lookup ON auth.webauthn_challenges (challenge);
+
+-- Opaque DB-backed sessions. The token itself is never stored — only its hash. 'recovery' scope is
+-- a limited session that may re-enroll a passkey but not perform full actions.
+CREATE TABLE IF NOT EXISTS auth.sessions (
+  id          UUID PRIMARY KEY,
+  user_id     UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  token_hash  TEXT NOT NULL UNIQUE,
+  scope       TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','recovery')),
+  user_agent  TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at  TIMESTAMPTZ NOT NULL,
+  revoked_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS sessions_user ON auth.sessions (user_id);
+
+-- Email OTP (bootstrap registration + recovery). Codes are stored hashed (pepper + per-row salt);
+-- the plaintext code is never persisted or logged.
+CREATE TABLE IF NOT EXISTS auth.email_otp (
+  id              UUID PRIMARY KEY,
+  email_canonical TEXT NOT NULL,
+  code_hash       TEXT NOT NULL,
+  salt            TEXT NOT NULL,
+  purpose         TEXT NOT NULL CHECK (purpose IN ('registration','recovery')),
+  attempts        INT  NOT NULL DEFAULT 0,
+  expires_at      TIMESTAMPTZ NOT NULL,
+  consumed_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS email_otp_lookup ON auth.email_otp (email_canonical, purpose);
+
+-- Rolling-window rate-limit counters, keyed by bucket (e.g. "email:<canonical>" / "ip:<addr>").
+-- Enforced in OtpService so the CLI/service path is throttled too, not just HTTP.
+CREATE TABLE IF NOT EXISTS auth.otp_rate_limits (
+  bucket_key   TEXT NOT NULL,
+  window_start TIMESTAMPTZ NOT NULL,
+  count        INT NOT NULL DEFAULT 0,
+  PRIMARY KEY (bucket_key, window_start)
+);
+`;
