@@ -112,6 +112,39 @@ CREATE TABLE thread_bindings (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Multi-device enrollment (Identity & Device Policy §5.4, Method 3). PRIVATE — NEVER published.
+-- One row per hardware-backed device key a user enrols (passkey / secure enclave); the platform
+-- stores only the PUBLIC key. device_pubkey is the stable ACCOUNT-LEVEL key and must NEVER appear on
+-- an envelope — putting a stable device id on the record across threads is Method 5 (§5.3, ruled
+-- out). It is used only privately, to anchor the thread-scoped signers below. revoked_at marks a
+-- lost/retired device; a revoked device may no longer sign.
+CREATE TABLE IF NOT EXISTS device_keys (
+  id           UUID PRIMARY KEY,
+  user_id      UUID NOT NULL REFERENCES users(id),
+  device_pubkey TEXT NOT NULL UNIQUE,           -- compressed SEC1 P-256, hex; account-level, never on an envelope
+  label        TEXT,                            -- optional human label ("Alice's iPhone")
+  enrolled_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at   TIMESTAMPTZ                      -- nullable; set on lost/retired device
+);
+CREATE INDEX IF NOT EXISTS device_keys_user ON device_keys (user_id);
+
+-- Thread-scoped device signers (Method 3). PRIVATE — maps a PUBLISHED signer key (the envelope's
+-- signerPubkey) to its device and verified user, WITHOUT putting that link on the record. Each
+-- (device, thread) derives a distinct signer (see identity/device.ts), so the same device shows an
+-- unrelated signer in every thread — no cross-thread correlator. appendSigned authorizes a signed
+-- envelope by checking the signer maps to the SAME user (and thread) as the thread persona; any
+-- enrolled device of that user may thus edit the user's content in the thread (cross-device edit).
+CREATE TABLE IF NOT EXISTS thread_signers (
+  signer_pubkey TEXT PRIMARY KEY,               -- compressed SEC1 P-256, hex; the published per-(device,thread) signer
+  user_id       UUID NOT NULL REFERENCES users(id),
+  device_id     UUID NOT NULL REFERENCES device_keys(id),
+  thread_id     TEXT NOT NULL,
+  level         TEXT NOT NULL,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at    TIMESTAMPTZ                      -- nullable; revoke a single thread-scoped signer
+);
+CREATE INDEX IF NOT EXISTS thread_signers_user_thread ON thread_signers (user_id, thread_id);
+
 -- KYC attestation STUB (tier carrier only; no provider integration this phase).
 CREATE TABLE IF NOT EXISTS kyc_attestations (
   id          UUID PRIMARY KEY,
@@ -132,10 +165,14 @@ CREATE TABLE IF NOT EXISTS nullifier_attestations (
   parent_id    TEXT NOT NULL,
   nullifier    TEXT NOT NULL,
   platform_sig TEXT NOT NULL,
+  membership_proof TEXT,                         -- RESERVED Method-4 (§5.5) ZK slot; NULL today. A future
+                                                 -- zk-membership proof replaces platform_sig as the trust root.
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, parent_id),
   UNIQUE (parent_id, nullifier)
 );
+-- Idempotent migration for a persistent dev DB created before the membership_proof column existed.
+ALTER TABLE nullifier_attestations ADD COLUMN IF NOT EXISTS membership_proof TEXT;
 
 -- ── Fold-on-read projections (the "get latest state" views) ─────────────────────────────
 

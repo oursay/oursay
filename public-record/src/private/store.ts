@@ -146,7 +146,7 @@ export class PrivateStore {
   /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
   async reset(): Promise<void> {
     await this.pool.query(
-      "TRUNCATE record_outbox, record_tx, thread_bindings, nullifier_attestations, thread_keys, level_master_keys, kyc_attestations, users CASCADE",
+      "TRUNCATE record_outbox, record_tx, thread_signers, device_keys, thread_bindings, nullifier_attestations, thread_keys, level_master_keys, kyc_attestations, users CASCADE",
     );
   }
 
@@ -498,6 +498,82 @@ export class PrivateStore {
     );
     const row = r.rows[0];
     return row ? { userId: row.user_id, threadId: row.thread_id, level: row.level } : null;
+  }
+
+  // ── Multi-device enrollment (Method 3 §5.4) — all PRIVATE, never published ────────────────
+
+  /**
+   * Enrol a hardware-backed PUBLIC device key for a user (multi-passkey / multi-device). Idempotent
+   * on `device_pubkey` (re-enroll clears any prior revocation). Returns the device row id, which a
+   * thread-scoped signer references. `device_pubkey` is account-level and NEVER goes on an envelope.
+   */
+  async enrollDeviceKey(input: { userId: string; devicePubkey: string; label?: string | null }): Promise<string> {
+    const id = randomUUID();
+    const r = await this.pool.query(
+      `INSERT INTO device_keys(id, user_id, device_pubkey, label) VALUES($1,$2,$3,$4)
+       ON CONFLICT (device_pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, label = EXCLUDED.label, revoked_at = NULL
+       RETURNING id`,
+      [id, input.userId, input.devicePubkey, input.label ?? null],
+    );
+    return r.rows[0].id as string;
+  }
+
+  /** Revoke an enrolled device (lost/retired). Its thread-scoped signers stop being usable. */
+  async revokeDeviceKey(devicePubkey: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE device_keys SET revoked_at = now() WHERE device_pubkey = $1 AND revoked_at IS NULL`,
+      [devicePubkey],
+    );
+  }
+
+  /**
+   * Register a thread-scoped device signer: the PUBLISHED `signer_pubkey` (the envelope's
+   * signerPubkey) mapped privately to its device and verified user for one thread. Upsert keeps it
+   * idempotent and clears any prior revocation.
+   */
+  async registerThreadSigner(input: {
+    signerPubkey: string;
+    userId: string;
+    deviceId: string;
+    threadId: string;
+    level: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO thread_signers(signer_pubkey, user_id, device_id, thread_id, level) VALUES($1,$2,$3,$4,$5)
+       ON CONFLICT (signer_pubkey) DO UPDATE SET
+         user_id = EXCLUDED.user_id, device_id = EXCLUDED.device_id,
+         thread_id = EXCLUDED.thread_id, level = EXCLUDED.level, revoked_at = NULL`,
+      [input.signerPubkey, input.userId, input.deviceId, input.threadId, input.level],
+    );
+  }
+
+  /** Revoke a single thread-scoped signer (without retiring the whole device). */
+  async revokeThreadSigner(signerPubkey: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE thread_signers SET revoked_at = now() WHERE signer_pubkey = $1 AND revoked_at IS NULL`,
+      [signerPubkey],
+    );
+  }
+
+  /**
+   * Resolve a published thread-scoped signer to its `(user, thread)` for the appendSigned
+   * authorization check. `revoked` is true when either the signer OR its enrolling device is revoked
+   * (a lost device disables all its signers). Returns null when the signer is unknown.
+   */
+  async getThreadSigner(
+    signerPubkey: string,
+  ): Promise<{ userId: string; threadId: string; deviceId: string; revoked: boolean } | null> {
+    const r = await this.pool.query(
+      `SELECT s.user_id, s.thread_id, s.device_id,
+              (s.revoked_at IS NOT NULL OR d.revoked_at IS NOT NULL) AS revoked
+       FROM thread_signers s JOIN device_keys d ON d.id = s.device_id
+       WHERE s.signer_pubkey = $1`,
+      [signerPubkey],
+    );
+    const row = r.rows[0];
+    return row
+      ? { userId: row.user_id, threadId: row.thread_id, deviceId: row.device_id, revoked: row.revoked }
+      : null;
   }
 
   /** The platform-attested nullifier for `(user, parent)`, or null if none has been attested yet. */

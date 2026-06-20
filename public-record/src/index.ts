@@ -64,8 +64,11 @@ export type { MerkleStep } from "./crypto/merkle.js";
 // Browser-safe client helpers; also re-exported via the "./identity/*" subpaths.
 export { deriveThreadKey, deriveThreadPrivateKey, threadDomainInfo } from "./identity/derive.js";
 export type { DeriveInput, ThreadKey } from "./identity/derive.js";
-export { signEnvelope, verifyEnvelope, UNSIGNED } from "./identity/envelope.js";
+export { signEnvelope, verifyEnvelope, signingDigest, UNSIGNED } from "./identity/envelope.js";
 export type { SignResult } from "./identity/envelope.js";
+// Thread-scoped device signing (Method 3 §5.4) — multi-device / cross-device edit.
+export { deriveDeviceThreadSigner, signEnvelopeWithDevice, deviceSignerDomainInfo } from "./identity/device.js";
+export type { DeriveDeviceSignerInput, DeviceThreadSigner } from "./identity/device.js";
 export { deriveNullifierSecret, threadNullifier } from "./identity/nullifier.js";
 export { buildThreadBindingInputs } from "./identity/binding.js";
 export type { ThreadBindingInputs, ThreadBindingPublic, ThreadBindingOpening, BuildBindingInput } from "./identity/binding.js";

@@ -4,6 +4,7 @@ import { expect } from "chai";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE } from "@noble/curves/abstract/utils";
 import { deriveThreadKey, deriveThreadPrivateKey } from "../src/identity/derive.js";
+import { deriveDeviceThreadSigner, signEnvelopeWithDevice } from "../src/identity/device.js";
 import { signEnvelope, verifyEnvelope, UNSIGNED } from "../src/identity/envelope.js";
 import { threadCommitment } from "../src/crypto/commitment.js";
 import { deriveNullifierSecret, threadNullifier } from "../src/identity/nullifier.js";
@@ -61,6 +62,41 @@ describe("10 identity/envelope: P-256 sign / verify", () => {
     const flipped = envelope.signature.slice(0, -2) + (envelope.signature.endsWith("00") ? "01" : "00");
     expect(verifyEnvelope({ ...envelope, signature: flipped })).to.equal(false);
     expect(verifyEnvelope({ ...envelope, signature: UNSIGNED })).to.equal(false);
+  });
+});
+
+describe("10 identity/device: thread-scoped device signer (Method 3)", () => {
+  const deviceRoot = () => levelMaster(); // any 32-byte on-device secret works as the device root
+
+  it("derives a deterministic, thread/level-domain-separated signer that is a valid P-256 scalar", () => {
+    const a = deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID, level: LEVEL });
+    const b = deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID, level: LEVEL });
+    expect(a.signerPubkey).to.equal(b.signerPubkey);
+    expect(deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID_2, level: LEVEL }).signerPubkey).to.not.equal(a.signerPubkey);
+    expect(deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID, level: LEVEL_2 }).signerPubkey).to.not.equal(a.signerPubkey);
+    const k = bytesToNumberBE(a.privKey);
+    expect(k > 0n && k < p256.CURVE.n).to.equal(true);
+  });
+
+  it("is distinct from the persona thread key derived from the same root (separate domain)", () => {
+    const signer = deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID, level: LEVEL });
+    const persona = deriveThreadKey({ levelMaster: deviceRoot(), threadId: THREAD_ID, level: LEVEL });
+    expect(signer.signerPubkey).to.not.equal(persona.threadPubkey);
+  });
+
+  it("signs as author=persona, signer=device; verifies against the device key; tampering fails", () => {
+    const persona = deriveThreadKey({ levelMaster: levelMaster(), threadId: THREAD_ID, level: LEVEL });
+    const signer = deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID, level: LEVEL });
+    const { envelope, txHash } = signEnvelopeWithDevice(envFixture(), signer.privKey, persona.threadPubkey);
+    expect(envelope.authorPubkey).to.equal(persona.threadPubkey);
+    expect(envelope.signerPubkey).to.equal(signer.signerPubkey);
+    expect(envelope.authorPubkey).to.not.equal(envelope.signerPubkey);
+    expect(verifyEnvelope(envelope)).to.equal(true);
+    expect(txHash).to.equal(txHashOf(envelope));
+    // the persona did NOT sign — verifying as if it were the signer must fail
+    expect(verifyEnvelope({ ...envelope, signerPubkey: undefined })).to.equal(false);
+    // tampering the persona label breaks the signature (author is bound into the digest)
+    expect(verifyEnvelope({ ...envelope, authorPubkey: persona.threadPubkey.replace(/.$/, "0") })).to.equal(false);
   });
 });
 

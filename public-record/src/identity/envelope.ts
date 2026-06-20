@@ -21,8 +21,8 @@ import type { TxEnvelope } from "../schema/types.js";
 /** The placeholder the `signature` field holds while computing the signing digest. */
 export const UNSIGNED = "";
 
-/** sha256(canonicalJson(envelope with signature="")) — the bytes the per-thread key signs. */
-function signingDigest(env: TxEnvelope): Uint8Array {
+/** sha256(canonicalJson(envelope with signature="")) — the bytes the signing key signs. */
+export function signingDigest(env: TxEnvelope): Uint8Array {
   const base: TxEnvelope = { ...env, signature: UNSIGNED };
   return sha256(utf8ToBytes(canonicalJson(base)));
 }
@@ -47,11 +47,18 @@ export function signEnvelope(env: TxEnvelope, privKey: Uint8Array): SignResult {
   return { envelope, txHash: txHashOf(envelope) };
 }
 
-/** Verify an envelope's per-thread signature against its `authorPubkey`. */
+/**
+ * Verify an envelope's signature against the key that produced it: the thread-scoped
+ * `signerPubkey` (device key) when present, otherwise `authorPubkey` (the persona signed —
+ * today's single-device / passkey-sync path). Either way the signing digest binds the whole
+ * envelope (incl. `authorPubkey` and `signerPubkey`), so the persona that appears on the
+ * record cannot be swapped without invalidating the signature.
+ */
 export function verifyEnvelope(env: TxEnvelope): boolean {
   if (!env.signature || env.signature === UNSIGNED) return false;
   try {
-    return p256.verify(hexToBytes(env.signature), signingDigest(env), hexToBytes(env.authorPubkey));
+    const verifyingKey = env.signerPubkey ?? env.authorPubkey;
+    return p256.verify(hexToBytes(env.signature), signingDigest(env), hexToBytes(verifyingKey));
   } catch {
     return false;
   }

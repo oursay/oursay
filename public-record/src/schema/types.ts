@@ -55,12 +55,14 @@ export interface TxEnvelope {
   parentId?: string; // entity-level parent id — FOLLOWS edits to the parent
   parentRevisionTxId?: string; // the parent's head tx id at attach time …
   parentRevisionHash?: string; // … its content-addressed revision id (parent txHash) — REVISION-level
-  authorPubkey: string; // stub dev pubkey; PLATFORM_PUBKEY for governance txs
-  signature: string; // stub ("unsigned") — not cryptographically verified yet
+  authorPubkey: string; // THREAD PERSONA — the stable public author id per (user, thread); PLATFORM_PUBKEY for governance
+  signerPubkey?: string; // THREAD-SCOPED DEVICE key that produced `signature` (Method 3 §5.4). Absent ⇒ the persona signed.
+  signature: string; // P-256 signature over the signing digest (or "unsigned" on the dev path)
   createdAt: string; // ISO 8601 — part of the hash
   prevHash: string | null; // per-entity link = txHash of the prior tx for entityId (null on create)
   contentHash: string; // salted commitment of THIS tx's content
   nullifier?: string; // singleton dedupe tag (vote/petition_signature/reaction); part of txHash, NOT contentHash
+  proof?: string; // RESERVED Method-4 (§5.5) ZK membership proof slot. Unused now; appendSigned rejects if present.
 }
 
 // ── Validation tables ───────────────────────────────────────────────────────────────────

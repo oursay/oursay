@@ -403,15 +403,31 @@ for test detail.
 | Per-thread P-256 signing + `appendSigned` gate | Implemented (tests) |
 | Thread registration + private binding | Implemented |
 | Nullifier dedupe for votes/reactions/signatures | Implemented |
+| Author (thread persona) / signer (device key) envelope split | Implemented (tests) |
+| Multi-device enrollment registry + thread-scoped signers (library) | Implemented (tests) |
+| Cross-device editing (any enrolled device of the same user) | Implemented (tests) |
+| User-level nullifier root (shared across a user's devices) | Implemented (framing + tests) |
 | Passkey sessions + production Web client adapter | Not built |
 | Non-exportable Web Crypto signing path | **Policy decided; code not built** |
 | Claim / unclaim public ownership (R8, R9) | Schema stub only |
 | Selective reveal to institutions (R11) | Not built |
-| Multi-passkey / multi-device registration UX | Not built |
+| Multi-passkey / multi-device registration UX | Not built (library primitives done) |
 | Jurisdiction-specific validation policy | Not built |
 | External anchoring (Git / EVM / …) | Not built |
 | Tier- and region-filtered signed counts (R24–R26) | Not built |
-| ZK membership credentials (Method 4 — ideal goal) | **Not started; architecture reserved in §5.5** |
+| ZK membership credentials (Method 4 — ideal goal) | **Not started; wire slot reserved (envelope `proof` + `nullifier_attestations.membership_proof`), rejected until built (§5.5)** |
+
+**Method-3 implementation note (library).** The published `signer` is a **thread-scoped**
+device key (a distinct key per `(device, thread)`), so the same physical device shows no
+cross-thread correlator on the record — Method 5 (§5.3) stays ruled out. The device→user
+link lives only in the private `device_keys` / `thread_signers` registry, never on the
+envelope. `appendSigned` authorizes a device-signed envelope when the signer maps to the
+same verified user (and thread) as the thread persona; any enrolled, non-revoked device may
+then edit that user's content in the thread. When no `signerPubkey` is present the persona
+signs directly (single-device / passkey-sync path). The reserved ZK slot is **reserve-and-
+reject**: an envelope that actually carries `proof` is rejected until Method 4 verification
+exists. **Still for Method 4:** real credential issuance + ZK proof generation/verification to
+replace platform nullifier attestation as the dedupe trust root.
 
 ---
 

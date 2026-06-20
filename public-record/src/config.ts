@@ -130,12 +130,17 @@ export interface IdentityConfig {
   /** Tolerance (seconds) for a client clock running slightly fast: an envelope whose `createdAt` is
    *  ahead of server time by at most this much is accepted; beyond it is rejected as clock skew. */
   signedEnvelopeFutureSkewSec: number;
+  /** Production hardening (Method 3 §5.4): when true, `appendSigned` requires a thread-scoped
+   *  `signerPubkey` (device-signed) and rejects the persona-signs path. Default false so dev/tests
+   *  and the passkey-sync path (where the persona signs directly) keep working. */
+  requireDeviceSigner: boolean;
 }
 
 export const identityConfig: IdentityConfig = {
   platformBindingPrivKeyHex: env("PLATFORM_BINDING_PRIVKEY", ""),
   signedEnvelopeMaxAgeSec: Number(env("SIGNED_ENVELOPE_MAX_AGE_SEC", "120")),
   signedEnvelopeFutureSkewSec: Number(env("SIGNED_ENVELOPE_FUTURE_SKEW_SEC", "60")),
+  requireDeviceSigner: env("REQUIRE_DEVICE_SIGNER", "false") === "true",
 };
 
 export const paths = { packageRoot, repoRoot };

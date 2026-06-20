@@ -62,6 +62,7 @@ export class RecordService {
   private readonly platformPubKeyHex?: string;
   private readonly signedEnvelopeMaxAgeSec: number;
   private readonly signedEnvelopeFutureSkewSec: number;
+  private readonly requireDeviceSigner: boolean;
   private readonly now: () => number;
 
   constructor(
@@ -74,6 +75,8 @@ export class RecordService {
       signedEnvelopeMaxAgeSec?: number;
       /** Override the accepted future-clock-skew (seconds). Defaults to config. */
       signedEnvelopeFutureSkewSec?: number;
+      /** Require a thread-scoped device signer on every signed envelope (production). Defaults to config. */
+      requireDeviceSigner?: boolean;
       /** Injectable clock (ms since epoch) for tests; defaults to `Date.now`. */
       now?: () => number;
     },
@@ -84,6 +87,7 @@ export class RecordService {
       (this.platformPrivKeyHex ? platformPublicKey(this.platformPrivKeyHex) : undefined);
     this.signedEnvelopeMaxAgeSec = opts?.signedEnvelopeMaxAgeSec ?? identityConfig.signedEnvelopeMaxAgeSec;
     this.signedEnvelopeFutureSkewSec = opts?.signedEnvelopeFutureSkewSec ?? identityConfig.signedEnvelopeFutureSkewSec;
+    this.requireDeviceSigner = opts?.requireDeviceSigner ?? identityConfig.requireDeviceSigner;
     this.now = opts?.now ?? Date.now;
   }
 
@@ -168,6 +172,13 @@ export class RecordService {
       throw new Error(`appendSigned: unsupported op '${envelope.op}'`);
     }
     if (!this.platformPubKeyHex) throw new Error("appendSigned: platform binding key not configured");
+    // Reserved Method-4 (§5.5) ZK slot: the wire format carries `proof`, but verification is not built
+    // yet — reject rather than silently accepting an unverified proof-looking field.
+    if (envelope.proof !== undefined) throw new Error("appendSigned: ZK membership proof not yet supported");
+    // Production hardening: optionally require a thread-scoped device signer (Method 3 §5.4).
+    if (this.requireDeviceSigner && !envelope.signerPubkey) {
+      throw new Error("appendSigned: a thread-scoped device signer is required");
+    }
     if (!verifyEnvelope(envelope)) throw new Error("appendSigned: invalid per-thread signature");
 
     const expected = contentCommitment({ id: envelope.txId, salt, content });
@@ -188,9 +199,25 @@ export class RecordService {
       if (-deltaSec > this.signedEnvelopeFutureSkewSec) throw new Error("appendSigned: envelope createdAt is in the future beyond allowed clock skew");
     }
 
-    // thread-scope: the signing key must be the registered thread key for this action's root.
+    // thread-scope: the AUTHOR is the thread persona — it must be the registered thread key for this
+    // action's root. (`authorPubkey` is a public label; with device signing the persona key need not
+    // sign, so this lookup — not a persona signature — is what binds the author to a verified user.)
     const tk = await this.store.getThreadKey(envelope.authorPubkey);
     if (!tk) throw new Error("appendSigned: unknown thread key");
+
+    // Device-signer authorization (Method 3 §5.4): when the envelope is signed by a thread-scoped
+    // device key, that signer must belong to the SAME verified user as the persona (the dedupe /
+    // authorization boundary) AND be scoped to the SAME thread (no cross-thread signer reuse). Any
+    // enrolled, non-revoked device of that user may thus act for the persona — including editing
+    // content first written from another device (cross-device edit, §5.4 rule 6). When `signerPubkey`
+    // is absent the persona signed directly (single-device / passkey-sync path) — nothing extra to do.
+    if (envelope.signerPubkey) {
+      const sgn = await this.store.getThreadSigner(envelope.signerPubkey);
+      if (!sgn) throw new Error("appendSigned: signer is not a registered device for this thread");
+      if (sgn.revoked) throw new Error("appendSigned: signer (or its device) is revoked");
+      if (sgn.userId !== tk.userId) throw new Error("appendSigned: signer is not enrolled to the author's user");
+      if (sgn.threadId !== tk.threadId) throw new Error("appendSigned: signer is not scoped to this thread");
+    }
 
     const parent =
       envelope.parentType && envelope.parentId ? { type: envelope.parentType, id: envelope.parentId } : undefined;

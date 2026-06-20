@@ -445,11 +445,14 @@ export interface TxEnvelope {
   parentId?: string;           // ENTITY-level parent (follows edits)
   parentRevisionTxId?: string; // REVISION-level: the parent's head tx …
   parentRevisionHash?: string; // … its content-addressed revision id (parent txHash)
-  authorPubkey: string;        // stubbed this phase
-  signature: string;           // stubbed this phase
+  authorPubkey: string;        // thread persona — stable public author id per (user, thread)
+  signerPubkey?: string;       // thread-scoped DEVICE key that signed (Method 3); absent ⇒ persona signed
+  signature: string;           // P-256 over the signing digest
   createdAt: string;           // ISO 8601
   prevHash: string | null;     // per-entity chain link = prior tx's txHash for entityId
   contentHash: string;         // salted commitment — NEVER the plaintext
+  nullifier?: string;          // singleton dedupe tag (vote/reaction/petition_signature)
+  proof?: string;              // RESERVED Method-4 ZK membership proof slot; rejected until built
 }
 // txHash = hashLeaf(canonicalJson(envelope)); the next same-entity tx sets prevHash = txHash
 ```
@@ -518,14 +521,23 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
 ### Module (`src/identity/*` — implemented; full verified write path)
 
 **Implemented** (promoted from `passkey-test`; suites `10-identity-crypto`, `12-signed-append`,
-`13-signed-ops`):
+`13-signed-ops`, `14-device-signing`):
 
 - **`derive.ts`** — `deriveThreadKey({ levelMaster, threadId, level })` / `deriveThreadPrivateKey`
   / `threadDomainInfo`: on-device HKDF→P-256 derivation, domain-separated by `(thread_id, level)`,
-  with a pinned scalar mapping. No private material leaves the device.
-- **`envelope.ts`** — `signEnvelope(env, privKey)` / `verifyEnvelope(env)` (+ `UNSIGNED`): P-256
-  signing/verification over the **signing digest** (`signature=""`), with the leaf computed via the
-  reused `txHashOf`.
+  with a pinned scalar mapping. No private material leaves the device. Produces the **thread persona**
+  `Pₜ` — the stable public `authorPubkey` on the record.
+- **`envelope.ts`** — `signEnvelope(env, privKey)` / `verifyEnvelope(env)` (+ `UNSIGNED`,
+  `signingDigest`): P-256 signing/verification over the **signing digest** (`signature=""`), with the
+  leaf via the reused `txHashOf`. `verifyEnvelope` checks the signature against
+  `signerPubkey ?? authorPubkey`.
+- **`device.ts`** — `deriveDeviceThreadSigner({ deviceRoot, threadId, level })` /
+  `signEnvelopeWithDevice(env, deviceSignerPrivKey, personaPubkey)` (Method 3 §5.4). A user enrols
+  several hardware-backed devices; each derives a **thread-scoped** signer per `(device, thread)` so
+  the same device shows no cross-thread correlator (Method 5 ruled out). The envelope then carries
+  `authorPubkey = Pₜ` (persona) and `signerPubkey = Dᵢ` (device); the persona key need not sign.
+  The device→user link lives only in the **private** `device_keys` / `thread_signers` registry,
+  never on the record.
 - **`binding.ts`** — `buildThreadBindingInputs(...)`: the client-side `{ binding, opening }` inputs.
 - **`platform-binding.ts`** — `signBinding(binding, platformPriv)` / `verifyBinding(...)` /
   `platformPublicKey(...)`: the platform signs/verifies the registration binding. The platform key
@@ -547,10 +559,17 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
     dedupe — minted + signed on the **create** only; tallies dedupe by nullifier.
   - **2b — updates/deletes** (edits, vote-change, signature-revoke, deletes): shared
     `validateUpdate`/`validateDelete` (op rules + governance via `canChangeVote`/`canRevokeSignature`);
-    **author-match is cryptographic** (`verifyEnvelope` proves control of `authorPubkey`, which must
-    equal the entity's author); **optimistic concurrency** rejects a stale `prevHash` or a moved
-    parent/parent-revision (reject-and-retry); singleton update/delete **carry the original
-    nullifier forward** (no re-mint, no dup-check); a `delete` must carry `DELETE_MARKER`.
+    **author-match** keeps the original persona as `authorPubkey`; **optimistic concurrency** rejects
+    a stale `prevHash` or a moved parent/parent-revision (reject-and-retry); singleton update/delete
+    **carry the original nullifier forward** (no re-mint, no dup-check); a `delete` must carry
+    `DELETE_MARKER`. **Cross-device edit (§5.4 rule 6):** when the envelope is device-signed, the
+    signer need not be the device that created the entity — any enrolled, non-revoked device whose
+    thread-scoped signer maps to the **same user + thread** as the persona may sign the edit.
+  - **Device-signer authorization (all signed ops):** when `signerPubkey` is present, `appendSigned`
+    requires it to resolve (via `thread_signers`) to the **same verified user and thread** as the
+    persona, and to be non-revoked (signer or device). `REQUIRE_DEVICE_SIGNER` (default off) can force
+    device signing in production. The reserved Method-4 `proof` field is **rejected** until ZK
+    verification exists (`nullifier_attestations.membership_proof` reserves the matching storage slot).
 - **Freshness gate (all signed ops):** `appendSigned` rejects an envelope whose `createdAt` is older
   than `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120; `0` disables) or more than the allowed future skew
   ahead of the server clock — using the already-signed `createdAt` (no schema/wire change; clients set
