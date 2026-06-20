@@ -69,7 +69,8 @@ public exposure — we can reduce it and make the trade-off explicit.
   finely results can be sliced by overlapping boundaries.
 - **Binding & commitment hygiene.** Store registration bindings and their per-thread salts
   (`salt_t`) **encrypted at rest**, **never publish** commitment openings, and disclose only with
-  explicit user authorization — and even then, **per-thread and level-scoped** (below).
+  explicit user authorization — and even then, **per-thread and level-scoped** (below). Policy
+  detail: [`08-IDENTITY-AND-DEVICE-POLICY.md`](./08-IDENTITY-AND-DEVICE-POLICY.md) §4–5.
 
 ### 3a. Per-governmental-level key compartmentalization
 A structural mitigation, not just policy. Give each user a **separate master signing key per

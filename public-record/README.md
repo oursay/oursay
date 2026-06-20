@@ -37,6 +37,8 @@ targets publish those blocks on their own cadence.
 > UX, full **KYC provider** integration (only a tier stub today), **claim/unclaim** (R8/R9),
 > **selective reveal** / user-signed bindings (R11), and at-rest PII/KMS encryption. See
 > [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
+> Product policy for device signing and user data:
+> [`../docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md).
 
 ## Architecture
 

@@ -115,6 +115,10 @@ the centralization we accept today with each one's migration path.
 
 **Read this before any decision about the record model, ordering, signing, anchoring, or authority.**
 
+### [`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](docs/08-IDENTITY-AND-DEVICE-POLICY.md) — Identity & Device Policy
+
+Plain-English policy for passkeys, per-thread signing keys, device custody (non-exportable keys on device; platform never holds private keys), privacy and linkability, multi-device behaviour, and how this ties to the public record. **Read this before auth, user data, or client signing work.**
+
 ### [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) — Monorepo Philosophy
 
 How this repository is organized and why, the three kinds of workspace (product, evaluation spike, library), and the path a capability travels from a throwaway experiment to civic infrastructure. Read this before adding a workspace or proposing where new code should live.

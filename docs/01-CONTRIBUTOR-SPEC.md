@@ -449,6 +449,9 @@ Each verified user controls a **master signing key per governmental level** (mun
 
 A per-thread public key reveals nothing about a user's real-world identity. What the record proves: each recorded action was taken by a distinct verified participant at the recorded verification tier.
 
+> **Device custody and multi-device policy (plain English):**
+> [`08-IDENTITY-AND-DEVICE-POLICY.md`](./08-IDENTITY-AND-DEVICE-POLICY.md) — non-exportable on-device signing, platform never holds private keys, linkability when the user chooses, and multi-phone behaviour.
+
 ### 11.3 Public Auditability
 
 Any person must be able to independently:
