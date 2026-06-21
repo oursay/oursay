@@ -84,9 +84,36 @@ paths:
                 properties:
                   status:
                     type: string
+                    enum:
+                      - sent
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: UTC instant after which the issued code is invalid (matches
+                      OTP_TTL_SEC).
                 required:
                   - status
         "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "409":
           description: Default Response
           content:
             application/json:
@@ -613,6 +640,13 @@ paths:
                 properties:
                   status:
                     type: string
+                    enum:
+                      - sent
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: UTC instant after which the issued code is invalid (matches
+                      OTP_TTL_SEC).
                 required:
                   - status
         "429":

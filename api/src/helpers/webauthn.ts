@@ -7,10 +7,16 @@ export interface RelyingParty {
   rpID: string;
   rpName: string;
   origin: string;
+  requireUserVerification: boolean;
 }
 
 export function relyingParty(): RelyingParty {
-  return { rpID: webauthnConfig.rpID, rpName: webauthnConfig.rpName, origin: webauthnConfig.origin };
+  return {
+    rpID: webauthnConfig.rpID,
+    rpName: webauthnConfig.rpName,
+    origin: webauthnConfig.origin,
+    requireUserVerification: webauthnConfig.requireUserVerification,
+  };
 }
 
 /** Node Buffer (e.g. a BYTEA column) → a plain Uint8Array as @simplewebauthn expects. Allocating a

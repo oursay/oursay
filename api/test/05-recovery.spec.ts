@@ -48,6 +48,24 @@ describe("05 recovery: kyc_tier branch", () => {
     expect(res.statusCode).to.equal(403);
   });
 
+  it("revokes prior sessions on recovery (a lost device can't ride through)", async () => {
+    const email = "revoke@example.com";
+    const userId = await makeAccount(w, email);
+
+    // Device A holds a live full session before recovery.
+    const deviceA = await w.services.authService.issue(userId, "full", "device-a");
+    expect((await w.services.authService.resolve(deviceA.token))?.userId).to.equal(userId);
+
+    // Device B recovers the account.
+    await w.services.recoveryService.requestRecovery({ emailRaw: email });
+    const code = codeFromLastMail(w.mail, email);
+    const result = await w.services.recoveryService.verifyRecovery({ emailRaw: email, code, userAgent: "device-b" });
+
+    // Device A's session no longer resolves; the new recovery session does.
+    expect(await w.services.authService.resolve(deviceA.token)).to.equal(null);
+    expect((await w.services.authService.resolve(result.session.token))?.scope).to.equal("recovery");
+  });
+
   it("requires KYC re-verification for a verified account", async () => {
     const email = "verified@example.com";
     const userId = await makeAccount(w, email);

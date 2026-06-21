@@ -1,5 +1,6 @@
-// OTP request route. Registration codes go out directly; recovery codes are routed through
-// RecoveryService so they only send for existing accounts (no enumeration). Always replies 202.
+// OTP request route. Registration codes route through RegistrationService, which 409s if the email
+// is already registered (so we don't burn a code that can't complete sign-up); recovery codes route
+// through RecoveryService so they only send for existing accounts (no enumeration). Replies 202 on send.
 
 import type { FastifyInstance } from "fastify";
 import type { OtpRequestResult } from "../../services/otp.service.js";
@@ -30,6 +31,7 @@ export function registerOtpRoutes(app: FastifyInstance, services: Services): voi
         response: {
           202: otpSentResponseSchema,
           400: errorSchema,
+          409: errorSchema,
           429: errorSchema,
         },
       },
@@ -40,7 +42,7 @@ export function registerOtpRoutes(app: FastifyInstance, services: Services): voi
       if (purpose === "recovery") {
         result = await services.recoveryService.requestRecovery({ emailRaw: email, ip: req.ip });
       } else {
-        result = await services.otpService.request({ emailRaw: email, purpose: "registration", ip: req.ip });
+        result = await services.registrationService.requestOtp({ emailRaw: email, ip: req.ip });
       }
       reply.status(202).send(otpSentBody(result));
     },

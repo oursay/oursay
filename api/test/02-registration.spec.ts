@@ -61,9 +61,9 @@ describe("02 registration: OTP verify + profile → account + session", () => {
     expect(res.json().error.code).to.equal("age_restricted");
   });
 
-  it("rejects a duplicate email", async () => {
+  it("409s an already-registered email at otp/request (no wasted code)", async () => {
     const email = "dupe@example.com";
-    let code = await requestCode(w, email);
+    const code = await requestCode(w, email);
     const first = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
@@ -71,14 +71,33 @@ describe("02 registration: OTP verify + profile → account + session", () => {
     });
     expect(first.statusCode).to.equal(201);
 
-    code = await requestCode(w, email);
-    const second = await w.app.inject({
-      method: "POST",
-      url: "/v1/auth/otp/verify",
-      payload: { email, code, profile: { displayName: "Second", birthdate: ADULT_DOB } },
-    });
+    // A second registration code for the same email is refused up front — no code is emailed.
+    w.mail.clear();
+    const second = await w.app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { email, purpose: "registration" } });
     expect(second.statusCode).to.equal(409);
     expect(second.json().error.code).to.equal("email_taken");
+    expect(w.mail.outbox).to.have.length(0);
+  });
+
+  it("does not burn the OTP when registration fails the age gate", async () => {
+    const email = "retry@example.com";
+    const code = await requestCode(w, email);
+
+    // First attempt fails the age gate (403) — the code must survive.
+    const tooYoung = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email, code, profile: { displayName: "Retry", birthdate: MINOR_DOB } },
+    });
+    expect(tooYoung.statusCode).to.equal(403);
+
+    // Same code, corrected DOB, succeeds — proving the 403 didn't consume it.
+    const ok = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email, code, profile: { displayName: "Retry", birthdate: ADULT_DOB } },
+    });
+    expect(ok.statusCode).to.equal(201);
   });
 
   it("rejects a missing profile via schema validation", async () => {

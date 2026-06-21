@@ -70,6 +70,10 @@ export class RecoveryService {
       );
     }
 
+    // Recovery means the account holder may have lost a device — revoke every prior session before
+    // handing back a fresh recovery-scoped one, so a lost/stolen device can't ride through recovery.
+    await this.d.authService.revokeAllForUser(profile.userId);
+
     const session = await this.d.authService.issue(profile.userId, "recovery", input.userAgent ?? null);
     return { status: "passkey_reenroll", userId: profile.userId, session };
   }

@@ -101,12 +101,16 @@ export interface WebAuthnConfig {
   rpID: string;
   rpName: string;
   origin: string;
+  /** Require the authenticator's user-verification flag (biometric/PIN). Forced on in production;
+   *  in dev/test it defaults on but may be disabled via WEBAUTHN_REQUIRE_UV=false. */
+  requireUserVerification: boolean;
 }
 
 export const webauthnConfig: WebAuthnConfig = {
   rpID: env("WEBAUTHN_RP_ID", "localhost"),
   rpName: env("WEBAUTHN_RP_NAME", "OurSay"),
   origin: env("WEBAUTHN_ORIGIN", "http://localhost:8080"),
+  requireUserVerification: isProduction ? true : env("WEBAUTHN_REQUIRE_UV", "true") === "true",
 };
 
 export type MailerVendor = "postmark" | "smtp" | "ses" | "noop";

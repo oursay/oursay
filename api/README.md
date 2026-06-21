@@ -52,6 +52,10 @@ Init order matters: `public.*` must exist before the `auth` schema FKs it. `Db.i
 
 - **Register** — `POST /v1/auth/otp/request` → `{ status: "sent", expiresAt }` (UTC deadline) → email code → `POST /v1/auth/otp/verify` with the
   profile body → account + full session. Age gate (18+) is enforced in `RegistrationService`.
+  `otp/request` returns **409 `email_taken`** if the address is already registered (sign in / recover
+  instead — no wasted code). On verify, `RegistrationService` validates everything *before* consuming
+  the OTP — profile → `email_taken` → age gate → **then** verify the code — so a 409/403 never burns a
+  valid code (the user can correct the profile and retry the same code).
 - **Enroll passkey** — authenticated → `POST /v1/auth/passkey/register/{options,verify}`.
 - **Login** — passkey only: `POST /v1/auth/passkey/login/{options,verify}` → session.
 - **Recover** — `POST /v1/auth/recovery/request` → code → `POST /v1/auth/recovery/verify`. Branch on

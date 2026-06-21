@@ -90,7 +90,7 @@ export class PasskeyService {
         expectedChallenge: challenge,
         expectedOrigin: this.rp.origin,
         expectedRPID: this.rp.rpID,
-        requireUserVerification: false,
+        requireUserVerification: this.rp.requireUserVerification,
       });
     } catch (e) {
       throw new ServiceError("passkey_verification_failed", (e as Error).message);
@@ -165,7 +165,7 @@ export class PasskeyService {
           counter: cred.counter,
           transports: splitTransports(cred.transports),
         },
-        requireUserVerification: false,
+        requireUserVerification: this.rp.requireUserVerification,
       });
     } catch (e) {
       throw new ServiceError("passkey_verification_failed", (e as Error).message);
