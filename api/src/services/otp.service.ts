@@ -26,6 +26,11 @@ export interface VerifiedEmail {
   emailCanonical: string;
 }
 
+/** Result of issuing an OTP. `expiresAt` is ISO-8601 (UTC) — the code is invalid after this instant. */
+export interface OtpRequestResult extends VerifiedEmail {
+  expiresAt: string;
+}
+
 const ROLE: Record<OtpPurpose, MailRole> = { registration: "registration", recovery: "recovery" };
 
 export class OtpService {
@@ -35,7 +40,7 @@ export class OtpService {
   }
 
   /** Generate, store (hashed), and email a code. Rate-limited per email and per IP. */
-  async request(input: { emailRaw: string; purpose: OtpPurpose; ip?: string | null }): Promise<VerifiedEmail> {
+  async request(input: { emailRaw: string; purpose: OtpPurpose; ip?: string | null }): Promise<OtpRequestResult> {
     if (!isPlausibleEmail(input.emailRaw)) {
       throw new ServiceError("validation", "A valid email address is required");
     }
@@ -49,13 +54,14 @@ export class OtpService {
     const codeHash = hashOtp({ pepper: this.d.pepper, emailCanonical: canonical, code, salt });
 
     await this.d.otpRepo.consumeOutstanding(canonical, input.purpose);
+    const expiresAt = expiryFrom(now, this.d.config.ttlSec);
     await this.d.otpRepo.insert({
       id: randomUUID(),
       emailCanonical: canonical,
       codeHash,
       salt,
       purpose: input.purpose,
-      expiresAt: expiryFrom(now, this.d.config.ttlSec),
+      expiresAt,
     });
 
     const minutes = Math.round(this.d.config.ttlSec / 60);
@@ -67,7 +73,7 @@ export class OtpService {
         `${code}\n\nIt expires in ${minutes} minutes. If you didn't request this, you can ignore this email.`,
     });
 
-    return { email, emailCanonical: canonical };
+    return { email, emailCanonical: canonical, expiresAt: expiresAt.toISOString() };
   }
 
   /** Verify a presented code; consumes it on success. Throws on invalid/expired/too-many-attempts. */

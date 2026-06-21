@@ -13,7 +13,7 @@ import { normalizeEmail } from "../helpers/email.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { AuthService, IssuedSession } from "./auth.service.js";
-import type { OtpService } from "./otp.service.js";
+import type { OtpService, OtpRequestResult } from "./otp.service.js";
 
 export interface RecoveryServiceDeps {
   otpService: OtpService;
@@ -37,12 +37,12 @@ export class RecoveryService {
     this.now = d.now ?? systemNow;
   }
 
-  /** Always returns void (202 upstream). Emails a code only when the account exists. */
-  async requestRecovery(input: { emailRaw: string; ip?: string | null }): Promise<void> {
+  /** Emails a code only when the account exists; otherwise a silent no-op (no enumeration). */
+  async requestRecovery(input: { emailRaw: string; ip?: string | null }): Promise<OtpRequestResult | null> {
     const { canonical } = normalizeEmail(input.emailRaw);
     const profile = await this.d.profileRepo.getByEmailCanonical(canonical);
-    if (!profile) return; // silent no-op — no enumeration
-    await this.d.otpService.request({ emailRaw: input.emailRaw, purpose: "recovery", ip: input.ip ?? null });
+    if (!profile) return null;
+    return this.d.otpService.request({ emailRaw: input.emailRaw, purpose: "recovery", ip: input.ip ?? null });
   }
 
   async verifyRecovery(input: {

@@ -6,7 +6,11 @@
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
 import { setSessionCookie } from "../cookies.js";
-import { errorSchema, sessionSchema } from "../schemas.js";
+import { errorSchema, otpSentResponseSchema, sessionSchema } from "../schemas.js";
+
+function otpSentBody(result: { expiresAt: string } | null): { status: "sent"; expiresAt?: string } {
+  return result ? { status: "sent", expiresAt: result.expiresAt } : { status: "sent" };
+}
 
 export function registerRecoveryRoutes(app: FastifyInstance, services: Services): void {
   app.post(
@@ -22,13 +26,13 @@ export function registerRecoveryRoutes(app: FastifyInstance, services: Services)
           required: ["email"],
           additionalProperties: false,
         },
-        response: { 202: { type: "object", properties: { status: { type: "string" } }, required: ["status"] }, 429: errorSchema },
+        response: { 202: otpSentResponseSchema, 429: errorSchema },
       },
     },
     async (req, reply) => {
       const { email } = req.body as { email: string };
-      await services.recoveryService.requestRecovery({ emailRaw: email, ip: req.ip });
-      reply.status(202).send({ status: "sent" });
+      const result = await services.recoveryService.requestRecovery({ emailRaw: email, ip: req.ip });
+      reply.status(202).send(otpSentBody(result));
     },
   );
 

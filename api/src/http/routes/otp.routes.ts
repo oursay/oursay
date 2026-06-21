@@ -2,8 +2,13 @@
 // RecoveryService so they only send for existing accounts (no enumeration). Always replies 202.
 
 import type { FastifyInstance } from "fastify";
+import type { OtpRequestResult } from "../../services/otp.service.js";
 import type { Services } from "../../container.js";
-import { errorSchema } from "../schemas.js";
+import { errorSchema, otpSentResponseSchema } from "../schemas.js";
+
+function otpSentBody(result: OtpRequestResult | null): { status: "sent"; expiresAt?: string } {
+  return result ? { status: "sent", expiresAt: result.expiresAt } : { status: "sent" };
+}
 
 export function registerOtpRoutes(app: FastifyInstance, services: Services): void {
   app.post(
@@ -23,11 +28,7 @@ export function registerOtpRoutes(app: FastifyInstance, services: Services): voi
           additionalProperties: false,
         },
         response: {
-          202: {
-            type: "object",
-            properties: { status: { type: "string" } },
-            required: ["status"],
-          },
+          202: otpSentResponseSchema,
           400: errorSchema,
           429: errorSchema,
         },
@@ -35,12 +36,13 @@ export function registerOtpRoutes(app: FastifyInstance, services: Services): voi
     },
     async (req, reply) => {
       const { email, purpose = "registration" } = req.body as { email: string; purpose?: "registration" | "recovery" };
+      let result: OtpRequestResult | null;
       if (purpose === "recovery") {
-        await services.recoveryService.requestRecovery({ emailRaw: email, ip: req.ip });
+        result = await services.recoveryService.requestRecovery({ emailRaw: email, ip: req.ip });
       } else {
-        await services.otpService.request({ emailRaw: email, purpose: "registration", ip: req.ip });
+        result = await services.otpService.request({ emailRaw: email, purpose: "registration", ip: req.ip });
       }
-      reply.status(202).send({ status: "sent" });
+      reply.status(202).send(otpSentBody(result));
     },
   );
 }

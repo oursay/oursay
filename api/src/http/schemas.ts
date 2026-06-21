@@ -60,3 +60,17 @@ export const profileInputSchema = {
 export const webauthnJson = { type: "object", additionalProperties: true } as const;
 
 export const bearerSecurity: Array<Record<string, string[]>> = [{ bearerAuth: [] }, { cookieAuth: [] }];
+
+/** 202 body for OTP request routes. `expiresAt` is present when a code was actually issued. */
+export const otpSentResponseSchema = {
+  type: "object",
+  properties: {
+    status: { type: "string", enum: ["sent"] },
+    expiresAt: {
+      type: "string",
+      format: "date-time",
+      description: "UTC instant after which the issued code is invalid (matches OTP_TTL_SEC).",
+    },
+  },
+  required: ["status"],
+} as const;

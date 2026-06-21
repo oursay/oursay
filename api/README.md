@@ -50,7 +50,7 @@ Init order matters: `public.*` must exist before the `auth` schema FKs it. `Db.i
 
 ## Flows
 
-- **Register** — `POST /v1/auth/otp/request` → email code → `POST /v1/auth/otp/verify` with the
+- **Register** — `POST /v1/auth/otp/request` → `{ status: "sent", expiresAt }` (UTC deadline) → email code → `POST /v1/auth/otp/verify` with the
   profile body → account + full session. Age gate (18+) is enforced in `RegistrationService`.
 - **Enroll passkey** — authenticated → `POST /v1/auth/passkey/register/{options,verify}`.
 - **Login** — passkey only: `POST /v1/auth/passkey/login/{options,verify}` → session.
@@ -101,6 +101,10 @@ codes are never logged or returned.
 `mocha` integration specs against Docker Postgres (`test/`). The passkey suite drives the **real**
 `@simplewebauthn/server` with a software authenticator (`test/fixtures/webauthn/`) — no browser
 needed in CI. The dev `noop` mailer records messages in memory so tests can read the emailed code.
+
+When `MAILER_*_VENDORS=noop` and `NODE_ENV` is not `production`, the API **prints OTP codes to the
+dev server console** (`[mailer:noop:dev] OTP for …`) so manual Swagger walks work without Postmark.
+Production never logs codes.
 
 ## Not in this milestone
 

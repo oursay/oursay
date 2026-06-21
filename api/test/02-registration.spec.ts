@@ -7,6 +7,9 @@ const MINOR_DOB = `${new Date().getUTCFullYear() - 10}-01-01`;
 async function requestCode(w: World, email: string): Promise<string> {
   const res = await w.app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { email, purpose: "registration" } });
   expect(res.statusCode).to.equal(202);
+  const body = res.json() as { status: string; expiresAt?: string };
+  expect(body.expiresAt).to.be.a("string");
+  expect(new Date(body.expiresAt!).getTime()).to.be.greaterThan(Date.now());
   return codeFromLastMail(w.mail, email);
 }
 
