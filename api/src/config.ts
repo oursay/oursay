@@ -118,7 +118,7 @@ export type MailerVendor = "postmark" | "smtp" | "ses" | "noop";
 export interface MailerConfig {
   from: string;
   /** Ordered adapters per role (primary → failover). Comma-separated env values. */
-  roles: Record<"registration" | "recovery", MailerVendor[]>;
+  roles: Record<"registration" | "recovery" | "login", MailerVendor[]>;
   postmark: { token: string };
   smtp: { host: string; port: number; user: string; pass: string; secure: boolean };
   ses: { region: string };
@@ -136,6 +136,7 @@ export const mailerConfig: MailerConfig = {
   roles: {
     registration: vendors(env("MAILER_REGISTRATION_VENDORS", "noop")),
     recovery: vendors(env("MAILER_RECOVERY_VENDORS", "noop")),
+    login: vendors(env("MAILER_LOGIN_VENDORS", "noop")),
   },
   postmark: { token: env("POSTMARK_TOKEN", "") },
   smtp: {

@@ -79,23 +79,57 @@
     </fieldset>
 
     <fieldset>
-      <legend><h2>5 · Logout</h2> <span class="badge" id="b-logout">todo</span></legend>
+      <legend><h2>5 · Enroll civic device key</h2> <span class="badge" id="b-civic">todo</span></legend>
+      <p class="muted">
+        Civic signing keys are <em>separate</em> from account-login passkeys (docs/08 §5.4). The page
+        generates an ephemeral P-256 keypair in the browser (WebCrypto) and registers the
+        <strong>public key only</strong> — the private key never leaves this tab. (A production client
+        would bind a non-exportable key to your passkey; out of scope for this walk.)
+      </p>
+      <button id="enrollCivic" disabled>Enroll civic device key</button>
+      <button id="listCivic" disabled>List my civic devices</button>
+      <pre id="out-civic">(needs a full session)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>6 · Logout</h2> <span class="badge" id="b-logout">todo</span></legend>
       <button id="logout" disabled>Logout</button>
       <pre id="out-logout">(needs a session)</pre>
     </fieldset>
 
     <fieldset>
-      <legend><h2>6 · Passkey login</h2> <span class="badge" id="b-login">todo</span></legend>
+      <legend><h2>7 · Passkey login</h2> <span class="badge" id="b-login">todo</span></legend>
       <p class="muted">Usernameless login with the passkey enrolled above → a fresh full session.</p>
       <button id="login" disabled>Login with passkey</button>
       <pre id="out-login">(enroll a passkey first)</pre>
     </fieldset>
 
     <fieldset>
-      <legend><h2>7 · Recovery (lost session / add device)</h2> <span class="badge" id="b-recovery">todo</span></legend>
+      <legend><h2>8 · Sign in on another device</h2> <span class="badge" id="b-loginflow">todo</span></legend>
       <p class="muted">
-        Simulates an account that's registered but can't log in (lost device / no passkey). Email OTP →
-        a limited recovery session → re-enroll a passkey. Uses the same email from step&nbsp;1.
+        Gated cross-device login (docs/08). <strong>From this trusted device</strong> (full session +
+        a passkey), authorize a login on a new device — that sends a login OTP to the account email.
+        Bare email OTP can't log in unless this window is open.
+      </p>
+      <button id="enableLogin" disabled>Enable login on another device (send OTP)</button>
+      <p class="muted" style="margin-top:0.8rem">
+        <strong>Simulate the new device:</strong> enter the login code from the server console. Verify
+        issues a limited <code>login</code> session (enroll-only); then enroll a passkey on the "new
+        device" and log in with it (step&nbsp;7) for full access.
+      </p>
+      <label>Login code (from server console)</label><input id="loginCode" placeholder="123456" />
+      <button id="verifyLoginOtp" disabled>Verify login (new device)</button>
+      <button id="enrollLoginPasskey" disabled>Enroll passkey on new device</button>
+      <pre id="out-loginflow">(needs a full session with a passkey)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>9 · Recovery (lost passkey)</h2> <span class="badge" id="b-recovery">todo</span></legend>
+      <p class="muted">
+        Contrast with step&nbsp;8: recovery is for a registered account that has <em>lost</em> its
+        passkey. Email OTP (via the unified request endpoint, <code>purpose:recovery</code>) →
+        a limited recovery session → re-enroll a passkey. Recovery <strong>revokes all prior
+        sessions</strong>; login (step&nbsp;8) does not. Uses the same email from step&nbsp;1.
       </p>
       <button id="recoverRequest" disabled>Request recovery code</button>
       <label>Recovery code (from server console)</label><input id="recoveryCode" placeholder="123456" />

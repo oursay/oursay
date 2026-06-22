@@ -8,7 +8,7 @@ import { expiryFrom } from "../helpers/otp.js";
 import { hashToken, newSessionToken } from "../helpers/tokens.js";
 import type { SessionRepo, SessionRecord } from "../repo/session.repo.js";
 
-export type SessionScope = "full" | "recovery";
+export type SessionScope = "full" | "recovery" | "login";
 
 export interface IssuedSession {
   token: string;

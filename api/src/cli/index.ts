@@ -12,11 +12,19 @@ type Handler = (services: Awaited<ReturnType<typeof buildServices>>, args: strin
 
 const COMMANDS: Record<string, { help: string; run: Handler }> = {
   "send-test-otp": {
-    help: "send-test-otp <email> [registration|recovery]  — issue an OTP via the configured mailer",
+    help: "send-test-otp <email> [registration|recovery|login]  — issue an OTP via the configured mailer",
     run: async (s, [email, purpose = "registration"]) => {
       if (!email) throw new Error("email is required");
-      await s.otpService.request({ emailRaw: email, purpose: purpose as "registration" | "recovery", ip: null });
+      await s.otpService.request({ emailRaw: email, purpose: purpose as "registration" | "recovery" | "login", ip: null });
       console.log(`Queued ${purpose} OTP for ${email} (check the mailer; codes are never printed).`);
+    },
+  },
+  "enable-login": {
+    help: "enable-login <userId>  — open a cross-device login window (requires an enrolled passkey)",
+    run: async (s, [userId]) => {
+      if (!userId) throw new Error("userId is required");
+      const r = await s.loginService.enable({ userId });
+      console.log(`Login window open for ${userId} until ${r.expiresAt}; login OTP sent (check the mailer).`);
     },
   },
   "list-sessions": {

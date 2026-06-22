@@ -51,6 +51,33 @@ describe("03 passkey: enroll, login, failures", () => {
     expect(session?.userId).to.equal(userId);
   });
 
+  it("enrolls a SECOND passkey for the same user (add device) and logs in with either", async () => {
+    const userId = await makeUser(w, "@multidevice");
+    const deviceA = newAuthenticator();
+    const deviceB = newAuthenticator();
+
+    // Device A enrolls.
+    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
+    await w.services.passkeyService.registerVerify({ userId, response: deviceA.register(optsA.challenge) });
+
+    // Device B enrolls a SECOND, independent credential for the same account.
+    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
+    const regB = await w.services.passkeyService.registerVerify({ userId, response: deviceB.register(optsB.challenge) });
+    expect(regB.credentialId).to.be.a("string");
+
+    const stored = await w.services.repos.passkey.listByUserId(userId);
+    expect(stored).to.have.length(2);
+
+    // Either device can log in to the same account.
+    const optsLoginB = await w.services.passkeyService.loginOptions({ emailRaw: null });
+    const loginB = await w.services.passkeyService.loginVerify({ response: deviceB.authenticate(optsLoginB.challenge) });
+    expect(loginB.userId).to.equal(userId);
+
+    const optsLoginA = await w.services.passkeyService.loginOptions({ emailRaw: null });
+    const loginA = await w.services.passkeyService.loginVerify({ response: deviceA.authenticate(optsLoginA.challenge) });
+    expect(loginA.userId).to.equal(userId);
+  });
+
   it("rejects registration against an unknown challenge", async () => {
     const userId = await makeUser(w);
     const auth = newAuthenticator();

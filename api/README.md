@@ -3,15 +3,25 @@
 Account **registration & authentication** for OurSay — an OpenAPI-first Fastify service over a
 layered, testable core.
 
-- **Email OTP** — bootstrap (registration) and recovery only.
-- **WebAuthn passkeys** — the day-to-day login after enrollment (`@simplewebauthn/server`).
+- **WebAuthn passkeys** — the preferred, day-to-day login (`@simplewebauthn/server`).
+  **Multi-device**: a user may enroll several account-login passkeys (one per device).
+- **Email OTP** — never a standing login method. It serves exactly three **purposes**, all sent
+  through one request endpoint (`POST /v1/auth/otp/request`, `purpose` discriminator):
+  - `registration` — first-time bootstrap → **full** session.
+  - `recovery` — lost passkey → limited **recovery** session; **revokes all prior sessions**.
+  - `login` — **gated** cross-device sign-in: only sent after a trusted device opens the window;
+    yields a limited **login** (enroll-only) session.
 - **Opaque DB-backed sessions** — server-side revocation; Bearer token **or** HttpOnly cookie.
+  Scope `full` vs the limited `recovery` / `login` scopes (passkey-enroll only).
+- **Civic device keys** — authenticated enrollment/listing/revocation of public-record signing keys
+  (`/v1/civic/devices`), public key only.
 - **Private profile/PII** — generic address components + a free `memo`; the front-end localizes
   labels. No per-user region/riding binding is stored.
 
 > **Account login ≠ civic signing.** The WebAuthn passkey here proves *who is logged in*
 > (docs/08 §2). It is **not** the per-thread civic signing key (`device_keys` / `thread_signers`
-> in `@oursay/public-record`). Wiring the civic write routes over HTTP is a later milestone.
+> in `@oursay/public-record`). The `/v1/civic/devices` routes register the **public** civic device
+> key after login; private keys never reach the platform.
 
 ## Architecture
 
@@ -22,7 +32,7 @@ helpers/   pure utilities (otp, tokens, age gate, email/address normalization, w
    ↓
 repo/      data access only (parametrized SQL; no business rules)
    ↓
-services/  business logic (Otp, Registration, Passkey, Auth, Recovery, Mailer) — plain DTO in/out
+services/  business logic (Otp, Registration, Passkey, Auth, Recovery, Login, CivicDevice, Mailer)
    ↓
 http/      thin Fastify routes (parse → authorize → call service → map errors)
 ```
@@ -42,8 +52,9 @@ adds its own **`auth` schema**, FK'd to `public.users`:
 | `auth.passkey_credentials` | **account-login** WebAuthn credentials (not civic signers) |
 | `auth.webauthn_challenges` | short-lived register/login ceremony challenges |
 | `auth.sessions` | opaque sessions (only token hashes stored) |
-| `auth.email_otp` | hashed OTP codes |
+| `auth.email_otp` | hashed OTP codes; `purpose` ∈ {registration, recovery, login} — an active `login` row IS the gated-login window |
 | `auth.otp_rate_limits` | rolling-window rate-limit buckets |
+| `public.device_keys` | **civic** signing device keys (owned by public-record; read/written by `/v1/civic/devices`) — public key only, separate from `auth.passkey_credentials` |
 
 Init order matters: `public.*` must exist before the `auth` schema FKs it. `Db.init()` applies
 `PrivateStore`'s base schema first, then `auth`.
@@ -56,14 +67,27 @@ Init order matters: `public.*` must exist before the `auth` schema FKs it. `Db.i
   instead — no wasted code). On verify, `RegistrationService` validates everything *before* consuming
   the OTP — profile → `email_taken` → age gate → **then** verify the code — so a 409/403 never burns a
   valid code (the user can correct the profile and retry the same code).
-- **Enroll passkey** — authenticated → `POST /v1/auth/passkey/register/{options,verify}`.
-- **Login** — passkey only: `POST /v1/auth/passkey/login/{options,verify}` → session. There is **no
-  email-OTP login path** yet — OTP is bootstrap/recovery only (login-OTP for accounts with no passkey,
-  and authorized new-device OTP, are a later milestone).
-- **Recover** — `POST /v1/auth/recovery/request` → code → `POST /v1/auth/recovery/verify`. Branch on
-  `public.kyc_attestations`: unverified → limited recovery session to re-enroll a passkey; verified →
-  KYC re-verification required (policy stub, provider not integrated). On success, recovery **revokes
-  all prior sessions** before issuing the recovery-scoped one.
+- **Enroll passkey / add device** — authenticated → `POST /v1/auth/passkey/register/{options,verify}`.
+  Run it again from a trusted device to enroll an **additional** passkey (multi-device); each
+  credential is independent and the platform stores public metadata only.
+- **Login** — passkey only: `POST /v1/auth/passkey/login/{options,verify}` → full session.
+- **Civic device key** — after login, `POST /v1/civic/devices` (public key only), `GET /v1/civic/devices`,
+  `POST /v1/civic/devices/revoke`. Separate from login passkeys; signs public-record actions on-device.
+- **Gated cross-device login** — for signing in on a *new* device (docs/08). From a trusted device
+  (full session **+** an enrolled passkey) `POST /v1/auth/login/enable` opens a short-lived window and
+  emails a `login` code. The new device redeems it at `POST /v1/auth/login/verify` → a limited
+  **`login`** (enroll-only) session; it enrolls a passkey, then logs in with it for full access. A
+  bare `login` code never works without an open window (no enumeration). Unlike recovery, login is
+  **additive — it does not revoke other sessions**. `POST /v1/auth/otp/request {purpose:"login"}` is
+  the (re)send path, gated on the open window.
+- **Recover** — `POST /v1/auth/otp/request {purpose:"recovery"}` → code → `POST /v1/auth/recovery/verify`.
+  Branch on `public.kyc_attestations`: unverified → limited recovery session to re-enroll a passkey;
+  verified → KYC re-verification required (policy stub, provider not integrated). On success, recovery
+  **revokes all prior sessions** before issuing the recovery-scoped one.
+
+> **Add device vs recovery** — both end in a new passkey, but they differ: *add device / gated login*
+> is **additive** (the user still has access elsewhere; other sessions are kept), while *recovery*
+> assumes **lost access** (it revokes every prior session as a security reset).
 
 **UX note — profile before OTP.** The display name, birthdate, and address are collected *first* and
 submitted *together with* the OTP at `otp/verify`; the code only proves the email and never carries
@@ -106,9 +130,13 @@ Walk it on a browser with a platform authenticator (Touch ID / Windows Hello):
 2. **Request OTP** — sends a registration code; the code prints to the **API server console**
    (`[mailer:noop:dev] OTP for …`) — the page can't read your inbox.
 3. **Verify** — submits the code + profile → account + full session (cookie + Bearer shown).
-4. **Enroll passkey** → 5. **Logout** → 6. **Passkey login** (usernameless) → reads `/v1/profile`.
-7. **Recovery** — email code → recovery-scoped session → re-enroll a passkey (the "lost device / add
-   device" path).
+4. **Enroll passkey** → 5. **Enroll civic device key** (WebCrypto P-256; public key only) →
+   6. **Logout** → 7. **Passkey login** (usernameless) → reads `/v1/profile`.
+8. **Sign in on another device** — from the authenticated session, enable cross-device login (sends a
+   `login` code), then *simulate the new device*: verify the code → enroll-only session → enroll a
+   passkey → log in for full access.
+9. **Recovery** — email code (unified request, `purpose:recovery`) → recovery-scoped session →
+   re-enroll a passkey (the "lost passkey" path; contrast with step 8).
 
 Sessions use the HttpOnly cookie (`credentials: include`); the page also displays the Bearer token so
 you can paste it into `/docs` → Authorize for manual API calls.
@@ -118,7 +146,8 @@ you can paste it into `/docs` → Authorize for manual API calls.
 Admin/dev commands that call the same services (no HTTP):
 
 ```bash
-npm run cli -w @oursay/api -- send-test-otp you@example.com
+npm run cli -w @oursay/api -- send-test-otp you@example.com [registration|recovery|login]
+npm run cli -w @oursay/api -- enable-login <userId>      # open a gated cross-device login window
 npm run cli -w @oursay/api -- list-sessions <userId>
 npm run cli -w @oursay/api -- expire-sessions <userId>
 npm run cli -w @oursay/api -- create-user "Jane" jane@example.com 1990-01-01
@@ -127,9 +156,10 @@ npm run cli -w @oursay/api -- create-user "Jane" jane@example.com 1990-01-01
 ## Configuration
 
 See [`.env.example`](./.env.example). Notable keys: `SESSION_SECRET` (required in production),
-`WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN`, OTP TTL + rate limits, `MIN_AGE_YEARS`, and per-role mailer
-vendor lists (`MAILER_REGISTRATION_VENDORS` / `MAILER_RECOVERY_VENDORS`). PII is never logged; OTP
-codes are never logged or returned.
+`WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN`, OTP TTL + rate limits (`OTP_TTL_SEC` also bounds the gated-login
+window), `MIN_AGE_YEARS`, and per-role mailer vendor lists (`MAILER_REGISTRATION_VENDORS` /
+`MAILER_RECOVERY_VENDORS` / `MAILER_LOGIN_VENDORS`). PII is never logged; OTP codes are never logged
+or returned.
 
 ## Tests
 
@@ -151,5 +181,6 @@ direction only — not implemented or scoped here, and orthogonal to the civic t
 
 ## Not in this milestone
 
-Civic IdentityRegistry write routes over HTTP, full KYC provider integration, Method-4 ZK,
-production KMS / encryption-at-rest (schema hooks only), and the browser passkey UX.
+Civic IdentityRegistry **thread-join / signed-submission** write routes over HTTP (only device-key
+enrollment is exposed), production WebAuthn PRF / non-exportable browser signing for civic keys, full
+KYC provider integration, Method-4 ZK, and production KMS / encryption-at-rest (schema hooks only).

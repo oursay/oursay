@@ -2,7 +2,7 @@
 
 import type pg from "pg";
 
-export type OtpPurpose = "registration" | "recovery";
+export type OtpPurpose = "registration" | "recovery" | "login";
 
 export interface OtpRecord {
   id: string;

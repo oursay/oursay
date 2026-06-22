@@ -23,7 +23,7 @@ export const sessionSchema = {
   type: "object",
   properties: {
     token: { type: "string", description: "Opaque bearer token (also set as an HttpOnly cookie)." },
-    scope: { type: "string", enum: ["full", "recovery"] },
+    scope: { type: "string", enum: ["full", "recovery", "login"] },
     userId: { type: "string", format: "uuid" },
     expiresAt: { type: "string", format: "date-time" },
   },

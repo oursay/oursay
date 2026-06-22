@@ -348,6 +348,42 @@ server-side escrow of encrypted private keys.
 We do **not** require independent device keys per thread; we **do** require that whichever
 path we ship keeps private keys off the platform and signs on device.
 
+### Account-login auth: passkeys + the three OTP purposes (server, `@oursay/api`)
+
+Account login (proving *who is signed in*) is deliberately separate from civic signing (§2). Two key
+families, two tables:
+
+- **Account-login passkeys** → `auth.passkey_credentials`. The preferred, day-to-day factor. A user
+  may enroll **several** (one per device); each is independent and the platform stores only public
+  credential metadata.
+- **Civic device keys** → `public.device_keys` (this section's *Dᵢ*). Sign public-record actions
+  on-device; enrolled after login via `POST /v1/civic/devices` (public key only), listed/revoked via
+  `GET /v1/civic/devices` / `POST /v1/civic/devices/revoke`. A second phone = a second passkey **and**
+  a second civic device key under the same user.
+
+**Email OTP is never a standing login method.** It exists for exactly three **purposes**, all sent
+through one request endpoint (`POST /v1/auth/otp/request`, discriminated by `purpose`) so there is a
+single send path with no duplicate routes:
+
+| Purpose | Trigger / gate | Verify | Session | Revokes others? |
+|---------|----------------|--------|---------|-----------------|
+| `registration` | first-time bootstrap; 409 if email already registered | `POST /v1/auth/otp/verify` (+ profile) | **full** | n/a (new account) |
+| `recovery` | lost passkey; sent only if the account exists (no enumeration) | `POST /v1/auth/recovery/verify` | **recovery** (enroll-only) | **yes** — security reset |
+| `login` | **gated** cross-device sign-in; sent only while an enable window is open | `POST /v1/auth/login/verify` | **login** (enroll-only) | **no** — additive |
+
+**Gated login (the new-device path).** Most of the time login OTP is *disabled*: a new/unenrolled
+device cannot sign in with email alone. A **trusted device** (a valid **full** session **with** an
+enrolled passkey) opens the window via `POST /v1/auth/login/enable`, which emails a `login` code. The
+window is the active `login` OTP itself — short-lived (bounded by `OTP_TTL_SEC`, default 10 min) and
+one per account (issuing a new one invalidates the prior). The new device redeems the code at
+`POST /v1/auth/login/verify` → a **limited `login`-scoped** session that may **only** enroll a
+passkey; the device then logs in with that passkey for full access. Without an open window, a bare
+`login` request sends nothing and verify fails — no enumeration, no bypass of the passkey requirement.
+
+This separates cleanly from **recovery**: gated login is *additive* (the holder still has access on a
+trusted device, so other sessions are kept), while recovery assumes *lost access* and revokes every
+prior session. Both end in a new passkey.
+
 ---
 
 ## 7. Multi-device summary
@@ -356,8 +392,10 @@ path we ship keeps private keys off the platform and signs on device.
 |------|----------|
 | Same persona on phone and tablet | Same *Pₜ* per thread; enroll multiple *Dᵢ* or rely on passkey sync (§5.4). |
 | Second passkey, no sync | Enroll second *Dᵢ*; shared per-(user, jurisdiction) nullifier root; same *Pₜ* when joining thread from either device. |
+| Add device (account login) | From a trusted full session, enroll an additional **account-login passkey** (`auth.passkey_credentials`); independent per device, public metadata only. |
+| Sign in on a brand-new device | **Gated login OTP** (§6): trusted device opens the window → new device redeems a `login` code → enroll-only session → enroll a passkey. Additive; does not revoke other sessions. |
 | Cross-device edit | Any *Dᵢ* registered to same user may sign edit (§5.4 rule 6). |
-| Lost device | Revoke *Dᵢ* enrollment; user continues with other devices; do not publish revoked keys as cross-thread correlators. |
+| Lost device | Revoke *Dᵢ* enrollment (`POST /v1/civic/devices/revoke`); for account login use **recovery** (revokes prior sessions). Do not publish revoked keys as cross-thread correlators. |
 | Platform holds signing keys | **Never.** |
 | Trustless dedupe | **Method 4 (ZK)** — permanent goal (§5.5). |
 
@@ -414,14 +452,16 @@ for test detail.
 | Cross-device editing (any enrolled device of the same user) | Implemented (tests) |
 | Per-(user, jurisdiction) nullifier root (shared across a user's devices) | Implemented (framing + tests) |
 | Account-auth passkey sessions (server, `@oursay/api`) | Implemented (tests) — WebAuthn register + passkey login over `@simplewebauthn/server`; opaque DB-backed sessions. This passkey is the **account-login** factor (§2) and is **separate** from the civic thread-signing keys above. |
-| Email-OTP registration + recovery (server, `@oursay/api`) | Implemented (tests) — OTP is bootstrap/recovery only; passkey is day-to-day login. Hashed codes, rate limits, pluggable mailer (Postmark/SMTP/SES + dev noop). |
+| Unified email-OTP request — three purposes (server, `@oursay/api`) | Implemented (tests) — one `POST /v1/auth/otp/request` with `purpose` ∈ {registration, recovery, login}; OTP is bootstrap/recovery/gated-login only, never standing login. Hashed codes, rate limits, pluggable mailer (Postmark/SMTP/SES + dev noop). |
+| Gated cross-device login OTP (server, `@oursay/api`) | Implemented (tests) — trusted device (full session + passkey) opens the window via `POST /v1/auth/login/enable`; new device redeems at `POST /v1/auth/login/verify` → limited `login` (enroll-only) session; no enable → no send/verify (no enumeration); additive (does not revoke other sessions). |
+| Multi-passkey account login / "add device" (server, `@oursay/api`) | Implemented (tests) — multiple `auth.passkey_credentials` per user; re-run passkey register from a trusted session to add a device. |
+| Civic device-key enrollment over HTTP (server, `@oursay/api`) | Implemented (tests) — authenticated `POST/GET /v1/civic/devices` + `POST /v1/civic/devices/revoke` into `public.device_keys`; public key only, owner-scoped revoke, separate from account-login passkeys. |
 | KYC-gated recovery branch (`@oursay/api`) | Stub — recovery reads `public.kyc_attestations`; unverified → re-enroll passkey, verified → KYC re-verification required (provider stubbed, §3.3). |
-| Dev account-walk harness (`@oursay/api`, `/walk`) | Implemented (dev-only) — same-origin HTML page driving the real `/v1` routes (register → passkey → logout → login → recovery re-enroll) so WebAuthn ceremonies can be QA'd by hand; not registered under `NODE_ENV=production`. |
-| Production Web client adapter (browser passkey UX) | Not built |
-| Non-exportable Web Crypto signing path | **Policy decided; code not built** |
+| Dev account-walk harness (`@oursay/api`, `/walk`) | Implemented (dev-only) — same-origin HTML page driving the real `/v1` routes (register → passkey → civic device → logout → login → gated cross-device login → recovery re-enroll) so WebAuthn ceremonies can be QA'd by hand; not registered under `NODE_ENV=production`. |
+| Production Web client adapter (browser passkey UX) | Not built — walk uses an ephemeral WebCrypto P-256 civic key (public key only) as a dev stand-in. |
+| Non-exportable Web Crypto signing path (production civic keys) | **Policy decided; code not built** |
 | Claim / unclaim public ownership (R8, R9) | Schema stub only |
 | Selective reveal to institutions (R11) | Not built |
-| Multi-passkey / multi-device registration UX | Not built (library primitives done) |
 | Jurisdiction-specific validation policy | Partial — jurisdiction router + default gating rules (change/revoke) with per-entity override (`jurisdiction.ts` / `governance.ts`); freshness + permission gates pending |
 | External anchoring (Git / EVM / …) | Not built |
 | Tier- and region-filtered signed counts (R24–R26) | Not built |

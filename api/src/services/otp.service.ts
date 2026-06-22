@@ -31,7 +31,18 @@ export interface OtpRequestResult extends VerifiedEmail {
   expiresAt: string;
 }
 
-const ROLE: Record<OtpPurpose, MailRole> = { registration: "registration", recovery: "recovery" };
+const ROLE: Record<OtpPurpose, MailRole> = {
+  registration: "registration",
+  recovery: "recovery",
+  login: "login",
+};
+
+// Per-purpose mail copy. `label` slots into the subject and body sentence.
+const MAIL_COPY: Record<OtpPurpose, { subject: string; label: string }> = {
+  registration: { subject: "Your OurSay verification code", label: "verification" },
+  recovery: { subject: "Your OurSay recovery code", label: "recovery" },
+  login: { subject: "Your OurSay sign-in code", label: "sign-in" },
+};
 
 export class OtpService {
   private readonly now: Now;
@@ -65,15 +76,22 @@ export class OtpService {
     });
 
     const minutes = Math.round(this.d.config.ttlSec / 60);
+    const copy = MAIL_COPY[input.purpose];
     await this.d.mailer.send(ROLE[input.purpose], {
       to: email,
-      subject: input.purpose === "registration" ? "Your OurSay verification code" : "Your OurSay recovery code",
+      subject: copy.subject,
       text:
-        `Your OurSay ${input.purpose === "registration" ? "verification" : "recovery"} code is:\n\n` +
+        `Your OurSay ${copy.label} code is:\n\n` +
         `${code}\n\nIt expires in ${minutes} minutes. If you didn't request this, you can ignore this email.`,
     });
 
     return { email, emailCanonical: canonical, expiresAt: expiresAt.toISOString() };
+  }
+
+  /** True if an active (unconsumed, unexpired) code exists for this (email, purpose). Used to gate
+   *  the login (re)send on an already-open window without leaking whether the account exists. */
+  async hasActive(emailCanonical: string, purpose: OtpPurpose): Promise<boolean> {
+    return (await this.d.otpRepo.getLatestActive(emailCanonical, purpose)) != null;
   }
 
   /** Verify a presented code; consumes it on success. Throws on invalid/expired/too-many-attempts. */

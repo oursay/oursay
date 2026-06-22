@@ -103,7 +103,14 @@ $("verifyOtp").addEventListener("click", async () => {
   show("verify", { userId: r.body.userId, session: r.body.session, cookie: "oursay_session set (HttpOnly)" });
   $("enroll").disabled = false;
   $("logout").disabled = false;
+  enableFullSessionActions();
 });
+
+// Civic + cross-device-login actions need a FULL session. Enable them after register/login.
+function enableFullSessionActions() {
+  $("enrollCivic").disabled = false;
+  $("listCivic").disabled = false;
+}
 
 // ── 4 · Enroll passkey ───────────────────────────────────────────────────────
 $("enroll").addEventListener("click", async () => {
@@ -116,6 +123,7 @@ $("enroll").addEventListener("click", async () => {
     badge("enroll", "ok", "enrolled");
     show("enroll", verify.body);
     $("login").disabled = false;
+    $("enableLogin").disabled = false; // now has a passkey → may authorize cross-device login
   } catch (e) {
     badge("enroll", "err", "ceremony failed");
     show("enroll", String(e?.message ?? e));
@@ -151,6 +159,8 @@ $("login").addEventListener("click", async () => {
     if (!verify.ok) return failLogin(verify);
     setSession(verify.body.session);
     badge("login", "ok", "logged in");
+    enableFullSessionActions();
+    $("enableLogin").disabled = false;
     const me = await api("GET", "/v1/profile");
     show("login", { userId: verify.body.userId, session: verify.body.session, profile: me.ok ? me.body : `profile ${me.status}` });
   } catch (e) {
@@ -165,7 +175,7 @@ function failLogin(r) {
 
 // ── 7 · Recovery → re-enroll ─────────────────────────────────────────────────
 $("recoverRequest").addEventListener("click", async () => {
-  const r = await api("POST", "/v1/auth/recovery/request", { email: state.email });
+  const r = await api("POST", "/v1/auth/otp/request", { email: state.email, purpose: "recovery" });
   badge("recovery", r.ok ? "ok" : "err", r.ok ? "code sent (if account exists)" : `error ${r.status}`);
   show("recovery", r.ok ? { ...r.body, hint: "Read the recovery code from the server console." } : r.body);
   $("recoverVerify").disabled = !r.ok;
@@ -199,10 +209,92 @@ $("recoverEnroll").addEventListener("click", async () => {
       return;
     }
     badge("recovery", "ok", "re-enrolled");
-    show("recovery", { ...verify.body, next: "Now log in again via step 6 to get a full session." });
+    show("recovery", { ...verify.body, next: "Now log in again via step 7 to get a full session." });
     $("login").disabled = false;
   } catch (e) {
     badge("recovery", "err", "ceremony failed");
     show("recovery", String(e?.message ?? e));
   }
 });
+
+// ── 5 · Civic device key (WebCrypto P-256; public key only on platform) ───────
+const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+$("enrollCivic").addEventListener("click", async () => {
+  try {
+    // Ephemeral, non-exportable P-256 key. The public key is exportable; the private key is not and
+    // never leaves the browser — the platform only ever receives the public point.
+    const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
+    state.civicKey = pair;
+    const raw = await crypto.subtle.exportKey("raw", pair.publicKey); // 65-byte uncompressed SEC1
+    const devicePubkey = hex(raw);
+    const r = await api("POST", "/v1/civic/devices", { devicePubkey, label: "walk page device" });
+    badge("civic", r.ok ? "ok" : "err", r.ok ? "enrolled" : `error ${r.status}`);
+    show("civic", r.ok ? { ...r.body, note: "Public key only; private key stays in this tab." } : r.body);
+    $("listCivic").disabled = false;
+  } catch (e) {
+    badge("civic", "err", "keygen/enroll failed");
+    show("civic", String(e?.message ?? e));
+  }
+});
+
+$("listCivic").addEventListener("click", async () => {
+  const r = await api("GET", "/v1/civic/devices");
+  badge("civic", r.ok ? "ok" : "err", r.ok ? "listed" : `error ${r.status}`);
+  show("civic", r.body ?? `HTTP ${r.status}`);
+});
+
+// ── 8 · Sign in on another device (gated login OTP) ──────────────────────────
+$("enableLogin").addEventListener("click", async () => {
+  // From the trusted device (full session + passkey) → opens the login window + emails the code.
+  const r = await api("POST", "/v1/auth/login/enable");
+  if (!r.ok) {
+    badge("loginflow", "err", `error ${r.status}`);
+    show("loginflow", r.body ?? `HTTP ${r.status}`);
+    return;
+  }
+  badge("loginflow", "ok", "login enabled");
+  show("loginflow", { ...r.body, hint: "Read the login code from the server console, then verify below as the 'new device'." });
+  $("verifyLoginOtp").disabled = false;
+});
+
+$("verifyLoginOtp").addEventListener("click", async () => {
+  // Simulated new device: redeem the code → limited 'login' (enroll-only) session.
+  const code = $("loginCode").value.trim();
+  const r = await api("POST", "/v1/auth/login/verify", { email: state.email, code });
+  if (!r.ok) {
+    badge("loginflow", "err", `error ${r.status}`);
+    show("loginflow", r.body ?? `HTTP ${r.status}`);
+    return;
+  }
+  setSession(r.body.session);
+  // Prove the scope is enroll-only: a full-scope read must be rejected until a passkey is enrolled.
+  const me = await api("GET", "/v1/profile");
+  badge("loginflow", "ok", "login session (enroll-only)");
+  show("loginflow", {
+    ...r.body,
+    profileReadStatus: me.status,
+    note: "scope 'login' is enroll-only — /v1/profile is 403 until a passkey is enrolled on this device.",
+  });
+  $("enrollLoginPasskey").disabled = false;
+});
+
+$("enrollLoginPasskey").addEventListener("click", async () => {
+  try {
+    const opts = await api("POST", "/v1/auth/passkey/register/options");
+    if (!opts.ok) return failLoginFlow(opts);
+    const attResp = await startRegistration({ optionsJSON: opts.body });
+    const verify = await api("POST", "/v1/auth/passkey/register/verify", { response: attResp, label: "second device" });
+    if (!verify.ok) return failLoginFlow(verify);
+    badge("loginflow", "ok", "passkey enrolled on new device");
+    show("loginflow", { ...verify.body, next: "Now log in with this passkey (step 7) for a full session." });
+    $("login").disabled = false;
+  } catch (e) {
+    badge("loginflow", "err", "ceremony failed");
+    show("loginflow", String(e?.message ?? e));
+  }
+});
+function failLoginFlow(r) {
+  badge("loginflow", "err", `error ${r.status}`);
+  show("loginflow", r.body ?? `HTTP ${r.status}`);
+}

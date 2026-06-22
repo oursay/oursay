@@ -1,12 +1,12 @@
 // MailerService: role-based sending over pluggable adapters with primary→failover routing.
 //
-// A role ("registration" | "recovery") maps to an ordered list of vendor adapters; send() tries
-// them in order and succeeds on the first that delivers. This is the seam for future primary/
+// A role ("registration" | "recovery" | "login") maps to an ordered list of vendor adapters; send()
+// tries them in order and succeeds on the first that delivers. This is the seam for future primary/
 // failover/hybrid routing. Adapters never log OTP codes or PII — only non-sensitive metadata.
 
 import type { MailerConfig, MailerVendor } from "../../config.js";
 
-export type MailRole = "registration" | "recovery";
+export type MailRole = "registration" | "recovery" | "login";
 
 export interface MailMessage {
   to: string;
@@ -63,7 +63,7 @@ export async function createMailerService(
   cfg: MailerConfig,
   overrides: Partial<Record<MailerVendor, MailAdapter>> = {},
 ): Promise<MailerService> {
-  const needed = new Set<MailerVendor>([...cfg.roles.registration, ...cfg.roles.recovery]);
+  const needed = new Set<MailerVendor>([...cfg.roles.registration, ...cfg.roles.recovery, ...cfg.roles.login]);
   const adapters = new Map<MailerVendor, MailAdapter>();
 
   for (const vendor of needed) {

@@ -11,6 +11,7 @@ import {
 } from "./config.js";
 import type { Db } from "./db.js";
 import { systemNow, type Now } from "./errors.js";
+import { CivicDeviceRepo } from "./repo/civic-device.repo.js";
 import { KycRepo } from "./repo/kyc.repo.js";
 import { OtpRepo } from "./repo/otp.repo.js";
 import { PasskeyRepo } from "./repo/passkey.repo.js";
@@ -19,6 +20,8 @@ import { RateLimitRepo } from "./repo/ratelimit.repo.js";
 import { SessionRepo } from "./repo/session.repo.js";
 import { UserRepo } from "./repo/user.repo.js";
 import { AuthService } from "./services/auth.service.js";
+import { CivicDeviceService } from "./services/civic-device.service.js";
+import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
 import { PasskeyService } from "./services/passkey.service.js";
@@ -42,6 +45,7 @@ export interface Repos {
   otp: OtpRepo;
   rateLimit: RateLimitRepo;
   kyc: KycRepo;
+  civicDevice: CivicDeviceRepo;
 }
 
 export interface Services {
@@ -53,6 +57,8 @@ export interface Services {
   registrationService: RegistrationService;
   passkeyService: PasskeyService;
   recoveryService: RecoveryService;
+  loginService: LoginService;
+  civicDeviceService: CivicDeviceService;
 }
 
 export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Services> {
@@ -67,6 +73,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     otp: new OtpRepo(pool),
     rateLimit: new RateLimitRepo(pool),
     kyc: new KycRepo(pool),
+    civicDevice: new CivicDeviceRepo(pool),
   };
 
   const mailer = opts.mailer ?? (await createMailerService(mailerConfig, opts.mailerOverrides));
@@ -101,6 +108,25 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     authService,
     now,
   });
+  const loginService = new LoginService({
+    otpService,
+    profileRepo: repos.profile,
+    passkeyRepo: repos.passkey,
+    authService,
+    now,
+  });
+  const civicDeviceService = new CivicDeviceService({ civicDeviceRepo: repos.civicDevice });
 
-  return { db, repos, mailer, otpService, authService, registrationService, passkeyService, recoveryService };
+  return {
+    db,
+    repos,
+    mailer,
+    otpService,
+    authService,
+    registrationService,
+    passkeyService,
+    recoveryService,
+    loginService,
+    civicDeviceService,
+  };
 }

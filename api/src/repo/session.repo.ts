@@ -2,10 +2,15 @@
 
 import type pg from "pg";
 
+/** Session scopes (kept in sync with auth.sessions.scope CHECK + AuthService.SessionScope).
+ *  Non-'full' scopes are limited (enroll-only): 'recovery' (lost passkey) and 'login' (gated
+ *  cross-device sign-in). */
+export type SessionScope = "full" | "recovery" | "login";
+
 export interface SessionRecord {
   id: string;
   userId: string;
-  scope: "full" | "recovery";
+  scope: SessionScope;
   userAgent: string | null;
   createdAt: string;
   expiresAt: string;
@@ -19,7 +24,7 @@ export class SessionRepo {
     id: string;
     userId: string;
     tokenHash: string;
-    scope: "full" | "recovery";
+    scope: SessionScope;
     userAgent: string | null;
     expiresAt: Date;
   }): Promise<void> {

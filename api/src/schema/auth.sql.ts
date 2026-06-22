@@ -79,34 +79,46 @@ CREATE TABLE IF NOT EXISTS auth.webauthn_challenges (
 );
 CREATE INDEX IF NOT EXISTS webauthn_challenges_lookup ON auth.webauthn_challenges (challenge);
 
--- Opaque DB-backed sessions. The token itself is never stored — only its hash. 'recovery' scope is
--- a limited session that may re-enroll a passkey but not perform full actions.
+-- Opaque DB-backed sessions. The token itself is never stored — only its hash. Non-'full' scopes are
+-- limited sessions that may re-enroll a passkey but not perform full actions:
+--   'recovery' — issued by recovery OTP (lost passkey); recovery REVOKES all prior sessions.
+--   'login'    — issued by the gated cross-device login OTP (docs/08); enroll-only until the new
+--                device enrolls a passkey and logs in with it. Login does NOT revoke other sessions.
 CREATE TABLE IF NOT EXISTS auth.sessions (
   id          UUID PRIMARY KEY,
   user_id     UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   token_hash  TEXT NOT NULL UNIQUE,
-  scope       TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','recovery')),
+  scope       TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','recovery','login')),
   user_agent  TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at  TIMESTAMPTZ NOT NULL,
   revoked_at  TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON auth.sessions (user_id);
+-- Widen the scope CHECK on a persistent dev DB created before 'login' existed (constraint is the
+-- table-name-derived auto name). Idempotent: drop then re-add the current allow-list.
+ALTER TABLE auth.sessions DROP CONSTRAINT IF EXISTS sessions_scope_check;
+ALTER TABLE auth.sessions ADD CONSTRAINT sessions_scope_check CHECK (scope IN ('full','recovery','login'));
 
--- Email OTP (bootstrap registration + recovery). Codes are stored hashed (pepper + per-row salt);
--- the plaintext code is never persisted or logged.
+-- Email OTP for the three purposes (docs/08): 'registration' (bootstrap), 'recovery' (lost passkey),
+-- and 'login' (gated cross-device sign-in — only sent after a trusted device opens the window). Codes
+-- are stored hashed (pepper + per-row salt); the plaintext code is never persisted or logged. The
+-- active 'login' row IS the login enable window (TTL = OTP_TTL_SEC; one active per (email,purpose)).
 CREATE TABLE IF NOT EXISTS auth.email_otp (
   id              UUID PRIMARY KEY,
   email_canonical TEXT NOT NULL,
   code_hash       TEXT NOT NULL,
   salt            TEXT NOT NULL,
-  purpose         TEXT NOT NULL CHECK (purpose IN ('registration','recovery')),
+  purpose         TEXT NOT NULL CHECK (purpose IN ('registration','recovery','login')),
   attempts        INT  NOT NULL DEFAULT 0,
   expires_at      TIMESTAMPTZ NOT NULL,
   consumed_at     TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS email_otp_lookup ON auth.email_otp (email_canonical, purpose);
+-- Widen the purpose CHECK on a persistent dev DB created before 'login' existed.
+ALTER TABLE auth.email_otp DROP CONSTRAINT IF EXISTS email_otp_purpose_check;
+ALTER TABLE auth.email_otp ADD CONSTRAINT email_otp_purpose_check CHECK (purpose IN ('registration','recovery','login'));
 
 -- Rolling-window rate-limit counters, keyed by bucket (e.g. "email:<canonical>" / "ip:<addr>").
 -- Enforced in OtpService so the CLI/service path is throttled too, not just HTTP.

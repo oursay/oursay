@@ -20,7 +20,7 @@ describe("07 mailer: role routing + failover", () => {
     const noop = new NoopMailAdapter();
     const mailer = new MailerService(
       "from@oursay.ca",
-      { registration: ["smtp", "noop"], recovery: ["noop"] },
+      { registration: ["smtp", "noop"], recovery: ["noop"], login: ["noop"] },
       new Map<MailerVendor, MailAdapter>([
         ["smtp", new FailingAdapter("smtp")],
         ["noop", noop],
@@ -35,7 +35,7 @@ describe("07 mailer: role routing + failover", () => {
   it("throws when every adapter for a role fails", async () => {
     const mailer = new MailerService(
       "from@oursay.ca",
-      { registration: ["smtp", "ses"], recovery: ["noop"] },
+      { registration: ["smtp", "ses"], recovery: ["noop"], login: ["noop"] },
       new Map<MailerVendor, MailAdapter>([
         ["smtp", new FailingAdapter("smtp")],
         ["ses", new FailingAdapter("ses")],
@@ -55,7 +55,7 @@ describe("07 mailer: role routing + failover", () => {
     const rec = new NoopMailAdapter();
     const mailer = new MailerService(
       "from@oursay.ca",
-      { registration: ["postmark"], recovery: ["noop"] },
+      { registration: ["postmark"], recovery: ["noop"], login: ["noop"] },
       new Map<MailerVendor, MailAdapter>([
         ["postmark", reg],
         ["noop", rec],

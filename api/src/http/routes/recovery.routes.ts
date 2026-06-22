@@ -1,41 +1,15 @@
-// Recovery routes: email-OTP path to regain access on a new device / lost passkey. On verify, the
-// branch depends on KYC status (resolved from public.kyc_attestations): unverified accounts get a
-// limited recovery session to re-enroll a passkey; verified accounts hit the KYC-reverification
-// policy stub (409).
+// Recovery routes: email-OTP path to regain access on a new device / lost passkey. The recovery code
+// is REQUESTED through the unified endpoint (POST /v1/auth/otp/request {purpose:'recovery'}); only
+// the verify step lives here. On verify, the branch depends on KYC status (resolved from
+// public.kyc_attestations): unverified accounts get a limited recovery session to re-enroll a
+// passkey; verified accounts hit the KYC-reverification policy stub (409).
 
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
 import { setSessionCookie } from "../cookies.js";
-import { errorSchema, otpSentResponseSchema, sessionSchema } from "../schemas.js";
-
-function otpSentBody(result: { expiresAt: string } | null): { status: "sent"; expiresAt?: string } {
-  return result ? { status: "sent", expiresAt: result.expiresAt } : { status: "sent" };
-}
+import { errorSchema, sessionSchema } from "../schemas.js";
 
 export function registerRecoveryRoutes(app: FastifyInstance, services: Services): void {
-  app.post(
-    "/v1/auth/recovery/request",
-    {
-      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
-      schema: {
-        tags: ["recovery"],
-        summary: "Request a recovery code (sent only if an account exists)",
-        body: {
-          type: "object",
-          properties: { email: { type: "string", format: "email" } },
-          required: ["email"],
-          additionalProperties: false,
-        },
-        response: { 202: otpSentResponseSchema, 429: errorSchema },
-      },
-    },
-    async (req, reply) => {
-      const { email } = req.body as { email: string };
-      const result = await services.recoveryService.requestRecovery({ emailRaw: email, ip: req.ip });
-      reply.status(202).send(otpSentBody(result));
-    },
-  );
-
   app.post(
     "/v1/auth/recovery/verify",
     {

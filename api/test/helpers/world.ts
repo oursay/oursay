@@ -23,7 +23,10 @@ export async function getWorld(): Promise<World> {
   await db.init();
   const mail = new NoopMailAdapter();
   const services = await buildServices(db, { mailerOverrides: { noop: mail } });
-  const app = await buildServer(services);
+  // Disable the HTTP rate-limiter for the shared test app — its in-memory counters would otherwise
+  // accumulate across specs. The service-layer OTP rate limit (auth.otp_rate_limits) is still active
+  // and is exercised directly in 01-otp / 06-ratelimit.
+  const app = await buildServer(services, { rateLimit: false });
   world = { db, services, app, mail };
   return world;
 }

@@ -41,6 +41,31 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 - **province** — the province/territory address component (Canada-centric storage;
   `auth.profiles.province`). Jurisdiction-specific *display* labels live in the front-end.
 
+## Auth / device vocabulary
+
+- **Account-login passkey** — a WebAuthn credential that proves *who is logged in*
+  (`auth.passkey_credentials`). The preferred, day-to-day auth factor. **Multi-device**: a user may
+  have several (one per device). **Never** signs the public record. Distinct from a *civic device key*.
+- **Civic device key** — a per-user public signing key (`public.device_keys`, the *Dᵢ* of
+  [`08` §5.4](08-IDENTITY-AND-DEVICE-POLICY.md)) used to sign public-record actions on-device. The
+  platform holds the **public key only**. Enrolled after login via `/v1/civic/devices`. Distinct from
+  an *account-login passkey*.
+- **OTP purpose** — the discriminator on every email one-time code (`auth.email_otp.purpose`), one of
+  **`registration`** (first-time bootstrap), **`recovery`** (lost passkey), **`login`** (gated
+  cross-device sign-in). All codes are requested through the single endpoint `POST /v1/auth/otp/request`.
+  Email OTP is **never a standing login method** — only these three purposes.
+- **Add device** — enrolling an *additional* account-login passkey from an already-trusted full
+  session. **Additive** (keeps other sessions). Contrast with *recovery*.
+- **Gated login** — signing in on a new/unenrolled device via a `login` OTP that only works after a
+  trusted device opens the **login enable window**. Yields a limited (enroll-only) session; the device
+  then enrolls a passkey and logs in with it. Additive — does **not** revoke other sessions.
+- **Login enable window** — the short-lived authorization (the active `login` OTP itself, bounded by
+  `OTP_TTL_SEC`, one per account) created by `POST /v1/auth/login/enable` from a trusted device. While
+  open, a `login` code may be sent/verified; while closed, login OTP requests are silent no-ops.
+- **Session scope** — `auth.sessions.scope`: **`full`** (complete access) vs the limited
+  **`recovery`** and **`login`** scopes, which may *only* enroll a passkey. Recovery **revokes all
+  prior sessions**; login does not.
+
 ## Superseded terms (do not reintroduce)
 
 | Old term | Now | Notes |

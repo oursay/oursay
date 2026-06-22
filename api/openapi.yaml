@@ -52,7 +52,7 @@ paths:
                   - status
   /v1/auth/otp/request:
     post:
-      summary: Request an email one-time code (registration or recovery)
+      summary: Request an email one-time code (registration, recovery, or gated login)
       tags:
         - auth
       requestBody:
@@ -70,6 +70,7 @@ paths:
                   enum:
                     - registration
                     - recovery
+                    - login
                   default: registration
               required:
                 - email
@@ -245,6 +246,7 @@ paths:
                         enum:
                           - full
                           - recovery
+                          - login
                       userId:
                         type: string
                         format: uuid
@@ -512,6 +514,7 @@ paths:
                         enum:
                           - full
                           - recovery
+                          - login
                       userId:
                         type: string
                         format: uuid
@@ -620,63 +623,6 @@ paths:
                       - message
                 required:
                   - error
-  /v1/auth/recovery/request:
-    post:
-      summary: Request a recovery code (sent only if an account exists)
-      tags:
-        - recovery
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  format: email
-              required:
-                - email
-              additionalProperties: false
-      responses:
-        "202":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    enum:
-                      - sent
-                  expiresAt:
-                    type: string
-                    format: date-time
-                    description: UTC instant after which the issued code is invalid (matches
-                      OTP_TTL_SEC).
-                required:
-                  - status
-        "429":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                required:
-                  - error
   /v1/auth/recovery/verify:
     post:
       summary: Verify a recovery code (unverified → recovery session; verified → KYC
@@ -726,6 +672,7 @@ paths:
                         enum:
                           - full
                           - recovery
+                          - login
                       userId:
                         type: string
                         format: uuid
@@ -782,6 +729,521 @@ paths:
                 required:
                   - error
         "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/login/enable:
+    post:
+      summary: Authorize cross-device login from a trusted device (sends a login OTP
+        to the account email)
+      tags:
+        - login
+      description: Requires a full session AND at least one enrolled passkey. Opens a
+        short-lived login window (TTL = OTP_TTL_SEC) and emails a one-time code
+        to sign in on another device.
+      security: *a1
+      responses:
+        "202":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - sent
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: UTC instant after which the issued code is invalid (matches
+                      OTP_TTL_SEC).
+                required:
+                  - status
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/login/verify:
+    post:
+      summary: Complete cross-device login (login OTP → limited enroll-only session)
+      tags:
+        - login
+      description: Succeeds only if a login window was opened from a trusted device.
+        Issues a 'login'-scoped session that may enroll a passkey; full access
+        comes from the subsequent passkey login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  minLength: 1
+              required:
+                - email
+                - code
+              additionalProperties: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - passkey_enroll
+                  userId:
+                    type: string
+                    format: uuid
+                  session:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: Opaque bearer token (also set as an HttpOnly cookie).
+                      scope:
+                        type: string
+                        enum:
+                          - full
+                          - recovery
+                          - login
+                      userId:
+                        type: string
+                        format: uuid
+                      expiresAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - token
+                      - scope
+                      - userId
+                      - expiresAt
+                required:
+                  - status
+                  - userId
+                  - session
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/devices:
+    post:
+      summary: Enrol a civic signing device key (public key only)
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                devicePubkey:
+                  type: string
+                  minLength: 1
+                label:
+                  type: string
+              required:
+                - devicePubkey
+              additionalProperties: false
+      security: *a1
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devicePubkey:
+                    type: string
+                    description: SEC1 P-256 public key (hex). Public key only — never a private key.
+                  label:
+                    type: string
+                    nullable: true
+                    description: Optional human label, e.g. "Alice's iPhone".
+                  enrolledAt:
+                    type: string
+                    format: date-time
+                required:
+                  - devicePubkey
+                  - label
+                  - enrolledAt
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+    get:
+      summary: List the caller's enrolled (non-revoked) civic device keys
+      tags:
+        - civic
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        devicePubkey:
+                          type: string
+                          description: SEC1 P-256 public key (hex). Public key only — never a private key.
+                        label:
+                          type: string
+                          nullable: true
+                          description: Optional human label, e.g. "Alice's iPhone".
+                        enrolledAt:
+                          type: string
+                          format: date-time
+                      required:
+                        - devicePubkey
+                        - label
+                        - enrolledAt
+                required:
+                  - devices
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/devices/revoke:
+    post:
+      summary: Revoke one of the caller's civic device keys (lost/retired device)
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                devicePubkey:
+                  type: string
+                  minLength: 1
+              required:
+                - devicePubkey
+              additionalProperties: false
+      security: *a1
+      responses:
+        "204":
+          description: Default Response
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
           description: Default Response
           content:
             application/json:
@@ -933,11 +1395,15 @@ paths:
                   - error
 tags:
   - name: auth
-    description: Registration, sessions, OTP
+    description: Registration, sessions, unified OTP request
   - name: passkey
-    description: WebAuthn passkey enrollment + login
+    description: WebAuthn passkey enrollment + login (multi-device)
+  - name: login
+    description: Gated cross-device sign-in via login OTP
   - name: recovery
     description: Account recovery via email OTP
+  - name: civic
+    description: Civic signing device keys (public key only; separate from login passkeys)
   - name: profile
     description: Private account profile
   - name: meta
