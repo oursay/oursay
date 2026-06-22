@@ -36,7 +36,7 @@ describe("01 create: roots — commitments on the chain, content in Postgres", (
     const petition = await svc.create({
       type: "petition",
       author: "alice",
-      content: { title: "Fix the road", text: "Please fix Main St.", rules: { governingDistrictId: "riding-1" } },
+      content: { title: "Fix the road", text: "Please fix Main St.", rules: { appliesToDistrictIds: ["edmonton-strathcona-2026"] } },
     });
     const poll = await svc.create({
       type: "poll",

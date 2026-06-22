@@ -34,7 +34,7 @@ export const PLATFORM_PUBKEY = "platform";
  * signed FINAL, with no revocation.
  */
 export interface EntityRules {
-  governingDistrictId?: string; // the electoral DISTRICT (riding/ward/constituency) whose rules govern this entity
+  appliesToDistrictIds?: string[]; // DISTRICT(s) this entity applies to (year-tagged ids, e.g. "edmonton-strathcona-2026"); absent/empty = the whole jurisdiction
   deadline?: string; // ISO 8601; after it, no change/revoke is permitted
   allowChange?: boolean; // poll: votes may change before deadline
   allowRevoke?: boolean; // petition: signatures may be revoked before deadline

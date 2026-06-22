@@ -51,7 +51,7 @@ async function main(): Promise<void> {
   const petition = await svc.create({
     type: "petition",
     author: "alice",
-    content: { title: "Repave Main St.", text: "Petition the council to repave Main St.", rules: { governingDistrictId: "ward-3", allowRevoke: true, deadline: isoFromNow(7 * 24 * 3600_000) } },
+    content: { title: "Repave Main St.", text: "Petition the council to repave Main St.", rules: { appliesToDistrictIds: ["edmonton-ward-3-2026"], allowRevoke: true, deadline: isoFromNow(7 * 24 * 3600_000) } },
   });
   await svc.sign("bob", petition.entityId, "Long overdue.");
   await svc.sign("carol", petition.entityId);
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   const poll = await svc.create({
     type: "poll",
     author: "alice",
-    content: { question: "Should Main St. get bike lanes?", options: ["yes", "no", "abstain"], rules: { governingDistrictId: "ward-3", allowChange: true, deadline: isoFromNow(3 * 24 * 3600_000) } },
+    content: { question: "Should Main St. get bike lanes?", options: ["yes", "no", "abstain"], rules: { appliesToDistrictIds: ["edmonton-ward-3-2026"], allowChange: true, deadline: isoFromNow(3 * 24 * 3600_000) } },
   });
   await svc.vote("bob", poll.entityId, "yes");
   await svc.vote("carol", poll.entityId, "no");

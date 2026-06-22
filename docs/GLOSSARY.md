@@ -16,12 +16,22 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 - **Level** — a **property of a jurisdiction**: its governmental tier (`federal`, `provincial`,
   `municipal`, `state`, …). Descriptive metadata, **never** a partition key on its own.
 - **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A
-  user is assigned to district(s) at residency verification. The district whose rules govern a
-  specific poll/petition is its `governingDistrictId`.
-- **Region** — the generic, app-wide term for **any filterable geographic shape**: a district, a
-  jurisdiction's full extent, or a curated aggregate (e.g. "southern Alberta"). **Every district is a
-  region; not every region is a district.** Users are resolved into regions by **containment** (district
-  assignment + a region registry), never by storing every region on the user row.
+  user is **never assigned or stored** a district; district membership is **inferred from the user's
+  address**. This lets users and representatives see — and validate vote counts by — who is inside
+  vs. outside a given district or jurisdiction. District IDs carry the **boundary year** (boundaries
+  are redrawn over time), e.g. `edmonton-strathcona-2026`.
+- **Region** — the generic, app-wide term for **any filterable geographic shape**, composed
+  **inclusively and exclusively**: a single district, a curated preset (e.g. "southern Alberta",
+  urban/rural), a whole jurisdiction's extent, or a raw shape. A region is stored as a shape and, for
+  the platform's purposes, resolves to an **additive list of districts** (presets just expand to
+  additive district shapes applied to a filter). **Every district is a region; not every region is a
+  district.** Anyone on the platform may participate in any discussion regardless of region; regions
+  are used to **filter the participant set** (by containment of the inferred address, plus later KYC
+  status), never stored on the user row.
+- **Entity scope (poll/petition)** — gating rules **default to the jurisdiction**, but an individual
+  poll/petition may apply to a **specific district, several districts, or the whole jurisdiction**
+  (`EntityRules.appliesToDistrictIds`; absent/empty = the whole jurisdiction). This spans a vote about
+  a single local crosswalk through to jurisdiction-wide policy.
 
 ## User / account vocabulary
 
@@ -38,7 +48,7 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 | `level` as a crypto/dedupe partition key | **jurisdiction** | level is now only a *property* of a jurisdiction |
 | `levelMaster` / `level_master_keys` | `jurisdictionMaster` / `jurisdiction_master_keys` | re-keyed per (user, jurisdiction) |
 | identity `region` (e.g. `"ca-ab"`) | **jurisdiction** membership | the loose per-thread region field was dropped |
-| `EntityRules.region` | `governingDistrictId` | which district's rules govern a poll/petition |
+| `EntityRules.region` | `appliesToDistrictIds` | which district(s) a poll/petition applies to (absent = whole jurisdiction); never a single "governing" district |
 | address `region` | `province` | user/profile address component |
 | `users.handle` holding a free-text display name | `handle` + `display_name` (+ `first_name`/`last_name`) | one field no longer does several jobs |
 

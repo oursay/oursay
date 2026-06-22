@@ -238,8 +238,8 @@ These four terms have exact, non-overlapping meanings throughout the codebase, s
 
 - **Jurisdiction** — the primary partition of civic identity and rules. A jurisdiction (e.g. `ab-ca-gov`, `ca-gov`) is **one chain + one rule set + one governmental level**, and is **1:1 with a chain** (the append-only ledger mechanism keeps the word "chain" only where physically accurate). A user may belong to **multiple jurisdictions**. Cryptographic identity (persona master, nullifier/dedupe root) and gating rules (expiry, censoring, change/revoke) are partitioned **per jurisdiction**.
 - **Level** — a **property of a jurisdiction**: its governmental tier (`federal`, `provincial`, `municipal`, `state`, …). Level is descriptive metadata, **never** a partition key on its own.
-- **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A user is assigned to district(s) at residency verification. The district whose rules govern a specific poll/petition is its `governingDistrictId`.
-- **Region** — the generic, app-wide term for **any filterable geographic shape**: a district, a jurisdiction's full extent, or a curated aggregate (e.g. "southern Alberta", "Edmonton", urban/rural Alberta). **Every district is a region; not every region is a district.** Users are resolved into regions by **containment** (district assignment + a region registry), never by storing every region on the user row. Custom regions should be defined as unions of district boundaries to limit privacy leakage; finer-than-district public breakdowns are out of scope.
+- **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A user is **never assigned or stored** a district; district membership is **inferred from address**, so views and vote counts can be validated by who is inside vs. outside a district or jurisdiction. District IDs carry the **boundary year** (boundaries are redrawn over time), e.g. `edmonton-strathcona-2026`. A poll/petition's gating rules default to the jurisdiction but may apply to a specific district, several districts, or the whole jurisdiction (`EntityRules.appliesToDistrictIds`).
+- **Region** — the generic, app-wide term for **any filterable geographic shape**, composed **inclusively and exclusively**: a single district, a curated preset (e.g. "southern Alberta", "Edmonton", urban/rural Alberta), a whole jurisdiction's extent, or a raw shape. A region resolves to an **additive list of districts** (presets expand to additive district shapes applied to a filter). **Every district is a region; not every region is a district.** Anyone may participate in any discussion regardless of region; regions only **filter the participant set** by **containment** of the inferred address (plus later KYC status), never by storing regions on the user row. Custom regions should be defined as unions of district boundaries to limit privacy leakage; finer-than-district public breakdowns are out of scope.
 
 ### 6.1 Generic Area Model
 
@@ -266,11 +266,11 @@ Areas are organized in a configurable hierarchy. A deployment defines the levels
 
 The hierarchy is defined in deployment configuration. Filters operate at any level or combination of levels.
 
-### 6.3 Area Assignment
+### 6.3 Area Membership (inferred, not assigned)
 
-When a user reaches `residency_verified`, the KYC provider's address output is mapped to one or more areas in the configured hierarchy. A single address may map to multiple areas simultaneously at different hierarchy levels.
+Area/district membership is **inferred from the user's address**, never stored as a district binding on the user (see `api/src/helpers/address.ts`). A single address may resolve to multiple areas at different hierarchy levels simultaneously. Resolution is done dynamically against the platform's boundary registry at query time.
 
-Area assignments are stored at the time of verification. Historical area data is preserved for audit integrity — if a user re-verifies after moving, their prior actions retain the original area assignment.
+Because boundaries are redrawn over time, district IDs carry the **boundary year** (e.g. `edmonton-strathcona-2026`), so a resolution is reproducible against the boundary set in effect. Audit/historical integrity comes from the address (and the action's timestamp) plus the year-tagged boundaries — not from a frozen assignment row.
 
 ### 6.4 Filtering
 

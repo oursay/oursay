@@ -30,8 +30,11 @@ describe("15 jurisdiction: layered rule resolution (default ⊕ entity override)
     expect(resolveRules({ defaultDeadline: DEFAULT }, {}).deadline).to.equal(DEFAULT);
   });
 
-  it("carries governingDistrictId through untouched", () => {
-    expect(resolveRules({}, { governingDistrictId: "riding-12" }).governingDistrictId).to.equal("riding-12");
+  it("carries appliesToDistrictIds through untouched (absent = whole jurisdiction)", () => {
+    expect(resolveRules({}, { appliesToDistrictIds: ["edmonton-strathcona-2026"] }).appliesToDistrictIds).to.deep.equal([
+      "edmonton-strathcona-2026",
+    ]);
+    expect(resolveRules({}, {}).appliesToDistrictIds).to.equal(undefined);
   });
 });
 
