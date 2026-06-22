@@ -450,6 +450,194 @@ paths:
                       - message
                 required:
                   - error
+  /v1/auth/passkeys:
+    get:
+      summary: List the caller's enrolled account-login passkeys (devices)
+      tags:
+        - passkey
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passkeys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: Stable id used to revoke this passkey.
+                        label:
+                          type: string
+                          nullable: true
+                          description: Optional human label, e.g. "Alice's laptop".
+                        transports:
+                          type: string
+                          nullable: true
+                          description: CSV of authenticator transports.
+                        createdAt:
+                          type: string
+                          format: date-time
+                        lastUsedAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+                      required:
+                        - id
+                        - label
+                        - transports
+                        - createdAt
+                        - lastUsedAt
+                required:
+                  - passkeys
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/revoke:
+    post:
+      summary: Remove one of the caller's passkeys (kick a compromised/retired device)
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+              required:
+                - id
+              additionalProperties: false
+      security: *a1
+      responses:
+        "204":
+          description: Default Response
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/auth/passkey/login/options:
     post:
       summary: Begin passkey login (returns WebAuthn request options)

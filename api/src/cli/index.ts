@@ -12,7 +12,10 @@ type Handler = (services: Awaited<ReturnType<typeof buildServices>>, args: strin
 
 const COMMANDS: Record<string, { help: string; run: Handler }> = {
   "send-test-otp": {
-    help: "send-test-otp <email> [registration|recovery|login]  — issue an OTP via the configured mailer",
+    help: "send-test-otp <email> [registration|recovery|login]  — issue an OTP via the configured mailer (DEV: login bypasses the enable-window gate)",
+    // NOTE: this sends directly via otpService.request, so `login` here SKIPS the trusted-device
+    // enable-window gate that the HTTP path (loginService) enforces. Dev convenience only — it is NOT
+    // how a real client obtains a login code (use `enable-login`/the enable endpoint for that).
     run: async (s, [email, purpose = "registration"]) => {
       if (!email) throw new Error("email is required");
       await s.otpService.request({ emailRaw: email, purpose: purpose as "registration" | "recovery" | "login", ip: null });

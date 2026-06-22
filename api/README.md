@@ -70,6 +70,10 @@ Init order matters: `public.*` must exist before the `auth` schema FKs it. `Db.i
 - **Enroll passkey / add device** — authenticated → `POST /v1/auth/passkey/register/{options,verify}`.
   Run it again from a trusted device to enroll an **additional** passkey (multi-device); each
   credential is independent and the platform stores public metadata only.
+- **List / revoke passkeys (manage devices)** — full session → `GET /v1/auth/passkeys` lists the
+  caller's enrolled passkeys (metadata only, no key material); `POST /v1/auth/passkey/revoke {id}`
+  removes one ("kick a compromised/retired device"), owner-scoped (404 if it isn't yours). Revoking
+  the **last** passkey is refused (403) to avoid lockout — use recovery instead.
 - **Login** — passkey only: `POST /v1/auth/passkey/login/{options,verify}` → full session.
 - **Civic device key** — after login, `POST /v1/civic/devices` (public key only), `GET /v1/civic/devices`,
   `POST /v1/civic/devices/revoke`. Separate from login passkeys; signs public-record actions on-device.
@@ -152,6 +156,11 @@ npm run cli -w @oursay/api -- list-sessions <userId>
 npm run cli -w @oursay/api -- expire-sessions <userId>
 npm run cli -w @oursay/api -- create-user "Jane" jane@example.com 1990-01-01
 ```
+
+> **Dev-only caveat:** `send-test-otp … login` calls the OTP service directly, so it **bypasses the
+> trusted-device enable-window gate** that the HTTP/login service enforces. It is a local convenience
+> for reading a code off the dev mailer, **not** production behavior — a real new device only gets a
+> login code after `enable-login` (or `POST /v1/auth/login/enable`) opens the window.
 
 ## Configuration
 

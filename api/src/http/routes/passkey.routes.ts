@@ -7,6 +7,19 @@ import type { Services } from "../../container.js";
 import { setSessionCookie } from "../cookies.js";
 import { bearerSecurity, errorSchema, sessionSchema, webauthnJson } from "../schemas.js";
 
+// Public management view of an enrolled account-login passkey (no key material).
+const passkeySchema = {
+  type: "object",
+  properties: {
+    id: { type: "string", format: "uuid", description: "Stable id used to revoke this passkey." },
+    label: { type: "string", nullable: true, description: "Optional human label, e.g. \"Alice's laptop\"." },
+    transports: { type: "string", nullable: true, description: "CSV of authenticator transports." },
+    createdAt: { type: "string", format: "date-time" },
+    lastUsedAt: { type: "string", format: "date-time", nullable: true },
+  },
+  required: ["id", "label", "transports", "createdAt", "lastUsedAt"],
+} as const;
+
 export function registerPasskeyRoutes(app: FastifyInstance, services: Services): void {
   // ── registration (authenticated) ─────────────────────────────────────────
   app.post(
@@ -63,6 +76,56 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
         label: body.label ?? null,
       });
       reply.status(201).send(result);
+    },
+  );
+
+  // ── device management (authenticated, full session) ───────────────────────
+  app.get(
+    "/v1/auth/passkeys",
+    {
+      preHandler: app.requireFullScope,
+      schema: {
+        tags: ["passkey"],
+        summary: "List the caller's enrolled account-login passkeys (devices)",
+        security: bearerSecurity,
+        response: {
+          200: {
+            type: "object",
+            properties: { passkeys: { type: "array", items: passkeySchema } },
+            required: ["passkeys"],
+          },
+          401: errorSchema,
+          403: errorSchema,
+        },
+      },
+    },
+    async (req) => {
+      const passkeys = await services.passkeyService.list(req.user!.userId);
+      return { passkeys };
+    },
+  );
+
+  app.post(
+    "/v1/auth/passkey/revoke",
+    {
+      preHandler: app.requireFullScope,
+      schema: {
+        tags: ["passkey"],
+        summary: "Remove one of the caller's passkeys (kick a compromised/retired device)",
+        security: bearerSecurity,
+        body: {
+          type: "object",
+          properties: { id: { type: "string", format: "uuid" } },
+          required: ["id"],
+          additionalProperties: false,
+        },
+        response: { 204: { type: "null" }, 400: errorSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.body as { id: string };
+      await services.passkeyService.revoke({ userId: req.user!.userId, id });
+      reply.status(204).send();
     },
   );
 

@@ -39,6 +39,15 @@ export interface PasskeyLoginResult {
   session: IssuedSession;
 }
 
+/** Public view of an enrolled account-login passkey. No key material — just management metadata. */
+export interface PasskeyView {
+  id: string;
+  label: string | null;
+  transports: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 export class PasskeyService {
   private readonly now: Now;
   private readonly rp: RelyingParty;
@@ -112,6 +121,34 @@ export class PasskeyService {
       label: input.label ?? null,
     });
     return { credentialId: credential.id };
+  }
+
+  // ── device management (authenticated, full session) ──────────────────────
+
+  /** List the caller's enrolled account-login passkeys (one per device). Metadata only. */
+  async list(userId: string): Promise<PasskeyView[]> {
+    const creds = await this.d.passkeyRepo.listByUserId(userId);
+    return creds.map((c) => ({
+      id: c.id,
+      label: c.label,
+      transports: c.transports,
+      createdAt: c.createdAt,
+      lastUsedAt: c.lastUsedAt,
+    }));
+  }
+
+  /** Remove one of the caller's OWN passkeys ("kick a compromised/retired device"). 404 when it isn't
+   *  theirs (no cross-account info). Refuses to remove the LAST passkey — that would lock the account
+   *  out of normal login; the user must use recovery instead. */
+  async revoke(input: { userId: string; id: string }): Promise<void> {
+    const creds = await this.d.passkeyRepo.listByUserId(input.userId);
+    if (!creds.some((c) => c.id === input.id)) {
+      throw new ServiceError("not_found", "No such passkey for this account");
+    }
+    if (creds.length <= 1) {
+      throw new ServiceError("forbidden", "Cannot remove your last passkey; use recovery to reset access");
+    }
+    await this.d.passkeyRepo.deleteByIdForUser(input.userId, input.id);
   }
 
   // ── login (passkey-only, no email password) ──────────────────────────────

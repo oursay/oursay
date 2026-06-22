@@ -97,3 +97,72 @@ describe("03 passkey: enroll, login, failures", () => {
     );
   });
 });
+
+describe("03b passkey management: list + revoke (kick a device)", () => {
+  let w: World;
+  beforeEach(async () => {
+    w = await resetWorld();
+  });
+
+  const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+  /** Enroll one passkey from a fresh authenticator and return its stored uuid `id`. */
+  async function enroll(userId: string): Promise<string> {
+    const auth = newAuthenticator();
+    const opts = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
+    const reg = await w.services.passkeyService.registerVerify({ userId, response: auth.register(opts.challenge) });
+    const stored = await w.services.repos.passkey.getByCredentialId(reg.credentialId);
+    return stored!.id;
+  }
+
+  it("lists the caller's passkeys and revokes one (keeping the rest)", async () => {
+    const userId = await makeUser(w, "@manage");
+    await enroll(userId);
+    const idB = await enroll(userId);
+    const token = (await w.services.authService.issue(userId, "full", "test")).token;
+
+    const list = await w.app.inject({ method: "GET", url: "/v1/auth/passkeys", headers: bearer(token) });
+    expect(list.statusCode).to.equal(200);
+    expect((list.json() as { passkeys: unknown[] }).passkeys).to.have.length(2);
+
+    const revoke = await w.app.inject({ method: "POST", url: "/v1/auth/passkey/revoke", headers: bearer(token), payload: { id: idB } });
+    expect(revoke.statusCode).to.equal(204);
+    expect(await w.services.repos.passkey.listByUserId(userId)).to.have.length(1);
+  });
+
+  it("refuses to remove the LAST passkey (avoid lockout) → 403", async () => {
+    const userId = await makeUser(w, "@lastkey");
+    const id = await enroll(userId);
+    const token = (await w.services.authService.issue(userId, "full", "test")).token;
+
+    const res = await w.app.inject({ method: "POST", url: "/v1/auth/passkey/revoke", headers: bearer(token), payload: { id } });
+    expect(res.statusCode).to.equal(403);
+    expect(await w.services.repos.passkey.listByUserId(userId)).to.have.length(1);
+  });
+
+  it("cannot revoke another user's passkey → 404 (owner-scoped)", async () => {
+    const owner = await makeUser(w, "@owner");
+    await enroll(owner);
+    const targetId = await enroll(owner); // owner has 2 so the guard isn't what trips
+
+    const other = await makeUser(w, "@other");
+    await enroll(other);
+    const otherToken = (await w.services.authService.issue(other, "full", "test")).token;
+
+    const res = await w.app.inject({ method: "POST", url: "/v1/auth/passkey/revoke", headers: bearer(otherToken), payload: { id: targetId } });
+    expect(res.statusCode).to.equal(404);
+    expect(await w.services.repos.passkey.listByUserId(owner)).to.have.length(2);
+  });
+
+  it("requires a full session (recovery scope cannot manage devices) and a session at all", async () => {
+    const userId = await makeUser(w, "@scoped");
+    await enroll(userId);
+    const recovery = (await w.services.authService.issue(userId, "recovery", "test")).token;
+
+    const limited = await w.app.inject({ method: "GET", url: "/v1/auth/passkeys", headers: bearer(recovery) });
+    expect(limited.statusCode).to.equal(403);
+
+    const anon = await w.app.inject({ method: "GET", url: "/v1/auth/passkeys" });
+    expect(anon.statusCode).to.equal(401);
+  });
+});

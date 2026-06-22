@@ -1,7 +1,7 @@
 // Session auth for HTTP: resolve an opaque token from the Authorization: Bearer header OR the session
 // cookie into an active session, and attach it as request.user. Two preHandlers are exposed on the
-// instance: `authenticate` (any active session) and `requireFullScope` (rejects recovery-scoped
-// sessions from full actions). Both delegate to AuthService — no session logic lives in HTTP.
+// instance: `authenticate` (any active session) and `requireFullScope` (rejects the limited
+// recovery/login scopes from full actions). Both delegate to AuthService — no session logic lives in HTTP.
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { sessionConfig } from "../config.js";
@@ -44,7 +44,7 @@ export function registerAuth(app: FastifyInstance, services: Services): void {
   app.decorate("requireFullScope", async (req: FastifyRequest, reply: FastifyReply) => {
     await app.authenticate(req, reply);
     if (req.user!.scope !== "full") {
-      throw new ServiceError("forbidden", "This action requires a full session (recovery sessions cannot perform it)");
+      throw new ServiceError("forbidden", "This action requires a full session (limited recovery/login sessions cannot perform it)");
     }
   });
 }
