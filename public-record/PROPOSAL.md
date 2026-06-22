@@ -52,7 +52,7 @@ Build the smallest, well-tested library that lets the rest of OurSay:
    keeping **raw content and PII in a mutable Postgres store** (R4–R6; Philosophy §5; FINDINGS §1).
 3. Let the public **fully audit** the record offline against an **externally-anchored root**
    (R12–R16; FINDINGS §4–§8).
-4. Support **per-thread keys** (HKDF-derived on-device from a level master, P-256-signed) that the
+4. Support **per-thread keys** (HKDF-derived on-device from a jurisdiction master, P-256-signed) that the
    platform can verify belong to a real user via a **private registration binding** **without
    exposing the user**, that the user can later claim or disclaim, and that the user can
    **selectively reveal** per thread (R2, R3, R7–R11; supersedes `turnkey-test`).
@@ -94,7 +94,7 @@ public-record/
 │   ├── private/                # THE PRIVATE, MUTABLE STORE (postgres)
 │   │   └── store.ts            # PrivateStore: content, PII, keys, KYC, redact()/erase()
 │   ├── identity/               # per-thread keys, bindings & reveal (supersedes turnkey-test)
-│   │   ├── derivation.ts       # on-device HKDF per-thread derivation from a level master
+│   │   ├── derivation.ts       # on-device HKDF per-thread derivation from a jurisdiction master
 │   │   └── binding.ts          # private registration binding + verify + selective reveal + claim
 │   ├── anchor/
 │   │   ├── anchor.ts           # build the anchor record; AnchorTarget interface
@@ -150,8 +150,8 @@ schema** (§5.1) for keys/KYC/anchoring, and the **identity** module (§6).
         ───────────────────────────                   ───────────────────────────
  append ─► post:<id>     → { …, contentHash }   <-->   raw_content(id, salt, content, redacted_at, erased_at)
           petition:<id>  → { …, contentHash }          users(id, …)            ← PII
-          comment:<id>   → { …, contentHash }          level_master_keys(user_id, level, master_pubkey, …)
-          vote:<id>      → { …, contentHash }          thread_keys(user_id, thread_id, level, pubkey, claimed)
+          comment:<id>   → { …, contentHash }          jurisdiction_master_keys(user_id, jurisdiction, master_pubkey, …)
+          vote:<id>      → { …, contentHash }          thread_keys(user_id, thread_id, jurisdiction, pubkey, claimed)
           reaction:<id>  → { …, contentHash }          thread_bindings(thread_pubkey, …, commitment, salt_t_enc) ← private
                  │                                      kyc_attestations(user_id, provider, tier, sig, …)
                  │                                      sponsorships(…)
@@ -169,7 +169,7 @@ Two stores, one boundary, enforced by Philosophy §5:
   content plus public metadata (type, id, parent thread, public signing key ref, timestamp,
   `contentHash`). **Never** plaintext, **never** PII. Append-only is a feature here.
 - **Postgres (private store)** holds everything mutable and sensitive: raw content + salt,
-  user PII, level-scoped master pubkeys, per-thread keys, the **private thread bindings**
+  user PII, jurisdiction-scoped master pubkeys, per-thread keys, the **private thread bindings**
   (with the opaque commitment and its encrypted `salt_t`), KYC attestations, sponsorships, and the
   **settlement pool** (`record_outbox`). Block/anchor bookkeeping is NOT mirrored here — the
   canonical block tip lives on immudb (`record_blocks`). Mutable so `redact()`/`erase()` are real.
@@ -299,29 +299,32 @@ defense-in-depth; the anchor is the foundation.
 
 DDL lives in `src/schema/postgres.sql.ts`. The `immudb-test` tables (`users`, `keys`,
 `raw_content`) are the seed; this proposal expands them to cover per-thread keys, the
-**level-scoped master + private per-thread binding** model (§6), KYC attestations, sponsorships,
+**jurisdiction-scoped master + private per-thread binding** model (§6), KYC attestations, sponsorships,
 and local anchor bookkeeping.
 
 ```sql
 -- Users (PII). Minimal here; KYC details normalized out.
 CREATE TABLE users (
-  id          UUID PRIMARY KEY,
-  handle      TEXT,                        -- optional public display name
-  email_enc   BYTEA,                       -- encrypted at rest
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+  id           UUID PRIMARY KEY,
+  handle       TEXT UNIQUE,                -- optional, unique @username (public profile only); no spaces
+  display_name TEXT,                       -- optional public display text; defaults to handle without its '@'
+  email_enc    BYTEA,                      -- encrypted at rest
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Level-scoped master public keys. ONE master per governmental level (municipal, provincial,
--- federal, …) so activity in one level cannot be linked to another (compartmentalization;
--- privacy review §3a). Per-thread keys are HKDF-derived on-device from the matching level master;
--- the platform stores only the PUBLIC master, never private/derivation material. Custody is the
--- user's device/passkey; Turnkey is an OPTIONAL recovery path only (VALUES §3).
-CREATE TABLE level_master_keys (
+-- Jurisdiction-scoped master public keys. ONE master per jurisdiction (e.g. 'ab-ca-gov',
+-- 'ca-gov') so activity in one jurisdiction cannot be linked to another (compartmentalization;
+-- privacy review §3a). Governmental level is only a PROPERTY of a jurisdiction, never the partition
+-- key — two same-level jurisdictions get distinct masters. Per-thread keys are HKDF-derived on-device
+-- from the matching jurisdiction master; the platform stores only the PUBLIC master, never
+-- private/derivation material. Custody is the user's device/passkey; Turnkey is an OPTIONAL recovery
+-- path only (VALUES §3).
+CREATE TABLE jurisdiction_master_keys (
   user_id       UUID NOT NULL REFERENCES users(id),
-  level         TEXT NOT NULL,             -- governmental level, e.g. 'municipal' | 'provincial' | 'federal'
-  master_pubkey TEXT NOT NULL,             -- public level master (P-256); root for on-device HKDF derivation
+  jurisdiction  TEXT NOT NULL,             -- jurisdiction id, e.g. 'ab-ca-gov' | 'ca-gov'
+  master_pubkey TEXT NOT NULL,             -- public jurisdiction master (P-256); root for on-device HKDF derivation
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (user_id, level)
+  PRIMARY KEY (user_id, jurisdiction)
 );
 
 -- Per-thread derived keys. The public key is how a thread action is signed (P-256);
@@ -331,7 +334,7 @@ CREATE TABLE thread_keys (
   id            UUID PRIMARY KEY,
   user_id       UUID NOT NULL REFERENCES users(id),
   thread_id     TEXT NOT NULL,             -- content thread this key is scoped to
-  level         TEXT NOT NULL,             -- governmental level this thread belongs to
+  jurisdiction  TEXT NOT NULL,             -- jurisdiction this thread belongs to
   pubkey        TEXT NOT NULL,             -- public; appears in the envelope as the author ref
   claimed       BOOLEAN NOT NULL DEFAULT false,  -- user has publicly claimed this thread (R8)
   claimed_at    TIMESTAMPTZ,              -- nullable; claim may be undone (R9)
@@ -345,10 +348,9 @@ CREATE INDEX ON thread_keys (pubkey);
 CREATE TABLE thread_bindings (
   thread_pubkey TEXT PRIMARY KEY REFERENCES thread_keys(pubkey),
   thread_id     TEXT NOT NULL,
-  level         TEXT NOT NULL,
+  jurisdiction  TEXT NOT NULL,
   kyc_tier      TEXT NOT NULL,             -- tier at registration (identity/residency/official/electoral)
-  region        TEXT,                      -- region metadata at registration
-  commitment    BYTEA NOT NULL,            -- opaque H(user_id, salt_t, thread_id, level)
+  commitment    BYTEA NOT NULL,            -- opaque H(user_id, salt_t, thread_id, jurisdiction)
   salt_t_enc    BYTEA NOT NULL,            -- per-thread salt, client-generated, encrypted at rest; opened only on reveal
   binding_sig   BYTEA NOT NULL,            -- platform signature over the fields above (verifiable vs published platform key)
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -370,7 +372,7 @@ CREATE TABLE kyc_attestations (
   user_id         UUID NOT NULL REFERENCES users(id),
   provider        TEXT NOT NULL,           -- e.g. 'equifax-connect'
   tier            TEXT NOT NULL,           -- maps to verification tier (spec §4)
-  region          TEXT,                    -- jurisdiction context
+  region          TEXT,                    -- generic geographic shape for filtered retrieval (R25); not the jurisdiction id
   attestation_sig BYTEA,                   -- provider signature, where available (future: stronger trust)
   attested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at      TIMESTAMPTZ
@@ -397,7 +399,7 @@ CREATE TABLE sponsorships (
 `PrivateStore` exposes typed methods over these: `appendTxAndEnqueue` (pool a tx), the settlement
 pool reads (`getPendingForSettlement`, `getPendingPoolStats`, `markOutboxSentBatch`), `redact`,
 `erase` (promoted from `immudb-test`), plus `putUser`/`putThreadKey` and the fold-on-read queries;
-identity/KYC/sponsorship methods (`putLevelMaster`, `registerThreadBinding`, `putAttestation`,
+identity/KYC/sponsorship methods (`putJurisdictionMaster`, `registerThreadBinding`, `putAttestation`,
 `putSponsorship`) are forward-looking. Encryption of `thread_bindings.salt_t_enc`/`email_enc` uses a
 KMS-managed key (Values §9: the key is never committed; see §8 open question on key management).
 
@@ -477,20 +479,21 @@ authorizes it (R11).
 > The earlier `turnkey-test` spike explored BIP32/xpub derivation with remote Turnkey custody.
 > That model was **not adopted** — see [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md).
 > The decisive problem: ownership proof via **xpub** is all-or-nothing — sharing one xpub exposes
-> **every** thread under it (a level-scoped xpub only limits the blast radius to a whole level,
-> never to an individual thread). A civic record needs **per-thread** selective disclosure.
+> **every** thread under it (a jurisdiction-scoped xpub only limits the blast radius to a whole
+> jurisdiction, never to an individual thread). A civic record needs **per-thread** selective disclosure.
 
 ### Keys and custody
 
 - **Passkeys** handle **account authentication** (WebAuthn), and optionally — via PRF / secure
   device storage — **unlock** the user's derivation material. A passkey does **not** sign each
   civic action and does **not** itself contain the derivation secret.
-- Each user holds a **level-scoped master key per governmental level** (municipal, provincial,
-  federal, …). Separate masters are the **structural compartmentalization** mechanism (privacy
-  review §3a): activity under one level cannot be linked to another.
-- **Per-thread keys** are derived **deterministically on-device** from the matching level master
-  via **HKDF** (domain-separated by `thread_id` + `level`) — not BIP32 paths. The platform stores
-  only the **public** master (`level_master_keys`) and the **public** thread key
+- Each user holds a **jurisdiction-scoped master key per jurisdiction** (e.g. `ab-ca-gov`,
+  `ca-gov`; governmental level is only a property of a jurisdiction). Separate masters are the
+  **structural compartmentalization** mechanism (privacy review §3a): activity under one jurisdiction
+  cannot be linked to another — including two jurisdictions at the same governmental level.
+- **Per-thread keys** are derived **deterministically on-device** from the matching jurisdiction master
+  via **HKDF** (domain-separated by `thread_id` + `jurisdiction`) — not BIP32 paths. The platform stores
+  only the **public** master (`jurisdiction_master_keys`) and the **public** thread key
   (`thread_keys.pubkey`); never private or derivation material.
 - Each action's envelope is signed by the **HKDF-derived per-thread key** using **P-256** (the one
   canonical envelope algorithm). Turnkey, if used at all, is an **optional recovery** path only.
@@ -504,8 +507,8 @@ Authorship, linkage, and the published set are three **separate** proofs:
 2. **Platform registration binding** — proves the *platform linked that thread key to one account
    commitment* at registration time (required before any verified-tier append). The binding is
    **private** and signed by the platform over
-   `thread_pubkey, thread_id, level, kyc_tier, region, commitment`, where the per-thread
-   **commitment** is `H(user_id, salt_t, thread_id, level)`. `salt_t` is **unique per thread,
+   `thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment`, where the per-thread
+   **commitment** is `H(user_id, salt_t, thread_id, jurisdiction)`. `salt_t` is **unique per thread,
    client-generated at registration, stored encrypted at rest, and never published** until a
    reveal. The commitment is **opaque** and lives **only in this private binding** — it is **not**
    on the public envelope.
@@ -523,15 +526,15 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
 **Implemented** (promoted from `passkey-test`; suites `10-identity-crypto`, `12-signed-append`,
 `13-signed-ops`, `14-device-signing`):
 
-- **`derive.ts`** — `deriveThreadKey({ levelMaster, threadId, level })` / `deriveThreadPrivateKey`
-  / `threadDomainInfo`: on-device HKDF→P-256 derivation, domain-separated by `(thread_id, level)`,
+- **`derive.ts`** — `deriveThreadKey({ jurisdictionMaster, threadId, jurisdiction })` / `deriveThreadPrivateKey`
+  / `threadDomainInfo`: on-device HKDF→P-256 derivation, domain-separated by `(thread_id, jurisdiction)`,
   with a pinned scalar mapping. No private material leaves the device. Produces the **thread persona**
   `Pₜ` — the stable public `authorPubkey` on the record.
 - **`envelope.ts`** — `signEnvelope(env, privKey)` / `verifyEnvelope(env)` (+ `UNSIGNED`,
   `signingDigest`): P-256 signing/verification over the **signing digest** (`signature=""`), with the
   leaf via the reused `txHashOf`. `verifyEnvelope` checks the signature against
   `signerPubkey ?? authorPubkey`.
-- **`device.ts`** — `deriveDeviceThreadSigner({ deviceRoot, threadId, level })` /
+- **`device.ts`** — `deriveDeviceThreadSigner({ deviceRoot, threadId, jurisdiction })` /
   `signEnvelopeWithDevice(env, deviceSignerPrivKey, personaPubkey)` (Method 3 §5.4). A user enrols
   several hardware-backed devices; each derives a **thread-scoped** signer per `(device, thread)` so
   the same device shows no cross-thread correlator (Method 5 ruled out). The envelope then carries
@@ -547,14 +550,14 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
   `thread_pubkey` is registered **without exposing which user**, and **re-verifies** the stored
   `binding_sig` (defense-in-depth).
 - `threadCommitment(...)` lives in **`crypto/commitment.js`** (the opaque
-  `H(user_id, salt_t, thread_id, level)`).
+  `H(user_id, salt_t, thread_id, jurisdiction)`).
 - The verified-tier gate is **`RecordService.appendSigned({ envelope, salt, content })`**, fed by
   **`prepareAppend(intent)`** (the server-derived fields the client must sign over). It covers
   **all civic ops**:
   - **2a — creates** (post/poll/petition + comment/reaction/vote/petition_signature): verifies the
     signature + binding + `contentHash`, content-model rules (shared `validateCreate`), thread-scope,
     parent-revision concurrency, and the **nullifier gate**. A **platform-attested nullifier**
-    (`H(level-secret, parentId)`, scoped to the **singleton parent** — poll/petition for vote/
+    (`H(jurisdiction-secret, parentId)`, scoped to the **singleton parent** — poll/petition for vote/
     signature, the immediate post/comment for a reaction) is the authoritative one-per-`(user,parent)`
     dedupe — minted + signed on the **create** only; tallies dedupe by nullifier.
   - **2b — updates/deletes** (edits, vote-change, signature-revoke, deletes): shared
@@ -574,7 +577,7 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
   than `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120; `0` disables) or more than the allowed future skew
   ahead of the server clock — using the already-signed `createdAt` (no schema/wire change; clients set
   it at sign time). The clock is injectable for tests.
-- The platform stores only the **public** master (`level_master_keys`), the **public** thread key
+- The platform stores only the **public** master (`jurisdiction_master_keys`), the **public** thread key
   (`thread_keys.pubkey`), and the private `thread_bindings` / `nullifier_attestations`.
 - The **unsigned dev path** (`create/update/delete/react/vote`) is retained for dev/seeds and now
   shares the same `validateCreate`/`validateUpdate`/`validateDelete` validators.
@@ -582,7 +585,7 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
 **Still future (NOT implemented):**
 
 - *Selective reveal (R11):* `revealThread(thread_pubkey)` — publish the opening
-  `(user_id, salt_t, thread_id, level)` + binding for chosen threads so an independent org recomputes
+  `(user_id, salt_t, thread_id, jurisdiction)` + binding for chosen threads so an independent org recomputes
   the commitment and binds it to identity via its own KYC.
 - *Claim / unclaim (R8, R9):* flip `thread_keys.claimed` (+ optional public claim record) — the
   user-controlled pseudonymous-ownership channel, distinct from the reveal channel.
@@ -724,7 +727,7 @@ comment/reaction/vote/petition_signature) with the platform-attested per-`(user,
 the authoritative dedupe, and **2b updates/deletes** (edits, vote-change, signature-revoke, deletes)
 with cryptographic author-match, optimistic concurrency, and nullifier carry-forward; shared
 `validateCreate`/`validateUpdate`/`validateDelete` used by both signed + unsigned paths. Schema
-(`level_master_keys`, `thread_keys`, `thread_bindings`, `nullifier_attestations`, `kyc_attestations`
+(`jurisdiction_master_keys`, `thread_keys`, `thread_bindings`, `nullifier_attestations`, `kyc_attestations`
 stub, `record_tx.nullifier`). Suites `10-identity-crypto`, `12-signed-append`, `13-signed-ops`.
 **Remaining:** the HTTP API (`@oursay/api`), passkey **sessions** + registration UX, full **KYC**
 provider, **claim/unclaim** (R8/R9), **selective reveal** / **user-signed bindings** (R11), at-rest

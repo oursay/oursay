@@ -103,9 +103,10 @@ attached to a write (verified, resident of riding X) is where the KYC trust ente
    single operator (including us) is the sole authority.
 4. **User-authorized identity disclosure** — a resident may prove their own record to an independent
    organization (which does its own KYC) by **selectively revealing specific threads** (opening the
-   per-thread binding for those threads only). This is **per-thread and level-scoped** via separate
-   level master keys (see [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md) §3a): a resident can prove
-   chosen threads to one body without exposing other threads or activity at other levels. A
+   per-thread binding for those threads only). This is **per-thread and jurisdiction-scoped** via
+   separate jurisdiction master keys (see [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md) §3a): a
+   resident can prove chosen threads to one body without exposing other threads or activity in other
+   jurisdictions. A
    **user-signed** binding makes this verifiable without platform cooperation.
 
 Until (1)–(4) land, OurSay is explicit that geographic attribution rests on the platform + provider,

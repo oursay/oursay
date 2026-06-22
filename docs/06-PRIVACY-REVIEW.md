@@ -19,7 +19,7 @@ Internal developer documentation; full technical vocabulary. Companion to
 | **Public** | The full **anonymized signed record** + the platform's signed attestation (audit anything); aggregate counts by area / tier; **complete copies** to keep for accountability. | Account/identity link, registration bindings, commitment openings, address, raw PII. |
 | **Media** | Everything the public gets, plus a read-only public API (post-launch) for dashboards and analysis. | Same as public. |
 | **Representatives** | Everything the public gets, **plus riding-filtered views** of comments/reactions for their area. | Account/identity link, binding openings, address mapping — **no per-user proof**. |
-| **Independent auditors** | Full record copies + verification tooling; KYC **attestation signatures** where a provider supports them; **per-thread, level-scoped** identity disclosure (binding openings for specific threads) **only with the user's authorization**. | Anything a user has not authorized; cross-thread / cross-level linkage. |
+| **Independent auditors** | Full record copies + verification tooling; KYC **attestation signatures** where a provider supports them; **per-thread, jurisdiction-scoped** identity disclosure (binding openings for specific threads) **only with the user's authorization**. | Anything a user has not authorized; cross-thread / cross-jurisdiction linkage. |
 
 Key point: there is **no "counts-only" tier** — the signed record is public to everyone. What
 differs by role is only **riding-filtered convenience views** (representatives) and **user-authorized
@@ -65,31 +65,34 @@ public exposure — we can reduce it and make the trade-off explicit.
   publishing precise riding data across levels; prefer the coarsest area that serves the purpose.
 - **Minimum-aggregation (k-anonymity) thresholds.** Do not render an area × tier breakdown until the
   bucket exceeds a minimum count, so small intersections can't isolate an individual.
-- **Limit cross-level correlation and query resolution.** Rate-limit and aggregate queries; cap how
-  finely results can be sliced by overlapping boundaries.
+- **Limit cross-jurisdiction correlation and query resolution.** Rate-limit and aggregate queries;
+  cap how finely results can be sliced by overlapping boundaries.
 - **Binding & commitment hygiene.** Store registration bindings and their per-thread salts
   (`salt_t`) **encrypted at rest**, **never publish** commitment openings, and disclose only with
-  explicit user authorization — and even then, **per-thread and level-scoped** (below). Policy
+  explicit user authorization — and even then, **per-thread and jurisdiction-scoped** (below). Policy
   detail: [`08-IDENTITY-AND-DEVICE-POLICY.md`](./08-IDENTITY-AND-DEVICE-POLICY.md) §4–5.
 
-### 3a. Per-governmental-level key compartmentalization
+### 3a. Per-jurisdiction key compartmentalization
 A structural mitigation, not just policy. Give each user a **separate master signing key per
-governmental level** — municipal, regional, provincial, federal, … Per-thread keys are derived
-**on-device via HKDF** from the matching level master; the levels share **no common parent the
-platform or anyone else holds**, so the masters are **mutually independent**. Possessing or opening
-material at one level reveals **nothing** about the others. (This replaces the earlier idea of
-hardened BIP32 branches off one master secret — separate masters are simpler and give a cleaner
-independence guarantee.)
+jurisdiction** — e.g. `ab-ca-gov`, `ca-gov`. Governmental level (municipal, provincial, federal, …)
+is only a **property** of a jurisdiction, never the partition key, so two jurisdictions at the **same
+level** (e.g. two provinces) still get **independent** masters. Per-thread keys are derived
+**on-device via HKDF** from the matching jurisdiction master; the jurisdictions share **no common
+parent the platform or anyone else holds**, so the masters are **mutually independent**. Possessing
+or opening material in one jurisdiction reveals **nothing** about the others. (This replaces the
+earlier idea of hardened BIP32 branches off one master secret — separate masters are simpler and give
+a cleaner independence guarantee.)
 
-- **Level-scoped, per-thread disclosure.** A resident proving their record to a federal body reveals
-  only **federal** threads they choose (binding openings for those threads) — exposing nothing at
-  the municipal/provincial levels, and nothing about their other federal threads.
+- **Jurisdiction-scoped, per-thread disclosure.** A resident proving their record to a federal body
+  reveals only the threads they choose in the relevant **federal** jurisdiction (binding openings for
+  those threads) — exposing nothing in their municipal/provincial jurisdictions, and nothing about
+  their other threads in that jurisdiction.
 - **Collusion-resistant.** Even if multiple governing bodies pool what they each legitimately hold,
-  they **cannot** link a user's activity across levels or reconstruct a single identity — there is
-  no cross-level key to correlate.
-- **Reduces triangulation.** A colluding set sees at most the **threads the user revealed at one
-  level**, which blocks the cross-level boundary-overlap attack described in §2.
-- **Honest limit (helps, not solves).** Threads the user *chooses* to reveal at a level are visible
+  they **cannot** link a user's activity across jurisdictions or reconstruct a single identity —
+  there is no cross-jurisdiction key to correlate.
+- **Reduces triangulation.** A colluding set sees at most the **threads the user revealed in one
+  jurisdiction**, which blocks the cross-boundary overlap attack described in §2.
+- **Honest limit (helps, not solves).** Threads the user *chooses* to reveal in a jurisdiction are visible
   **by design** (that is the point of revealing them), and fine-grained area exposure on those still
   carries residual risk. Compartmentalization must be combined with the §3 mitigations.
 

@@ -55,11 +55,11 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
   The type set MUST be **extensible by configuration**, not hardcoded — candidate future types:
   `discussion`, `bill`, `official_response`. _A starting point, not fixed._
 - **R1a [Invariant]** — **Governance is per-entity.** A `poll`/`petition` create transaction
-  sets its rules (`region`, `deadline`, `allowChange`/`allowRevoke`); a **platform-signed**
-  update may change them. A vote is **cast** and a signature is **signed FINAL by default**
-  (the real-world analog); changing a vote or revoking a signature MUST be **technically
-  possible** but permitted only when the entity's rules + deadline allow it (so a riding/region
-  can follow its own mechanism).
+  sets its rules (`appliesToDistrictIds`, `deadline`, `allowChange`/`allowRevoke`), which **layer
+  over the jurisdiction's defaults**; a **platform-signed** update may change them. A vote is
+  **cast** and a signature is **signed FINAL by default** (the real-world analog); changing a vote
+  or revoking a signature MUST be **technically possible** but permitted only when the entity's
+  rules + deadline allow it (so a district can follow its own mechanism).
 - **R1b [Invariant]** — **Dual attachment.** Every comment and reaction MUST record BOTH the
   parent **entity** (follows edits) and the exact parent **revision** (content-addressed
   txHash). The record MUST be able to count support per-entity AND per-revision, so an edit to a
@@ -67,15 +67,18 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 - **R2 [Invariant]** — Every entry appended to the public record MUST be **signed by a
   per-thread key** controlled by its author.
 - **R3 [Invariant]** — Per-thread keys MUST be **derived deterministically on the user's device**
-  via **domain-separated derivation (HKDF or equivalent)** from a **level-scoped master key** (one
-  master per governmental level), so a user (or an auditor the user authorizes) can reproduce and
-  prove them. Per-thread keys MUST sign envelopes with the single canonical algorithm (**P-256**,
-  passkey-native). Cross-device reproduction requires **recovery/sync of the level-master
-  material** — the passkey alone (which authenticates and may *unlock* derivation material) is not
-  sufficient. _Rationale: enables R7, R10, and R11 without the platform holding signing keys._
+  via **domain-separated derivation (HKDF or equivalent)** from a **jurisdiction-scoped master key**
+  (one master per jurisdiction — e.g. `ab-ca-gov`, `ca-gov`), so a user (or an auditor the user
+  authorizes) can reproduce and prove them. Per-thread keys MUST sign envelopes with the single
+  canonical algorithm (**P-256**, passkey-native). Cross-device reproduction requires
+  **recovery/sync of the jurisdiction-master material** — the passkey alone (which authenticates and
+  may *unlock* derivation material) is not sufficient. _Rationale: enables R7, R10, and R11 without
+  the platform holding signing keys._
   > **Pivot flag (normative change):** previously "derived from a single master secret." This
-  > invariant now mandates **level-scoped masters + on-device HKDF** (not BIP32 paths) as the
-  > structural compartmentalization mechanism. See [`PROPOSAL.md`](./PROPOSAL.md) §6.
+  > invariant now mandates **jurisdiction-scoped masters + on-device HKDF** (not BIP32 paths) as the
+  > structural compartmentalization mechanism. (Upgraded from the earlier **level-scoped** wording:
+  > the partition key is the **jurisdiction**, of which governmental level is now only a property —
+  > two same-level jurisdictions must not share a master.) See [`PROPOSAL.md`](./PROPOSAL.md) §6.
 
 ## 3. Data model & confidentiality
 
@@ -91,7 +94,7 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 ## 4. Anonymity & identity
 
 > **Identity-model pivot (2026).** This section's invariants were updated when OurSay moved its
-> identity backbone from **BIP32/xpub + remote Turnkey custody** to **passkey auth + level-scoped
+> identity backbone from **BIP32/xpub + remote Turnkey custody** to **passkey auth + jurisdiction-scoped
 > masters + on-device HKDF per-thread keys (P-256) + private per-thread platform bindings +
 > selective reveal**. The normative changes are flagged inline at **R3** (derivation), **R7**
 > (ownership mechanism), and **R11** (selective reveal vs xpub sharing). The pseudonymous
@@ -103,8 +106,8 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 - **R7 [Invariant]** — The platform MUST be able to verify that a per-thread key belongs to a
   **verified user, without exposing which user** in the public record. This is established by a
   **private platform registration binding** created before any verified-tier append: the platform
-  signs a binding committing to `thread_pubkey, thread_id, level, kyc_tier, region` and an **opaque
-  per-thread commitment** `H(user_id, salt_t, thread_id, level)`. The commitment is held in the
+  signs a binding committing to `thread_pubkey, thread_id, jurisdiction, kyc_tier` and an **opaque
+  per-thread commitment** `H(user_id, salt_t, thread_id, jurisdiction)`. The commitment is held in the
   private binding and surfaced only — opaquely — in the platform's **settlement attestation
   metadata** (referenced by `thread_pubkey`); the public envelope carries `thread_pubkey` only, and
   the opening (`user_id`, `salt_t`) stays private until selective reveal (R11).
@@ -117,7 +120,7 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
   **self-audit** it against the public record at any time.
 - **R11 [Future]** — A user MUST be able to authorize an **independent organization** to verify
   their thread activity by **selectively revealing specific threads** — publishing the opening
-  `(user_id, salt_t, thread_id, level)` plus the platform binding **for those threads only**, never
+  `(user_id, salt_t, thread_id, jurisdiction)` plus the platform binding **for those threads only**, never
   a single key that exposes all activity at a scope. The organization recomputes the commitment,
   confirms the platform's binding signature, and is responsible for binding the identity to the
   user's real-world identity (its own KYC). _MVP must remain compatible; full realization is
@@ -224,9 +227,9 @@ original assertions._
   metadata only; a **mutable Postgres store** holds raw content, salts, and PII. This split is
   what makes both auditability (R4, R12) and redaction/erasure (R17–R19) possible at once. See
   [`../immudb-test/FINDINGS.md`](../immudb-test/FINDINGS.md).
-- **Per-thread keys.** Users hold a **level-scoped master key per governmental level**; per-thread
-  keys are derived **on-device via HKDF** from the matching level master (R3) and sign envelopes
-  with **P-256**. The platform links a thread key to a verified user through a **private
+- **Per-thread keys.** Users hold a **jurisdiction-scoped master key per jurisdiction** (governmental
+  level is a property of the jurisdiction, not the partition key); per-thread keys are derived
+  **on-device via HKDF** from the matching jurisdiction master (R3) and sign envelopes with **P-256**. The platform links a thread key to a verified user through a **private
   registration binding** carrying an **opaque per-thread commitment** — this binding, its `salt_t`,
   and any commitment opening are PII, **encrypted at rest, never published** until the user
   authorizes a **selective reveal** of specific threads (R11). Custody is the user's device/passkey;
@@ -261,7 +264,7 @@ Where each requirement is addressed in the design. Sections refer to
 |---|---|
 | R1 record types (post/petition/comment/vote/reaction) | §3 (append flow), §5.3 (envelope `RecordType`) |
 | R2 per-thread signing | **Implemented (full write path):** `identity/envelope.ts` (`signEnvelope`/`verifyEnvelope`, P-256) + `RecordService.prepareAppend`/`appendSigned` over all civic ops — creates (2a) and updates/deletes (2b, cryptographic author-match + optimistic concurrency); suites 10/12/13. The unsigned dev path is retained for dev/seeds. |
-| R3 deterministic derivation | **Implemented (slice):** `identity/derive.ts` (on-device HKDF from a level master → P-256); suite 10 |
+| R3 deterministic derivation | **Implemented (slice):** `identity/derive.ts` (on-device HKDF from a jurisdiction master → P-256); suite 10 |
 | R4 commitments-only ledger | §3, §5.2, §5.3; Philosophy §5 |
 | R5 hiding (salted) commitments | §3 (append flow), §5.1 (`raw_content.salt`); Values §6 |
 | R6 mutable private store | §5.1; Philosophy §5 |

@@ -56,7 +56,7 @@ and the code must keep them as distinct properties.
 
 - A user acts through a **per-thread key** so their separate actions are not trivially
   linkable. The platform can verify a per-thread key belongs to a real, verified user
-  **without exposing which user** (keys are HKDF-derived on-device from a level master; the
+  **without exposing which user** (keys are HKDF-derived on-device from a jurisdiction master; the
   linking material is PII held privately, not on the record).
 - Material that links a user's actions together (the platform's per-thread **registration
   bindings** and **commitment openings** — `user_id`, `salt_t`) is **PII, encrypted at rest**,

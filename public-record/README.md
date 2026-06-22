@@ -14,7 +14,7 @@ targets publish those blocks on their own cadence.
 > verifiability (testnet during development, production targets later).
 >
 > **Identity (implemented — full verified write path):** real **per-thread P-256 signing** is wired
-> for **every civic op**. A client derives a per-thread key (HKDF from a level master), runs
+> for **every civic op**. A client derives a per-thread key (HKDF from a jurisdiction master), runs
 > `prepareAppend` for the server-derived fields, signs a canonical `TxEnvelope`, and
 > `RecordService.appendSigned` verifies the signature, the private platform **registration binding**
 > (opaque per-thread commitment, `binding_sig` re-verified), the content-model rules, thread-scope,
