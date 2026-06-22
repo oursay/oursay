@@ -234,7 +234,7 @@ Each waitlist entry displays: the user's display name (or "Anonymous"), time on 
 
 ### 6.0 Canonical Vocabulary
 
-These four terms have exact, non-overlapping meanings throughout the codebase, schema, and docs. Do not use them interchangeably.
+These four terms have exact, non-overlapping meanings throughout the codebase, schema, and docs. Do not use them interchangeably. The **single source of truth** is [`GLOSSARY.md`](GLOSSARY.md) (which also lists superseded terms and the user/account vocabulary); the summary below is repeated here for the geographic-area context.
 
 - **Jurisdiction** — the primary partition of civic identity and rules. A jurisdiction (e.g. `ab-ca-gov`, `ca-gov`) is **one chain + one rule set + one governmental level**, and is **1:1 with a chain** (the append-only ledger mechanism keeps the word "chain" only where physically accurate). A user may belong to **multiple jurisdictions**. Cryptographic identity (persona master, nullifier/dedupe root) and gating rules (expiry, censoring, change/revoke) are partitioned **per jurisdiction**.
 - **Level** — a **property of a jurisdiction**: its governmental tier (`federal`, `provincial`, `municipal`, `state`, …). Level is descriptive metadata, **never** a partition key on its own.

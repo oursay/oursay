@@ -7,6 +7,9 @@
 > workspace stays intact as the evaluation record (per `docs/PHILOSOPHY.md` §2.2). Note: the library's
 > envelope `signature`/`txHash` vectors differ from this spike's by design — production binds
 > `contentHash` to `txId` (see `public-record/test/fixtures/identity-vectors.ts`).
+>
+> **Old terminology:** this spike predates the jurisdiction vocabulary and still uses `level`/`region`;
+> the promoted library uses `jurisdiction` (level is now a property of it). See [`docs/GLOSSARY.md`](../docs/GLOSSARY.md) for the current, canonical terms.
 
 Evaluation spike for OurSay's **web identity path** — the browser realization of
 `public-record/PROPOSAL.md` §6. It answers four questions with tests/evidence and records them in
