@@ -40,9 +40,9 @@ describe("01 dev-connector: simulated passkey (env-guarded, deterministic, wipea
     const sa = await a.unlock({ userId: "u1", deviceId: "d1" });
     const sb = await b.unlock({ userId: "u1", deviceId: "d1" });
     expect(bytesToHex(sa.deviceRoot)).to.equal(bytesToHex(sb.deviceRoot));
-    expect(bytesToHex(sa.levelMaster("federal"))).to.equal(bytesToHex(sb.levelMaster("federal")));
-    expect(bytesToHex(sa.nullifierRoot("federal"))).to.equal(bytesToHex(sb.nullifierRoot("federal")));
-    expect(bytesToHex(sa.levelMaster("provincial"))).to.not.equal(bytesToHex(sa.levelMaster("federal")));
+    expect(bytesToHex(sa.jurisdictionMaster("ab-ca-gov"))).to.equal(bytesToHex(sb.jurisdictionMaster("ab-ca-gov")));
+    expect(bytesToHex(sa.nullifierRoot("ab-ca-gov"))).to.equal(bytesToHex(sb.nullifierRoot("ab-ca-gov")));
+    expect(bytesToHex(sa.jurisdictionMaster("ca-gov"))).to.not.equal(bytesToHex(sa.jurisdictionMaster("ab-ca-gov")));
   });
 
   it("two devices of one user share user-level secrets but differ at the device root", async () => {
@@ -53,8 +53,8 @@ describe("01 dev-connector: simulated passkey (env-guarded, deterministic, wipea
     const s2 = await c.unlock({ userId: "u1", deviceId: "d2" });
     expect(bytesToHex(s1.deviceRoot)).to.not.equal(bytesToHex(s2.deviceRoot));
     expect(s1.devicePubkey).to.not.equal(s2.devicePubkey);
-    expect(bytesToHex(s1.levelMaster("federal"))).to.equal(bytesToHex(s2.levelMaster("federal")));
-    expect(bytesToHex(s1.nullifierRoot("federal"))).to.equal(bytesToHex(s2.nullifierRoot("federal")));
+    expect(bytesToHex(s1.jurisdictionMaster("ab-ca-gov"))).to.equal(bytesToHex(s2.jurisdictionMaster("ab-ca-gov")));
+    expect(bytesToHex(s1.nullifierRoot("ab-ca-gov"))).to.equal(bytesToHex(s2.nullifierRoot("ab-ca-gov")));
   });
 
   it("persists custody so a fresh connector instance can unlock", async () => {

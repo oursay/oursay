@@ -6,6 +6,7 @@ import { buildServices } from "../container.js";
 import { Db } from "../db.js";
 import { normalizeAddress } from "../helpers/address.js";
 import { normalizeEmail } from "../helpers/email.js";
+import { isValidHandle, normalizeHandle } from "../helpers/handle.js";
 
 type Handler = (services: Awaited<ReturnType<typeof buildServices>>, args: string[]) => Promise<void>;
 
@@ -37,19 +38,22 @@ const COMMANDS: Record<string, { help: string; run: Handler }> = {
     },
   },
   "create-user": {
-    help: "create-user <displayName> <email> <birthdate YYYY-MM-DD>  — dev shortcut (no OTP)",
-    run: async (s, [displayName, email, birthdate]) => {
-      if (!displayName || !email || !birthdate) throw new Error("displayName, email, birthdate are required");
+    help: "create-user <handle> <email> <birthdate YYYY-MM-DD>  — dev shortcut (no OTP)",
+    run: async (s, [handleArg, email, birthdate]) => {
+      if (!handleArg || !email || !birthdate) throw new Error("handle, email, birthdate are required");
+      const handle = normalizeHandle(handleArg);
+      if (!handle || !isValidHandle(handle)) throw new Error("handle must be an @username (letters, digits, underscore; no spaces)");
       const { email: normalized, canonical } = normalizeEmail(email);
       const userId = randomUUID();
-      await s.repos.user.create({ id: userId, handle: displayName });
+      await s.repos.user.create({ id: userId, handle });
       const addr = normalizeAddress({});
       await s.repos.profile.insert({
-        userId, line1: addr.line1, line2: addr.line2, city: addr.city, region: addr.region,
+        userId, firstName: null, lastName: null,
+        line1: addr.line1, line2: addr.line2, city: addr.city, province: addr.province,
         postalCode: addr.postalCode, country: addr.country, memo: addr.memo,
         birthdate, email: normalized, emailCanonical: canonical,
       });
-      console.log(`Created user ${userId} (${displayName} <${normalized}>).`);
+      console.log(`Created user ${userId} (${handle} <${normalized}>).`);
     },
   },
 };

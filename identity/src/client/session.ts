@@ -1,8 +1,8 @@
 // IdentitySession — client-side signing orchestration (connector-agnostic).
 //
 // Built from an UnlockedSession (one passkey unlock). Derives the thread PERSONA (author id, from
-// the user-level level master — stable across the user's devices) and the thread-scoped DEVICE
-// signer (from this device's root), then assembles + device-signs envelopes. All crypto is
+// the per-(user, jurisdiction) master — stable across the user's devices) and the thread-scoped
+// DEVICE signer (from this device's root), then assembles + device-signs envelopes. All crypto is
 // delegated to @oursay/public-record — this module never re-implements commitment/envelope logic.
 //
 // Derivation never prompts; only the connector's `unlock()` does. So a session signs many messages
@@ -40,7 +40,7 @@ export class IdentitySession {
 
   /** The stable thread persona (public author id) for this thread — same on any of the user's devices. */
   personaPubkey(t: ThreadRef): string {
-    return deriveThreadKey({ levelMaster: this.s.levelMaster(t.level), threadId: t.threadId, level: t.level }).threadPubkey;
+    return deriveThreadKey({ jurisdictionMaster: this.s.jurisdictionMaster(t.jurisdiction), threadId: t.threadId, jurisdiction: t.jurisdiction }).threadPubkey;
   }
 
   /** This device's thread-scoped signer pubkey (distinct per (device, thread); no cross-thread linker). */
@@ -49,26 +49,25 @@ export class IdentitySession {
   }
 
   /** Client-side binding inputs to join a thread. The opening (user_id, salt_t) stays client-side. */
-  bindingInputs(t: ThreadRef, o: { kycTier?: string; region?: string } = {}) {
+  bindingInputs(t: ThreadRef, o: { kycTier?: string } = {}) {
     return buildThreadBindingInputs({
       userId: this.s.userId,
       threadPubkey: this.personaPubkey(t),
       threadId: t.threadId,
-      level: t.level,
+      jurisdiction: t.jurisdiction,
       kycTier: o.kycTier,
-      region: o.region,
     });
   }
 
-  /** The user-level nullifier for a singleton action on `parentId` (shared across the user's devices). */
+  /** The per-(user, jurisdiction) nullifier for a singleton action on `parentId` (shared across the user's devices). */
   nullifier(t: ThreadRef, parentId: string): string {
-    return threadNullifier(deriveNullifierSecret(this.s.nullifierRoot(t.level), t.level), parentId);
+    return threadNullifier(deriveNullifierSecret(this.s.nullifierRoot(t.jurisdiction), t.jurisdiction), parentId);
   }
 
   /**
    * Assemble + DEVICE-sign an envelope from a server `prepare()` result and an intent. The envelope
    * carries `author = persona`, `signer = this device's thread-scoped key`. Singleton creates mint
-   * the user-level nullifier; singleton updates/deletes carry the prepared one forward.
+   * the per-(user, jurisdiction) nullifier; singleton updates/deletes carry the prepared one forward.
    */
   buildSigned(t: ThreadRef, prep: PreparedAppend, intent: Intent): SignedSubmission {
     const persona = this.personaPubkey(t);
@@ -100,7 +99,7 @@ export class IdentitySession {
   }
 
   private signerKey(t: ThreadRef) {
-    return deriveDeviceThreadSigner({ deviceRoot: this.s.deviceRoot, threadId: t.threadId, level: t.level });
+    return deriveDeviceThreadSigner({ deviceRoot: this.s.deviceRoot, threadId: t.threadId, jurisdiction: t.jurisdiction });
   }
 
   private nullifierFor(t: ThreadRef, prep: PreparedAppend, intent: Intent): string | undefined {

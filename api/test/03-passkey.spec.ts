@@ -9,7 +9,7 @@ import { SoftAuthenticator } from "./fixtures/webauthn/soft-authenticator.js";
 import { resetWorld, type World } from "./helpers/world.js";
 import { expectServiceError } from "./helpers/expect.js";
 
-async function makeUser(w: World, handle = "Passkey User"): Promise<string> {
+async function makeUser(w: World, handle = "@passkeyuser"): Promise<string> {
   const userId = randomUUID();
   await w.services.repos.user.create({ id: userId, handle });
   return userId;

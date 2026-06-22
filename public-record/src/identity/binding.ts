@@ -12,10 +12,9 @@ import { newSalt, threadCommitment } from "../crypto/commitment.js";
 export interface ThreadBindingPublic {
   thread_pubkey: string;
   thread_id: string;
-  level: string;
+  jurisdiction: string;
   kyc_tier?: string;
-  region?: string;
-  /** Opaque H(user_id, salt_t, thread_id, level). */
+  /** Opaque H(user_id, salt_t, thread_id, jurisdiction). */
   commitment: string;
 }
 
@@ -35,9 +34,8 @@ export interface BuildBindingInput {
   userId: string;
   threadPubkey: string;
   threadId: string;
-  level: string;
+  jurisdiction: string;
   kycTier?: string;
-  region?: string;
   /** Optional fixed salt for deterministic vectors; otherwise a fresh 32-byte salt is generated. */
   saltT?: string;
 }
@@ -48,14 +46,13 @@ export function buildThreadBindingInputs(input: BuildBindingInput): ThreadBindin
     userId: input.userId,
     saltT: salt_t,
     threadId: input.threadId,
-    level: input.level,
+    jurisdiction: input.jurisdiction,
   });
   const binding: ThreadBindingPublic = {
     thread_pubkey: input.threadPubkey,
     thread_id: input.threadId,
-    level: input.level,
+    jurisdiction: input.jurisdiction,
     ...(input.kycTier !== undefined ? { kyc_tier: input.kycTier } : {}),
-    ...(input.region !== undefined ? { region: input.region } : {}),
     commitment,
   };
   return { binding, opening: { user_id: input.userId, salt_t } };

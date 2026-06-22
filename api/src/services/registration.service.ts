@@ -1,8 +1,10 @@
 // RegistrationService: the bootstrap path. Verify the email OTP, enforce the age gate, then create
 // the account (public.users) + private profile (auth.profiles) and issue a session.
 //
-// The display name is written to public.users.handle (single source of truth). The age gate lives
-// HERE (not in HTTP): minimum age is computed from DOB against the injected clock.
+// Name model: `handle` (optional unique @username) + `display_name` (optional public display) live on
+// public.users; `first_name`/`last_name` are private PII (KYC) on auth.profiles. All are optional at
+// this bootstrap tier — none is forced into the unique handle. The age gate lives HERE (not in HTTP):
+// minimum age is computed from DOB against the injected clock.
 
 import { randomUUID } from "node:crypto";
 import type { RegistrationConfig } from "../config.js";
@@ -10,19 +12,26 @@ import { ServiceError, systemNow, type Now } from "../errors.js";
 import { ageAtLeast, parseBirthdate } from "../helpers/age.js";
 import { normalizeAddress } from "../helpers/address.js";
 import { normalizeEmail } from "../helpers/email.js";
+import { isValidHandle, normalizeHandle } from "../helpers/handle.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import type { AuthService, IssuedSession } from "./auth.service.js";
 import type { OtpService, OtpRequestResult } from "./otp.service.js";
 
 export interface RegistrationProfileInput {
-  displayName: string;
+  /** Optional unique @username (public profile). */
+  handle?: string | null;
+  /** Optional public display text; defaults to the handle without its '@'. */
+  displayName?: string | null;
+  /** Private PII (KYC); never publicly surfaced. */
+  firstName?: string | null;
+  lastName?: string | null;
   birthdate: string; // YYYY-MM-DD
   address?: {
     line1?: string | null;
     line2?: string | null;
     city?: string | null;
-    region?: string | null;
+    province?: string | null;
     postalCode?: string | null;
     country?: string | null;
     memo?: string | null;
@@ -72,11 +81,20 @@ export class RegistrationService {
 
   async registerWithOtp(input: RegisterInput): Promise<RegisterResult> {
     // Validate the request fully BEFORE consuming the OTP, so a 409/403 never burns a valid code.
-    const displayName = input.profile?.displayName?.trim();
-    if (!displayName) throw new ServiceError("validation", "A display name is required");
-
     const birthdate = parseBirthdate(input.profile?.birthdate ?? "");
     if (!birthdate) throw new ServiceError("validation", "A valid birthdate (YYYY-MM-DD) is required");
+
+    // Handle is optional, but when supplied it must be a well-formed, unclaimed @username.
+    const handle = normalizeHandle(input.profile?.handle);
+    if (handle) {
+      if (!isValidHandle(handle)) {
+        throw new ServiceError("validation", "Handle must be an @username (letters, digits, underscore; no spaces)");
+      }
+      if (await this.d.userRepo.handleExists(handle)) {
+        throw new ServiceError("handle_taken", "That handle is already taken");
+      }
+    }
+    const displayName = input.profile?.displayName?.trim() || null;
 
     const { canonical } = normalizeEmail(input.emailRaw);
     if (await this.d.profileRepo.getByEmailCanonical(canonical)) {
@@ -99,16 +117,20 @@ export class RegistrationService {
     });
 
     const addr = normalizeAddress(input.profile.address ?? {});
+    const firstName = input.profile?.firstName?.trim() || null;
+    const lastName = input.profile?.lastName?.trim() || null;
     const userId = randomUUID();
 
-    await this.d.userRepo.create({ id: userId, handle: displayName });
+    await this.d.userRepo.create({ id: userId, handle, displayName });
     try {
       await this.d.profileRepo.insert({
         userId,
+        firstName,
+        lastName,
         line1: addr.line1,
         line2: addr.line2,
         city: addr.city,
-        region: addr.region,
+        province: addr.province,
         postalCode: addr.postalCode,
         country: addr.country,
         memo: addr.memo,

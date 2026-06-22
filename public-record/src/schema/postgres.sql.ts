@@ -65,33 +65,42 @@ CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enq
 -- NOTE: session/passkey_credential tables (auth milestone) and encrypted PII (email_enc, salt_t_enc;
 -- KMS milestone) are intentionally NOT here yet — see the Track A plan's roadmap.
 CREATE TABLE IF NOT EXISTS users (
-  id         UUID PRIMARY KEY,
-  handle     TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id           UUID PRIMARY KEY,
+  handle       TEXT,                  -- optional, UNIQUE @username (public profile); no spaces. NULL until claimed.
+  display_name TEXT,                  -- optional public display text; defaults to handle without its '@'
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Idempotent migration for a persistent dev DB created before display_name existed.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
+-- handle is unique when present (Postgres treats NULLs as distinct, so unclaimed accounts are fine).
+CREATE UNIQUE INDEX IF NOT EXISTS users_handle_unique ON users (handle);
 
--- Level-scoped master PUBLIC keys: one per (user, governmental level); the root a client derives
+-- Jurisdiction-scoped master PUBLIC keys: one per (user, jurisdiction); the root a client derives
 -- per-thread keys from on-device (HKDF). The platform stores only the public master.
-CREATE TABLE IF NOT EXISTS level_master_keys (
+CREATE TABLE IF NOT EXISTS jurisdiction_master_keys (
   user_id       UUID NOT NULL REFERENCES users(id),
-  level         TEXT NOT NULL,
+  jurisdiction  TEXT NOT NULL,
   master_pubkey TEXT NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (user_id, level)
+  PRIMARY KEY (user_id, jurisdiction)
 );
 
--- thread_keys / thread_bindings are reshaped from the earlier stub. They carry no durable
--- production data yet, so DROP+CREATE keeps the shape deterministic across a reused dev volume.
+-- thread_keys / thread_bindings / thread_signers are reshaped (level → jurisdiction; dropped
+-- thread_bindings.region). They carry no durable production data yet, so DROP+CREATE keeps the
+-- shape deterministic across a reused dev volume. level_master_keys was renamed to
+-- jurisdiction_master_keys (created fresh above); drop the legacy table if it lingers.
+DROP TABLE IF EXISTS thread_signers CASCADE;
 DROP TABLE IF EXISTS thread_bindings CASCADE;
 DROP TABLE IF EXISTS thread_keys CASCADE;
+DROP TABLE IF EXISTS level_master_keys CASCADE;
 
 -- Per-thread public keys. pubkey is the public author identity that appears in the envelope.
 CREATE TABLE thread_keys (
-  id         UUID PRIMARY KEY,
-  user_id    UUID NOT NULL REFERENCES users(id),
-  thread_id  TEXT NOT NULL,
-  level      TEXT NOT NULL,
-  pubkey     TEXT NOT NULL UNIQUE,            -- compressed SEC1 P-256, hex
+  id           UUID PRIMARY KEY,
+  user_id      UUID NOT NULL REFERENCES users(id),
+  thread_id    TEXT NOT NULL,
+  jurisdiction TEXT NOT NULL,
+  pubkey       TEXT NOT NULL UNIQUE,          -- compressed SEC1 P-256, hex
   claimed    BOOLEAN NOT NULL DEFAULT false,  -- user has publicly claimed this thread (R8; future)
   claimed_at TIMESTAMPTZ,                     -- nullable; claim may be undone (R9; future)
   UNIQUE (user_id, thread_id)
@@ -104,10 +113,9 @@ CREATE INDEX IF NOT EXISTS thread_keys_pubkey ON thread_keys (pubkey);
 CREATE TABLE thread_bindings (
   thread_pubkey TEXT PRIMARY KEY REFERENCES thread_keys(pubkey),
   thread_id     TEXT NOT NULL,
-  level         TEXT NOT NULL,
+  jurisdiction  TEXT NOT NULL,
   kyc_tier      TEXT NOT NULL,
-  region        TEXT,
-  commitment    TEXT NOT NULL,                -- opaque H(user_id, salt_t, thread_id, level), hex
+  commitment    TEXT NOT NULL,                -- opaque H(user_id, salt_t, thread_id, jurisdiction), hex
   binding_sig   TEXT NOT NULL,                -- platform P-256 signature over the binding, hex
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -139,7 +147,7 @@ CREATE TABLE IF NOT EXISTS thread_signers (
   user_id       UUID NOT NULL REFERENCES users(id),
   device_id     UUID NOT NULL REFERENCES device_keys(id),
   thread_id     TEXT NOT NULL,
-  level         TEXT NOT NULL,
+  jurisdiction  TEXT NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   revoked_at    TIMESTAMPTZ                      -- nullable; revoke a single thread-scoped signer
 );

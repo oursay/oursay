@@ -1,12 +1,13 @@
-// Generic address normalization. No region/riding derivation here (deliberately): boundaries shift
-// over time and arbitrary boundaries leak PII, so region membership is resolved dynamically by
-// future resolvers against platform-defined boundaries — never baked onto the stored profile.
+// Address normalization (Canada-centric storage; FE owns localized labels). No district/riding
+// derivation here (deliberately): boundaries shift over time and arbitrary boundaries leak PII, so
+// district/region membership is resolved dynamically against platform-defined boundaries — never
+// baked onto the stored profile.
 
 export interface AddressInput {
   line1?: string | null;
   line2?: string | null;
   city?: string | null;
-  region?: string | null;
+  province?: string | null;
   postalCode?: string | null;
   country?: string | null;
   memo?: string | null;
@@ -16,7 +17,7 @@ export interface NormalizedAddress {
   line1: string | null;
   line2: string | null;
   city: string | null;
-  region: string | null;
+  province: string | null;
   postalCode: string | null;
   country: string;
   memo: string | null;
@@ -35,7 +36,7 @@ export function normalizeAddress(input: AddressInput): NormalizedAddress {
     line1: clean(input.line1),
     line2: clean(input.line2),
     city: clean(input.city),
-    region: clean(input.region),
+    province: clean(input.province),
     postalCode: normalizePostal(clean(input.postalCode), country),
     country,
     memo: clean(input.memo),

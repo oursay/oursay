@@ -29,7 +29,7 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
       return services.passkeyService.registerOptions({
         userId,
         userName: profile?.email ?? user?.handle ?? userId,
-        userDisplayName: user?.handle ?? "OurSay user",
+        userDisplayName: user?.displayName ?? user?.handle ?? "OurSay user",
       });
     },
   );

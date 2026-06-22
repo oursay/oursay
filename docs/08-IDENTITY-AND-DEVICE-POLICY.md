@@ -29,8 +29,9 @@ It captures product intent from design review (June 2026) and should stay aligne
 
 - A **passkey** (or other auth factor) proves *who is logged in*. It does **not** sign
   civic actions directly.
-- For each **governmental level** (municipal, provincial, federal, …) the user has
-  **signing material on their device** from which **per-thread keys** are produced.
+- For each **jurisdiction** they belong to (e.g. `ab-ca-gov`, `ca-gov`; each carries a
+  governmental *level* as a property — see docs/01 §6.0) the user has **signing material on
+  their device** from which **per-thread keys** are produced.
 - For each **thread** they join (a post, poll, or petition — the root of that conversation),
   they use a **thread key**: a pseudonymous public key that appears on the public record.
 
@@ -149,7 +150,7 @@ user strategy, auth, and record wire formats._
 | **Verifiable signatures** | Anyone can check: this message was signed, with this content hash, at this time. |
 | **Auditor: vote ↔ thread identity** | An auditor can confirm “this vote was cast by public identifier *P* in thread *T*” (pseudonym in that thread — not necessarily the voter’s real name). |
 | **No double voting** | Publicly checkable: the same person did not vote twice on the same poll. |
-| **No boundary farming** | A user cannot legitimately spawn extra identities within the same level/thread rules to multiply votes or comments beyond policy. |
+| **No boundary farming** | A user cannot legitimately spawn extra identities within the same jurisdiction/thread rules to multiply votes or comments beyond policy. |
 | **Multi-passkey / multi-device** | Several hardware-backed keys per account; any enrolled device may sign. |
 | **Cross-device editing** | A message signed on phone A may be edited with a valid signature from phone B when both belong to the same user. |
 | **Hardware-backed signing** | Private keys stay non-exportable on device; platform never holds signing keys. |
@@ -175,7 +176,7 @@ necessarily the same as the persona’s public key on the ledger.
 |---|----------|---------|
 | **1** | Platform-attested device registry + stable thread persona | Many device keys *Dᵢ* per user; one thread persona *Pₜ* per (user, thread); platform privately links `Dᵢ → user → Pₜ`. Dedupe via user-level nullifier registry. |
 | **2** | Thread persona key synced via passkey ecosystem | One non-exportable *Pₜ* per (user, thread), shared when the OS syncs the same passkey (e.g. iCloud). Simplest public story; weak for independent passkeys. |
-| **3** | User-level nullifier root + many device keys | **Recommended build direction** (see §5.4). Device keys sign; stable *Pₜ* is author on record; nullifier root is per **user** so all devices share dedupe semantics. Cross-device edit authorized by **user**, verified by **any enrolled device signature**. |
+| **3** | Per-(user, jurisdiction) nullifier root + many device keys | **Recommended build direction** (see §5.4). Device keys sign; stable *Pₜ* is author on record; the nullifier root is per **(user, jurisdiction)** so all of a user's devices share dedupe semantics within a jurisdiction. Cross-device edit authorized by **user**, verified by **any enrolled device signature**. |
 | **4** | Anonymous credentials / zero-knowledge membership | **Permanent ideal goal** (see §5.5). After KYC, user holds a credential; votes/actions include ZK proofs of membership + unique nullifier per poll; minimal platform trust for dedupe. |
 | **5** | Published on-chain device authorization graph | ~~Publish which device keys may act for which thread persona.~~ **Ruled out** — see below. |
 
@@ -217,9 +218,10 @@ Concrete rules:
 
 **Sacrifices accepted on the way to Method 4**
 
-- Nullifier consistency across devices requires a **user-level nullifier root** — issued once
-  at verification, derived from a primary passkey PRF, or synced via user-controlled encrypted
-  backup — not independent per-device roots for singleton actions.
+- Nullifier consistency across devices requires a **per-(user, jurisdiction) nullifier root** —
+  issued once at verification, derived from a primary passkey PRF, or synced via user-controlled
+  encrypted backup — not independent per-device roots for singleton actions. Keying by jurisdiction
+  (not by governmental level) keeps singleton dedupe independent across same-level jurisdictions.
 - “One person one vote” still trusts **KYC + platform nullifier attestation** until ZK
   replaces that slot.
 - Envelope may carry both **author** (thread persona) and **signer** (device key) — slightly
@@ -302,8 +304,8 @@ These are **hard preferences** from product review. Near-term work should align 
 
 ### Why this matters
 
-The current reference implementation derives thread keys from a 32-byte level secret and
-signs with library code that reads raw key bytes. That is fine for tests and prototypes.
+The current reference implementation derives thread keys from a 32-byte per-jurisdiction secret
+(the jurisdiction master) and signs with library code that reads raw key bytes. That is fine for tests and prototypes.
 **Production web clients should move toward keys the app cannot read as bytes** — e.g.
 Web Crypto `CryptoKey` with `extractable: false`, backed by the secure enclave where the
 OS provides it.
@@ -317,19 +319,19 @@ OS provides it.
    **public** key only, linked to user.
 3. **Thread persona** *Pₜ* — stable public author id per (user, thread); registered when the
    user joins the thread.
-4. **Sign each envelope** with *Dᵢ*; record carries `author = Pₜ` and (where needed)
-   user-level nullifier for singleton actions.
+4. **Sign each envelope** with *Dᵢ*; record carries `author = Pₜ` and (where needed) a
+   per-(user, jurisdiction) nullifier for singleton actions.
 5. **Reserve proof slot** in envelope or attestation structure for future ZK membership
    presentations (§5.5).
 
 The app should not persist raw private scalars in IndexedDB or localStorage.
 
-### How to seed the level root (without a user-managed master file)
+### How to seed the jurisdiction root (without a user-managed master file)
 
 | Method | When to use |
 |--------|-------------|
 | **Passkey PRF** | When the browser and authenticator support it: derive unlock material from the passkey at login. Same passkey on two synced iPhones → same derived keys. |
-| **Non-exportable generateKey** | When PRF is unavailable: create a level root in Web Crypto once per device; store only a key handle, not bytes. |
+| **Non-exportable generateKey** | When PRF is unavailable: create a jurisdiction root in Web Crypto once per device; store only a key handle, not bytes. |
 | **Passkey largeBlob** | Optional future path: small secret stored on the authenticator for the same credential only. |
 
 **Explicitly deprioritized:** asking users to download, print, or email a master key;
@@ -353,7 +355,7 @@ path we ship keeps private keys off the platform and signs on device.
 | Goal | Approach |
 |------|----------|
 | Same persona on phone and tablet | Same *Pₜ* per thread; enroll multiple *Dᵢ* or rely on passkey sync (§5.4). |
-| Second passkey, no sync | Enroll second *Dᵢ*; shared user-level nullifier root; same *Pₜ* when joining thread from either device. |
+| Second passkey, no sync | Enroll second *Dᵢ*; shared per-(user, jurisdiction) nullifier root; same *Pₜ* when joining thread from either device. |
 | Cross-device edit | Any *Dᵢ* registered to same user may sign edit (§5.4 rule 6). |
 | Lost device | Revoke *Dᵢ* enrollment; user continues with other devices; do not publish revoked keys as cross-thread correlators. |
 | Platform holds signing keys | **Never.** |
@@ -388,8 +390,12 @@ Many checks should eventually be **configurable per jurisdiction**, with platfor
 - Whether votes or signatures are final by default.
 - Whether comments are limited to one per thread per user (default: many comments allowed).
 
-Today most gates are **global environment config** or **per poll/petition rules**, not a full
-jurisdiction router. New code should not make that harder to add later.
+A **jurisdiction** (docs/01 §6.0) is 1:1 with a chain and now carries its `level` plus default
+gating **rules** (`public-record/src/jurisdiction.ts`). Gating resolves as the jurisdiction's
+defaults **⊕** an entity's own overrides (`governance.ts` `resolveRules`) — e.g. whether a vote may
+change or a signature be revoked. Remaining gates (envelope freshness, unverified-user permissions,
+one-comment-per-thread) are still global environment config; folding them into `JurisdictionConfig`
+is the next step.
 
 ---
 
@@ -406,7 +412,7 @@ for test detail.
 | Author (thread persona) / signer (device key) envelope split | Implemented (tests) |
 | Multi-device enrollment registry + thread-scoped signers (library) | Implemented (tests) |
 | Cross-device editing (any enrolled device of the same user) | Implemented (tests) |
-| User-level nullifier root (shared across a user's devices) | Implemented (framing + tests) |
+| Per-(user, jurisdiction) nullifier root (shared across a user's devices) | Implemented (framing + tests) |
 | Account-auth passkey sessions (server, `@oursay/api`) | Implemented (tests) — WebAuthn register + passkey login over `@simplewebauthn/server`; opaque DB-backed sessions. This passkey is the **account-login** factor (§2) and is **separate** from the civic thread-signing keys above. |
 | Email-OTP registration + recovery (server, `@oursay/api`) | Implemented (tests) — OTP is bootstrap/recovery only; passkey is day-to-day login. Hashed codes, rate limits, pluggable mailer (Postmark/SMTP/SES + dev noop). |
 | KYC-gated recovery branch (`@oursay/api`) | Stub — recovery reads `public.kyc_attestations`; unverified → re-enroll passkey, verified → KYC re-verification required (provider stubbed, §3.3). |
@@ -416,7 +422,7 @@ for test detail.
 | Claim / unclaim public ownership (R8, R9) | Schema stub only |
 | Selective reveal to institutions (R11) | Not built |
 | Multi-passkey / multi-device registration UX | Not built (library primitives done) |
-| Jurisdiction-specific validation policy | Not built |
+| Jurisdiction-specific validation policy | Partial — jurisdiction router + default gating rules (change/revoke) with per-entity override (`jurisdiction.ts` / `governance.ts`); freshness + permission gates pending |
 | External anchoring (Git / EVM / …) | Not built |
 | Tier- and region-filtered signed counts (R24–R26) | Not built |
 | ZK membership credentials (Method 4 — ideal goal) | **Not started; wire slot reserved (envelope `proof` + `nullifier_attestations.membership_proof`), rejected until built (§5.5)** |

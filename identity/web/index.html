@@ -20,7 +20,7 @@
     <p class="note">
       Proves the browser half of <code>@oursay/identity/client</code>'s <code>WebPasskeyConnector</code>:
       a passkey register, then a PRF-backed unlock that yields a deterministic 32-byte root which
-      HKDF-expands into the device/level/nullifier secrets. The full enroll → join → device-sign →
+      HKDF-expands into the device / jurisdiction-master / nullifier secrets. The full enroll → join → device-sign →
       <code>appendSigned</code> path is proven headlessly by the <code>DevPasskeyConnector</code> E2E.
     </p>
     <button id="enroll">1 · Enroll passkey</button>

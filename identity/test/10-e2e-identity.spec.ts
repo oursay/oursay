@@ -33,9 +33,8 @@ process.env.OURSAY_DEV_PASSKEY = "1";
 
 describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-record", () => {
   const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
-  const level = "federal";
+  const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
-  const region = "ca-ab";
 
   let store: PrivateStore | undefined;
   let connector: PgWireLedgerConnector | undefined;
@@ -84,13 +83,12 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     await registry.joinThread({
       userId,
       threadId: t.threadId,
-      level: t.level,
+      jurisdiction: t.jurisdiction,
       personaPubkey: sess.personaPubkey(t),
       signerPubkey: sess.signerPubkey(t),
       commitment: sess.bindingInputs(t).binding.commitment,
       devicePubkey,
       kycTier,
-      region,
     });
   }
 
@@ -119,7 +117,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
 
   it("join thread writes thread_keys + thread_bindings + one thread_signers per device", async () => {
     const postId = randomUUID();
-    const t: ThreadRef = { threadId: postId, level };
+    const t: ThreadRef = { threadId: postId, jurisdiction };
     await joinAs(sessA, t, credA.devicePubkey);
     await joinAs(sessB, t, credB.devicePubkey);
 
@@ -139,7 +137,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
 
   it("device A creates a post + comment; device B edits A's comment (cross-device edit)", async () => {
     const postId = randomUUID();
-    const t: ThreadRef = { threadId: postId, level };
+    const t: ThreadRef = { threadId: postId, jurisdiction };
     await joinAs(sessA, t, credA.devicePubkey);
     await joinAs(sessB, t, credB.devicePubkey);
 
@@ -167,7 +165,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
 
   it("vote across devices: A votes, B changes it; B's new vote is rejected", async () => {
     const pollId = randomUUID();
-    const t: ThreadRef = { threadId: pollId, level };
+    const t: ThreadRef = { threadId: pollId, jurisdiction };
     await joinAs(sessA, t, credA.devicePubkey);
     await joinAs(sessB, t, credB.devicePubkey);
     await act(sessA, t, { op: "create", type: "poll", entityId: pollId, content: { question: "Q?", options: ["yes", "no"], rules: { allowChange: true } } });
@@ -185,13 +183,13 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
 
   it("a persona-only envelope (no device signer) is rejected on the verified path", async () => {
     const postId = randomUUID();
-    const t: ThreadRef = { threadId: postId, level };
+    const t: ThreadRef = { threadId: postId, jurisdiction };
     await joinAs(sessA, t, credA.devicePubkey);
     await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1" } });
 
     // sign a comment with the PERSONA key directly (no signerPubkey) → requireDeviceSigner rejects
     const unlocked = await passkey.unlock({ userId, deviceId: "A" });
-    const personaPriv = deriveThreadKey({ levelMaster: unlocked.levelMaster(level), threadId: postId, level }).privKey;
+    const personaPriv = deriveThreadKey({ jurisdictionMaster: unlocked.jurisdictionMaster(jurisdiction), threadId: postId, jurisdiction }).privKey;
     const txId = randomUUID();
     const salt = newSalt();
     const content = { body: "persona-only" };

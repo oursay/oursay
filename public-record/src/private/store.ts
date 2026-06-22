@@ -10,9 +10,8 @@ import type { Op, RecordType } from "../schema/types.js";
 export interface ThreadBindingRow {
   threadPubkey: string;
   threadId: string;
-  level: string;
+  jurisdiction: string;
   kycTier: string;
-  region: string | null;
   commitment: string;
   bindingSig: string;
 }
@@ -148,7 +147,7 @@ export class PrivateStore {
   async reset(): Promise<void> {
     assertDestructiveAllowed("PrivateStore.reset()");
     await this.pool.query(
-      "TRUNCATE record_outbox, record_tx, thread_signers, device_keys, thread_bindings, nullifier_attestations, thread_keys, level_master_keys, kyc_attestations, users CASCADE",
+      "TRUNCATE record_outbox, record_tx, thread_signers, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users CASCADE",
     );
   }
 
@@ -423,12 +422,12 @@ export class PrivateStore {
     );
   }
 
-  /** Record a user's PUBLIC level master key (root for on-device per-thread derivation). */
-  async putLevelMaster(m: { userId: string; level: string; masterPubkey: string }): Promise<void> {
+  /** Record a user's PUBLIC jurisdiction master key (root for on-device per-thread derivation). */
+  async putJurisdictionMaster(m: { userId: string; jurisdiction: string; masterPubkey: string }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO level_master_keys(user_id, level, master_pubkey) VALUES($1,$2,$3)
-       ON CONFLICT (user_id, level) DO UPDATE SET master_pubkey = EXCLUDED.master_pubkey`,
-      [m.userId, m.level, m.masterPubkey],
+      `INSERT INTO jurisdiction_master_keys(user_id, jurisdiction, master_pubkey) VALUES($1,$2,$3)
+       ON CONFLICT (user_id, jurisdiction) DO UPDATE SET master_pubkey = EXCLUDED.master_pubkey`,
+      [m.userId, m.jurisdiction, m.masterPubkey],
     );
   }
 
@@ -441,9 +440,8 @@ export class PrivateStore {
     threadPubkey: string;
     userId: string;
     threadId: string;
-    level: string;
+    jurisdiction: string;
     kycTier: string;
-    region?: string | null;
     commitment: string;
     bindingSig: string;
   }): Promise<void> {
@@ -451,17 +449,17 @@ export class PrivateStore {
     try {
       await client.query("BEGIN");
       await client.query(
-        `INSERT INTO thread_keys(id, user_id, thread_id, level, pubkey) VALUES($1,$2,$3,$4,$5)
-         ON CONFLICT (pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id, level = EXCLUDED.level`,
-        [randomUUID(), input.userId, input.threadId, input.level, input.threadPubkey],
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT (pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction`,
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.threadPubkey],
       );
       await client.query(
-        `INSERT INTO thread_bindings(thread_pubkey, thread_id, level, kyc_tier, region, commitment, binding_sig)
-         VALUES($1,$2,$3,$4,$5,$6,$7)
+        `INSERT INTO thread_bindings(thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig)
+         VALUES($1,$2,$3,$4,$5,$6)
          ON CONFLICT (thread_pubkey) DO UPDATE SET
-           thread_id = EXCLUDED.thread_id, level = EXCLUDED.level, kyc_tier = EXCLUDED.kyc_tier,
-           region = EXCLUDED.region, commitment = EXCLUDED.commitment, binding_sig = EXCLUDED.binding_sig`,
-        [input.threadPubkey, input.threadId, input.level, input.kycTier, input.region ?? null, input.commitment, input.bindingSig],
+           thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction, kyc_tier = EXCLUDED.kyc_tier,
+           commitment = EXCLUDED.commitment, binding_sig = EXCLUDED.binding_sig`,
+        [input.threadPubkey, input.threadId, input.jurisdiction, input.kycTier, input.commitment, input.bindingSig],
       );
       await client.query("COMMIT");
     } catch (err) {
@@ -475,7 +473,7 @@ export class PrivateStore {
   /** The private binding for a thread key, or null if the key is not registered. */
   async getThreadBinding(threadPubkey: string): Promise<ThreadBindingRow | null> {
     const r = await this.pool.query(
-      `SELECT thread_pubkey, thread_id, level, kyc_tier, region, commitment, binding_sig
+      `SELECT thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig
        FROM thread_bindings WHERE thread_pubkey = $1`,
       [threadPubkey],
     );
@@ -484,22 +482,21 @@ export class PrivateStore {
     return {
       threadPubkey: row.thread_pubkey,
       threadId: row.thread_id,
-      level: row.level,
+      jurisdiction: row.jurisdiction,
       kycTier: row.kyc_tier,
-      region: row.region ?? null,
       commitment: row.commitment,
       bindingSig: row.binding_sig,
     };
   }
 
-  /** Resolve a thread key to its `(user, thread=root, level)` — the thread-scope lookup. */
-  async getThreadKey(pubkey: string): Promise<{ userId: string; threadId: string; level: string } | null> {
+  /** Resolve a thread key to its `(user, thread=root, jurisdiction)` — the thread-scope lookup. */
+  async getThreadKey(pubkey: string): Promise<{ userId: string; threadId: string; jurisdiction: string } | null> {
     const r = await this.pool.query(
-      `SELECT user_id, thread_id, level FROM thread_keys WHERE pubkey = $1`,
+      `SELECT user_id, thread_id, jurisdiction FROM thread_keys WHERE pubkey = $1`,
       [pubkey],
     );
     const row = r.rows[0];
-    return row ? { userId: row.user_id, threadId: row.thread_id, level: row.level } : null;
+    return row ? { userId: row.user_id, threadId: row.thread_id, jurisdiction: row.jurisdiction } : null;
   }
 
   // ── Multi-device enrollment (Method 3 §5.4) — all PRIVATE, never published ────────────────
@@ -550,14 +547,14 @@ export class PrivateStore {
     userId: string;
     deviceId: string;
     threadId: string;
-    level: string;
+    jurisdiction: string;
   }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO thread_signers(signer_pubkey, user_id, device_id, thread_id, level) VALUES($1,$2,$3,$4,$5)
+      `INSERT INTO thread_signers(signer_pubkey, user_id, device_id, thread_id, jurisdiction) VALUES($1,$2,$3,$4,$5)
        ON CONFLICT (signer_pubkey) DO UPDATE SET
          user_id = EXCLUDED.user_id, device_id = EXCLUDED.device_id,
-         thread_id = EXCLUDED.thread_id, level = EXCLUDED.level, revoked_at = NULL`,
-      [input.signerPubkey, input.userId, input.deviceId, input.threadId, input.level],
+         thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction, revoked_at = NULL`,
+      [input.signerPubkey, input.userId, input.deviceId, input.threadId, input.jurisdiction],
     );
   }
 

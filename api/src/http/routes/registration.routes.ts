@@ -41,7 +41,14 @@ export function registerRegistrationRoutes(app: FastifyInstance, services: Servi
       const body = req.body as {
         email: string;
         code: string;
-        profile: { displayName: string; birthdate: string; address?: Record<string, string> };
+        profile: {
+          handle?: string;
+          displayName?: string;
+          firstName?: string;
+          lastName?: string;
+          birthdate: string;
+          address?: Record<string, string>;
+        };
       };
       const result = await services.registrationService.registerWithOtp({
         emailRaw: body.email,

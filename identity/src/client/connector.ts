@@ -1,7 +1,7 @@
 // PasskeyConnector — the swappable account-auth + key-custody seam (Identity & Device Policy §6).
 //
 // One interface, two backends:
-//   - WebPasskeyConnector — real browser WebAuthn (PRF → level master; secure-storage fallback).
+//   - WebPasskeyConnector — real browser WebAuthn (PRF → jurisdiction master; secure-storage fallback).
 //   - DevPasskeyConnector  — simulated, headless, deterministic; for dev + CI ONLY (env-guarded).
 //
 // The connector handles PASSKEY ACCOUNT AUTH and custody of on-device key MATERIAL. It does NOT
@@ -12,9 +12,9 @@
 //
 // Key custody model (Method 3, §5.4):
 //   - deviceRoot  — per-(device) 32-byte secret → thread-scoped DEVICE signer keys (per (device,thread)).
-//   - levelMaster — USER-LEVEL secret per governmental level, shared across the user's devices
+//   - jurisdictionMaster — per-(user, jurisdiction) secret, shared across the user's devices
 //                   (passkey sync / encrypted backup), → the thread PERSONA (author id) per (user,thread).
-//   - nullifierRoot — USER-LEVEL secret per level, shared across devices → singleton nullifiers.
+//   - nullifierRoot — per-(user, jurisdiction) secret, shared across devices → singleton nullifiers.
 
 /** The PUBLIC handle for an enrolled device (account-level key goes into `device_keys`). */
 export interface DeviceCredential {
@@ -36,10 +36,10 @@ export interface UnlockedSession {
   readonly devicePubkey: string;
   /** 32-byte per-device root for thread-scoped signer derivation (deriveDeviceThreadSigner). */
   readonly deviceRoot: Uint8Array;
-  /** User-level level master for a governmental level (shared across the user's devices). */
-  levelMaster(level: string): Uint8Array;
-  /** User-level nullifier root for a level (shared across the user's devices). */
-  nullifierRoot(level: string): Uint8Array;
+  /** Per-(user, jurisdiction) master, shared across the user's devices → thread personas. */
+  jurisdictionMaster(jurisdiction: string): Uint8Array;
+  /** Per-(user, jurisdiction) nullifier root, shared across the user's devices → singleton dedupe. */
+  nullifierRoot(jurisdiction: string): Uint8Array;
 }
 
 export interface PasskeyConnector {

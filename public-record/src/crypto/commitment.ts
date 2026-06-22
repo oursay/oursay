@@ -67,12 +67,13 @@ export interface ThreadCommitmentInput {
   /** 32-byte salt as a HEX STRING (client-generated; e.g. from {@link newSalt}). */
   saltT: string;
   threadId: string;
-  level: string;
+  /** The JURISDICTION id this thread is scoped to (e.g. `ab-ca-gov`); the identity partition. */
+  jurisdiction: string;
 }
 
 /**
  * The opaque per-thread commitment bound into a private platform registration binding (§6):
- *   sha256( canonicalJson({ ds, user_id, salt_t, thread_id, level }) )
+ *   sha256( canonicalJson({ ds, user_id, salt_t, thread_id, jurisdiction }) )
  *
  * `salt_t` is carried as a hex string so the encoding is unambiguous. The commitment is hiding:
  * it reveals nothing about `user_id`/`salt_t` without the opening, and it NEVER appears on the
@@ -85,7 +86,7 @@ export function threadCommitment(input: ThreadCommitmentInput): string {
       user_id: input.userId,
       salt_t: input.saltT,
       thread_id: input.threadId,
-      level: input.level,
+      jurisdiction: input.jurisdiction,
     }),
   );
 }

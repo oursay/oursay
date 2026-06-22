@@ -32,15 +32,15 @@ export const sessionSchema = {
 
 export const addressSchema = {
   type: "object",
-  description: "Generic address components. The front-end owns localized labels; no region binding is stored.",
+  description: "Address components (Canada-centric storage; the front-end owns localized labels). No district binding is stored.",
   properties: {
     line1: { type: "string" },
     line2: { type: "string" },
     city: { type: "string" },
-    region: { type: "string", description: "Province/state/etc." },
+    province: { type: "string", description: "Province/territory." },
     postalCode: { type: "string" },
     country: { type: "string", description: "ISO country code; defaults to CA." },
-    memo: { type: "string", description: "Free field for region-specific edge cases." },
+    memo: { type: "string", description: "Free field for jurisdiction-specific edge cases." },
   },
   additionalProperties: false,
 } as const;
@@ -48,11 +48,14 @@ export const addressSchema = {
 export const profileInputSchema = {
   type: "object",
   properties: {
-    displayName: { type: "string", minLength: 1, description: "Public-facing handle (the only field intended for future public surfacing)." },
+    handle: { type: "string", description: "Optional unique @username (public profile). Letters, digits, underscore; no spaces." },
+    displayName: { type: "string", description: "Optional public display text; defaults to the handle without its '@'." },
+    firstName: { type: "string", description: "Private PII (KYC); never publicly surfaced." },
+    lastName: { type: "string", description: "Private PII (KYC); never publicly surfaced." },
     birthdate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "YYYY-MM-DD; age gate (18+) enforced server-side." },
     address: addressSchema,
   },
-  required: ["displayName", "birthdate"],
+  required: ["birthdate"],
   additionalProperties: false,
 } as const;
 

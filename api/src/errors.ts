@@ -10,6 +10,7 @@ export type ErrorCode =
   | "otp_max_attempts"
   | "age_restricted"
   | "email_taken"
+  | "handle_taken"
   | "unauthorized"
   | "forbidden"
   | "not_found"

@@ -24,9 +24,8 @@ import { getWorld, rejects } from "./helpers/world.js";
  */
 describe("13 signed ops: all create types via prepare → sign → appendSigned", () => {
   const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
-  const level = "federal";
+  const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
-  const region = "ca-ab";
 
   let store: PrivateStore;
   let connector: PgWireLedgerConnector;
@@ -48,17 +47,17 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
   async function newUser(): Promise<U> {
     const userId = randomUUID();
     await store.putUser({ id: userId });
-    const lm = p256.utils.randomPrivateKey(); // a valid 32-byte level master (also a P-256 seed)
-    await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
-    return { userId, lm, nsecret: deriveNullifierSecret(lm, level) };
+    const lm = p256.utils.randomPrivateKey(); // a valid 32-byte jurisdiction master (also a P-256 seed)
+    await store.putJurisdictionMaster({ userId, jurisdiction, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
+    return { userId, lm, nsecret: deriveNullifierSecret(lm, jurisdiction) };
   }
 
   /** Register this user's thread for a ROOT entity (thread = root). */
   async function registerThread(u: U, rootId: string): Promise<{ privKey: Uint8Array; threadPubkey: string }> {
-    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: u.lm, threadId: rootId, level });
-    const { binding } = buildThreadBindingInputs({ userId: u.userId, threadPubkey, threadId: rootId, level, kycTier, region, saltT: newSalt() });
+    const { privKey, threadPubkey } = deriveThreadKey({ jurisdictionMaster: u.lm, threadId: rootId, jurisdiction });
+    const { binding } = buildThreadBindingInputs({ userId: u.userId, threadPubkey, threadId: rootId, jurisdiction, kycTier, saltT: newSalt() });
     await store.registerThreadBinding({
-      threadPubkey, userId: u.userId, threadId: rootId, level, kycTier, region,
+      threadPubkey, userId: u.userId, threadId: rootId, jurisdiction, kycTier,
       commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
     });
     return { privKey, threadPubkey };

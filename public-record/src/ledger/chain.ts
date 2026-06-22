@@ -21,7 +21,9 @@ export function txHashOf(envelope: TxEnvelope): string {
  * crash can never orphan a record without a pending outbox row to settle it.
  *
  * No ledger connector here: pooling is a pure-Postgres operation, and settlement (the only writer to
- * the chain) owns the connector. A future jurisdiction router constructs one `PublicChain` per chain.
+ * the chain) owns the connector. A jurisdiction is 1:1 with a chain (docs/01 §6.0): the jurisdiction
+ * router (jurisdiction.ts) maps a `jurisdictionId` to its `PublicChain`, whose `chainId` is that
+ * jurisdiction's id at the ledger boundary. The ledger layer keeps the word "chain".
  */
 export class PublicChain {
   constructor(

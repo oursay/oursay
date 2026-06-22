@@ -1,9 +1,9 @@
 // On-device per-thread key derivation (PROPOSAL.md §6). Promoted from the `passkey-test` spike.
 //
-// A user holds one LEVEL MASTER per governmental level (the 32-byte IKM; on the web it comes from
+// A user holds one JURISDICTION MASTER per jurisdiction (the 32-byte IKM; on the web it comes from
 // the WebAuthn PRF output, or the secure-storage fallback — see passkey-test/FINDINGS.md). Per-thread
-// keys are derived deterministically with HKDF-SHA256, DOMAIN-SEPARATED by (thread_id, level), then
-// mapped to a P-256 private scalar. No private/derivation material ever leaves the device; the
+// keys are derived deterministically with HKDF-SHA256, DOMAIN-SEPARATED by (thread_id, jurisdiction),
+// then mapped to a P-256 private scalar. No private/derivation material ever leaves the device; the
 // platform only ever sees the public thread key.
 
 import { hkdf } from "@noble/hashes/hkdf";
@@ -15,16 +15,16 @@ import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 /** Fixed application salt for HKDF (separates this KDF use from any other in the protocol). */
 const DERIVE_SALT = utf8ToBytes("oursay/v1/thread-derive");
 
-/** HKDF `info` = the domain separation §6 requires: distinct per (thread_id, level). */
-export function threadDomainInfo(threadId: string, level: string): Uint8Array {
-  return utf8ToBytes(`oursay/v1/thread-key|level=${level}|thread=${threadId}`);
+/** HKDF `info` = the domain separation §6 requires: distinct per (thread_id, jurisdiction). */
+export function threadDomainInfo(threadId: string, jurisdiction: string): Uint8Array {
+  return utf8ToBytes(`oursay/v1/thread-key|jurisdiction=${jurisdiction}|thread=${threadId}`);
 }
 
 export interface DeriveInput {
-  /** 32-byte level master (HKDF IKM). */
-  levelMaster: Uint8Array;
+  /** 32-byte jurisdiction master (HKDF IKM) — one per (user, jurisdiction). */
+  jurisdictionMaster: Uint8Array;
   threadId: string;
-  level: string;
+  jurisdiction: string;
 }
 
 /**
@@ -36,7 +36,7 @@ export interface DeriveInput {
  * 32 bytes.
  */
 export function deriveThreadPrivateKey(input: DeriveInput): Uint8Array {
-  const okm = hkdf(sha256, input.levelMaster, DERIVE_SALT, threadDomainInfo(input.threadId, input.level), 48);
+  const okm = hkdf(sha256, input.jurisdictionMaster, DERIVE_SALT, threadDomainInfo(input.threadId, input.jurisdiction), 48);
   const n = p256.CURVE.n;
   const scalar = (bytesToNumberBE(okm) % (n - 1n)) + 1n;
   return numberToBytesBE(scalar, 32);

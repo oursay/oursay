@@ -12,9 +12,9 @@
 // on the record. When device signing is used the persona's private key never signs — `authorPubkey`
 // is a public label, and authorization flows through the signer's private enrollment binding.
 //
-// The DEVICE ROOT here mirrors the level master in `derive.ts`: a 32-byte secret held on the device
-// (passkey PRF output or a non-exportable secure-storage key), distinct per device. It never leaves
-// the device; the platform only ever sees the public signer key.
+// The DEVICE ROOT here mirrors the jurisdiction master in `derive.ts`: a 32-byte secret held on the
+// device (passkey PRF output or a non-exportable secure-storage key), distinct per device. It never
+// leaves the device; the platform only ever sees the public signer key.
 
 import { hkdf } from "@noble/hashes/hkdf";
 import { sha256 } from "@noble/hashes/sha256";
@@ -29,16 +29,16 @@ import type { TxEnvelope } from "../schema/types.js";
 /** Fixed application salt for the device-signer KDF — distinct from `oursay/v1/thread-derive`. */
 const DEVICE_DERIVE_SALT = utf8ToBytes("oursay/v1/device-signer-derive");
 
-/** HKDF `info` for a thread-scoped device signer: distinct per (thread_id, level). */
-export function deviceSignerDomainInfo(threadId: string, level: string): Uint8Array {
-  return utf8ToBytes(`oursay/v1/device-signer|level=${level}|thread=${threadId}`);
+/** HKDF `info` for a thread-scoped device signer: distinct per (thread_id, jurisdiction). */
+export function deviceSignerDomainInfo(threadId: string, jurisdiction: string): Uint8Array {
+  return utf8ToBytes(`oursay/v1/device-signer|jurisdiction=${jurisdiction}|thread=${threadId}`);
 }
 
 export interface DeriveDeviceSignerInput {
   /** 32-byte device root (HKDF IKM) — one per enrolled device, on-device only. */
   deviceRoot: Uint8Array;
   threadId: string;
-  level: string;
+  jurisdiction: string;
 }
 
 export interface DeviceThreadSigner {
@@ -50,11 +50,11 @@ export interface DeviceThreadSigner {
 /**
  * Derive a thread-scoped device signer P-256 key. Same scalar mapping as `deriveThreadPrivateKey`
  * (HKDF-Expand to 48 bytes so modulo bias < 2^-128; `scalar = (x mod (n-1)) + 1` in [1, n-1]),
- * domain-separated by (thread_id, level) AND by the device root — so each (device, thread) yields a
- * distinct, cross-thread-unlinkable key.
+ * domain-separated by (thread_id, jurisdiction) AND by the device root — so each (device, thread)
+ * yields a distinct, cross-thread-unlinkable key.
  */
 export function deriveDeviceThreadSigner(input: DeriveDeviceSignerInput): DeviceThreadSigner {
-  const okm = hkdf(sha256, input.deviceRoot, DEVICE_DERIVE_SALT, deviceSignerDomainInfo(input.threadId, input.level), 48);
+  const okm = hkdf(sha256, input.deviceRoot, DEVICE_DERIVE_SALT, deviceSignerDomainInfo(input.threadId, input.jurisdiction), 48);
   const n = p256.CURVE.n;
   const scalar = (bytesToNumberBE(okm) % (n - 1n)) + 1n;
   const privKey = numberToBytesBE(scalar, 32);

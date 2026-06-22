@@ -4,10 +4,12 @@ import type pg from "pg";
 
 export interface ProfileRecord {
   userId: string;
+  firstName: string | null;
+  lastName: string | null;
   line1: string | null;
   line2: string | null;
   city: string | null;
-  region: string | null;
+  province: string | null;
   postalCode: string | null;
   country: string;
   memo: string | null;
@@ -19,10 +21,12 @@ export interface ProfileRecord {
 
 export interface InsertProfileInput {
   userId: string;
+  firstName: string | null;
+  lastName: string | null;
   line1: string | null;
   line2: string | null;
   city: string | null;
-  region: string | null;
+  province: string | null;
   postalCode: string | null;
   country: string;
   memo: string | null;
@@ -37,12 +41,12 @@ export class ProfileRepo {
   async insert(p: InsertProfileInput): Promise<void> {
     await this.pool.query(
       `INSERT INTO auth.profiles
-         (user_id, address_line1, address_line2, city, region, postal_code, country,
-          address_memo, birthdate, email, email_canonical)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+         (user_id, first_name, last_name, address_line1, address_line2, city, province, postal_code,
+          country, address_memo, birthdate, email, email_canonical)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
-        p.userId, p.line1, p.line2, p.city, p.region, p.postalCode, p.country,
-        p.memo, p.birthdate, p.email, p.emailCanonical,
+        p.userId, p.firstName, p.lastName, p.line1, p.line2, p.city, p.province, p.postalCode,
+        p.country, p.memo, p.birthdate, p.email, p.emailCanonical,
       ],
     );
   }
@@ -64,10 +68,12 @@ export class ProfileRepo {
 function map(r: any): ProfileRecord {
   return {
     userId: r.user_id,
+    firstName: r.first_name,
+    lastName: r.last_name,
     line1: r.address_line1,
     line2: r.address_line2,
     city: r.city,
-    region: r.region,
+    province: r.province,
     postalCode: r.postal_code,
     country: r.country,
     memo: r.address_memo,

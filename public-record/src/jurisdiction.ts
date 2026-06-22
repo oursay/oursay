@@ -1,0 +1,41 @@
+// Jurisdiction — the domain partition for civic identity and rules. A jurisdiction (e.g.
+// `ab-ca-gov`, `ca-gov`) is one chain + one rule set + one governmental LEVEL, and is 1:1 with a
+// chain (the append-only ledger). `level` is a PROPERTY of the jurisdiction, never a partition key
+// on its own. See docs/01-CONTRIBUTOR-SPEC §6.0 (canonical vocabulary).
+//
+// This module is the "jurisdiction router" seam doc 08 §9 anticipated: it maps a `jurisdictionId`
+// to its config (level + default gating rules). Today a deployment serves one jurisdiction (the
+// env-configured default); the registry lets later deployments host several. The jurisdiction's id
+// is realized as the chain's `chainId` value at the ledger boundary — the ledger layer keeps the
+// word "chain".
+
+import { jurisdictionConfig } from "./config.js";
+
+/** Default gating rules for a jurisdiction. An entity may override these within what the
+ *  jurisdiction permits (see {@link resolveRules} in governance.ts). Defaults are FINAL-action
+ *  semantics: a vote is cast and a signature is signed with no change/revoke unless opted in. */
+export interface JurisdictionRules {
+  allowChange?: boolean; // votes may change before the deadline
+  allowRevoke?: boolean; // signatures may be revoked before the deadline
+  defaultDeadline?: string; // ISO 8601 default close time when an entity sets none
+}
+
+/** A jurisdiction's configuration: its id, governmental level, and default rules. Censoring /
+ *  expiry policy is a per-jurisdiction extension point that will hang off this shape. */
+export interface JurisdictionConfig {
+  id: string;
+  level: string; // federal | provincial | municipal | state | …
+  rules: JurisdictionRules;
+}
+
+const registry = new Map<string, JurisdictionConfig>();
+
+/** Register (or replace) a jurisdiction in the in-process router. */
+export function registerJurisdiction(j: JurisdictionConfig): void {
+  registry.set(j.id, j);
+}
+
+/** Resolve a jurisdiction by id, falling back to the deployment's configured default. */
+export function getJurisdiction(id: string = jurisdictionConfig.id): JurisdictionConfig {
+  return registry.get(id) ?? jurisdictionConfig;
+}

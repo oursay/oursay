@@ -11,18 +11,18 @@ import { contentCommitment } from "../../src/crypto/commitment.js";
 import type { TxEnvelope } from "../../src/schema/types.js";
 
 // ── Fixed derivation inputs ───────────────────────────────────────────────────────────────
-export const LEVEL_MASTER_HEX = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
-export const levelMaster = (): Uint8Array => hexToBytes(LEVEL_MASTER_HEX);
+export const JURISDICTION_MASTER_HEX = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f";
+export const jurisdictionMaster = (): Uint8Array => hexToBytes(JURISDICTION_MASTER_HEX);
 
 export const USER_ID = "user-alice";
 export const THREAD_ID = "thread-belief-42";
-export const LEVEL = "federal";
+export const JURISDICTION = "ab-ca-gov";
 /** Fixed 32-byte salt_t (hex) for deterministic commitment/binding vectors. */
 export const SALT_T_HEX = "a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebf".replace(/\s/g, "");
 
-// A second thread/level to prove domain separation (must yield a DIFFERENT key).
+// A second thread/jurisdiction to prove domain separation (must yield a DIFFERENT key).
 export const THREAD_ID_2 = "thread-belief-99";
-export const LEVEL_2 = "provincial";
+export const JURISDICTION_2 = "ca-gov";
 
 // ── Fixed envelope fixture (a `post` create) — PRODUCTION shape (contentHash id = txId) ─────
 export const TX_ID = "11111111-1111-4111-8111-111111111111";
@@ -52,11 +52,10 @@ export function envFixture(): TxEnvelope {
 // ── Frozen expected outputs (filled by scripts/compute-identity-vectors.ts) ─────────────────
 export const EXPECT = {
   contentHash: "83aa35b392d573c99ccf37eb0833b8416cbf47d44f73deefb249daf24292a6c9",
-  // threadPubkey + commitment are identical to the passkey-test spike (derivation is unchanged).
-  threadPubkey: "0323a8ea4ff23736e96bcad3afefdc30475d06e18b780648af011c2d9fc46d61af",
-  commitment: "1076a12c3938dd82d72ee457cc13b56d2c0648d5b6c62b2679be6beb91cc1a33",
-  // signature + txHash differ from the spike: production envelope uses contentHash id = txId.
+  // Keyed by JURISDICTION (re-keyed from the old per-level vectors). Regenerate with the script.
+  threadPubkey: "02634c2562aac67c92ae69022bf8cf845d5227fd3661d8bcc3af03edc7b7f50cb8",
+  commitment: "9deaf01089a8f43d3f41a784a5b9f39eb68f057fd36e88dc2105a6f2fedd66f3",
   signature:
-    "420bc3f408e8b4a83ecb3f133aa1dcec8abd232e71980a71eb8e08dc86f5166d500a4aa00d3038a8aa8ad55cf713506c3f8742f9c5e16221dd6b650f509c62e2",
-  txHash: "aacd5825a0effab00ef35ac08c3b2df566db86844620d569c72efc7bb029c7d6",
+    "a5a0ba328b20cd2709038e3724ef0284aceaa93715f8731772ef29eff99e411dc02c36a59b59cef83abcc1b3dcddd9176df62adc918e8e76a5ac9e39989f6490",
+  txHash: "036e00a7fddedbced4a68e758b50dcbd71b52f059f1e446151662ede90fa035a",
 } as const;

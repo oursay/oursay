@@ -5,7 +5,7 @@ device-signed record envelopes, and provides the in-process server helpers the f
 `@oursay/api` will expose over HTTP. It sits on top of `@oursay/public-record` (the record engine)
 and never re-implements its commitment/envelope crypto.
 
-Method 3 (device keys + stable thread persona + user-level nullifier) per
+Method 3 (device keys + stable thread persona + per-jurisdiction nullifier) per
 [`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md). Method 4 (ZK)
 is the long-term goal; the envelope `proof` slot stays reserve-and-reject until ZK exists.
 
@@ -23,8 +23,8 @@ envelopes). Private roots, the salt opening, and device-private keys never leave
 ## The two connectors (one interface)
 
 - **`WebPasskeyConnector`** — real browser WebAuthn. A passkey authenticates the session and, via
-  the PRF extension, unlocks a 32-byte root that HKDF-expands into the device root + user-level
-  level-master / nullifier-root. The passkey never signs civic actions.
+  the PRF extension, unlocks a 32-byte root that HKDF-expands into the device root + per-(user,
+  jurisdiction) jurisdiction-master / nullifier-root. The passkey never signs civic actions.
 - **`DevPasskeyConnector`** — a **simulated passkey for dev + CI**. No browser, no Touch ID, no
   prompts. **Guarded:** the constructor throws unless `OURSAY_DEV_PASSKEY=1` *and*
   `NODE_ENV !== "production"`. Deterministic from a `seed`; custody under `.oursay-dev/`.
@@ -52,13 +52,13 @@ const session = new IdentitySession(await connector.unlock({ userId, deviceId: c
 await registry.ensureUser({ userId });
 await registry.enrollDevice({ userId, devicePubkey: cred.devicePubkey });
 // join a thread → thread_keys + thread_bindings + thread_signers
-const thread = { threadId: postId, level: "federal" };
+const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
 await registry.joinThread({
-  userId, threadId: postId, level: "federal",
+  userId, threadId: postId, jurisdiction: "ab-ca-gov",
   personaPubkey: session.personaPubkey(thread),
   signerPubkey: session.signerPubkey(thread),
   commitment: session.bindingInputs(thread).binding.commitment,
-  devicePubkey: cred.devicePubkey, kycTier: "residency_verified", region: "ca-ab",
+  devicePubkey: cred.devicePubkey, kycTier: "residency_verified",
 });
 // create a post: prepare → device-sign → submit
 const intent = { op: "create", type: "post", entityId: postId, content: { body: "hello" } };

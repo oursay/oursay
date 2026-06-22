@@ -34,7 +34,7 @@ export const PLATFORM_PUBKEY = "platform";
  * signed FINAL, with no revocation.
  */
 export interface EntityRules {
-  region?: string; // riding/district whose rules govern this entity
+  governingDistrictId?: string; // the electoral DISTRICT (riding/ward/constituency) whose rules govern this entity
   deadline?: string; // ISO 8601; after it, no change/revoke is permitted
   allowChange?: boolean; // poll: votes may change before deadline
   allowRevoke?: boolean; // petition: signatures may be revoked before deadline

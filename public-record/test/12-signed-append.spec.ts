@@ -16,7 +16,7 @@ import type { PrivateStore } from "../src/private/store.js";
 import { RecordService } from "../src/record.js";
 import type { TxEnvelope } from "../src/schema/types.js";
 import { getWorld, rejects } from "./helpers/world.js";
-import { levelMaster } from "./fixtures/identity-vectors.js";
+import { jurisdictionMaster } from "./fixtures/identity-vectors.js";
 
 /**
  * The identity vertical slice end-to-end (Track A): a client derives a per-thread P-256 key, the
@@ -30,9 +30,9 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   // Ephemeral platform binding key for this run (env-required in prod; never committed).
   const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
   const platformPub = platformPublicKey(platformPriv);
-  const level = "federal";
+  const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
-  const region = "ca-ab";
+  const region = "ca-ab"; // KYC-attestation region (kyc_attestations.region); distinct from jurisdiction
 
   let store: PrivateStore;
   let connector: PgWireLedgerConnector;
@@ -56,16 +56,16 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   }> {
     const userId = randomUUID();
     await store.putUser({ id: userId });
-    const lm = levelMaster();
-    // For the slice the level master doubles as a P-256 seed so we can record a public master ref;
-    // the append gate does not depend on it (it checks the per-thread binding).
-    await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
-    const { privKey, threadPubkey } = deriveThreadKey({ levelMaster: lm, threadId: rootEntityId, level });
+    const jm = jurisdictionMaster();
+    // For the slice the jurisdiction master doubles as a P-256 seed so we can record a public master
+    // ref; the append gate does not depend on it (it checks the per-thread binding).
+    await store.putJurisdictionMaster({ userId, jurisdiction, masterPubkey: bytesToHex(p256.getPublicKey(jm)) });
+    const { privKey, threadPubkey } = deriveThreadKey({ jurisdictionMaster: jm, threadId: rootEntityId, jurisdiction });
     const saltT = newSalt();
-    const { binding } = buildThreadBindingInputs({ userId, threadPubkey, threadId: rootEntityId, level, kycTier, region, saltT });
+    const { binding } = buildThreadBindingInputs({ userId, threadPubkey, threadId: rootEntityId, jurisdiction, kycTier, saltT });
     await store.putAttestation({ userId, provider: "dev-stub", tier: kycTier, region });
     await store.registerThreadBinding({
-      threadPubkey, userId, threadId: rootEntityId, level, kycTier, region, commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
+      threadPubkey, userId, threadId: rootEntityId, jurisdiction, kycTier, commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
     });
     return { userId, privKey, threadPubkey, commitment: binding.commitment, saltT };
   }
@@ -128,7 +128,7 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   it("rejects an unregistered thread key (unverified tier) and writes no pool row", async () => {
     // Derive a key but DO NOT register it.
     const entityId = randomUUID();
-    const { privKey } = deriveThreadKey({ levelMaster: levelMaster(), threadId: entityId, level });
+    const { privKey } = deriveThreadKey({ jurisdictionMaster: jurisdictionMaster(), threadId: entityId, jurisdiction });
     const { envelope, salt, content } = buildSignedPost(privKey, entityId, { body: "should not land" });
     expect(await rejects(svc.appendSigned({ envelope, salt, content }))).to.equal(true);
     expect(await store.getEntityState(envelope.entityId), "nothing written").to.not.exist;

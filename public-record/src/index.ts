@@ -28,10 +28,15 @@ export type { SettleDecision, SettleOptions } from "./ledger/settler.js";
 // Governance
 export {
   rulesOf,
+  resolveRules,
   withinDeadline,
   canChangeVote,
   canRevokeSignature,
 } from "./governance.js";
+
+// Jurisdiction (domain partition + router: id, level, default gating rules)
+export { getJurisdiction, registerJurisdiction } from "./jurisdiction.js";
+export type { JurisdictionConfig, JurisdictionRules } from "./jurisdiction.js";
 
 // Projections (fold-on-read state)
 export { getThread, reactionTallies } from "./projection.js";
@@ -105,5 +110,5 @@ export type {
 } from "./schema/types.js";
 
 // Config
-export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, blockConfig, anchorTargetsConfig } from "./config.js";
+export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, jurisdictionConfig, blockConfig, anchorTargetsConfig } from "./config.js";
 export type { PgConfig, OutboxConfig, ChainConfig, BlockConfig, AnchorTargetsConfig } from "./config.js";

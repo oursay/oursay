@@ -1,7 +1,7 @@
 // Platform-side signing/verification of a per-thread registration binding (§6).
 //
-// At thread registration the PLATFORM signs the public binding (thread_pubkey, thread_id, level,
-// kyc_tier, region?, commitment) with its P-256 key. The signature is stored privately in
+// At thread registration the PLATFORM signs the public binding (thread_pubkey, thread_id,
+// jurisdiction, kyc_tier?, commitment) with its P-256 key. The signature is stored privately in
 // `thread_bindings.binding_sig` and re-verified on every verified-tier append (defense-in-depth).
 // The platform key is provided by the caller (env-required in prod, ephemeral in tests) — this
 // module never reads config so it stays pure/testable. KMS-managed keys are a later milestone.
@@ -13,8 +13,8 @@ import { canonicalJson } from "../crypto/commitment.js";
 import type { ThreadBindingPublic } from "./binding.js";
 
 /** The digest the platform signs: sha256(canonicalJson(binding)). Canonical JSON sorts keys, so
- *  presence/absence of optional fields (kyc_tier always set; region only when provided) is what
- *  matters — reconstruct the binding identically when verifying. */
+ *  presence/absence of optional fields (kyc_tier set only when provided) is what matters —
+ *  reconstruct the binding identically when verifying. */
 export function bindingDigest(binding: ThreadBindingPublic): Uint8Array {
   return sha256(utf8ToBytes(canonicalJson(binding)));
 }

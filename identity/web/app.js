@@ -55,8 +55,8 @@ async function unlock(label) {
     step: label,
     prfRoot: bytesToHex(prf),
     deviceRoot: root32(prf, "oursay/web/device-root", "demo-device"),
-    levelMaster_federal: root32(prf, "oursay/web/level-master", "federal"),
-    nullifierRoot_federal: root32(prf, "oursay/web/nullifier-root", "federal"),
+    jurisdictionMaster_abcagov: root32(prf, "oursay/web/jurisdiction-master", "ab-ca-gov"),
+    nullifierRoot_abcagov: root32(prf, "oursay/web/nullifier-root", "ab-ca-gov"),
     deterministic: seen.length > 1 ? seen[0] === seen[seen.length - 1] : "(unlock again to check)",
   });
 }

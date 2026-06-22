@@ -12,28 +12,43 @@
 export const AUTH_DDL = `
 CREATE SCHEMA IF NOT EXISTS auth;
 
--- Private account profile / PII. Display name is NOT here — it lives on public.users.handle (the
--- single source of truth, the only field intended for future public surfacing). Address is stored
--- as GENERIC components + a free memo for region-specific extras; the front-end owns localized
--- labels. No riding/district binding is persisted (boundaries shift over time; region membership is
--- resolved dynamically by future resolvers against platform-defined boundaries). Encryption-at-rest
--- is a follow-on (KMS); these columns are the extension point.
+-- Private account profile / PII. Public-facing name (handle / display_name) is NOT here — it lives on
+-- public.users. The user's LEGAL name (first_name / last_name) IS here: private PII, used for KYC,
+-- never publicly surfaced. Address is stored as Canada-centric components (province, postal_code,
+-- country default 'CA'); jurisdiction-specific DISPLAY labels live in the front-end (and a future
+-- jurisdiction table), not in column names. No district binding is persisted (boundaries shift over
+-- time; district/region membership is resolved dynamically against platform-defined boundaries).
+-- Encryption-at-rest is a follow-on (KMS); these columns are the extension point.
 CREATE TABLE IF NOT EXISTS auth.profiles (
   user_id         UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  first_name      TEXT,                 -- private PII (KYC); never public
+  last_name       TEXT,                 -- private PII (KYC); never public
   address_line1   TEXT,
   address_line2   TEXT,
   city            TEXT,
-  region          TEXT,                 -- province/state/etc. (FE-labelled)
+  province        TEXT,                 -- province/territory (Canada-centric; FE owns the label)
   postal_code     TEXT,
   country         TEXT NOT NULL DEFAULT 'CA',
-  address_memo    TEXT,                 -- region-specific extra field
+  address_memo    TEXT,                 -- jurisdiction-specific extra field
   birthdate       DATE NOT NULL,        -- age gate enforced at registration (service layer)
   email           TEXT NOT NULL,        -- as the user typed it
   email_canonical TEXT NOT NULL UNIQUE, -- normalized; uniqueness + all lookups use this form
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Idempotent migrations for a persistent dev DB created before these columns existed.
+ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS first_name TEXT;
+ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS last_name TEXT;
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'auth' AND table_name = 'profiles' AND column_name = 'region')
+     AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'auth' AND table_name = 'profiles' AND column_name = 'province') THEN
+    ALTER TABLE auth.profiles RENAME COLUMN region TO province;
+  END IF;
+END $$;
+DROP INDEX IF EXISTS auth.profiles_region;
 -- Coarse geographic narrowing only (never the full street address in query predicates).
-CREATE INDEX IF NOT EXISTS profiles_region ON auth.profiles (region);
+CREATE INDEX IF NOT EXISTS profiles_province ON auth.profiles (province);
 CREATE INDEX IF NOT EXISTS profiles_postal ON auth.profiles (postal_code);
 
 -- Account-login WebAuthn credentials (passkey-primary auth). NOT civic signing keys.

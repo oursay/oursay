@@ -3,13 +3,14 @@
 // Account auth + key custody via a platform passkey:
 //   - register  → navigator.credentials.create (ES256 / -7), PRF extension probed.
 //   - unlock    → navigator.credentials.get with PRF eval; one 32-byte PRF root per credential.
-// From that single PRF root we HKDF-expand the device root + USER-LEVEL level-master / nullifier-root
-// (domain-separated). The passkey NEVER signs civic actions — it unlocks derivation material (§6).
+// From that single PRF root we HKDF-expand the device root + per-(user, jurisdiction) jurisdiction-
+// master / nullifier-root (domain-separated). The passkey NEVER signs civic actions — it unlocks
+// derivation material (§6).
 //
 // Cross-device note (honest limit, FINDINGS §3): a SYNCED passkey (same credential on two devices,
-// e.g. iCloud Keychain) yields the SAME PRF root → shared user-level secrets and persona. INDEPENDENT
+// e.g. iCloud Keychain) yields the SAME PRF root → shared per-user secrets and persona. INDEPENDENT
 // passkeys yield different roots; the second device references the existing persona and signs with
-// its own device signer, and user-level nullifier consistency needs recovery/sync of the root (the
+// its own device signer, and per-jurisdiction nullifier consistency needs recovery/sync of the root (the
 // platform attestation remains the dedupe backstop). PRF availability is uneven — gate on the
 // AUTH-time result, not the create-time `enabled` flag (FINDINGS §2). A secure-storage fallback
 // (non-exportable WebCrypto key + IndexedDB / largeBlob) is the production path when PRF is absent;
@@ -95,8 +96,8 @@ export class WebPasskeyConnector implements PasskeyConnector {
       deviceId: o.deviceId,
       devicePubkey,
       deviceRoot,
-      levelMaster: (level: string) => root32(prf, "oursay/web/level-master", level),
-      nullifierRoot: (level: string) => root32(prf, "oursay/web/nullifier-root", level),
+      jurisdictionMaster: (jurisdiction: string) => root32(prf, "oursay/web/jurisdiction-master", jurisdiction),
+      nullifierRoot: (jurisdiction: string) => root32(prf, "oursay/web/nullifier-root", jurisdiction),
     };
   }
 

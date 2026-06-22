@@ -44,8 +44,8 @@ export class IdentityRegistry {
   /**
    * Join a thread: resolve the enrolling device, platform-sign the binding, and write
    * `thread_keys` + `thread_bindings` (registerThreadBinding) and `thread_signers`. The binding is
-   * built to match `bindingFromRow` exactly (kyc_tier always present; region only when non-null) so
-   * `verifyThreadBinding` re-verifies it at append time.
+   * built to match `bindingFromRow` exactly (kyc_tier always present) so `verifyThreadBinding`
+   * re-verifies it at append time.
    */
   async joinThread(r: ThreadRegistration): Promise<void> {
     const device = await this.o.store.getDeviceKeyByPubkey(r.devicePubkey);
@@ -55,9 +55,8 @@ export class IdentityRegistry {
     const binding: ThreadBindingPublic = {
       thread_pubkey: r.personaPubkey,
       thread_id: r.threadId,
-      level: r.level,
+      jurisdiction: r.jurisdiction,
       kyc_tier: r.kycTier,
-      ...(r.region != null ? { region: r.region } : {}),
       commitment: r.commitment,
     };
     const bindingSig = signBinding(binding, this.o.platformBindingPrivKeyHex);
@@ -66,9 +65,8 @@ export class IdentityRegistry {
       threadPubkey: r.personaPubkey,
       userId: r.userId,
       threadId: r.threadId,
-      level: r.level,
+      jurisdiction: r.jurisdiction,
       kycTier: r.kycTier,
-      region: r.region ?? null,
       commitment: r.commitment,
       bindingSig,
     });
@@ -77,7 +75,7 @@ export class IdentityRegistry {
       userId: r.userId,
       deviceId: device.id,
       threadId: r.threadId,
-      level: r.level,
+      jurisdiction: r.jurisdiction,
     });
   }
 

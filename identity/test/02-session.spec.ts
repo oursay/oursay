@@ -21,8 +21,8 @@ process.env.OURSAY_DEV_PASSKEY = "1";
 const tmp = () => mkdtempSync(join(tmpdir(), "oursay-sess-"));
 
 describe("02 session: derivation agrees with public-record; device-signed envelopes verify", () => {
-  const level = "federal";
-  const thread: ThreadRef = { threadId: "root-1", level };
+  const jurisdiction = "ab-ca-gov";
+  const thread: ThreadRef = { threadId: "root-1", jurisdiction };
 
   async function session() {
     const c = new DevPasskeyConnector({ rootDir: tmp(), seed: "sess" });
@@ -33,16 +33,16 @@ describe("02 session: derivation agrees with public-record; device-signed envelo
 
   it("personaPubkey and signerPubkey match the public-record primitives", async () => {
     const { unlocked, sess } = await session();
-    const persona = deriveThreadKey({ levelMaster: unlocked.levelMaster(level), threadId: thread.threadId, level }).threadPubkey;
-    const signer = deriveDeviceThreadSigner({ deviceRoot: unlocked.deviceRoot, threadId: thread.threadId, level }).signerPubkey;
+    const persona = deriveThreadKey({ jurisdictionMaster: unlocked.jurisdictionMaster(jurisdiction), threadId: thread.threadId, jurisdiction }).threadPubkey;
+    const signer = deriveDeviceThreadSigner({ deviceRoot: unlocked.deviceRoot, threadId: thread.threadId, jurisdiction }).signerPubkey;
     expect(sess.personaPubkey(thread)).to.equal(persona);
     expect(sess.signerPubkey(thread)).to.equal(signer);
     expect(sess.personaPubkey(thread)).to.not.equal(sess.signerPubkey(thread));
   });
 
-  it("nullifier matches threadNullifier over the user-level nullifier root", async () => {
+  it("nullifier matches threadNullifier over the per-jurisdiction nullifier root", async () => {
     const { unlocked, sess } = await session();
-    const expected = threadNullifier(deriveNullifierSecret(unlocked.nullifierRoot(level), level), "poll-9");
+    const expected = threadNullifier(deriveNullifierSecret(unlocked.nullifierRoot(jurisdiction), jurisdiction), "poll-9");
     expect(sess.nullifier(thread, "poll-9")).to.equal(expected);
   });
 
@@ -59,7 +59,7 @@ describe("02 session: derivation agrees with public-record; device-signed envelo
     expect(envelope.nullifier).to.equal(undefined); // non-singleton
   });
 
-  it("buildSigned: a singleton create carries the user-level nullifier", async () => {
+  it("buildSigned: a singleton create carries the per-jurisdiction nullifier", async () => {
     const { sess } = await session();
     const entityId = randomUUID();
     const parentId = randomUUID();

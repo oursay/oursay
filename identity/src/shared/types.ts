@@ -4,11 +4,12 @@
 
 import type { Op, RecordType, TxEnvelope } from "@oursay/public-record/schema/types";
 
-/** A thread = a root entity (post/poll/petition) + its governmental level. */
+/** A thread = a root entity (post/poll/petition) within a JURISDICTION (the identity partition). */
 export interface ThreadRef {
   /** The root entity id this thread is scoped to (the persona/signer derivation scope). */
   threadId: string;
-  level: string;
+  /** The jurisdiction id this thread belongs to (e.g. `ab-ca-gov`); the crypto partition key. */
+  jurisdiction: string;
 }
 
 export interface ParentRef {
@@ -70,13 +71,12 @@ export interface DeviceEnrollment {
 export interface ThreadRegistration {
   userId: string;
   threadId: string;
-  level: string;
+  jurisdiction: string;
   personaPubkey: string;
   commitment: string;
   signerPubkey: string;
   devicePubkey: string;
   kycTier: string;
-  region?: string;
 }
 
 export type { Op, RecordType, TxEnvelope };

@@ -4,12 +4,12 @@ import { deriveThreadKey } from "../src/identity/derive.js";
 import { signEnvelope } from "../src/identity/envelope.js";
 import { threadCommitment } from "../src/crypto/commitment.js";
 import {
-  levelMaster, USER_ID, THREAD_ID, LEVEL, SALT_T_HEX, CONTENT_HASH, envFixture,
+  jurisdictionMaster, USER_ID, THREAD_ID, JURISDICTION, SALT_T_HEX, CONTENT_HASH, envFixture,
 } from "../test/fixtures/identity-vectors.js";
 
-const key = deriveThreadKey({ levelMaster: levelMaster(), threadId: THREAD_ID, level: LEVEL });
+const key = deriveThreadKey({ jurisdictionMaster: jurisdictionMaster(), threadId: THREAD_ID, jurisdiction: JURISDICTION });
 const signed = signEnvelope(envFixture(), key.privKey);
-const commitment = threadCommitment({ userId: USER_ID, saltT: SALT_T_HEX, threadId: THREAD_ID, level: LEVEL });
+const commitment = threadCommitment({ userId: USER_ID, saltT: SALT_T_HEX, threadId: THREAD_ID, jurisdiction: JURISDICTION });
 
 console.log(JSON.stringify({
   contentHash: CONTENT_HASH,

@@ -1,5 +1,6 @@
 import type { PrivateStore } from "./private/store.js";
 import type { EntityRules } from "./schema/types.js";
+import { getJurisdiction, type JurisdictionRules } from "./jurisdiction.js";
 
 /** Extract the governance rules embedded in an entity's content (poll/petition). */
 export function rulesOf(content: unknown): EntityRules {
@@ -10,6 +11,21 @@ export function rulesOf(content: unknown): EntityRules {
   return {};
 }
 
+/**
+ * Resolve the EFFECTIVE rules for an entity: the jurisdiction's defaults overlaid by the entity's
+ * own overrides. The entity wins where it sets a value; otherwise the jurisdiction default applies
+ * (and the absent/false floor remains FINAL-action semantics). `governingDistrictId` is carried
+ * through untouched — it records which district governs, not a gate the platform resolves yet.
+ */
+export function resolveRules(base: JurisdictionRules, override: EntityRules): EntityRules {
+  return {
+    governingDistrictId: override.governingDistrictId,
+    deadline: override.deadline ?? base.defaultDeadline,
+    allowChange: override.allowChange ?? base.allowChange ?? false,
+    allowRevoke: override.allowRevoke ?? base.allowRevoke ?? false,
+  };
+}
+
 /** True if `now` is before the rules' deadline (or there is no deadline). */
 export function withinDeadline(rules: EntityRules, now: Date = new Date()): boolean {
   if (!rules.deadline) return true;
@@ -17,32 +33,36 @@ export function withinDeadline(rules: EntityRules, now: Date = new Date()): bool
 }
 
 /**
- * Whether a vote on `pollEntityId` may be CHANGED right now. Default (no rules) is FALSE — a
- * vote is cast final, the real-world analog. A poll's `rules.allowChange` + a future deadline
- * opt in (e.g. a riding that permits changing a vote before close).
+ * Whether a vote on `pollEntityId` may be CHANGED right now. Resolved as the jurisdiction's default
+ * rules ⊕ the poll's overrides: the default (no rules) is FALSE — a vote is cast final, the
+ * real-world analog. A jurisdiction default or the poll's `rules.allowChange` + a future deadline
+ * opt in. `jurisdictionId` selects the rule set; it defaults to the deployment's jurisdiction.
  */
 export async function canChangeVote(
   store: PrivateStore,
   pollEntityId: string,
   now: Date = new Date(),
+  jurisdictionId?: string,
 ): Promise<boolean> {
   const poll = await store.getEntityState(pollEntityId);
   if (!poll || poll.isDeleted) return false;
-  const rules = rulesOf(poll.content);
+  const rules = resolveRules(getJurisdiction(jurisdictionId).rules, rulesOf(poll.content));
   return Boolean(rules.allowChange) && withinDeadline(rules, now);
 }
 
 /**
- * Whether a signature on `petitionEntityId` may be REVOKED right now. Default FALSE — a
- * signature is final, the real-world analog. `rules.allowRevoke` + a future deadline opt in.
+ * Whether a signature on `petitionEntityId` may be REVOKED right now. Resolved as the jurisdiction's
+ * default rules ⊕ the petition's overrides. Default FALSE — a signature is final. A jurisdiction
+ * default or the petition's `rules.allowRevoke` + a future deadline opt in.
  */
 export async function canRevokeSignature(
   store: PrivateStore,
   petitionEntityId: string,
   now: Date = new Date(),
+  jurisdictionId?: string,
 ): Promise<boolean> {
   const petition = await store.getEntityState(petitionEntityId);
   if (!petition || petition.isDeleted) return false;
-  const rules = rulesOf(petition.content);
+  const rules = resolveRules(getJurisdiction(jurisdictionId).rules, rulesOf(petition.content));
   return Boolean(rules.allowRevoke) && withinDeadline(rules, now);
 }

@@ -28,9 +28,8 @@ import { getWorld, rejects } from "./helpers/world.js";
  */
 describe("14 device signing: multi-device, cross-device edit, thread-scoped signers", () => {
   const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
-  const level = "federal";
+  const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
-  const region = "ca-ab";
 
   let store: PrivateStore;
   let connector: PgWireLedgerConnector;
@@ -55,17 +54,17 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
     const userId = randomUUID();
     await store.putUser({ id: userId });
     const lm = p256.utils.randomPrivateKey();
-    await store.putLevelMaster({ userId, level, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
-    // The USER-LEVEL nullifier root: one secret shared across the user's devices (§5.4).
-    return { userId, lm, nroot: deriveNullifierSecret(lm, level) };
+    await store.putJurisdictionMaster({ userId, jurisdiction, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
+    // The per-(user, jurisdiction) nullifier root: one secret shared across the user's devices (§5.4).
+    return { userId, lm, nroot: deriveNullifierSecret(lm, jurisdiction) };
   }
 
   /** Register this user's stable thread persona (author id) for a ROOT entity (thread = root). */
   async function registerThread(u: U, rootId: string): Promise<string> {
-    const { threadPubkey } = deriveThreadKey({ levelMaster: u.lm, threadId: rootId, level });
-    const { binding } = buildThreadBindingInputs({ userId: u.userId, threadPubkey, threadId: rootId, level, kycTier, region, saltT: newSalt() });
+    const { threadPubkey } = deriveThreadKey({ jurisdictionMaster: u.lm, threadId: rootId, jurisdiction });
+    const { binding } = buildThreadBindingInputs({ userId: u.userId, threadPubkey, threadId: rootId, jurisdiction, kycTier, saltT: newSalt() });
     await store.registerThreadBinding({
-      threadPubkey, userId: u.userId, threadId: rootId, level, kycTier, region,
+      threadPubkey, userId: u.userId, threadId: rootId, jurisdiction, kycTier,
       commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv),
     });
     return threadPubkey;
@@ -81,13 +80,13 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
 
   /** Derive (but do NOT register) a device's thread-scoped signer. */
   function signerFor(device: Device, threadId: string): Signer {
-    return deriveDeviceThreadSigner({ deviceRoot: device.root, threadId, level });
+    return deriveDeviceThreadSigner({ deviceRoot: device.root, threadId, jurisdiction });
   }
 
   /** Derive AND register a device's thread-scoped signer for a thread (the private device→user map). */
   async function registerSigner(u: U, device: Device, threadId: string): Promise<Signer> {
     const s = signerFor(device, threadId);
-    await store.registerThreadSigner({ signerPubkey: s.signerPubkey, userId: u.userId, deviceId: device.deviceId, threadId, level });
+    await store.registerThreadSigner({ signerPubkey: s.signerPubkey, userId: u.userId, deviceId: device.deviceId, threadId, jurisdiction });
     return s;
   }
 
@@ -240,7 +239,7 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
       contentHash: contentCommitment({ id: txId, salt, content }),
     };
     // sign with the persona key directly (the single-device / passkey-sync path)
-    const { privKey } = deriveThreadKey({ levelMaster: u.lm, threadId: postId, level });
+    const { privKey } = deriveThreadKey({ jurisdictionMaster: u.lm, threadId: postId, jurisdiction });
     const { envelope } = signEnvelope(base, privKey);
     expect(await rejects(gated.appendSigned({ envelope, salt, content }))).to.equal(true);
   });
@@ -269,11 +268,11 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
 
   it("per-thread anonymity: the same device's signer differs across threads (no cross-thread linker)", () => {
     const root = randomBytes(32);
-    const sX = deriveDeviceThreadSigner({ deviceRoot: root, threadId: "thread-X", level });
-    const sY = deriveDeviceThreadSigner({ deviceRoot: root, threadId: "thread-Y", level });
+    const sX = deriveDeviceThreadSigner({ deviceRoot: root, threadId: "thread-X", jurisdiction });
+    const sY = deriveDeviceThreadSigner({ deviceRoot: root, threadId: "thread-Y", jurisdiction });
     expect(sX.signerPubkey).to.not.equal(sY.signerPubkey);
     // deterministic per (device, thread)
-    const sXagain = deriveDeviceThreadSigner({ deviceRoot: root, threadId: "thread-X", level });
+    const sXagain = deriveDeviceThreadSigner({ deviceRoot: root, threadId: "thread-X", jurisdiction });
     expect(sXagain.signerPubkey).to.equal(sX.signerPubkey);
   });
 });

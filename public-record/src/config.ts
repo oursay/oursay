@@ -1,6 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
+import type { JurisdictionConfig } from "./jurisdiction.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(packageRoot, "..");
@@ -73,6 +74,23 @@ export interface ChainConfig {
 
 export const chainConfig: ChainConfig = {
   chainId: env("CHAIN_ID", "oursay-local"),
+};
+
+/**
+ * The deployment's default JURISDICTION — the domain partition for civic identity and gating rules
+ * (docs/01 §6.0). A jurisdiction is 1:1 with a chain, so its `id` defaults to the chain's `chainId`
+ * value (e.g. `ab-ca-gov`); `level` is descriptive metadata (federal/provincial/municipal/state/…);
+ * `rules` are the default gates an entity may override within (see governance.ts `resolveRules`).
+ * The full type + the router live in jurisdiction.ts. Default rules are FINAL-action semantics
+ * (no change/revoke) — the real-world analog — unless a deployment opts in.
+ */
+export const jurisdictionConfig: JurisdictionConfig = {
+  id: env("JURISDICTION_ID", chainConfig.chainId),
+  level: env("JURISDICTION_LEVEL", "federal"),
+  rules: {
+    allowChange: env("JURISDICTION_ALLOW_CHANGE", "false") === "true",
+    allowRevoke: env("JURISDICTION_ALLOW_REVOKE", "false") === "true",
+  },
 };
 
 /**

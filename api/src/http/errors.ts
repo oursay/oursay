@@ -15,6 +15,7 @@ const STATUS: Record<ErrorCode, number> = {
   age_restricted: 403,
   not_found: 404,
   email_taken: 409,
+  handle_taken: 409,
   conflict: 409,
   kyc_reverification_required: 409,
   rate_limited: 429,

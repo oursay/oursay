@@ -1,18 +1,21 @@
 // Per-parent nullifier derivation (PROPOSAL §6 / Identity & Device Policy §5.4). On-device, deterministic.
 //
 // A nullifier is a privacy-preserving "one per (user, parent)" tag for singleton actions
-// (vote / petition_signature / reaction). It is derived from a per-level NULLIFIER SECRET and the
-// singleton PARENT id. Properties: deterministic per (user, level, parent); unlinkable across parents
-// and across levels (different secret); reveals nothing about identity.
+// (vote / petition_signature / reaction). It is derived from a per-JURISDICTION NULLIFIER SECRET and
+// the singleton PARENT id. Properties: deterministic per (user, jurisdiction, parent); unlinkable
+// across parents and ACROSS JURISDICTIONS (different secret); reveals nothing about identity. Keying
+// the secret by jurisdiction — not by governmental level — is what lets a user act once PER
+// JURISDICTION: two jurisdictions at the same level (e.g. ab-ca-gov and bc-ca-gov) get independent
+// secrets, so a vote in one neither dedupes against nor links to a vote in the other.
 //
-// Method 3 (§5.4 "sacrifices"): the nullifier secret is rooted in a USER-LEVEL nullifier root —
-// provisioned once at verification and shared across the user's devices (passkey PRF, or a
-// user-controlled encrypted backup) — NOT an independent per-device root. This is what lets every
-// one of a user's devices reproduce the SAME nullifier, so a vote cast on one phone can be changed
-// from another (the singleton edit carries the original nullifier forward). Even so, the platform's
-// `nullifier_attestations` table (PK (user_id, parent_id)) remains the AUTHORITATIVE one-per-user
-// backstop, so dedupe holds even if a device computed a divergent value. A future Method-4 (§5.5)
-// zk-membership proof fills this same slot to make dedupe trustless (no platform attestation).
+// Method 3 (§5.4 "sacrifices"): the nullifier secret is rooted in a per-(user, jurisdiction)
+// nullifier root — provisioned once at verification and shared across the user's devices (passkey
+// PRF, or a user-controlled encrypted backup) — NOT an independent per-device root. This is what
+// lets every one of a user's devices reproduce the SAME nullifier, so a vote cast on one phone can
+// be changed from another (the singleton edit carries the original nullifier forward). Even so, the
+// platform's `nullifier_attestations` table (PK (user_id, parent_id)) remains the AUTHORITATIVE
+// one-per-user backstop, so dedupe holds even if a device computed a divergent value. A future
+// Method-4 (§5.5) zk-membership proof fills this same slot to make dedupe trustless.
 
 import { hkdf } from "@noble/hashes/hkdf";
 import { sha256 } from "@noble/hashes/sha256";
@@ -24,13 +27,13 @@ const NULLIFIER_SECRET_SALT = utf8ToBytes("oursay/v1/nullifier-secret");
 const NULLIFIER_EVAL_SALT = utf8ToBytes("oursay/v1/nullifier-eval");
 
 /**
- * The per-level nullifier secret (32 bytes), HKDF'd from the USER-LEVEL nullifier root. Stays
- * on-device, and (per §5.4) must be reproducible on every device the user enrols — so the root is a
- * user-level secret shared across devices, not a per-device level master. Bytes are unchanged from
- * the prior level-master framing; only the provenance of the input root differs.
+ * The per-JURISDICTION nullifier secret (32 bytes), HKDF'd from the user's per-jurisdiction nullifier
+ * root. Stays on-device, and (per §5.4) must be reproducible on every device the user enrols — so the
+ * root is a user secret shared across devices, not a per-device root. Domain-separated by jurisdiction
+ * so singleton dedupe is scoped per jurisdiction, never across them.
  */
-export function deriveNullifierSecret(userNullifierRoot: Uint8Array, level: string): Uint8Array {
-  return hkdf(sha256, userNullifierRoot, NULLIFIER_SECRET_SALT, utf8ToBytes(`level=${level}`), 32);
+export function deriveNullifierSecret(userNullifierRoot: Uint8Array, jurisdiction: string): Uint8Array {
+  return hkdf(sha256, userNullifierRoot, NULLIFIER_SECRET_SALT, utf8ToBytes(`jurisdiction=${jurisdiction}`), 32);
 }
 
 /** The nullifier (hex) for a singleton action on `parentId` — a PRF of the secret over the parent. */

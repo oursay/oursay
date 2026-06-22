@@ -25,7 +25,17 @@ describe("02 registration: OTP verify + profile → account + session", () => {
     const res = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
-      payload: { email, code, profile: { displayName: "New User", birthdate: ADULT_DOB, address: { region: "AB", postalCode: "t2p1h9", country: "ca" } } },
+      payload: {
+        email,
+        code,
+        profile: {
+          handle: "@newuser",
+          firstName: "New",
+          lastName: "User",
+          birthdate: ADULT_DOB,
+          address: { province: "AB", postalCode: "t2p1h9", country: "ca" },
+        },
+      },
     });
     expect(res.statusCode).to.equal(201);
     const body = res.json();
@@ -42,11 +52,61 @@ describe("02 registration: OTP verify + profile → account + session", () => {
     expect(me.statusCode).to.equal(200);
     expect(me.json().userId).to.equal(body.userId);
 
-    // Display name landed on the account handle; address region was normalized.
+    // Private PII (first/last name) + normalized address landed on the profile.
     const profile = await w.services.repos.profile.getByUserId(body.userId);
     expect(profile?.postalCode).to.equal("T2P 1H9");
+    expect(profile?.province).to.equal("AB");
+    expect(profile?.firstName).to.equal("New");
+    expect(profile?.lastName).to.equal("User");
+    // Handle stored as the unique @username; displayName defaults to the handle without its '@'.
     const user = await w.services.repos.user.getById(body.userId);
-    expect(user?.handle).to.equal("New User");
+    expect(user?.handle).to.equal("@newuser");
+    expect(user?.displayName).to.equal("newuser");
+  });
+
+  it("registers without a handle (display name stays null until a public profile is claimed)", async () => {
+    const email = "anon@example.com";
+    const code = await requestCode(w, email);
+    const res = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email, code, profile: { firstName: "Ann", lastName: "Onymous", birthdate: ADULT_DOB } },
+    });
+    expect(res.statusCode).to.equal(201);
+    const user = await w.services.repos.user.getById(res.json().userId);
+    expect(user?.handle).to.equal(null);
+    expect(user?.displayName).to.equal(null);
+  });
+
+  it("rejects a malformed handle", async () => {
+    // Handle format is validated BEFORE the OTP is consumed, so no real code is needed (a dummy
+    // code also keeps the per-run OTP-request rate limit from being burned on a validation case).
+    const res = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email: "badhandle@example.com", code: "000000", profile: { handle: "@bad name", birthdate: ADULT_DOB } },
+    });
+    expect(res.statusCode).to.equal(400);
+    expect(res.json().error.code).to.equal("validation");
+  });
+
+  it("409s a handle that is already taken", async () => {
+    const code1 = await requestCode(w, "first-handle@example.com");
+    const first = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email: "first-handle@example.com", code: code1, profile: { handle: "@taken", birthdate: ADULT_DOB } },
+    });
+    expect(first.statusCode).to.equal(201);
+
+    // Handle uniqueness is checked BEFORE the OTP is consumed, so the duplicate 409s on a dummy code.
+    const second = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email: "second-handle@example.com", code: "000000", profile: { handle: "@taken", birthdate: ADULT_DOB } },
+    });
+    expect(second.statusCode).to.equal(409);
+    expect(second.json().error.code).to.equal("handle_taken");
   });
 
   it("rejects an under-18 registrant", async () => {

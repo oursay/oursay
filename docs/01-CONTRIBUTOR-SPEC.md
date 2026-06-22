@@ -232,6 +232,15 @@ Each waitlist entry displays: the user's display name (or "Anonymous"), time on 
 
 ## 6. Geographic Areas
 
+### 6.0 Canonical Vocabulary
+
+These four terms have exact, non-overlapping meanings throughout the codebase, schema, and docs. Do not use them interchangeably.
+
+- **Jurisdiction** — the primary partition of civic identity and rules. A jurisdiction (e.g. `ab-ca-gov`, `ca-gov`) is **one chain + one rule set + one governmental level**, and is **1:1 with a chain** (the append-only ledger mechanism keeps the word "chain" only where physically accurate). A user may belong to **multiple jurisdictions**. Cryptographic identity (persona master, nullifier/dedupe root) and gating rules (expiry, censoring, change/revoke) are partitioned **per jurisdiction**.
+- **Level** — a **property of a jurisdiction**: its governmental tier (`federal`, `provincial`, `municipal`, `state`, …). Level is descriptive metadata, **never** a partition key on its own.
+- **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A user is assigned to district(s) at residency verification. The district whose rules govern a specific poll/petition is its `governingDistrictId`.
+- **Region** — the generic, app-wide term for **any filterable geographic shape**: a district, a jurisdiction's full extent, or a curated aggregate (e.g. "southern Alberta", "Edmonton", urban/rural Alberta). **Every district is a region; not every region is a district.** Users are resolved into regions by **containment** (district assignment + a region registry), never by storing every region on the user row. Custom regions should be defined as unions of district boundaries to limit privacy leakage; finer-than-district public breakdowns are out of scope.
+
 ### 6.1 Generic Area Model
 
 The platform uses a generic, hierarchical geographic area model. No geographic level or terminology is hardcoded. A deployment configures its own area taxonomy at whatever granularity is appropriate for the jurisdiction.

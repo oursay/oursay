@@ -54,7 +54,7 @@ function findRepoRoot(start: string): string {
 
 interface UserFile {
   userId: string;
-  /** 32-byte user root (hex). User-level masters/nullifier-roots derive from this. */
+  /** 32-byte user root (hex). Per-(user, jurisdiction) masters/nullifier-roots derive from this. */
   userRootHex: string;
 }
 interface DeviceFile {
@@ -114,8 +114,8 @@ export class DevPasskeyConnector implements PasskeyConnector {
       deviceId: o.deviceId,
       devicePubkey: device.devicePubkey,
       deviceRoot,
-      levelMaster: (level: string) => root32(userRoot, "oursay/dev/level-master", level),
-      nullifierRoot: (level: string) => root32(userRoot, "oursay/dev/nullifier-root", level),
+      jurisdictionMaster: (jurisdiction: string) => root32(userRoot, "oursay/dev/jurisdiction-master", jurisdiction),
+      nullifierRoot: (jurisdiction: string) => root32(userRoot, "oursay/dev/nullifier-root", jurisdiction),
     };
   }
 
