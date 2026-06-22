@@ -151,6 +151,13 @@ by its hash.
 | 13 signed-ops | 10 | **2a creates** — every type (post/poll/petition + comment/reaction/vote/petition_signature) via prepare→sign→append→settle, tallies count one verified participant; **reaction one-per-(user,parent)** (distinct comments OK, repeat on same comment rejected); same-user re-vote + cross-user nullifier replay rejected; non-singleton-with-nullifier / stale parent-revision rejected. **2b updates/deletes** — signed post edit; vote change (allowed w/ rules, rejected when final); signature revoke (allowed w/ rules, else rejected); reaction kind change (same nullifier, count 1); **stale `prevHash`** + **cross-author edit** rejected. **Freshness gate** — with max-age 120s + injected clock: fresh accepted, 3-min-old `createdAt` rejected (expired), 5-min-future rejected (clock skew), 30s-future accepted |
 | 14 device-signing | 7 | **Method 3 (§5.4)** — `device_keys` + `thread_signers` registry; envelope `author` = stable thread persona, `signer` = thread-scoped device key; **cross-device edit** (phone B edits phone A's comment); rejects unregistered/revoked signer or device, wrong-thread signer, wrong-user signer; **ZK `proof` slot reserve-and-reject**; `requireDeviceSigner` gate; **multi-device vote** (change carries nullifier, second vote rejected); same device root ⇒ different signer pubkeys across threads (no cross-thread correlator) |
 
+**Sibling package — [`@oursay/api`](../api/README.md): 23 tests (8 suites).** The account API runs its
+own `mocha` integration suite against this same Postgres: email-OTP registration (ordering + age
+gate), WebAuthn passkey enroll/login (real `@simplewebauthn/server` + software authenticator),
+OTP recovery (incl. prior-session revoke), rate limiting, mailer role routing/failover, an HTTP
+golden-path (register → enroll → logout → login → profile, plus cookie-only auth), and the dev
+`/walk` static harness. Run: `npm run test -w @oursay/api`.
+
 Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record`
 (suite 10-identity-crypto also runs standalone without the DB).
 

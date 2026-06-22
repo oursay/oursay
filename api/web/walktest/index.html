@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OurSay — account walk (dev)</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+      h1 { font-size: 1.35rem; margin-bottom: 0.2rem; }
+      h2 { font-size: 1.05rem; margin: 0; }
+      fieldset { border: 1px solid #ccc; border-radius: 10px; margin: 0 0 1rem; padding: 0.8rem 1rem 1rem; }
+      legend { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.4rem; }
+      .badge { font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid #bbb; color: #555; background: #f3f3f3; }
+      .badge.ok { color: #137333; border-color: #9fcfa9; background: #e7f5ea; }
+      .badge.err { color: #b3261e; border-color: #e3a9a4; background: #fbeae9; }
+      label { display: block; font-size: 0.9rem; margin: 0.5rem 0 0.15rem; }
+      input { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid #999; border-radius: 6px; width: 100%; box-sizing: border-box; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.8rem; }
+      button { font: inherit; padding: 0.5rem 0.9rem; margin: 0.7rem 0.4rem 0 0; cursor: pointer; border: 1px solid #888; border-radius: 6px; background: #f6f6f6; }
+      button:disabled { opacity: 0.45; cursor: default; }
+      pre { background: #0f1117; color: #d6e2ff; padding: 0.7rem 0.9rem; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; font-size: 0.82rem; margin: 0.7rem 0 0; min-height: 1.2rem; }
+      code { background: #eee; padding: 0 0.3rem; border-radius: 4px; }
+      .muted { color: #666; }
+      .note { background: #fffbe6; border: 1px solid #e6d27a; border-radius: 8px; padding: 0.55rem 0.85rem; font-size: 0.9rem; }
+      #session { position: sticky; top: 0; background: #eef3ff; border: 1px solid #b9cdf2; border-radius: 8px; padding: 0.5rem 0.85rem; margin-bottom: 1.2rem; font-size: 0.85rem; word-break: break-all; }
+    </style>
+  </head>
+  <body>
+    <h1>OurSay — account walk <span class="badge">dev only</span></h1>
+    <p class="muted">
+      Drives the real <code>/v1</code> API end-to-end on this origin (<code id="origin"></code>) so WebAuthn
+      ceremonies run for human QA — Swagger can't do that. Sessions use the HttpOnly cookie
+      (<code>credentials: include</code>); the Bearer token is shown for pasting into <a href="/docs">/docs</a>.
+    </p>
+
+    <div id="session">No session yet.</div>
+
+    <p class="note">
+      <strong>OTP codes print to the API server console</strong> (the terminal running
+      <code>npm run dev</code>), e.g. <code>[mailer:noop:dev] OTP for you@example.com: 123456</code> —
+      the page can't read your inbox. Copy the code from there into the fields below.
+    </p>
+
+    <fieldset>
+      <legend><h2>1 · Profile</h2> <span class="badge" id="b-profile">todo</span></legend>
+      <p class="muted">Fill the profile <em>first</em>; it's submitted together with the OTP at step&nbsp;3 (18+ required).</p>
+      <div class="grid">
+        <div><label>Display name</label><input id="displayName" value="Walk Tester" /></div>
+        <div><label>Email</label><input id="email" type="email" placeholder="you@example.com" /></div>
+        <div><label>Birthdate (YYYY-MM-DD)</label><input id="birthdate" value="1990-06-15" /></div>
+        <div><label>City</label><input id="city" value="Calgary" /></div>
+        <div><label>Region</label><input id="region" value="AB" /></div>
+        <div><label>Postal code</label><input id="postalCode" value="T2P 1H9" /></div>
+        <div><label>Country</label><input id="country" value="CA" /></div>
+        <div><label>Line 1</label><input id="line1" value="" /></div>
+      </div>
+      <button id="saveProfile">Save profile</button>
+      <pre id="out-profile">(fill in and save)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>2 · Request registration code</h2> <span class="badge" id="b-otp">todo</span></legend>
+      <button id="requestOtp" disabled>Request OTP</button>
+      <pre id="out-otp">(needs a saved profile)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>3 · Verify code + create account</h2> <span class="badge" id="b-verify">todo</span></legend>
+      <label>OTP code (from server console)</label><input id="otpCode" placeholder="123456" />
+      <button id="verifyOtp" disabled>Verify + register</button>
+      <pre id="out-verify">(needs an OTP request)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>4 · Enroll passkey</h2> <span class="badge" id="b-enroll">todo</span></legend>
+      <p class="muted">Runs the WebAuthn create ceremony with your platform authenticator.</p>
+      <button id="enroll" disabled>Enroll passkey</button>
+      <pre id="out-enroll">(needs a session)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>5 · Logout</h2> <span class="badge" id="b-logout">todo</span></legend>
+      <button id="logout" disabled>Logout</button>
+      <pre id="out-logout">(needs a session)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>6 · Passkey login</h2> <span class="badge" id="b-login">todo</span></legend>
+      <p class="muted">Usernameless login with the passkey enrolled above → a fresh full session.</p>
+      <button id="login" disabled>Login with passkey</button>
+      <pre id="out-login">(enroll a passkey first)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>7 · Recovery (lost session / add device)</h2> <span class="badge" id="b-recovery">todo</span></legend>
+      <p class="muted">
+        Simulates an account that's registered but can't log in (lost device / no passkey). Email OTP →
+        a limited recovery session → re-enroll a passkey. Uses the same email from step&nbsp;1.
+      </p>
+      <button id="recoverRequest" disabled>Request recovery code</button>
+      <label>Recovery code (from server console)</label><input id="recoveryCode" placeholder="123456" />
+      <button id="recoverVerify" disabled>Verify recovery</button>
+      <button id="recoverEnroll" disabled>Re-enroll passkey</button>
+      <pre id="out-recovery">(needs a registered email)</pre>
+    </fieldset>
+
+    <script src="/walk/simplewebauthn-browser.js"></script>
+    <script type="module" src="/walk/app.js"></script>
+  </body>
+</html>

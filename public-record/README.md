@@ -33,10 +33,11 @@ targets publish those blocks on their own cadence.
 > `10-identity-crypto`, `12-signed-append`, `13-signed-ops`. The **unsigned dev path**
 > (`create/update/delete/react/vote`) is retained for dev/seeds.
 >
-> **Still later (NOT done):** the HTTP API (`@oursay/api`), passkey **sessions** + user registration
-> UX, full **KYC provider** integration (only a tier stub today), **claim/unclaim** (R8/R9),
-> **selective reveal** / user-signed bindings (R11), and at-rest PII/KMS encryption. See
-> [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
+> **Now in progress:** the HTTP account API — [`@oursay/api`](../api/README.md) — covers email-OTP
+> registration, passkey **sessions**, and recovery (it shares this package's Postgres; see below).
+> **Still later (NOT done):** full **KYC provider** integration (only a tier stub today),
+> **claim/unclaim** (R8/R9), **selective reveal** / user-signed bindings (R11), and at-rest PII/KMS
+> encryption. See [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 > Product policy for device signing and user data:
 > [`../docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md).
 
@@ -140,6 +141,10 @@ the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` 
 
 Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
 stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.
+
+**Shared with [`@oursay/api`](../api/README.md).** The account API uses this same Postgres instance,
+adding its own **`auth` schema** (profiles, passkey credentials, sessions, OTPs) FK'd to
+`public.users`. `npm run db:up -w @oursay/api` delegates here, so one `db:up` serves both packages.
 
 ## Block settlement & anchoring (dev) — external targets future
 

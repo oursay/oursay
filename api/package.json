@@ -26,6 +26,7 @@
     "@fastify/swagger-ui": "^5.2.1",
     "@noble/hashes": "^1.7.1",
     "@oursay/public-record": "*",
+    "@simplewebauthn/browser": "^13.1.0",
     "@simplewebauthn/server": "^13.1.1",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.1",

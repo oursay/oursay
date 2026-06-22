@@ -62,10 +62,16 @@ Verified users have confirmed their identity and residency through a pluggable K
 ├── turnkey-test/                  # Spike (historical): HD wallets/per-thread keys — NOT adopted; see its FINDINGS.md [workspace]
 ├── immudb-test/                   # Spike: tamper-evident verifiable-ledger evaluation [workspace]
 ├── public-record/                 # Proposal & requirements for the verifiable public-record library
+├── api/                            # Account API (@oursay/api): email-OTP registration, passkey auth, recovery [workspace]
 ├── DEPLOYMENTS.md                 # Published build hashes for every production deployment
 ├── LICENSE                        # GNU General Public License v3.0
 └── package.json                   # npm-workspaces monorepo root
 ```
+
+**Running the account API ([`@oursay/api`](api/README.md)):** `npm run db:up -w @oursay/api` (shared
+Postgres) → `npm run dev -w @oursay/api` → Swagger UI at `/docs`, and a dev-only end-to-end walk
+harness at [`/walk`](http://localhost:8080/walk) for clicking through register → passkey → recovery on
+a real browser. See [`api/README.md`](api/README.md) for the full dev cycle.
 
 ---
 

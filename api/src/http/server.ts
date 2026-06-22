@@ -7,7 +7,7 @@ import cookie from "@fastify/cookie";
 import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
-import { sessionConfig } from "../config.js";
+import { isProduction, sessionConfig } from "../config.js";
 import type { Services } from "../container.js";
 import { registerAuth } from "./auth-plugin.js";
 import { registerErrorHandler } from "./errors.js";
@@ -18,6 +18,7 @@ import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
 import { registerProfileRoutes } from "./routes/profile.routes.js";
 import { registerRecoveryRoutes } from "./routes/recovery.routes.js";
 import { registerRegistrationRoutes } from "./routes/registration.routes.js";
+import { registerWalkRoutes } from "./routes/walk.routes.js";
 
 export interface BuildServerOptions {
   logger?: boolean;
@@ -68,6 +69,9 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerProfileRoutes(app, services);
 
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
+
+  // Dev-only manual QA harness at /walk — never exposed in production.
+  if (!isProduction) registerWalkRoutes(app);
 
   await app.ready();
   return app;

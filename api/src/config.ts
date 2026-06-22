@@ -13,7 +13,7 @@ const repoRoot = resolve(packageRoot, "..");
 dotenv.config({ path: join(repoRoot, ".env") });
 dotenv.config({ path: join(packageRoot, ".env") });
 
-const isProduction = process.env.NODE_ENV === "production";
+export const isProduction = process.env.NODE_ENV === "production";
 
 function env(name: string, fallback: string): string {
   const v = process.env[name]?.trim();
