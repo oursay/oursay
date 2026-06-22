@@ -84,21 +84,29 @@ CREATE INDEX IF NOT EXISTS webauthn_challenges_lookup ON auth.webauthn_challenge
 --   'recovery' — issued by recovery OTP (lost passkey); recovery REVOKES all prior sessions.
 --   'login'    — issued by the gated cross-device login OTP (docs/08); enroll-only until the new
 --                device enrolls a passkey and logs in with it. Login does NOT revoke other sessions.
+-- credential_id pairs a session to the account-login passkey that established it (passkey login only;
+-- NULL for OTP registration/recovery/login sessions). Revoking that passkey (kick a device) revokes
+-- its sessions. ON DELETE SET NULL so removing the credential never orphans the FK.
 CREATE TABLE IF NOT EXISTS auth.sessions (
-  id          UUID PRIMARY KEY,
-  user_id     UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  token_hash  TEXT NOT NULL UNIQUE,
-  scope       TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','recovery','login')),
-  user_agent  TEXT,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-  expires_at  TIMESTAMPTZ NOT NULL,
-  revoked_at  TIMESTAMPTZ
+  id            UUID PRIMARY KEY,
+  user_id       UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  token_hash    TEXT NOT NULL UNIQUE,
+  scope         TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','recovery','login')),
+  credential_id UUID REFERENCES auth.passkey_credentials(id) ON DELETE SET NULL,
+  user_agent    TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at    TIMESTAMPTZ NOT NULL,
+  revoked_at    TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON auth.sessions (user_id);
 -- Widen the scope CHECK on a persistent dev DB created before 'login' existed (constraint is the
 -- table-name-derived auto name). Idempotent: drop then re-add the current allow-list.
 ALTER TABLE auth.sessions DROP CONSTRAINT IF EXISTS sessions_scope_check;
 ALTER TABLE auth.sessions ADD CONSTRAINT sessions_scope_check CHECK (scope IN ('full','recovery','login'));
+-- Add the passkey pairing column on a persistent dev DB created before it existed (BEFORE the index
+-- below, which depends on it).
+ALTER TABLE auth.sessions ADD COLUMN IF NOT EXISTS credential_id UUID REFERENCES auth.passkey_credentials(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS sessions_credential ON auth.sessions (credential_id);
 
 -- Email OTP for the three purposes (docs/08): 'registration' (bootstrap), 'recovery' (lost passkey),
 -- and 'login' (gated cross-device sign-in — only sent after a trusted device opens the window). Codes

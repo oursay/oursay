@@ -29,10 +29,17 @@ export class AuthService {
     this.now = d.now ?? systemNow;
   }
 
-  async issue(userId: string, scope: SessionScope, userAgent: string | null): Promise<IssuedSession> {
+  /** Issue a session. Pass `credentialId` for passkey-login sessions so they can be revoked when that
+   *  passkey is removed (kick a device); leave it undefined for OTP registration/recovery/login. */
+  async issue(
+    userId: string,
+    scope: SessionScope,
+    userAgent: string | null,
+    credentialId?: string | null,
+  ): Promise<IssuedSession> {
     const { token, hash } = newSessionToken(this.d.config.secret);
     const expiresAt = expiryFrom(this.now(), this.d.config.ttlSec);
-    await this.d.sessionRepo.insert({ id: randomUUID(), userId, tokenHash: hash, scope, userAgent, expiresAt });
+    await this.d.sessionRepo.insert({ id: randomUUID(), userId, tokenHash: hash, scope, credentialId, userAgent, expiresAt });
     return { token, scope, userId, expiresAt: expiresAt.toISOString() };
   }
 
@@ -48,6 +55,11 @@ export class AuthService {
 
   async revokeAllForUser(userId: string): Promise<number> {
     return this.d.sessionRepo.revokeAllForUser(userId);
+  }
+
+  /** Revoke all sessions established by a passkey (used when that passkey is removed). */
+  async revokeSessionsForCredential(credentialId: string): Promise<number> {
+    return this.d.sessionRepo.revokeByCredentialId(credentialId);
   }
 
   listForUser(userId: string): Promise<SessionRecord[]> {

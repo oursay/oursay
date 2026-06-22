@@ -79,6 +79,18 @@
     </fieldset>
 
     <fieldset>
+      <legend><h2>4b · Manage passkeys (list / kick a device)</h2> <span class="badge" id="b-manage">todo</span></legend>
+      <p class="muted">
+        List the account-login passkeys on this account and revoke one — "kick a compromised or
+        retired device". Revoking also <strong>cuts off the sessions that passkey established</strong>.
+        The <em>last</em> passkey can't be removed (403); use recovery for a full reset.
+      </p>
+      <button id="listPasskeys" disabled>List my passkeys</button>
+      <div id="passkeyList"></div>
+      <pre id="out-manage">(needs a full session)</pre>
+    </fieldset>
+
+    <fieldset>
       <legend><h2>5 · Enroll civic device key</h2> <span class="badge" id="b-civic">todo</span></legend>
       <p class="muted">
         Civic signing keys are <em>separate</em> from account-login passkeys (docs/08 §5.4). The page

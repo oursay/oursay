@@ -154,6 +154,49 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
     expect(await w.services.repos.passkey.listByUserId(owner)).to.have.length(2);
   });
 
+  it("revoking a passkey kills that device's session and blocks its future login", async () => {
+    const userId = await makeUser(w, "@kick");
+
+    // Device A: enroll + login → a session PAIRED to passkey A.
+    const a = newAuthenticator();
+    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
+    const regA = await w.services.passkeyService.registerVerify({ userId, response: a.register(optsA.challenge) });
+    const sessA = await w.services.passkeyService.loginVerify({
+      response: a.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge),
+    });
+
+    // Device B: enroll + login (a second passkey, so A isn't the last) → its own paired session.
+    const b = newAuthenticator();
+    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
+    await w.services.passkeyService.registerVerify({ userId, response: b.register(optsB.challenge) });
+    const sessB = await w.services.passkeyService.loginVerify({
+      response: b.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge),
+    });
+
+    expect(await w.services.authService.resolve(sessA.session.token)).to.not.be.null;
+    expect(await w.services.authService.resolve(sessB.session.token)).to.not.be.null;
+
+    // Kick device A from device B's (still valid) full session.
+    const creds = await w.services.repos.passkey.listByUserId(userId);
+    const aId = creds.find((c) => c.credentialId === regA.credentialId)!.id;
+    const revoke = await w.app.inject({ method: "POST", url: "/v1/auth/passkey/revoke", headers: bearer(sessB.session.token), payload: { id: aId } });
+    expect(revoke.statusCode).to.equal(204);
+
+    // Device A's session is cut off immediately; device B's survives.
+    expect(await w.services.authService.resolve(sessA.session.token)).to.be.null;
+    expect(await w.services.authService.resolve(sessB.session.token)).to.not.be.null;
+
+    // Device A can no longer log in (credential removed); device B still can.
+    await expectServiceError(
+      async () => w.services.passkeyService.loginVerify({ response: a.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge) }),
+      "passkey_verification_failed",
+    );
+    const okB = await w.services.passkeyService.loginVerify({
+      response: b.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge),
+    });
+    expect(okB.userId).to.equal(userId);
+  });
+
   it("requires a full session (recovery scope cannot manage devices) and a session at all", async () => {
     const userId = await makeUser(w, "@scoped");
     await enroll(userId);

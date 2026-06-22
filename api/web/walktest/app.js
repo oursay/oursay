@@ -106,10 +106,11 @@ $("verifyOtp").addEventListener("click", async () => {
   enableFullSessionActions();
 });
 
-// Civic + cross-device-login actions need a FULL session. Enable them after register/login.
+// Civic + passkey-management + cross-device-login actions need a FULL session. Enable after register/login.
 function enableFullSessionActions() {
   $("enrollCivic").disabled = false;
   $("listCivic").disabled = false;
+  $("listPasskeys").disabled = false;
 }
 
 // ── 4 · Enroll passkey ───────────────────────────────────────────────────────
@@ -216,6 +217,36 @@ $("recoverEnroll").addEventListener("click", async () => {
     show("recovery", String(e?.message ?? e));
   }
 });
+
+// ── 4b · Manage passkeys (list / revoke a device) ────────────────────────────
+$("listPasskeys").addEventListener("click", renderPasskeys);
+
+async function renderPasskeys() {
+  const r = await api("GET", "/v1/auth/passkeys");
+  $("passkeyList").innerHTML = "";
+  if (!r.ok) {
+    badge("manage", "err", `error ${r.status}`);
+    show("manage", r.body ?? `HTTP ${r.status}`);
+    return;
+  }
+  badge("manage", "ok", `${r.body.passkeys.length} passkey(s)`);
+  show("manage", r.body);
+  for (const pk of r.body.passkeys) {
+    const btn = document.createElement("button");
+    btn.textContent = `Revoke ${pk.label ?? pk.id.slice(0, 8)}`;
+    btn.addEventListener("click", async () => {
+      const rev = await api("POST", "/v1/auth/passkey/revoke", { id: pk.id });
+      if (!rev.ok) {
+        // e.g. 403 when it's the last passkey — surfaced verbatim.
+        badge("manage", "err", `revoke ${rev.status}`);
+        show("manage", rev.body ?? `HTTP ${rev.status}`);
+        return;
+      }
+      await renderPasskeys();
+    });
+    $("passkeyList").appendChild(btn);
+  }
+}
 
 // ── 5 · Civic device key (WebCrypto P-256; public key only on platform) ───────
 const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");

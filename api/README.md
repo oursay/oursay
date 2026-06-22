@@ -74,6 +74,13 @@ Init order matters: `public.*` must exist before the `auth` schema FKs it. `Db.i
   caller's enrolled passkeys (metadata only, no key material); `POST /v1/auth/passkey/revoke {id}`
   removes one ("kick a compromised/retired device"), owner-scoped (404 if it isn't yours). Revoking
   the **last** passkey is refused (403) to avoid lockout — use recovery instead.
+  - **What revoke does:** (1) the credential row is **deleted** — that passkey can no longer log in;
+    (2) the **sessions that passkey established are revoked** (a kicked device loses access on its
+    next request — sessions are paired to their login passkey via `auth.sessions.credential_id`);
+    (3) **other sessions are untouched** (sessions from other passkeys, and the limited OTP
+    registration/recovery/login sessions, which have no paired credential); (4) **no civic impact** —
+    `public.device_keys` (civic signing) are a separate factor, revoked independently via
+    `/v1/civic/devices/revoke`.
 - **Login** — passkey only: `POST /v1/auth/passkey/login/{options,verify}` → full session.
 - **Civic device key** — after login, `POST /v1/civic/devices` (public key only), `GET /v1/civic/devices`,
   `POST /v1/civic/devices/revoke`. Separate from login passkeys; signs public-record actions on-device.

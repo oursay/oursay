@@ -64,14 +64,6 @@ export class PasskeyRepo {
     return rows[0] ? mapCredential(rows[0]) : null;
   }
 
-  async countByUserId(userId: string): Promise<number> {
-    const { rows } = await this.pool.query(
-      `SELECT count(*)::int AS n FROM auth.passkey_credentials WHERE user_id = $1`,
-      [userId],
-    );
-    return rows[0].n as number;
-  }
-
   /** Hard-delete one of a user's credentials, scoped by user_id so a caller can only remove its own.
    *  Returns true if a row was deleted. */
   async deleteByIdForUser(userId: string, id: string): Promise<boolean> {
