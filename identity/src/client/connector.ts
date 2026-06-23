@@ -25,10 +25,18 @@ export interface DeviceCredential {
 }
 
 /**
- * An unlocked, in-memory session for one device. Produced once per `unlock()` (which is the only
- * step that prompts the passkey); subsequent derive/sign operations reuse this material and never
- * re-prompt. The roots are raw bytes here because all derivation is CLIENT-SIDE — the trust boundary
- * is "the server/platform never holds private keys", which this honours.
+ * An unlocked, in-memory session for one device. Produced by `unlock()`; subsequent derive/sign
+ * operations reuse this material and never re-prompt ("unlock once, sign many"). The roots are raw
+ * bytes here because all derivation is CLIENT-SIDE — the trust boundary is "the server/platform never
+ * holds private keys", which this honours.
+ *
+ * Prompt accounting (WebPasskeyConnector): `unlock()` triggers ONE passkey assertion per session.
+ * `enrollDevice()` ALSO prompts — a registration plus one assertion — because the PRF root needed to
+ * derive `devicePubkey` is only obtainable at auth time, not registration time (FINDINGS §2). So a
+ * brand-new device's first use is registration + 2 assertions (enroll then unlock); a returning user
+ * is a single assertion. We accept the one-time double-prompt rather than have `enrollDevice` return
+ * the session it already unlocked — that would only save one gesture in a once-per-device setup and
+ * would erode `unlock`'s role as the explicit per-session user-verification gate.
  */
 export interface UnlockedSession {
   readonly userId: string;
@@ -49,6 +57,7 @@ export interface PasskeyConnector {
    * Enrol a NEW device credential for a user (account auth / passkey registration). Returns the
    * PUBLIC handle the caller hands to the server (`device_keys`). Private material stays on device.
    * `deviceId` may be supplied for reproducible dev/test enrollment; otherwise one is generated.
+   * Prompts the passkey: a registration plus one assertion (to obtain the PRF root for `devicePubkey`).
    */
   enrollDevice(o: { userId: string; label?: string; deviceId?: string }): Promise<DeviceCredential>;
   /**
