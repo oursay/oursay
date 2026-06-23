@@ -330,11 +330,18 @@ export class PrivateStore {
     return Number(r.rows[0].max);
   }
 
-  /** Transactions in the seq range `(fromExclusive, toInclusive]`, ordered by seq — one block. */
-  async getTxsBySeqRange(fromExclusive: number, toInclusive: number): Promise<StoredTx[]> {
+  /**
+   * Transactions of ONE chain in the seq range `(fromExclusive, toInclusive]`, ordered by seq — one
+   * block. `record_tx.seq` is a global, chainless event-log sequence, so a block's seq window can span
+   * other chains' rows when several chains share this store (the settlement worker case). The chain
+   * tag lives on `record_outbox`, so we JOIN it to scope to the block's own chain — matching the
+   * chain-scoped settler (`getPendingForSettlement`). For a single-chain store the join is a no-op.
+   */
+  async getTxsBySeqRange(chainId: string, fromExclusive: number, toInclusive: number): Promise<StoredTx[]> {
     const r = await this.pool.query(
-      `SELECT * FROM record_tx WHERE seq > $1 AND seq <= $2 ORDER BY seq ASC`,
-      [fromExclusive, toInclusive],
+      `SELECT t.* FROM record_tx t JOIN record_outbox o ON o.tx_id = t.tx_id
+       WHERE o.chain_id = $1 AND t.seq > $2 AND t.seq <= $3 ORDER BY t.seq ASC`,
+      [chainId, fromExclusive, toInclusive],
     );
     return r.rows.map(mapStoredTx);
   }

@@ -73,7 +73,10 @@ export interface ChainConfig {
 }
 
 export const chainConfig: ChainConfig = {
-  chainId: env("CHAIN_ID", "oursay-local"),
+  // The universal OurSay record. This is the public-record library / seed single-chain default; the
+  // API has its own civic `CHAIN_ID` default (`ab-ca-gov`, the launch jurisdiction), and tests use a
+  // fresh randomUUID per run. The settlement worker uses `WORKER_CHAIN_IDS`, not this.
+  chainId: env("CHAIN_ID", "oursay-global"),
 };
 
 /**
@@ -132,6 +135,71 @@ export interface AnchorTargetsConfig {
 export const anchorTargetsConfig: AnchorTargetsConfig = {
   fileEveryNBlocks: Math.max(1, Number(env("FILE_ANCHOR_EVERY_BLOCKS", "2"))),
 };
+
+/**
+ * Settlement-WORKER config (scripts/worker.ts). The worker settles + anchors a SET of chains, each
+ * with its own block config + file anchor target, sleeping until the next age-deadline (with a
+ * max-idle poll as the count-trigger safety net — see SettlementWorker). `chainIds` defaults to every
+ * SUPPORTED chain: `oursay-global` (the universal record) + `ab-ca-gov` (the launch jurisdiction, and
+ * the API's civic `CHAIN_ID` — so civic HTTP writes land in a chain the worker settles with no extra
+ * config). `anchorDir` is the base directory; each chain publishes into a `<anchorDir>/<chainId>/`
+ * subdir, so chains never share anchor files.
+ */
+export interface WorkerConfig {
+  chainIds: string[];
+  maxIdleMs: number; // polling floor: wake at least this often to re-check the count trigger
+  minIntervalMs: number; // busy-loop ceiling: never sleep less than this between ticks
+  anchorDir: string; // base dir; per-chain subdir is appended (see workerChainConfigs)
+}
+
+export const workerConfig: WorkerConfig = {
+  chainIds: env("WORKER_CHAIN_IDS", "oursay-global,ab-ca-gov")
+    .split(",")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0),
+  maxIdleMs: Number(env("WORKER_MAX_IDLE_MS", "60000")),
+  minIntervalMs: Number(env("WORKER_MIN_INTERVAL_MS", "1000")),
+  // Default `./.anchors` resolves to `public-record/.anchors/` (npm runs the script with the package
+  // as cwd) — already gitignored. Each chain publishes into a `<anchorDir>/<chainId>/` subdir.
+  anchorDir: env("FILE_ANCHOR_DIR", "./.anchors"),
+};
+
+/** Resolved settlement config for one chain in `WORKER_CHAIN_IDS`. */
+export interface WorkerChainConfig {
+  chainId: string;
+  blockConfig: BlockConfig;
+  anchorDir: string; // already includes the per-chain subdir
+  fileEveryNBlocks: number;
+}
+
+/** Env-var suffix for a chain's per-chain overrides: uppercase, non-alphanumeric → `_`. */
+function chainEnvSuffix(chainId: string): string {
+  return chainId.toUpperCase().replace(/[^A-Z0-9]/g, "_");
+}
+
+/**
+ * One {@link WorkerChainConfig} per chain in `WORKER_CHAIN_IDS`. Each chain inherits the global
+ * `blockConfig` / `anchorTargetsConfig`, and may override any dimension with an env var suffixed by
+ * its sanitized id — e.g. `BLOCK_MAX_PENDING__AB_CA_GOV`, `BLOCK_MAX_PENDING_AGE_HOURS__AB_CA_GOV`,
+ * `FILE_ANCHOR_EVERY_BLOCKS__AB_CA_GOV`. Absent overrides, every chain uses the shared defaults.
+ */
+export function workerChainConfigs(): WorkerChainConfig[] {
+  return workerConfig.chainIds.map((chainId) => {
+    const sfx = chainEnvSuffix(chainId);
+    const num = (base: string, fallback: number): number => Number(env(`${base}__${sfx}`, String(fallback)));
+    return {
+      chainId,
+      blockConfig: {
+        maxPending: num("BLOCK_MAX_PENDING", blockConfig.maxPending),
+        maxPendingAgeMs: num("BLOCK_MAX_PENDING_AGE_HOURS", blockConfig.maxPendingAgeMs / 3_600_000) * 3_600_000,
+        maxBlockTxs: num("BLOCK_MAX_TXS", blockConfig.maxBlockTxs),
+        minTxs: Math.max(1, num("BLOCK_MIN_TXS", blockConfig.minTxs)),
+      },
+      anchorDir: join(workerConfig.anchorDir, chainId),
+      fileEveryNBlocks: Math.max(1, num("FILE_ANCHOR_EVERY_BLOCKS", anchorTargetsConfig.fileEveryNBlocks)),
+    };
+  });
+}
 
 /**
  * Identity / platform binding. The platform signs each per-thread registration binding (§6) with a

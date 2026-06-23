@@ -16,6 +16,7 @@
     "db:down": "tsx ../scripts/destructive-guard.ts db:down && docker compose down -v",
     "db:logs": "docker compose logs -f",
     "seed": "tsx scripts/seed.ts",
+    "worker": "tsx scripts/worker.ts",
     "test": "mocha",
     "typecheck": "tsc --noEmit"
   },

@@ -38,7 +38,7 @@ export class BundleAssembler {
     prevPublishedAnchor: AnchorRecord | undefined,
     opts: AssembleOptions = {},
   ): Promise<BlockBundle> {
-    const txs = await this.store.getTxsBySeqRange(header.fromSeq, header.toSeq);
+    const txs = await this.store.getTxsBySeqRange(header.chainId, header.fromSeq, header.toSeq);
 
     // Leaves over the EXACT stored canonical envelopes, in seq order (deterministic).
     const leaves = txs.map((t) => hashLeaf(t.envelope));

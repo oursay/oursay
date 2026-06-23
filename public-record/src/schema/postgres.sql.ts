@@ -49,7 +49,7 @@ ALTER TABLE record_tx ADD COLUMN IF NOT EXISTS nullifier TEXT;
 -- single-tenant: one Postgres = one body. Multi-tenant content views are out of scope.)
 CREATE TABLE IF NOT EXISTS record_outbox (
   tx_id       UUID PRIMARY KEY REFERENCES record_tx(tx_id),
-  chain_id    TEXT         NOT NULL DEFAULT 'oursay-local',
+  chain_id    TEXT         NOT NULL DEFAULT 'oursay-global',
   payload     JSONB        NOT NULL,
   status      TEXT         NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','sent')),
   attempts    INT          NOT NULL DEFAULT 0,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS record_outbox (
   sent_at     TIMESTAMPTZ
 );
 -- Idempotent migration for a persistent dev DB created before chain_id existed.
-ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS chain_id TEXT NOT NULL DEFAULT 'oursay-local';
+ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS chain_id TEXT NOT NULL DEFAULT 'oursay-global';
 CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enqueued_at) WHERE status = 'pending';
 
 -- Identity (verified-tier append path). Primitives promoted into public-record/src/identity/*.

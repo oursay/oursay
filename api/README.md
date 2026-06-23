@@ -217,6 +217,14 @@ envelope is rejected):
   reaction, petition, petition_signature, poll, vote — create/update/delete as the type allows).
 - `POST /v1/civic/appends/submit` — accept a client+device-signed envelope into the record pool.
 
+`submit` only **pools** the write (Postgres `record_outbox`, tagged with the API's civic chain id —
+`CHAIN_ID`, default **`ab-ca-gov`**, the launch jurisdiction). It reaches the append-only ledger and
+external anchors only once a block is **settled** and **published** — the job of the public-record
+**settlement worker** (`npm run worker --workspace public-record`), whose `WORKER_CHAIN_IDS` default
+(`oursay-global,ab-ca-gov`) includes `ab-ca-gov`, so it settles + anchors these writes with no extra
+config. Run it alongside the API; see [`public-record/README.md`](../public-record/README.md) →
+"The settlement worker".
+
 The launch jurisdiction (`ab-ca-gov`, provincial; votes/signatures final by default) is registered at
 composition (`buildServices`). See `src/services/civic-record.service.ts` and
 `src/http/routes/civic-record.routes.ts`.

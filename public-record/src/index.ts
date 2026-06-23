@@ -25,6 +25,19 @@ export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow, BlockHeade
 export { BlockSettler } from "./ledger/settler.js";
 export type { SettleDecision, SettleOptions } from "./ledger/settler.js";
 
+// Settlement worker (deadline-aware multi-chain loop driving settle + anchor; scripts/worker.ts)
+export { SettlementWorker, realSleeper } from "./worker/settlement-worker.js";
+export type {
+  ChainRunner,
+  SettlerLike,
+  PublisherLike,
+  Sleeper,
+  Logger,
+  ChainDecision,
+  TickSummary,
+  SettlementWorkerOptions,
+} from "./worker/settlement-worker.js";
+
 // Governance
 export {
   rulesOf,
@@ -110,5 +123,5 @@ export type {
 } from "./schema/types.js";
 
 // Config
-export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, jurisdictionConfig, blockConfig, anchorTargetsConfig } from "./config.js";
-export type { PgConfig, OutboxConfig, ChainConfig, BlockConfig, AnchorTargetsConfig } from "./config.js";
+export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, jurisdictionConfig, blockConfig, anchorTargetsConfig, workerConfig, workerChainConfigs } from "./config.js";
+export type { PgConfig, OutboxConfig, ChainConfig, BlockConfig, AnchorTargetsConfig, WorkerConfig, WorkerChainConfig } from "./config.js";

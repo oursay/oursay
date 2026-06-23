@@ -94,7 +94,8 @@ shared immudb can host several independent records side by side.
 - **Production:** a stable, human-auditable slug — e.g. `ca-ab-gov` (the Alberta first deployment).
   Set it once per deployment via the `CHAIN_ID` env var and never change it for that record.
 - **Dev / test:** a fresh `randomUUID()` per run (immudb is never reset, so a new id keeps block
-  heights starting at 1). `CHAIN_ID` defaults to `oursay-local` — for local development only.
+  heights starting at 1). The library/seed `CHAIN_ID` default is `oursay-global` (the universal
+  record); the API sets its own civic `CHAIN_ID` (`ab-ca-gov`, the launch jurisdiction).
 - **Never reuse** a production id for a new genesis. If you ever intentionally start a fresh chain
   for the same body, bump a suffix (e.g. `ca-ab-gov-v2`); reusing the id would collide with the
   existing append-only history.
@@ -158,7 +159,37 @@ captured after the batch (ledger witness), and chaining metadata (`prevBlockRoot
 **Settlement trigger** (`BlockConfig`, env-tunable): settle when `≥ BLOCK_MAX_PENDING` txs are
 pending **or** the oldest pending tx has waited `≥ BLOCK_MAX_PENDING_AGE_HOURS` — whichever comes
 first, never empty, capped at `BLOCK_MAX_TXS` per block. `0` disables a dimension. The trigger is
-invoked explicitly (`maybeSettleBlock`) — wiring it to a worker/API is a later concern.
+invoked explicitly (`maybeSettleBlock`); the **settlement worker** below drives it on a schedule.
+
+### The settlement worker — `npm run worker` (run beside the API)
+
+`scripts/worker.ts` is a long-running process that drives **pool → settle → publish** for a SET of
+chains, reusing `BlockSettler` + `AnchorPublisher` (no second settlement path). Per tick it drains a
+chain's eligible blocks, publishes settled-but-unpublished blocks on the target's cadence, then sleeps
+until the **next age deadline** across chains — with a `WORKER_MAX_IDLE_MS` polling floor that catches
+the count trigger between writes (the stand-in for a future Postgres `LISTEN/NOTIFY`). It is
+non-destructive (never `store.reset()`), so it runs in any `NODE_ENV`; `SIGTERM`/`SIGINT` finish the
+in-flight tick, then close cleanly.
+
+```bash
+npm run db:up  --workspace public-record     # Postgres + immudb
+npm run dev    --workspace @oursay/api        # civic HTTP POOLS writes under its CHAIN_ID (ab-ca-gov)
+npm run worker --workspace public-record      # settles + anchors WORKER_CHAIN_IDS (incl. ab-ca-gov)
+```
+
+**The zero-config story:** civic HTTP (the API) pools every civic write under **one** chain — its
+`CHAIN_ID`, default **`ab-ca-gov`** (the launch jurisdiction). The worker settles
+**`WORKER_CHAIN_IDS`**, default **`oursay-global,ab-ca-gov`** — `oursay-global` (the universal record)
+plus `ab-ca-gov`. Because `ab-ca-gov` is in both, the API's writes are settled + anchored with no extra
+config; `oursay-global` is enabled but simply has no writer yet (settling an empty chain is a cheap
+no-op). Each chain publishes to `<FILE_ANCHOR_DIR>/<chainId>/` (default
+`public-record/.anchors/<chainId>/`), with per-chain settlement overrides via `BLOCK_*__<CHAIN_ID>`
+env vars (see `.env.example`).
+
+**Single proposer:** the settler is not concurrency-safe per chain, so run **exactly one** worker per
+chain. To scale, partition `WORKER_CHAIN_IDS` across worker processes (one chain each) — never two
+workers on the same chain. Leader election / HA for a single chain is a stage-2 consensus concern.
+(Containerizing the worker is future — dev runs it as a plain `tsx` Node process beside `db:up`.)
 
 **What ships today:** `FileAnchorTarget` writes append-only local files for development and
 testing. An **offline verifier** checks a block, a single entry, or the whole chain against a root
