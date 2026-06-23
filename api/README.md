@@ -157,6 +157,12 @@ only, no kycTier) and creates a post; the page shows the `txId`/`entityId` and t
 (`prf` vs the `secure-store` fallback). **Cache caveat:** the bundle is built once per process — restart
 the dev server after editing the identity SDK to pick up changes.
 
+Beneath the one-click smoke test, step 5 also exposes **granular sub-steps 5a–5e** for hand QA —
+**5a** unlock civic custody → **5b** join thread → **5c** create root post → **5d** add comment →
+**5e** add reaction. They run the same SDK phase by phase against the same thread and demonstrate
+**unlock once, sign many**: only 5a may prompt WebAuthn; 5b–5e reuse the already-unlocked
+`IdentitySession` with no further prompt. Each button is gated until its prerequisite exists.
+
 Sessions use the HttpOnly cookie (`credentials: include`); the page also displays the Bearer token so
 you can paste it into `/docs` → Authorize for manual API calls.
 

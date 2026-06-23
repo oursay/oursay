@@ -108,6 +108,23 @@
       <button id="enrollCivic" disabled>Run civic golden path</button>
       <button id="listCivic" disabled>List my civic devices</button>
       <pre id="out-civic">(needs a full session)</pre>
+
+      <hr style="margin:1.1rem 0 0.6rem; border:none; border-top:1px solid #ddd" />
+      <legend style="padding:0"><h2 style="font-size:0.98rem">Granular sub-steps</h2> <span class="badge" id="b-civicsub">todo</span></legend>
+      <p class="muted">
+        The one-click golden path above is the smoke test. These sub-steps run the same flow phase by
+        phase for human QA — run them <strong>in order 5a → 5e</strong>. They reuse the
+        <strong>same unlocked civic session</strong> from 5a: <strong>5a may trigger a WebAuthn
+        prompt</strong> (it unlocks custody), but <strong>5b–5e never re-prompt</strong> — that is
+        "unlock once, sign many" (docs/08 §6). Each button stays disabled until its prerequisite
+        exists. Re-running 5a re-unlocks custody but keeps the same thread.
+      </p>
+      <button id="civicUnlock" disabled>5a · Unlock civic custody</button>
+      <button id="civicJoin" disabled>5b · Join thread</button>
+      <button id="civicPost" disabled>5c · Create root post</button>
+      <button id="civicComment" disabled>5d · Add comment</button>
+      <button id="civicReact" disabled>5e · Add reaction</button>
+      <pre id="out-civicsub">(run 5a to unlock civic custody)</pre>
     </fieldset>
 
     <fieldset>

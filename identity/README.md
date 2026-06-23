@@ -139,6 +139,12 @@ no kycTier) and creates a post — the page shows the returned `txId`/`entityId`
 (`prf` vs `secure-store`). To exercise the fallback, run it in a browser without PRF (e.g. Firefox);
 the flow still completes via `secure-store`.
 
+Beneath the one-click golden path, step 5 has **granular sub-steps** that drive the same SDK phase by
+phase — **5a** unlock civic custody (`enrollDevice` → `unlock` → `IdentitySession` + `CivicHttpClient`,
+device enrolled) → **5b** `ensureJoined` → **5c** `createPost` → **5d** `createComment` → **5e**
+`addReaction`. They prove **unlock once, sign many**: only 5a may prompt WebAuthn; 5b–5e reuse the
+already-unlocked session with no further prompt. Run them in order; each is gated on its prerequisite.
+
 The legacy standalone demo (manual, account auth only): `npm run serve --workspace @oursay/identity` →
 http://localhost:6273.
 

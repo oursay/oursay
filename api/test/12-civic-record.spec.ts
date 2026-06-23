@@ -83,14 +83,19 @@ describe("12 civic record: join → prepare → sign → submit (verified write 
     const m = await enrolledMember(w, "civic-comment@example.com", "comment");
     await m.client.createPost(m.t, { body: "root" });
 
-    const commentId = randomUUID();
-    const ref = await m.client.append(m.t, {
-      op: "create", type: "comment", entityId: commentId,
-      parent: { type: "post", id: m.threadId }, content: { body: "a reply" },
-    });
-    expect(ref.entityId).to.equal(commentId);
-    const head = await w.services.recordStore.getHeadTx(commentId);
+    // The SDK mints the comment's entityId; assert against the ref it returns, not a client-side id.
+    const ref = await m.client.createComment(m.t, { type: "post", id: m.threadId }, { body: "a reply" });
+    const head = await w.services.recordStore.getHeadTx(ref.entityId);
     expect(head!.content).to.deep.equal({ body: "a reply" });
+  });
+
+  it("supports a reaction on a post (signed singleton attachment)", async () => {
+    const m = await enrolledMember(w, "civic-react@example.com", "react");
+    await m.client.createPost(m.t, { body: "root" });
+
+    const ref = await m.client.addReaction(m.t, { type: "post", id: m.threadId }, { kind: "check" });
+    const head = await w.services.recordStore.getHeadTx(ref.entityId);
+    expect(head!.content).to.deep.equal({ kind: "check" });
   });
 
   it("rejects join without a session (401)", async () => {

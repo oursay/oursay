@@ -110,6 +110,7 @@ $("verifyOtp").addEventListener("click", async () => {
 // Civic + passkey-management + cross-device-login actions need a FULL session. Enable after register/login.
 function enableFullSessionActions() {
   $("enrollCivic").disabled = false;
+  $("civicUnlock").disabled = false;
   $("listCivic").disabled = false;
   $("listPasskeys").disabled = false;
 }
@@ -260,12 +261,58 @@ async function renderPasskeys() {
 // second passkey prompt. The SDK is dynamically imported on click so steps 1–4 still work if the
 // dev-only bundle fails to build.
 
+const CIVIC_JURISDICTION = "ab-ca-gov";
+
 /** Best-effort: recover state.userId from the live session if it wasn't captured at register/login. */
 async function ensureUserId() {
   if (state.userId) return state.userId;
   const me = await api("GET", "/v1/auth/session");
   if (me.ok && me.body?.userId) state.userId = me.body.userId;
   return state.userId;
+}
+
+// The browser SDK bundle (/walk/identity.js) is dynamically imported on first civic action and cached
+// for the page, so steps 1–4 still work if the dev-only bundle fails to build.
+let identityMod = null;
+async function loadIdentity() {
+  if (!identityMod) identityMod = await import("/walk/identity.js");
+  return identityMod;
+}
+
+/**
+ * Establish (or re-establish) a civic signing session: enroll a civic-custody credential, unlock it
+ * once via WebAuthn, and build a CivicHttpClient with the civic device enrolled. Shared by the
+ * one-click golden path and sub-step 5a. Thread handling is explicit: an existing thread is REUSED
+ * (re-running 5a never mints a new thread), and postId/commentId carry over; but `joined` resets to
+ * false because the freshly built client starts with an empty join set (5b — or 5c–5e's append — will
+ * re-join). Returns the stashed state.civic.
+ */
+async function establishCivic(userId) {
+  const { WebPasskeyConnector, IdentitySession, CivicHttpClient } = await loadIdentity();
+  const conn = new WebPasskeyConnector();
+  const cred = await conn.enrollDevice({ userId, label: "walk civic device" });
+  const session = new IdentitySession(await conn.unlock({ userId, deviceId: cred.deviceId }));
+  const client = new CivicHttpClient({ baseUrl: location.origin, session, credentials: "include" });
+  await client.ensureDeviceEnrolled("walk civic device");
+  const thread = state.civic?.thread ?? { threadId: crypto.randomUUID(), jurisdiction: CIVIC_JURISDICTION };
+  state.civic = {
+    conn, cred, session, client, thread,
+    source: conn.lastUnlockSource, // "prf" or "secure-store" (fallback)
+    devicePubkey: session.devicePubkey,
+    joined: false,
+    postId: state.civic?.postId ?? null,
+    commentId: state.civic?.commentId ?? null,
+  };
+  return state.civic;
+}
+
+/** Gate the 5b–5e sub-step buttons from civic state. listCivic is NOT gated here (full-session only). */
+function refreshCivicButtons() {
+  const c = state.civic;
+  $("civicJoin").disabled = !c;
+  $("civicPost").disabled = !c || !c.joined || !!c.postId;
+  $("civicComment").disabled = !c || !c.postId;
+  $("civicReact").disabled = !c || !c.postId;
 }
 
 $("enrollCivic").addEventListener("click", async () => {
@@ -276,32 +323,115 @@ $("enrollCivic").addEventListener("click", async () => {
   }
   try {
     badge("civic", "", "loading SDK…");
-    const { WebPasskeyConnector, IdentitySession, CivicHttpClient } = await import("/walk/identity.js");
-
-    // Civic-custody credential (distinct from the account-login passkey) → unlock a signing session.
-    const conn = new WebPasskeyConnector();
-    const cred = await conn.enrollDevice({ userId, label: "walk civic device" });
-    const session = new IdentitySession(await conn.unlock({ userId, deviceId: cred.deviceId }));
-
-    // One SDK call: ensure civic device enrolled → join thread (ownership-only, no kycTier) →
-    // prepare → DEVICE-sign → submit into the verified record pool.
-    const client = new CivicHttpClient({ baseUrl: location.origin, session, credentials: "include" });
-    const thread = { threadId: crypto.randomUUID(), jurisdiction: "ab-ca-gov" };
-    const ref = await client.createPost(thread, { body: "hello from the walk" });
-
-    state.civic = { conn, client, thread, deviceId: cred.deviceId };
-    badge("civic", "ok", `posted (${conn.lastUnlockSource})`);
+    // One smoke test: enroll a civic-custody credential, unlock it, then one SDK call ensures device
+    // enrolled → joins the thread (ownership-only, no kycTier) → prepare → DEVICE-sign → submit.
+    const civic = await establishCivic(userId);
+    const ref = await civic.client.createPost(civic.thread, { body: "hello from the walk" });
+    civic.joined = true;
+    civic.postId = civic.thread.threadId;
+    badge("civic", "ok", `posted (${civic.source})`);
     show("civic", {
-      custodySource: conn.lastUnlockSource, // "prf" or "secure-store" (fallback)
-      devicePubkey: session.devicePubkey,
-      thread,
+      custodySource: civic.source,
+      devicePubkey: civic.devicePubkey,
+      thread: civic.thread,
       ref,
-      note: "Real SDK: passkey-unlocked custody, device-signed envelope. Platform received only public keys + the signed envelope.",
+      note: "Real SDK: passkey-unlocked custody, device-signed envelope. Platform received only public keys + the signed envelope. You can continue with sub-steps 5d/5e on this post.",
     });
     $("listCivic").disabled = false;
+    refreshCivicButtons();
   } catch (e) {
     badge("civic", "err", "civic flow failed");
     show("civic", String(e?.message ?? e));
+  }
+});
+
+// ── 5a–5e · Civic sub-steps (unlock once, sign many) ──────────────────────────
+// 5a unlocks custody (may prompt WebAuthn); 5b–5e act on the stored, already-unlocked
+// CivicHttpClient + IdentitySession with NO further prompt.
+
+$("civicUnlock").addEventListener("click", async () => {
+  const userId = await ensureUserId();
+  if (!userId) {
+    badge("civicsub", "err", "no session");
+    return show("civicsub", "Register or log in first — the civic flow needs your userId.");
+  }
+  try {
+    badge("civicsub", "", "loading SDK…");
+    const civic = await establishCivic(userId);
+    badge("civicsub", "ok", `unlocked (${civic.source})`);
+    show("civicsub", {
+      step: "5a · unlock civic custody",
+      custodySource: civic.source,
+      devicePubkey: civic.devicePubkey,
+      deviceId: civic.cred.deviceId,
+      thread: civic.thread,
+      note: "Civic device enrolled and session unlocked ONCE. 5b–5e reuse this session with no further WebAuthn prompt.",
+    });
+    refreshCivicButtons();
+  } catch (e) {
+    badge("civicsub", "err", "unlock failed");
+    show("civicsub", String(e?.message ?? e));
+  }
+});
+
+$("civicJoin").addEventListener("click", async () => {
+  const c = state.civic;
+  if (!c) return;
+  try {
+    await c.client.ensureJoined(c.thread);
+    c.joined = true;
+    badge("civicsub", "ok", "joined");
+    show("civicsub", { step: "5b · join thread", thread: c.thread, note: "Ownership-only join — no kycTier." });
+    refreshCivicButtons();
+  } catch (e) {
+    badge("civicsub", "err", "join failed");
+    show("civicsub", String(e?.message ?? e));
+  }
+});
+
+$("civicPost").addEventListener("click", async () => {
+  const c = state.civic;
+  if (!c) return;
+  try {
+    const ref = await c.client.createPost(c.thread, { body: "root post from walk sub-steps" });
+    c.postId = c.thread.threadId;
+    badge("civicsub", "ok", "post created");
+    show("civicsub", { step: "5c · create root post", ref });
+    refreshCivicButtons();
+  } catch (e) {
+    badge("civicsub", "err", "post failed");
+    show("civicsub", String(e?.message ?? e));
+  }
+});
+
+$("civicComment").addEventListener("click", async () => {
+  const c = state.civic;
+  if (!c || !c.postId) return;
+  try {
+    const parent = { type: "post", id: c.postId };
+    const ref = await c.client.createComment(c.thread, parent, { body: "a reply from walk sub-steps" });
+    c.commentId = ref.entityId;
+    badge("civicsub", "ok", "comment added");
+    show("civicsub", { step: "5d · add comment", parent, ref });
+    refreshCivicButtons();
+  } catch (e) {
+    badge("civicsub", "err", "comment failed");
+    show("civicsub", String(e?.message ?? e));
+  }
+});
+
+$("civicReact").addEventListener("click", async () => {
+  const c = state.civic;
+  if (!c || !c.postId) return;
+  try {
+    const parent = c.commentId ? { type: "comment", id: c.commentId } : { type: "post", id: c.postId };
+    const ref = await c.client.addReaction(c.thread, parent, { kind: "check" });
+    badge("civicsub", "ok", "reaction added");
+    show("civicsub", { step: "5e · add reaction", parent, kind: "check", ref });
+    refreshCivicButtons();
+  } catch (e) {
+    badge("civicsub", "err", "reaction failed");
+    show("civicsub", String(e?.message ?? e));
   }
 });
 
