@@ -195,8 +195,25 @@ already-authenticated device displays a QR code that a new device scans to boots
 direction only — not implemented or scoped here, and orthogonal to the civic thread-signing keys in
 `@oursay/public-record`.
 
+## Civic write routes
+
+Beyond civic device-key enrollment (`/v1/civic/devices`), the API exposes the civic **write** path
+over the `@oursay/identity` `IdentityRegistry` — thin HTTP over reused crypto (no envelope/binding
+logic here). All require a **full session**; the caller's `userId` must own the device, persona, and
+signer involved, and the engine is the verified path (`requireDeviceSigner` — a persona-only/unsigned
+envelope is rejected):
+
+- `POST /v1/civic/threads/join` — bind account↔thread-key **ownership** (platform-signed binding +
+  thread signer). No KYC tier is fixed at join; verification tier is applied at read/count time.
+- `POST /v1/civic/appends/prepare` — server-derived fields for a civic intent (post, comment,
+  reaction, petition, petition_signature, poll, vote — create/update/delete as the type allows).
+- `POST /v1/civic/appends/submit` — accept a client+device-signed envelope into the record pool.
+
+The launch jurisdiction (`ab-ca-gov`, provincial; votes/signatures final by default) is registered at
+composition (`buildServices`). See `src/services/civic-record.service.ts` and
+`src/http/routes/civic-record.routes.ts`.
+
 ## Not in this milestone
 
-Civic IdentityRegistry **thread-join / signed-submission** write routes over HTTP (only device-key
-enrollment is exposed), production WebAuthn PRF / non-exportable browser signing for civic keys, full
-KYC provider integration, Method-4 ZK, and production KMS / encryption-at-rest (schema hooks only).
+Production WebAuthn PRF / non-exportable browser signing for civic keys, full KYC provider
+integration, Method-4 ZK, and production KMS / encryption-at-rest (schema hooks only).

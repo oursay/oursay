@@ -110,15 +110,20 @@ CREATE INDEX IF NOT EXISTS thread_keys_pubkey ON thread_keys (pubkey);
 -- Private platform registration binding (NEVER published). Commits the thread key to one opaque
 -- account commitment; the platform signs over the binding fields. salt_t escrow / at-rest encryption
 -- is a later (KMS) milestone — salt_t stays client-held for now, so it is NOT stored here.
-CREATE TABLE thread_bindings (
+-- kyc_tier is OPTIONAL: a binding proves account↔thread-key OWNERSHIP; verification tier is applied
+-- at read/count time, not fixed at join. NULL when ownership is bound without a tier.
+CREATE TABLE IF NOT EXISTS thread_bindings (
   thread_pubkey TEXT PRIMARY KEY REFERENCES thread_keys(pubkey),
   thread_id     TEXT NOT NULL,
   jurisdiction  TEXT NOT NULL,
-  kyc_tier      TEXT NOT NULL,
+  kyc_tier      TEXT,                          -- nullable; omitted from the signed binding when absent
   commitment    TEXT NOT NULL,                -- opaque H(user_id, salt_t, thread_id, jurisdiction), hex
   binding_sig   TEXT NOT NULL,                -- platform P-256 signature over the binding, hex
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- Migration for deployments created before kyc_tier became optional (idempotent: a no-op once the
+-- column is already nullable). Keeps init() self-migrating without a separate migration framework.
+ALTER TABLE thread_bindings ALTER COLUMN kyc_tier DROP NOT NULL;
 
 -- Multi-device enrollment (Identity & Device Policy §5.4, Method 3). PRIVATE — NEVER published.
 -- One row per hardware-backed device key a user enrols (passkey / secure enclave); the platform

@@ -7,6 +7,10 @@
 //
 // Wiring (Method 3 §5.4): enroll → `device_keys`; join thread → `thread_keys` + `thread_bindings`
 // + `thread_signers`; submit → `appendSigned` (author = persona, signer = thread-scoped device key).
+//
+// A join binds account↔thread-key OWNERSHIP. `kyc_tier` is OPTIONAL on the binding (verification tier
+// is applied at read/count time, not fixed at join); when omitted it must stay omitted on both the
+// signed payload and the re-verification reconstruction (`bindingFromRow`) so canonical JSON matches.
 
 import { RecordService, signBinding } from "@oursay/public-record";
 import type { PrivateStore } from "@oursay/public-record";
@@ -44,8 +48,8 @@ export class IdentityRegistry {
   /**
    * Join a thread: resolve the enrolling device, platform-sign the binding, and write
    * `thread_keys` + `thread_bindings` (registerThreadBinding) and `thread_signers`. The binding is
-   * built to match `bindingFromRow` exactly (kyc_tier always present) so `verifyThreadBinding`
-   * re-verifies it at append time.
+   * built to match `bindingFromRow` exactly (kyc_tier included ONLY when bound) so
+   * `verifyThreadBinding` re-verifies it at append time.
    */
   async joinThread(r: ThreadRegistration): Promise<void> {
     const device = await this.o.store.getDeviceKeyByPubkey(r.devicePubkey);
@@ -56,7 +60,8 @@ export class IdentityRegistry {
       thread_pubkey: r.personaPubkey,
       thread_id: r.threadId,
       jurisdiction: r.jurisdiction,
-      kyc_tier: r.kycTier,
+      // Include kyc_tier only when provided — see bindingFromRow / canonicalJson note.
+      ...(r.kycTier !== undefined ? { kyc_tier: r.kycTier } : {}),
       commitment: r.commitment,
     };
     const bindingSig = signBinding(binding, this.o.platformBindingPrivKeyHex);
@@ -66,7 +71,7 @@ export class IdentityRegistry {
       userId: r.userId,
       threadId: r.threadId,
       jurisdiction: r.jurisdiction,
-      kycTier: r.kycTier,
+      kycTier: r.kycTier ?? null,
       commitment: r.commitment,
       bindingSig,
     });

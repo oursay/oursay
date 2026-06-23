@@ -13,6 +13,7 @@ import { registerAuth } from "./auth-plugin.js";
 import { registerErrorHandler } from "./errors.js";
 import { registerAuthRoutes } from "./routes/auth.routes.js";
 import { registerCivicDeviceRoutes } from "./routes/civic-device.routes.js";
+import { registerCivicRecordRoutes } from "./routes/civic-record.routes.js";
 import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
@@ -76,6 +77,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerRecoveryRoutes(app, services);
   registerLoginRoutes(app, services);
   registerCivicDeviceRoutes(app, services);
+  registerCivicRecordRoutes(app, services);
   registerProfileRoutes(app, services);
 
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());

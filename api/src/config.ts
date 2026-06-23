@@ -5,7 +5,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
-import type { PgConfig } from "@oursay/public-record";
+import type { JurisdictionConfig, PgConfig } from "@oursay/public-record";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(packageRoot, "..");
@@ -95,6 +95,47 @@ export interface RegistrationConfig {
 
 export const registrationConfig: RegistrationConfig = {
   minAgeYears: Number(env("MIN_AGE_YEARS", "18")),
+};
+
+export interface CivicConfig {
+  /** The platform's P-256 binding key (hex) — signs each per-thread registration binding. */
+  platformBindingPrivKeyHex: string;
+  /** Reject a signed envelope at submit when `serverNow - createdAt` exceeds this many seconds; `0` disables. */
+  signedEnvelopeMaxAgeSec: number;
+  /** Ledger partition id for the civic `PublicChain` (one chain per jurisdiction at launch). */
+  chainId: string;
+}
+
+/**
+ * Civic record engine config (docs/08 §6). The platform signs each thread registration binding with a
+ * P-256 key: env-required in production (VALUES §9 — no committed secrets), with a deterministic
+ * INSECURE dev fallback so a fresh clone runs without setup; tests inject an ephemeral key. The same
+ * key verifies bindings at submit (the civic RecordService derives its public key from it). The civic
+ * RecordService is ALWAYS built with requireDeviceSigner=true — the HTTP path never accepts a
+ * persona-only/unsigned dev append.
+ */
+const DEV_PLATFORM_BINDING_PRIVKEY = "de".repeat(32); // clearly-insecure local-dev scalar; never prod.
+
+export const civicConfig: CivicConfig = {
+  platformBindingPrivKeyHex: secret("PLATFORM_BINDING_PRIVKEY", DEV_PLATFORM_BINDING_PRIVKEY),
+  signedEnvelopeMaxAgeSec: Number(env("SIGNED_ENVELOPE_MAX_AGE_SEC", "120")),
+  chainId: env("CHAIN_ID", "ab-ca-gov"),
+};
+
+/**
+ * The Alberta launch JURISDICTION (docs/GLOSSARY, docs/08 §6.0) — a provincial deployment. Default
+ * governance is FINAL-action: votes and signatures are final (`allowChange`/`allowRevoke` off) unless
+ * an entity opts in within its own rules. Generic by design (VALUES §7) — every field is
+ * env-overridable config, never hardcoded platform logic. Product label mapping is presentational
+ * (front-end), not stored on the record: a `post` is surfaced as a "Belief" in the Alberta product.
+ */
+export const jurisdictionConfig: JurisdictionConfig = {
+  id: env("JURISDICTION_ID", "ab-ca-gov"),
+  level: env("JURISDICTION_LEVEL", "provincial"),
+  rules: {
+    allowChange: env("JURISDICTION_ALLOW_CHANGE", "false") === "true",
+    allowRevoke: env("JURISDICTION_ALLOW_REVOKE", "false") === "true",
+  },
 };
 
 export interface WebAuthnConfig {

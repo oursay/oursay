@@ -14,7 +14,7 @@ is the long-term goal; the envelope `proof` slot stays reserve-and-reject until 
 | Subpath | Use it from | Surface |
 |---|---|---|
 | `@oursay/identity/client` | browser / app (`site`), tests | `PasskeyConnector`, `DevPasskeyConnector`, `WebPasskeyConnector`, `IdentitySession` |
-| `@oursay/identity/server` | the future `@oursay/api`, integration tests | `IdentityRegistry` (enroll / join / prepare / submit) |
+| `@oursay/identity/server` | `@oursay/api` (civic write routes), integration tests | `IdentityRegistry` (enroll / join / prepare / submit) |
 | `@oursay/identity` | anywhere | shared client↔server DTO types |
 
 Only **public** material crosses client → server (pubkeys, the opaque commitment, signed
@@ -99,9 +99,11 @@ Verified writes go through the **device-signed** path — `IdentityRegistry` bui
 verified record. Persona-only signing is a dev/test fallback only. The `DevPasskeyConnector` is
 impossible to construct in production (env guard).
 
-## What remains before `@oursay/api`
+## What remains
 
-HTTP routes over `IdentityRegistry`; server-side `sessions` / `passkey_credentials` tables +
-passkey login; real KYC tiers feeding `joinThread`; `WebPasskeyConnector` hardening (largeBlob /
-non-exportable WebCrypto custody, secure-storage fallback when PRF is absent); and — longer term —
-Method-4 ZK to replace platform nullifier attestation.
+HTTP routes over `IdentityRegistry` now ship in `@oursay/api` (`/v1/civic/threads/join`,
+`/v1/civic/appends/prepare`, `/v1/civic/appends/submit`), with `sessions` / `passkey_credentials` +
+passkey login. A join binds **ownership** only — KYC tier is **not** fixed at `joinThread`; it is
+applied at read/count time from the user's current attestation. Remaining: `WebPasskeyConnector`
+hardening (largeBlob / non-exportable WebCrypto custody, secure-storage fallback when PRF is absent);
+and — longer term — Method-4 ZK to replace platform nullifier attestation.

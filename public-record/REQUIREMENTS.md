@@ -106,8 +106,11 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 - **R7 [Invariant]** — The platform MUST be able to verify that a per-thread key belongs to a
   **verified user, without exposing which user** in the public record. This is established by a
   **private platform registration binding** created before any verified-tier append: the platform
-  signs a binding committing to `thread_pubkey, thread_id, jurisdiction, kyc_tier` and an **opaque
-  per-thread commitment** `H(user_id, salt_t, thread_id, jurisdiction)`. The commitment is held in the
+  signs a binding committing to `thread_pubkey, thread_id, jurisdiction` (and **optionally** `kyc_tier`)
+  and an **opaque per-thread commitment** `H(user_id, salt_t, thread_id, jurisdiction)`. The binding
+  proves account↔thread-key **ownership**; the verification **tier is not fixed at join** — it is
+  applied at read/count time from the user's current attestation (R24–R26), so a binding may carry no
+  `kyc_tier` (omitted from the signed payload, NULL in the private store). The commitment is held in the
   private binding and surfaced only — opaquely — in the platform's **settlement attestation
   metadata** (referenced by `thread_pubkey`); the public envelope carries `thread_pubkey` only, and
   the opening (`user_id`, `salt_t`) stays private until selective reveal (R11).

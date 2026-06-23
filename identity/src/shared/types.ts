@@ -67,6 +67,10 @@ export interface DeviceEnrollment {
  * commitment (the opening stays client-side until selective reveal), the thread-scoped signer
  * pubkey, and the enrolling device's public key. The server signs the binding and writes
  * `thread_keys` + `thread_bindings` + `thread_signers`.
+ *
+ * A join proves account↔thread-key OWNERSHIP only. `kycTier` is OPTIONAL and not part of the HTTP
+ * join path: verification tier and district membership are applied at read/count time, not fixed at
+ * registration. Omit it to bind ownership without a tier.
  */
 export interface ThreadRegistration {
   userId: string;
@@ -76,7 +80,7 @@ export interface ThreadRegistration {
   commitment: string;
   signerPubkey: string;
   devicePubkey: string;
-  kycTier: string;
+  kycTier?: string;
 }
 
 export type { Op, RecordType, TxEnvelope };

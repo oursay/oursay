@@ -3,8 +3,20 @@
 // just one consumer.
 
 import {
+  IdentityRegistry,
+} from "@oursay/identity/server";
+import {
+  PrivateStore,
+  PublicChain,
+  RecordService,
+  registerJurisdiction,
+} from "@oursay/public-record";
+import {
+  civicConfig,
+  jurisdictionConfig,
   mailerConfig,
   otpConfig,
+  pgConfig,
   registrationConfig,
   sessionConfig,
   type MailerVendor,
@@ -21,6 +33,7 @@ import { SessionRepo } from "./repo/session.repo.js";
 import { UserRepo } from "./repo/user.repo.js";
 import { AuthService } from "./services/auth.service.js";
 import { CivicDeviceService } from "./services/civic-device.service.js";
+import { CivicRecordService } from "./services/civic-record.service.js";
 import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
@@ -35,6 +48,9 @@ export interface BuildOptions {
   mailerOverrides?: Partial<Record<MailerVendor, MailAdapter>>;
   /** Override an already-built mailer entirely. */
   mailer?: MailerService;
+  /** Override the platform binding private key (hex) — tests inject an ephemeral key per run so the
+   *  registry's binding signature and the RecordService's verification share it. */
+  platformBindingPrivKeyHex?: string;
 }
 
 export interface Repos {
@@ -59,11 +75,18 @@ export interface Services {
   recoveryService: RecoveryService;
   loginService: LoginService;
   civicDeviceService: CivicDeviceService;
+  civicRecordService: CivicRecordService;
+  /** The public-record private store backing the civic engine (read access for tests/projections). */
+  recordStore: PrivateStore;
 }
 
 export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Services> {
   const now: Now = opts.now ?? systemNow;
   const pool = db.pool;
+
+  // Register the launch jurisdiction in the public-record router (idempotent) so civic governance
+  // rules resolve. Done here — the composition root — so HTTP, CLI, and tests all share it.
+  registerJurisdiction(jurisdictionConfig);
 
   const repos: Repos = {
     user: new UserRepo(pool),
@@ -117,6 +140,20 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   });
   const civicDeviceService = new CivicDeviceService({ civicDeviceRepo: repos.civicDevice });
 
+  // Civic record engine — reuse @oursay/public-record + @oursay/identity/server; no crypto here. The
+  // RecordService is the verified/production path (requireDeviceSigner), and the SAME platform key
+  // signs bindings (IdentityRegistry) and verifies them (RecordService). The store opens its own pool
+  // over the same Postgres; its tables are created by Db.init() (PrivateStore.init).
+  const platformBindingPrivKeyHex = opts.platformBindingPrivKeyHex ?? civicConfig.platformBindingPrivKeyHex;
+  const recordStore = new PrivateStore(pgConfig);
+  const recordSvc = new RecordService(new PublicChain(recordStore, civicConfig.chainId), recordStore, {
+    platformBindingPrivKeyHex,
+    requireDeviceSigner: true,
+    signedEnvelopeMaxAgeSec: civicConfig.signedEnvelopeMaxAgeSec,
+  });
+  const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
+  const civicRecordService = new CivicRecordService({ registry: identityRegistry, store: recordStore });
+
   return {
     db,
     repos,
@@ -128,5 +165,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     recoveryService,
     loginService,
     civicDeviceService,
+    civicRecordService,
+    recordStore,
   };
 }

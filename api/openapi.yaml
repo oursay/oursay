@@ -1451,6 +1451,416 @@ paths:
                       - message
                 required:
                   - error
+  /v1/civic/threads/join:
+    post:
+      summary: "Join a thread: bind account↔thread-key ownership (no KYC tier fixed at
+        join)"
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                threadId:
+                  type: string
+                  description: Root entity id the thread is scoped to.
+                jurisdiction:
+                  type: string
+                  description: Jurisdiction id, e.g. ab-ca-gov.
+                personaPubkey:
+                  type: string
+                  description: Thread persona (author) pubkey, SEC1 P-256 hex.
+                signerPubkey:
+                  type: string
+                  description: Thread-scoped device signer pubkey, SEC1 P-256 hex.
+                commitment:
+                  type: string
+                  description: Opaque binding commitment (sha256 hex); opening stays client-side.
+                devicePubkey:
+                  type: string
+                  description: Enrolled account-level civic device pubkey, SEC1 P-256 hex.
+              required:
+                - threadId
+                - jurisdiction
+                - personaPubkey
+                - signerPubkey
+                - commitment
+                - devicePubkey
+              additionalProperties: false
+      security: *a1
+      responses:
+        "204":
+          description: Default Response
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/appends/prepare:
+    post:
+      summary: "Prepare an append: server-derived fields for a civic intent"
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                author:
+                  type: string
+                  description: Thread persona pubkey the action is authored as (must be the
+                    caller's).
+                intent:
+                  type: object
+                  description: A civic intent. `content` is the raw payload (kept private); the
+                    server returns the fields to sign.
+                  properties:
+                    op:
+                      type: string
+                      enum:
+                        - create
+                        - update
+                        - delete
+                    type:
+                      type: string
+                      enum:
+                        - post
+                        - comment
+                        - reaction
+                        - petition
+                        - petition_signature
+                        - poll
+                        - vote
+                    entityId:
+                      type: string
+                      description: Caller-chosen entity id (client and server must agree).
+                    parent:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - post
+                            - comment
+                            - reaction
+                            - petition
+                            - petition_signature
+                            - poll
+                            - vote
+                        id:
+                          type: string
+                      required:
+                        - type
+                        - id
+                      additionalProperties: false
+                    content:
+                      description: Opaque payload (any JSON). Never published in plaintext.
+                  required:
+                    - op
+                    - type
+                    - entityId
+                  additionalProperties: false
+              required:
+                - author
+                - intent
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Server-derived fields the client must sign over (mirrors
+            RecordService.prepareAppend).
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Server-derived fields the client must sign over (mirrors
+                  RecordService.prepareAppend).
+                properties:
+                  prevHash:
+                    type: string
+                    nullable: true
+                  parentType:
+                    type: string
+                  parentId:
+                    type: string
+                  parentRevisionHash:
+                    type: string
+                  parentRevisionTxId:
+                    type: string
+                  rootEntityId:
+                    type: string
+                  nullifierParentId:
+                    type: string
+                  nullifier:
+                    type: string
+                required:
+                  - prevHash
+                  - rootEntityId
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/appends/submit:
+    post:
+      summary: Submit a client+device-signed envelope into the verified record pool
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                envelope:
+                  type: object
+                  additionalProperties: true
+                salt:
+                  type: string
+                  description: Per-record content-commitment salt (random uuid/hex).
+                content:
+                  description: The civic payload this envelope commits to (any JSON).
+              required:
+                - envelope
+                - salt
+                - content
+              additionalProperties: false
+      security: *a1
+      responses:
+        "201":
+          description: A reference to the appended (pooled) transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A reference to the appended (pooled) transaction.
+                properties:
+                  txId:
+                    type: string
+                  entityId:
+                    type: string
+                  txHash:
+                    type: string
+                required:
+                  - txId
+                  - entityId
+                  - txHash
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/profile:
     get:
       summary: Get the authenticated user's own profile (private PII)

@@ -349,7 +349,7 @@ CREATE TABLE thread_bindings (
   thread_pubkey TEXT PRIMARY KEY REFERENCES thread_keys(pubkey),
   thread_id     TEXT NOT NULL,
   jurisdiction  TEXT NOT NULL,
-  kyc_tier      TEXT NOT NULL,             -- tier at registration (identity/residency/official/electoral)
+  kyc_tier      TEXT,                       -- OPTIONAL (updated): binding proves ownership; tier is applied at read/count time, not fixed at join
   commitment    BYTEA NOT NULL,            -- opaque H(user_id, salt_t, thread_id, jurisdiction)
   salt_t_enc    BYTEA NOT NULL,            -- per-thread salt, client-generated, encrypted at rest; opened only on reveal
   binding_sig   BYTEA NOT NULL,            -- platform signature over the fields above (verifiable vs published platform key)
@@ -507,8 +507,10 @@ Authorship, linkage, and the published set are three **separate** proofs:
 2. **Platform registration binding** — proves the *platform linked that thread key to one account
    commitment* at registration time (required before any verified-tier append). The binding is
    **private** and signed by the platform over
-   `thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment`, where the per-thread
-   **commitment** is `H(user_id, salt_t, thread_id, jurisdiction)`. `salt_t` is **unique per thread,
+   `thread_pubkey, thread_id, jurisdiction, commitment` (and **optionally** `kyc_tier`), where the
+   per-thread **commitment** is `H(user_id, salt_t, thread_id, jurisdiction)`. _(Updated: the binding
+   proves account↔thread-key **ownership**; verification tier is applied at read/count time from the
+   user's current attestation (R24–R26), not fixed at join, so it may be omitted from the binding.)_ `salt_t` is **unique per thread,
    client-generated at registration, stored encrypted at rest, and never published** until a
    reveal. The commitment is **opaque** and lives **only in this private binding** — it is **not**
    on the public envelope.

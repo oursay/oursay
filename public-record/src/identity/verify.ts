@@ -1,7 +1,8 @@
 // Server-side verified-tier gate: is a thread key registered, and is its private binding's platform
 // signature valid? Reconstructs the public binding from the stored row IDENTICALLY to how it was
-// signed (canonical JSON sorts keys; kyc_tier present, matching buildThreadBindingInputs), then
-// re-verifies binding_sig (defense-in-depth, per locked decision).
+// signed (canonical JSON sorts keys; kyc_tier is included ONLY when it was bound, matching
+// buildThreadBindingInputs — a binding proves ownership and may carry no tier), then re-verifies
+// binding_sig (defense-in-depth, per locked decision).
 
 import type { PrivateStore, ThreadBindingRow } from "../private/store.js";
 import type { ThreadBindingPublic } from "./binding.js";
@@ -13,7 +14,9 @@ export function bindingFromRow(row: ThreadBindingRow): ThreadBindingPublic {
     thread_pubkey: row.threadPubkey,
     thread_id: row.threadId,
     jurisdiction: row.jurisdiction,
-    kyc_tier: row.kycTier,
+    // Include kyc_tier ONLY when present: canonicalJson (JSON.stringify) drops undefined keys but
+    // keeps null, so an omitted-at-sign tier must be omitted here too or binding_sig won't re-verify.
+    ...(row.kycTier != null ? { kyc_tier: row.kycTier } : {}),
     commitment: row.commitment,
   };
 }

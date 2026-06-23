@@ -33,12 +33,16 @@ export class Db {
     await this.pool.query(AUTH_DDL);
   }
 
-  /** Wipe auth + account rows for test isolation. Guarded: refuses under NODE_ENV=production. */
+  /** Wipe auth + account rows for test isolation. Guarded: refuses under NODE_ENV=production.
+   *  `public.users CASCADE` also clears the civic identity tables that FK it (device_keys,
+   *  thread_keys/bindings/signers, kyc/nullifier attestations); the record pool (record_tx /
+   *  record_outbox) has no FK to users, so it's truncated explicitly. */
   async reset(): Promise<void> {
     assertDestructiveAllowed("Db.reset()");
     await this.pool.query(
       `TRUNCATE auth.otp_rate_limits, auth.email_otp, auth.sessions, auth.webauthn_challenges,
-               auth.passkey_credentials, auth.profiles, public.users CASCADE`,
+               auth.passkey_credentials, auth.profiles,
+               public.record_outbox, public.record_tx, public.users CASCADE`,
     );
   }
 

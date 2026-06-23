@@ -11,7 +11,9 @@ export interface ThreadBindingRow {
   threadPubkey: string;
   threadId: string;
   jurisdiction: string;
-  kycTier: string;
+  /** Optional at registration: a binding proves account↔thread-key OWNERSHIP; verification tier is
+   *  applied at read/count time, not fixed at join. Null when no tier was bound. */
+  kycTier: string | null;
   commitment: string;
   bindingSig: string;
 }
@@ -441,7 +443,8 @@ export class PrivateStore {
     userId: string;
     threadId: string;
     jurisdiction: string;
-    kycTier: string;
+    /** Optional — omitted (null) when ownership is bound without fixing a tier at join. */
+    kycTier?: string | null;
     commitment: string;
     bindingSig: string;
   }): Promise<void> {
@@ -459,7 +462,7 @@ export class PrivateStore {
          ON CONFLICT (thread_pubkey) DO UPDATE SET
            thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction, kyc_tier = EXCLUDED.kyc_tier,
            commitment = EXCLUDED.commitment, binding_sig = EXCLUDED.binding_sig`,
-        [input.threadPubkey, input.threadId, input.jurisdiction, input.kycTier, input.commitment, input.bindingSig],
+        [input.threadPubkey, input.threadId, input.jurisdiction, input.kycTier ?? null, input.commitment, input.bindingSig],
       );
       await client.query("COMMIT");
     } catch (err) {
