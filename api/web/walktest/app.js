@@ -5,7 +5,7 @@
 const { startRegistration, startAuthentication } = window.SimpleWebAuthnBrowser;
 
 const $ = (id) => document.getElementById(id);
-const state = { profile: null, email: null, token: null, scope: null };
+const state = { profile: null, email: null, token: null, scope: null, userId: null };
 
 document.getElementById("origin").textContent = window.location.origin;
 
@@ -99,6 +99,7 @@ $("verifyOtp").addEventListener("click", async () => {
     return;
   }
   setSession(r.body.session);
+  state.userId = r.body.userId;
   badge("verify", "ok", "registered");
   show("verify", { userId: r.body.userId, session: r.body.session, cookie: "oursay_session set (HttpOnly)" });
   $("enroll").disabled = false;
@@ -159,6 +160,7 @@ $("login").addEventListener("click", async () => {
     const verify = await api("POST", "/v1/auth/passkey/login/verify", { response: asgResp });
     if (!verify.ok) return failLogin(verify);
     setSession(verify.body.session);
+    state.userId = verify.body.userId;
     badge("login", "ok", "logged in");
     enableFullSessionActions();
     $("enableLogin").disabled = false;
@@ -248,23 +250,57 @@ async function renderPasskeys() {
   }
 }
 
-// ── 5 · Civic device key (WebCrypto P-256; public key only on platform) ───────
-const hex = (buf) => [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+// ── 5 · Civic device key + golden path (real @oursay/identity SDK) ────────────
+// Drives the PRODUCTION civic custody + write path in the browser via the bundled SDK
+// (/walk/identity.js): a passkey-unlocked, non-exportable derivation root (or, when PRF is
+// unavailable, a non-extractable AES-wrapped fallback master in IndexedDB) → device-signed envelope.
+// The platform only ever receives PUBLIC keys, an opaque commitment, and the signed envelope.
+//
+// NOTE: this civic-custody passkey is SEPARATE from the step-4 account-login passkey — you will see a
+// second passkey prompt. The SDK is dynamically imported on click so steps 1–4 still work if the
+// dev-only bundle fails to build.
+
+/** Best-effort: recover state.userId from the live session if it wasn't captured at register/login. */
+async function ensureUserId() {
+  if (state.userId) return state.userId;
+  const me = await api("GET", "/v1/auth/session");
+  if (me.ok && me.body?.userId) state.userId = me.body.userId;
+  return state.userId;
+}
 
 $("enrollCivic").addEventListener("click", async () => {
+  const userId = await ensureUserId();
+  if (!userId) {
+    badge("civic", "err", "no session");
+    return show("civic", "Register or log in first — the civic flow needs your userId.");
+  }
   try {
-    // Ephemeral, non-exportable P-256 key. The public key is exportable; the private key is not and
-    // never leaves the browser — the platform only ever receives the public point.
-    const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
-    state.civicKey = pair;
-    const raw = await crypto.subtle.exportKey("raw", pair.publicKey); // 65-byte uncompressed SEC1
-    const devicePubkey = hex(raw);
-    const r = await api("POST", "/v1/civic/devices", { devicePubkey, label: "walk page device" });
-    badge("civic", r.ok ? "ok" : "err", r.ok ? "enrolled" : `error ${r.status}`);
-    show("civic", r.ok ? { ...r.body, note: "Public key only; private key stays in this tab." } : r.body);
+    badge("civic", "", "loading SDK…");
+    const { WebPasskeyConnector, IdentitySession, CivicHttpClient } = await import("/walk/identity.js");
+
+    // Civic-custody credential (distinct from the account-login passkey) → unlock a signing session.
+    const conn = new WebPasskeyConnector();
+    const cred = await conn.enrollDevice({ userId, label: "walk civic device" });
+    const session = new IdentitySession(await conn.unlock({ userId, deviceId: cred.deviceId }));
+
+    // One SDK call: ensure civic device enrolled → join thread (ownership-only, no kycTier) →
+    // prepare → DEVICE-sign → submit into the verified record pool.
+    const client = new CivicHttpClient({ baseUrl: location.origin, session, credentials: "include" });
+    const thread = { threadId: crypto.randomUUID(), jurisdiction: "ab-ca-gov" };
+    const ref = await client.createPost(thread, { body: "hello from the walk" });
+
+    state.civic = { conn, client, thread, deviceId: cred.deviceId };
+    badge("civic", "ok", `posted (${conn.lastUnlockSource})`);
+    show("civic", {
+      custodySource: conn.lastUnlockSource, // "prf" or "secure-store" (fallback)
+      devicePubkey: session.devicePubkey,
+      thread,
+      ref,
+      note: "Real SDK: passkey-unlocked custody, device-signed envelope. Platform received only public keys + the signed envelope.",
+    });
     $("listCivic").disabled = false;
   } catch (e) {
-    badge("civic", "err", "keygen/enroll failed");
+    badge("civic", "err", "civic flow failed");
     show("civic", String(e?.message ?? e));
   }
 });
@@ -299,6 +335,7 @@ $("verifyLoginOtp").addEventListener("click", async () => {
     return;
   }
   setSession(r.body.session);
+  if (r.body.userId) state.userId = r.body.userId;
   // Prove the scope is enroll-only: a full-scope read must be rejected until a passkey is enrolled.
   const me = await api("GET", "/v1/profile");
   badge("loginflow", "ok", "login session (enroll-only)");

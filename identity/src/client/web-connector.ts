@@ -12,12 +12,19 @@
 // passkeys yield different roots; the second device references the existing persona and signs with
 // its own device signer, and per-jurisdiction nullifier consistency needs recovery/sync of the root (the
 // platform attestation remains the dedupe backstop). PRF availability is uneven — gate on the
-// AUTH-time result, not the create-time `enabled` flag (FINDINGS §2). A secure-storage fallback
-// (non-exportable WebCrypto key + IndexedDB / largeBlob) is the production path when PRF is absent;
-// it is documented here and left to the production hardening milestone.
+// AUTH-time result, not the create-time `enabled` flag (FINDINGS §2).
 //
-// This module imports ONLY @noble + the DOM WebAuthn API (no public-record), so the optional browser
-// shell can load it via an import map without a bundler. In Node it throws (no `navigator`).
+// PRF-unavailable fallback (built): when the authenticator produces no PRF output, the IKM comes from
+// the secure-storage master (`./secure-store.ts`) — a random 32-byte master sealed under a
+// non-extractable AES-GCM key in IndexedDB — instead of throwing. The HKDF expansion below is IDENTICAL
+// either way; only the SOURCE of the IKM differs (FINDINGS §3). A credential must therefore enroll and
+// unlock via the SAME source: the devicePubkey/persona are functions of the IKM, so if PRF availability
+// changes for a device it must RE-ENROLL (we do not auto-detect a source switch). Custody trade-off:
+// PRF keeps the root inside the authenticator; the fallback materializes it in memory and shifts custody
+// to the device-bound non-extractable wrapping key. Derived signing keys are always ephemeral in memory.
+//
+// This module imports ONLY @noble + the DOM WebAuthn/Web Crypto/IndexedDB APIs + ./secure-store (no
+// public-record), so it bundles for the browser cleanly. In Node the constructor throws (no `navigator`).
 
 import { hkdf } from "@noble/hashes/hkdf";
 import { sha256 } from "@noble/hashes/sha256";
@@ -25,6 +32,7 @@ import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
+import { IndexedDbKeyStore, WebCryptoMasterStore, type SecureMasterStore } from "./secure-store.js";
 
 /** The single PRF salt we evaluate; everything else is HKDF-expanded from its result. */
 const PRF_SALT = utf8ToBytes("oursay/v1/prf-root");
@@ -42,12 +50,17 @@ export interface WebPasskeyOptions {
   /** WebAuthn RP id. Default: the page's hostname (e.g. "localhost"). */
   rpId?: string;
   rpName?: string;
+  /** Override the PRF-unavailable fallback store. Default: IndexedDB-backed non-extractable AES master. */
+  secureStore?: SecureMasterStore;
 }
 
 export class WebPasskeyConnector implements PasskeyConnector {
   readonly mode = "web" as const;
+  /** Diagnostic: which IKM source the most recent enroll/unlock used (for QA — e.g. the walk page). */
+  lastUnlockSource: "prf" | "secure-store" | null = null;
   private readonly rpId: string;
   private readonly rpName: string;
+  private readonly secureStore: SecureMasterStore;
 
   constructor(opts: WebPasskeyOptions = {}) {
     if (typeof navigator === "undefined" || !navigator.credentials) {
@@ -55,6 +68,7 @@ export class WebPasskeyConnector implements PasskeyConnector {
     }
     this.rpId = opts.rpId ?? (typeof location !== "undefined" ? location.hostname : "localhost");
     this.rpName = opts.rpName ?? "OurSay";
+    this.secureStore = opts.secureStore ?? new WebCryptoMasterStore(new IndexedDbKeyStore());
   }
 
   async enrollDevice(o: { userId: string; label?: string; deviceId?: string }): Promise<DeviceCredential> {
@@ -79,9 +93,9 @@ export class WebPasskeyConnector implements PasskeyConnector {
     }
     const credentialId = new Uint8Array(cred.rawId);
     this.storeCredentialId(o.userId, deviceId, credentialId);
-    // derive the account-level device pubkey from the PRF root (one auth prompt)
-    const prf = await this.prfRoot(credentialId);
-    const devicePubkey = bytesToHex(p256.getPublicKey(p256PrivFrom(root32(prf, "oursay/web/device-root", deviceId), `account|${o.userId}`)));
+    // derive the account-level device pubkey from the unlock root (PRF, else secure-storage fallback)
+    const root = await this.unlockRoot(credentialId, o.userId);
+    const devicePubkey = bytesToHex(p256.getPublicKey(p256PrivFrom(root32(root, "oursay/web/device-root", deviceId), `account|${o.userId}`)));
     this.storeDevicePubkey(o.userId, deviceId, devicePubkey);
     return { userId: o.userId, deviceId, devicePubkey };
   }
@@ -89,22 +103,45 @@ export class WebPasskeyConnector implements PasskeyConnector {
   async unlock(o: { userId: string; deviceId: string }): Promise<UnlockedSession> {
     const credentialId = this.loadCredentialId(o.userId, o.deviceId);
     const devicePubkey = this.loadDevicePubkey(o.userId, o.deviceId);
-    const prf = await this.prfRoot(credentialId);
-    const deviceRoot = root32(prf, "oursay/web/device-root", o.deviceId);
+    const root = await this.unlockRoot(credentialId, o.userId);
+    const deviceRoot = root32(root, "oursay/web/device-root", o.deviceId);
     return {
       userId: o.userId,
       deviceId: o.deviceId,
       devicePubkey,
       deviceRoot,
-      jurisdictionMaster: (jurisdiction: string) => root32(prf, "oursay/web/jurisdiction-master", jurisdiction),
-      nullifierRoot: (jurisdiction: string) => root32(prf, "oursay/web/nullifier-root", jurisdiction),
+      jurisdictionMaster: (jurisdiction: string) => root32(root, "oursay/web/jurisdiction-master", jurisdiction),
+      nullifierRoot: (jurisdiction: string) => root32(root, "oursay/web/nullifier-root", jurisdiction),
     };
   }
 
-  // ── WebAuthn PRF ───────────────────────────────────────────────────────────────────────────
+  // ── Unlock root: PRF, else secure-storage fallback ───────────────────────────────────────────
 
-  /** One passkey assertion → the 32-byte PRF root. Gates on the AUTH-time result (FINDINGS §2). */
-  private async prfRoot(credentialId: Uint8Array): Promise<Uint8Array> {
+  /**
+   * The 32-byte derivation IKM for this credential. PRF when the authenticator produces it (kept inside
+   * the authenticator), else the secure-storage fallback master (FINDINGS §3). Both expand identically
+   * via {@link root32}. Source-consistency invariant: a credential must enroll AND unlock via the same
+   * source — the devicePubkey/persona are functions of this root — so if PRF availability changes for a
+   * device it must RE-ENROLL. The fallback master is keyed per (user, this device).
+   */
+  private async unlockRoot(credentialId: Uint8Array, userId: string): Promise<Uint8Array> {
+    const prf = await this.assertAndProbePrf(credentialId);
+    if (prf) {
+      this.lastUnlockSource = "prf";
+      return prf;
+    }
+    this.lastUnlockSource = "secure-store";
+    return this.secureStore.getOrCreate(`oursay/web/master/${userId}`);
+  }
+
+  /**
+   * One passkey assertion (this gates unlock/auth regardless of PRF). The assertion MUST succeed — a
+   * null result is a cancelled/failed ceremony and throws (we never fall back past a real auth failure).
+   * Returns the 32-byte PRF root when the authenticator produced one — gate on the AUTH-time result, not
+   * the create-time `enabled` flag (FINDINGS §2) — else `null` so {@link unlockRoot} can fall back to
+   * secure storage (PRF genuinely absent, but the user DID authenticate).
+   */
+  private async assertAndProbePrf(credentialId: Uint8Array): Promise<Uint8Array | null> {
     const assertion = (await navigator.credentials.get({
       publicKey: {
         rpId: this.rpId,
@@ -115,11 +152,9 @@ export class WebPasskeyConnector implements PasskeyConnector {
         extensions: { prf: { eval: { first: PRF_SALT } } } as AuthenticationExtensionsClientInputs,
       },
     })) as PublicKeyCredential | null;
-    const results = assertion?.getClientExtensionResults().prf?.results?.first;
-    if (!results) {
-      throw new Error("WebAuthn PRF unavailable on this device; secure-storage fallback not yet built (production milestone)");
-    }
-    return new Uint8Array(results as ArrayBuffer);
+    if (!assertion) throw new Error("passkey assertion cancelled");
+    const results = assertion.getClientExtensionResults().prf?.results?.first;
+    return results ? new Uint8Array(results as ArrayBuffer) : null;
   }
 
   // ── credential persistence (localStorage; a browser-local handle, not a secret) ──────────────

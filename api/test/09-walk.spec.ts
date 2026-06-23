@@ -27,4 +27,17 @@ describe("09 walk: dev harness static routes", () => {
     expect(lib.headers["content-type"]).to.contain("javascript");
     expect(lib.body).to.contain("SimpleWebAuthnBrowser");
   });
+
+  it("bundles the @oursay/identity browser SDK as a clean browser ESM (no node builtins)", async () => {
+    // esbuild bundles @oursay/identity/client/browser on first request — this guards that the
+    // browser-safe entry actually builds (gap 6: prove it, don't assume tree-shaking) and exports
+    // the SDK the walk page imports, with no node:/pg/dotenv leak.
+    const res = await w.app.inject({ method: "GET", url: "/walk/identity.js" });
+    expect(res.statusCode).to.equal(200);
+    expect(res.headers["content-type"]).to.contain("javascript");
+    expect(res.body).to.contain("CivicHttpClient");
+    expect(res.body).to.contain("WebPasskeyConnector");
+    expect(res.body, "no node builtins leaked into the browser bundle").to.not.match(/["']node:/);
+    expect(res.body, "no dotenv config leaked").to.not.contain("dotenv");
+  });
 });

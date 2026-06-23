@@ -91,14 +91,21 @@
     </fieldset>
 
     <fieldset>
-      <legend><h2>5 · Enroll civic device key</h2> <span class="badge" id="b-civic">todo</span></legend>
+      <legend><h2>5 · Civic golden path (real SDK)</h2> <span class="badge" id="b-civic">todo</span></legend>
       <p class="muted">
-        Civic signing keys are <em>separate</em> from account-login passkeys (docs/08 §5.4). The page
-        generates an ephemeral P-256 keypair in the browser (WebCrypto) and registers the
-        <strong>public key only</strong> — the private key never leaves this tab. (A production client
-        would bind a non-exportable key to your passkey; out of scope for this walk.)
+        Drives the production <strong>@oursay/identity</strong> SDK in the browser (bundled at
+        <code>/walk/identity.js</code>): unlock a civic-custody passkey → enroll the civic device key →
+        join an <code>ab-ca-gov</code> thread (ownership only, no KYC tier) → create a post, all
+        device-signed. The derivation root stays <strong>non-exportable</strong> (inside the
+        authenticator via WebAuthn PRF, or — when PRF is unavailable — a non-extractable AES-wrapped
+        master in IndexedDB); the platform receives only <strong>public keys, an opaque commitment, and
+        the signed envelope</strong>. The result shows which custody source was used.
       </p>
-      <button id="enrollCivic" disabled>Enroll civic device key</button>
+      <p class="note">
+        This civic-custody passkey is <strong>separate</strong> from the step-4 account-login passkey
+        (docs/08 §5.4) — expect a <em>second</em> passkey prompt.
+      </p>
+      <button id="enrollCivic" disabled>Run civic golden path</button>
       <button id="listCivic" disabled>List my civic devices</button>
       <pre id="out-civic">(needs a full session)</pre>
     </fieldset>

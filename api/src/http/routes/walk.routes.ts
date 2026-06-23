@@ -8,6 +8,7 @@ import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { build } from "esbuild";
 import type { FastifyInstance, FastifyReply } from "fastify";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,27 @@ async function readCached(path: string): Promise<Buffer> {
   return buf;
 }
 
+// The real @oursay/identity client, bundled for the browser so the walk page drives civic custody +
+// signing with the SAME SDK production would use (no ephemeral stand-in). We bundle the browser-safe
+// entry (@oursay/identity/client/browser — excludes the Node-only DevPasskeyConnector) on first
+// request and cache it for the process. DEV-ONLY: this route is registered only when NODE_ENV !=
+// production. Cache caveat: it's built once per process — restart the dev server after editing the SDK.
+let identityBundle: Buffer | undefined;
+async function buildIdentityBundle(): Promise<Buffer> {
+  if (identityBundle) return identityBundle;
+  const out = await build({
+    entryPoints: [require.resolve("@oursay/identity/client/browser")],
+    bundle: true,
+    format: "esm",
+    platform: "browser",
+    target: "es2022",
+    write: false,
+    legalComments: "none",
+  });
+  identityBundle = Buffer.from(out.outputFiles[0].text, "utf8");
+  return identityBundle;
+}
+
 function send(reply: FastifyReply, body: Buffer, contentType: string): void {
   reply.header("content-type", contentType).header("cache-control", "no-store").send(body);
 }
@@ -44,5 +66,9 @@ export function registerWalkRoutes(app: FastifyInstance): void {
 
   app.get("/walk/simplewebauthn-browser.js", { schema: { hide: true } }, async (_req, reply) => {
     send(reply, await readCached(browserBundlePath), "text/javascript; charset=utf-8");
+  });
+
+  app.get("/walk/identity.js", { schema: { hide: true } }, async (_req, reply) => {
+    send(reply, await buildIdentityBundle(), "text/javascript; charset=utf-8");
   });
 }

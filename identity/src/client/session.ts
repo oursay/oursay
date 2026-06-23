@@ -8,17 +8,13 @@
 // Derivation never prompts; only the connector's `unlock()` does. So a session signs many messages
 // without re-authenticating (Identity & Device Policy §6 UX intent).
 
-import { randomUUID } from "node:crypto";
-import {
-  buildThreadBindingInputs,
-  contentCommitment,
-  deriveDeviceThreadSigner,
-  deriveNullifierSecret,
-  deriveThreadKey,
-  newSalt,
-  signEnvelopeWithDevice,
-  threadNullifier,
-} from "@oursay/public-record";
+// Import public-record crypto via its pure-crypto SUBPATHS (not the barrel) so the client bundles for
+// the browser without dragging in the server stack (pg/immudb/config). Crypto is never re-implemented.
+import { buildThreadBindingInputs } from "@oursay/public-record/identity/binding";
+import { contentCommitment, newSalt } from "@oursay/public-record/crypto/commitment";
+import { deriveDeviceThreadSigner, signEnvelopeWithDevice } from "@oursay/public-record/identity/device";
+import { deriveNullifierSecret, threadNullifier } from "@oursay/public-record/identity/nullifier";
+import { deriveThreadKey } from "@oursay/public-record/identity/derive";
 import { DELETE_MARKER } from "@oursay/public-record/schema/types";
 import type { TxEnvelope } from "@oursay/public-record/schema/types";
 import type { UnlockedSession } from "./connector.js";
@@ -72,7 +68,7 @@ export class IdentitySession {
   buildSigned(t: ThreadRef, prep: PreparedAppend, intent: Intent): SignedSubmission {
     const persona = this.personaPubkey(t);
     const signer = this.signerKey(t);
-    const txId = randomUUID();
+    const txId = crypto.randomUUID();
     const salt = newSalt();
     const content = intent.op === "delete" ? DELETE_MARKER : intent.content;
     const nullifier = this.nullifierFor(t, prep, intent);

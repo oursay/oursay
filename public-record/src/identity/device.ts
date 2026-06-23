@@ -22,7 +22,7 @@ import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 import { signingDigest, UNSIGNED } from "./envelope.js";
-import { txHashOf } from "../ledger/chain.js";
+import { txHashOf } from "../crypto/txhash.js";
 import type { SignResult } from "./envelope.js";
 import type { TxEnvelope } from "../schema/types.js";
 

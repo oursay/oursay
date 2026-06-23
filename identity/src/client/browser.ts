@@ -1,8 +1,9 @@
-// @oursay/identity/client — passkey custody + client-side signing. Import this from the browser/app.
+// @oursay/identity/client/browser — the browser-safe client surface. Identical to ./client EXCEPT it
+// omits DevPasskeyConnector, which is Node-only (it uses node:fs for dev custody) and cannot bundle for
+// the browser. Bundle THIS entry for a browser app (the @oursay/api /walk harness serves it as
+// /walk/identity.js). Everything here imports only @noble + DOM APIs + public-record's pure-crypto
+// subpaths, so it carries no node:* or server (pg/dotenv) dependency.
 
-export type { PasskeyConnector, DeviceCredential, UnlockedSession } from "./connector.js";
-export { DevPasskeyConnector, defaultDevDir } from "./dev-connector.js";
-export type { DevPasskeyOptions } from "./dev-connector.js";
 export { WebPasskeyConnector } from "./web-connector.js";
 export type { WebPasskeyOptions } from "./web-connector.js";
 export { WebCryptoMasterStore, IndexedDbKeyStore, MemoryKeyStore } from "./secure-store.js";
@@ -10,6 +11,7 @@ export type { SecureMasterStore, KeyStore, WrappedMaster } from "./secure-store.
 export { IdentitySession } from "./session.js";
 export { CivicHttpClient, CivicHttpError } from "./civic-http-client.js";
 export type { CivicHttpClientOptions, SubmitRef, CivicDeviceView } from "./civic-http-client.js";
+export type { PasskeyConnector, DeviceCredential, UnlockedSession } from "./connector.js";
 
 // Shared DTOs convenient for client callers.
 export type {

@@ -8,7 +8,6 @@
 // assembles or signs an envelope itself. That keeps the trust boundary intact: only PUBLIC material
 // (pubkeys, the opaque commitment, signed envelopes) ever crosses to the server.
 
-import { randomUUID } from "node:crypto";
 import type { PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
 import type { IdentitySession } from "./session.js";
 import type { Intent, ParentRef, PreparedAppend, SignedSubmission, ThreadRef } from "../shared/types.js";
@@ -165,12 +164,12 @@ export class CivicHttpClient {
 
   /** React to a parent entity (singleton per author+parent). */
   async addReaction(t: ThreadRef, parent: ParentRef, content: ReactionContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "reaction", entityId: opts.entityId ?? randomUUID(), parent, content });
+    return this.append(t, { op: "create", type: "reaction", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
   }
 
   /** Cast a vote on a parent poll (singleton per author+parent). */
   async castVote(t: ThreadRef, parent: ParentRef, content: VoteContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "vote", entityId: opts.entityId ?? randomUUID(), parent, content });
+    return this.append(t, { op: "create", type: "vote", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────────────────────

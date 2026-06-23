@@ -7,15 +7,14 @@
 //      FULL envelope INCLUDING the populated signature. This is the per-entity chain link / Merkle
 //      leaf, computed AFTER signing. We reuse txHashOf rather than re-implement it.
 //
-// NOTE: this module is intended to be browser-safe for a future WebPlatformAdapter; today it imports
-// txHashOf from ../ledger/chain.js, which transitively pulls config (dotenv) — fine in Node. Browser
-// bundling of txHashOf is a future-milestone concern (relocate to a leaf module), not this phase.
+// This module is browser-safe: it imports txHashOf from the pure leaf module ../crypto/txhash.js (not
+// ../ledger/chain.js), so it carries no config/dotenv/node dependency and bundles for the browser.
 
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { canonicalJson } from "../crypto/commitment.js";
-import { txHashOf } from "../ledger/chain.js";
+import { txHashOf } from "../crypto/txhash.js";
 import type { TxEnvelope } from "../schema/types.js";
 
 /** The placeholder the `signature` field holds while computing the signing digest. */

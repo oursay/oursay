@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha256";
-import { bytesToHex } from "@noble/hashes/utils";
-import { randomBytes } from "node:crypto";
+// randomBytes from @noble (not node:crypto) so this pure-crypto module stays isomorphic and
+// browser-bundleable — @noble uses the platform CSPRNG (crypto.getRandomValues in the browser).
+import { bytesToHex, randomBytes } from "@noble/hashes/utils";
 
 /** Domain-separation tag — prevents cross-protocol hash reuse/collisions. */
 export const CONTENT_DOMAIN = "oursay/v1/content";

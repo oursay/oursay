@@ -5,11 +5,9 @@ import type { PrivateStore } from "../private/store.js";
 import type { TxEnvelope } from "../schema/types.js";
 import type { ChainRow } from "./connector.js";
 
-/** The transaction hash = hash of the canonical envelope. It is this revision's identity and
- *  the value the next same-entity transaction references as `prevHash`. */
-export function txHashOf(envelope: TxEnvelope): string {
-  return hashLeaf(canonicalJson(envelope));
-}
+// txHashOf now lives in the pure leaf module `crypto/txhash.ts` (so the on-device signing path can be
+// browser-bundled without pulling this config-bearing module); re-exported to keep the surface stable.
+export { txHashOf } from "../crypto/txhash.js";
 
 /**
  * Accepts one transaction into the local POOL: it writes the raw content + exact envelope to the

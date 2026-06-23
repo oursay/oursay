@@ -141,13 +141,21 @@ Walk it on a browser with a platform authenticator (Touch ID / Windows Hello):
 2. **Request OTP** — sends a registration code; the code prints to the **API server console**
    (`[mailer:noop:dev] OTP for …`) — the page can't read your inbox.
 3. **Verify** — submits the code + profile → account + full session (cookie + Bearer shown).
-4. **Enroll passkey** → 5. **Enroll civic device key** (WebCrypto P-256; public key only) →
+4. **Enroll passkey** → 5. **Civic golden path** (the real `@oursay/identity` SDK) →
    6. **Logout** → 7. **Passkey login** (usernameless) → reads `/v1/profile`.
 8. **Sign in on another device** — from the authenticated session, enable cross-device login (sends a
    `login` code), then *simulate the new device*: verify the code → enroll-only session → enroll a
    passkey → log in for full access.
 9. **Recovery** — email code (unified request, `purpose:recovery`) → recovery-scoped session →
    re-enroll a passkey (the "lost passkey" path; contrast with step 8).
+
+Step 5 runs the production browser custody + write path with the real SDK, bundled for the browser at
+**`/walk/identity.js`** (a dev-only `esbuild` bundle of `@oursay/identity/client/browser`, built on
+first request and cached for the process). It unlocks a **separate** civic-custody passkey (expect a
+second prompt — distinct from the account-login passkey), then joins an `ab-ca-gov` thread (ownership
+only, no kycTier) and creates a post; the page shows the `txId`/`entityId` and the custody source
+(`prf` vs the `secure-store` fallback). **Cache caveat:** the bundle is built once per process — restart
+the dev server after editing the identity SDK to pick up changes.
 
 Sessions use the HttpOnly cookie (`credentials: include`); the page also displays the Bearer token so
 you can paste it into `/docs` → Authorize for manual API calls.

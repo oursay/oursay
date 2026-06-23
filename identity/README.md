@@ -96,10 +96,51 @@ const ref = await client.createPost(thread, { body: "hello" });
 
 In the browser the only change is the connector and auth: `new WebPasskeyConnector()` for real
 WebAuthn custody, plus either a Bearer `token` or `{ credentials: "include" }` to send the session
-cookie. Everything else is identical (production PRF custody hardening is tracked separately).
+cookie. Everything else is identical.
 
-The optional browser demo (manual): `npm run serve --workspace @oursay/identity` →
-http://localhost:6273 (Enroll → Unlock with a platform authenticator).
+### Browser custody (`WebPasskeyConnector`)
+
+A WebAuthn passkey **unlocks** the derivation root (it never signs civic actions). When the
+authenticator supports the **PRF** extension, the root stays inside the authenticator. When PRF is
+unavailable, `WebPasskeyConnector` falls back to a **secure-storage master** (`secure-store.ts`): a
+random 32-byte master sealed under a **non-extractable AES-GCM key in IndexedDB** — it never throws,
+and the HKDF→P-256 derivation is identical (only the IKM source differs). `connector.lastUnlockSource`
+reports `"prf"` or `"secure-store"`. Derived thread-scoped signers are ephemeral in memory; the
+platform only ever receives public keys, the opaque commitment, and the signed envelope.
+
+Two custody notes:
+
+- **Source-consistency invariant** — a credential must `enrollDevice` and `unlock` via the **same**
+  root source. The `devicePubkey`/persona are functions of the root, so a device whose PRF availability
+  changes derives different keys and must **re-enroll**. (No auto-detection; re-enroll is the remedy.)
+- **Account-login vs civic custody are distinct credentials** — the account passkey proves the session;
+  `WebPasskeyConnector` mints/uses a *separate* civic-custody credential. A user enrolling both sees two
+  passkey prompts. Cross-device sync of the fallback master (encrypted export under a user-held secret)
+  is design-only — not built.
+
+Production PRF hardening (largeBlob custody, broader fallback coverage) is tracked under
+[mvp-a3-browser-custody].
+
+### Browser manual QA against a local API
+
+The browser-only paths (WebAuthn PRF, IndexedDB) are exercised by hand via the `@oursay/api` walk
+harness, which runs **this SDK** end-to-end:
+
+```bash
+npm run db:up --workspace public-record   # Postgres + immudb
+npm run dev --workspace @oursay/api        # serves http://localhost:8080
+```
+
+Open `http://localhost:8080/walk` in a browser with a platform authenticator (Touch ID / Windows
+Hello) and: **1–3** register + verify the emailed OTP (the code prints to the API console) → **4**
+enroll an account-login passkey → **5** run the **civic golden path**: this enrolls a *separate*
+civic-custody passkey (second prompt), then the SDK joins a fresh `ab-ca-gov` thread (ownership only,
+no kycTier) and creates a post — the page shows the returned `txId`/`entityId` and the custody source
+(`prf` vs `secure-store`). To exercise the fallback, run it in a browser without PRF (e.g. Firefox);
+the flow still completes via `secure-store`.
+
+The legacy standalone demo (manual, account auth only): `npm run serve --workspace @oursay/identity` →
+http://localhost:6273.
 
 ## Clean slate — one command, three levers
 
@@ -136,6 +177,8 @@ impossible to construct in production (env guard).
 HTTP routes over `IdentityRegistry` now ship in `@oursay/api` (`/v1/civic/threads/join`,
 `/v1/civic/appends/prepare`, `/v1/civic/appends/submit`), with `sessions` / `passkey_credentials` +
 passkey login. A join binds **ownership** only — KYC tier is **not** fixed at `joinThread`; it is
-applied at read/count time from the user's current attestation. Remaining: `WebPasskeyConnector`
-hardening (largeBlob / non-exportable WebCrypto custody, secure-storage fallback when PRF is absent);
-and — longer term — Method-4 ZK to replace platform nullifier attestation.
+applied at read/count time from the user's current attestation. `WebPasskeyConnector` now has the
+PRF-unavailable secure-storage fallback (non-extractable AES master in IndexedDB), and the walk harness
+runs the SDK end-to-end in a real browser. Remaining: cross-device encrypted export of the fallback
+master (design-only); largeBlob custody; and — longer term — Method-4 ZK to replace platform nullifier
+attestation.
