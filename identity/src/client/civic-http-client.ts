@@ -68,7 +68,10 @@ export class CivicHttpClient {
     this.session = opts.session;
     this.token = opts.token;
     this.credentials = opts.credentials;
-    const f = opts.fetch ?? globalThis.fetch;
+    // Browser `fetch` is brand-checked: it must be called with `this === window`, so the default must
+    // be bound to globalThis (calling it as `this.fetchImpl(...)` otherwise throws "Illegal
+    // invocation"). An injected fetch (e.g. a Fastify-inject-backed test fetch) is used as-is.
+    const f = opts.fetch ?? (globalThis.fetch && globalThis.fetch.bind(globalThis));
     if (!f) throw new Error("CivicHttpClient: no fetch available — pass options.fetch");
     this.fetchImpl = f;
   }

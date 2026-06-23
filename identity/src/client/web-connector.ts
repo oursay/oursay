@@ -73,10 +73,16 @@ export class WebPasskeyConnector implements PasskeyConnector {
 
   async enrollDevice(o: { userId: string; label?: string; deviceId?: string }): Promise<DeviceCredential> {
     const deviceId = o.deviceId ?? crypto.randomUUID();
+    // WebAuthn's PublicKeyCredentialUserEntity.id — the spec's "user handle" (an opaque credential→
+    // account binding, NOT OurSay's public @handle / username) — is capped at 64 bytes, and the
+    // browser rejects an over-long one with "User handle exceeds 64 bytes." `${uuid}:${uuid}` is 73.
+    // It is opaque to us (we never parse it back — credential lookup is keyed in localStorage by
+    // userId/deviceId), so bind it as a stable 32-byte sha256 of the same pair.
+    const userHandle = sha256(utf8ToBytes(`${o.userId}:${deviceId}`));
     const cred = (await navigator.credentials.create({
       publicKey: {
         rp: { id: this.rpId, name: this.rpName },
-        user: { id: utf8ToBytes(`${o.userId}:${deviceId}`) as BufferSource, name: o.userId, displayName: o.label ?? o.userId },
+        user: { id: userHandle as BufferSource, name: o.userId, displayName: o.label ?? o.userId },
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         pubKeyCredParams: [
           { type: "public-key", alg: -7 }, // ES256 / P-256 (required)
