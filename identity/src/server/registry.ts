@@ -1,4 +1,4 @@
-// IdentityRegistry — the in-process SERVER helpers the future @oursay/api will expose as HTTP.
+// IdentityRegistry — the in-process SERVER helpers @oursay/api exposes as HTTP.
 //
 // Holds the platform's record engine (PrivateStore + RecordService) and binding key. It accepts
 // only PUBLIC material from the client (pubkeys, the opaque commitment, signed envelopes) and

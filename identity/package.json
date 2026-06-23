@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "OurSay client identity layer: passkey connectors (Web + simulated Dev), client-side signing (IdentitySession), and in-process server helpers (IdentityRegistry) over @oursay/public-record. Pre-API; the future @oursay/api wraps the server surface as HTTP.",
+  "description": "OurSay client identity layer: passkey connectors (Web + simulated Dev), client-side signing (IdentitySession) + a thin civic HTTP client (CivicHttpClient), and in-process server helpers (IdentityRegistry) over @oursay/public-record. @oursay/api wraps the server surface as HTTP; CivicHttpClient drives it.",
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client/index.ts",

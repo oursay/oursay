@@ -1,9 +1,9 @@
 # @oursay/identity
 
-The pre-API **client identity layer** for OurSay. It turns a verified human + their devices into
-device-signed record envelopes, and provides the in-process server helpers the future
-`@oursay/api` will expose over HTTP. It sits on top of `@oursay/public-record` (the record engine)
-and never re-implements its commitment/envelope crypto.
+The **client identity layer** for OurSay. It turns a verified human + their devices into
+device-signed record envelopes, ships a thin HTTP client (`CivicHttpClient`) that drives the civic
+write API, and provides the in-process server helpers `@oursay/api` exposes over HTTP. It sits on top
+of `@oursay/public-record` (the record engine) and never re-implements its commitment/envelope crypto.
 
 Method 3 (device keys + stable thread persona + per-jurisdiction nullifier) per
 [`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md). Method 4 (ZK)
@@ -13,9 +13,15 @@ is the long-term goal; the envelope `proof` slot stays reserve-and-reject until 
 
 | Subpath | Use it from | Surface |
 |---|---|---|
-| `@oursay/identity/client` | browser / app (`site`), tests | `PasskeyConnector`, `DevPasskeyConnector`, `WebPasskeyConnector`, `IdentitySession` |
+| `@oursay/identity/client` | browser / app (`site`), tests | `PasskeyConnector`, `DevPasskeyConnector`, `WebPasskeyConnector`, `IdentitySession`, `CivicHttpClient` |
 | `@oursay/identity/server` | `@oursay/api` (civic write routes), integration tests | `IdentityRegistry` (enroll / join / prepare / submit) |
 | `@oursay/identity` | anywhere | shared client↔server DTO types |
+
+`CivicHttpClient` is the **thin SDK over the `@oursay/api` civic write surface** (`/v1/civic/devices`,
+`/threads/join`, `/appends/prepare`, `/appends/submit`). It is fetch + JSON + orchestration only — it
+holds an unlocked `IdentitySession` and runs *ensure device enrolled → join thread → prepare →
+device-sign → submit* for you, while still exposing the low-level steps for advanced use. All crypto
+stays in `IdentitySession` + `@oursay/public-record`.
 
 Only **public** material crosses client → server (pubkeys, the opaque commitment, signed
 envelopes). Private roots, the salt opening, and device-private keys never leave the client.
@@ -51,20 +57,46 @@ const session = new IdentitySession(await connector.unlock({ userId, deviceId: c
 
 await registry.ensureUser({ userId });
 await registry.enrollDevice({ userId, devicePubkey: cred.devicePubkey });
-// join a thread → thread_keys + thread_bindings + thread_signers
+// join a thread → thread_keys + thread_bindings + thread_signers (ownership only — no kycTier;
+// verification tier is applied at read/count time, not fixed at join)
 const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
 await registry.joinThread({
   userId, threadId: postId, jurisdiction: "ab-ca-gov",
   personaPubkey: session.personaPubkey(thread),
   signerPubkey: session.signerPubkey(thread),
   commitment: session.bindingInputs(thread).binding.commitment,
-  devicePubkey: cred.devicePubkey, kycTier: "residency_verified",
+  devicePubkey: cred.devicePubkey,
 });
 // create a post: prepare → device-sign → submit
 const intent = { op: "create", type: "post", entityId: postId, content: { body: "hello" } };
 const prep = await registry.prepare(intent, session.personaPubkey(thread));
 await registry.submit(session.buildSigned(thread, prep, intent));
 ```
+
+### Over HTTP — `CivicHttpClient`
+
+When the record engine lives behind `@oursay/api`, drive it with the SDK instead of in-process
+`IdentityRegistry`. Construct it with the API base URL, an unlocked `IdentitySession`, and a
+full-scope session token; the client orchestrates enrol → join → prepare → sign → submit:
+
+```ts
+import { DevPasskeyConnector, IdentitySession, CivicHttpClient } from "@oursay/identity/client";
+
+const connector = new DevPasskeyConnector({ seed: "local-dev" }); // needs OURSAY_DEV_PASSKEY=1
+const cred = await connector.enrollDevice({ userId, label: "laptop" });
+const session = new IdentitySession(await connector.unlock({ userId, deviceId: cred.deviceId }));
+
+const client = new CivicHttpClient({ baseUrl: "http://localhost:8080", session, token });
+const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
+
+// one call: ensure device enrolled → join thread (ownership-only, no kycTier) → prepare → sign → submit
+const ref = await client.createPost(thread, { body: "hello" });
+// advanced: client.joinThread / client.prepare / session.buildSigned / client.submit are all exposed
+```
+
+In the browser the only change is the connector and auth: `new WebPasskeyConnector()` for real
+WebAuthn custody, plus either a Bearer `token` or `{ credentials: "include" }` to send the session
+cookie. Everything else is identical (production PRF custody hardening is tracked separately).
 
 The optional browser demo (manual): `npm run serve --workspace @oursay/identity` →
 http://localhost:6273 (Enroll → Unlock with a platform authenticator).

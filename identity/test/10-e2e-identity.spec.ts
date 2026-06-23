@@ -108,8 +108,8 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
   }
 
   it("enroll writes device_keys for both devices", async () => {
-    const da = await store.getDeviceKeyByPubkey(credA.devicePubkey);
-    const db = await store.getDeviceKeyByPubkey(credB.devicePubkey);
+    const da = await store!.getDeviceKeyByPubkey(credA.devicePubkey);
+    const db = await store!.getDeviceKeyByPubkey(credB.devicePubkey);
     expect(da?.userId).to.equal(userId);
     expect(db?.userId).to.equal(userId);
     expect(da!.id).to.not.equal(db!.id);
@@ -123,13 +123,13 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
 
     const persona = sessA.personaPubkey(t);
     expect(sessB.personaPubkey(t)).to.equal(persona); // one persona per (user, thread), both devices
-    const tk = await store.getThreadKey(persona);
+    const tk = await store!.getThreadKey(persona);
     expect(tk).to.not.equal(null);
     expect(tk!.threadId).to.equal(postId);
-    expect(await store.getThreadBinding(persona)).to.not.equal(null);
+    expect(await store!.getThreadBinding(persona)).to.not.equal(null);
 
-    const sgA = await store.getThreadSigner(sessA.signerPubkey(t));
-    const sgB = await store.getThreadSigner(sessB.signerPubkey(t));
+    const sgA = await store!.getThreadSigner(sessA.signerPubkey(t));
+    const sgB = await store!.getThreadSigner(sessB.signerPubkey(t));
     expect(sgA?.userId).to.equal(userId);
     expect(sgB?.userId).to.equal(userId);
     expect(sessA.signerPubkey(t)).to.not.equal(sessB.signerPubkey(t)); // thread-scoped per device
@@ -142,7 +142,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     await joinAs(sessB, t, credB.devicePubkey);
 
     const ref = await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1" } });
-    const head = (await store.getHeadTx(postId))!;
+    const head = (await store!.getHeadTx(postId))!;
     expect(head.authorPubkey).to.equal(sessA.personaPubkey(t));
     const env = JSON.parse(head.envelope) as TxEnvelope;
     expect(env.signerPubkey).to.equal(sessA.signerPubkey(t));
@@ -153,14 +153,14 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     // phone B edits phone A's comment — accepted (same user, enrolled device)
     await act(sessB, t, { op: "update", type: "comment", entityId: c1, content: { body: "from B" } });
 
-    expect((await store.getEntityState(c1))!.content).to.deep.equal({ body: "from B" });
-    const edited = JSON.parse((await store.getHeadTx(c1))!.envelope) as TxEnvelope;
+    expect((await store!.getEntityState(c1))!.content).to.deep.equal({ body: "from B" });
+    const edited = JSON.parse((await store!.getHeadTx(c1))!.envelope) as TxEnvelope;
     expect(edited.authorPubkey).to.equal(sessA.personaPubkey(t)); // persona unchanged
     expect(edited.signerPubkey).to.equal(sessB.signerPubkey(t)); // different device signed
 
     // settle + confirm the post commitment lands on immudb and server-verifies
     await settler.flushPendingSettlement();
-    expect((await connector.verifyRow(ref.txId)).verified).to.equal(true);
+    expect((await connector!.verifyRow(ref.txId)).verified).to.equal(true);
   });
 
   it("vote across devices: A votes, B changes it; B's new vote is rejected", async () => {
@@ -177,8 +177,8 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     expect(await rejects(act(sessB, t, { op: "create", type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "yes" } }))).to.equal(true);
 
     await settler.flushPendingSettlement();
-    expect((await store.getPollResults(pollId)).find((r) => r.option === "no")!.count).to.equal(1);
-    expect((await store.getPollResults(pollId)).find((r) => r.option === "yes")).to.equal(undefined);
+    expect((await store!.getPollResults(pollId)).find((r) => r.option === "no")!.count).to.equal(1);
+    expect((await store!.getPollResults(pollId)).find((r) => r.option === "yes")).to.equal(undefined);
   });
 
   it("a persona-only envelope (no device signer) is rejected on the verified path", async () => {

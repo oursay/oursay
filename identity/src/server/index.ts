@@ -1,4 +1,4 @@
-// @oursay/identity/server — in-process verified-write helpers. The future @oursay/api wraps these.
+// @oursay/identity/server — in-process verified-write helpers. @oursay/api wraps these as HTTP.
 
 export { IdentityRegistry } from "./registry.js";
 export type { IdentityRegistryOptions } from "./registry.js";

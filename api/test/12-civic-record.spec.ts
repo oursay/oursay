@@ -1,8 +1,10 @@
 // Civic record WRITE path (docs/08 §6; public-record R1/R2/R7) over HTTP. The golden path: an
 // enrolled civic device joins a thread, prepares an append, the client device-signs it, and the
-// signed envelope is submitted into the verified record pool. Signing is done with the real
-// @oursay/identity client (DevPasskeyConnector + IdentitySession) — no mocks — so this exercises the
-// same crypto a browser would. Ownership/auth negatives assert the security properties.
+// signed envelope is submitted into the verified record pool. The happy paths drive the real
+// @oursay/identity CivicHttpClient SDK (DevPasskeyConnector + IdentitySession over an inject-backed
+// fetch) — no mocks, the same orchestration + crypto a browser would run. Ownership/auth negatives
+// keep tampering at the raw HTTP layer (payloads the SDK deliberately hides) to assert the security
+// properties.
 
 import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
@@ -12,8 +14,9 @@ import { expect } from "chai";
 
 process.env.OURSAY_DEV_PASSKEY = "1"; // dev passkey custody is env-guarded; set before first construct.
 
-import { DevPasskeyConnector, IdentitySession } from "@oursay/identity/client";
+import { CivicHttpClient, DevPasskeyConnector, IdentitySession } from "@oursay/identity/client";
 import type { Intent, ThreadRef } from "@oursay/identity";
+import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
 
 const ADULT_DOB = "1990-06-15";
@@ -32,51 +35,24 @@ async function fullSessionAccount(w: World, email: string): Promise<{ userId: st
   return { userId, token: session.token };
 }
 
-/** Enrol an account + civic device, unlock a signing session, and join a fresh thread. Returns the
- *  pieces a test needs to act on the thread. */
+/** Enrol an account + civic device, unlock a signing session, and join a fresh thread — all through
+ *  the CivicHttpClient SDK (which replaces the hand-rolled enroll/join inject boilerplate). Returns
+ *  the pieces a test needs to act on the thread, including the SDK client. */
 async function enrolledMember(w: World, email: string, seed: string) {
   const { userId, token } = await fullSessionAccount(w, email);
   const passkey = new DevPasskeyConnector({ rootDir: mkdtempSync(join(tmpdir(), "oursay-civic-")), seed });
   const cred = await passkey.enrollDevice({ userId, deviceId: "A", label: "phone A" });
-
-  // Civic device must be enrolled (public.device_keys) before join/submit — the existing route.
-  const enroll = await w.app.inject({
-    method: "POST", url: "/v1/civic/devices", headers: bearer(token),
-    payload: { devicePubkey: cred.devicePubkey, label: "phone A" },
-  });
-  expect(enroll.statusCode, "device enroll").to.equal(201);
-
   const sess = new IdentitySession(await passkey.unlock({ userId, deviceId: "A" }));
   const threadId = randomUUID();
   const t: ThreadRef = { threadId, jurisdiction: JURISDICTION };
 
-  const joinRes = await w.app.inject({
-    method: "POST", url: "/v1/civic/threads/join", headers: bearer(token),
-    payload: {
-      threadId, jurisdiction: JURISDICTION,
-      personaPubkey: sess.personaPubkey(t),
-      signerPubkey: sess.signerPubkey(t),
-      commitment: sess.bindingInputs(t).binding.commitment,
-      devicePubkey: cred.devicePubkey,
-    },
-  });
-  expect(joinRes.statusCode, joinRes.payload).to.equal(204);
+  const client = new CivicHttpClient({ baseUrl: "http://localhost", session: sess, token, fetch: injectFetch(w.app) });
+  // Enrol the civic device (public.device_keys) and join the thread via the SDK — the same orchestration
+  // a browser would run, replacing the raw /v1/civic/devices + /threads/join inject calls.
+  await client.ensureDeviceEnrolled("phone A");
+  await client.ensureJoined(t);
 
-  return { userId, token, cred, sess, threadId, t };
-}
-
-/** prepare → device-sign → submit one intent over HTTP. Returns the submit injection response. */
-async function act(w: World, token: string, sess: IdentitySession, t: ThreadRef, intent: Intent) {
-  const prep = await w.app.inject({
-    method: "POST", url: "/v1/civic/appends/prepare", headers: bearer(token),
-    payload: { author: sess.personaPubkey(t), intent },
-  });
-  expect(prep.statusCode, "prepare").to.equal(200);
-  const signed = sess.buildSigned(t, prep.json() as never, intent);
-  return w.app.inject({
-    method: "POST", url: "/v1/civic/appends/submit", headers: bearer(token),
-    payload: { envelope: signed.envelope, salt: signed.salt, content: signed.content },
-  });
+  return { userId, token, cred, sess, client, threadId, t };
 }
 
 describe("12 civic record: join → prepare → sign → submit (verified write path)", () => {
@@ -87,11 +63,9 @@ describe("12 civic record: join → prepare → sign → submit (verified write 
 
   it("golden path: an enrolled device posts a Belief that lands in the record pool", async () => {
     const m = await enrolledMember(w, "civic-record@example.com", "golden");
-    const intent: Intent = { op: "create", type: "post", entityId: m.threadId, content: { body: "hello alberta" } };
 
-    const submit = await act(w, m.token, m.sess, m.t, intent);
-    expect(submit.statusCode, submit.payload).to.equal(201);
-    const ref = submit.json() as { txId: string; entityId: string; txHash: string };
+    // One SDK call orchestrates prepare → device-sign → submit (the device + thread are already set up).
+    const ref = await m.client.createPost(m.t, { body: "hello alberta" });
     expect(ref.entityId).to.equal(m.threadId);
 
     // The verified write is pooled in the private store (record_tx), content intact.
@@ -107,14 +81,14 @@ describe("12 civic record: join → prepare → sign → submit (verified write 
 
   it("supports a comment under a post (attachment with server-derived parent fields)", async () => {
     const m = await enrolledMember(w, "civic-comment@example.com", "comment");
-    await act(w, m.token, m.sess, m.t, { op: "create", type: "post", entityId: m.threadId, content: { body: "root" } });
+    await m.client.createPost(m.t, { body: "root" });
 
     const commentId = randomUUID();
-    const res = await act(w, m.token, m.sess, m.t, {
+    const ref = await m.client.append(m.t, {
       op: "create", type: "comment", entityId: commentId,
       parent: { type: "post", id: m.threadId }, content: { body: "a reply" },
     });
-    expect(res.statusCode, res.payload).to.equal(201);
+    expect(ref.entityId).to.equal(commentId);
     const head = await w.services.recordStore.getHeadTx(commentId);
     expect(head!.content).to.deep.equal({ body: "a reply" });
   });

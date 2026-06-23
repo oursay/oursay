@@ -1,6 +1,6 @@
 // Shared DTOs for the client↔server identity boundary. Everything that crosses from client to
 // server is PUBLIC material (pubkeys, the opaque commitment, signed envelopes) — never a private
-// root, salt opening, or device-private key. The future @oursay/api serializes these over HTTP.
+// root, salt opening, or device-private key. @oursay/api serializes these over HTTP.
 
 import type { Op, RecordType, TxEnvelope } from "@oursay/public-record/schema/types";
 
