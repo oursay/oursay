@@ -838,6 +838,19 @@ export class PrivateStore {
   }
 
   /**
+   * Reverse of {@link attestNullifier}: the verified user behind a singleton's `nullifier` on
+   * `parentId`, or null when no attestation exists. Keyed by the `UNIQUE(parent_id, nullifier)`
+   * pair. PRIVATE — the participant↔user linkage it returns is never exposed over HTTP.
+   */
+  async getUserByNullifier(parentId: string, nullifier: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT user_id FROM nullifier_attestations WHERE parent_id = $1 AND nullifier = $2`,
+      [parentId, nullifier],
+    );
+    return r.rows[0]?.user_id ?? null;
+  }
+
+  /**
    * Record the platform's attestation that `nullifier` is this verified user's single nullifier for
    * `parentId`. Idempotent per `(user, parent)` (a re-attest keeps the first). Throws if that
    * nullifier value is already attested for a DIFFERENT user on this parent

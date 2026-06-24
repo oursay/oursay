@@ -141,6 +141,33 @@ resolve participants into geographic [Regions](../docs/REGION-MODEL.md) (point-i
   self-hosting removes the OSMF rate limits, and **ODbL attribution** ("© OpenStreetMap contributors")
   is still required. Wire a provider against `GEOCODE_NOMINATIM_URL` when that lands.
 
+## Participant geo resolution (private)
+
+`ParticipantGeoService` is the **service-layer bridge** from a civic-record participant to the
+geography inputs the public read filter ([mvp-c7](../docs/REGION-MODEL.md)) needs. It is **private** —
+the user↔participant linkage and coordinates it produces **never** appear on an unauthenticated
+response or the OpenAPI schema, and it does **not** activate any filter or store a district on the
+user row. Three steps:
+
+1. **participant → `userId`.** Primary: a record row's `authorPubkey` (persona Pₜ) via the thread-key
+   binding the civic engine itself uses (`PrivateStore.getThreadKey`). Fallback: a singleton's
+   (`vote`/`petition_signature`/`reaction`) `nullifier` **with its `parentId`** via the platform
+   attestation (`PrivateStore.getUserByNullifier`). Unsigned dev-path posts carry no nullifier but do
+   carry Pₜ, so they resolve via the author path; a nullifier without its `parentId` does not resolve.
+2. **`userId` → current point.** The private cached point (`GeocodeRepo.getCurrent` /
+   `auth.profile_geocodes`).
+3. **point → district revision.** A reverse point-in-polygon over the boundary set effective on
+   `asOf` (`GeoStore.districtContaining`) — the same effective-dated set `forJurisdiction` resolves, so
+   reverse agrees with forward containment. This is the **`current`-mode** resolver of
+   [REGION-MODEL](../docs/REGION-MODEL.md).
+
+Outcomes are non-throwing: an unlinkable participant or one with no geocode row yields
+`hasPoint: false` (⇒ **out-of-area** for scoped C7 filters — not an error). `viewerDistrictId(userId,
+jurisdiction, asOf)` returns the containing revision id for an authenticated viewer — the value
+`RegionResolver.compileScope({ scope: "my-district", … })` will consume. Filter/count code still
+speaks in `Region`s (via `RegionResolver`); this service only supplies points + the viewer-district
+hint and never reimplements `Region.contains`.
+
 ## Dev cycle
 
 ```bash

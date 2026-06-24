@@ -163,6 +163,29 @@ export class GeoStore {
     return r.rows[0].n as number;
   }
 
+  /**
+   * Reverse lookup: the district revision whose geometry contains `point`, chosen from the boundary
+   * set effective on `asOf` (one revision per riding, latest effective_date <= asOf) — the SAME set
+   * `districtIdsAsOf`/`forJurisdiction` resolve, so a reverse lookup always agrees with forward
+   * containment. Returns the revision id, or null when the point is outside every riding. Ridings in
+   * one effective set do not overlap, so at most one matches (LIMIT 1 for safety).
+   */
+  async districtContaining(jurisdictionId: string, point: LngLat, asOf: Date): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT eff.id
+         FROM (
+           SELECT DISTINCT ON (riding_slug) id, geom
+             FROM geo.districts
+            WHERE jurisdiction_id = $1 AND effective_date <= $2
+            ORDER BY riding_slug, effective_date DESC
+         ) eff
+        WHERE ST_Contains(eff.geom, ST_SetSRID(ST_Point($3, $4), 4326))
+        LIMIT 1`,
+      [jurisdictionId, asOf.toISOString().slice(0, 10), point.lon, point.lat],
+    );
+    return r.rows[0]?.id ?? null;
+  }
+
   /** Point-in-polygon over the UNION of the given district revisions. Empty set ⇒ false. */
   async districtsContain(districtIds: string[], point: LngLat): Promise<boolean> {
     if (districtIds.length === 0) return false;

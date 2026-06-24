@@ -71,6 +71,10 @@ const reg = new RegionResolver({ geoStore: store });
 const ab = await reg.forJurisdiction("ab-ca-gov", new Date("2020-01-01"));
 await ab.contains({ lon: -113.5065, lat: 53.5333 }); // true (Edmonton Legislature)
 
+// Reverse lookup: which effective-dated riding revision contains a point? (null when outside all).
+await store.districtContaining("ab-ca-gov", { lon: -113.5065, lat: 53.5333 }, new Date("2020-01-01"));
+// → "edmonton-city-centre-2019"
+
 // Stub seam the public read service will consume later (asOf optional; not HTTP-wired yet):
 const region = await reg.compileScope({ scope: "impacted-region", jurisdictionId: "ab-ca-gov",
   appliesToDistrictIds: ["edmonton-strathcona-2019"] });
@@ -91,6 +95,10 @@ the district / union / jurisdiction / custom kinds and the effective-dated redra
 
 - Containment is DB-backed (PostGIS is authoritative). The whole-jurisdiction extent unions 87
   geometries per query; an in-memory/materialized-union cache is a future optimization.
+- `districtContaining(jurisdictionId, point, asOf)` is the reverse of `Region.contains`: it returns the
+  one effective-dated riding revision (or null) containing a point. `@oursay/api`'s `ParticipantGeoService`
+  consumes it to map a participant's private point to a district revision; this package still owns the
+  PostGIS, not the participant linkage.
 - No public-filter activation, no district stored on the user row, no exposure of arbitrary geometry on
   unauthenticated routes — all follow-on work. (Address→point geocoding lives in `@oursay/api`
   (`auth.profile_geocodes`); this package owns boundaries + `Region.contains`, not participant points.)

@@ -5,6 +5,7 @@
 import {
   IdentityRegistry,
 } from "@oursay/identity/server";
+import { GeoStore, RegionResolver } from "@oursay/geo";
 import {
   PrivateStore,
   PublicChain,
@@ -41,6 +42,7 @@ import { makeGeocodeProvider, type GeocodeProvider } from "./services/geocode/in
 import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
+import { ParticipantGeoService } from "./services/participant-geo.service.js";
 import { PasskeyService } from "./services/passkey.service.js";
 import { PublicRecordReadService } from "./services/public-record-read.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
@@ -86,6 +88,12 @@ export interface Services {
   loginService: LoginService;
   civicDeviceService: CivicDeviceService;
   civicRecordService: CivicRecordService;
+  /** PostGIS geo store (district boundaries + Region.contains). One process-lived instance. */
+  geoStore: GeoStore;
+  /** Builds Regions from coarse scopes (compileScope seam the C7 public read filter will consume). */
+  regionResolver: RegionResolver;
+  /** PRIVATE bridge: civic participant -> userId -> current point -> containing district revision. */
+  participantGeoService: ParticipantGeoService;
   /** Unauthenticated public READ surface over the civic record (browse/detail/counts). */
   publicRecordReadService: PublicRecordReadService;
   /** The public-record private store backing the civic engine (read access for tests/projections). */
@@ -180,6 +188,18 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const civicRecordService = new CivicRecordService({ registry: identityRegistry, store: recordStore });
   const publicRecordReadService = new PublicRecordReadService({ recordStore });
 
+  // Geo: ONE process-lived GeoStore (its own small pool, mirroring recordStore) — the schema is
+  // already ensured by Db.init(), so we don't re-init or close it here. RegionResolver is the
+  // compileScope seam the C7 public read filter consumes; ParticipantGeoService is the PRIVATE bridge
+  // (participant -> point -> district revision) that supplies its viewer-district hints.
+  const geoStore = new GeoStore(pgConfig);
+  const regionResolver = new RegionResolver({ geoStore });
+  const participantGeoService = new ParticipantGeoService({
+    recordStore,
+    geocodeRepo: repos.geocode,
+    geoStore,
+  });
+
   return {
     db,
     repos,
@@ -194,6 +214,9 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     loginService,
     civicDeviceService,
     civicRecordService,
+    geoStore,
+    regionResolver,
+    participantGeoService,
     publicRecordReadService,
     recordStore,
   };

@@ -87,6 +87,13 @@ point-in-polygon filtering (that is C7), and no action-time snapshot (that is C4
 still includes such participants. Geocoding is best-effort: a participant without a resolvable address
 simply has no point.
 
+The **`current`-mode resolver** is in place: `@oursay/api`'s `ParticipantGeoService` links a record
+participant (`authorPubkey`=Pₜ, or a singleton's `nullifier`+`parentId`) to a `userId`, loads their
+current point, and reverse-resolves the containing district revision via `GeoStore.districtContaining`
+(the same effective-dated set as `forJurisdiction`). It exposes a `viewerDistrictId` for the
+authenticated `my-district` scope. C7 wires these inputs into `compileScope` + the public read filter;
+this layer never reimplements `contains` and never exposes points or linkage publicly.
+
 ## Where it lives
 
 - Schema: `geo/src/schema/geo.sql.ts` (`geo.districts`, `geo.regions`).
