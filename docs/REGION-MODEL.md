@@ -94,6 +94,31 @@ current point, and reverse-resolves the containing district revision via `GeoSto
 authenticated `my-district` scope. C7 wires these inputs into `compileScope` + the public read filter;
 this layer never reimplements `contains` and never exposes points or linkage publicly.
 
+## Discussion-scoped stake filtering (C7)
+
+How a public discussion answers "how much of this conversation comes from the impacted area?" — the
+**region-first** model, no user/district query parameters.
+
+- **Input: a discussion (root entity) id only.** The caller never supplies a user id or a district;
+  there is no "who is in district D" surface to query.
+- **Region:** derive the entity's geographic scope from its own governance rules —
+  `RegionResolver.compileScope("impacted-region", { jurisdictionId, appliesToDistrictIds })` where
+  `appliesToDistrictIds` comes from `EntityRules` (empty ⇒ whole jurisdiction at `asOf`). This is the
+  `fromDistrictUnion` path; the result is one `Region`.
+- **Participants:** the `authorPubkey` / `nullifier` of the comments, reactions, votes, and signatures
+  **in that thread**. Resolve each to a private point with `ParticipantGeoService` and test membership
+  with **`participantInRegion(ref, region)`** → `region.contains(point)`. Count code branches on the
+  boolean, **never on raw district-id lists** (so one call site serves district / union / jurisdiction
+  / custom scopes alike). No usable point ⇒ **out-of-area** (excluded from a scoped count; still in
+  `all-public`).
+- **Privacy.** A participant's riding is only ever inferred for: (a) the **authenticated** viewer
+  themselves (`my-district`, via `viewerDistrictId`); (b) a **single-district entity** scope, where
+  "in scope" reveals nothing beyond the entity's own already-public district; or (c) a fully
+  **public** account that has opted in. Aggregate counts must respect the k-anonymity / tier rules C7
+  defines; raw membership of an identifiable third party is never returned.
+- **Hard rule:** there must **never** be a public API that answers "is user *U* in district *D*".
+  Membership is computed *inside* the count/filter service over a Region, and only aggregates leave it.
+
 ## Where it lives
 
 - Schema: `geo/src/schema/geo.sql.ts` (`geo.districts`, `geo.regions`).

@@ -14,7 +14,7 @@
 // an error. This service supplies points + a viewer-district hint; it does NOT activate any filter,
 // reimplement Region.contains, or store a district on the user row.
 
-import { GeoStore, type LngLat } from "@oursay/geo";
+import { GeoStore, type LngLat, type Region } from "@oursay/geo";
 import type { PrivateStore } from "@oursay/public-record";
 import type { GeocodeRepo } from "../repo/geocode.repo.js";
 
@@ -74,6 +74,22 @@ export class ParticipantGeoService {
     const point = await this.currentPoint(userId);
     if (!point) return null;
     return this.d.geoStore.districtContaining(jurisdictionId, point, asOf);
+  }
+
+  /** Region-first membership test: is this participant's current point inside `region`? Resolves the
+   *  participant to a point (link → current point) and delegates to `region.contains` — the
+   *  region-first path C7 should prefer over comparing `districtId` strings for `impacted-region` /
+   *  `jurisdiction` scopes (one call site serves every Region kind). No point ⇒ false (out-of-area,
+   *  not an error). `asOf` is accepted for signature symmetry with the other methods but is unused
+   *  today: the Region already carries the effective-dated revisions chosen for its instant, and we
+   *  match against the participant's CURRENT point. It is the seam where C4/C7 `at_action` point
+   *  selection would bind. */
+  async participantInRegion(ref: ParticipantRef, region: Region, _asOf: Date = new Date()): Promise<boolean> {
+    const userId = await this.resolveUserId(ref);
+    if (!userId) return false;
+    const point = await this.currentPoint(userId);
+    if (!point) return false;
+    return region.contains(point);
   }
 
   /** Resolve a participant end to end: link to a user, load their current point, and reverse-resolve

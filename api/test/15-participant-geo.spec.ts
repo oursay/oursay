@@ -206,4 +206,51 @@ describe("15 participant-geo: civic participant → private point → district r
     expect(await w.services.participantGeoService.viewerDistrictId(randomUUID(), JURISDICTION, ASOF))
       .to.equal(null);
   });
+
+  it("participantInRegion: region-first membership over a compiled impacted-region scope", async () => {
+    // The C7 path: derive ONE Region for the discussion's impacted area, then test membership with
+    // region.contains — never by comparing districtId strings.
+    const region = await w.services.regionResolver.compileScope({
+      scope: "impacted-region",
+      jurisdictionId: JURISDICTION,
+      appliesToDistrictIds: [EDMONTON_CITY_CENTRE_2019],
+      asOf: ASOF,
+    });
+    expect(region, "impacted-region compiles to a Region").to.not.equal(null);
+
+    const inside = await enrolledMember(w, "pg-region-in@example.com", "region-in");
+    await inside.client.createPost(inside.t, { body: "from inside the riding" });
+    await seedPoint(w, inside.userId, EDMONTON_LEGISLATURE);
+    expect(await w.services.participantGeoService.participantInRegion(
+      { authorPubkey: inside.sess.personaPubkey(inside.t) }, region!,
+    )).to.equal(true);
+
+    const outside = await enrolledMember(w, "pg-region-out@example.com", "region-out");
+    await outside.client.createPost(outside.t, { body: "from another riding" });
+    await seedPoint(w, outside.userId, CALGARY_CITY_HALL);
+    expect(await w.services.participantGeoService.participantInRegion(
+      { authorPubkey: outside.sess.personaPubkey(outside.t) }, region!,
+    )).to.equal(false);
+  });
+
+  it("participantInRegion: no point and unlinked participants are out-of-area (false, not an error)", async () => {
+    const region = await w.services.regionResolver.compileScope({
+      scope: "impacted-region",
+      jurisdictionId: JURISDICTION,
+      appliesToDistrictIds: [EDMONTON_CITY_CENTRE_2019],
+      asOf: ASOF,
+    });
+
+    // Linked participant but no cached point ⇒ false.
+    const m = await enrolledMember(w, "pg-region-nopoint@example.com", "region-nopoint");
+    await m.client.createPost(m.t, { body: "no address on file" });
+    expect(await w.services.participantGeoService.participantInRegion(
+      { authorPubkey: m.sess.personaPubkey(m.t) }, region!,
+    )).to.equal(false);
+
+    // Unknown participant key ⇒ false (no link, no point).
+    const bogus = "02" + "f".repeat(64);
+    expect(await w.services.participantGeoService.participantInRegion({ authorPubkey: bogus }, region!))
+      .to.equal(false);
+  });
 });

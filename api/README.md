@@ -168,6 +168,14 @@ jurisdiction, asOf)` returns the containing revision id for an authenticated vie
 speaks in `Region`s (via `RegionResolver`); this service only supplies points + the viewer-district
 hint and never reimplements `Region.contains`.
 
+**Region-first by default.** The `districtId` on `ParticipantGeo` and `viewerDistrictId(...)` are
+**private hints** intended only for `compileScope`'s `my-district` (authenticated viewer) scope — they
+are *not* the way to filter a discussion. For `impacted-region` / `jurisdiction` scopes, count/filter
+code resolves one `Region` (via `RegionResolver`) and calls **`participantInRegion(ref, region)`**
+(→ `region.contains(point)`), never comparing `districtId` strings. One call site then serves every
+Region kind (district / union / jurisdiction / custom), and no "is user *U* in district *D*" surface
+is ever exposed. See [REGION-MODEL § Discussion-scoped stake filtering](../docs/REGION-MODEL.md).
+
 ## Dev cycle
 
 ```bash
