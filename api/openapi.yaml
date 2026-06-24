@@ -1879,6 +1879,1648 @@ paths:
                       - message
                 required:
                   - error
+  /v1/public/posts:
+    get:
+      summary: Browse posts (Beliefs), newest first. Filters are stubbed.
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            enum:
+              - unverified
+              - identity_verified
+              - residency_verified
+              - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC verification tier (STUB — echoed, not resolved).
+        - schema:
+            type: string
+          in: query
+          name: jurisdiction
+          required: false
+          description: Jurisdiction filter for multi-jurisdiction browse (STUB — echoed).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityId:
+                          type: string
+                        type:
+                          type: string
+                        content:
+                          nullable: true
+                        withheld:
+                          type: boolean
+                        createdAt:
+                          type: string
+                        audienceScope:
+                          type: object
+                          description: Audience metadata for clients/future filters (not write-policy).
+                            Not PII.
+                          properties:
+                            jurisdiction:
+                              type: string
+                              description: Jurisdiction id (default oursay-global when no persona is bound).
+                            appliesToDistrictIds:
+                              type: array
+                              items:
+                                type: string
+                              description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
+                                jurisdiction.
+                          required:
+                            - jurisdiction
+                            - appliesToDistrictIds
+                        reactions:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - kind
+                              - count
+                      required:
+                        - entityId
+                        - type
+                        - createdAt
+                        - audienceScope
+                        - reactions
+                  page:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      total:
+                        type: integer
+                    required:
+                      - limit
+                      - offset
+                      - total
+                  filters:
+                    type: object
+                    description: Stub filter echo — parsed/validated but NOT resolved this phase
+                      (Phase C populates it).
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: string
+                        enum:
+                          - unverified
+                          - identity_verified
+                          - residency_verified
+                          - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: boolean
+                        description: Always false this phase (filtering is stubbed).
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - note
+                required:
+                  - items
+                  - page
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/posts/{id}:
+    get:
+      summary: "A post thread: root + reaction tallies + nested comments."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                      type:
+                        type: string
+                      latestOp:
+                        type: string
+                      contentHash:
+                        type: string
+                      content:
+                        description: Opaque payload, or null when withheld.
+                        nullable: true
+                      withheld:
+                        type: boolean
+                      isDeleted:
+                        type: boolean
+                      isRedacted:
+                        type: boolean
+                      isErased:
+                        type: boolean
+                    required:
+                      - entityId
+                      - type
+                      - withheld
+                      - isDeleted
+                      - isRedacted
+                      - isErased
+                  audienceScope:
+                    type: object
+                    description: Audience metadata for clients/future filters (not write-policy).
+                      Not PII.
+                    properties:
+                      jurisdiction:
+                        type: string
+                        description: Jurisdiction id (default oursay-global when no persona is bound).
+                      appliesToDistrictIds:
+                        type: array
+                        items:
+                          type: string
+                        description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
+                          jurisdiction.
+                    required:
+                      - jurisdiction
+                      - appliesToDistrictIds
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                            type:
+                              type: string
+                            latestOp:
+                              type: string
+                            contentHash:
+                              type: string
+                            content:
+                              description: Opaque payload, or null when withheld.
+                              nullable: true
+                            withheld:
+                              type: boolean
+                            isDeleted:
+                              type: boolean
+                            isRedacted:
+                              type: boolean
+                            isErased:
+                              type: boolean
+                          required:
+                            - entityId
+                            - type
+                            - withheld
+                            - isDeleted
+                            - isRedacted
+                            - isErased
+                        reactionsByEntity:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - kind
+                              - count
+                        reactionsByCurrentRevision:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - kind
+                              - count
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - state
+                        - reactionsByEntity
+                        - reactionsByCurrentRevision
+                        - replies
+                required:
+                  - root
+                  - audienceScope
+                  - reactionsByEntity
+                  - reactionsByCurrentRevision
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/posts/{id}/counts:
+    get:
+      summary: Reaction tallies for a post (filterable; filters stubbed).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            enum:
+              - unverified
+              - identity_verified
+              - residency_verified
+              - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC verification tier (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entityId:
+                    type: string
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  filters:
+                    type: object
+                    description: Stub filter echo — parsed/validated but NOT resolved this phase
+                      (Phase C populates it).
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: string
+                        enum:
+                          - unverified
+                          - identity_verified
+                          - residency_verified
+                          - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: boolean
+                        description: Always false this phase (filtering is stubbed).
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - note
+                required:
+                  - entityId
+                  - reactionsByEntity
+                  - reactionsByCurrentRevision
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/petitions:
+    get:
+      summary: Browse petitions, newest first. Filters are stubbed.
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            enum:
+              - unverified
+              - identity_verified
+              - residency_verified
+              - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC verification tier (STUB — echoed, not resolved).
+        - schema:
+            type: string
+          in: query
+          name: jurisdiction
+          required: false
+          description: Jurisdiction filter for multi-jurisdiction browse (STUB — echoed).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityId:
+                          type: string
+                        type:
+                          type: string
+                        content:
+                          nullable: true
+                        withheld:
+                          type: boolean
+                        createdAt:
+                          type: string
+                        audienceScope:
+                          type: object
+                          description: Audience metadata for clients/future filters (not write-policy).
+                            Not PII.
+                          properties:
+                            jurisdiction:
+                              type: string
+                              description: Jurisdiction id (default oursay-global when no persona is bound).
+                            appliesToDistrictIds:
+                              type: array
+                              items:
+                                type: string
+                              description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
+                                jurisdiction.
+                          required:
+                            - jurisdiction
+                            - appliesToDistrictIds
+                        signatureCount:
+                          type: integer
+                      required:
+                        - entityId
+                        - type
+                        - createdAt
+                        - audienceScope
+                        - signatureCount
+                  page:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      total:
+                        type: integer
+                    required:
+                      - limit
+                      - offset
+                      - total
+                  filters:
+                    type: object
+                    description: Stub filter echo — parsed/validated but NOT resolved this phase
+                      (Phase C populates it).
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: string
+                        enum:
+                          - unverified
+                          - identity_verified
+                          - residency_verified
+                          - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: boolean
+                        description: Always false this phase (filtering is stubbed).
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - note
+                required:
+                  - items
+                  - page
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/petitions/{id}:
+    get:
+      summary: "A petition thread: root + signature count + reaction tallies +
+        comments."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                      type:
+                        type: string
+                      latestOp:
+                        type: string
+                      contentHash:
+                        type: string
+                      content:
+                        description: Opaque payload, or null when withheld.
+                        nullable: true
+                      withheld:
+                        type: boolean
+                      isDeleted:
+                        type: boolean
+                      isRedacted:
+                        type: boolean
+                      isErased:
+                        type: boolean
+                    required:
+                      - entityId
+                      - type
+                      - withheld
+                      - isDeleted
+                      - isRedacted
+                      - isErased
+                  audienceScope:
+                    type: object
+                    description: Audience metadata for clients/future filters (not write-policy).
+                      Not PII.
+                    properties:
+                      jurisdiction:
+                        type: string
+                        description: Jurisdiction id (default oursay-global when no persona is bound).
+                      appliesToDistrictIds:
+                        type: array
+                        items:
+                          type: string
+                        description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
+                          jurisdiction.
+                    required:
+                      - jurisdiction
+                      - appliesToDistrictIds
+                  signatureCount:
+                    type: integer
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                            type:
+                              type: string
+                            latestOp:
+                              type: string
+                            contentHash:
+                              type: string
+                            content:
+                              description: Opaque payload, or null when withheld.
+                              nullable: true
+                            withheld:
+                              type: boolean
+                            isDeleted:
+                              type: boolean
+                            isRedacted:
+                              type: boolean
+                            isErased:
+                              type: boolean
+                          required:
+                            - entityId
+                            - type
+                            - withheld
+                            - isDeleted
+                            - isRedacted
+                            - isErased
+                        reactionsByEntity:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - kind
+                              - count
+                        reactionsByCurrentRevision:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - kind
+                              - count
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - state
+                        - reactionsByEntity
+                        - reactionsByCurrentRevision
+                        - replies
+                required:
+                  - root
+                  - audienceScope
+                  - signatureCount
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/petitions/{id}/counts:
+    get:
+      summary: Signature count for a petition (filterable; filters stubbed, counts
+        ungated in dev).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            enum:
+              - unverified
+              - identity_verified
+              - residency_verified
+              - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC verification tier (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entityId:
+                    type: string
+                  signatureCount:
+                    type: integer
+                  countGating:
+                    type: string
+                    enum:
+                      - none
+                  countGatingNote:
+                    type: string
+                  filters:
+                    type: object
+                    description: Stub filter echo — parsed/validated but NOT resolved this phase
+                      (Phase C populates it).
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: string
+                        enum:
+                          - unverified
+                          - identity_verified
+                          - residency_verified
+                          - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: boolean
+                        description: Always false this phase (filtering is stubbed).
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - note
+                required:
+                  - entityId
+                  - signatureCount
+                  - countGating
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/polls:
+    get:
+      summary: Browse polls, newest first. Filters are stubbed.
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            enum:
+              - unverified
+              - identity_verified
+              - residency_verified
+              - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC verification tier (STUB — echoed, not resolved).
+        - schema:
+            type: string
+          in: query
+          name: jurisdiction
+          required: false
+          description: Jurisdiction filter for multi-jurisdiction browse (STUB — echoed).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityId:
+                          type: string
+                        type:
+                          type: string
+                        content:
+                          nullable: true
+                        withheld:
+                          type: boolean
+                        createdAt:
+                          type: string
+                        audienceScope:
+                          type: object
+                          description: Audience metadata for clients/future filters (not write-policy).
+                            Not PII.
+                          properties:
+                            jurisdiction:
+                              type: string
+                              description: Jurisdiction id (default oursay-global when no persona is bound).
+                            appliesToDistrictIds:
+                              type: array
+                              items:
+                                type: string
+                              description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
+                                jurisdiction.
+                          required:
+                            - jurisdiction
+                            - appliesToDistrictIds
+                        results:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              option:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - option
+                              - count
+                      required:
+                        - entityId
+                        - type
+                        - createdAt
+                        - audienceScope
+                        - results
+                  page:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      total:
+                        type: integer
+                    required:
+                      - limit
+                      - offset
+                      - total
+                  filters:
+                    type: object
+                    description: Stub filter echo — parsed/validated but NOT resolved this phase
+                      (Phase C populates it).
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: string
+                        enum:
+                          - unverified
+                          - identity_verified
+                          - residency_verified
+                          - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: boolean
+                        description: Always false this phase (filtering is stubbed).
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - note
+                required:
+                  - items
+                  - page
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/polls/{id}:
+    get:
+      summary: "A poll thread: root + option results + reaction tallies + comments."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                      type:
+                        type: string
+                      latestOp:
+                        type: string
+                      contentHash:
+                        type: string
+                      content:
+                        description: Opaque payload, or null when withheld.
+                        nullable: true
+                      withheld:
+                        type: boolean
+                      isDeleted:
+                        type: boolean
+                      isRedacted:
+                        type: boolean
+                      isErased:
+                        type: boolean
+                    required:
+                      - entityId
+                      - type
+                      - withheld
+                      - isDeleted
+                      - isRedacted
+                      - isErased
+                  audienceScope:
+                    type: object
+                    description: Audience metadata for clients/future filters (not write-policy).
+                      Not PII.
+                    properties:
+                      jurisdiction:
+                        type: string
+                        description: Jurisdiction id (default oursay-global when no persona is bound).
+                      appliesToDistrictIds:
+                        type: array
+                        items:
+                          type: string
+                        description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
+                          jurisdiction.
+                    required:
+                      - jurisdiction
+                      - appliesToDistrictIds
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        option:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - option
+                        - count
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - kind
+                        - count
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                            type:
+                              type: string
+                            latestOp:
+                              type: string
+                            contentHash:
+                              type: string
+                            content:
+                              description: Opaque payload, or null when withheld.
+                              nullable: true
+                            withheld:
+                              type: boolean
+                            isDeleted:
+                              type: boolean
+                            isRedacted:
+                              type: boolean
+                            isErased:
+                              type: boolean
+                          required:
+                            - entityId
+                            - type
+                            - withheld
+                            - isDeleted
+                            - isRedacted
+                            - isErased
+                        reactionsByEntity:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - kind
+                              - count
+                        reactionsByCurrentRevision:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                            required:
+                              - kind
+                              - count
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - state
+                        - reactionsByEntity
+                        - reactionsByCurrentRevision
+                        - replies
+                required:
+                  - root
+                  - audienceScope
+                  - results
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/polls/{id}/counts:
+    get:
+      summary: Option results for a poll (filterable; filters stubbed, counts ungated
+        in dev).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            enum:
+              - unverified
+              - identity_verified
+              - residency_verified
+              - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC verification tier (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (STUB — echoed, not resolved).
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entityId:
+                    type: string
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        option:
+                          type: string
+                        count:
+                          type: integer
+                      required:
+                        - option
+                        - count
+                  countGating:
+                    type: string
+                    enum:
+                      - none
+                  countGatingNote:
+                    type: string
+                  filters:
+                    type: object
+                    description: Stub filter echo — parsed/validated but NOT resolved this phase
+                      (Phase C populates it).
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: string
+                        enum:
+                          - unverified
+                          - identity_verified
+                          - residency_verified
+                          - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: boolean
+                        description: Always false this phase (filtering is stubbed).
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - note
+                required:
+                  - entityId
+                  - results
+                  - countGating
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/profile:
     get:
       summary: Get the authenticated user's own profile (private PII)
@@ -2020,6 +3662,9 @@ tags:
     description: Account recovery via email OTP
   - name: civic
     description: Civic signing device keys (public key only; separate from login passkeys)
+  - name: public
+    description: Unauthenticated public reads of the civic record
+      (browse/detail/counts); filters stubbed
   - name: profile
     description: Private account profile
   - name: meta

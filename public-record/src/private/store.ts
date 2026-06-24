@@ -122,6 +122,13 @@ export interface ReactionCount {
   count: number;
 }
 
+/** A root entity (post/petition/poll) as a browse-list row: its folded state plus `createdAt`
+ *  (the head transaction's timestamp) for recency ordering. List-only — `EntityState` stays
+ *  unchanged so existing callers are untouched. */
+export interface RootEntityRow extends EntityState {
+  createdAt: string;
+}
+
 /**
  * The PRIVATE, mutable store: the `record_tx` event log holding raw content + salt (erasable),
  * identity stubs, and the fold-on-read projection views. immudb holds only commitments; this
@@ -304,6 +311,56 @@ export class PrivateStore {
   async getEntityStatePublic(entityId: string): Promise<PublicEntityView | undefined> {
     const s = await this.getEntityState(entityId);
     return s ? toPublicView(s) : undefined;
+  }
+
+  /**
+   * Browse list of LIVE root entities of one type (`post` / `petition` / `poll`), newest first.
+   * Roots have no parent (`parent_id IS NULL`); delete-tombstones are excluded (`NOT is_deleted`)
+   * so a deleted root never appears in a public feed. Pagination is `LIMIT`/`OFFSET`. Each row is
+   * the folded `EntityState` plus `createdAt`; the caller builds the response-safe view via
+   * `toPublicView` and layers on counts + audience scope.
+   */
+  async listRootEntities(type: RecordType, opts: { limit: number; offset: number }): Promise<RootEntityRow[]> {
+    const r = await this.pool.query(
+      `SELECT * FROM entity_state
+       WHERE type = $1 AND parent_id IS NULL AND NOT is_deleted
+       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+      [type, opts.limit, opts.offset],
+    );
+    return r.rows.map(mapRootEntityRow);
+  }
+
+  /** Count of LIVE root entities of one type — matches `listRootEntities`' filter so a list's
+   *  `total` agrees with what it pages over. */
+  async countRootEntities(type: RecordType): Promise<number> {
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS count FROM entity_state
+       WHERE type = $1 AND parent_id IS NULL AND NOT is_deleted`,
+      [type],
+    );
+    return Number(r.rows[0].count);
+  }
+
+  /**
+   * The audience jurisdiction for a root entity, resolved from the thread-key bindings keyed by
+   * `thread_id` (= the root entity id). Returns null when no persona has joined yet (the caller
+   * defaults to the platform fallback, e.g. `oursay-global`). All joins on one thread are expected
+   * to share a jurisdiction, so normally a single distinct value; a `>1` result is a data anomaly —
+   * we log it and pick the first deterministically rather than fail a public read.
+   */
+  async getThreadJurisdiction(threadId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT DISTINCT jurisdiction FROM thread_keys WHERE thread_id = $1 ORDER BY jurisdiction ASC`,
+      [threadId],
+    );
+    if (r.rows.length === 0) return null;
+    if (r.rows.length > 1) {
+      console.warn(
+        `getThreadJurisdiction: thread ${threadId} has ${r.rows.length} distinct jurisdictions ` +
+          `(${r.rows.map((x) => x.jurisdiction).join(", ")}); picking the first. Data anomaly.`,
+      );
+    }
+    return r.rows[0].jurisdiction as string;
   }
 
   /** The hash of the latest non-deleted content revision (create/update) of an entity. */
@@ -833,6 +890,13 @@ function mapEntityState(row: pg.QueryResultRow): EntityState {
     isDeleted: row.is_deleted,
     isRedacted: row.is_redacted,
     isErased: row.is_erased,
+  };
+}
+
+function mapRootEntityRow(row: pg.QueryResultRow): RootEntityRow {
+  return {
+    ...mapEntityState(row),
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
   };
 }
 

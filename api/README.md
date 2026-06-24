@@ -235,7 +235,55 @@ The launch jurisdiction (`ab-ca-gov`, provincial; votes/signatures final by defa
 composition (`buildServices`). See `src/services/civic-record.service.ts` and
 `src/http/routes/civic-record.routes.ts`.
 
+## Civic public read routes
+
+Unauthenticated reads of the civic record (`/v1/public/…`, tag `public`) — enough to render browse +
+detail pages for the three root entity types: **post** (product label "Belief"), **petition**, and
+**poll**. No session, no `Authorization`: aggregate public data is open to audit/research (docs/01
+§7.1). These are the read counterpart to the civic **write** routes above; they never touch private
+profile/KYC rows. HTTP stays thin — all assembly is done in `PublicRecordReadService`
+(`src/services/public-record-read.service.ts`) over `@oursay/public-record`'s fold-on-read
+projections (`getThread`, `reactionTallies`) and store queries (`getPollResults`,
+`getPetitionSignatureCount`, `listRootEntities`); no projection logic is duplicated here.
+
+| Route | Returns |
+|-------|---------|
+| `GET /v1/public/{posts,petitions,polls}` | browse list (newest first), each item with audience scope + a headline count (post → reaction tallies, petition → `signatureCount`, poll → option `results`) |
+| `GET /v1/public/{posts,petitions,polls}/:id` | the folded thread: root + reaction tallies + nested comment tree, plus the type-specific count |
+| `GET /v1/public/{posts,petitions,polls}/:id/counts` | just the counts, with the (stubbed) filter echo — the future home of real geo/tier/date filtering |
+
+Responses use **`PublicEntityView`** semantics: redacted/erased content stays withheld (`content:
+null, withheld: true`); the commitment still proves inclusion. Tombstoned (deleted) roots are excluded
+from lists and 404 on detail. Each root carries **audience scope**: `jurisdiction` (from the thread
+binding; defaults to `oursay-global` when no persona is bound) and `appliesToDistrictIds` (from the
+entity's governance rules; empty ⇒ whole jurisdiction). This is metadata for clients/future filters,
+not write-policy enforcement.
+
+### Stubbed filters (Phase C)
+
+List and count endpoints accept a coarse geo `scope`, a KYC `tier`, an optional `jurisdiction` (lists
+only), and a `from`/`to` date range. This phase they are **parsed and enum-validated** (a bad `scope`
+or `tier` ⇒ 400) but **not resolved** — every response echoes them back with `filters.applied:
+false`. The fixed `scope` enum is deliberate (docs/06 §2–3): it keeps geography coarse and avoids the
+freeform district slicing that enables cross-boundary re-identification.
+
+| `scope` | Intended Phase-C audience | Status today |
+|---------|---------------------------|--------------|
+| `jurisdiction` | the whole jurisdiction the entity belongs to | stub (echoed) |
+| `impacted-region` | the entity's `appliesToDistrictIds` extent (empty ⇒ whole jurisdiction) | stub (echoed) |
+| `my-district` | the **authenticated** viewer's inferred district | **inert** — no viewer identity on public routes; resolves nothing |
+| `all-public` | all public comments/reactions, no geo filter (default) | stub (echoed) |
+
+`tier` (`unverified` \| `identity_verified` \| `residency_verified` \| `electoral_validated`) is
+enum-validated but not applied. Petition-signature and poll-vote counts are surfaced **ungated in dev**
+(`countGating: "none"`); production will withhold them per jurisdiction/KYC policy regardless of
+whether a jurisdiction permits public voting on a given issue. **Perf note:** list summaries fetch
+counts + jurisdiction per item (~N+1 at `limit ≤ 20`); the heavy counts live on detail/`…/counts`, and
+batching is the Phase-C optimization if it bites.
+
 ## Not in this milestone
 
 Production WebAuthn PRF / non-exportable browser signing for civic keys, full KYC provider
-integration, Method-4 ZK, and production KMS / encryption-at-rest (schema hooks only).
+integration, Method-4 ZK, and production KMS / encryption-at-rest (schema hooks only). On the public
+read side: real geo/tier/date filter resolution, per-viewer district inference, k-anonymity count
+thresholds, and `result` derived-entity publishing — all Phase C.

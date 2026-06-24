@@ -19,6 +19,7 @@ import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
 import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
 import { registerProfileRoutes } from "./routes/profile.routes.js";
+import { registerPublicRecordReadRoutes } from "./routes/public-record-read.routes.js";
 import { registerRecoveryRoutes } from "./routes/recovery.routes.js";
 import { registerRegistrationRoutes } from "./routes/registration.routes.js";
 import { registerWalkRoutes } from "./routes/walk.routes.js";
@@ -53,6 +54,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
         { name: "login", description: "Gated cross-device sign-in via login OTP" },
         { name: "recovery", description: "Account recovery via email OTP" },
         { name: "civic", description: "Civic signing device keys (public key only; separate from login passkeys)" },
+        { name: "public", description: "Unauthenticated public reads of the civic record (browse/detail/counts); filters stubbed" },
         { name: "profile", description: "Private account profile" },
         { name: "meta", description: "Health & docs" },
       ],
@@ -78,6 +80,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerLoginRoutes(app, services);
   registerCivicDeviceRoutes(app, services);
   registerCivicRecordRoutes(app, services);
+  registerPublicRecordReadRoutes(app, services);
   registerProfileRoutes(app, services);
 
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());

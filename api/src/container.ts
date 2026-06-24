@@ -38,6 +38,7 @@ import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
 import { PasskeyService } from "./services/passkey.service.js";
+import { PublicRecordReadService } from "./services/public-record-read.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
 import { RegistrationService } from "./services/registration.service.js";
 
@@ -76,6 +77,8 @@ export interface Services {
   loginService: LoginService;
   civicDeviceService: CivicDeviceService;
   civicRecordService: CivicRecordService;
+  /** Unauthenticated public READ surface over the civic record (browse/detail/counts). */
+  publicRecordReadService: PublicRecordReadService;
   /** The public-record private store backing the civic engine (read access for tests/projections). */
   recordStore: PrivateStore;
 }
@@ -156,6 +159,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   });
   const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
   const civicRecordService = new CivicRecordService({ registry: identityRegistry, store: recordStore });
+  const publicRecordReadService = new PublicRecordReadService({ recordStore });
 
   return {
     db,
@@ -169,6 +173,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     loginService,
     civicDeviceService,
     civicRecordService,
+    publicRecordReadService,
     recordStore,
   };
 }
