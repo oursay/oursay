@@ -62,3 +62,46 @@ export function verifyNullifierAttestation(parentId: string, nullifier: string, 
     return false;
   }
 }
+
+// ── Credential authorization attestation (mvp-a5b persona/signer split) ─────────────────────
+// At join, the platform attests that `credentialPubkey` (a device's per-thread WebAuthn signer) is
+// authorized to sign as the stable thread persona `personaPubkey` (Pₜ). The signed record is stored
+// in `thread_civic_credentials.credential_sig` and re-verified on every webauthn-es256 append (same
+// defense-in-depth pattern as binding_sig). `userId` is intentionally OMITTED from the payload — the
+// private user↔Pₜ binding is already attested via `thread_bindings.binding_sig`; omitting userId
+// here lets the credential attestation be published alongside settled records (future) without
+// leaking internal user IDs. Domain separator pins the payload type to "credential-auth-v1".
+
+export interface CredentialAuthPayload {
+  /** Domain separator pinning this payload type. */
+  domain: "credential-auth-v1";
+  /** Stable thread persona Pₜ — the envelope's authorPubkey for this user+thread. */
+  personaPubkey: string;
+  /** This device's per-thread WebAuthn signer pubkey — the envelope's signerPubkey. */
+  credentialPubkey: string;
+  threadId: string;
+  jurisdiction: string;
+  /** The opaque account↔thread-key binding commitment under Pₜ — re-checked on submit to detect
+   *  drift (e.g. a credential row pointing at a different binding than the thread's). */
+  commitment: string;
+}
+
+/** The digest the platform signs to attest a credential authorization. */
+export function credentialAuthDigest(p: CredentialAuthPayload): Uint8Array {
+  return sha256(utf8ToBytes(canonicalJson(p)));
+}
+
+export function signCredentialAuth(p: CredentialAuthPayload, platformPrivKeyHex: string): string {
+  if (!platformPrivKeyHex) throw new Error("platform binding private key not configured");
+  const sig = p256.sign(credentialAuthDigest(p), hexToBytes(platformPrivKeyHex));
+  return bytesToHex(sig.toCompactRawBytes());
+}
+
+export function verifyCredentialAuth(p: CredentialAuthPayload, sigHex: string, platformPubKeyHex: string): boolean {
+  if (!sigHex || !platformPubKeyHex) return false;
+  try {
+    return p256.verify(hexToBytes(sigHex), credentialAuthDigest(p), hexToBytes(platformPubKeyHex));
+  } catch {
+    return false;
+  }
+}

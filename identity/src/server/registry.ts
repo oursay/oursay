@@ -13,13 +13,14 @@
 // is applied at read/count time, not fixed at join); when omitted it must stay omitted on both the
 // signed payload and the re-verification reconstruction (`bindingFromRow`) so canonical JSON matches.
 
-import { RecordService, signBinding } from "@oursay/public-record";
+import { RecordService, signBinding, signCredentialAuth } from "@oursay/public-record";
 import type { PrivateStore } from "@oursay/public-record";
 import type { Ref } from "@oursay/public-record";
 import type { ThreadBindingPublic } from "@oursay/public-record";
 import type {
   DeviceEnrollment,
   Intent,
+  JoinThreadResponse,
   PreparedAppend,
   SignedSubmission,
   ThreadRegistration,
@@ -47,39 +48,59 @@ export class IdentityRegistry {
   }
 
   /**
-   * Join a thread (Option A): platform-sign the binding and write `thread_keys` + `thread_bindings`
-   * (registerThreadBinding) and the per-thread civic credential row (registerThreadCredential). The
-   * thread passkey pubkey IS the author identity — there is no separate device/signer. The binding is
-   * built to match `bindingFromRow` exactly (kyc_tier included ONLY when bound) so `verifyThreadBinding`
-   * re-verifies it at append time. The credential row (credential_pubkey = personaPubkey) is the
-   * "revoke this thread's passkey" handle appendSigned enforces.
+   * Join a thread (mvp-a5b persona/signer split, docs/08 §5.4 rule 6). Two-phase:
+   *   1. ensureThreadPersona — first device wins: adopt its `signerPubkey` as Pₜ and mint the
+   *      platform binding under it. Subsequent devices reuse the existing Pₜ; the incoming
+   *      `commitment` MUST match the bound one (different opening ⇒ reject). The binding is built
+   *      to match `bindingFromRow` exactly (kyc_tier included ONLY when bound) so
+   *      `verifyThreadBinding` re-verifies it at append time.
+   *   2. registerDeviceCredential — write THIS device's `thread_civic_credentials` row under Pₜ
+   *      with the platform-signed `credential_sig` attestation re-verified on every appendSigned.
+   * Returns the canonical Pₜ so the client can persist it before any `buildSigned`.
    */
-  async joinThread(r: ThreadRegistration): Promise<void> {
-    const binding: ThreadBindingPublic = {
-      thread_pubkey: r.personaPubkey,
-      thread_id: r.threadId,
-      jurisdiction: r.jurisdiction,
-      // Include kyc_tier only when provided — see bindingFromRow / canonicalJson note.
-      ...(r.kycTier !== undefined ? { kyc_tier: r.kycTier } : {}),
-      commitment: r.commitment,
-    };
-    const bindingSig = signBinding(binding, this.o.platformBindingPrivKeyHex);
-
-    await this.o.store.registerThreadBinding({
-      threadPubkey: r.personaPubkey,
+  async joinThread(r: ThreadRegistration): Promise<JoinThreadResponse> {
+    const personaPubkey = await this.o.store.ensureThreadPersona({
       userId: r.userId,
       threadId: r.threadId,
       jurisdiction: r.jurisdiction,
+      proposedPubkey: r.signerPubkey,
+      commitment: r.commitment,
       kycTier: r.kycTier ?? null,
-      commitment: r.commitment,
-      bindingSig,
+      signBinding: (winnerPt) => {
+        const binding: ThreadBindingPublic = {
+          thread_pubkey: winnerPt,
+          thread_id: r.threadId,
+          jurisdiction: r.jurisdiction,
+          // Include kyc_tier only when provided — see bindingFromRow / canonicalJson note.
+          ...(r.kycTier !== undefined ? { kyc_tier: r.kycTier } : {}),
+          commitment: r.commitment,
+        };
+        return signBinding(binding, this.o.platformBindingPrivKeyHex);
+      },
     });
-    await this.o.store.registerThreadCredential({
-      credentialPubkey: r.personaPubkey,
+
+    const credentialSig = signCredentialAuth(
+      {
+        domain: "credential-auth-v1",
+        personaPubkey,
+        credentialPubkey: r.signerPubkey,
+        threadId: r.threadId,
+        jurisdiction: r.jurisdiction,
+        commitment: r.commitment,
+      },
+      this.o.platformBindingPrivKeyHex,
+    );
+
+    await this.o.store.registerDeviceCredential({
+      credentialPubkey: r.signerPubkey,
+      personaPubkey,
       userId: r.userId,
       threadId: r.threadId,
       jurisdiction: r.jurisdiction,
+      credentialSig,
     });
+
+    return { personaPubkey };
   }
 
   /** Server-derived fields the client must sign over (`author` = the thread persona pubkey). */

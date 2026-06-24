@@ -55,8 +55,10 @@ export function signEnvelope(env: TxEnvelope, privKey: Uint8Array): SignResult {
 
 /**
  * Verify an envelope's signature, branching on `signScheme` (absent ⇒ "p256"):
- *   - `webauthn-es256`: a per-thread WebAuthn passkey assertion verified against `authorPubkey`
- *     (see {@link verifyWebauthnAssertion}); the top-level `signature` is "".
+ *   - `webauthn-es256`: a per-device WebAuthn passkey assertion verified against `signerPubkey`
+ *     (REQUIRED, mvp-a5b persona/signer split — `authorPubkey` carries the stable thread persona Pₜ
+ *     and is NOT used for the crypto check here; see {@link verifyWebauthnAssertion}). The top-level
+ *     `signature` stays "".
  *   - `p256`: a derived key signed the digest — the thread-scoped `signerPubkey` (device key) when
  *     present, otherwise `authorPubkey` (persona signed). Either way the digest binds the whole
  *     envelope (incl. `authorPubkey`/`signerPubkey`), so neither can be swapped post-signature.

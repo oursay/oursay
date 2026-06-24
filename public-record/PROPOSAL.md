@@ -447,8 +447,8 @@ export interface TxEnvelope {
   parentId?: string;           // ENTITY-level parent (follows edits)
   parentRevisionTxId?: string; // REVISION-level: the parent's head tx …
   parentRevisionHash?: string; // … its content-addressed revision id (parent txHash)
-  authorPubkey: string;        // author = the thread passkey pubkey (Option A) / thread persona (legacy p256)
-  signerPubkey?: string;       // legacy p256 ONLY: thread-scoped DEVICE key that signed; absent on the WebAuthn path
+  authorPubkey: string;        // stable thread persona Pₜ per (user, thread); same across all of that user's devices
+  signerPubkey?: string;       // REQUIRED on webauthn-es256 (this device's per-thread WebAuthn pubkey); optional on legacy p256 (thread-scoped device key)
   signScheme?: SignScheme;     // "p256" | "webauthn-es256"; absent ⇒ "p256" (legacy envelopes hash unchanged)
   signature: string;           // p256: ECDSA over the signing digest. WebAuthn path: "" (sig lives in `webauthn`)
   webauthn?: WebauthnAssertion; // { authenticatorData, clientDataJSON, signature } (base64url); webauthn-es256 only
@@ -530,9 +530,12 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
 
 ### Module (`src/identity/*` — implemented; full verified write path)
 
-> **Implemented production path — Option A (per-thread WebAuthn).** Civic envelopes are signed by a
-> per-(device, thread) **WebAuthn passkey**: `authorPubkey` is the credential pubkey, `signScheme =
-> "webauthn-es256"`, and the per-append assertion (`webauthn.{authenticatorData, clientDataJSON,
+> **Implemented production path — Option A + mvp-a5b persona/signer split.** Civic envelopes carry
+> two pubkeys: `authorPubkey = Pₜ` (stable per `(user, thread)`, identical across all of that user's
+> devices) and `signerPubkey = ` this device's per-thread WebAuthn passkey pubkey (REQUIRED on
+> `webauthn-es256`). Pₜ is allocated **first-wins** at join: the first device's signer becomes Pₜ;
+> subsequent devices register an additional `thread_civic_credentials` row under the same Pₜ. The
+> per-append assertion (`webauthn.{authenticatorData, clientDataJSON,
 > signature}`) is challenge-bound to `signingDigest`. `appendSigned` runs a **dual verifier**
 > (`verifyEnvelope` branches on `signScheme`): the new `webauthn.ts` (`verifyWebauthnAssertion` +
 > a shared `buildWebauthnAssertion` for dev/tests) checks the assertion, UV, and challenge binding;
@@ -556,8 +559,10 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
   dev/test builder) + `credentialPubkeyHex` + base64url helpers. The verifier decodes the assertion,
   requires the UV flag, checks `clientData.type === "webauthn.get"` and `clientData.challenge ===
   base64url(signingDigest(env))`, and verifies the DER ES256 signature (`lowS:false`) over
-  `authenticatorData || sha256(clientDataJSON)` against `authorPubkey`. It does **not** enforce
-  rpIdHash/origin (a pure offline verifier cannot know the deployment origin).
+  `authenticatorData || sha256(clientDataJSON)` against **`signerPubkey`** (mvp-a5b persona/signer
+  split — `authorPubkey` carries Pₜ and is NOT used for the crypto check). Returns `false` (no
+  throw) when `signerPubkey` is missing. It does **not** enforce rpIdHash/origin (a pure offline
+  verifier cannot know the deployment origin).
 - **`device.ts`** — `deriveDeviceThreadSigner({ deviceRoot, threadId, jurisdiction })` /
   `signEnvelopeWithDevice(env, deviceSignerPrivKey, personaPubkey)` (Method 3 §5.4). A user enrols
   several hardware-backed devices; each derives a **thread-scoped** signer per `(device, thread)` so
@@ -566,9 +571,17 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
   The device→user link lives only in the **private** `device_keys` / `thread_signers` registry,
   never on the record.
 - **`binding.ts`** — `buildThreadBindingInputs(...)`: the client-side `{ binding, opening }` inputs.
-- **`platform-binding.ts`** — `signBinding(binding, platformPriv)` / `verifyBinding(...)` /
-  `platformPublicKey(...)`: the platform signs/verifies the registration binding. The platform key
-  is **env-required** (`PLATFORM_BINDING_PRIVKEY`); tests use an ephemeral key. (KMS is a later
+- **`platform-binding.ts`** — `signBinding` / `verifyBinding` / `signNullifierAttestation` /
+  `verifyNullifierAttestation` / **`signCredentialAuth` / `verifyCredentialAuth`** /
+  `platformPublicKey`. The platform signs three kinds of attestations: the registration binding
+  under Pₜ (`thread_bindings.binding_sig`), the per-`(parent, nullifier)` Sybil-resistance
+  attestation, and — under the mvp-a5b persona/signer split — the per-credential authorization
+  binding `(domain="credential-auth-v1", Pₜ, signerPubkey, threadId, jurisdiction, commitment)`
+  written to `thread_civic_credentials.credential_sig` at join and **re-verified** on every
+  webauthn-es256 append (defense-in-depth). The payload **omits `userId`** so the credential
+  attestation can be published with settled records (future) without leaking internal user ids;
+  the private user↔Pₜ binding is already attested via `binding_sig`. Platform key is
+  **env-required** (`PLATFORM_BINDING_PRIVKEY`); tests use an ephemeral key. (KMS is a later
   milestone.)
 - **`verify.ts`** — `verifyThreadBinding(store, threadPubkey, platformPubKeyHex)`: confirms a
   `thread_pubkey` is registered **without exposing which user**, and **re-verifies** the stored
@@ -586,19 +599,28 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
     dedupe — minted + signed on the **create** only; tallies dedupe by nullifier.
   - **2b — updates/deletes** (edits, vote-change, signature-revoke, deletes): shared
     `validateUpdate`/`validateDelete` (op rules + governance via `canChangeVote`/`canRevokeSignature`);
-    **author-match** keeps the original persona as `authorPubkey`; **optimistic concurrency** rejects
-    a stale `prevHash` or a moved parent/parent-revision (reject-and-retry); singleton update/delete
-    **carry the original nullifier forward** (no re-mint, no dup-check); a `delete` must carry
-    `DELETE_MARKER`. **Cross-device edit (§5.4 rule 6):** when the envelope is device-signed, the
-    signer need not be the device that created the entity — any enrolled, non-revoked device whose
-    thread-scoped signer maps to the **same user + thread** as the persona may sign the edit.
-  - **Authorization by scheme:** on the `webauthn-es256` path `appendSigned` requires the author's
-    `thread_civic_credentials` row to exist and be non-revoked (the per-thread "revoke this passkey"
-    handle), and forbids a `signerPubkey`. On the legacy `p256` path, when `signerPubkey` is present it
-    must resolve (via `thread_signers`) to the **same verified user and thread** as the persona and be
-    non-revoked; `REQUIRE_DEVICE_SIGNER` can force device signing on that branch. The reserved Method-4
-    `proof` field is **rejected** until ZK verification exists
+    **author-match** keeps the original persona Pₜ as `authorPubkey`; **optimistic concurrency**
+    rejects a stale `prevHash` or a moved parent/parent-revision (reject-and-retry); singleton
+    update/delete **carry the original nullifier forward** (no re-mint, no dup-check); a `delete`
+    must carry `DELETE_MARKER`. **Cross-device edit (§5.4 rule 6):** under the mvp-a5b persona/signer
+    split this is the normal path — every device signs as the SAME Pₜ; the engine only needs to
+    confirm the device's `signerPubkey` is a registered, non-revoked credential under that Pₜ.
+  - **Authorization by scheme:** on the `webauthn-es256` path `appendSigned` **requires**
+    `signerPubkey` (the device's per-thread passkey pubkey), verifies the assertion against it,
+    looks up the device credential by `signerPubkey`, asserts `credential.persona_pubkey ===
+    envelope.authorPubkey` (FK match) AND `(user_id, thread_id)` matches the Pₜ thread key AND
+    `revoked_at IS NULL`, and **re-verifies `credential_sig`** with `verifyCredentialAuth`
+    (defense-in-depth, mirroring `binding_sig`). On the legacy `p256` path, when `signerPubkey` is
+    present it must resolve (via `thread_signers`) to the same verified user and thread as the
+    persona and be non-revoked; `REQUIRE_DEVICE_SIGNER` can force device signing on that branch.
+    The reserved Method-4 `proof` field is **rejected** until ZK verification exists
     (`nullifier_attestations.membership_proof` reserves the matching storage slot).
+
+  > **Account recovery note.** Recovery should revoke `thread_civic_credentials` rows (the user's
+  > device signers) but **preserve** `thread_keys` and `thread_bindings` — Pₜ stays stable per
+  > `(user, thread)`. The user then re-authorizes per thread by enrolling a fresh device credential
+  > under the same Pₜ. Until they do, that thread is silently read-only for their persona; no
+  > public author change is needed.
 - **Freshness gate (all signed ops):** `appendSigned` rejects an envelope whose `createdAt` is older
   than `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120; `0` disables) or more than the allowed future skew
   ahead of the server clock — using the already-signed `createdAt` (no schema/wire change; clients set

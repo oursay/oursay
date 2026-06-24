@@ -10,7 +10,7 @@
 
 import type { CommentContent, PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
 import type { IdentitySession } from "./session.js";
-import type { Intent, ParentRef, PreparedAppend, SignedSubmission, ThreadRef } from "../shared/types.js";
+import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, ThreadRef } from "../shared/types.js";
 
 export interface CivicHttpClientOptions {
   /** API origin, e.g. "https://api.oursay.org" or "http://localhost". No trailing slash. */
@@ -92,25 +92,29 @@ export class CivicHttpClient {
   }
 
   /**
-   * Join a thread: bind account↔thread-key OWNERSHIP. Under Option A the thread passkey pubkey IS the
-   * author identity — join registers just that pubkey (created on first use) + the opaque commitment.
-   * No device/signer pubkey crosses the wire. The binding inputs carry no kycTier (ownership-only);
-   * verification tier is applied at read/count time, never fixed at join.
+   * Join a thread (mvp-a5b persona/signer split). Sends THIS device's per-thread WebAuthn passkey
+   * pubkey as `signerPubkey`; the server is the authority on whether it becomes Pₜ (first device
+   * wins) or is enrolled as an additional signer under the existing Pₜ. Returns the canonical Pₜ
+   * which is persisted to the session BEFORE any prepare/submit so envelopes carry the right
+   * `authorPubkey`. The binding inputs carry no kycTier (ownership-only); verification tier is
+   * applied at read/count time, never fixed at join.
    */
-  async joinThread(t: ThreadRef): Promise<void> {
+  async joinThread(t: ThreadRef): Promise<JoinThreadResponse> {
     const { binding } = await this.session.bindingInputs(t);
-    await this.request<void>("POST", "/v1/civic/threads/join", {
+    const resp = await this.request<JoinThreadResponse>("POST", "/v1/civic/threads/join", {
       threadId: t.threadId,
       jurisdiction: t.jurisdiction,
-      personaPubkey: binding.thread_pubkey,
+      signerPubkey: binding.thread_pubkey,
       commitment: binding.commitment,
     });
+    this.session.rememberPersona(t, resp.personaPubkey);
+    return resp;
   }
 
   /** Prepare an append: fetch the server-derived fields the client must sign over. */
   async prepare(t: ThreadRef, intent: Intent): Promise<PreparedAppend> {
     return this.request<PreparedAppend>("POST", "/v1/civic/appends/prepare", {
-      author: await this.session.authorPubkey(t),
+      author: this.session.personaPubkey(t),
       intent,
     });
   }

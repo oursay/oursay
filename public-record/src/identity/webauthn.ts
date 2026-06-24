@@ -37,18 +37,25 @@ export function base64urlDecode(s: string): Uint8Array {
 }
 
 /**
- * Verify a WebAuthn (ES256) envelope: the assertion's signature must verify against `authorPubkey`
- * (the thread passkey pubkey), the user MUST have been verified (UV), the clientDataJSON must be a
- * `webauthn.get` whose challenge equals base64url(signingDigest(env)), and the signature is over
+ * Verify a WebAuthn (ES256) envelope: the assertion's signature must verify against `signerPubkey`
+ * (the DEVICE's per-thread WebAuthn passkey pubkey under the mvp-a5b persona/signer split — the
+ * envelope's `authorPubkey` carries the stable thread persona Pₜ and is NOT used for this crypto
+ * check). The user MUST have been verified (UV), the clientDataJSON must be a `webauthn.get` whose
+ * challenge equals base64url(signingDigest(env)), and the signature is over
  * `authenticatorData || sha256(clientDataJSON)` (ES256 ⇒ ECDSA-P256-with-SHA256, DER-encoded).
  *
  * Scope: this is the connector-agnostic OFFLINE check (crypto + challenge-binding + UV + type). It
  * deliberately does NOT enforce rpIdHash/origin — a pure offline verifier cannot know a deployment's
  * RP id or origin. The API layer MAY add that check later (an optional, deferred hook).
+ *
+ * Persona↔signer authorization (Pₜ matches signerPubkey's thread) is enforced by RecordService /
+ * appendSigned via thread_civic_credentials lookup, NOT here. Returns false (does not throw) when
+ * the envelope is missing `signerPubkey` so downstream branches can produce uniform errors.
  */
 export function verifyWebauthnAssertion(env: TxEnvelope): boolean {
   const wa = env.webauthn;
   if (!wa) return false;
+  if (!env.signerPubkey) return false;
   try {
     const authData = base64urlDecode(wa.authenticatorData);
     const clientDataBytes = base64urlDecode(wa.clientDataJSON);
@@ -67,7 +74,7 @@ export function verifyWebauthnAssertion(env: TxEnvelope): boolean {
     // Parse the DER ECDSA sig to compact r||s. lowS:false — WebAuthn authenticators may emit a
     // high-S signature, which we must still accept.
     const sig = p256.Signature.fromDER(sigDer).toCompactRawBytes();
-    return p256.verify(sig, msgHash, hexToBytes(env.authorPubkey), { lowS: false });
+    return p256.verify(sig, msgHash, hexToBytes(env.signerPubkey), { lowS: false });
   } catch {
     return false;
   }

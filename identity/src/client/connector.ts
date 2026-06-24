@@ -52,22 +52,32 @@ export interface UnlockedSession {
   /** Per-(user, jurisdiction) nullifier root, shared across the user's devices → singleton dedupe. */
   nullifierRoot(jurisdiction: string): Uint8Array;
 
-  // ── Per-thread WebAuthn civic credential (Option A) ─────────────────────────────────────────
+  // ── Per-(device, thread) WebAuthn civic credential (mvp-a5b persona/signer split) ───────────
   /**
-   * Create (once) the WebAuthn passkey credential for this thread and return its PUBLIC key — the
-   * envelope author for every civic action in the thread. Web: a `navigator.credentials.create`
-   * ceremony (UV); Dev: a deterministic per-(user, thread) P-256 keypair. Idempotent at the store
-   * level (a second call returns the existing credential's pubkey).
+   * Create (once) this device's WebAuthn passkey credential for this thread and return its PUBLIC
+   * key — the envelope's `signerPubkey` for every civic action this device makes in the thread.
+   * Web: a `navigator.credentials.create` ceremony (UV); Dev: a deterministic per-(user, device,
+   * thread) P-256 keypair. Idempotent at the store level (a second call returns the existing
+   * credential's pubkey). The connector knows only about THIS device's signer; the stable thread
+   * persona Pₜ (envelope `authorPubkey`) is returned by the server `join` response and lives on
+   * `IdentitySession` / the per-thread store — not here.
    */
-  createThreadCredential(o: { threadId: string; jurisdiction: string }): Promise<{ authorPubkey: string }>;
+  createThreadCredential(o: { threadId: string; jurisdiction: string }): Promise<{ signingPubkey: string }>;
   /**
-   * Produce a user-verifying WebAuthn assertion for this thread's credential over `challenge`
-   * (= signingDigest(envelope)). Web: `navigator.credentials.get` with `userVerification:"required"`;
-   * Dev: a simulated assertion via the shared builder. Called PER civic append (UV per action).
+   * Produce a user-verifying WebAuthn assertion for this device's thread credential over
+   * `challenge` (= signingDigest(envelope)). Web: `navigator.credentials.get` with
+   * `userVerification:"required"`; Dev: a simulated assertion via the shared builder. Called PER
+   * civic append (UV per action).
    */
   assertThread(o: { threadId: string; challenge: Uint8Array }): Promise<WebauthnAssertion>;
-  /** The thread passkey PUBLIC key if a credential already exists for this thread, else null. */
-  threadCredentialPubkey(threadId: string): string | null;
+  /** This device's thread passkey PUBLIC key if a credential already exists for this thread,
+   *  else null (= envelope `signerPubkey`). */
+  threadSigningPubkey(threadId: string): string | null;
+  /** The stable thread persona pubkey Pₜ for this thread (= envelope `authorPubkey`) if the
+   *  server's `join` response has been persisted by IdentitySession for this thread, else null. */
+  threadPersonaPubkey(threadId: string): string | null;
+  /** Persist Pₜ for this thread (called once by IdentitySession after the server `join` response). */
+  setThreadPersona(threadId: string, personaPubkey: string): void;
 }
 
 export interface PasskeyConnector {

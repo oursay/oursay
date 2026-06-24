@@ -28,11 +28,14 @@ function p256PrivFrom(ikm: Uint8Array, info: string): Uint8Array {
 }
 
 /** Build the same UnlockedSession shape the web connector derives from a (here: fallback) master, with a
- *  simulated per-thread WebAuthn credential derived from the same master (Option A custody). */
+ *  simulated per-thread WebAuthn credential derived from the same master (mvp-a5b persona/signer split).
+ *  Persona (Pₜ) is server-allocated in production; this in-memory shim treats it the same as the local
+ *  signer (first-join Pₜ = device signer) for the verifying-envelope check below. */
 function sessionFromMaster(master: Uint8Array, userId: string, deviceId: string): UnlockedSession {
   const deviceRoot = root32(master, "oursay/web/device-root", deviceId);
   const devicePubkey = bytesToHex(p256.getPublicKey(p256PrivFrom(deviceRoot, `account|${userId}`)));
   const threadCreds = new Map<string, Uint8Array>();
+  const threadPersonas = new Map<string, string>();
   const credFor = (threadId: string): Uint8Array => {
     let priv = threadCreds.get(threadId);
     if (!priv) {
@@ -48,9 +51,11 @@ function sessionFromMaster(master: Uint8Array, userId: string, deviceId: string)
     deviceRoot,
     jurisdictionMaster: (j: string) => root32(master, "oursay/web/jurisdiction-master", j),
     nullifierRoot: (j: string) => root32(master, "oursay/web/nullifier-root", j),
-    createThreadCredential: async ({ threadId }) => ({ authorPubkey: credentialPubkeyHex(credFor(threadId)) }),
+    createThreadCredential: async ({ threadId }) => ({ signingPubkey: credentialPubkeyHex(credFor(threadId)) }),
     assertThread: async ({ threadId, challenge }) => buildWebauthnAssertion({ credentialPriv: credFor(threadId), rpId: "localhost", origin: "http://localhost", challenge }),
-    threadCredentialPubkey: (threadId) => (threadCreds.has(threadId) ? credentialPubkeyHex(threadCreds.get(threadId)!) : null),
+    threadSigningPubkey: (threadId: string) => (threadCreds.has(threadId) ? credentialPubkeyHex(threadCreds.get(threadId)!) : null),
+    threadPersonaPubkey: (threadId: string) => threadPersonas.get(threadId) ?? null,
+    setThreadPersona: (threadId: string, personaPubkey: string) => { threadPersonas.set(threadId, personaPubkey); },
   };
 }
 
@@ -87,9 +92,14 @@ describe("03 secure-store: PRF-unavailable fallback master (non-extractable AES 
     const intent: Intent = { op: "create", type: "post", entityId: "thread-1", content: { body: "hi" } };
     const prep: PreparedAppend = { prevHash: null, rootEntityId: "thread-1" };
 
+    // simulate first-device join: signer becomes Pₜ
+    const signer = await session.signingPubkey(t);
+    session.rememberPersona(t, signer);
+
     const signed = await session.buildSigned(t, prep, intent);
     expect(verifyEnvelope(signed.envelope), "envelope verifies").to.equal(true);
     expect(signed.envelope.signScheme).to.equal("webauthn-es256");
-    expect(signed.envelope.authorPubkey).to.equal(await session.authorPubkey(t));
+    expect(signed.envelope.authorPubkey).to.equal(session.personaPubkey(t));
+    expect(signed.envelope.signerPubkey).to.equal(await session.signingPubkey(t));
   });
 });

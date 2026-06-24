@@ -15,4 +15,5 @@ export type {
   SignedSubmission,
   DeviceEnrollment,
   ThreadRegistration,
+  JoinThreadResponse,
 } from "./shared/types.js";

@@ -199,22 +199,35 @@ device fingerprint on the ledger.
 
 ### 5.4 Recommended build direction: Method 3
 
-> **Implemented variant — Option A (per-thread WebAuthn passkey).** The production path realizes
-> Method 3's *intent* (hardware signing, per-thread author, user-level dedupe) with a simpler key
-> model: each (device, thread) has its **own WebAuthn passkey**, and that credential's pubkey is the
-> author *Pₜ* — there is **no separate derived signer *Dᵢ*** and **no `signerPubkey`** on the envelope.
-> Each civic append is a per-action user-verifying assertion (`signScheme: "webauthn-es256"`), and the
-> jurisdiction signing policy **hard-requires** it for `vote` and `petition_signature`. The record
-> engine keeps the original derived-`p256` path as a **dual-verifier** capability.
+> **Implemented variant — Option A + mvp-a5b persona/signer split (WebAuthn).** The production path
+> realizes Method 3 *in full*: a stable thread persona **Pₜ** is the on-record **`authorPubkey`**,
+> while each device's per-thread WebAuthn passkey is the envelope's **`signerPubkey`** (REQUIRED on
+> `webauthn-es256`). Pₜ is allocated **first-wins** per `(user, thread)` at join: the first device's
+> signer pubkey becomes Pₜ; every subsequent device of the same user is enrolled as an **additional
+> credential under that same Pₜ** in `thread_civic_credentials` (one row per device signer). Each
+> civic append is a per-action user-verifying assertion (`signScheme: "webauthn-es256"`); the
+> assertion is verified against `signerPubkey`, not `authorPubkey`. The jurisdiction signing policy
+> **hard-requires** webauthn-es256 for `vote` and `petition_signature`. The record engine keeps the
+> original derived-`p256` path as a **dual-verifier** capability.
 >
-> **Cross-device tradeoff (rule 6 under Option A).** Because each device has its own thread passkey,
-> the user's two devices are **distinct authors** in a thread. An on-chain **edit/delete requires the
-> same thread passkey that authored the entity**, so cross-device editing of a specific entity needs a
-> **synced passkey** (e.g. iCloud Keychain / Google Password Manager) — independent device credentials
-> cannot edit each other's entities. Singleton **dedupe is still per-user**: the per-(user, jurisdiction)
-> nullifier is shared across the user's devices, so a second device cannot double-vote even with a
-> distinct passkey. The user↔thread-key links remain private (commitments + the registry), never on
-> the public record.
+> **Cross-device edit (rule 6) just works.** Because every device signs as the same Pₜ, the engine's
+> author-match (`validateUpdate`: `head.authorPubkey === actor`) passes for any of the user's
+> enrolled signers — no synced passkey required. Authorization is enforced server-side: the device's
+> `signerPubkey` must resolve to a registered, non-revoked `thread_civic_credentials` row whose
+> `persona_pubkey` equals the envelope's `authorPubkey` and whose `(user_id, thread_id)` match Pₜ's.
+> A platform attestation (`credential_sig`) over `(Pₜ, signerPubkey, threadId, jurisdiction,
+> commitment)` is bound at join and re-verified on every append (defense-in-depth, mirroring
+> `binding_sig`). Singleton **dedupe** is still per-(user, jurisdiction): the shared nullifier root
+> blocks a second device from double-voting on the same poll. The user↔Pₜ link and Pₜ↔signer
+> attestations remain **private** (`thread_bindings` + `thread_civic_credentials`), never on the
+> public record.
+>
+> **Account recovery (revocation model).** Recovery should **revoke** the user's
+> `thread_civic_credentials` rows (each device's signers) but **preserve** `thread_keys` and
+> `thread_bindings` (Pₜ stays stable per `(user, thread)`). After recovery the user re-authorizes
+> per thread by enrolling a fresh device credential under the SAME Pₜ — no on-record author change.
+> Warn the user that until they re-authorize a thread, edits/votes/signatures from that thread are
+> read-only; the persona remains theirs, but no signer can act for it.
 
 **Use Method 3 when implementing user strategy and the first production auth path.**
 
@@ -225,13 +238,16 @@ Concrete rules:
    many passkeys per account allowed.
 3. **Join thread** → allocate stable thread persona *Pₜ* (public author id for that thread);
    register with platform; *Pₜ* must not be derivable across threads by public observers.
-4. **Post comment** → envelope carries `author = Pₜ`, `signer = Dᵢ`, signature; no nullifier.
+4. **Post comment** → envelope carries `authorPubkey = Pₜ`, `signerPubkey = Dᵢ` (this device's
+   per-thread WebAuthn passkey pubkey), `signScheme = "webauthn-es256"`, and the assertion;
+   no nullifier.
 5. **Vote / singleton action** → same, plus opaque **nullifier** *N* unique per (user, poll);
    chain rejects duplicate *N* on the same parent; any enrolled *Dᵢ* for that user reuses *N*
    to change a vote when rules allow.
-6. **Edit / delete** → allowed when governance permits and **signer** is any *Dᵢ* registered
-   to the **same user** as the original author (not necessarily the same device that created
-   the entity).
+6. **Edit / delete** → allowed when governance permits and the envelope's `signerPubkey` is any
+   *Dᵢ* registered (and non-revoked) under the **same Pₜ** as the original entity's
+   `authorPubkey` (i.e. any of the user's enrolled devices for that thread, not necessarily the
+   one that created the entity). Cross-device edit is the normal path, not an edge case.
 7. **Reveal identity** (optional, future) → user-controlled opening linking *Pₜ* to real-world
    identity for chosen threads only (R11).
 
@@ -421,12 +437,12 @@ prior session. Both end in a new passkey.
 
 | Goal | Approach |
 |------|----------|
-| Same persona on phone and tablet | Same *Pₜ* per thread; enroll multiple *Dᵢ* or rely on passkey sync (§5.4). |
-| Second passkey, no sync | Enroll second *Dᵢ*; shared per-(user, jurisdiction) nullifier root; same *Pₜ* when joining thread from either device. |
+| Same persona on phone and tablet | Same *Pₜ* per thread; each device enrolls its OWN per-thread WebAuthn passkey under that Pₜ via `thread_civic_credentials` (§5.4). |
+| Second passkey, no sync | Enroll the second device — server returns the existing Pₜ at join; the device's signer is registered as an additional credential under Pₜ; shared per-(user, jurisdiction) nullifier root holds. |
 | Add device (account login) | From a trusted full session, enroll an additional **account-login passkey** (`auth.passkey_credentials`); independent per device, public metadata only. |
 | Sign in on a brand-new device | **Gated login OTP** (§6): trusted device opens the window → new device redeems a `login` code → enroll-only session → enroll a passkey. Additive; does not revoke other sessions. |
-| Cross-device edit | Any *Dᵢ* registered to same user may sign edit (§5.4 rule 6). |
-| Lost device | Revoke *Dᵢ* enrollment (`POST /v1/civic/devices/revoke`); for account login use **recovery** (revokes prior sessions). Do not publish revoked keys as cross-thread correlators. |
+| Cross-device edit | Any of the user's non-revoked `thread_civic_credentials` rows under Pₜ may sign the edit (§5.4 rule 6). |
+| Lost device | Revoke the device's `thread_civic_credentials` row (per thread) and/or its account-login passkey. For full account recovery use **recovery** (revokes prior sessions). Recovery **preserves Pₜ and bindings**; the user re-authorizes per thread by enrolling a fresh credential under the same Pₜ. Do not publish revoked keys as cross-thread correlators. |
 | Platform holds signing keys | **Never.** |
 | Trustless dedupe | **Method 4 (ZK)** — permanent goal (§5.5). |
 
@@ -480,9 +496,10 @@ for test detail.
 | Legacy per-thread P-256 signing (dual verifier) | Implemented (tests) — retained as engine capability / dev path; `signScheme` absent ⇒ `p256`. Not the production civic path. |
 | Thread registration + private binding | Implemented |
 | Nullifier dedupe for votes/reactions/signatures | Implemented |
-| Author = thread passkey pubkey (Option A: no `signerPubkey`) | Implemented (tests) |
-| Per-user singleton dedupe across the user's per-thread passkeys | Implemented (tests) — shared per-(user, jurisdiction) nullifier |
-| Cross-device editing | Requires a **synced** thread passkey (Option A tradeoff, §5.4); independent device credentials are distinct authors |
+| `authorPubkey = Pₜ` (stable per (user, thread)) + `signerPubkey =` device passkey pubkey | Implemented (tests) — mvp-a5b persona/signer split |
+| Per-user singleton dedupe across the user's enrolled signers | Implemented (tests) — shared per-(user, jurisdiction) nullifier |
+| Cross-device editing | **Implemented (tests)** — every device signs as the same Pₜ; authorization is `signerPubkey` ∈ non-revoked `thread_civic_credentials` under Pₜ. No synced passkey required. |
+| Platform credential attestation (`credential_sig`) re-verified on every append | Implemented (tests) — binds `(Pₜ, signerPubkey, threadId, jurisdiction, commitment)`; mirrors `binding_sig` defense-in-depth |
 | Per-(user, jurisdiction) nullifier root (shared across a user's devices) | Implemented (framing + tests) |
 | Account-auth passkey sessions (server, `@oursay/api`) | Implemented (tests) — WebAuthn register + passkey login over `@simplewebauthn/server`; opaque DB-backed sessions. This passkey is the **account-login** factor (§2) and is **separate** from the civic thread-signing keys above. |
 | Unified email-OTP request — three purposes (server, `@oursay/api`) | Implemented (tests) — one `POST /v1/auth/otp/request` with `purpose` ∈ {registration, recovery, login}; OTP is bootstrap/recovery/gated-login only, never standing login. Hashed codes, rate limits, pluggable mailer (Postmark/SMTP/SES + dev noop). |

@@ -55,6 +55,19 @@ const refSchema = {
   required: ["txId", "entityId", "txHash"],
 } as const;
 
+const joinThreadResponseSchema = {
+  type: "object",
+  description: "The canonical thread persona pubkey Pₜ for the caller's (user, thread). Always returned by join.",
+  properties: {
+    personaPubkey: {
+      type: "string",
+      description: "Stable thread persona pubkey Pₜ (envelope authorPubkey) — first device's signer wins; subsequent devices receive the same Pₜ.",
+    },
+  },
+  required: ["personaPubkey"],
+  additionalProperties: false,
+} as const;
+
 export function registerCivicRecordRoutes(app: FastifyInstance, services: Services): void {
   app.post(
     "/v1/civic/threads/join",
@@ -62,31 +75,35 @@ export function registerCivicRecordRoutes(app: FastifyInstance, services: Servic
       preHandler: app.requireFullScope,
       schema: {
         tags: ["civic"],
-        summary: "Join a thread: bind account↔thread-key ownership (no KYC tier fixed at join)",
+        summary: "Join a thread: register this device's signer under the stable thread persona Pₜ",
         security: bearerSecurity,
         body: {
           type: "object",
           properties: {
             threadId: { type: "string", description: "Root entity id the thread is scoped to." },
             jurisdiction: { type: "string", description: "Jurisdiction id, e.g. ab-ca-gov." },
-            personaPubkey: { type: "string", description: "Thread passkey (author) pubkey, SEC1 P-256 hex — the sole civic identity." },
-            commitment: { type: "string", description: "Opaque binding commitment (sha256 hex); opening stays client-side." },
+            signerPubkey: {
+              type: "string",
+              description:
+                "This device's per-thread WebAuthn passkey pubkey (envelope signerPubkey), SEC1 P-256 hex. The server is the authority on Pₜ — first device wins, subsequent devices receive the same Pₜ in the response.",
+            },
+            commitment: { type: "string", description: "Opaque binding commitment (sha256 hex); opening stays client-side. Must match the previously-bound commitment on a returning-device join." },
           },
-          required: ["threadId", "jurisdiction", "personaPubkey", "commitment"],
+          required: ["threadId", "jurisdiction", "signerPubkey", "commitment"],
           additionalProperties: false,
         },
-        response: { 204: { type: "null" }, 400: errorSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema },
+        response: { 200: joinThreadResponseSchema, 400: errorSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema },
       },
     },
     async (req, reply) => {
       const b = req.body as {
         threadId: string;
         jurisdiction: string;
-        personaPubkey: string;
+        signerPubkey: string;
         commitment: string;
       };
-      await services.civicRecordService.join({ userId: req.user!.userId, ...b });
-      reply.status(204).send();
+      const resp = await services.civicRecordService.join({ userId: req.user!.userId, ...b });
+      reply.status(200).send(resp);
     },
   );
 

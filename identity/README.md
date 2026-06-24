@@ -5,11 +5,14 @@ WebAuthn-signed record envelopes, ships a thin HTTP client (`CivicHttpClient`) t
 write API, and provides the in-process server helpers `@oursay/api` exposes over HTTP. It sits on top
 of `@oursay/public-record` (the record engine) and never re-implements its commitment/envelope crypto.
 
-**Option A (per-thread WebAuthn passkey)** per
-[`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md): each thread the
-user joins has its **own** WebAuthn passkey, whose public key is the envelope author, and **every**
-civic append is a fresh user-verifying assertion (`signScheme: "webauthn-es256"`). The account-login
-passkey unlocks once to seed the per-(user, jurisdiction) **nullifier root** only (separate from
+**Option A + mvp-a5b persona/signer split** per
+[`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md): each
+`(device, thread)` has its **own** WebAuthn passkey — its public key is the envelope's
+**`signerPubkey`**. All of a user's devices share a **stable thread persona Pₜ** (first-wins per
+`(user, thread)` at join) which is the envelope's **`authorPubkey`** — so cross-device edits work
+out of the box. **Every** civic append is a fresh user-verifying assertion
+(`signScheme: "webauthn-es256"`) verified against `signerPubkey`. The account-login passkey
+unlocks once to seed the per-(user, jurisdiction) **nullifier root** only (separate from
 signing). Method 4 (ZK) is the long-term goal; the envelope `proof` slot stays reserve-and-reject
 until ZK exists.
 
@@ -64,15 +67,21 @@ const cred = await connector.enrollDevice({ userId, label: "laptop" }); // accou
 const session = new IdentitySession(await connector.unlock({ userId, deviceId: cred.deviceId }));
 
 await registry.ensureUser({ userId });
-// join a thread → creates the thread passkey, writes thread_keys + thread_bindings +
-// thread_civic_credentials (ownership only — no kycTier; verification tier is applied at read/count time)
+// join a thread (mvp-a5b persona/signer split):
+//   - this device's per-thread WebAuthn passkey pubkey is sent as `signerPubkey`
+//   - first-wins per (user, thread): the first device's signer becomes Pₜ, written to `thread_keys`
+//     + `thread_bindings`; this device's signer goes into `thread_civic_credentials` under that Pₜ
+//   - subsequent devices: the server returns the EXISTING Pₜ; a new `thread_civic_credentials` row
+//     is written for the device's signer; the device must present the same commitment as the first
+// the server returns the canonical Pₜ; the session persists it before any prepare/buildSigned.
 const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
 const { binding } = await session.bindingInputs(thread);
-await registry.joinThread({
+const { personaPubkey } = await registry.joinThread({
   userId, threadId: postId, jurisdiction: "ab-ca-gov",
-  personaPubkey: binding.thread_pubkey, // = the thread passkey pubkey
+  signerPubkey: binding.thread_pubkey, // = this device's per-thread WebAuthn passkey pubkey
   commitment: binding.commitment,
 });
+session.rememberPersona(thread, personaPubkey); // = authorPubkey on every envelope from this session
 // create a post: prepare → WebAuthn-sign (a user-verifying assertion) → submit
 const intent = { op: "create", type: "post", entityId: postId, content: { body: "hello" } };
 const prep = await registry.prepare(intent, await session.authorPubkey(thread));
@@ -95,9 +104,11 @@ const session = new IdentitySession(await connector.unlock({ userId, deviceId: c
 const client = new CivicHttpClient({ baseUrl: "http://localhost:8080", session, token });
 const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
 
-// one call: join thread (creates the thread passkey, ownership-only) → prepare → WebAuthn-sign → submit
+// one call: join thread (registers this device's signer under Pₜ; persists Pₜ on the session)
+//           → prepare → WebAuthn-sign (authorPubkey=Pₜ, signerPubkey=device) → submit
 const ref = await client.createPost(thread, { body: "hello" });
-// advanced: client.joinThread / client.prepare / session.buildSigned / client.submit are all exposed
+// advanced: client.joinThread (→ { personaPubkey: Pₜ }) / client.prepare / session.buildSigned /
+//           client.submit / session.rememberPersona are all exposed
 ```
 
 In the browser the only change is the connector and auth: `new WebPasskeyConnector()` for real
@@ -125,9 +136,17 @@ Two custody notes:
   root source, since the nullifier root is a function of it; a device whose PRF availability changes
   must **re-enroll**. (No auto-detection; re-enroll is the remedy.)
 - **Account-login, account-custody, and per-thread civic passkeys are distinct credentials.** A user
-  participating in a thread sees a prompt to create the thread passkey and a prompt **per civic action**.
-  Cross-device editing of an entity needs a **synced** thread passkey (else the second device is a
-  distinct author — see docs/08 §5.4). Cross-device sync of the fallback master is design-only.
+  participating in a thread sees a prompt to create the per-`(device, thread)` passkey and a prompt
+  **per civic action**. Under the mvp-a5b persona/signer split, **cross-device editing just works**
+  — every device signs as the same Pₜ, so a second device's signer can edit/delete entities the
+  first device created (no synced passkey required). Cross-device sync of the **fallback master**
+  (the PRF-unavailable IKM) is still design-only, and PRF-availability inconsistency between
+  devices remains a documented caveat for the per-(user, jurisdiction) nullifier root.
+
+- **Account recovery.** Recovery revokes the user's `thread_civic_credentials` rows (their device
+  signers) but **preserves** `thread_keys` + `thread_bindings`. Pₜ is the same after recovery; the
+  user re-authorizes per thread by enrolling a fresh device credential under the same Pₜ. Until
+  they do, that thread is silently read-only for their persona. Plan messaging accordingly.
 
 Production PRF hardening (largeBlob custody, broader fallback coverage) is tracked under
 [mvp-a3-browser-custody].

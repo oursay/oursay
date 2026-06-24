@@ -5,7 +5,7 @@ import { canRevokeSignature, canChangeVote } from "./governance.js";
 import { requiredSignScheme } from "./jurisdiction.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
-import { platformPublicKey, signNullifierAttestation } from "./identity/platform-binding.js";
+import { platformPublicKey, signNullifierAttestation, verifyCredentialAuth } from "./identity/platform-binding.js";
 import type { PublicChain } from "./ledger/chain.js";
 import type { PrivateStore, StoredTx } from "./private/store.js";
 import {
@@ -195,9 +195,11 @@ export class RecordService {
       }
     }
     if (scheme === "webauthn-es256") {
-      // The thread passkey IS the sole civic identity: author = the credential pubkey, no signer.
+      // mvp-a5b persona/signer split: authorPubkey = Pₜ (stable thread persona), signerPubkey =
+      // this device's per-thread WebAuthn passkey pubkey (REQUIRED — was forbidden on A5). The
+      // assertion is verified against signerPubkey via verifyWebauthnAssertion.
       if (!envelope.webauthn) throw new Error("appendSigned: a webauthn-es256 envelope requires a webauthn assertion");
-      if (envelope.signerPubkey) throw new Error("appendSigned: a webauthn-es256 envelope must not carry a signerPubkey");
+      if (!envelope.signerPubkey) throw new Error("appendSigned: a webauthn-es256 envelope requires a signerPubkey (device thread passkey pubkey)");
       if (envelope.signature) throw new Error("appendSigned: a webauthn-es256 envelope must leave signature empty (the sig lives in webauthn)");
     } else {
       if (envelope.webauthn) throw new Error("appendSigned: a p256 envelope must not carry a webauthn assertion");
@@ -233,13 +235,35 @@ export class RecordService {
     if (!tk) throw new Error("appendSigned: unknown thread key");
 
     if (scheme === "webauthn-es256") {
-      // Revoke enforcement (Option A): the thread passkey credential (credential_pubkey =
-      // authorPubkey) must be registered for this author and not revoked. This is the per-thread
-      // "revoke this credential" handle that replaces the device-signer revoke path.
-      const cred = await this.store.getThreadCredential(envelope.authorPubkey);
-      if (!cred) throw new Error("appendSigned: thread credential is not registered");
-      if (cred.revoked) throw new Error("appendSigned: thread credential is revoked");
-      if (cred.userId !== tk.userId) throw new Error("appendSigned: thread credential is not the author's");
+      // mvp-a5b persona/signer split: the device's signerPubkey must be a registered, non-revoked
+      // credential UNDER the same Pₜ that signed the envelope (FK persona_pubkey === authorPubkey),
+      // and bound to the same (user, thread) as Pₜ. Re-verify the platform credential_sig (defense
+      // in depth, same philosophy as binding_sig re-check) so a DB-modified row cannot escalate.
+      const signerPubkey = envelope.signerPubkey;
+      if (!signerPubkey) throw new Error("appendSigned: webauthn-es256 envelope is missing signerPubkey");
+      const cred = await this.store.getThreadCredential(signerPubkey);
+      if (!cred) throw new Error("appendSigned: device credential is not registered for this thread");
+      if (cred.revoked) throw new Error("appendSigned: device credential is revoked");
+      if (cred.personaPubkey !== envelope.authorPubkey) {
+        throw new Error("appendSigned: device credential's persona does not match authorPubkey");
+      }
+      if (cred.userId !== tk.userId) throw new Error("appendSigned: device credential is not the author's");
+      if (cred.threadId !== tk.threadId) throw new Error("appendSigned: device credential is not scoped to this thread");
+      const binding = await this.store.getThreadBinding(cred.personaPubkey);
+      if (!binding) throw new Error("appendSigned: thread persona binding not found");
+      const credentialAuthOk = verifyCredentialAuth(
+        {
+          domain: "credential-auth-v1",
+          personaPubkey: cred.personaPubkey,
+          credentialPubkey: signerPubkey,
+          threadId: cred.threadId,
+          jurisdiction: cred.jurisdiction,
+          commitment: binding.commitment,
+        },
+        cred.credentialSig,
+        this.platformPubKeyHex!,
+      );
+      if (!credentialAuthOk) throw new Error("appendSigned: device credential attestation failed to verify");
     } else if (envelope.signerPubkey) {
       // Device-signer authorization (Method 3 §5.4, legacy p256 path): when the envelope is signed by
       // a thread-scoped device key, that signer must belong to the SAME verified user as the persona

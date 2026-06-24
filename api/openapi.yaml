@@ -1457,8 +1457,8 @@ paths:
                   - error
   /v1/civic/threads/join:
     post:
-      summary: "Join a thread: bind account↔thread-key ownership (no KYC tier fixed at
-        join)"
+      summary: "Join a thread: register this device's signer under the stable thread
+        persona Pₜ"
       tags:
         - civic
       requestBody:
@@ -1474,23 +1474,43 @@ paths:
                 jurisdiction:
                   type: string
                   description: Jurisdiction id, e.g. ab-ca-gov.
-                personaPubkey:
+                signerPubkey:
                   type: string
-                  description: Thread passkey (author) pubkey, SEC1 P-256 hex — the sole civic
-                    identity.
+                  description: This device's per-thread WebAuthn passkey pubkey (envelope
+                    signerPubkey), SEC1 P-256 hex. The server is the authority
+                    on Pₜ — first device wins, subsequent devices receive the
+                    same Pₜ in the response.
                 commitment:
                   type: string
                   description: Opaque binding commitment (sha256 hex); opening stays client-side.
+                    Must match the previously-bound commitment on a
+                    returning-device join.
               required:
                 - threadId
                 - jurisdiction
-                - personaPubkey
+                - signerPubkey
                 - commitment
               additionalProperties: false
       security: *a1
       responses:
-        "204":
-          description: Default Response
+        "200":
+          description: The canonical thread persona pubkey Pₜ for the caller's (user,
+            thread). Always returned by join.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The canonical thread persona pubkey Pₜ for the caller's (user,
+                  thread). Always returned by join.
+                properties:
+                  personaPubkey:
+                    type: string
+                    description: Stable thread persona pubkey Pₜ (envelope authorPubkey) — first
+                      device's signer wins; subsequent devices receive the same
+                      Pₜ.
+                required:
+                  - personaPubkey
+                additionalProperties: false
         "400":
           description: Default Response
           content:

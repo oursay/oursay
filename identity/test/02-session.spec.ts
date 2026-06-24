@@ -1,6 +1,9 @@
-// IdentitySession (no DB): the per-thread WebAuthn path. buildSigned produces an author = thread
-// passkey pubkey, signScheme = webauthn-es256 envelope (with a webauthn assertion) that verifies, and
-// nullifier derivation still agrees with public-record over the per-jurisdiction nullifier root.
+// IdentitySession (no DB): the per-(device, thread) WebAuthn path under the mvp-a5b persona/signer
+// split. buildSigned produces a webauthn-es256 envelope whose `signerPubkey` is THIS device's
+// thread passkey pubkey and whose `authorPubkey` is the stable thread persona Pₜ (here equal to
+// the signer because no server is involved — we simulate the first-join Pₜ assignment via
+// `rememberPersona`). Nullifier derivation still agrees with public-record over the
+// per-jurisdiction nullifier root.
 import { expect } from "chai";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -23,16 +26,26 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
     const c = new DevPasskeyConnector({ rootDir: tmp(), seed: "sess" });
     await c.enrollDevice({ userId: "u1", deviceId: "d1" });
     const unlocked = await c.unlock({ userId: "u1", deviceId: "d1" });
-    return { unlocked, sess: new IdentitySession(unlocked) };
+    const sess = new IdentitySession(unlocked);
+    // simulate first-device join: the local signer becomes Pₜ
+    const signer = await sess.signingPubkey(thread);
+    sess.rememberPersona(thread, signer);
+    return { unlocked, sess };
   }
 
-  it("authorPubkey is the thread passkey pubkey, created once and stable", async () => {
-    const { unlocked, sess } = await session();
-    expect(unlocked.threadCredentialPubkey(thread.threadId)).to.equal(null); // not created yet
-    const author = await sess.authorPubkey(thread);
-    expect(author).to.match(/^0[23][0-9a-f]{64}$/); // compressed SEC1 P-256
-    expect(await sess.authorPubkey(thread)).to.equal(author); // idempotent
-    expect(unlocked.threadCredentialPubkey(thread.threadId)).to.equal(author);
+  it("signingPubkey is the per-(device, thread) passkey pubkey, created once and stable", async () => {
+    const c = new DevPasskeyConnector({ rootDir: tmp(), seed: "sess2" });
+    await c.enrollDevice({ userId: "u1", deviceId: "d1" });
+    const unlocked = await c.unlock({ userId: "u1", deviceId: "d1" });
+    const sess = new IdentitySession(unlocked);
+    expect(unlocked.threadSigningPubkey(thread.threadId)).to.equal(null); // not created yet
+    const signer = await sess.signingPubkey(thread);
+    expect(signer).to.match(/^0[23][0-9a-f]{64}$/); // compressed SEC1 P-256
+    expect(await sess.signingPubkey(thread)).to.equal(signer); // idempotent
+    expect(unlocked.threadSigningPubkey(thread.threadId)).to.equal(signer);
+    expect(unlocked.threadPersonaPubkey(thread.threadId)).to.equal(null); // Pₜ not yet remembered
+    sess.rememberPersona(thread, signer); // simulate first-device join: Pₜ = this device's signer
+    expect(sess.personaPubkey(thread)).to.equal(signer);
   });
 
   it("nullifier matches threadNullifier over the per-jurisdiction nullifier root", async () => {
@@ -41,15 +54,15 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
     expect(sess.nullifier(thread, "poll-9")).to.equal(expected);
   });
 
-  it("buildSigned: author = thread passkey, signScheme = webauthn-es256, and it verifies", async () => {
+  it("buildSigned: authorPubkey = Pₜ, signerPubkey = device passkey, signScheme = webauthn-es256, verifies", async () => {
     const { sess } = await session();
     const entityId = randomUUID();
     const intent: CreateIntent = { op: "create", type: "post", entityId, content: { body: "v1" } };
     const prep: PreparedAppend = { prevHash: null, rootEntityId: entityId };
     const { envelope } = await sess.buildSigned(thread, prep, intent);
-    expect(envelope.authorPubkey).to.equal(await sess.authorPubkey(thread));
+    expect(envelope.authorPubkey).to.equal(sess.personaPubkey(thread));
+    expect(envelope.signerPubkey).to.equal(await sess.signingPubkey(thread));
     expect(envelope.signScheme).to.equal("webauthn-es256");
-    expect(envelope.signerPubkey).to.equal(undefined);
     expect(envelope.signature).to.equal("");
     expect(envelope.webauthn).to.be.an("object");
     expect(verifyEnvelope(envelope)).to.equal(true);
@@ -65,5 +78,19 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
     const { envelope } = await sess.buildSigned(thread, prep, intent);
     expect(envelope.nullifier).to.equal(sess.nullifier(thread, parentId));
     expect(verifyEnvelope(envelope)).to.equal(true);
+  });
+
+  it("buildSigned throws if rememberPersona has not been called for this thread", async () => {
+    const c = new DevPasskeyConnector({ rootDir: tmp(), seed: "sess3" });
+    await c.enrollDevice({ userId: "u1", deviceId: "d1" });
+    const unlocked = await c.unlock({ userId: "u1", deviceId: "d1" });
+    const sess = new IdentitySession(unlocked);
+    await sess.signingPubkey(thread); // creates local credential, but no Pₜ yet
+    const entityId = randomUUID();
+    const intent: CreateIntent = { op: "create", type: "post", entityId, content: { body: "v1" } };
+    const prep: PreparedAppend = { prevHash: null, rootEntityId: entityId };
+    let err: unknown;
+    try { await sess.buildSigned(thread, prep, intent); } catch (e) { err = e; }
+    expect((err as Error)?.message ?? "").to.match(/persona|join/i);
   });
 });

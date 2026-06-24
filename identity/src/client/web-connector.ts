@@ -149,21 +149,32 @@ export class WebPasskeyConnector implements PasskeyConnector {
       nullifierRoot: (jurisdiction: string) => root32(root, "oursay/web/nullifier-root", jurisdiction),
       createThreadCredential: (a) => this.createThreadCredentialFor(o.userId, a.threadId),
       assertThread: (a) => this.assertThreadFor(o.userId, a.threadId, a.challenge),
-      threadCredentialPubkey: (threadId) => this.threadStore.get(o.userId, threadId)?.authorPubkey ?? null,
+      threadSigningPubkey: (threadId) => this.threadStore.get(o.userId, threadId)?.signingPubkey ?? null,
+      threadPersonaPubkey: (threadId) => {
+        const rec = this.threadStore.get(o.userId, threadId);
+        return rec && rec.personaPubkey ? rec.personaPubkey : null;
+      },
+      setThreadPersona: (threadId, personaPubkey) => {
+        const rec = this.threadStore.get(o.userId, threadId);
+        if (!rec) throw new Error(`setThreadPersona: no local credential for ${o.userId}/${threadId}; create one first`);
+        this.threadStore.set(o.userId, threadId, { ...rec, personaPubkey });
+      },
     };
   }
 
-  // ── Per-thread WebAuthn civic credential (Option A, §5.4) ────────────────────────────────────
+  // ── Per-(device, thread) WebAuthn civic credential (mvp-a5b persona/signer split, §5.4) ──────
 
   /**
-   * Create (once) this thread's passkey credential and return its PUBLIC key (the envelope author).
-   * UV + resident key required. The credential's P-256 pubkey is read from the attestation SPKI and
-   * recorded with its credential id in the ThreadPasskeyStore; the private key never leaves the
-   * authenticator. Idempotent: a second call returns the stored pubkey without a new ceremony.
+   * Create (once) this device's thread passkey credential and return its PUBLIC key — the envelope's
+   * `signerPubkey`. UV + resident key required. The credential's P-256 pubkey is read from the
+   * attestation SPKI and recorded with its credential id in the ThreadPasskeyStore; the private key
+   * never leaves the authenticator. Idempotent: a second call returns the stored pubkey without a
+   * new ceremony. The stable thread persona Pₜ (envelope `authorPubkey`) is populated separately by
+   * IdentitySession after the server `join` response.
    */
-  private async createThreadCredentialFor(userId: string, threadId: string): Promise<{ authorPubkey: string }> {
+  private async createThreadCredentialFor(userId: string, threadId: string): Promise<{ signingPubkey: string }> {
     const existing = this.threadStore.get(userId, threadId);
-    if (existing) return { authorPubkey: existing.authorPubkey };
+    if (existing) return { signingPubkey: existing.signingPubkey };
     const userHandle = sha256(utf8ToBytes(`${userId}:thread:${threadId}`));
     const cred = (await navigator.credentials.create({
       publicKey: {
@@ -180,9 +191,10 @@ export class WebPasskeyConnector implements PasskeyConnector {
     if (resp.getPublicKeyAlgorithm?.() !== -7) throw new Error("thread passkey did not use ES256/P-256 (alg -7)");
     const spki = resp.getPublicKey?.();
     if (!spki) throw new Error("thread passkey: authenticator did not expose a public key");
-    const authorPubkey = spkiToCompressedSec1(new Uint8Array(spki));
-    this.threadStore.set(userId, threadId, { credentialIdHex: bytesToHex(new Uint8Array(cred.rawId)), authorPubkey });
-    return { authorPubkey };
+    const signingPubkey = spkiToCompressedSec1(new Uint8Array(spki));
+    // personaPubkey is populated by IdentitySession AFTER the server join response returns Pₜ.
+    this.threadStore.set(userId, threadId, { credentialIdHex: bytesToHex(new Uint8Array(cred.rawId)), signingPubkey, personaPubkey: "" });
+    return { signingPubkey };
   }
 
   /** A user-verifying assertion for this thread's credential over `challenge` (= signingDigest). */

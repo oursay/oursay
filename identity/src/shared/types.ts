@@ -63,23 +63,38 @@ export interface DeviceEnrollment {
 }
 
 /**
- * Client → server: join a thread. Carries only PUBLIC material — the thread passkey pubkey
- * (`personaPubkey`, the envelope author under Option A) and the opaque commitment (the opening stays
- * client-side until selective reveal). The server signs the binding and writes `thread_keys` +
- * `thread_bindings` + the per-thread civic credential row (revoke handle). No device/signer pubkey:
- * the thread passkey is the sole civic identity (docs/08 §5.4).
+ * Client → server: join a thread (mvp-a5b persona/signer split, docs/08 §5.4 rule 6). The caller
+ * sends THIS device's per-thread WebAuthn passkey pubkey as `signerPubkey`; the server is the
+ * authority on whether it becomes Pₜ (first join wins) or is enrolled as an additional signer
+ * under an existing Pₜ for `(user, thread)`. Only PUBLIC material crosses the wire (the device
+ * pubkey + opaque commitment; the opening stays client-side until selective reveal).
  *
- * A join proves account↔thread-key OWNERSHIP only. `kycTier` is OPTIONAL and not part of the HTTP
- * join path: verification tier and district membership are applied at read/count time, not fixed at
- * registration. Omit it to bind ownership without a tier.
+ * Server behaviour:
+ *   • First join for `(user, thread)` — `signerPubkey` is adopted as Pₜ, the platform binding row
+ *     is minted under it, and a `thread_civic_credentials` row is written for this signer.
+ *   • Subsequent join — Pₜ already exists; the incoming `commitment` must match the bound one
+ *     (a different opening is rejected); a new `thread_civic_credentials` row is written for the
+ *     new device's signer under that same Pₜ.
+ * Response always returns the canonical Pₜ as `personaPubkey` (the envelope's `authorPubkey`).
+ *
+ * A join proves account↔thread-persona OWNERSHIP only. `kycTier` is OPTIONAL and not part of the
+ * HTTP join path: verification tier and district membership are applied at read/count time, not
+ * fixed at registration. Omit it to bind ownership without a tier.
  */
 export interface ThreadRegistration {
   userId: string;
   threadId: string;
   jurisdiction: string;
-  personaPubkey: string;
+  /** This device's per-thread WebAuthn passkey pubkey (envelope `signerPubkey`). */
+  signerPubkey: string;
   commitment: string;
   kycTier?: string;
+}
+
+/** Server → client response from `joinThread`. Always carries the canonical thread persona Pₜ. */
+export interface JoinThreadResponse {
+  /** Stable thread persona pubkey Pₜ for this `(user, thread)` — the envelope's `authorPubkey`. */
+  personaPubkey: string;
 }
 
 export type { Op, RecordType, TxEnvelope };

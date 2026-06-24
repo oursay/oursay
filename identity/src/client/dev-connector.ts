@@ -75,8 +75,12 @@ interface ThreadCredFile {
   threadId: string;
   /** The simulated per-(device, thread) WebAuthn credential private scalar (hex). */
   credentialPrivHex: string;
-  /** Its compressed SEC1 P-256 pubkey (hex) — the envelope author. */
-  authorPubkey: string;
+  /** Its compressed SEC1 P-256 pubkey (hex) — the envelope's `signerPubkey` under the mvp-a5b
+   *  persona/signer split. */
+  signingPubkey: string;
+  /** The stable thread persona pubkey Pₜ returned by the server `join` response — the envelope's
+   *  `authorPubkey`. Empty until IdentitySession persists it after join. */
+  personaPubkey?: string;
 }
 
 export interface DevPasskeyOptions {
@@ -132,25 +136,36 @@ export class DevPasskeyConnector implements PasskeyConnector {
       nullifierRoot: (jurisdiction: string) => root32(userRoot, "oursay/dev/nullifier-root", jurisdiction),
       createThreadCredential: async (a) => this.createThreadCredentialFor(o.userId, o.deviceId, a.threadId),
       assertThread: async (a) => this.assertThreadFor(o.userId, o.deviceId, a.threadId, a.challenge),
-      threadCredentialPubkey: (threadId) => this.readThreadCredOrNull(o.userId, o.deviceId, threadId)?.authorPubkey ?? null,
+      threadSigningPubkey: (threadId) => this.readThreadCredOrNull(o.userId, o.deviceId, threadId)?.signingPubkey ?? null,
+      threadPersonaPubkey: (threadId) => {
+        const rec = this.readThreadCredOrNull(o.userId, o.deviceId, threadId);
+        return rec && rec.personaPubkey ? rec.personaPubkey : null;
+      },
+      setThreadPersona: (threadId, personaPubkey) => {
+        const rec = this.readThreadCredOrNull(o.userId, o.deviceId, threadId);
+        if (!rec) throw new Error(`setThreadPersona: no local credential for ${o.userId}/${o.deviceId}/${threadId}; create one first`);
+        this.writeJson(this.threadCredPath(o.userId, o.deviceId, threadId), { ...rec, personaPubkey });
+      },
     };
   }
 
-  // ── Per-thread simulated WebAuthn civic credential (Option A, §5.4) ──────────────────────────
+  // ── Per-(device, thread) simulated WebAuthn civic credential (mvp-a5b persona/signer split) ──
 
   /**
-   * Create (once) this (device, thread)'s simulated passkey credential — a deterministic P-256 keypair
-   * derived from the device root — and return its PUBLIC key (the envelope author). Idempotent.
+   * Create (once) this (device, thread)'s simulated passkey credential — a deterministic P-256
+   * keypair derived from the device root — and return its PUBLIC key (the envelope's
+   * `signerPubkey`). Idempotent. The stable thread persona Pₜ (envelope `authorPubkey`) is
+   * populated separately by IdentitySession after the server `join` response.
    */
-  private createThreadCredentialFor(userId: string, deviceId: string, threadId: string): { authorPubkey: string } {
+  private createThreadCredentialFor(userId: string, deviceId: string, threadId: string): { signingPubkey: string } {
     const existing = this.readThreadCredOrNull(userId, deviceId, threadId);
-    if (existing) return { authorPubkey: existing.authorPubkey };
+    if (existing) return { signingPubkey: existing.signingPubkey };
     const deviceRoot = hexToBytes(this.readDevice(userId, deviceId).deviceRootHex);
     const priv = p256PrivFrom(deviceRoot, `thread-cred|${threadId}`);
-    const authorPubkey = credentialPubkeyHex(priv);
-    const file: ThreadCredFile = { threadId, credentialPrivHex: bytesToHex(priv), authorPubkey };
+    const signingPubkey = credentialPubkeyHex(priv);
+    const file: ThreadCredFile = { threadId, credentialPrivHex: bytesToHex(priv), signingPubkey };
     this.writeJson(this.threadCredPath(userId, deviceId, threadId), file);
-    return { authorPubkey };
+    return { signingPubkey };
   }
 
   /** A simulated user-verifying assertion over `challenge` (= signingDigest) via the shared builder. */

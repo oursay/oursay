@@ -85,28 +85,31 @@ CREATE TABLE IF NOT EXISTS jurisdiction_master_keys (
   PRIMARY KEY (user_id, jurisdiction)
 );
 
--- thread_keys / thread_bindings / thread_signers are reshaped (level → jurisdiction; dropped
--- thread_bindings.region). They carry no durable production data yet, so DROP+CREATE keeps the
--- shape deterministic across a reused dev volume. level_master_keys was renamed to
--- jurisdiction_master_keys (created fresh above); drop the legacy table if it lingers.
+-- thread_keys / thread_bindings / thread_signers / thread_civic_credentials are reshaped (level →
+-- jurisdiction; dropped thread_bindings.region; persona/signer split under WebAuthn — mvp-a5b).
+-- They carry no durable production data yet, so DROP+CREATE keeps the shape deterministic across a
+-- reused dev volume. level_master_keys was renamed to jurisdiction_master_keys (created fresh above);
+-- drop the legacy table if it lingers.
+DROP TABLE IF EXISTS thread_civic_credentials CASCADE;
 DROP TABLE IF EXISTS thread_signers CASCADE;
 DROP TABLE IF EXISTS thread_bindings CASCADE;
 DROP TABLE IF EXISTS thread_keys CASCADE;
 DROP TABLE IF EXISTS level_master_keys CASCADE;
 
--- Per-thread public keys. pubkey is the public author identity that appears in the envelope. Under
--- Option A (docs/08 §5.4) each of the user's DEVICES that joins a thread registers its own per-thread
--- WebAuthn passkey pubkey, so a (user, thread) may have SEVERAL keys (one per device) — they are
--- distinct authors, and the per-(user) nullifier dedupes singletons across them. Only pubkey is
--- globally unique; there is intentionally NO UNIQUE(user_id, thread_id).
+-- Per-thread persona key Pₜ. pubkey is the stable PUBLIC author identity that appears on EVERY
+-- envelope this user writes in this thread (one row per (user, thread); first-wins on join). Under
+-- the persona/signer split (mvp-a5b, docs/08 §5.4 Method 3 on WebAuthn) each of the user's devices
+-- enrolls its OWN per-thread WebAuthn credential as a signer in thread_civic_credentials, but they
+-- all share this single Pₜ as authorPubkey. UNIQUE(user_id, thread_id) enforces first-wins at the DB.
 CREATE TABLE thread_keys (
   id           UUID PRIMARY KEY,
   user_id      UUID NOT NULL REFERENCES users(id),
   thread_id    TEXT NOT NULL,
   jurisdiction TEXT NOT NULL,
-  pubkey       TEXT NOT NULL UNIQUE,          -- compressed SEC1 P-256, hex
+  pubkey       TEXT NOT NULL UNIQUE,          -- compressed SEC1 P-256 (Pₜ), hex
   claimed    BOOLEAN NOT NULL DEFAULT false,  -- user has publicly claimed this thread (R8; future)
-  claimed_at TIMESTAMPTZ                      -- nullable; claim may be undone (R9; future)
+  claimed_at TIMESTAMPTZ,                     -- nullable; claim may be undone (R9; future)
+  UNIQUE (user_id, thread_id)
 );
 CREATE INDEX IF NOT EXISTS thread_keys_pubkey ON thread_keys (pubkey);
 CREATE INDEX IF NOT EXISTS thread_keys_user_thread ON thread_keys (user_id, thread_id);
@@ -162,20 +165,28 @@ CREATE TABLE IF NOT EXISTS thread_signers (
 );
 CREATE INDEX IF NOT EXISTS thread_signers_user_thread ON thread_signers (user_id, thread_id);
 
--- Per-thread WebAuthn civic credentials (Option A, docs/08 §5.4). PRIVATE. Under the per-thread
--- passkey model the thread credential's PUBLIC key IS the envelope author (authorPubkey) — there is
--- no separate device signer. This table is the revoke handle: credential_pubkey = author_pubkey, and
--- appendSigned (webauthn-es256 path) rejects an author whose credential is missing or revoked. No
--- device FK (the credential is the per-(device,thread) anchor itself), unlike thread_signers.
-CREATE TABLE IF NOT EXISTS thread_civic_credentials (
-  credential_pubkey TEXT PRIMARY KEY,             -- = author_pubkey; compressed SEC1 P-256, hex
+-- Per-thread WebAuthn civic credentials (mvp-a5b persona/signer split, docs/08 §5.4 rule 6).
+-- PRIVATE. One row per DEVICE enrolment under a stable thread persona Pₜ. credential_pubkey is the
+-- device's per-thread WebAuthn passkey pubkey — this is the envelope's signerPubkey. persona_pubkey
+-- FKs into thread_keys.pubkey (= Pₜ) and is the envelope's authorPubkey. credential_sig is the
+-- platform's P-256 attestation over (domain, Pₜ, credentialPubkey, thread_id, jurisdiction,
+-- commitment) — bound at join, re-verified on every appendSigned (same philosophy as binding_sig).
+-- Multiple rows per (user_id, thread_id) — one per enrolled device. appendSigned (webauthn-es256
+-- path) accepts a submission when:
+--   getThreadCredential(env.signerPubkey).persona_pubkey === env.authorPubkey
+--   AND not revoked AND credential_sig re-verifies against the same fields.
+CREATE TABLE thread_civic_credentials (
+  credential_pubkey TEXT PRIMARY KEY,             -- = signerPubkey; compressed SEC1 P-256, hex
+  persona_pubkey    TEXT NOT NULL REFERENCES thread_keys(pubkey),  -- = Pₜ (authorPubkey on the envelope)
   user_id           UUID NOT NULL REFERENCES users(id),
   thread_id         TEXT NOT NULL,
   jurisdiction      TEXT NOT NULL,
+  credential_sig    TEXT NOT NULL,                -- platform signCredentialAuth over the binding
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  revoked_at        TIMESTAMPTZ                    -- nullable; revoke this thread credential
+  revoked_at        TIMESTAMPTZ                   -- nullable; revoke this device's credential
 );
 CREATE INDEX IF NOT EXISTS thread_civic_credentials_user_thread ON thread_civic_credentials (user_id, thread_id);
+CREATE INDEX IF NOT EXISTS thread_civic_credentials_persona ON thread_civic_credentials (persona_pubkey);
 
 -- KYC attestation STUB (tier carrier only; no provider integration this phase).
 CREATE TABLE IF NOT EXISTS kyc_attestations (

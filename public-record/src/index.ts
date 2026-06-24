@@ -96,6 +96,8 @@ export type { ThreadBindingInputs, ThreadBindingPublic, ThreadBindingOpening, Bu
 // Server-side binding (platform signs/verifies the registration binding).
 export { signBinding, verifyBinding, bindingDigest, platformPublicKey } from "./identity/platform-binding.js";
 export { signNullifierAttestation, verifyNullifierAttestation, nullifierAttestationDigest } from "./identity/platform-binding.js";
+export { signCredentialAuth, verifyCredentialAuth, credentialAuthDigest } from "./identity/platform-binding.js";
+export type { CredentialAuthPayload } from "./identity/platform-binding.js";
 export { verifyThreadBinding, bindingFromRow } from "./identity/verify.js";
 
 // Schema / model

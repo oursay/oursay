@@ -10,8 +10,12 @@
 export interface ThreadCredentialRecord {
   /** The WebAuthn credential id (rawId) as hex — pins `allowCredentials` on assertion. */
   credentialIdHex: string;
-  /** The credential's compressed SEC1 P-256 public key (hex) — the envelope author. */
-  authorPubkey: string;
+  /** This device's per-thread WebAuthn passkey pubkey (compressed SEC1 P-256, hex) — the envelope's
+   *  `signerPubkey` under the mvp-a5b persona/signer split (docs/08 §5.4 rule 6). */
+  signingPubkey: string;
+  /** Stable thread persona pubkey Pₜ returned by the server `join` response — the envelope's
+   *  `authorPubkey` for THIS user+thread on every append from every enrolled device. */
+  personaPubkey: string;
 }
 
 /** Minimal key/value backend (localStorage in the browser; a Map in tests). */

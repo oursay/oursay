@@ -1,7 +1,10 @@
 // End-to-end against REAL public-record (Docker Postgres + immudb): the full identity path through
-// DevPasskeyConnector + IdentitySession (client) and IdentityRegistry (server) on the per-thread
-// WebAuthn (Option A) path. Each device has its OWN thread passkey, so two devices are two distinct
-// authors in a thread (the documented cross-device tradeoff); the per-(user) nullifier still dedupes
+// DevPasskeyConnector + IdentitySession (client) and IdentityRegistry (server) on the mvp-a5b
+// persona/signer-split WebAuthn path. Each device has its OWN per-thread WebAuthn passkey
+// (`signerPubkey` on every envelope it signs), but ALL of one user's devices share a STABLE thread
+// persona Pₜ (`authorPubkey`) — established first-wins at join. That means cross-device edit just
+// works: device B can update/delete an entity device A created, because both envelopes carry the
+// same Pₜ and `validateUpdate` is a strict pubkey match. The per-(user) nullifier still dedupes
 // singletons across the user's devices. Requires `npm run db:up --workspace public-record` and
 // `OURSAY_DEV_PASSKEY=1`.
 import { expect } from "chai";
@@ -29,7 +32,7 @@ import type { Intent, ThreadRef } from "../src/shared/types.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 
-describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-record (Option A)", () => {
+describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-record (mvp-a5b)", () => {
   const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
   const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
@@ -42,7 +45,8 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
   let devDir: string;
   let userId: string;
 
-  // sessions for two devices of the same user (each gets its OWN per-thread passkey)
+  // sessions for two devices of the same user (each gets its OWN per-thread passkey ⇒ distinct
+  // signerPubkeys; the SAME Pₜ on every envelope because join is first-wins per (user, thread)).
   let sessA: IdentitySession;
   let sessB: IdentitySession;
 
@@ -71,22 +75,25 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     sessB = new IdentitySession(await passkey.unlock({ userId, deviceId: "B" }));
   });
 
-  /** Join a thread from a device session: create its thread passkey + register the binding/credential. */
-  async function joinAs(sess: IdentitySession, t: ThreadRef) {
+  /** Join from a device: ensure persona Pₜ + register THIS device's signer credential. Persists the
+   *  server-returned Pₜ onto the session before any prepare/submit (envelopes need authorPubkey=Pₜ). */
+  async function joinAs(sess: IdentitySession, t: ThreadRef): Promise<string> {
     const { binding } = await sess.bindingInputs(t, { kycTier });
-    await registry.joinThread({
+    const resp = await registry.joinThread({
       userId,
       threadId: t.threadId,
       jurisdiction: t.jurisdiction,
-      personaPubkey: binding.thread_pubkey,
+      signerPubkey: binding.thread_pubkey,
       commitment: binding.commitment,
       kycTier,
     });
+    sess.rememberPersona(t, resp.personaPubkey);
+    return resp.personaPubkey;
   }
 
-  /** prepare → WebAuthn-sign → submit. */
+  /** prepare (authored as Pₜ) → WebAuthn-sign (this device's signer) → submit. */
   async function act(sess: IdentitySession, t: ThreadRef, intent: Intent) {
-    const author = await sess.authorPubkey(t);
+    const author = sess.personaPubkey(t);
     const prep = await registry.prepare(intent, author);
     return registry.submit(await sess.buildSigned(t, prep, intent));
   }
@@ -100,47 +107,83 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     }
   }
 
-  it("join writes thread_keys + thread_bindings + the per-thread civic credential; devices are distinct authors", async () => {
+  it("join: first device establishes Pₜ; second device receives the SAME Pₜ and gets its own signer row", async () => {
     const postId = randomUUID();
     const t: ThreadRef = { threadId: postId, jurisdiction };
-    await joinAs(sessA, t);
-    await joinAs(sessB, t);
+    const personaFromA = await joinAs(sessA, t);
+    const personaFromB = await joinAs(sessB, t);
+    expect(personaFromB).to.equal(personaFromA); // first-wins per (user, thread)
 
-    const authorA = await sessA.authorPubkey(t);
-    const authorB = await sessB.authorPubkey(t);
-    expect(authorA).to.not.equal(authorB); // Option A: one credential per (device, thread)
+    const signerA = await sessA.signingPubkey(t);
+    const signerB = await sessB.signingPubkey(t);
+    expect(signerA).to.not.equal(signerB); // distinct devices = distinct signers
 
-    const tk = await store!.getThreadKey(authorA);
+    // thread_keys: one row for the persona Pₜ
+    const tk = await store!.getThreadKey(personaFromA);
     expect(tk?.threadId).to.equal(postId);
-    expect(await store!.getThreadBinding(authorA)).to.not.equal(null);
-    const cred = await store!.getThreadCredential(authorA);
-    expect(cred?.userId).to.equal(userId);
-    expect(cred?.revoked).to.equal(false);
+    expect(tk?.userId).to.equal(userId);
+    expect(await store!.getThreadBinding(personaFromA)).to.not.equal(null);
+
+    // thread_civic_credentials: a row per device signer, both under Pₜ
+    const credA = await store!.getThreadCredential(signerA);
+    const credB = await store!.getThreadCredential(signerB);
+    expect(credA?.personaPubkey).to.equal(personaFromA);
+    expect(credB?.personaPubkey).to.equal(personaFromA);
+    expect(credA?.userId).to.equal(userId);
+    expect(credB?.userId).to.equal(userId);
+    expect(credA?.revoked).to.equal(false);
+    expect(credB?.revoked).to.equal(false);
   });
 
-  it("device A creates a post; device B (a distinct passkey) cannot edit A's post, but can post its own", async () => {
+  it("cross-device edit: device B edits device A's post (same Pₜ, different signerPubkey)", async () => {
     const postId = randomUUID();
     const t: ThreadRef = { threadId: postId, jurisdiction };
-    await joinAs(sessA, t);
+    const personaPubkey = await joinAs(sessA, t);
     await joinAs(sessB, t);
 
-    const ref = await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1" } });
+    const ref = await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1 from A" } });
     const head = (await store!.getHeadTx(postId))!;
     const env = JSON.parse(head.envelope) as TxEnvelope;
     expect(env.signScheme).to.equal("webauthn-es256");
-    expect(env.signerPubkey).to.equal(undefined);
-    expect(head.authorPubkey).to.equal(await sessA.authorPubkey(t));
+    expect(env.authorPubkey).to.equal(personaPubkey);
+    expect(env.signerPubkey).to.equal(await sessA.signingPubkey(t));
 
-    // phone B edits phone A's post → rejected: different thread passkey ⇒ different author.
-    expect(await rejects(act(sessB, t, { op: "update", type: "post", entityId: postId, content: { body: "from B" } }))).to.equal(true);
-    // phone B can still author its own comment.
-    await act(sessB, t, { op: "create", type: "comment", entityId: randomUUID(), parent: { type: "post", id: postId }, content: { body: "B's comment" } });
+    // Device B updates A's post → ACCEPTED (cross-device edit under stable Pₜ).
+    await act(sessB, t, { op: "update", type: "post", entityId: postId, content: { body: "v2 from B" } });
+    const head2 = (await store!.getHeadTx(postId))!;
+    const env2 = JSON.parse(head2.envelope) as TxEnvelope;
+    expect(env2.authorPubkey).to.equal(personaPubkey);
+    expect(env2.signerPubkey).to.equal(await sessB.signingPubkey(t));
+    expect(head2.authorPubkey).to.equal(personaPubkey);
+
+    const state = await store!.getEntityStatePublic(postId);
+    expect(state?.content).to.deep.equal({ body: "v2 from B" });
 
     await settler.flushPendingSettlement();
     expect((await connector!.verifyRow(ref.txId)).verified).to.equal(true);
   });
 
-  it("vote: A votes; A cannot vote twice, and B's vote on the same poll is rejected (per-user nullifier)", async () => {
+  it("revoked signer cannot append, but a sibling signer under the same Pₜ still can", async () => {
+    const postId = randomUUID();
+    const t: ThreadRef = { threadId: postId, jurisdiction };
+    await joinAs(sessA, t);
+    await joinAs(sessB, t);
+    await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1" } });
+
+    // Revoke device A's signer → A can no longer append.
+    const signerA = await sessA.signingPubkey(t);
+    await store!.revokeThreadCredential(signerA);
+    expect(
+      await rejects(act(sessA, t, { op: "update", type: "post", entityId: postId, content: { body: "v2 from A" } })),
+    ).to.equal(true);
+
+    // Device B (not revoked, same Pₜ) can still edit the post.
+    await act(sessB, t, { op: "update", type: "post", entityId: postId, content: { body: "v2 from B" } });
+    const state = await store!.getEntityStatePublic(postId);
+    expect(state?.content).to.deep.equal({ body: "v2 from B" });
+  });
+
+  it("vote: A votes; A cannot vote twice, and B's vote on the same poll is rejected (per-user nullifier holds cross-device)", async () => {
     const pollId = randomUUID();
     const t: ThreadRef = { threadId: pollId, jurisdiction };
     await joinAs(sessA, t);
@@ -153,7 +196,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     await act(sessA, t, { op: "update", type: "vote", entityId: voteId, content: { option: "no" } });
     // A casts a NEW vote ⇒ A's nullifier already active ⇒ rejected.
     expect(await rejects(act(sessA, t, { op: "create", type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "yes" } }))).to.equal(true);
-    // B (distinct passkey, SAME user) votes on the same poll ⇒ the user's nullifier is active ⇒ rejected.
+    // B (distinct signer, SAME user, SAME Pₜ) votes on the same poll ⇒ shared nullifier root ⇒ rejected.
     expect(await rejects(act(sessB, t, { op: "create", type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "yes" } }))).to.equal(true);
 
     await settler.flushPendingSettlement();
@@ -169,7 +212,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
 
     // Build a valid submission, then strip the webauthn assertion → must be rejected.
     const intent: Intent = { op: "create", type: "comment", entityId: randomUUID(), parent: { type: "post", id: postId }, content: { body: "x" } };
-    const prep = await registry.prepare(intent, await sessA.authorPubkey(t));
+    const prep = await registry.prepare(intent, sessA.personaPubkey(t));
     const good = await sessA.buildSigned(t, prep, intent);
     const { webauthn, ...envNoWa } = good.envelope;
     void webauthn;

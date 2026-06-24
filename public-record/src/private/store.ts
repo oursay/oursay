@@ -441,16 +441,16 @@ export class PrivateStore {
   }
 
   /**
-   * Register a per-thread key and its private platform binding in ONE transaction (verified-tier
-   * pre-registration). The binding carries the opaque commitment + the platform's signature; it is
-   * never published. Upserts so a re-registration of the same thread key is idempotent.
+   * Low-level: write a thread key + platform binding for a known `(user, thread)` in ONE transaction.
+   * Idempotent on `(user_id, thread_id)` AND on `thread_pubkey` (no-op when both already match). The
+   * persona/signer-split entry point is {@link ensureThreadPersona}, which adds first-wins commitment
+   * validation; this helper preserves the legacy p256-test flow where each user has one thread key.
    */
   async registerThreadBinding(input: {
     threadPubkey: string;
     userId: string;
     threadId: string;
     jurisdiction: string;
-    /** Optional — omitted (null) when ownership is bound without fixing a tier at join. */
     kycTier?: string | null;
     commitment: string;
     bindingSig: string;
@@ -460,7 +460,7 @@ export class PrivateStore {
       await client.query("BEGIN");
       await client.query(
         `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
-         ON CONFLICT (pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction`,
+         ON CONFLICT (user_id, thread_id) DO NOTHING`,
         [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.threadPubkey],
       );
       await client.query(
@@ -472,6 +472,94 @@ export class PrivateStore {
         [input.threadPubkey, input.threadId, input.jurisdiction, input.kycTier ?? null, input.commitment, input.bindingSig],
       );
       await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Ensure the per-thread persona Pₜ exists for `(userId, threadId)` and return its canonical pubkey
+   * (mvp-a5b persona/signer split, docs/08 §5.4 rule 6). FIRST device join inserts the new persona
+   * row PLUS the platform binding in ONE transaction. SUBSEQUENT device joins reuse the existing Pₜ
+   * and VALIDATE that the incoming `commitment` matches the binding already stored under Pₜ —
+   * preventing a second device from claiming a different opening under the same persona. The
+   * `proposedPubkey` is the calling device's signer pubkey (offered as Pₜ candidate); the returned
+   * pubkey is the canonical Pₜ for this `(user, thread)`.
+   */
+  async ensureThreadPersona(input: {
+    userId: string;
+    threadId: string;
+    jurisdiction: string;
+    proposedPubkey: string;
+    commitment: string;
+    /** Optional — omitted (null) when ownership is bound without fixing a tier at join. */
+    kycTier?: string | null;
+    /** Called once when this device wins the first-join race and we must mint the platform binding
+     *  signature over the chosen Pₜ. Skipped on returning-device joins (binding already attested). */
+    signBinding: (personaPubkey: string) => string;
+  }): Promise<string> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query(
+        `SELECT t.pubkey, b.commitment
+         FROM thread_keys t LEFT JOIN thread_bindings b ON b.thread_pubkey = t.pubkey
+         WHERE t.user_id = $1 AND t.thread_id = $2`,
+        [input.userId, input.threadId],
+      );
+      if (existing.rows.length > 0) {
+        const row = existing.rows[0];
+        const personaPubkey = row.pubkey as string;
+        const boundCommitment = row.commitment as string | null;
+        if (boundCommitment !== null && boundCommitment !== input.commitment) {
+          throw Object.assign(
+            new Error("thread_persona_commitment_mismatch: incoming commitment differs from the one already bound to Pₜ"),
+            { code: "thread_persona_commitment_mismatch" },
+          );
+        }
+        await client.query("COMMIT");
+        return personaPubkey;
+      }
+      const inserted = await client.query(
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT (user_id, thread_id) DO NOTHING
+         RETURNING pubkey`,
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.proposedPubkey],
+      );
+      let personaPubkey: string;
+      if (inserted.rows.length > 0) {
+        personaPubkey = inserted.rows[0].pubkey as string;
+        const bindingSig = input.signBinding(personaPubkey);
+        await client.query(
+          `INSERT INTO thread_bindings(thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig)
+           VALUES($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (thread_pubkey) DO UPDATE SET
+             thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction, kyc_tier = EXCLUDED.kyc_tier,
+             commitment = EXCLUDED.commitment, binding_sig = EXCLUDED.binding_sig`,
+          [personaPubkey, input.threadId, input.jurisdiction, input.kycTier ?? null, input.commitment, bindingSig],
+        );
+      } else {
+        const r = await client.query(
+          `SELECT t.pubkey, b.commitment
+           FROM thread_keys t LEFT JOIN thread_bindings b ON b.thread_pubkey = t.pubkey
+           WHERE t.user_id = $1 AND t.thread_id = $2`,
+          [input.userId, input.threadId],
+        );
+        const row = r.rows[0];
+        personaPubkey = row.pubkey as string;
+        const boundCommitment = row.commitment as string | null;
+        if (boundCommitment !== null && boundCommitment !== input.commitment) {
+          throw Object.assign(
+            new Error("thread_persona_commitment_mismatch: incoming commitment differs from the one already bound to Pₜ"),
+            { code: "thread_persona_commitment_mismatch" },
+          );
+        }
+      }
+      await client.query("COMMIT");
+      return personaPubkey;
     } catch (err) {
       await client.query("ROLLBACK");
       throw err;
@@ -507,6 +595,16 @@ export class PrivateStore {
     );
     const row = r.rows[0];
     return row ? { userId: row.user_id, threadId: row.thread_id, jurisdiction: row.jurisdiction } : null;
+  }
+
+  /** Resolve the canonical persona pubkey Pₜ for `(userId, threadId)`, or null when no persona has
+   *  been established yet (no device has joined the thread for this user). */
+  async getThreadKeyByUserThread(userId: string, threadId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT pubkey FROM thread_keys WHERE user_id = $1 AND thread_id = $2`,
+      [userId, threadId],
+    );
+    return r.rows[0]?.pubkey ?? null;
   }
 
   // ── Multi-device enrollment (Method 3 §5.4) — all PRIVATE, never published ────────────────
@@ -598,42 +696,74 @@ export class PrivateStore {
   }
 
   /**
-   * Register a per-thread WebAuthn civic credential (Option A): the PUBLISHED credential pubkey (=
-   * the envelope's authorPubkey) mapped to its verified user + thread. Upsert keeps join idempotent
-   * and clears any prior revocation (re-enrolling the same credential re-activates it).
+   * Register a per-DEVICE WebAuthn signing credential under a stable thread persona Pₜ (mvp-a5b
+   * persona/signer split). The PUBLISHED `credentialPubkey` is the envelope's `signerPubkey` for
+   * appends from THIS device; `personaPubkey` is Pₜ (the envelope's `authorPubkey`). `credentialSig`
+   * is the platform attestation over (Pₜ, credentialPubkey, threadId, jurisdiction, commitment),
+   * re-verified on every appendSigned. Upsert keeps join idempotent and clears any prior revocation.
    */
-  async registerThreadCredential(input: {
+  async registerDeviceCredential(input: {
     credentialPubkey: string;
+    personaPubkey: string;
     userId: string;
     threadId: string;
     jurisdiction: string;
+    credentialSig: string;
   }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO thread_civic_credentials(credential_pubkey, user_id, thread_id, jurisdiction) VALUES($1,$2,$3,$4)
+      `INSERT INTO thread_civic_credentials(credential_pubkey, persona_pubkey, user_id, thread_id, jurisdiction, credential_sig)
+       VALUES($1,$2,$3,$4,$5,$6)
        ON CONFLICT (credential_pubkey) DO UPDATE SET
-         user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id,
-         jurisdiction = EXCLUDED.jurisdiction, revoked_at = NULL`,
-      [input.credentialPubkey, input.userId, input.threadId, input.jurisdiction],
+         persona_pubkey = EXCLUDED.persona_pubkey, user_id = EXCLUDED.user_id,
+         thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction,
+         credential_sig = EXCLUDED.credential_sig, revoked_at = NULL`,
+      [
+        input.credentialPubkey,
+        input.personaPubkey,
+        input.userId,
+        input.threadId,
+        input.jurisdiction,
+        input.credentialSig,
+      ],
     );
   }
 
   /**
-   * Resolve a per-thread civic credential (by its pubkey = authorPubkey) for the appendSigned
-   * authorization check on the webauthn-es256 path. Returns null when the credential is unknown.
+   * Resolve a per-thread device credential (by its pubkey = signerPubkey) for the appendSigned
+   * authorization check on the webauthn-es256 path. Returns the bound persona Pₜ + jurisdiction +
+   * credential attestation so the engine can re-verify defense-in-depth without an extra round trip.
+   * Returns null when the credential is unknown.
    */
   async getThreadCredential(
     credentialPubkey: string,
-  ): Promise<{ userId: string; threadId: string; revoked: boolean } | null> {
+  ): Promise<{
+    personaPubkey: string;
+    userId: string;
+    threadId: string;
+    jurisdiction: string;
+    credentialSig: string;
+    revoked: boolean;
+  } | null> {
     const r = await this.pool.query(
-      `SELECT user_id, thread_id, (revoked_at IS NOT NULL) AS revoked
+      `SELECT persona_pubkey, user_id, thread_id, jurisdiction, credential_sig,
+              (revoked_at IS NOT NULL) AS revoked
        FROM thread_civic_credentials WHERE credential_pubkey = $1`,
       [credentialPubkey],
     );
     const row = r.rows[0];
-    return row ? { userId: row.user_id, threadId: row.thread_id, revoked: row.revoked } : null;
+    return row
+      ? {
+          personaPubkey: row.persona_pubkey,
+          userId: row.user_id,
+          threadId: row.thread_id,
+          jurisdiction: row.jurisdiction,
+          credentialSig: row.credential_sig,
+          revoked: row.revoked,
+        }
+      : null;
   }
 
-  /** Revoke a single per-thread civic credential ("revoke this thread's passkey"). */
+  /** Revoke a single per-thread device credential ("revoke this device's thread passkey"). */
   async revokeThreadCredential(credentialPubkey: string): Promise<void> {
     await this.pool.query(
       `UPDATE thread_civic_credentials SET revoked_at = now() WHERE credential_pubkey = $1 AND revoked_at IS NULL`,

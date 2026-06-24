@@ -13,7 +13,7 @@ import {
   verifyWebauthnAssertion,
 } from "../src/identity/webauthn.js";
 import { buildThreadBindingInputs } from "../src/identity/binding.js";
-import { signBinding } from "../src/identity/platform-binding.js";
+import { signBinding, signCredentialAuth } from "../src/identity/platform-binding.js";
 import { requiredSignScheme } from "../src/jurisdiction.js";
 import { PublicChain } from "../src/ledger/chain.js";
 import type { PrivateStore } from "../src/private/store.js";
@@ -24,8 +24,8 @@ import { getWorld, rejects } from "./helpers/world.js";
 const RP_ID = "localhost";
 const ORIGIN = "http://localhost";
 
-/** A minimal vote envelope (unsigned) for the pure-crypto block. */
-function voteBase(authorPubkey: string): TxEnvelope {
+/** A minimal vote envelope (unsigned, missing signerPubkey) for the pure-crypto block. */
+function voteBase(authorPubkey: string, signerPubkey: string): TxEnvelope {
   const txId = randomUUID();
   return {
     v: 1,
@@ -36,6 +36,7 @@ function voteBase(authorPubkey: string): TxEnvelope {
     parentType: "poll",
     parentId: randomUUID(),
     authorPubkey,
+    signerPubkey,
     signScheme: "webauthn-es256",
     signature: "",
     createdAt: new Date().toISOString(),
@@ -51,34 +52,58 @@ function signWebauthn(base: TxEnvelope, credPriv: Uint8Array): TxEnvelope {
 }
 
 describe("17 webauthn signing — verifier, policy (pure)", () => {
-  it("verifies a valid webauthn-es256 envelope (assertion + scheme branch)", () => {
-    const priv = p256.utils.randomPrivateKey();
-    const env = signWebauthn(voteBase(credentialPubkeyHex(priv)), priv);
+  it("verifies a valid webauthn-es256 envelope (persona/signer split): assertion ↔ signerPubkey", () => {
+    const personaPriv = p256.utils.randomPrivateKey();
+    const signerPriv = p256.utils.randomPrivateKey();
+    const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
     expect(verifyWebauthnAssertion(env)).to.equal(true);
     expect(verifyEnvelope(env)).to.equal(true);
   });
 
+  it("returns false (not throws) when signerPubkey is missing from a webauthn envelope", () => {
+    const signerPriv = p256.utils.randomPrivateKey();
+    const env = signWebauthn(voteBase(credentialPubkeyHex(p256.utils.randomPrivateKey()), credentialPubkeyHex(signerPriv)), signerPriv);
+    const { signerPubkey: _drop, ...withoutSigner } = env;
+    void _drop;
+    expect(verifyWebauthnAssertion(withoutSigner as TxEnvelope)).to.equal(false);
+    expect(verifyEnvelope(withoutSigner as TxEnvelope)).to.equal(false);
+  });
+
   it("rejects a tampered envelope (challenge no longer matches the assertion)", () => {
-    const priv = p256.utils.randomPrivateKey();
-    const env = signWebauthn(voteBase(credentialPubkeyHex(priv)), priv);
+    const personaPriv = p256.utils.randomPrivateKey();
+    const signerPriv = p256.utils.randomPrivateKey();
+    const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
     expect(verifyEnvelope({ ...env, contentHash: "deadbeef" })).to.equal(false);
     expect(verifyEnvelope({ ...env, createdAt: new Date(Date.now() + 1000).toISOString() })).to.equal(false);
   });
 
-  it("rejects a wrong author pubkey", () => {
-    const priv = p256.utils.randomPrivateKey();
-    const env = signWebauthn(voteBase(credentialPubkeyHex(priv)), priv);
-    expect(verifyEnvelope({ ...env, authorPubkey: credentialPubkeyHex(p256.utils.randomPrivateKey()) })).to.equal(false);
+  it("rejects a swapped signerPubkey (sig won't verify against the substituted key)", () => {
+    const personaPriv = p256.utils.randomPrivateKey();
+    const signerPriv = p256.utils.randomPrivateKey();
+    const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
+    expect(verifyEnvelope({ ...env, signerPubkey: credentialPubkeyHex(p256.utils.randomPrivateKey()) })).to.equal(false);
+  });
+
+  it("accepts when authorPubkey (Pₜ) differs from signerPubkey (device key)", () => {
+    // The whole point of mvp-a5b: Pₜ on the record, device key signs. Crypto branch is happy when the
+    // assertion verifies against signerPubkey; persona binding is enforced by the engine, not here.
+    const personaPriv = p256.utils.randomPrivateKey();
+    const signerPriv = p256.utils.randomPrivateKey();
+    const personaPubkey = credentialPubkeyHex(personaPriv);
+    const signerPubkey = credentialPubkeyHex(signerPriv);
+    expect(personaPubkey).to.not.equal(signerPubkey);
+    const env = signWebauthn(voteBase(personaPubkey, signerPubkey), signerPriv);
+    expect(verifyEnvelope(env)).to.equal(true);
   });
 
   it("rejects when user-verification (UV) was not performed", () => {
-    const priv = p256.utils.randomPrivateKey();
-    const base = voteBase(credentialPubkeyHex(priv));
+    const signerPriv = p256.utils.randomPrivateKey();
+    const base = voteBase(credentialPubkeyHex(p256.utils.randomPrivateKey()), credentialPubkeyHex(signerPriv));
     const challenge = signingDigest(base);
     // Hand-build an assertion with UP set but UV CLEARED (flags = 0x01), validly signed.
     const clientDataBytes = utf8ToBytes(JSON.stringify({ type: "webauthn.get", challenge: base64urlEncode(challenge), origin: ORIGIN, crossOrigin: false }));
     const authData = concatBytes(sha256(utf8ToBytes(RP_ID)), new Uint8Array([0x01]), new Uint8Array(4));
-    const sig = p256.sign(sha256(concatBytes(authData, sha256(clientDataBytes))), priv);
+    const sig = p256.sign(sha256(concatBytes(authData, sha256(clientDataBytes))), signerPriv);
     const env: TxEnvelope = {
       ...base,
       webauthn: {
@@ -91,15 +116,16 @@ describe("17 webauthn signing — verifier, policy (pure)", () => {
   });
 
   it("rejects a mutated authenticatorData (signature no longer valid)", () => {
-    const priv = p256.utils.randomPrivateKey();
-    const env = signWebauthn(voteBase(credentialPubkeyHex(priv)), priv);
+    const personaPriv = p256.utils.randomPrivateKey();
+    const signerPriv = p256.utils.randomPrivateKey();
+    const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
     const bad = base64urlEncode(Uint8Array.from([1, 2, 3])); // junk authData
     expect(verifyEnvelope({ ...env, webauthn: { ...env.webauthn!, authenticatorData: bad } })).to.equal(false);
   });
 
   it("still verifies a legacy p256 envelope (scheme absent ⇒ p256)", () => {
     const priv = p256.utils.randomPrivateKey();
-    const base: TxEnvelope = { ...voteBase(""), type: "comment", signScheme: undefined, parentType: "post" };
+    const base: TxEnvelope = { ...voteBase("", ""), type: "comment", signScheme: undefined, parentType: "post", signerPubkey: undefined };
     const { envelope } = signEnvelope(base, priv);
     expect(envelope.signScheme).to.equal(undefined);
     expect(verifyEnvelope(envelope)).to.equal(true);
@@ -114,7 +140,7 @@ describe("17 webauthn signing — verifier, policy (pure)", () => {
   });
 });
 
-describe("17 webauthn signing — appendSigned (verified path, DB)", () => {
+describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () => {
   const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
   const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
@@ -140,18 +166,55 @@ describe("17 webauthn signing — appendSigned (verified path, DB)", () => {
     return { userId, lm, nsecret: deriveNullifierSecret(lm, jurisdiction) };
   }
 
-  /** Register a thread via a per-thread WebAuthn credential (thread_keys + binding + civic credential). */
-  async function joinWebauthn(u: U, rootId: string): Promise<{ credPriv: Uint8Array; authorPubkey: string }> {
-    const credPriv = p256.utils.randomPrivateKey();
-    const authorPubkey = credentialPubkeyHex(credPriv);
-    const { binding } = buildThreadBindingInputs({ userId: u.userId, threadPubkey: authorPubkey, threadId: rootId, jurisdiction, kycTier, saltT: newSalt() });
-    await store.registerThreadBinding({ threadPubkey: authorPubkey, userId: u.userId, threadId: rootId, jurisdiction, kycTier, commitment: binding.commitment, bindingSig: signBinding(binding, platformPriv) });
-    await store.registerThreadCredential({ credentialPubkey: authorPubkey, userId: u.userId, threadId: rootId, jurisdiction });
-    return { credPriv, authorPubkey };
+  interface JoinResult {
+    personaPubkey: string;
+    signerPubkey: string;
+    signerPriv: Uint8Array;
   }
 
-  async function actWa(u: U, credPriv: Uint8Array, authorPubkey: string, spec: { type: RecordType; entityId: string; parent?: { type: RecordType; id: string }; content: unknown }) {
-    const prep = await svc.prepareAppend({ op: "create", type: spec.type, author: authorPubkey, parent: spec.parent, entityId: spec.entityId, content: spec.content });
+  /** Two-phase join: ensureThreadPersona (first-wins Pₜ) + registerDeviceCredential (this signer). */
+  async function joinDevice(u: U, rootId: string, opts: { signerPriv?: Uint8Array } = {}): Promise<JoinResult> {
+    const signerPriv = opts.signerPriv ?? p256.utils.randomPrivateKey();
+    const signerPubkey = credentialPubkeyHex(signerPriv);
+    // Build a commitment for this user×thread. Same opening across devices → same commitment.
+    const saltT = bytesToHex(sha256(utf8ToBytes(`${u.userId}|${rootId}`))); // deterministic 32-byte hex per (user, thread)
+    const { binding } = buildThreadBindingInputs({ userId: u.userId, threadPubkey: signerPubkey, threadId: rootId, jurisdiction, kycTier, saltT });
+    const personaPubkey = await store.ensureThreadPersona({
+      userId: u.userId,
+      threadId: rootId,
+      jurisdiction,
+      proposedPubkey: signerPubkey,
+      commitment: binding.commitment,
+      kycTier,
+      signBinding: (winnerPt) => {
+        const winnerBinding = { ...binding, thread_pubkey: winnerPt };
+        return signBinding(winnerBinding, platformPriv);
+      },
+    });
+    const credentialSig = signCredentialAuth(
+      {
+        domain: "credential-auth-v1",
+        personaPubkey,
+        credentialPubkey: signerPubkey,
+        threadId: rootId,
+        jurisdiction,
+        commitment: binding.commitment,
+      },
+      platformPriv,
+    );
+    await store.registerDeviceCredential({
+      credentialPubkey: signerPubkey,
+      personaPubkey,
+      userId: u.userId,
+      threadId: rootId,
+      jurisdiction,
+      credentialSig,
+    });
+    return { personaPubkey, signerPubkey, signerPriv };
+  }
+
+  async function actWa(u: U, j: JoinResult, spec: { type: RecordType; entityId: string; parent?: { type: RecordType; id: string }; content: unknown }) {
+    const prep = await svc.prepareAppend({ op: "create", type: spec.type, author: j.personaPubkey, parent: spec.parent, entityId: spec.entityId, content: spec.content });
     const txId = randomUUID();
     const salt = newSalt();
     const base: TxEnvelope = {
@@ -159,28 +222,98 @@ describe("17 webauthn signing — appendSigned (verified path, DB)", () => {
       ...(spec.parent ? { parentType: spec.parent.type, parentId: spec.parent.id } : {}),
       ...(prep.parentRevisionHash ? { parentRevisionHash: prep.parentRevisionHash } : {}),
       ...(prep.parentRevisionTxId ? { parentRevisionTxId: prep.parentRevisionTxId } : {}),
-      authorPubkey, signScheme: "webauthn-es256", signature: "", createdAt: new Date().toISOString(), prevHash: null,
+      authorPubkey: j.personaPubkey,
+      signerPubkey: j.signerPubkey,
+      signScheme: "webauthn-es256",
+      signature: "",
+      createdAt: new Date().toISOString(),
+      prevHash: null,
       contentHash: contentCommitment({ id: txId, salt, content: spec.content }),
       ...(prep.nullifierParentId ? { nullifier: threadNullifier(u.nsecret, prep.nullifierParentId) } : {}),
     };
-    return svc.appendSigned({ envelope: signWebauthn(base, credPriv), salt, content: spec.content });
+    return svc.appendSigned({ envelope: signWebauthn(base, j.signerPriv), salt, content: spec.content });
+  }
+
+  async function updateWa(j: JoinResult, head: { entityId: string; type: RecordType; parentType?: RecordType; parentId?: string; parentRevisionHash?: string; parentRevisionTxId?: string }, content: unknown) {
+    const prep = await svc.prepareAppend({ op: "update", author: j.personaPubkey, entityId: head.entityId });
+    const txId = randomUUID();
+    const salt = newSalt();
+    const base: TxEnvelope = {
+      v: 1, txId, type: head.type, entityId: head.entityId, op: "update",
+      ...(prep.parentType ? { parentType: prep.parentType } : {}),
+      ...(prep.parentId ? { parentId: prep.parentId } : {}),
+      ...(prep.parentRevisionHash ? { parentRevisionHash: prep.parentRevisionHash } : {}),
+      ...(prep.parentRevisionTxId ? { parentRevisionTxId: prep.parentRevisionTxId } : {}),
+      authorPubkey: j.personaPubkey,
+      signerPubkey: j.signerPubkey,
+      signScheme: "webauthn-es256",
+      signature: "",
+      createdAt: new Date().toISOString(),
+      prevHash: prep.prevHash,
+      contentHash: contentCommitment({ id: txId, salt, content }),
+      ...(prep.nullifier ? { nullifier: prep.nullifier } : {}),
+    };
+    return svc.appendSigned({ envelope: signWebauthn(base, j.signerPriv), salt, content });
   }
 
   it("accepts a webauthn post and a webauthn vote (forced type)", async () => {
     const u = await newUser();
     const postId = randomUUID();
-    const post = await joinWebauthn(u, postId);
-    await actWa(u, post.credPriv, post.authorPubkey, { type: "post", entityId: postId, content: { body: "hello" } });
+    const post = await joinDevice(u, postId);
+    await actWa(u, post, { type: "post", entityId: postId, content: { body: "hello" } });
 
     const pollId = randomUUID();
-    const poll = await joinWebauthn(u, pollId);
-    await actWa(u, poll.credPriv, poll.authorPubkey, { type: "poll", entityId: pollId, content: { question: "Q?", options: ["yes", "no"] } });
-    const ref = await actWa(u, poll.credPriv, poll.authorPubkey, { type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "yes" } });
+    const poll = await joinDevice(u, pollId);
+    await actWa(u, poll, { type: "poll", entityId: pollId, content: { question: "Q?", options: ["yes", "no"] } });
+    const ref = await actWa(u, poll, { type: "vote", entityId: randomUUID(), parent: { type: "poll", id: pollId }, content: { option: "yes" } });
     expect(ref.txHash).to.be.a("string");
   });
 
+  it("second device join receives the SAME Pₜ as the first device", async () => {
+    const u = await newUser();
+    const threadId = randomUUID();
+    const a = await joinDevice(u, threadId);
+    const b = await joinDevice(u, threadId);
+    expect(b.personaPubkey).to.equal(a.personaPubkey);
+    expect(b.signerPubkey).to.not.equal(a.signerPubkey);
+  });
+
+  it("second device with mismatched commitment is rejected (same persona, different opening)", async () => {
+    const u = await newUser();
+    const threadId = randomUUID();
+    await joinDevice(u, threadId);
+    // Attempt phase-1 with a different commitment under the same (user, thread).
+    expect(
+      await rejects(
+        store.ensureThreadPersona({
+          userId: u.userId,
+          threadId,
+          jurisdiction,
+          proposedPubkey: credentialPubkeyHex(p256.utils.randomPrivateKey()),
+          commitment: "f".repeat(64),
+          kycTier,
+          signBinding: () => "00".repeat(64),
+        }),
+      ),
+    ).to.equal(true);
+  });
+
+  it("cross-device edit: device B edits device A's post (same Pₜ, different signer)", async () => {
+    const u = await newUser();
+    const postId = randomUUID();
+    const a = await joinDevice(u, postId);
+    await actWa(u, a, { type: "post", entityId: postId, content: { body: "v1 from A" } });
+
+    const b = await joinDevice(u, postId);
+    expect(b.personaPubkey).to.equal(a.personaPubkey);
+    const ref = await updateWa(b, { entityId: postId, type: "post" }, { body: "v2 from B" });
+    expect(ref.txHash).to.be.a("string");
+
+    const state = await store.getEntityStatePublic(postId);
+    expect(state?.content).to.deep.equal({ body: "v2 from B" });
+  });
+
   it("rejects a p256-scheme vote (jurisdiction policy hard-requires webauthn-es256)", async () => {
-    // The policy gate fires by record TYPE, before any author lookup — a p256 vote is refused outright.
     const priv = p256.utils.randomPrivateKey();
     const txId = randomUUID();
     const salt = newSalt();
@@ -194,33 +327,70 @@ describe("17 webauthn signing — appendSigned (verified path, DB)", () => {
     expect(await rejects(svc.appendSigned({ envelope, salt, content: { option: "no" } }))).to.equal(true);
   });
 
-  it("rejects a webauthn append whose credential has been revoked", async () => {
+  it("rejects a webauthn append whose device credential has been revoked", async () => {
     const u = await newUser();
     const postId = randomUUID();
-    const post = await joinWebauthn(u, postId);
-    await store.revokeThreadCredential(post.authorPubkey);
-    expect(await rejects(actWa(u, post.credPriv, post.authorPubkey, { type: "post", entityId: postId, content: { body: "x" } }))).to.equal(true);
+    const post = await joinDevice(u, postId);
+    await store.revokeThreadCredential(post.signerPubkey);
+    expect(await rejects(actWa(u, post, { type: "post", entityId: postId, content: { body: "x" } }))).to.equal(true);
   });
 
-  it("rejects a forged assertion and a missing assertion", async () => {
+  it("rejects a webauthn append missing signerPubkey", async () => {
     const u = await newUser();
     const postId = randomUUID();
-    const post = await joinWebauthn(u, postId);
-    const prep = await svc.prepareAppend({ op: "create", type: "post", author: post.authorPubkey, entityId: postId, content: { body: "x" } });
+    const post = await joinDevice(u, postId);
+    const prep = await svc.prepareAppend({ op: "create", type: "post", author: post.personaPubkey, entityId: postId, content: { body: "x" } });
     const txId = randomUUID();
     const salt = newSalt();
     const base: TxEnvelope = {
       v: 1, txId, type: "post", entityId: postId, op: "create",
-      authorPubkey: post.authorPubkey, signScheme: "webauthn-es256", signature: "", createdAt: new Date().toISOString(), prevHash: prep.prevHash,
+      authorPubkey: post.personaPubkey,
+      signScheme: "webauthn-es256",
+      signature: "",
+      createdAt: new Date().toISOString(),
+      prevHash: prep.prevHash,
       contentHash: contentCommitment({ id: txId, salt, content: { body: "x" } }),
     };
-    const good = signWebauthn(base, post.credPriv);
+    const env = signWebauthn(base, post.signerPriv);
+    const { signerPubkey: _drop, ...noSigner } = env;
+    void _drop;
+    expect(await rejects(svc.appendSigned({ envelope: noSigner as TxEnvelope, salt, content: { body: "x" } }))).to.equal(true);
+  });
+
+  it("re-verifies credential_sig: tampering the stored attestation breaks append", async () => {
+    const u = await newUser();
+    const postId = randomUUID();
+    const post = await joinDevice(u, postId);
+    // Tamper credential_sig directly (simulating a DB-modified row that escapes the join attest).
+    // 64 zero bytes (128 hex chars) is a valid-shaped but invalid P-256 signature → verifyCredentialAuth false.
+    const pool: import("pg").Pool = (store as unknown as { pool: import("pg").Pool }).pool;
+    await pool.query(
+      `UPDATE thread_civic_credentials SET credential_sig = $1 WHERE credential_pubkey = $2`,
+      ["0".repeat(128), post.signerPubkey],
+    );
+    expect(await rejects(actWa(u, post, { type: "post", entityId: postId, content: { body: "x" } }))).to.equal(true);
+  });
+
+  it("rejects a forged assertion (signer key mismatch)", async () => {
+    const u = await newUser();
+    const postId = randomUUID();
+    const post = await joinDevice(u, postId);
+    const prep = await svc.prepareAppend({ op: "create", type: "post", author: post.personaPubkey, entityId: postId, content: { body: "x" } });
+    const txId = randomUUID();
+    const salt = newSalt();
+    const base: TxEnvelope = {
+      v: 1, txId, type: "post", entityId: postId, op: "create",
+      authorPubkey: post.personaPubkey,
+      signerPubkey: post.signerPubkey,
+      signScheme: "webauthn-es256",
+      signature: "",
+      createdAt: new Date().toISOString(),
+      prevHash: prep.prevHash,
+      contentHash: contentCommitment({ id: txId, salt, content: { body: "x" } }),
+    };
+    const good = signWebauthn(base, post.signerPriv);
     // Forge: replace the signature with another key's signature over the same digest.
     const forgedSig = buildWebauthnAssertion({ credentialPriv: p256.utils.randomPrivateKey(), rpId: RP_ID, origin: ORIGIN, challenge: signingDigest(base) }).signature;
     expect(await rejects(svc.appendSigned({ envelope: { ...good, webauthn: { ...good.webauthn!, signature: forgedSig } }, salt, content: { body: "x" } }))).to.equal(true);
-    // Missing assertion entirely.
-    const { webauthn, ...noWa } = good;
-    void webauthn;
-    expect(await rejects(svc.appendSigned({ envelope: noWa as TxEnvelope, salt, content: { body: "x" } }))).to.equal(true);
   });
 });
