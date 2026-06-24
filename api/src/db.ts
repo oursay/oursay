@@ -7,6 +7,7 @@
 // way to guarantee those tables exist without copying their DDL here.
 
 import pg from "pg";
+import { GeoStore } from "@oursay/geo";
 import { PrivateStore } from "@oursay/public-record";
 import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
 import { pgConfig } from "./config.js";
@@ -26,10 +27,14 @@ export class Db {
     });
   }
 
-  /** Ensure public-record's base schema (users, kyc_attestations, …) then the `auth` schema. */
+  /** Ensure public-record's base schema (users, kyc_attestations, …), the `geo` schema (PostGIS
+   *  district boundaries + regions), then the `auth` schema. All three are idempotent. */
   async init(): Promise<void> {
     const base = new PrivateStore(pgConfig);
     await base.init();
+    const geo = new GeoStore(pgConfig);
+    await geo.init();
+    await geo.close();
     await this.pool.query(AUTH_DDL);
   }
 
@@ -42,6 +47,7 @@ export class Db {
     await this.pool.query(
       `TRUNCATE auth.otp_rate_limits, auth.email_otp, auth.sessions, auth.webauthn_challenges,
                auth.passkey_credentials, auth.profiles,
+               geo.regions, geo.districts,
                public.record_outbox, public.record_tx, public.users CASCADE`,
     );
   }

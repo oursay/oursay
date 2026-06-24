@@ -130,7 +130,7 @@ text).
 ```bash
 # from the repo root
 npm install
-npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + postgres 16
+npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + PostGIS (postgres 16)
 npm run test    --workspace public-record   # 53 tests (11 suites)
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
 npm run db:down --workspace public-record   # tear down (wipes volumes; blocked when NODE_ENV=production)
@@ -143,9 +143,16 @@ the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` 
 Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
 stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.
 
+**PostGIS.** The Postgres service runs the **`postgis/postgis:16`** image (a superset of `postgres:16`)
+so [`@oursay/geo`](../geo/README.md) can `CREATE EXTENSION postgis` for district-boundary geometry. If
+you previously ran the plain `postgres:16-alpine` image, `db:up` recreates the container on the new
+image; the named data volume is **reused** (same PG 16 major — no `down -v` needed) and the extension is
+created idempotently by `GeoStore.init()`.
+
 **Shared with [`@oursay/api`](../api/README.md).** The account API uses this same Postgres instance,
 adding its own **`auth` schema** (profiles, passkey credentials, sessions, OTPs) FK'd to
-`public.users`. `npm run db:up -w @oursay/api` delegates here, so one `db:up` serves both packages.
+`public.users`, and the **`geo` schema** (`@oursay/geo`: PostGIS districts + regions). `npm run db:up
+-w @oursay/api` delegates here, so one `db:up` serves all packages.
 
 ## Block settlement & anchoring (dev) — external targets future
 

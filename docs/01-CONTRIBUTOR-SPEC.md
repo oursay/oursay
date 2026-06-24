@@ -270,7 +270,7 @@ The hierarchy is defined in deployment configuration. Filters operate at any lev
 
 Area/district membership is **inferred from the user's address**, never stored as a district binding on the user (see `api/src/helpers/address.ts`). A single address may resolve to multiple areas at different hierarchy levels simultaneously. Resolution is done dynamically against the platform's boundary registry at query time.
 
-Because boundaries are redrawn over time, district IDs carry the **boundary year** (e.g. `edmonton-strathcona-2026`), so a resolution is reproducible against the boundary set in effect. Audit/historical integrity comes from the address (and the action's timestamp) plus the year-tagged boundaries — not from a frozen assignment row.
+Because boundaries are redrawn over time, district IDs carry a **boundary-year label** (e.g. `edmonton-strathcona-2026`) and are the stable identity of a boundary **revision**. The label is not the lookup key: which geometry applies at an instant is selected by the revision's **`effective_date`** (the boundary registry holds `effective_date`, an optional `drawn_date`, and a year-less riding key — see [`REGION-MODEL.md`](REGION-MODEL.md) and `@oursay/geo`). So a resolution is reproducible against the boundary set **in force on the action's timestamp**; audit/historical integrity comes from the address + the action's timestamp + the effective-dated boundaries — not from a frozen assignment row.
 
 ### 6.4 Filtering
 

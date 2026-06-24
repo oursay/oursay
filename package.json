@@ -17,6 +17,7 @@
     "public-record",
     "passkey-test",
     "identity",
+    "geo",
     "api"
   ],
   "scripts": {

@@ -18,16 +18,23 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 - **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A
   user is **never assigned or stored** a district; district membership is **inferred from the user's
   address**. This lets users and representatives see — and validate vote counts by — who is inside
-  vs. outside a given district or jurisdiction. District IDs carry the **boundary year** (boundaries
-  are redrawn over time), e.g. `edmonton-strathcona-2026`.
+  vs. outside a given district or jurisdiction. A district id is the stable identity of a **boundary
+  revision** and carries a **year label** (boundaries are redrawn over time), e.g.
+  `edmonton-strathcona-2026`. The year is a label, not the lookup key: **which geometry applies at an
+  instant is selected by the revision's `effective_date`**, so reproducibility comes from
+  `effective_date` + the address/action timestamp, not the year alone. Boundaries live in
+  `@oursay/geo` (`geo.districts`, PostGIS).
 - **Region** — the generic, app-wide term for **any filterable geographic shape**, composed
   **inclusively and exclusively**: a single district, a curated preset (e.g. "southern Alberta",
   urban/rural), a whole jurisdiction's extent, or a raw shape. A region is stored as a shape and, for
   the platform's purposes, resolves to an **additive list of districts** (presets just expand to
   additive district shapes applied to a filter). **Every district is a region; not every region is a
-  district.** Anyone on the platform may participate in any discussion regardless of region; regions
-  are used to **filter the participant set** (by containment of the inferred address, plus later KYC
-  status), never stored on the user row.
+  district.** Concretely (`@oursay/geo` `Region` / `RegionResolver`) the kinds are: **single district**,
+  **district union**, **whole-jurisdiction extent** (one revision per riding, as of an instant), and
+  **custom geometry** (a stored preset). Filter code calls `region.contains(point)` and never branches
+  on raw district-id lists. Anyone on the platform may participate in any discussion regardless of
+  region; regions are used to **filter the participant set** (by containment of the inferred address,
+  plus later KYC status), never stored on the user row.
 - **Entity scope (poll/petition)** — gating rules **default to the jurisdiction**, but an individual
   poll/petition may apply to a **specific district, several districts, or the whole jurisdiction**
   (`EntityRules.appliesToDistrictIds`; absent/empty = the whole jurisdiction). This spans a vote about
@@ -80,8 +87,10 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 ## Where the vocabulary is applied
 
 - Contributor spec, geographic area model: [`01-CONTRIBUTOR-SPEC.md` §6](01-CONTRIBUTOR-SPEC.md).
+- Region model → schema → resolution, and effective-dated boundaries: [`REGION-MODEL.md`](REGION-MODEL.md).
 - Identity & device crypto: [`08-IDENTITY-AND-DEVICE-POLICY.md`](08-IDENTITY-AND-DEVICE-POLICY.md).
-- Domain code: `public-record/src/jurisdiction.ts`, `public-record/src/governance.ts`.
+- Domain code: `public-record/src/jurisdiction.ts`, `public-record/src/governance.ts`; boundaries +
+  regions: `@oursay/geo` (`geo/src/region-resolver.ts`, `geo/src/store.ts`).
 
 > **Spikes predate this vocabulary.** Exploratory spike packages (e.g. `passkey-test/`) were written
 > before the jurisdiction terminology and still use the old words (`level`, `region`). They have been

@@ -267,6 +267,11 @@ or `tier` ⇒ 400) but **not resolved** — every response echoes them back with
 false`. The fixed `scope` enum is deliberate (docs/06 §2–3): it keeps geography coarse and avoids the
 freeform district slicing that enables cross-boundary re-identification.
 
+The geographic substrate that will resolve `scope` already exists in **`@oursay/geo`**
+(`RegionResolver.compileScope` maps these same enum values to a `Region`; see
+[`docs/REGION-MODEL.md`](../docs/REGION-MODEL.md)). It is **not yet wired** here — these routes stay
+`applied: false` until a later phase threads `compileScope` (and an `asOf`/viewer-district) through.
+
 | `scope` | Intended Phase-C audience | Status today |
 |---------|---------------------------|--------------|
 | `jurisdiction` | the whole jurisdiction the entity belongs to | stub (echoed) |
