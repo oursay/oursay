@@ -141,9 +141,12 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const civicDeviceService = new CivicDeviceService({ civicDeviceRepo: repos.civicDevice });
 
   // Civic record engine — reuse @oursay/public-record + @oursay/identity/server; no crypto here. The
-  // RecordService is the verified/production path (requireDeviceSigner), and the SAME platform key
-  // signs bindings (IdentityRegistry) and verifies them (RecordService). The store opens its own pool
-  // over the same Postgres; its tables are created by Db.init() (PrivateStore.init).
+  // production civic write path is webauthn-es256 (Option A): per-thread passkey assertions verified
+  // by the RecordService, with the jurisdiction policy hard-requiring webauthn for vote/petition_signature.
+  // `requireDeviceSigner` is retained only as a guard on the legacy p256 branch (a p256 envelope must
+  // still carry a device signer); it does not gate the WebAuthn path. The SAME platform key signs
+  // bindings (IdentityRegistry) and verifies them (RecordService). The store opens its own pool over the
+  // same Postgres; its tables are created by Db.init() (PrivateStore.init).
   const platformBindingPrivKeyHex = opts.platformBindingPrivKeyHex ?? civicConfig.platformBindingPrivKeyHex;
   const recordStore = new PrivateStore(pgConfig);
   const recordSvc = new RecordService(new PublicChain(recordStore, civicConfig.chainId), recordStore, {

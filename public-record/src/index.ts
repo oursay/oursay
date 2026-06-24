@@ -47,8 +47,8 @@ export {
   canRevokeSignature,
 } from "./governance.js";
 
-// Jurisdiction (domain partition + router: id, level, default gating rules)
-export { getJurisdiction, registerJurisdiction } from "./jurisdiction.js";
+// Jurisdiction (domain partition + router: id, level, default gating rules, signing policy)
+export { getJurisdiction, registerJurisdiction, requiredSignScheme } from "./jurisdiction.js";
 export type { JurisdictionConfig, JurisdictionRules } from "./jurisdiction.js";
 
 // Projections (fold-on-read state)
@@ -84,6 +84,9 @@ export { deriveThreadKey, deriveThreadPrivateKey, threadDomainInfo } from "./ide
 export type { DeriveInput, ThreadKey } from "./identity/derive.js";
 export { signEnvelope, verifyEnvelope, signingDigest, UNSIGNED } from "./identity/envelope.js";
 export type { SignResult } from "./identity/envelope.js";
+// WebAuthn (ES256) per-thread civic signing (Option A) — one verifier + one builder (dev/tests).
+export { verifyWebauthnAssertion, buildWebauthnAssertion, credentialPubkeyHex, base64urlEncode, base64urlDecode } from "./identity/webauthn.js";
+export type { BuildAssertionInput } from "./identity/webauthn.js";
 // Thread-scoped device signing (Method 3 §5.4) — multi-device / cross-device edit.
 export { deriveDeviceThreadSigner, signEnvelopeWithDevice, deviceSignerDomainInfo } from "./identity/device.js";
 export type { DeriveDeviceSignerInput, DeviceThreadSigner } from "./identity/device.js";
@@ -110,6 +113,8 @@ export {
 export type {
   RecordType,
   Op,
+  SignScheme,
+  WebauthnAssertion,
   ReactionKind,
   EntityRules,
   TxEnvelope,

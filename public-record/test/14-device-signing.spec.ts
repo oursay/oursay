@@ -42,7 +42,9 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
     connector = w.connector;
     await store.reset();
     const chainId = randomUUID();
-    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0 });
+    // enforceSigningPolicy:false — this spec exercises the legacy p256 device-signer path on forced
+    // types (vote); the webauthn-es256 hard requirement is covered in webauthn-envelope.spec.
+    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0, enforceSigningPolicy: false });
     settler = new BlockSettler(store, connector, chainId, blockConfig);
   });
 

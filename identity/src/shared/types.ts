@@ -63,10 +63,11 @@ export interface DeviceEnrollment {
 }
 
 /**
- * Client → server: join a thread. Carries only PUBLIC material — the persona pubkey, the opaque
- * commitment (the opening stays client-side until selective reveal), the thread-scoped signer
- * pubkey, and the enrolling device's public key. The server signs the binding and writes
- * `thread_keys` + `thread_bindings` + `thread_signers`.
+ * Client → server: join a thread. Carries only PUBLIC material — the thread passkey pubkey
+ * (`personaPubkey`, the envelope author under Option A) and the opaque commitment (the opening stays
+ * client-side until selective reveal). The server signs the binding and writes `thread_keys` +
+ * `thread_bindings` + the per-thread civic credential row (revoke handle). No device/signer pubkey:
+ * the thread passkey is the sole civic identity (docs/08 §5.4).
  *
  * A join proves account↔thread-key OWNERSHIP only. `kycTier` is OPTIONAL and not part of the HTTP
  * join path: verification tier and district membership are applied at read/count time, not fixed at
@@ -78,8 +79,6 @@ export interface ThreadRegistration {
   jurisdiction: string;
   personaPubkey: string;
   commitment: string;
-  signerPubkey: string;
-  devicePubkey: string;
   kycTier?: string;
 }
 

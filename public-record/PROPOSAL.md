@@ -447,16 +447,21 @@ export interface TxEnvelope {
   parentId?: string;           // ENTITY-level parent (follows edits)
   parentRevisionTxId?: string; // REVISION-level: the parent's head tx …
   parentRevisionHash?: string; // … its content-addressed revision id (parent txHash)
-  authorPubkey: string;        // thread persona — stable public author id per (user, thread)
-  signerPubkey?: string;       // thread-scoped DEVICE key that signed (Method 3); absent ⇒ persona signed
-  signature: string;           // P-256 over the signing digest
+  authorPubkey: string;        // author = the thread passkey pubkey (Option A) / thread persona (legacy p256)
+  signerPubkey?: string;       // legacy p256 ONLY: thread-scoped DEVICE key that signed; absent on the WebAuthn path
+  signScheme?: SignScheme;     // "p256" | "webauthn-es256"; absent ⇒ "p256" (legacy envelopes hash unchanged)
+  signature: string;           // p256: ECDSA over the signing digest. WebAuthn path: "" (sig lives in `webauthn`)
+  webauthn?: WebauthnAssertion; // { authenticatorData, clientDataJSON, signature } (base64url); webauthn-es256 only
   createdAt: string;           // ISO 8601
   prevHash: string | null;     // per-entity chain link = prior tx's txHash for entityId
   contentHash: string;         // salted commitment — NEVER the plaintext
   nullifier?: string;          // singleton dedupe tag (vote/reaction/petition_signature)
   proof?: string;              // RESERVED Method-4 ZK membership proof slot; rejected until built
 }
-// txHash = hashLeaf(canonicalJson(envelope)); the next same-entity tx sets prevHash = txHash
+// signingDigest = sha256(canonicalJson(envelope with `signature` AND `webauthn` blanked)). On the
+// WebAuthn path this digest is the assertion CHALLENGE, so the signature binds the whole envelope.
+// txHash = hashLeaf(canonicalJson(envelope)) over the FULL envelope (incl. populated `webauthn`); the
+// next same-entity tx sets prevHash = txHash.
 ```
 
 > **Types.** `post` is the generic primitive the product surfaces as a "Belief". A `poll` is the
@@ -525,17 +530,34 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
 
 ### Module (`src/identity/*` — implemented; full verified write path)
 
+> **Implemented production path — Option A (per-thread WebAuthn).** Civic envelopes are signed by a
+> per-(device, thread) **WebAuthn passkey**: `authorPubkey` is the credential pubkey, `signScheme =
+> "webauthn-es256"`, and the per-append assertion (`webauthn.{authenticatorData, clientDataJSON,
+> signature}`) is challenge-bound to `signingDigest`. `appendSigned` runs a **dual verifier**
+> (`verifyEnvelope` branches on `signScheme`): the new `webauthn.ts` (`verifyWebauthnAssertion` +
+> a shared `buildWebauthnAssertion` for dev/tests) checks the assertion, UV, and challenge binding;
+> the legacy `p256` path below is retained as engine/dev capability. A **jurisdiction signing policy**
+> (`requiredSignScheme`) hard-requires `webauthn-es256` for `vote`/`petition_signature`. The unlock-once
+> derived-key signing path is **retired from production** (the account unlock now only seeds the
+> nullifier root). The module bullets below describe the legacy `p256` primitives, still exported.
+
 **Implemented** (promoted from `passkey-test`; suites `10-identity-crypto`, `12-signed-append`,
-`13-signed-ops`, `14-device-signing`):
+`13-signed-ops`, `14-device-signing`, `17-webauthn-signing`):
 
 - **`derive.ts`** — `deriveThreadKey({ jurisdictionMaster, threadId, jurisdiction })` / `deriveThreadPrivateKey`
   / `threadDomainInfo`: on-device HKDF→P-256 derivation, domain-separated by `(thread_id, jurisdiction)`,
   with a pinned scalar mapping. No private material leaves the device. Produces the **thread persona**
   `Pₜ` — the stable public `authorPubkey` on the record.
 - **`envelope.ts`** — `signEnvelope(env, privKey)` / `verifyEnvelope(env)` (+ `UNSIGNED`,
-  `signingDigest`): P-256 signing/verification over the **signing digest** (`signature=""`), with the
-  leaf via the reused `txHashOf`. `verifyEnvelope` checks the signature against
-  `signerPubkey ?? authorPubkey`.
+  `signingDigest`): `signingDigest` blanks both `signature` and `webauthn`. `verifyEnvelope` branches on
+  `signScheme`: `webauthn-es256` → `verifyWebauthnAssertion` (see `webauthn.ts`); `p256` (default) →
+  ECDSA over the digest against `signerPubkey ?? authorPubkey`. The leaf is the reused `txHashOf`.
+- **`webauthn.ts`** — `verifyWebauthnAssertion(env)` + `buildWebauthnAssertion(...)` (the shared
+  dev/test builder) + `credentialPubkeyHex` + base64url helpers. The verifier decodes the assertion,
+  requires the UV flag, checks `clientData.type === "webauthn.get"` and `clientData.challenge ===
+  base64url(signingDigest(env))`, and verifies the DER ES256 signature (`lowS:false`) over
+  `authenticatorData || sha256(clientDataJSON)` against `authorPubkey`. It does **not** enforce
+  rpIdHash/origin (a pure offline verifier cannot know the deployment origin).
 - **`device.ts`** — `deriveDeviceThreadSigner({ deviceRoot, threadId, jurisdiction })` /
   `signEnvelopeWithDevice(env, deviceSignerPrivKey, personaPubkey)` (Method 3 §5.4). A user enrols
   several hardware-backed devices; each derives a **thread-scoped** signer per `(device, thread)` so
@@ -570,11 +592,13 @@ linkability**. The linkage gap shrinks from "trust our database" to "verify our 
     `DELETE_MARKER`. **Cross-device edit (§5.4 rule 6):** when the envelope is device-signed, the
     signer need not be the device that created the entity — any enrolled, non-revoked device whose
     thread-scoped signer maps to the **same user + thread** as the persona may sign the edit.
-  - **Device-signer authorization (all signed ops):** when `signerPubkey` is present, `appendSigned`
-    requires it to resolve (via `thread_signers`) to the **same verified user and thread** as the
-    persona, and to be non-revoked (signer or device). `REQUIRE_DEVICE_SIGNER` (default off) can force
-    device signing in production. The reserved Method-4 `proof` field is **rejected** until ZK
-    verification exists (`nullifier_attestations.membership_proof` reserves the matching storage slot).
+  - **Authorization by scheme:** on the `webauthn-es256` path `appendSigned` requires the author's
+    `thread_civic_credentials` row to exist and be non-revoked (the per-thread "revoke this passkey"
+    handle), and forbids a `signerPubkey`. On the legacy `p256` path, when `signerPubkey` is present it
+    must resolve (via `thread_signers`) to the **same verified user and thread** as the persona and be
+    non-revoked; `REQUIRE_DEVICE_SIGNER` can force device signing on that branch. The reserved Method-4
+    `proof` field is **rejected** until ZK verification exists
+    (`nullifier_attestations.membership_proof` reserves the matching storage slot).
 - **Freshness gate (all signed ops):** `appendSigned` rejects an envelope whose `createdAt` is older
   than `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120; `0` disables) or more than the allowed future skew
   ahead of the server clock — using the already-signed `createdAt` (no schema/wire change; clients set

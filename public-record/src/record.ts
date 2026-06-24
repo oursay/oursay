@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { canonicalJson, contentCommitment, newSalt } from "./crypto/commitment.js";
 import { identityConfig } from "./config.js";
 import { canRevokeSignature, canChangeVote } from "./governance.js";
+import { requiredSignScheme } from "./jurisdiction.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
 import { platformPublicKey, signNullifierAttestation } from "./identity/platform-binding.js";
@@ -63,6 +64,7 @@ export class RecordService {
   private readonly signedEnvelopeMaxAgeSec: number;
   private readonly signedEnvelopeFutureSkewSec: number;
   private readonly requireDeviceSigner: boolean;
+  private readonly enforceSigningPolicy: boolean;
   private readonly now: () => number;
 
   constructor(
@@ -75,8 +77,12 @@ export class RecordService {
       signedEnvelopeMaxAgeSec?: number;
       /** Override the accepted future-clock-skew (seconds). Defaults to config. */
       signedEnvelopeFutureSkewSec?: number;
-      /** Require a thread-scoped device signer on every signed envelope (production). Defaults to config. */
+      /** Require a thread-scoped device signer on every signed envelope (legacy p256 path). Defaults to config. */
       requireDeviceSigner?: boolean;
+      /** Enforce the jurisdiction signing policy — incl. the hard webauthn-es256 requirement for
+       *  vote/petition_signature (Option A). Default true (fail-closed, production). Engine-capability
+       *  tests that exercise the raw p256 path on forced types may set this false. */
+      enforceSigningPolicy?: boolean;
       /** Injectable clock (ms since epoch) for tests; defaults to `Date.now`. */
       now?: () => number;
     },
@@ -88,6 +94,7 @@ export class RecordService {
     this.signedEnvelopeMaxAgeSec = opts?.signedEnvelopeMaxAgeSec ?? identityConfig.signedEnvelopeMaxAgeSec;
     this.signedEnvelopeFutureSkewSec = opts?.signedEnvelopeFutureSkewSec ?? identityConfig.signedEnvelopeFutureSkewSec;
     this.requireDeviceSigner = opts?.requireDeviceSigner ?? identityConfig.requireDeviceSigner;
+    this.enforceSigningPolicy = opts?.enforceSigningPolicy ?? true;
     this.now = opts?.now ?? Date.now;
   }
 
@@ -175,9 +182,29 @@ export class RecordService {
     // Reserved Method-4 (§5.5) ZK slot: the wire format carries `proof`, but verification is not built
     // yet — reject rather than silently accepting an unverified proof-looking field.
     if (envelope.proof !== undefined) throw new Error("appendSigned: ZK membership proof not yet supported");
-    // Production hardening: optionally require a thread-scoped device signer (Method 3 §5.4).
-    if (this.requireDeviceSigner && !envelope.signerPubkey) {
-      throw new Error("appendSigned: a thread-scoped device signer is required");
+
+    // Signing-scheme policy + shape. The scheme is `p256` unless declared `webauthn-es256`.
+    const scheme = envelope.signScheme ?? "p256";
+    // Jurisdiction policy (hard override for vote/petition_signature → webauthn-es256). Resolved by
+    // record type; applies to create/update/delete alike. Fail-closed by default; engine-capability
+    // tests of the raw p256 path may disable it.
+    if (this.enforceSigningPolicy) {
+      const need = requiredSignScheme(envelope.type);
+      if (need && need !== scheme) {
+        throw new Error(`appendSigned: ${envelope.type} requires ${need} signatures`);
+      }
+    }
+    if (scheme === "webauthn-es256") {
+      // The thread passkey IS the sole civic identity: author = the credential pubkey, no signer.
+      if (!envelope.webauthn) throw new Error("appendSigned: a webauthn-es256 envelope requires a webauthn assertion");
+      if (envelope.signerPubkey) throw new Error("appendSigned: a webauthn-es256 envelope must not carry a signerPubkey");
+      if (envelope.signature) throw new Error("appendSigned: a webauthn-es256 envelope must leave signature empty (the sig lives in webauthn)");
+    } else {
+      if (envelope.webauthn) throw new Error("appendSigned: a p256 envelope must not carry a webauthn assertion");
+      // Production hardening (legacy p256 path): optionally require a thread-scoped device signer.
+      if (this.requireDeviceSigner && !envelope.signerPubkey) {
+        throw new Error("appendSigned: a thread-scoped device signer is required");
+      }
     }
     if (!verifyEnvelope(envelope)) throw new Error("appendSigned: invalid per-thread signature");
 
@@ -205,13 +232,20 @@ export class RecordService {
     const tk = await this.store.getThreadKey(envelope.authorPubkey);
     if (!tk) throw new Error("appendSigned: unknown thread key");
 
-    // Device-signer authorization (Method 3 §5.4): when the envelope is signed by a thread-scoped
-    // device key, that signer must belong to the SAME verified user as the persona (the dedupe /
-    // authorization boundary) AND be scoped to the SAME thread (no cross-thread signer reuse). Any
-    // enrolled, non-revoked device of that user may thus act for the persona — including editing
-    // content first written from another device (cross-device edit, §5.4 rule 6). When `signerPubkey`
-    // is absent the persona signed directly (single-device / passkey-sync path) — nothing extra to do.
-    if (envelope.signerPubkey) {
+    if (scheme === "webauthn-es256") {
+      // Revoke enforcement (Option A): the thread passkey credential (credential_pubkey =
+      // authorPubkey) must be registered for this author and not revoked. This is the per-thread
+      // "revoke this credential" handle that replaces the device-signer revoke path.
+      const cred = await this.store.getThreadCredential(envelope.authorPubkey);
+      if (!cred) throw new Error("appendSigned: thread credential is not registered");
+      if (cred.revoked) throw new Error("appendSigned: thread credential is revoked");
+      if (cred.userId !== tk.userId) throw new Error("appendSigned: thread credential is not the author's");
+    } else if (envelope.signerPubkey) {
+      // Device-signer authorization (Method 3 §5.4, legacy p256 path): when the envelope is signed by
+      // a thread-scoped device key, that signer must belong to the SAME verified user as the persona
+      // (the dedupe / authorization boundary) AND be scoped to the SAME thread (no cross-thread signer
+      // reuse). Any enrolled, non-revoked device of that user may thus act for the persona — including
+      // editing content first written from another device (cross-device edit, §5.4 rule 6).
       const sgn = await this.store.getThreadSigner(envelope.signerPubkey);
       if (!sgn) throw new Error("appendSigned: signer is not a registered device for this thread");
       if (sgn.revoked) throw new Error("appendSigned: signer (or its device) is revoked");

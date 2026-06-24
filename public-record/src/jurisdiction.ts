@@ -10,6 +10,7 @@
 // word "chain".
 
 import { jurisdictionConfig } from "./config.js";
+import type { RecordType, SignScheme } from "./schema/types.js";
 
 /** Default gating rules for a jurisdiction. An entity may override these within what the
  *  jurisdiction permits (see {@link resolveRules} in governance.ts). Defaults are FINAL-action
@@ -18,6 +19,9 @@ export interface JurisdictionRules {
   allowChange?: boolean; // votes may change before the deadline
   allowRevoke?: boolean; // signatures may be revoked before the deadline
   defaultDeadline?: string; // ISO 8601 default close time when an entity sets none
+  /** Signing policy. `defaultScheme` is the scheme NON-forced record types must use (null/absent ⇒
+   *  any accepted). The forced types (vote, petition_signature) are a HARD override below. */
+  signing?: { defaultScheme?: SignScheme };
 }
 
 /** A jurisdiction's configuration: its id, governmental level, and default rules. Censoring /
@@ -38,4 +42,16 @@ export function registerJurisdiction(j: JurisdictionConfig): void {
 /** Resolve a jurisdiction by id, falling back to the deployment's configured default. */
 export function getJurisdiction(id: string = jurisdictionConfig.id): JurisdictionConfig {
   return registry.get(id) ?? jurisdictionConfig;
+}
+
+/**
+ * The signature scheme a record TYPE must be signed with, or `null` when any accepted scheme is fine.
+ * Resolved by type (not op), so it gates a vote's `create` AND `update`, and a petition_signature's
+ * `create` AND `delete` (revoke). `vote` and `petition_signature` are a HARD override — these
+ * highest-stakes singletons MUST use `webauthn-es256` (genuine per-action user verification),
+ * regardless of jurisdiction config. Other types fall back to the jurisdiction's `defaultScheme`.
+ */
+export function requiredSignScheme(type: RecordType, jurisdictionId?: string): SignScheme | null {
+  if (type === "vote" || type === "petition_signature") return "webauthn-es256";
+  return getJurisdiction(jurisdictionId).rules.signing?.defaultScheme ?? null;
 }

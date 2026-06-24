@@ -35,11 +35,20 @@ It captures product intent from design review (June 2026) and should stay aligne
 - For each **thread** they join (a post, poll, or petition — the root of that conversation),
   they use a **thread key**: a pseudonymous public key that appears on the public record.
 
-### Not one passkey per thread
+### One passkey per thread (implemented: Option A)
 
-Users do **not** register a new passkey for every thread. They authenticate once (or with
-a small set of devices), then **register a thread key** the first time they participate in
-that thread. The thread key is what signs comments, votes, reactions, and other record entries.
+> **Implemented (Option A) — supersedes the original design below.** The production civic path now
+> creates **one WebAuthn passkey credential per (device, thread)**. The credential's public key **is**
+> the thread author (`authorPubkey`), and **every** civic append is a fresh user-verifying assertion
+> bound to the envelope's signing digest (`signScheme: "webauthn-es256"`). There is no separate
+> derived "device signer" on this path, and no silent "sign many" after a single unlock — the user
+> verifies (Touch ID / Windows Hello / etc.) on each action. The account-login passkey still unlocks
+> once to seed the singleton **nullifier root** only. See §5.4 and §6.
+
+_Original design (retained for context, now the legacy `p256` dual-verifier path):_ Users did **not**
+register a new passkey for every thread. They authenticated once (or with a small set of devices),
+then **registered a derived thread key** the first time they participated in a thread, and that key
+signed comments, votes, reactions, and other record entries.
 
 ### One pseudonym per thread (default)
 
@@ -190,6 +199,23 @@ device fingerprint on the ledger.
 
 ### 5.4 Recommended build direction: Method 3
 
+> **Implemented variant — Option A (per-thread WebAuthn passkey).** The production path realizes
+> Method 3's *intent* (hardware signing, per-thread author, user-level dedupe) with a simpler key
+> model: each (device, thread) has its **own WebAuthn passkey**, and that credential's pubkey is the
+> author *Pₜ* — there is **no separate derived signer *Dᵢ*** and **no `signerPubkey`** on the envelope.
+> Each civic append is a per-action user-verifying assertion (`signScheme: "webauthn-es256"`), and the
+> jurisdiction signing policy **hard-requires** it for `vote` and `petition_signature`. The record
+> engine keeps the original derived-`p256` path as a **dual-verifier** capability.
+>
+> **Cross-device tradeoff (rule 6 under Option A).** Because each device has its own thread passkey,
+> the user's two devices are **distinct authors** in a thread. An on-chain **edit/delete requires the
+> same thread passkey that authored the entity**, so cross-device editing of a specific entity needs a
+> **synced passkey** (e.g. iCloud Keychain / Google Password Manager) — independent device credentials
+> cannot edit each other's entities. Singleton **dedupe is still per-user**: the per-(user, jurisdiction)
+> nullifier is shared across the user's devices, so a second device cannot double-vote even with a
+> distinct passkey. The user↔thread-key links remain private (commitments + the registry), never on
+> the public record.
+
 **Use Method 3 when implementing user strategy and the first production auth path.**
 
 Concrete rules:
@@ -310,21 +336,26 @@ The current reference implementation derives thread keys from a 32-byte per-juri
 Web Crypto `CryptoKey` with `extractable: false`, backed by the secure enclave where the
 OS provides it.
 
-### Preferred production approach (Method 3–aligned)
+### Preferred production approach (implemented: Option A — per-thread WebAuthn passkey)
 
-**Non-exportable device keys + stable thread persona:**
+**Per-thread non-exportable passkeys + per-action user verification:**
 
-1. **Authenticate** with a passkey (proves the session).
-2. **Enroll device key** *Dᵢ* — non-exportable (Web Crypto / secure enclave); platform stores
-   **public** key only, linked to user.
-3. **Thread persona** *Pₜ* — stable public author id per (user, thread); registered when the
-   user joins the thread.
-4. **Sign each envelope** with *Dᵢ*; record carries `author = Pₜ` and (where needed) a
-   per-(user, jurisdiction) nullifier for singleton actions.
-5. **Reserve proof slot** in envelope or attestation structure for future ZK membership
-   presentations (§5.5).
+1. **Authenticate** with the account-login passkey (proves the session). Its WebAuthn **PRF** (or the
+   secure-storage fallback) seeds the per-(user, jurisdiction) **nullifier root** only — this is the
+   one "unlock once" step, kept **separate from envelope signing**.
+2. **Join thread** → create the thread's **own WebAuthn passkey** (`navigator.credentials.create`, UV
+   + resident key). Its public key is the author *Pₜ*; the private key never leaves the authenticator.
+   Platform stores the **public** key only (registered as `thread_keys` + the binding + a
+   `thread_civic_credentials` revoke row).
+3. **Sign each envelope** with a fresh **user-verifying assertion** from that thread passkey
+   (`navigator.credentials.get`, UV required); the assertion challenge is the envelope's signing
+   digest. The record carries `author = Pₜ`, `signScheme = "webauthn-es256"`, the assertion in
+   `webauthn`, and (where needed) the per-(user, jurisdiction) nullifier for singletons. No
+   `signerPubkey`.
+4. **Reserve proof slot** in envelope/attestation for future ZK membership presentations (§5.5).
 
-The app should not persist raw private scalars in IndexedDB or localStorage.
+The app persists only browser-local **handles** (the credential id + public key in
+`ThreadPasskeyStore`), never raw private scalars.
 
 ### How to seed the jurisdiction root (without a user-managed master file)
 
@@ -444,22 +475,24 @@ for test detail.
 
 | Area | Status |
 |------|--------|
-| Per-thread P-256 signing + `appendSigned` gate | Implemented (tests) |
+| **Per-thread WebAuthn signing (Option A, `webauthn-es256`) + `appendSigned` gate** | Implemented (tests) — one passkey per (device, thread); the credential pubkey is the author; a user-verifying assertion per append, challenge-bound to the signing digest; `thread_civic_credentials` is the revoke handle. |
+| **Jurisdiction signing policy (hard override)** | Implemented (tests) — `vote` + `petition_signature` MUST be `webauthn-es256` (by record type ⇒ create/update/delete); enforced fail-closed in `appendSigned`. |
+| Legacy per-thread P-256 signing (dual verifier) | Implemented (tests) — retained as engine capability / dev path; `signScheme` absent ⇒ `p256`. Not the production civic path. |
 | Thread registration + private binding | Implemented |
 | Nullifier dedupe for votes/reactions/signatures | Implemented |
-| Author (thread persona) / signer (device key) envelope split | Implemented (tests) |
-| Multi-device enrollment registry + thread-scoped signers (library) | Implemented (tests) |
-| Cross-device editing (any enrolled device of the same user) | Implemented (tests) |
+| Author = thread passkey pubkey (Option A: no `signerPubkey`) | Implemented (tests) |
+| Per-user singleton dedupe across the user's per-thread passkeys | Implemented (tests) — shared per-(user, jurisdiction) nullifier |
+| Cross-device editing | Requires a **synced** thread passkey (Option A tradeoff, §5.4); independent device credentials are distinct authors |
 | Per-(user, jurisdiction) nullifier root (shared across a user's devices) | Implemented (framing + tests) |
 | Account-auth passkey sessions (server, `@oursay/api`) | Implemented (tests) — WebAuthn register + passkey login over `@simplewebauthn/server`; opaque DB-backed sessions. This passkey is the **account-login** factor (§2) and is **separate** from the civic thread-signing keys above. |
 | Unified email-OTP request — three purposes (server, `@oursay/api`) | Implemented (tests) — one `POST /v1/auth/otp/request` with `purpose` ∈ {registration, recovery, login}; OTP is bootstrap/recovery/gated-login only, never standing login. Hashed codes, rate limits, pluggable mailer (Postmark/SMTP/SES + dev noop). |
 | Gated cross-device login OTP (server, `@oursay/api`) | Implemented (tests) — trusted device (full session + passkey) opens the window via `POST /v1/auth/login/enable`; new device redeems at `POST /v1/auth/login/verify` → limited `login` (enroll-only) session; no enable → no send/verify (no enumeration); additive (does not revoke other sessions). |
 | Multi-passkey account login / "add device" (server, `@oursay/api`) | Implemented (tests) — multiple `auth.passkey_credentials` per user; re-run passkey register from a trusted session to add a device. |
-| Civic device-key enrollment over HTTP (server, `@oursay/api`) | Implemented (tests) — authenticated `POST/GET /v1/civic/devices` + `POST /v1/civic/devices/revoke` into `public.device_keys`; public key only, owner-scoped revoke, separate from account-login passkeys. |
+| Civic device-key enrollment over HTTP (server, `@oursay/api`) | **Deprecated for the signing path (Option A)** — `POST/GET /v1/civic/devices` + `/revoke` remain as an optional non-cryptographic device registry but are no longer part of join/prepare/submit (the per-thread passkey is the sole civic identity; revoke uses `thread_civic_credentials`). |
 | KYC-gated recovery branch (`@oursay/api`) | Stub — recovery reads `public.kyc_attestations`; unverified → re-enroll passkey, verified → KYC re-verification required (provider stubbed, §3.3). |
-| Dev account-walk harness (`@oursay/api`, `/walk`) | Implemented (dev-only) — same-origin HTML page driving the real `/v1` routes (register → passkey → **civic golden path via the real SDK**, plus granular **5a–5e sub-steps** demonstrating unlock-once/sign-many across post + comment + reaction → logout → login → gated cross-device login → recovery re-enroll) so WebAuthn ceremonies can be QA'd by hand; not registered under `NODE_ENV=production`. |
-| Production Web client adapter (browser passkey UX) | Implemented — `WebPasskeyConnector` + `IdentitySession` + `CivicHttpClient` drive the civic golden path (enroll → join → prepare → device-sign → submit) in a real browser; the walk page bundles the SDK at `/walk/identity.js` (dev-only esbuild) and runs it end-to-end. No more ephemeral civic-key stand-in. |
-| Non-exportable Web Crypto signing path (production civic keys) | Implemented — the derivation root stays non-exportable: WebAuthn **PRF** keeps it inside the authenticator, and when PRF is unavailable a **secure-storage fallback** seals a random 32-byte master under a **non-extractable AES-GCM key in IndexedDB** (`secure-store.ts`) instead of throwing. Thread-scoped P-256 signers are HKDF-derived from the root (Method 3 precludes non-extractable *derived* keys) and are ephemeral in memory — never persisted, exported, or sent; the platform holds public keys only. Remaining: cross-device encrypted export of the fallback master (design-only). |
+| Dev account-walk harness (`@oursay/api`, `/walk`) | Implemented (dev-only) — same-origin HTML page driving the real `/v1` routes (register → passkey → **civic golden path via the real SDK**, plus granular **5a–5e sub-steps**: 5a unlocks account custody, 5b creates the thread passkey, **5c–5e each prompt for user verification** — one assertion per action → logout → login → gated cross-device login → recovery re-enroll) so WebAuthn ceremonies can be QA'd by hand; not registered under `NODE_ENV=production`. |
+| Production Web client adapter (browser passkey UX) | Implemented — `WebPasskeyConnector` + `IdentitySession` + `CivicHttpClient` drive the civic golden path (join → create thread passkey → prepare → **WebAuthn-sign per action** → submit) in a real browser; the walk page bundles the SDK at `/walk/identity.js` (dev-only esbuild) and runs it end-to-end. |
+| Non-exportable civic signing (production keys) | Implemented — the thread signing key is a **WebAuthn passkey**; its private key never leaves the authenticator and is used via a per-action assertion. The account-unlock derivation root (for the nullifier root only) stays non-exportable too: WebAuthn **PRF** keeps it inside the authenticator, and when PRF is unavailable a **secure-storage fallback** seals a random 32-byte master under a **non-extractable AES-GCM key in IndexedDB** (`secure-store.ts`). The platform holds public keys only. Remaining: cross-device encrypted export of the fallback master (design-only). |
 | Claim / unclaim public ownership (R8, R9) | Schema stub only |
 | Selective reveal to institutions (R11) | Not built |
 | Jurisdiction-specific validation policy | Partial — jurisdiction router + default gating rules (change/revoke) with per-entity override (`jurisdiction.ts` / `governance.ts`); freshness + permission gates pending |
@@ -467,14 +500,15 @@ for test detail.
 | Tier- and region-filtered signed counts (R24–R26) | Not built |
 | ZK membership credentials (Method 4 — ideal goal) | **Not started; wire slot reserved (envelope `proof` + `nullifier_attestations.membership_proof`), rejected until built (§5.5)** |
 
-**Method-3 implementation note (library).** The published `signer` is a **thread-scoped**
-device key (a distinct key per `(device, thread)`), so the same physical device shows no
-cross-thread correlator on the record — Method 5 (§5.3) stays ruled out. The device→user
-link lives only in the private `device_keys` / `thread_signers` registry, never on the
-envelope. `appendSigned` authorizes a device-signed envelope when the signer maps to the
-same verified user (and thread) as the thread persona; any enrolled, non-revoked device may
-then edit that user's content in the thread. When no `signerPubkey` is present the persona
-signs directly (single-device / passkey-sync path). The reserved ZK slot is **reserve-and-
+**Implementation note (library).** Under Option A the published author is a **per-thread WebAuthn
+passkey** pubkey (a distinct credential per `(device, thread)`), so the same physical device shows no
+cross-thread correlator on the record — Method 5 (§5.3) stays ruled out. The credential→user link lives
+only in the private registry (`thread_keys` + binding + `thread_civic_credentials`), never on the
+envelope. `appendSigned` (the `webauthn-es256` branch) verifies the per-append assertion against the
+author pubkey, requires user verification (UV), checks the challenge equals the envelope's signing
+digest, and rejects an author whose `thread_civic_credentials` row is missing or revoked. The legacy
+`p256` branch (derived thread-scoped `signerPubkey`, dual verifier) is retained for the engine/dev path.
+The reserved ZK slot is **reserve-and-
 reject**: an envelope that actually carries `proof` is rejected until Method 4 verification
 exists. **Still for Method 4:** real credential issuance + ZK proof generation/verification to
 replace platform nullifier attestation as the dedupe trust root.

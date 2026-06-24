@@ -1,12 +1,12 @@
 // CivicRecordService: the authenticated civic WRITE path (docs/08 §6; public-record R1/R2/R7). Thin
 // orchestration over @oursay/identity/server's IdentityRegistry — it owns NO crypto. Three operations:
-//   - join:    bind account↔thread-key ownership (platform-signed binding + thread signer). No KYC
-//              tier is fixed at join; verification tier is applied at read/count time.
+//   - join:    bind account↔thread-key ownership (platform-signed binding + per-thread civic
+//              credential). No KYC tier is fixed at join; verification tier is applied at read/count time.
 //   - prepare: compute the server-derived fields a client must sign over for one civic intent.
-//   - submit:  accept a client+device-signed envelope into the verified record pool.
+//   - submit:  accept a client-signed WebAuthn envelope into the verified record pool.
 // Auth/ownership lives here so HTTP routes stay thin: the caller's userId (from the session) must own
-// the device, persona, and signer involved. The RecordService underneath is the verified path
-// (requireDeviceSigner) — a persona-only/unsigned envelope is rejected.
+// the author persona (the thread passkey pubkey). The civic write path is webauthn-es256 ONLY; the
+// RecordService underneath re-verifies the assertion, binding, and credential revoke state.
 
 import type { IdentityRegistry } from "@oursay/identity/server";
 import type { Intent, PreparedAppend, SignedSubmission } from "@oursay/identity";
@@ -35,9 +35,7 @@ export interface JoinThreadInput {
   threadId: string;
   jurisdiction: string;
   personaPubkey: string;
-  signerPubkey: string;
   commitment: string;
-  devicePubkey: string;
 }
 
 export interface PrepareInput {
@@ -62,14 +60,12 @@ export class CivicRecordService {
   constructor(private readonly d: CivicRecordServiceDeps) {}
 
   /**
-   * Join a thread: register thread-key OWNERSHIP for the caller. Pre-checks that the enrolling civic
-   * device is the caller's (enrolled, not revoked) for clean errors; the registry re-checks and
-   * platform-signs the binding. No `kycTier` is accepted or stored.
+   * Join a thread (Option A): register thread-key OWNERSHIP for the caller. The thread passkey pubkey
+   * (`personaPubkey`) is the sole civic identity — no device/signer pubkey. The registry platform-signs
+   * the binding and records the per-thread civic credential (revoke handle). No `kycTier` is stored.
    */
   async join(input: JoinThreadInput): Promise<void> {
     const personaPubkey = hexPubkey(input.personaPubkey, "personaPubkey");
-    const signerPubkey = hexPubkey(input.signerPubkey, "signerPubkey");
-    const devicePubkey = hexPubkey(input.devicePubkey, "devicePubkey");
     const commitment = input.commitment?.trim().toLowerCase();
     if (!commitment || !SHA256_HEX.test(commitment)) {
       throw new ServiceError("validation", "commitment must be a sha256 hex digest");
@@ -77,23 +73,13 @@ export class CivicRecordService {
     const threadId = nonEmpty(input.threadId, "threadId");
     const jurisdiction = nonEmpty(input.jurisdiction, "jurisdiction");
 
-    const device = await this.d.store.getDeviceKeyByPubkey(devicePubkey);
-    if (!device || device.revoked) {
-      throw new ServiceError("not_found", "Civic device is not enrolled (or has been revoked)");
-    }
-    if (device.userId !== input.userId) {
-      throw new ServiceError("forbidden", "That civic device belongs to another account");
-    }
-
     try {
       await this.d.registry.joinThread({
         userId: input.userId,
         threadId,
         jurisdiction,
         personaPubkey,
-        signerPubkey,
         commitment,
-        devicePubkey,
       });
     } catch (err) {
       throw asServiceError(err, "validation");
@@ -120,26 +106,21 @@ export class CivicRecordService {
   }
 
   /**
-   * Accept a client+device-signed envelope into the verified record pool. The envelope's device signer
-   * AND its author persona must both resolve to the caller; the RecordService then re-verifies the
-   * envelope signature and the platform binding before pooling.
+   * Accept a client-signed WebAuthn envelope into the verified record pool (Option A). The civic write
+   * path is webauthn-es256 ONLY: the envelope must carry a webauthn assertion and no device signer, and
+   * its author persona (the thread passkey pubkey) must resolve to the caller. The RecordService then
+   * re-verifies the assertion, the platform binding, and the credential's revoke state before pooling.
    */
   async submit(input: SubmitInput): Promise<Ref> {
     const envelope = input.submission?.envelope;
     if (!envelope || typeof envelope !== "object") {
       throw new ServiceError("validation", "submission.envelope is required");
     }
-    const signerPubkey = envelope.signerPubkey;
-    if (!signerPubkey) {
-      throw new ServiceError("validation", "submission requires a device-signed envelope (signerPubkey)");
+    if (envelope.signScheme !== "webauthn-es256" || !envelope.webauthn) {
+      throw new ServiceError("validation", "submission requires a webauthn-es256 envelope with a webauthn assertion");
     }
-
-    const signer = await this.d.store.getThreadSigner(signerPubkey);
-    if (!signer || signer.revoked) {
-      throw new ServiceError("forbidden", "The signing device is not registered for this thread (or is revoked)");
-    }
-    if (signer.userId !== input.userId) {
-      throw new ServiceError("forbidden", "That thread signer belongs to another account");
+    if (envelope.signerPubkey) {
+      throw new ServiceError("validation", "a webauthn-es256 envelope must not carry a signerPubkey");
     }
     const persona = await this.d.store.getThreadKey(envelope.authorPubkey);
     if (!persona || persona.userId !== input.userId) {

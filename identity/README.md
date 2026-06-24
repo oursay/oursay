@@ -1,13 +1,17 @@
 # @oursay/identity
 
 The **client identity layer** for OurSay. It turns a verified human + their devices into
-device-signed record envelopes, ships a thin HTTP client (`CivicHttpClient`) that drives the civic
+WebAuthn-signed record envelopes, ships a thin HTTP client (`CivicHttpClient`) that drives the civic
 write API, and provides the in-process server helpers `@oursay/api` exposes over HTTP. It sits on top
 of `@oursay/public-record` (the record engine) and never re-implements its commitment/envelope crypto.
 
-Method 3 (device keys + stable thread persona + per-jurisdiction nullifier) per
-[`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md). Method 4 (ZK)
-is the long-term goal; the envelope `proof` slot stays reserve-and-reject until ZK exists.
+**Option A (per-thread WebAuthn passkey)** per
+[`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md): each thread the
+user joins has its **own** WebAuthn passkey, whose public key is the envelope author, and **every**
+civic append is a fresh user-verifying assertion (`signScheme: "webauthn-es256"`). The account-login
+passkey unlocks once to seed the per-(user, jurisdiction) **nullifier root** only (separate from
+signing). Method 4 (ZK) is the long-term goal; the envelope `proof` slot stays reserve-and-reject
+until ZK exists.
 
 ## What to import
 
@@ -17,22 +21,26 @@ is the long-term goal; the envelope `proof` slot stays reserve-and-reject until 
 | `@oursay/identity/server` | `@oursay/api` (civic write routes), integration tests | `IdentityRegistry` (enroll / join / prepare / submit) |
 | `@oursay/identity` | anywhere | shared client↔server DTO types |
 
-`CivicHttpClient` is the **thin SDK over the `@oursay/api` civic write surface** (`/v1/civic/devices`,
-`/threads/join`, `/appends/prepare`, `/appends/submit`). It is fetch + JSON + orchestration only — it
-holds an unlocked `IdentitySession` and runs *ensure device enrolled → join thread → prepare →
-device-sign → submit* for you, while still exposing the low-level steps for advanced use. All crypto
-stays in `IdentitySession` + `@oursay/public-record`.
+`CivicHttpClient` is the **thin SDK over the `@oursay/api` civic write surface**
+(`/threads/join`, `/appends/prepare`, `/appends/submit`). It is fetch + JSON + orchestration only — it
+holds an `IdentitySession` and runs *join thread → prepare → WebAuthn-sign → submit* for you, while
+still exposing the low-level steps for advanced use. All crypto stays in `IdentitySession` +
+`@oursay/public-record`.
 
 Only **public** material crosses client → server (pubkeys, the opaque commitment, signed
-envelopes). Private roots, the salt opening, and device-private keys never leave the client.
+envelopes). Private roots, the salt opening, and passkey-private keys never leave the client.
 
 ## The two connectors (one interface)
 
-- **`WebPasskeyConnector`** — real browser WebAuthn. A passkey authenticates the session and, via
-  the PRF extension, unlocks a 32-byte root that HKDF-expands into the device root + per-(user,
-  jurisdiction) jurisdiction-master / nullifier-root. The passkey never signs civic actions.
+- **`WebPasskeyConnector`** — real browser WebAuthn. The account passkey authenticates the session and,
+  via the PRF extension (or the secure-storage fallback), unlocks a 32-byte root for the per-(user,
+  jurisdiction) nullifier root. Civic signing uses a **separate per-thread passkey**:
+  `createThreadCredential` (`navigator.credentials.create`, UV) at join, then `assertThread`
+  (`navigator.credentials.get`, UV) per append. The per-thread credential index lives in
+  `ThreadPasskeyStore` (localStorage handles only).
 - **`DevPasskeyConnector`** — a **simulated passkey for dev + CI**. No browser, no Touch ID, no
-  prompts. **Guarded:** the constructor throws unless `OURSAY_DEV_PASSKEY=1` *and*
+  prompts; it builds real `webauthn-es256` assertions deterministically so CI exercises the actual
+  verifier. **Guarded:** the constructor throws unless `OURSAY_DEV_PASSKEY=1` *and*
   `NODE_ENV !== "production"`. Deterministic from a `seed`; custody under `.oursay-dev/`.
 
 ## Run dev / CI with the simulated passkey
@@ -52,25 +60,23 @@ import { DevPasskeyConnector, IdentitySession } from "@oursay/identity/client";
 import { IdentityRegistry } from "@oursay/identity/server";
 
 const connector = new DevPasskeyConnector({ seed: "local-dev" }); // needs OURSAY_DEV_PASSKEY=1
-const cred = await connector.enrollDevice({ userId, label: "laptop" });
+const cred = await connector.enrollDevice({ userId, label: "laptop" }); // account custody (nullifier root)
 const session = new IdentitySession(await connector.unlock({ userId, deviceId: cred.deviceId }));
 
 await registry.ensureUser({ userId });
-await registry.enrollDevice({ userId, devicePubkey: cred.devicePubkey });
-// join a thread → thread_keys + thread_bindings + thread_signers (ownership only — no kycTier;
-// verification tier is applied at read/count time, not fixed at join)
+// join a thread → creates the thread passkey, writes thread_keys + thread_bindings +
+// thread_civic_credentials (ownership only — no kycTier; verification tier is applied at read/count time)
 const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
+const { binding } = await session.bindingInputs(thread);
 await registry.joinThread({
   userId, threadId: postId, jurisdiction: "ab-ca-gov",
-  personaPubkey: session.personaPubkey(thread),
-  signerPubkey: session.signerPubkey(thread),
-  commitment: session.bindingInputs(thread).binding.commitment,
-  devicePubkey: cred.devicePubkey,
+  personaPubkey: binding.thread_pubkey, // = the thread passkey pubkey
+  commitment: binding.commitment,
 });
-// create a post: prepare → device-sign → submit
+// create a post: prepare → WebAuthn-sign (a user-verifying assertion) → submit
 const intent = { op: "create", type: "post", entityId: postId, content: { body: "hello" } };
-const prep = await registry.prepare(intent, session.personaPubkey(thread));
-await registry.submit(session.buildSigned(thread, prep, intent));
+const prep = await registry.prepare(intent, await session.authorPubkey(thread));
+await registry.submit(await session.buildSigned(thread, prep, intent));
 ```
 
 ### Over HTTP — `CivicHttpClient`
@@ -89,7 +95,7 @@ const session = new IdentitySession(await connector.unlock({ userId, deviceId: c
 const client = new CivicHttpClient({ baseUrl: "http://localhost:8080", session, token });
 const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
 
-// one call: ensure device enrolled → join thread (ownership-only, no kycTier) → prepare → sign → submit
+// one call: join thread (creates the thread passkey, ownership-only) → prepare → WebAuthn-sign → submit
 const ref = await client.createPost(thread, { body: "hello" });
 // advanced: client.joinThread / client.prepare / session.buildSigned / client.submit are all exposed
 ```
@@ -100,23 +106,28 @@ cookie. Everything else is identical.
 
 ### Browser custody (`WebPasskeyConnector`)
 
-A WebAuthn passkey **unlocks** the derivation root (it never signs civic actions). When the
-authenticator supports the **PRF** extension, the root stays inside the authenticator. When PRF is
-unavailable, `WebPasskeyConnector` falls back to a **secure-storage master** (`secure-store.ts`): a
-random 32-byte master sealed under a **non-extractable AES-GCM key in IndexedDB** — it never throws,
-and the HKDF→P-256 derivation is identical (only the IKM source differs). `connector.lastUnlockSource`
-reports `"prf"` or `"secure-store"`. Derived thread-scoped signers are ephemeral in memory; the
-platform only ever receives public keys, the opaque commitment, and the signed envelope.
+**Civic signing is a per-thread WebAuthn passkey.** At join, `createThreadCredential` mints the thread's
+own credential (UV + resident key); each append calls `assertThread` for a fresh user-verifying
+assertion whose challenge is the envelope's signing digest. The private key never leaves the
+authenticator, and the platform only ever receives public keys, the opaque commitment, and the signed
+envelope.
+
+The **account** passkey separately **unlocks** a derivation root that seeds the per-(user, jurisdiction)
+**nullifier root** (it never signs civic actions). When the authenticator supports the **PRF** extension
+the root stays inside the authenticator; when PRF is unavailable, `WebPasskeyConnector` falls back to a
+**secure-storage master** (`secure-store.ts`): a random 32-byte master sealed under a **non-extractable
+AES-GCM key in IndexedDB** — it never throws, and the HKDF derivation is identical (only the IKM source
+differs). `connector.lastUnlockSource` reports `"prf"` or `"secure-store"`.
 
 Two custody notes:
 
 - **Source-consistency invariant** — a credential must `enrollDevice` and `unlock` via the **same**
-  root source. The `devicePubkey`/persona are functions of the root, so a device whose PRF availability
-  changes derives different keys and must **re-enroll**. (No auto-detection; re-enroll is the remedy.)
-- **Account-login vs civic custody are distinct credentials** — the account passkey proves the session;
-  `WebPasskeyConnector` mints/uses a *separate* civic-custody credential. A user enrolling both sees two
-  passkey prompts. Cross-device sync of the fallback master (encrypted export under a user-held secret)
-  is design-only — not built.
+  root source, since the nullifier root is a function of it; a device whose PRF availability changes
+  must **re-enroll**. (No auto-detection; re-enroll is the remedy.)
+- **Account-login, account-custody, and per-thread civic passkeys are distinct credentials.** A user
+  participating in a thread sees a prompt to create the thread passkey and a prompt **per civic action**.
+  Cross-device editing of an entity needs a **synced** thread passkey (else the second device is a
+  distinct author — see docs/08 §5.4). Cross-device sync of the fallback master is design-only.
 
 Production PRF hardening (largeBlob custody, broader fallback coverage) is tracked under
 [mvp-a3-browser-custody].
@@ -133,17 +144,16 @@ npm run dev --workspace @oursay/api        # serves http://localhost:8080
 
 Open `http://localhost:8080/walk` in a browser with a platform authenticator (Touch ID / Windows
 Hello) and: **1–3** register + verify the emailed OTP (the code prints to the API console) → **4**
-enroll an account-login passkey → **5** run the **civic golden path**: this enrolls a *separate*
-civic-custody passkey (second prompt), then the SDK joins a fresh `ab-ca-gov` thread (ownership only,
-no kycTier) and creates a post — the page shows the returned `txId`/`entityId` and the custody source
-(`prf` vs `secure-store`). To exercise the fallback, run it in a browser without PRF (e.g. Firefox);
-the flow still completes via `secure-store`.
+enroll an account-login passkey → **5** run the **civic golden path**: the SDK unlocks account custody,
+joins a fresh `ab-ca-gov` thread (which creates the thread's passkey), and creates a post — the page
+shows the returned `txId`/`entityId` and the custody source (`prf` vs `secure-store`). To exercise the
+fallback, run it in a browser without PRF (e.g. Firefox); the flow still completes via `secure-store`.
 
 Beneath the one-click golden path, step 5 has **granular sub-steps** that drive the same SDK phase by
-phase — **5a** unlock civic custody (`enrollDevice` → `unlock` → `IdentitySession` + `CivicHttpClient`,
-device enrolled) → **5b** `ensureJoined` → **5c** `createPost` → **5d** `createComment` → **5e**
-`addReaction`. They prove **unlock once, sign many**: only 5a may prompt WebAuthn; 5b–5e reuse the
-already-unlocked session with no further prompt. Run them in order; each is gated on its prerequisite.
+phase — **5a** unlock account custody → **5b** `ensureJoined` (creates the thread passkey) → **5c**
+`createPost` → **5d** `createComment` → **5e** `addReaction`. Under Option A they prove **user
+verification per action**: 5a prompts once for the account unlock, 5b creates the thread passkey, and
+**5c–5e each prompt** for a fresh assertion. Run them in order; each is gated on its prerequisite.
 
 The legacy standalone demo (manual, account auth only): `npm run serve --workspace @oursay/identity` →
 http://localhost:6273.
@@ -173,10 +183,11 @@ restore from backup instead.
 
 ## Production intent
 
-Verified writes go through the **device-signed** path — `IdentityRegistry` builds its
-`RecordService` with `requireDeviceSigner: true`, so persona-only signing is rejected on the
-verified record. Persona-only signing is a dev/test fallback only. The `DevPasskeyConnector` is
-impossible to construct in production (env guard).
+Verified writes go through the **`webauthn-es256`** path — every civic append carries a per-thread
+WebAuthn assertion (UV required), and the jurisdiction signing policy hard-requires it for `vote` and
+`petition_signature`. The record engine retains the legacy derived-`p256` path as a dual-verifier
+capability (and `requireDeviceSigner` still guards *that* branch), but the production client never
+produces it. The `DevPasskeyConnector` is impossible to construct in production (env guard).
 
 ## What remains
 

@@ -69,12 +69,10 @@ export function registerCivicRecordRoutes(app: FastifyInstance, services: Servic
           properties: {
             threadId: { type: "string", description: "Root entity id the thread is scoped to." },
             jurisdiction: { type: "string", description: "Jurisdiction id, e.g. ab-ca-gov." },
-            personaPubkey: { type: "string", description: "Thread persona (author) pubkey, SEC1 P-256 hex." },
-            signerPubkey: { type: "string", description: "Thread-scoped device signer pubkey, SEC1 P-256 hex." },
+            personaPubkey: { type: "string", description: "Thread passkey (author) pubkey, SEC1 P-256 hex — the sole civic identity." },
             commitment: { type: "string", description: "Opaque binding commitment (sha256 hex); opening stays client-side." },
-            devicePubkey: { type: "string", description: "Enrolled account-level civic device pubkey, SEC1 P-256 hex." },
           },
-          required: ["threadId", "jurisdiction", "personaPubkey", "signerPubkey", "commitment", "devicePubkey"],
+          required: ["threadId", "jurisdiction", "personaPubkey", "commitment"],
           additionalProperties: false,
         },
         response: { 204: { type: "null" }, 400: errorSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema },
@@ -85,9 +83,7 @@ export function registerCivicRecordRoutes(app: FastifyInstance, services: Servic
         threadId: string;
         jurisdiction: string;
         personaPubkey: string;
-        signerPubkey: string;
         commitment: string;
-        devicePubkey: string;
       };
       await services.civicRecordService.join({ userId: req.user!.userId, ...b });
       reply.status(204).send();
@@ -126,13 +122,14 @@ export function registerCivicRecordRoutes(app: FastifyInstance, services: Servic
       preHandler: app.requireFullScope,
       schema: {
         tags: ["civic"],
-        summary: "Submit a client+device-signed envelope into the verified record pool",
+        summary: "Submit a client-signed WebAuthn (webauthn-es256) envelope into the verified record pool",
         security: bearerSecurity,
         body: {
           type: "object",
           properties: {
-            // The envelope is a versioned TxEnvelope (shape owned by @oursay/public-record); passed
-            // through and verified cryptographically by the service, not re-described here.
+            // The envelope is a versioned TxEnvelope (shape owned by @oursay/public-record) carrying
+            // signScheme:"webauthn-es256" + the webauthn assertion; passed through and verified
+            // cryptographically by the service, not re-described here.
             envelope: { type: "object", additionalProperties: true },
             salt: { type: "string", description: "Per-record content-commitment salt (random uuid/hex)." },
             content: { description: "The civic payload this envelope commits to (any JSON)." },

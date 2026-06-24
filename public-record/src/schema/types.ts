@@ -17,6 +17,30 @@ export type RecordType =
 /** The CRUD verb carried by a transaction. */
 export type Op = "create" | "update" | "delete";
 
+/**
+ * The signature scheme that produced an envelope's signature.
+ *   - `p256`           — a derived per-thread / thread-scoped device key signs the signing digest in
+ *                        software (legacy / dual-verifier capability; the unsigned-dev path too).
+ *   - `webauthn-es256` — a per-(device, thread) WebAuthn passkey produces a user-verifying assertion
+ *                        whose challenge is bound to the signing digest. The ES256 signature rides
+ *                        inside {@link WebauthnAssertion}; the top-level `signature` stays "".
+ * Absent ⇒ `p256` (legacy envelopes hash byte-identically).
+ */
+export type SignScheme = "p256" | "webauthn-es256";
+
+/**
+ * A WebAuthn assertion (`navigator.credentials.get`) carried on the envelope so an OFFLINE verifier
+ * can re-check the signature from the published chain leaf. All three fields are base64url (no pad):
+ * `signature` is ASN.1 DER ECDSA (P-256), exactly as authenticators/browsers emit it. The signed
+ * message is `authenticatorData || sha256(clientDataJSON)`, and `clientDataJSON.challenge` MUST equal
+ * base64url(signingDigest(envelope)) — binding the whole envelope. The UV flag MUST be set.
+ */
+export interface WebauthnAssertion {
+  authenticatorData: string; // base64url
+  clientDataJSON: string; // base64url (UTF-8 JSON)
+  signature: string; // base64url, ASN.1 DER ECDSA over sha256(authData || sha256(clientDataJSON))
+}
+
 /** Reaction kinds. Mutually exclusive per (author, target); extensible later (custom emoji). */
 export type ReactionKind = "check" | "cross";
 export const REACTION_KINDS: ReactionKind[] = ["check", "cross"];
@@ -55,9 +79,11 @@ export interface TxEnvelope {
   parentId?: string; // entity-level parent id — FOLLOWS edits to the parent
   parentRevisionTxId?: string; // the parent's head tx id at attach time …
   parentRevisionHash?: string; // … its content-addressed revision id (parent txHash) — REVISION-level
-  authorPubkey: string; // THREAD PERSONA — the stable public author id per (user, thread); PLATFORM_PUBKEY for governance
-  signerPubkey?: string; // THREAD-SCOPED DEVICE key that produced `signature` (Method 3 §5.4). Absent ⇒ the persona signed.
-  signature: string; // P-256 signature over the signing digest (or "unsigned" on the dev path)
+  authorPubkey: string; // THREAD PERSONA / thread passkey pubkey — the public author id per (user, thread); PLATFORM_PUBKEY for governance
+  signerPubkey?: string; // p256 path: THREAD-SCOPED DEVICE key that produced `signature` (Method 3 §5.4). Absent on the WebAuthn path (and ⇒ the persona signed on the p256 path).
+  signScheme?: SignScheme; // how `signature`/`webauthn` were produced. Absent ⇒ "p256" (legacy envelopes hash unchanged).
+  signature: string; // p256: ECDSA over the signing digest ("unsigned" on the dev path). WebAuthn path: "" (the ES256 sig lives in `webauthn`).
+  webauthn?: WebauthnAssertion; // present iff signScheme === "webauthn-es256". Blanked (like `signature`) in signingDigest; sealed populated in txHashOf.
   createdAt: string; // ISO 8601 — part of the hash
   prevHash: string | null; // per-entity link = txHash of the prior tx for entityId (null on create)
   contentHash: string; // salted commitment of THIS tx's content

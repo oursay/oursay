@@ -17,7 +17,14 @@ import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import { buildWebauthnAssertion, credentialPubkeyHex } from "@oursay/public-record/identity/webauthn";
+import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
 import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
+
+// Fixed dev RP id / origin for simulated assertions. The offline verifier checks crypto + challenge +
+// UV + type and deliberately does NOT enforce rpIdHash/origin, so any consistent value is accepted.
+const DEV_RP_ID = "localhost";
+const DEV_ORIGIN = "http://localhost";
 
 const ENV_FLAG = "OURSAY_DEV_PASSKEY";
 
@@ -63,6 +70,13 @@ interface DeviceFile {
   deviceRootHex: string;
   devicePubkey: string;
   label?: string;
+}
+interface ThreadCredFile {
+  threadId: string;
+  /** The simulated per-(device, thread) WebAuthn credential private scalar (hex). */
+  credentialPrivHex: string;
+  /** Its compressed SEC1 P-256 pubkey (hex) — the envelope author. */
+  authorPubkey: string;
 }
 
 export interface DevPasskeyOptions {
@@ -116,7 +130,47 @@ export class DevPasskeyConnector implements PasskeyConnector {
       deviceRoot,
       jurisdictionMaster: (jurisdiction: string) => root32(userRoot, "oursay/dev/jurisdiction-master", jurisdiction),
       nullifierRoot: (jurisdiction: string) => root32(userRoot, "oursay/dev/nullifier-root", jurisdiction),
+      createThreadCredential: async (a) => this.createThreadCredentialFor(o.userId, o.deviceId, a.threadId),
+      assertThread: async (a) => this.assertThreadFor(o.userId, o.deviceId, a.threadId, a.challenge),
+      threadCredentialPubkey: (threadId) => this.readThreadCredOrNull(o.userId, o.deviceId, threadId)?.authorPubkey ?? null,
     };
+  }
+
+  // ── Per-thread simulated WebAuthn civic credential (Option A, §5.4) ──────────────────────────
+
+  /**
+   * Create (once) this (device, thread)'s simulated passkey credential — a deterministic P-256 keypair
+   * derived from the device root — and return its PUBLIC key (the envelope author). Idempotent.
+   */
+  private createThreadCredentialFor(userId: string, deviceId: string, threadId: string): { authorPubkey: string } {
+    const existing = this.readThreadCredOrNull(userId, deviceId, threadId);
+    if (existing) return { authorPubkey: existing.authorPubkey };
+    const deviceRoot = hexToBytes(this.readDevice(userId, deviceId).deviceRootHex);
+    const priv = p256PrivFrom(deviceRoot, `thread-cred|${threadId}`);
+    const authorPubkey = credentialPubkeyHex(priv);
+    const file: ThreadCredFile = { threadId, credentialPrivHex: bytesToHex(priv), authorPubkey };
+    this.writeJson(this.threadCredPath(userId, deviceId, threadId), file);
+    return { authorPubkey };
+  }
+
+  /** A simulated user-verifying assertion over `challenge` (= signingDigest) via the shared builder. */
+  private assertThreadFor(userId: string, deviceId: string, threadId: string, challenge: Uint8Array): WebauthnAssertion {
+    const rec = this.readThreadCredOrNull(userId, deviceId, threadId);
+    if (!rec) throw new Error(`DevPasskeyConnector: no thread credential for ${userId}/${deviceId}/${threadId} (join first)`);
+    return buildWebauthnAssertion({
+      credentialPriv: hexToBytes(rec.credentialPrivHex),
+      rpId: DEV_RP_ID,
+      origin: DEV_ORIGIN,
+      challenge,
+    });
+  }
+
+  private readThreadCredOrNull(userId: string, deviceId: string, threadId: string): ThreadCredFile | null {
+    const path = this.threadCredPath(userId, deviceId, threadId);
+    return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")) as ThreadCredFile) : null;
+  }
+  private threadCredPath(userId: string, deviceId: string, threadId: string): string {
+    return join(this.rootDir, safe(userId), "thread-creds", safe(deviceId), `${safe(threadId)}.json`);
   }
 
   /** Wipe ALL dev passkey material (the `.oursay-dev/` directory). Idempotent. */

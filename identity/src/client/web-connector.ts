@@ -1,11 +1,17 @@
 // WebPasskeyConnector — the real browser WebAuthn backend (promoted from passkey-test/web/app.js).
 //
-// Account auth + key custody via a platform passkey:
+// Account auth + key custody via a platform (account-login) passkey:
 //   - register  → navigator.credentials.create (ES256 / -7), PRF extension probed.
 //   - unlock    → navigator.credentials.get with PRF eval; one 32-byte PRF root per credential.
-// From that single PRF root we HKDF-expand the device root + per-(user, jurisdiction) jurisdiction-
-// master / nullifier-root (domain-separated). The passkey NEVER signs civic actions — it unlocks
-// derivation material (§6).
+// From that single PRF root we HKDF-expand the per-(user, jurisdiction) nullifier-root (and the legacy
+// device root / jurisdiction-master for the dual-verifier path). The ACCOUNT passkey never signs civic
+// actions — it only seeds the singleton nullifier root now (§6).
+//
+// Civic signing (Option A, §5.4): each thread the user joins gets its OWN passkey credential
+// (createThreadCredential → navigator.credentials.create, UV + resident key). The credential's public
+// key IS the envelope author, and every civic append is a fresh user-verifying assertion bound to the
+// envelope's signing digest (assertThread → navigator.credentials.get, UV required). The per-thread
+// credential index lives in ThreadPasskeyStore; the private key never leaves the authenticator.
 //
 // Cross-device note (honest limit, FINDINGS §3): a SYNCED passkey (same credential on two devices,
 // e.g. iCloud Keychain) yields the SAME PRF root → shared per-user secrets and persona. INDEPENDENT
@@ -31,8 +37,10 @@ import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
 import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
 import { IndexedDbKeyStore, WebCryptoMasterStore, type SecureMasterStore } from "./secure-store.js";
+import { ThreadPasskeyStore } from "./thread-passkey-store.js";
 
 /** The single PRF salt we evaluate; everything else is HKDF-expanded from its result. */
 const PRF_SALT = utf8ToBytes("oursay/v1/prf-root");
@@ -46,12 +54,31 @@ function root32(ikm: Uint8Array, salt: string, info: string): Uint8Array {
   return hkdf(sha256, ikm, utf8ToBytes(salt), utf8ToBytes(info), 32);
 }
 
+/** base64url (no padding) for the raw WebAuthn assertion buffers. */
+function b64u(buf: ArrayBuffer | Uint8Array): string {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** Extract a credential's compressed SEC1 P-256 pubkey (hex) from its SPKI DER (getPublicKey()).
+ *  A P-256 SPKI is a fixed 26-byte AlgorithmIdentifier header + the 65-byte uncompressed point
+ *  (0x04 || X || Y), so the point is the trailing 65 bytes. */
+function spkiToCompressedSec1(spki: Uint8Array): string {
+  const point = spki.slice(spki.length - 65);
+  if (point[0] !== 0x04) throw new Error("unexpected SPKI encoding (not an uncompressed P-256 point)");
+  return p256.ProjectivePoint.fromHex(bytesToHex(point)).toHex(true);
+}
+
 export interface WebPasskeyOptions {
   /** WebAuthn RP id. Default: the page's hostname (e.g. "localhost"). */
   rpId?: string;
   rpName?: string;
   /** Override the PRF-unavailable fallback store. Default: IndexedDB-backed non-extractable AES master. */
   secureStore?: SecureMasterStore;
+  /** Override the per-thread credential index. Default: localStorage-backed ThreadPasskeyStore. */
+  threadStore?: ThreadPasskeyStore;
 }
 
 export class WebPasskeyConnector implements PasskeyConnector {
@@ -61,6 +88,7 @@ export class WebPasskeyConnector implements PasskeyConnector {
   private readonly rpId: string;
   private readonly rpName: string;
   private readonly secureStore: SecureMasterStore;
+  private readonly threadStore: ThreadPasskeyStore;
 
   constructor(opts: WebPasskeyOptions = {}) {
     if (typeof navigator === "undefined" || !navigator.credentials) {
@@ -69,6 +97,7 @@ export class WebPasskeyConnector implements PasskeyConnector {
     this.rpId = opts.rpId ?? (typeof location !== "undefined" ? location.hostname : "localhost");
     this.rpName = opts.rpName ?? "OurSay";
     this.secureStore = opts.secureStore ?? new WebCryptoMasterStore(new IndexedDbKeyStore());
+    this.threadStore = opts.threadStore ?? new ThreadPasskeyStore();
   }
 
   async enrollDevice(o: { userId: string; label?: string; deviceId?: string }): Promise<DeviceCredential> {
@@ -118,6 +147,63 @@ export class WebPasskeyConnector implements PasskeyConnector {
       deviceRoot,
       jurisdictionMaster: (jurisdiction: string) => root32(root, "oursay/web/jurisdiction-master", jurisdiction),
       nullifierRoot: (jurisdiction: string) => root32(root, "oursay/web/nullifier-root", jurisdiction),
+      createThreadCredential: (a) => this.createThreadCredentialFor(o.userId, a.threadId),
+      assertThread: (a) => this.assertThreadFor(o.userId, a.threadId, a.challenge),
+      threadCredentialPubkey: (threadId) => this.threadStore.get(o.userId, threadId)?.authorPubkey ?? null,
+    };
+  }
+
+  // ── Per-thread WebAuthn civic credential (Option A, §5.4) ────────────────────────────────────
+
+  /**
+   * Create (once) this thread's passkey credential and return its PUBLIC key (the envelope author).
+   * UV + resident key required. The credential's P-256 pubkey is read from the attestation SPKI and
+   * recorded with its credential id in the ThreadPasskeyStore; the private key never leaves the
+   * authenticator. Idempotent: a second call returns the stored pubkey without a new ceremony.
+   */
+  private async createThreadCredentialFor(userId: string, threadId: string): Promise<{ authorPubkey: string }> {
+    const existing = this.threadStore.get(userId, threadId);
+    if (existing) return { authorPubkey: existing.authorPubkey };
+    const userHandle = sha256(utf8ToBytes(`${userId}:thread:${threadId}`));
+    const cred = (await navigator.credentials.create({
+      publicKey: {
+        rp: { id: this.rpId, name: this.rpName },
+        user: { id: userHandle as BufferSource, name: `${userId}:${threadId}`, displayName: `OurSay thread ${threadId}` },
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256 / P-256 only
+        authenticatorSelection: { residentKey: "required", userVerification: "required" },
+        timeout: 60_000,
+      },
+    })) as PublicKeyCredential | null;
+    if (!cred) throw new Error("thread passkey registration cancelled");
+    const resp = cred.response as AuthenticatorAttestationResponse;
+    if (resp.getPublicKeyAlgorithm?.() !== -7) throw new Error("thread passkey did not use ES256/P-256 (alg -7)");
+    const spki = resp.getPublicKey?.();
+    if (!spki) throw new Error("thread passkey: authenticator did not expose a public key");
+    const authorPubkey = spkiToCompressedSec1(new Uint8Array(spki));
+    this.threadStore.set(userId, threadId, { credentialIdHex: bytesToHex(new Uint8Array(cred.rawId)), authorPubkey });
+    return { authorPubkey };
+  }
+
+  /** A user-verifying assertion for this thread's credential over `challenge` (= signingDigest). */
+  private async assertThreadFor(userId: string, threadId: string, challenge: Uint8Array): Promise<WebauthnAssertion> {
+    const rec = this.threadStore.get(userId, threadId);
+    if (!rec) throw new Error(`no thread passkey for ${userId}/${threadId} (join the thread first)`);
+    const assertion = (await navigator.credentials.get({
+      publicKey: {
+        rpId: this.rpId,
+        challenge: challenge as BufferSource,
+        allowCredentials: [{ type: "public-key", id: hexToBytes(rec.credentialIdHex) as BufferSource }],
+        userVerification: "required",
+        timeout: 60_000,
+      },
+    })) as PublicKeyCredential | null;
+    if (!assertion) throw new Error("thread passkey assertion cancelled");
+    const r = assertion.response as AuthenticatorAssertionResponse;
+    return {
+      authenticatorData: b64u(r.authenticatorData),
+      clientDataJSON: b64u(r.clientDataJSON),
+      signature: b64u(r.signature),
     };
   }
 

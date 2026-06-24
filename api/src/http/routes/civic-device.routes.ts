@@ -1,7 +1,8 @@
-// Civic device-key routes (docs/08 §5.4, Method 3). Authenticated (full session) enrollment, listing,
-// and revocation of CIVIC signing device keys in public.device_keys. These are NOT account-login
-// passkeys — they sign public-record actions. The platform stores the PUBLIC key only; the private
-// key is generated and kept on the device. Multi-device: a user may enroll several civic keys.
+// Civic device-key routes (docs/08 §5.4). DEPRECATED for the signing path under Option A: civic
+// signing now uses one per-thread WebAuthn passkey whose pubkey IS the envelope author, so an
+// account-level device key is no longer enrolled, joined, or submitted against. These routes remain
+// only as an OPTIONAL non-cryptographic device registry (e.g. a future "revoke this phone" label) and
+// are not part of join/prepare/submit. The platform stores the PUBLIC key only.
 
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
@@ -24,7 +25,8 @@ export function registerCivicDeviceRoutes(app: FastifyInstance, services: Servic
       preHandler: app.requireFullScope,
       schema: {
         tags: ["civic"],
-        summary: "Enrol a civic signing device key (public key only)",
+        deprecated: true,
+        summary: "[deprecated] Enrol a civic device key (not used by the WebAuthn signing path)",
         security: bearerSecurity,
         body: {
           type: "object",
@@ -55,7 +57,8 @@ export function registerCivicDeviceRoutes(app: FastifyInstance, services: Servic
       preHandler: app.requireFullScope,
       schema: {
         tags: ["civic"],
-        summary: "List the caller's enrolled (non-revoked) civic device keys",
+        deprecated: true,
+        summary: "[deprecated] List the caller's enrolled civic device keys",
         security: bearerSecurity,
         response: {
           200: {
@@ -82,7 +85,8 @@ export function registerCivicDeviceRoutes(app: FastifyInstance, services: Servic
       preHandler: app.requireFullScope,
       schema: {
         tags: ["civic"],
-        summary: "Revoke one of the caller's civic device keys (lost/retired device)",
+        deprecated: true,
+        summary: "[deprecated] Revoke one of the caller's civic device keys",
         security: bearerSecurity,
         body: {
           type: "object",

@@ -94,7 +94,11 @@ DROP TABLE IF EXISTS thread_bindings CASCADE;
 DROP TABLE IF EXISTS thread_keys CASCADE;
 DROP TABLE IF EXISTS level_master_keys CASCADE;
 
--- Per-thread public keys. pubkey is the public author identity that appears in the envelope.
+-- Per-thread public keys. pubkey is the public author identity that appears in the envelope. Under
+-- Option A (docs/08 §5.4) each of the user's DEVICES that joins a thread registers its own per-thread
+-- WebAuthn passkey pubkey, so a (user, thread) may have SEVERAL keys (one per device) — they are
+-- distinct authors, and the per-(user) nullifier dedupes singletons across them. Only pubkey is
+-- globally unique; there is intentionally NO UNIQUE(user_id, thread_id).
 CREATE TABLE thread_keys (
   id           UUID PRIMARY KEY,
   user_id      UUID NOT NULL REFERENCES users(id),
@@ -102,10 +106,10 @@ CREATE TABLE thread_keys (
   jurisdiction TEXT NOT NULL,
   pubkey       TEXT NOT NULL UNIQUE,          -- compressed SEC1 P-256, hex
   claimed    BOOLEAN NOT NULL DEFAULT false,  -- user has publicly claimed this thread (R8; future)
-  claimed_at TIMESTAMPTZ,                     -- nullable; claim may be undone (R9; future)
-  UNIQUE (user_id, thread_id)
+  claimed_at TIMESTAMPTZ                      -- nullable; claim may be undone (R9; future)
 );
 CREATE INDEX IF NOT EXISTS thread_keys_pubkey ON thread_keys (pubkey);
+CREATE INDEX IF NOT EXISTS thread_keys_user_thread ON thread_keys (user_id, thread_id);
 
 -- Private platform registration binding (NEVER published). Commits the thread key to one opaque
 -- account commitment; the platform signs over the binding fields. salt_t escrow / at-rest encryption
@@ -157,6 +161,21 @@ CREATE TABLE IF NOT EXISTS thread_signers (
   revoked_at    TIMESTAMPTZ                      -- nullable; revoke a single thread-scoped signer
 );
 CREATE INDEX IF NOT EXISTS thread_signers_user_thread ON thread_signers (user_id, thread_id);
+
+-- Per-thread WebAuthn civic credentials (Option A, docs/08 §5.4). PRIVATE. Under the per-thread
+-- passkey model the thread credential's PUBLIC key IS the envelope author (authorPubkey) — there is
+-- no separate device signer. This table is the revoke handle: credential_pubkey = author_pubkey, and
+-- appendSigned (webauthn-es256 path) rejects an author whose credential is missing or revoked. No
+-- device FK (the credential is the per-(device,thread) anchor itself), unlike thread_signers.
+CREATE TABLE IF NOT EXISTS thread_civic_credentials (
+  credential_pubkey TEXT PRIMARY KEY,             -- = author_pubkey; compressed SEC1 P-256, hex
+  user_id           UUID NOT NULL REFERENCES users(id),
+  thread_id         TEXT NOT NULL,
+  jurisdiction      TEXT NOT NULL,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at        TIMESTAMPTZ                    -- nullable; revoke this thread credential
+);
+CREATE INDEX IF NOT EXISTS thread_civic_credentials_user_thread ON thread_civic_credentials (user_id, thread_id);
 
 -- KYC attestation STUB (tier carrier only; no provider integration this phase).
 CREATE TABLE IF NOT EXISTS kyc_attestations (

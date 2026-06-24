@@ -1,22 +1,21 @@
 // IdentitySession — client-side signing orchestration (connector-agnostic).
 //
-// Built from an UnlockedSession (one passkey unlock). Derives the thread PERSONA (author id, from
-// the per-(user, jurisdiction) master — stable across the user's devices) and the thread-scoped
-// DEVICE signer (from this device's root), then assembles + device-signs envelopes. All crypto is
-// delegated to @oursay/public-record — this module never re-implements commitment/envelope logic.
-//
-// Derivation never prompts; only the connector's `unlock()` does. So a session signs many messages
-// without re-authenticating (Identity & Device Policy §6 UX intent).
+// Built from an UnlockedSession (one account passkey unlock). Under Option A (docs/08 §5.4) each
+// thread has its OWN WebAuthn passkey credential: the credential's public key is the envelope AUTHOR,
+// and every civic append is a fresh user-verifying assertion bound to the envelope's signing digest.
+// The account unlock survives only to seed the per-(user, jurisdiction) singleton `nullifierRoot`
+// (separate from envelope signing). All crypto is delegated to @oursay/public-record — this module
+// never re-implements commitment/envelope logic.
 
 // Import public-record crypto via its pure-crypto SUBPATHS (not the barrel) so the client bundles for
 // the browser without dragging in the server stack (pg/immudb/config). Crypto is never re-implemented.
 import { buildThreadBindingInputs } from "@oursay/public-record/identity/binding";
 import { contentCommitment, newSalt } from "@oursay/public-record/crypto/commitment";
-import { deriveDeviceThreadSigner, signEnvelopeWithDevice } from "@oursay/public-record/identity/device";
+import { signingDigest } from "@oursay/public-record/identity/envelope";
 import { deriveNullifierSecret, threadNullifier } from "@oursay/public-record/identity/nullifier";
-import { deriveThreadKey } from "@oursay/public-record/identity/derive";
 import { DELETE_MARKER } from "@oursay/public-record/schema/types";
 import type { TxEnvelope } from "@oursay/public-record/schema/types";
+import type { ThreadBindingInputs } from "@oursay/public-record/identity/binding";
 import type { UnlockedSession } from "./connector.js";
 import type { Intent, PreparedAppend, SignedSubmission, ThreadRef } from "../shared/types.js";
 
@@ -29,26 +28,28 @@ export class IdentitySession {
   get deviceId(): string {
     return this.s.deviceId;
   }
-  /** Account-level device pubkey — for enrollment (`device_keys`); never goes on an envelope. */
+  /** Account-level device pubkey — for optional device registration; never goes on an envelope. */
   get devicePubkey(): string {
     return this.s.devicePubkey;
   }
 
-  /** The stable thread persona (public author id) for this thread — same on any of the user's devices. */
-  personaPubkey(t: ThreadRef): string {
-    return deriveThreadKey({ jurisdictionMaster: this.s.jurisdictionMaster(t.jurisdiction), threadId: t.threadId, jurisdiction: t.jurisdiction }).threadPubkey;
-  }
-
-  /** This device's thread-scoped signer pubkey (distinct per (device, thread); no cross-thread linker). */
-  signerPubkey(t: ThreadRef): string {
-    return this.signerKey(t).signerPubkey;
+  /**
+   * The thread's public AUTHOR key — the per-thread WebAuthn passkey pubkey. Creates the credential
+   * on first use (at join / first append) and returns its pubkey thereafter. This replaces the old
+   * derived persona: under Option A the credential IS the thread identity.
+   */
+  async authorPubkey(t: ThreadRef): Promise<string> {
+    const existing = this.s.threadCredentialPubkey(t.threadId);
+    if (existing) return existing;
+    const { authorPubkey } = await this.s.createThreadCredential({ threadId: t.threadId, jurisdiction: t.jurisdiction });
+    return authorPubkey;
   }
 
   /** Client-side binding inputs to join a thread. The opening (user_id, salt_t) stays client-side. */
-  bindingInputs(t: ThreadRef, o: { kycTier?: string } = {}) {
+  async bindingInputs(t: ThreadRef, o: { kycTier?: string } = {}): Promise<ThreadBindingInputs> {
     return buildThreadBindingInputs({
       userId: this.s.userId,
-      threadPubkey: this.personaPubkey(t),
+      threadPubkey: await this.authorPubkey(t),
       threadId: t.threadId,
       jurisdiction: t.jurisdiction,
       kycTier: o.kycTier,
@@ -61,13 +62,14 @@ export class IdentitySession {
   }
 
   /**
-   * Assemble + DEVICE-sign an envelope from a server `prepare()` result and an intent. The envelope
-   * carries `author = persona`, `signer = this device's thread-scoped key`. Singleton creates mint
-   * the per-(user, jurisdiction) nullifier; singleton updates/deletes carry the prepared one forward.
+   * Assemble + WebAuthn-sign an envelope from a server `prepare()` result and an intent. The envelope
+   * carries `author = the thread passkey pubkey` and `signScheme = "webauthn-es256"`; the assertion's
+   * challenge is bound to the envelope's signing digest, so each append is a fresh, user-verified
+   * signature. Singleton creates mint the per-(user, jurisdiction) nullifier; singleton updates/deletes
+   * carry the prepared one forward.
    */
-  buildSigned(t: ThreadRef, prep: PreparedAppend, intent: Intent): SignedSubmission {
-    const persona = this.personaPubkey(t);
-    const signer = this.signerKey(t);
+  async buildSigned(t: ThreadRef, prep: PreparedAppend, intent: Intent): Promise<SignedSubmission> {
+    const authorPubkey = await this.authorPubkey(t);
     const txId = crypto.randomUUID();
     const salt = newSalt();
     const content = intent.op === "delete" ? DELETE_MARKER : intent.content;
@@ -83,19 +85,16 @@ export class IdentitySession {
       ...(intent.op !== "create" && prep.parentId ? { parentId: prep.parentId } : {}),
       ...(prep.parentRevisionHash ? { parentRevisionHash: prep.parentRevisionHash } : {}),
       ...(prep.parentRevisionTxId ? { parentRevisionTxId: prep.parentRevisionTxId } : {}),
-      authorPubkey: "",
-      signature: "",
+      authorPubkey,
+      signScheme: "webauthn-es256",
+      signature: "", // the ES256 signature lives inside `webauthn`
       createdAt: new Date().toISOString(),
       prevHash: prep.prevHash,
       contentHash: contentCommitment({ id: txId, salt, content }),
       ...(nullifier ? { nullifier } : {}),
     };
-    const { envelope } = signEnvelopeWithDevice(base, signer.privKey, persona);
-    return { envelope, salt, content };
-  }
-
-  private signerKey(t: ThreadRef) {
-    return deriveDeviceThreadSigner({ deviceRoot: this.s.deviceRoot, threadId: t.threadId, jurisdiction: t.jurisdiction });
+    const webauthn = await this.s.assertThread({ threadId: t.threadId, challenge: signingDigest(base) });
+    return { envelope: { ...base, webauthn }, salt, content };
   }
 
   private nullifierFor(t: ThreadRef, prep: PreparedAppend, intent: Intent): string | undefined {

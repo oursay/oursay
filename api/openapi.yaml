@@ -1154,7 +1154,8 @@ paths:
                   - error
   /v1/civic/devices:
     post:
-      summary: Enrol a civic signing device key (public key only)
+      summary: "[deprecated] Enrol a civic device key (not used by the WebAuthn
+        signing path)"
       tags:
         - civic
       requestBody:
@@ -1172,6 +1173,7 @@ paths:
               required:
                 - devicePubkey
               additionalProperties: false
+      deprecated: true
       security: *a1
       responses:
         "201":
@@ -1276,9 +1278,10 @@ paths:
                 required:
                   - error
     get:
-      summary: List the caller's enrolled (non-revoked) civic device keys
+      summary: "[deprecated] List the caller's enrolled civic device keys"
       tags:
         - civic
+      deprecated: true
       security: *a1
       responses:
         "200":
@@ -1351,7 +1354,7 @@ paths:
                   - error
   /v1/civic/devices/revoke:
     post:
-      summary: Revoke one of the caller's civic device keys (lost/retired device)
+      summary: "[deprecated] Revoke one of the caller's civic device keys"
       tags:
         - civic
       requestBody:
@@ -1367,6 +1370,7 @@ paths:
               required:
                 - devicePubkey
               additionalProperties: false
+      deprecated: true
       security: *a1
       responses:
         "204":
@@ -1472,23 +1476,16 @@ paths:
                   description: Jurisdiction id, e.g. ab-ca-gov.
                 personaPubkey:
                   type: string
-                  description: Thread persona (author) pubkey, SEC1 P-256 hex.
-                signerPubkey:
-                  type: string
-                  description: Thread-scoped device signer pubkey, SEC1 P-256 hex.
+                  description: Thread passkey (author) pubkey, SEC1 P-256 hex — the sole civic
+                    identity.
                 commitment:
                   type: string
                   description: Opaque binding commitment (sha256 hex); opening stays client-side.
-                devicePubkey:
-                  type: string
-                  description: Enrolled account-level civic device pubkey, SEC1 P-256 hex.
               required:
                 - threadId
                 - jurisdiction
                 - personaPubkey
-                - signerPubkey
                 - commitment
-                - devicePubkey
               additionalProperties: false
       security: *a1
       responses:
@@ -1758,7 +1755,8 @@ paths:
                   - error
   /v1/civic/appends/submit:
     post:
-      summary: Submit a client+device-signed envelope into the verified record pool
+      summary: Submit a client-signed WebAuthn (webauthn-es256) envelope into the
+        verified record pool
       tags:
         - civic
       requestBody:

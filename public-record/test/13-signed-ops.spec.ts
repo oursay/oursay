@@ -38,7 +38,9 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     connector = w.connector;
     await store.reset();
     const chainId = randomUUID();
-    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0 });
+    // enforceSigningPolicy:false — this spec exercises the raw p256 path on forced types (vote/
+    // petition_signature); the webauthn-es256 hard requirement is covered in webauthn-envelope.spec.
+    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0, enforceSigningPolicy: false });
     settler = new BlockSettler(store, connector, chainId, blockConfig);
   });
 

@@ -149,7 +149,7 @@ export class PrivateStore {
   async reset(): Promise<void> {
     assertDestructiveAllowed("PrivateStore.reset()");
     await this.pool.query(
-      "TRUNCATE record_outbox, record_tx, thread_signers, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users CASCADE",
+      "TRUNCATE record_outbox, record_tx, thread_signers, thread_civic_credentials, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users CASCADE",
     );
   }
 
@@ -595,6 +595,50 @@ export class PrivateStore {
     return row
       ? { userId: row.user_id, threadId: row.thread_id, deviceId: row.device_id, revoked: row.revoked }
       : null;
+  }
+
+  /**
+   * Register a per-thread WebAuthn civic credential (Option A): the PUBLISHED credential pubkey (=
+   * the envelope's authorPubkey) mapped to its verified user + thread. Upsert keeps join idempotent
+   * and clears any prior revocation (re-enrolling the same credential re-activates it).
+   */
+  async registerThreadCredential(input: {
+    credentialPubkey: string;
+    userId: string;
+    threadId: string;
+    jurisdiction: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO thread_civic_credentials(credential_pubkey, user_id, thread_id, jurisdiction) VALUES($1,$2,$3,$4)
+       ON CONFLICT (credential_pubkey) DO UPDATE SET
+         user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id,
+         jurisdiction = EXCLUDED.jurisdiction, revoked_at = NULL`,
+      [input.credentialPubkey, input.userId, input.threadId, input.jurisdiction],
+    );
+  }
+
+  /**
+   * Resolve a per-thread civic credential (by its pubkey = authorPubkey) for the appendSigned
+   * authorization check on the webauthn-es256 path. Returns null when the credential is unknown.
+   */
+  async getThreadCredential(
+    credentialPubkey: string,
+  ): Promise<{ userId: string; threadId: string; revoked: boolean } | null> {
+    const r = await this.pool.query(
+      `SELECT user_id, thread_id, (revoked_at IS NOT NULL) AS revoked
+       FROM thread_civic_credentials WHERE credential_pubkey = $1`,
+      [credentialPubkey],
+    );
+    const row = r.rows[0];
+    return row ? { userId: row.user_id, threadId: row.thread_id, revoked: row.revoked } : null;
+  }
+
+  /** Revoke a single per-thread civic credential ("revoke this thread's passkey"). */
+  async revokeThreadCredential(credentialPubkey: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE thread_civic_credentials SET revoked_at = now() WHERE credential_pubkey = $1 AND revoked_at IS NULL`,
+      [credentialPubkey],
+    );
   }
 
   /** The platform-attested nullifier for `(user, parent)`, or null if none has been attested yet. */

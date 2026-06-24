@@ -2,11 +2,12 @@
 //
 // Holds the platform's record engine (PrivateStore + RecordService) and binding key. It accepts
 // only PUBLIC material from the client (pubkeys, the opaque commitment, signed envelopes) and
-// performs the verified-tier writes. The RecordService is built with `requireDeviceSigner: true`
-// (production path) — persona-only signing is rejected here.
+// performs the verified-tier writes. The production civic write path is webauthn-es256 (Option A):
+// each thread has its own passkey, whose pubkey IS the author; the RecordService verifies the
+// per-append assertion (and the jurisdiction policy hard-requires it for vote/petition_signature).
 //
-// Wiring (Method 3 §5.4): enroll → `device_keys`; join thread → `thread_keys` + `thread_bindings`
-// + `thread_signers`; submit → `appendSigned` (author = persona, signer = thread-scoped device key).
+// Wiring (Option A §5.4): join thread → `thread_keys` + `thread_bindings` + `thread_civic_credentials`
+// (the per-thread revoke handle); submit → `appendSigned` (author = the thread passkey pubkey, no signer).
 //
 // A join binds account↔thread-key OWNERSHIP. `kyc_tier` is OPTIONAL on the binding (verification tier
 // is applied at read/count time, not fixed at join); when omitted it must stay omitted on both the
@@ -46,16 +47,14 @@ export class IdentityRegistry {
   }
 
   /**
-   * Join a thread: resolve the enrolling device, platform-sign the binding, and write
-   * `thread_keys` + `thread_bindings` (registerThreadBinding) and `thread_signers`. The binding is
-   * built to match `bindingFromRow` exactly (kyc_tier included ONLY when bound) so
-   * `verifyThreadBinding` re-verifies it at append time.
+   * Join a thread (Option A): platform-sign the binding and write `thread_keys` + `thread_bindings`
+   * (registerThreadBinding) and the per-thread civic credential row (registerThreadCredential). The
+   * thread passkey pubkey IS the author identity — there is no separate device/signer. The binding is
+   * built to match `bindingFromRow` exactly (kyc_tier included ONLY when bound) so `verifyThreadBinding`
+   * re-verifies it at append time. The credential row (credential_pubkey = personaPubkey) is the
+   * "revoke this thread's passkey" handle appendSigned enforces.
    */
   async joinThread(r: ThreadRegistration): Promise<void> {
-    const device = await this.o.store.getDeviceKeyByPubkey(r.devicePubkey);
-    if (!device || device.revoked) throw new Error("joinThread: device is not enrolled (or revoked)");
-    if (device.userId !== r.userId) throw new Error("joinThread: device belongs to a different user");
-
     const binding: ThreadBindingPublic = {
       thread_pubkey: r.personaPubkey,
       thread_id: r.threadId,
@@ -75,10 +74,9 @@ export class IdentityRegistry {
       commitment: r.commitment,
       bindingSig,
     });
-    await this.o.store.registerThreadSigner({
-      signerPubkey: r.signerPubkey,
+    await this.o.store.registerThreadCredential({
+      credentialPubkey: r.personaPubkey,
       userId: r.userId,
-      deviceId: device.id,
       threadId: r.threadId,
       jurisdiction: r.jurisdiction,
     });

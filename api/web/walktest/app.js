@@ -251,15 +251,16 @@ async function renderPasskeys() {
   }
 }
 
-// ── 5 · Civic device key + golden path (real @oursay/identity SDK) ────────────
-// Drives the PRODUCTION civic custody + write path in the browser via the bundled SDK
-// (/walk/identity.js): a passkey-unlocked, non-exportable derivation root (or, when PRF is
-// unavailable, a non-extractable AES-wrapped fallback master in IndexedDB) → device-signed envelope.
-// The platform only ever receives PUBLIC keys, an opaque commitment, and the signed envelope.
+// ── 5 · Per-thread civic passkey + golden path (real @oursay/identity SDK) ────────────
+// Drives the PRODUCTION civic write path in the browser via the bundled SDK (/walk/identity.js),
+// Option A: each thread gets its OWN WebAuthn passkey whose public key is the envelope author, and
+// EVERY civic append is a fresh user-verifying assertion bound to the envelope's signing digest. The
+// account unlock survives only to seed the singleton nullifier root. The platform only ever receives
+// PUBLIC keys, an opaque commitment, and the signed envelope.
 //
-// NOTE: this civic-custody passkey is SEPARATE from the step-4 account-login passkey — you will see a
-// second passkey prompt. The SDK is dynamically imported on click so steps 1–4 still work if the
-// dev-only bundle fails to build.
+// NOTE: the civic passkeys are SEPARATE from the step-4 account-login passkey, and you will see a
+// WebAuthn prompt PER ACTION (join creates the thread passkey; each post/comment/reaction/vote signs
+// with it). The SDK is dynamically imported on click so steps 1–4 still work if the bundle fails.
 
 const CIVIC_JURISDICTION = "ab-ca-gov";
 
@@ -280,12 +281,13 @@ async function loadIdentity() {
 }
 
 /**
- * Establish (or re-establish) a civic signing session: enroll a civic-custody credential, unlock it
- * once via WebAuthn, and build a CivicHttpClient with the civic device enrolled. Shared by the
- * one-click golden path and sub-step 5a. Thread handling is explicit: an existing thread is REUSED
- * (re-running 5a never mints a new thread), and postId/commentId carry over; but `joined` resets to
- * false because the freshly built client starts with an empty join set (5b — or 5c–5e's append — will
- * re-join). Returns the stashed state.civic.
+ * Establish (or re-establish) a civic signing session: enroll the account-custody credential and
+ * unlock it once via WebAuthn (this seeds the singleton nullifier root only), then build a
+ * CivicHttpClient. The per-thread passkey is created lazily on join/first append, and every append
+ * re-prompts for user verification. Shared by the one-click golden path and sub-step 5a. Thread
+ * handling is explicit: an existing thread is REUSED (re-running 5a never mints a new thread), and
+ * postId/commentId carry over; `joined` resets to false because the freshly built client starts with
+ * an empty join set (5b — or 5c–5e's append — will re-join). Returns the stashed state.civic.
  */
 async function establishCivic(userId) {
   const { WebPasskeyConnector, IdentitySession, CivicHttpClient } = await loadIdentity();
@@ -293,7 +295,6 @@ async function establishCivic(userId) {
   const cred = await conn.enrollDevice({ userId, label: "walk civic device" });
   const session = new IdentitySession(await conn.unlock({ userId, deviceId: cred.deviceId }));
   const client = new CivicHttpClient({ baseUrl: location.origin, session, credentials: "include" });
-  await client.ensureDeviceEnrolled("walk civic device");
   const thread = state.civic?.thread ?? { threadId: crypto.randomUUID(), jurisdiction: CIVIC_JURISDICTION };
   state.civic = {
     conn, cred, session, client, thread,
@@ -335,7 +336,7 @@ $("enrollCivic").addEventListener("click", async () => {
       devicePubkey: civic.devicePubkey,
       thread: civic.thread,
       ref,
-      note: "Real SDK: passkey-unlocked custody, device-signed envelope. Platform received only public keys + the signed envelope. You can continue with sub-steps 5d/5e on this post.",
+      note: "Real SDK (Option A): per-thread WebAuthn passkey, a fresh user-verifying assertion per action. Platform received only public keys + the signed envelope. Continue with sub-steps 5d/5e on this post.",
     });
     $("listCivic").disabled = false;
     refreshCivicButtons();
@@ -345,9 +346,10 @@ $("enrollCivic").addEventListener("click", async () => {
   }
 });
 
-// ── 5a–5e · Civic sub-steps (unlock once, sign many) ──────────────────────────
-// 5a unlocks custody (may prompt WebAuthn); 5b–5e act on the stored, already-unlocked
-// CivicHttpClient + IdentitySession with NO further prompt.
+// ── 5a–5e · Civic sub-steps (per-thread passkey, user-verification per action) ──────────────
+// 5a unlocks account custody (one WebAuthn prompt — seeds the nullifier root); 5b creates the thread
+// passkey (a WebAuthn prompt); 5c–5e each produce a fresh user-verifying assertion (a prompt per
+// action). This is Option A: no silent "sign many" after a single unlock.
 
 $("civicUnlock").addEventListener("click", async () => {
   const userId = await ensureUserId();
@@ -365,7 +367,7 @@ $("civicUnlock").addEventListener("click", async () => {
       devicePubkey: civic.devicePubkey,
       deviceId: civic.cred.deviceId,
       thread: civic.thread,
-      note: "Civic device enrolled and session unlocked ONCE. 5b–5e reuse this session with no further WebAuthn prompt.",
+      note: "Account custody unlocked (seeds the nullifier root). 5b creates the thread passkey; 5c–5e each prompt for user verification (one assertion per action).",
     });
     refreshCivicButtons();
   } catch (e) {
@@ -381,7 +383,7 @@ $("civicJoin").addEventListener("click", async () => {
     await c.client.ensureJoined(c.thread);
     c.joined = true;
     badge("civicsub", "ok", "joined");
-    show("civicsub", { step: "5b · join thread", thread: c.thread, note: "Ownership-only join — no kycTier." });
+    show("civicsub", { step: "5b · join thread", thread: c.thread, note: "Creates the thread passkey + ownership-only join (no kycTier)." });
     refreshCivicButtons();
   } catch (e) {
     badge("civicsub", "err", "join failed");

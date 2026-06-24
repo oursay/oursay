@@ -15,14 +15,21 @@ import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { canonicalJson } from "../crypto/commitment.js";
 import { txHashOf } from "../crypto/txhash.js";
+import { verifyWebauthnAssertion } from "./webauthn.js";
 import type { TxEnvelope } from "../schema/types.js";
 
 /** The placeholder the `signature` field holds while computing the signing digest. */
 export const UNSIGNED = "";
 
-/** sha256(canonicalJson(envelope with signature="")) — the bytes the signing key signs. */
+/**
+ * sha256(canonicalJson(envelope with `signature` AND `webauthn` blanked)) — the bytes the signing key
+ * signs, and (on the WebAuthn path) the assertion CHALLENGE. `webauthn` is produced BY the act of
+ * signing (like `signature`), so it is excluded here; `signScheme`/`authorPubkey` are set BEFORE
+ * signing, so they ARE covered. `canonicalJson` drops `undefined`, so a p256 envelope (no `webauthn`)
+ * hashes byte-identically to before this field existed.
+ */
 export function signingDigest(env: TxEnvelope): Uint8Array {
-  const base: TxEnvelope = { ...env, signature: UNSIGNED };
+  const base: TxEnvelope = { ...env, signature: UNSIGNED, webauthn: undefined };
   return sha256(utf8ToBytes(canonicalJson(base)));
 }
 
@@ -47,13 +54,15 @@ export function signEnvelope(env: TxEnvelope, privKey: Uint8Array): SignResult {
 }
 
 /**
- * Verify an envelope's signature against the key that produced it: the thread-scoped
- * `signerPubkey` (device key) when present, otherwise `authorPubkey` (the persona signed —
- * today's single-device / passkey-sync path). Either way the signing digest binds the whole
- * envelope (incl. `authorPubkey` and `signerPubkey`), so the persona that appears on the
- * record cannot be swapped without invalidating the signature.
+ * Verify an envelope's signature, branching on `signScheme` (absent ⇒ "p256"):
+ *   - `webauthn-es256`: a per-thread WebAuthn passkey assertion verified against `authorPubkey`
+ *     (see {@link verifyWebauthnAssertion}); the top-level `signature` is "".
+ *   - `p256`: a derived key signed the digest — the thread-scoped `signerPubkey` (device key) when
+ *     present, otherwise `authorPubkey` (persona signed). Either way the digest binds the whole
+ *     envelope (incl. `authorPubkey`/`signerPubkey`), so neither can be swapped post-signature.
  */
 export function verifyEnvelope(env: TxEnvelope): boolean {
+  if ((env.signScheme ?? "p256") === "webauthn-es256") return verifyWebauthnAssertion(env);
   if (!env.signature || env.signature === UNSIGNED) return false;
   try {
     const verifyingKey = env.signerPubkey ?? env.authorPubkey;

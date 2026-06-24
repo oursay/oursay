@@ -1,12 +1,12 @@
 // CivicHttpClient — a thin client over the @oursay/api civic WRITE surface (docs/08 §6). It wraps the
-// four HTTP endpoints (enrol device / join thread / prepare / submit) and orchestrates the
-// unlock-once/sign-many flow against an IdentitySession: ensure the civic device is enrolled, join the
-// thread once, then prepare → device-sign → submit for each civic action.
+// HTTP endpoints (join thread / prepare / submit) and orchestrates the per-thread WebAuthn flow
+// against an IdentitySession: join the thread once (creating its passkey credential), then prepare →
+// WebAuthn-sign → submit for each civic action (a fresh user-verifying assertion per action).
 //
-// This module is fetch + JSON + orchestration ONLY. All crypto stays in IdentitySession (persona /
-// signer derivation, binding inputs, envelope signing) and @oursay/public-record — the SDK never
-// assembles or signs an envelope itself. That keeps the trust boundary intact: only PUBLIC material
-// (pubkeys, the opaque commitment, signed envelopes) ever crosses to the server.
+// This module is fetch + JSON + orchestration ONLY. All crypto stays in IdentitySession (per-thread
+// credential, binding inputs, envelope assembly + assertion) and @oursay/public-record — the SDK
+// never assembles or signs an envelope itself. That keeps the trust boundary intact: only PUBLIC
+// material (pubkeys, the opaque commitment, signed envelopes) ever crosses to the server.
 
 import type { CommentContent, PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
 import type { IdentitySession } from "./session.js";
@@ -58,9 +58,8 @@ export class CivicHttpClient {
   private readonly credentials?: RequestCredentials;
   private readonly fetchImpl: typeof fetch;
 
-  // In-memory orchestration state, so a long-lived client enrols its device and joins each thread at
-  // most once. Cheap dedupe — not a security boundary (the server re-checks ownership every call).
-  private deviceEnsured = false;
+  // In-memory orchestration state, so a long-lived client joins each thread at most once. Cheap dedupe
+  // — not a security boundary (the server re-checks ownership every call).
   private readonly joined = new Set<string>();
 
   constructor(opts: CivicHttpClientOptions) {
@@ -93,25 +92,25 @@ export class CivicHttpClient {
   }
 
   /**
-   * Join a thread: bind account↔thread-key OWNERSHIP. The binding inputs are built WITHOUT a kycTier
-   * (ownership-only, matching the A1 HTTP contract) — verification tier is applied at read/count time,
-   * never fixed at join.
+   * Join a thread: bind account↔thread-key OWNERSHIP. Under Option A the thread passkey pubkey IS the
+   * author identity — join registers just that pubkey (created on first use) + the opaque commitment.
+   * No device/signer pubkey crosses the wire. The binding inputs carry no kycTier (ownership-only);
+   * verification tier is applied at read/count time, never fixed at join.
    */
   async joinThread(t: ThreadRef): Promise<void> {
+    const { binding } = await this.session.bindingInputs(t);
     await this.request<void>("POST", "/v1/civic/threads/join", {
       threadId: t.threadId,
       jurisdiction: t.jurisdiction,
-      personaPubkey: this.session.personaPubkey(t),
-      signerPubkey: this.session.signerPubkey(t),
-      commitment: this.session.bindingInputs(t).binding.commitment,
-      devicePubkey: this.session.devicePubkey,
+      personaPubkey: binding.thread_pubkey,
+      commitment: binding.commitment,
     });
   }
 
   /** Prepare an append: fetch the server-derived fields the client must sign over. */
   async prepare(t: ThreadRef, intent: Intent): Promise<PreparedAppend> {
     return this.request<PreparedAppend>("POST", "/v1/civic/appends/prepare", {
-      author: this.session.personaPubkey(t),
+      author: await this.session.authorPubkey(t),
       intent,
     });
   }
@@ -127,16 +126,6 @@ export class CivicHttpClient {
 
   // ── Orchestration ─────────────────────────────────────────────────────────────────────────
 
-  /** Ensure this device is enrolled (GET-first so it's idempotent for a returning user). */
-  async ensureDeviceEnrolled(label?: string): Promise<void> {
-    if (this.deviceEnsured) return;
-    const devices = await this.listDevices();
-    if (!devices.some((d) => d.devicePubkey === this.session.devicePubkey)) {
-      await this.enrollDevice(label);
-    }
-    this.deviceEnsured = true;
-  }
-
   /** Ensure this thread is joined (once per client instance). */
   async ensureJoined(t: ThreadRef): Promise<void> {
     const key = `${t.jurisdiction}:${t.threadId}`;
@@ -146,15 +135,14 @@ export class CivicHttpClient {
   }
 
   /**
-   * The full write path for one intent: ensure device enrolled → ensure thread joined → prepare →
-   * DEVICE-sign (via IdentitySession) → submit. This is "unlock once, sign many" — no re-auth between
-   * actions on the same session.
+   * The full write path for one intent: ensure thread joined → prepare → WebAuthn-sign (via
+   * IdentitySession) → submit. Each append produces a fresh user-verifying passkey assertion
+   * (UV per action) — there is no silent "sign many" after a single unlock (Option A).
    */
   async append(t: ThreadRef, intent: Intent): Promise<SubmitRef> {
-    await this.ensureDeviceEnrolled();
     await this.ensureJoined(t);
     const prep = await this.prepare(t, intent);
-    const signed = this.session.buildSigned(t, prep, intent);
+    const signed = await this.session.buildSigned(t, prep, intent);
     return this.submit(signed);
   }
 

@@ -4,8 +4,8 @@
 // (WebAuthn PRF + IndexedDbKeyStore) are covered by the /walk manual QA, not here.
 //
 // The end-to-end case proves the load-bearing property: a fallback master, HKDF-expanded exactly as
-// WebPasskeyConnector does, drives IdentitySession.buildSigned into an envelope that verifies — so the
-// fallback is a real signing custody path, not just storage.
+// WebPasskeyConnector does, seeds a session whose per-thread credential drives IdentitySession.buildSigned
+// into a webauthn-es256 envelope that verifies — so the fallback is a real custody path, not just storage.
 
 import { expect } from "chai";
 import { hkdf } from "@noble/hashes/hkdf";
@@ -14,6 +14,7 @@ import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 import { verifyEnvelope } from "@oursay/public-record/identity/envelope";
+import { buildWebauthnAssertion, credentialPubkeyHex } from "@oursay/public-record/identity/webauthn";
 import { WebCryptoMasterStore, MemoryKeyStore, IdentitySession } from "@oursay/identity/client";
 import type { UnlockedSession } from "@oursay/identity/client";
 import type { Intent, PreparedAppend, ThreadRef } from "@oursay/identity";
@@ -26,10 +27,20 @@ function p256PrivFrom(ikm: Uint8Array, info: string): Uint8Array {
   return numberToBytesBE((bytesToNumberBE(okm) % (n - 1n)) + 1n, 32);
 }
 
-/** Build the same UnlockedSession shape the web connector derives from a (here: fallback) master. */
+/** Build the same UnlockedSession shape the web connector derives from a (here: fallback) master, with a
+ *  simulated per-thread WebAuthn credential derived from the same master (Option A custody). */
 function sessionFromMaster(master: Uint8Array, userId: string, deviceId: string): UnlockedSession {
   const deviceRoot = root32(master, "oursay/web/device-root", deviceId);
   const devicePubkey = bytesToHex(p256.getPublicKey(p256PrivFrom(deviceRoot, `account|${userId}`)));
+  const threadCreds = new Map<string, Uint8Array>();
+  const credFor = (threadId: string): Uint8Array => {
+    let priv = threadCreds.get(threadId);
+    if (!priv) {
+      priv = p256PrivFrom(root32(master, "oursay/web/thread-cred", threadId), `thread|${threadId}`);
+      threadCreds.set(threadId, priv);
+    }
+    return priv;
+  };
   return {
     userId,
     deviceId,
@@ -37,6 +48,9 @@ function sessionFromMaster(master: Uint8Array, userId: string, deviceId: string)
     deviceRoot,
     jurisdictionMaster: (j: string) => root32(master, "oursay/web/jurisdiction-master", j),
     nullifierRoot: (j: string) => root32(master, "oursay/web/nullifier-root", j),
+    createThreadCredential: async ({ threadId }) => ({ authorPubkey: credentialPubkeyHex(credFor(threadId)) }),
+    assertThread: async ({ threadId, challenge }) => buildWebauthnAssertion({ credentialPriv: credFor(threadId), rpId: "localhost", origin: "http://localhost", challenge }),
+    threadCredentialPubkey: (threadId) => (threadCreds.has(threadId) ? credentialPubkeyHex(threadCreds.get(threadId)!) : null),
   };
 }
 
@@ -66,16 +80,16 @@ describe("03 secure-store: PRF-unavailable fallback master (non-extractable AES 
     expect(bytesToHex(u1)).to.not.equal(bytesToHex(u2));
   });
 
-  it("drives a verifiable device-signed envelope (fallback is a real signing custody path)", async () => {
+  it("drives a verifiable webauthn-es256 envelope (fallback is a real signing custody path)", async () => {
     const master = await new WebCryptoMasterStore(new MemoryKeyStore()).getOrCreate("user-1");
     const session = new IdentitySession(sessionFromMaster(master, "user-1", "device-A"));
     const t: ThreadRef = { threadId: "thread-1", jurisdiction: "ab-ca-gov" };
     const intent: Intent = { op: "create", type: "post", entityId: "thread-1", content: { body: "hi" } };
     const prep: PreparedAppend = { prevHash: null, rootEntityId: "thread-1" };
 
-    const signed = session.buildSigned(t, prep, intent);
+    const signed = await session.buildSigned(t, prep, intent);
     expect(verifyEnvelope(signed.envelope), "envelope verifies").to.equal(true);
-    expect(signed.envelope.authorPubkey).to.equal(session.personaPubkey(t));
-    expect(signed.envelope.signerPubkey).to.equal(session.signerPubkey(t));
+    expect(signed.envelope.signScheme).to.equal("webauthn-es256");
+    expect(signed.envelope.authorPubkey).to.equal(await session.authorPubkey(t));
   });
 });

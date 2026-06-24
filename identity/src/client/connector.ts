@@ -10,11 +10,14 @@
 // (passkey-test/FINDINGS §1). Private material lives on the device and (for Dev) under `.oursay-dev/`;
 // it is never sent to the platform.
 //
-// Key custody model (Method 3, §5.4):
-//   - deviceRoot  — per-(device) 32-byte secret → thread-scoped DEVICE signer keys (per (device,thread)).
-//   - jurisdictionMaster — per-(user, jurisdiction) secret, shared across the user's devices
-//                   (passkey sync / encrypted backup), → the thread PERSONA (author id) per (user,thread).
-//   - nullifierRoot — per-(user, jurisdiction) secret, shared across devices → singleton nullifiers.
+// Civic signing (Option A, docs/08 §5.4): each (device, thread) has its OWN WebAuthn passkey
+// credential. The credential's PUBLIC key is the envelope author; every civic append is a fresh
+// user-verifying assertion bound to the envelope's signing digest (createThreadCredential /
+// assertThread below). The account unlock survives only to seed the singleton `nullifierRoot`
+// (separate from envelope signing). The legacy p256 derivation roots (deviceRoot / jurisdictionMaster)
+// remain on the session for the dual-verifier / legacy path but are unused by the WebAuthn path.
+
+import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
 
 /** The PUBLIC handle for an enrolled device (account-level key goes into `device_keys`). */
 export interface DeviceCredential {
@@ -42,12 +45,29 @@ export interface UnlockedSession {
   readonly userId: string;
   readonly deviceId: string;
   readonly devicePubkey: string;
-  /** 32-byte per-device root for thread-scoped signer derivation (deriveDeviceThreadSigner). */
+  /** 32-byte per-device root for thread-scoped signer derivation (legacy p256 path). */
   readonly deviceRoot: Uint8Array;
-  /** Per-(user, jurisdiction) master, shared across the user's devices → thread personas. */
+  /** Per-(user, jurisdiction) master, shared across the user's devices (legacy p256 persona path). */
   jurisdictionMaster(jurisdiction: string): Uint8Array;
   /** Per-(user, jurisdiction) nullifier root, shared across the user's devices → singleton dedupe. */
   nullifierRoot(jurisdiction: string): Uint8Array;
+
+  // ── Per-thread WebAuthn civic credential (Option A) ─────────────────────────────────────────
+  /**
+   * Create (once) the WebAuthn passkey credential for this thread and return its PUBLIC key — the
+   * envelope author for every civic action in the thread. Web: a `navigator.credentials.create`
+   * ceremony (UV); Dev: a deterministic per-(user, thread) P-256 keypair. Idempotent at the store
+   * level (a second call returns the existing credential's pubkey).
+   */
+  createThreadCredential(o: { threadId: string; jurisdiction: string }): Promise<{ authorPubkey: string }>;
+  /**
+   * Produce a user-verifying WebAuthn assertion for this thread's credential over `challenge`
+   * (= signingDigest(envelope)). Web: `navigator.credentials.get` with `userVerification:"required"`;
+   * Dev: a simulated assertion via the shared builder. Called PER civic append (UV per action).
+   */
+  assertThread(o: { threadId: string; challenge: Uint8Array }): Promise<WebauthnAssertion>;
+  /** The thread passkey PUBLIC key if a credential already exists for this thread, else null. */
+  threadCredentialPubkey(threadId: string): string | null;
 }
 
 export interface PasskeyConnector {
