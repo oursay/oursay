@@ -35,15 +35,16 @@ It captures product intent from design review (June 2026) and should stay aligne
 - For each **thread** they join (a post, poll, or petition — the root of that conversation),
   they use a **thread key**: a pseudonymous public key that appears on the public record.
 
-### One passkey per thread (implemented: Option A)
+### One passkey per thread (implemented: Option A + mvp-a5b persona/signer split)
 
-> **Implemented (Option A) — supersedes the original design below.** The production civic path now
-> creates **one WebAuthn passkey credential per (device, thread)**. The credential's public key **is**
-> the thread author (`authorPubkey`), and **every** civic append is a fresh user-verifying assertion
-> bound to the envelope's signing digest (`signScheme: "webauthn-es256"`). There is no separate
-> derived "device signer" on this path, and no silent "sign many" after a single unlock — the user
-> verifies (Touch ID / Windows Hello / etc.) on each action. The account-login passkey still unlocks
-> once to seed the singleton **nullifier root** only. See §5.4 and §6.
+> **Implemented (Option A + mvp-a5b).** The production civic path creates **one WebAuthn passkey
+> credential per (device, thread)**. The stable thread persona **Pₜ** is the envelope's
+> `authorPubkey` (first-wins per `(user, thread)` at join); each device's passkey pubkey is the
+> envelope's **`signerPubkey`** (REQUIRED). **Every** civic append is a fresh user-verifying
+> assertion bound to the signing digest (`signScheme: "webauthn-es256"`), verified against
+> `signerPubkey`, not Pₜ. There is no silent "sign many" after a single unlock — the user verifies
+> (Touch ID / Windows Hello / etc.) on each action. The account-login passkey still unlocks once to
+> seed the singleton **nullifier root** only. See §3.1, §5.4, and §6.
 
 _Original design (retained for context, now the legacy `p256` dual-verifier path):_ Users did **not**
 register a new passkey for every thread. They authenticated once (or with a small set of devices),
@@ -106,6 +107,83 @@ Under default rules (including the Alberta launch intent):
 
 Different jurisdictions may tighten or relax these via **per-entity or per-deployment
 rules** in future; the platform should support configuration, not hard-code one province forever.
+
+### Who can edit my posts? (Pₜ is public; authorization is not)
+
+**Pₜ** (the thread persona pubkey) appears on every envelope as `authorPubkey`. Anyone reading
+the public record — or a future anchored chain leaf — can copy it. That is intentional: Pₜ is an
+**attribution label** (“this post belongs to persona X in this thread”), not a secret capability
+token.
+
+Knowing Pₜ does **not** let someone edit your content. An attacker can build an update envelope
+with `authorPubkey = your Pₜ`, but they still must pass every gate below before `appendSigned`
+accepts the transaction.
+
+#### What an observer can learn from the ledger
+
+| Public on the record | Private (platform registry) |
+|----------------------|-----------------------------|
+| `authorPubkey` (= Pₜ) | Account `user_id` ↔ Pₜ binding |
+| `signerPubkey` (= the device that signed that tx) | Which credentials may sign as Pₜ |
+| Envelope fields (content hash, prevHash, nullifier, …) | `credential_sig` attestations at join |
+
+Cross-thread, an outsider still cannot link your personas across threads without separate
+authorization (§4).
+
+#### Authorization gates (in order)
+
+1. **Author-match (on-record rule).** For an update or delete, the envelope's `authorPubkey`
+   must equal the entity head's `authorPubkey`. The attacker must claim **your** Pₜ — which they
+   can read from the chain — but that alone authorizes nothing.
+
+2. **WebAuthn assertion (cryptography).** Under `webauthn-es256`, every append carries a fresh
+   user-verifying assertion verified against **`signerPubkey`**, not Pₜ. The challenge is bound to
+   `signingDigest(envelope)` (entity id, content, prevHash, both pubkeys, timestamp, …), so
+   assertions cannot be replayed onto different content. Pₜ's private key is **not** used on this
+   path; only an enrolled device passkey can produce a valid assertion.
+
+3. **Credential enrollment (private registry).** `signerPubkey` must resolve to a row in
+   `thread_civic_credentials` that is non-revoked, scoped to the same `(user, thread)` as Pₜ, and
+   whose `persona_pubkey` equals the envelope's `authorPubkey`. Rows are created only at **join**
+   (authenticated, first-wins Pₜ per `(user, thread)`), with a platform `credential_sig` over
+   `(Pₜ, signerPubkey, threadId, jurisdiction, commitment)` re-verified on every append. An
+   attacker cannot enroll their passkey under your Pₜ without your account session, and cannot
+   forge `credential_sig` without the platform binding key.
+
+4. **API session (HTTP path).** `CivicRecordService.submit` additionally requires the caller's
+   session `userId` to own both the persona (`thread_keys`) and the signer credential. A foreign
+   account receives `403` even if they guess Pₜ.
+
+#### Decision flow (attacker with ledger copy only)
+
+```mermaid
+flowchart TD
+  A[Attacker reads Pₜ from chain] --> B[Builds update with authorPubkey = Pₜ]
+  B --> C{Valid WebAuthn assertion for signerPubkey?}
+  C -->|No| X[Rejected: bad crypto]
+  C -->|Yes| D{signerPubkey enrolled under Pₜ and not revoked?}
+  D -->|No| X2[Rejected: unknown or forbidden credential]
+  D -->|Yes| E{Platform credential_sig verifies?}
+  E -->|No| X3[Rejected: attestation failed]
+  E -->|Yes| F{Author matches head + prevHash + governance?}
+  F -->|No| X4[Rejected: stale revision or rules]
+  F -->|Yes| OK[Update accepted]
+```
+
+#### Honest limits (what this model does and does not prove)
+
+- **Offline verifiers** (Value 1: read a chain leaf and verify crypto without the platform) can
+  check assertion validity, challenge binding, and author-match on the envelope. Full **device
+  authorization** (credential enrollment) lives in the private registry today; a standalone
+  offline check cannot replay that gate until credential attestations are published in settlement
+  metadata (future, out of current scope).
+- **Compromise** still wins: stolen unlocked device + valid session, or a credential not yet
+  revoked. The model assumes hardware-backed keys and user verification (UV) per civic action.
+- **Governance** may forbid edits even for the real author (poll deadline, vote-change rules, etc.).
+
+**Summary:** Pₜ on the ledger answers *who the post is attributed to*; enrolled device credentials
+plus per-append WebAuthn answer *who may act for that persona*. Copying a public pubkey from the
+chain provides neither.
 
 ---
 
@@ -491,7 +569,7 @@ for test detail.
 
 | Area | Status |
 |------|--------|
-| **Per-thread WebAuthn signing (Option A, `webauthn-es256`) + `appendSigned` gate** | Implemented (tests) — one passkey per (device, thread); the credential pubkey is the author; a user-verifying assertion per append, challenge-bound to the signing digest; `thread_civic_credentials` is the revoke handle. |
+| **Per-thread WebAuthn signing (Option A, `webauthn-es256`) + `appendSigned` gate** | Implemented (tests) — one passkey per (device, thread); `authorPubkey = Pₜ`, `signerPubkey` = device credential; user-verifying assertion per append, challenge-bound to the signing digest; `thread_civic_credentials` is enroll + revoke handle. |
 | **Jurisdiction signing policy (hard override)** | Implemented (tests) — `vote` + `petition_signature` MUST be `webauthn-es256` (by record type ⇒ create/update/delete); enforced fail-closed in `appendSigned`. |
 | Legacy per-thread P-256 signing (dual verifier) | Implemented (tests) — retained as engine capability / dev path; `signScheme` absent ⇒ `p256`. Not the production civic path. |
 | Thread registration + private binding | Implemented |
@@ -517,14 +595,15 @@ for test detail.
 | Tier- and region-filtered signed counts (R24–R26) | Not built |
 | ZK membership credentials (Method 4 — ideal goal) | **Not started; wire slot reserved (envelope `proof` + `nullifier_attestations.membership_proof`), rejected until built (§5.5)** |
 
-**Implementation note (library).** Under Option A the published author is a **per-thread WebAuthn
-passkey** pubkey (a distinct credential per `(device, thread)`), so the same physical device shows no
-cross-thread correlator on the record — Method 5 (§5.3) stays ruled out. The credential→user link lives
-only in the private registry (`thread_keys` + binding + `thread_civic_credentials`), never on the
-envelope. `appendSigned` (the `webauthn-es256` branch) verifies the per-append assertion against the
-author pubkey, requires user verification (UV), checks the challenge equals the envelope's signing
-digest, and rejects an author whose `thread_civic_credentials` row is missing or revoked. The legacy
-`p256` branch (derived thread-scoped `signerPubkey`, dual verifier) is retained for the engine/dev path.
+**Implementation note (library).** Under Option A + mvp-a5b the published author is the stable thread
+persona **Pₜ** (`authorPubkey`); each device's per-thread WebAuthn passkey is `signerPubkey`. Device
+pubkeys are distinct per `(device, thread)` so the same physical device shows no cross-thread
+correlator on the record — Method 5 (§5.3) stays ruled out. The user↔Pₜ and Pₜ↔signer links live only
+in the private registry (`thread_keys` + `thread_bindings` + `thread_civic_credentials`), never on the
+envelope. `appendSigned` (the `webauthn-es256` branch) verifies the per-append assertion against
+`signerPubkey`, requires UV, checks the challenge equals the signing digest, and requires a registered
+non-revoked credential under Pₜ with a valid `credential_sig`. See §3.1. The legacy `p256` branch
+(derived thread-scoped `signerPubkey`, dual verifier) is retained for the engine/dev path.
 The reserved ZK slot is **reserve-and-
 reject**: an envelope that actually carries `proof` is rejected until Method 4 verification
 exists. **Still for Method 4:** real credential issuance + ZK proof generation/verification to

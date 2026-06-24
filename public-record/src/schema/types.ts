@@ -22,8 +22,11 @@ export type Op = "create" | "update" | "delete";
  *   - `p256`           — a derived per-thread / thread-scoped device key signs the signing digest in
  *                        software (legacy / dual-verifier capability; the unsigned-dev path too).
  *   - `webauthn-es256` — a per-(device, thread) WebAuthn passkey produces a user-verifying assertion
- *                        whose challenge is bound to the signing digest. The ES256 signature rides
- *                        inside {@link WebauthnAssertion}; the top-level `signature` stays "".
+ *                        whose challenge is bound to the signing digest. Under the mvp-a5b persona/signer
+ *                        split, `authorPubkey` carries the stable thread persona Pₜ and `signerPubkey`
+ *                        (REQUIRED) is this device's passkey pubkey — the assertion is verified against
+ *                        `signerPubkey`, not `authorPubkey`. The ES256 signature rides inside
+ *                        {@link WebauthnAssertion}; the top-level `signature` stays "".
  * Absent ⇒ `p256` (legacy envelopes hash byte-identically).
  */
 export type SignScheme = "p256" | "webauthn-es256";
@@ -79,8 +82,8 @@ export interface TxEnvelope {
   parentId?: string; // entity-level parent id — FOLLOWS edits to the parent
   parentRevisionTxId?: string; // the parent's head tx id at attach time …
   parentRevisionHash?: string; // … its content-addressed revision id (parent txHash) — REVISION-level
-  authorPubkey: string; // THREAD PERSONA / thread passkey pubkey — the public author id per (user, thread); PLATFORM_PUBKEY for governance
-  signerPubkey?: string; // p256 path: THREAD-SCOPED DEVICE key that produced `signature` (Method 3 §5.4). Absent on the WebAuthn path (and ⇒ the persona signed on the p256 path).
+  authorPubkey: string; // stable thread persona Pₜ per (user, thread) — the public author on the record; identical across all of that user's devices; PLATFORM_PUBKEY for governance
+  signerPubkey?: string; // webauthn-es256 (REQUIRED): this device's per-thread WebAuthn passkey pubkey — assertion verified against it, not authorPubkey. p256 path: thread-scoped DEVICE key that produced `signature` (Method 3 §5.4); absent ⇒ the persona signed.
   signScheme?: SignScheme; // how `signature`/`webauthn` were produced. Absent ⇒ "p256" (legacy envelopes hash unchanged).
   signature: string; // p256: ECDSA over the signing digest ("unsigned" on the dev path). WebAuthn path: "" (the ES256 sig lives in `webauthn`).
   webauthn?: WebauthnAssertion; // present iff signScheme === "webauthn-es256". Blanked (like `signature`) in signingDigest; sealed populated in txHashOf.

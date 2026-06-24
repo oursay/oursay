@@ -2,12 +2,17 @@
 //
 // Holds the platform's record engine (PrivateStore + RecordService) and binding key. It accepts
 // only PUBLIC material from the client (pubkeys, the opaque commitment, signed envelopes) and
-// performs the verified-tier writes. The production civic write path is webauthn-es256 (Option A):
-// each thread has its own passkey, whose pubkey IS the author; the RecordService verifies the
-// per-append assertion (and the jurisdiction policy hard-requires it for vote/petition_signature).
+// performs the verified-tier writes. The production civic write path is webauthn-es256 (Option A +
+// mvp-a5b persona/signer split): `authorPubkey` is the stable thread persona Pₜ (first-wins per
+// (user, thread) at join); `signerPubkey` is this device's per-thread WebAuthn passkey pubkey
+// (REQUIRED). The RecordService verifies the per-append assertion against `signerPubkey` and
+// authorizes via `thread_civic_credentials` (the jurisdiction policy hard-requires webauthn-es256
+// for vote/petition_signature).
 //
-// Wiring (Option A §5.4): join thread → `thread_keys` + `thread_bindings` + `thread_civic_credentials`
-// (the per-thread revoke handle); submit → `appendSigned` (author = the thread passkey pubkey, no signer).
+// Wiring (mvp-a5b §5.4): join thread → two-phase — (1) `ensureThreadPersona` mints/resolves Pₜ in
+// `thread_keys` + `thread_bindings`; (2) `registerDeviceCredential` writes this device's signer
+// under Pₜ in `thread_civic_credentials` with a platform `credential_sig` attestation. Submit →
+// `appendSigned` (author = Pₜ, signer = device passkey; credential_sig re-verified on every append).
 //
 // A join binds account↔thread-key OWNERSHIP. `kyc_tier` is OPTIONAL on the binding (verification tier
 // is applied at read/count time, not fixed at join); when omitted it must stay omitted on both the
