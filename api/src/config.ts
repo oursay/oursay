@@ -97,6 +97,33 @@ export const registrationConfig: RegistrationConfig = {
   minAgeYears: Number(env("MIN_AGE_YEARS", "18")),
 };
 
+export type GeocodeProviderName = "stub" | "geocodio" | "nominatim";
+
+export interface GeocodeConfig {
+  /** Provider selection: 'stub' (default; deterministic, no network) | 'geocodio' (real, API-key gated).
+   *  'nominatim' is a reserved slot that is NOT implemented (fails fast in the factory). */
+  provider: GeocodeProviderName;
+  /** API key for a keyed provider (geocodio). Env-required in production only when that provider is used;
+   *  unused by the stub. */
+  apiKey: string;
+  /** Per-request timeout (ms) for a network provider. */
+  timeoutMs: number;
+  /** Reserved base URL for a future self-hosted Nominatim (see api/README.md § Geocoding). */
+  nominatimUrl: string;
+}
+
+/**
+ * Address geocoding (docs/REGION-MODEL.md). Best-effort, structural resolvability — NOT KYC residency.
+ * Defaults to the offline stub so a fresh clone + CI need no API key or network. The derived point is
+ * PRIVATE PII (auth.profile_geocodes) and never leaves the service layer.
+ */
+export const geocodeConfig: GeocodeConfig = {
+  provider: env("GEOCODE_PROVIDER", "stub") as GeocodeProviderName,
+  apiKey: env("GEOCODE_API_KEY", ""),
+  timeoutMs: Number(env("GEOCODE_TIMEOUT_MS", "5000")),
+  nominatimUrl: env("GEOCODE_NOMINATIM_URL", ""),
+};
+
 export interface CivicConfig {
   /** The platform's P-256 binding key (hex) — signs each per-thread registration binding. */
   platformBindingPrivKeyHex: string;

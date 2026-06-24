@@ -136,4 +136,38 @@ CREATE TABLE IF NOT EXISTS auth.otp_rate_limits (
   count        INT NOT NULL DEFAULT 0,
   PRIMARY KEY (bucket_key, window_start)
 );
+
+-- Private geocode point cache (PRIVATE PII — same tier as auth.profiles; NEVER on any HTTP response,
+-- OpenAPI schema, or log). This is structural resolvability ("does this address resolve to a point?"),
+-- NOT KYC residency and NOT a district binding — no district/region id is ever stored here. The point
+-- is a future input to point-in-polygon Region resolution (docs/REGION-MODEL.md). Geocoding is
+-- best-effort: registration never fails because of it. Requires the PostGIS extension, which
+-- GeoStore.init() enables before this DDL runs (see db.ts).
+--
+-- CURRENT cache: at most one row per user — the point as of now. Upserted on a successful geocode;
+-- the row is cleared only when the address falls below the attempt gate or leaves Canada.
+CREATE TABLE IF NOT EXISTS auth.profile_geocodes (
+  user_id      UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  address_hash TEXT NOT NULL,                    -- sha256 of normalized address fields; invalidation key
+  geom         geometry(Point, 4326) NOT NULL,   -- derived point; private
+  provider     TEXT NOT NULL,                    -- 'stub' | 'geocodio'
+  confidence   REAL,                             -- provider-reported confidence/accuracy (nullable)
+  geocoded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS profile_geocodes_geom_gix ON auth.profile_geocodes USING GIST (geom);
+
+-- APPEND-ONLY history: every distinct address->point a user has ever resolved to. Never deleted in
+-- normal operation (clearing the CURRENT cache above does not touch this). Composite PK dedupes by
+-- (user, address) so re-geocoding the same address is a no-op; supports future "ever in region" filters.
+CREATE TABLE IF NOT EXISTS auth.profile_geocode_history (
+  user_id      UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  address_hash TEXT NOT NULL,
+  geom         geometry(Point, 4326) NOT NULL,
+  provider     TEXT NOT NULL,
+  confidence   REAL,
+  recorded_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, address_hash)
+);
+CREATE INDEX IF NOT EXISTS profile_geocode_history_geom_gix ON auth.profile_geocode_history USING GIST (geom);
+CREATE INDEX IF NOT EXISTS profile_geocode_history_user_time_idx ON auth.profile_geocode_history (user_id, recorded_at);
 `;

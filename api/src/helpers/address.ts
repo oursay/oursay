@@ -3,6 +3,8 @@
 // district/region membership is resolved dynamically against platform-defined boundaries — never
 // baked onto the stored profile.
 
+import { createHash } from "node:crypto";
+
 export interface AddressInput {
   line1?: string | null;
   line2?: string | null;
@@ -41,6 +43,27 @@ export function normalizeAddress(input: AddressInput): NormalizedAddress {
     country,
     memo: clean(input.memo),
   };
+}
+
+/** True when a normalized address carries enough signal to attempt geocoding: a postal code, or a
+ *  street line with a city and province. Country-gating (Canada-only) is applied by the caller. */
+export function hasGeocodableAddress(addr: NormalizedAddress): boolean {
+  if (addr.postalCode) return true;
+  return Boolean(addr.line1 && addr.city && addr.province);
+}
+
+/** Stable content hash of a normalized address — the geocode cache key / invalidation signal. Uses a
+ *  fixed field order (not JSON key order) and an escaped unit-separator delimiter, so the hash is
+ *  deterministic across runs and changes iff a normalized field changes. */
+export function hashAddress(addr: NormalizedAddress): string {
+  const SEP = String.fromCharCode(0x1f); // unit separator — field delimiter (never typed by users)
+  const fields = [addr.line1, addr.line2, addr.city, addr.province, addr.postalCode, addr.country, addr.memo];
+  // Escape backslash and the separator inside each field so distinct field sets can never collide,
+  // then join the fields on that separator.
+  const canonical = fields
+    .map((f) => (f ?? "").replace(/\\/g, "\\\\").replace(new RegExp(SEP, "g"), "\\u001f"))
+    .join(SEP);
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
 /** Canadian postal codes uppercased to "A1A 1A1"; others uppercased + space-collapsed. */

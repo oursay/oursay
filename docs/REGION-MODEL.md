@@ -64,6 +64,29 @@ Privacy ([06 §2–3](06-PRIVACY-REVIEW.md)): public geography stays **coarse**.
 geometry, voting-area dissolve) is allowed **internally** but must not be exposed as arbitrary geometry
 or freeform district-id lists on unauthenticated routes.
 
+## Participant geocode (private input to `contains`)
+
+A participant's address is geocoded into a **private point** — the future input to `region.contains`.
+This is structural **resolvability**, not residency/KYC, and stores no district/region id. Two `auth`
+tables hold it (PRIVATE PII; never on any HTTP response; see [`api/README.md` § Geocoding](../api/README.md)):
+
+- `auth.profile_geocodes` — the participant's **current** point (one row per user).
+- `auth.profile_geocode_history` — **append-only** log of every distinct address→point they've resolved to.
+
+A later phase (C7) will choose, per jurisdiction config, **which point** a scoped filter binds to:
+
+| Filter mode | Point source | Question it answers |
+|---|---|---|
+| `current` | `auth.profile_geocodes` | Where is the participant **now**? |
+| `at_action` | a per-action snapshot frozen at civic-write time (**C4**) | Where were they **when they acted**? |
+| `ever_in_region` | `auth.profile_geocode_history` ∪ action snapshots | Have they **ever** been in region? |
+
+**This phase (C2) ships only the `current` cache + history append** — no mode selection and no
+point-in-polygon filtering (that is C7), and no action-time snapshot (that is C4). For any *scoped* mode,
+**no usable point ⇒ out-of-area** for `jurisdiction` / `impacted-region` / `my-district`; `all-public`
+still includes such participants. Geocoding is best-effort: a participant without a resolvable address
+simply has no point.
+
 ## Where it lives
 
 - Schema: `geo/src/schema/geo.sql.ts` (`geo.districts`, `geo.regions`).

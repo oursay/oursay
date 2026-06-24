@@ -91,5 +91,6 @@ the district / union / jurisdiction / custom kinds and the effective-dated redra
 
 - Containment is DB-backed (PostGIS is authoritative). The whole-jurisdiction extent unions 87
   geometries per query; an in-memory/materialized-union cache is a future optimization.
-- No public-filter activation, no district stored on the user row, no geocoding/address→point linkage,
-  no exposure of arbitrary geometry on unauthenticated routes — all follow-on work.
+- No public-filter activation, no district stored on the user row, no exposure of arbitrary geometry on
+  unauthenticated routes — all follow-on work. (Address→point geocoding lives in `@oursay/api`
+  (`auth.profile_geocodes`); this package owns boundaries + `Region.contains`, not participant points.)

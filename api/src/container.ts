@@ -13,6 +13,7 @@ import {
 } from "@oursay/public-record";
 import {
   civicConfig,
+  geocodeConfig,
   jurisdictionConfig,
   mailerConfig,
   otpConfig,
@@ -24,6 +25,7 @@ import {
 import type { Db } from "./db.js";
 import { systemNow, type Now } from "./errors.js";
 import { CivicDeviceRepo } from "./repo/civic-device.repo.js";
+import { GeocodeRepo } from "./repo/geocode.repo.js";
 import { KycRepo } from "./repo/kyc.repo.js";
 import { OtpRepo } from "./repo/otp.repo.js";
 import { PasskeyRepo } from "./repo/passkey.repo.js";
@@ -34,6 +36,8 @@ import { UserRepo } from "./repo/user.repo.js";
 import { AuthService } from "./services/auth.service.js";
 import { CivicDeviceService } from "./services/civic-device.service.js";
 import { CivicRecordService } from "./services/civic-record.service.js";
+import { GeocodeService } from "./services/geocode.service.js";
+import { makeGeocodeProvider, type GeocodeProvider } from "./services/geocode/index.js";
 import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
@@ -63,6 +67,7 @@ export interface Repos {
   rateLimit: RateLimitRepo;
   kyc: KycRepo;
   civicDevice: CivicDeviceRepo;
+  geocode: GeocodeRepo;
 }
 
 export interface Services {
@@ -72,6 +77,10 @@ export interface Services {
   otpService: OtpService;
   authService: AuthService;
   registrationService: RegistrationService;
+  /** Pluggable address->point geocoder (stub by default; geocodio behind env). */
+  geocodeProvider: GeocodeProvider;
+  /** Best-effort private geocoding of profile addresses (cache + append-only history). */
+  geocodeService: GeocodeService;
   passkeyService: PasskeyService;
   recoveryService: RecoveryService;
   loginService: LoginService;
@@ -100,6 +109,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     rateLimit: new RateLimitRepo(pool),
     kyc: new KycRepo(pool),
     civicDevice: new CivicDeviceRepo(pool),
+    geocode: new GeocodeRepo(pool),
   };
 
   const mailer = opts.mailer ?? (await createMailerService(mailerConfig, opts.mailerOverrides));
@@ -113,11 +123,20 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     pepper: sessionConfig.secret,
     now,
   });
+  // Geocoding: pluggable provider (stub by default) + best-effort service over the cache/history repo.
+  // Selected at startup so an invalid GEOCODE_PROVIDER (e.g. the reserved 'nominatim') fails fast here.
+  const geocodeProvider = makeGeocodeProvider(geocodeConfig);
+  const geocodeService = new GeocodeService({
+    geocodeRepo: repos.geocode,
+    provider: geocodeProvider,
+    profileRepo: repos.profile,
+  });
   const registrationService = new RegistrationService({
     userRepo: repos.user,
     profileRepo: repos.profile,
     otpService,
     authService,
+    geocodeService,
     config: registrationConfig,
     now,
   });
@@ -168,6 +187,8 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     otpService,
     authService,
     registrationService,
+    geocodeProvider,
+    geocodeService,
     passkeyService,
     recoveryService,
     loginService,

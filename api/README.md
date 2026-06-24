@@ -54,10 +54,13 @@ adds its own **`auth` schema**, FK'd to `public.users`:
 | `auth.sessions` | opaque sessions (only token hashes stored) |
 | `auth.email_otp` | hashed OTP codes; `purpose` ∈ {registration, recovery, login} — an active `login` row IS the gated-login window |
 | `auth.otp_rate_limits` | rolling-window rate-limit buckets |
+| `auth.profile_geocodes` | **private** geocode point cache — CURRENT point per user (PostGIS `Point`); never on any HTTP response |
+| `auth.profile_geocode_history` | **append-only** audit of every distinct address→point a user resolved to (future "ever in region" filters) |
 | `public.device_keys` | **civic** signing device keys (owned by public-record; read/written by `/v1/civic/devices`) — public key only, separate from `auth.passkey_credentials` |
 
-Init order matters: `public.*` must exist before the `auth` schema FKs it. `Db.init()` applies
-`PrivateStore`'s base schema first, then `auth`.
+Init order matters: `public.*` must exist before the `auth` schema FKs it, and the geocode tables need
+PostGIS. `Db.init()` applies `PrivateStore`'s base schema first, then the `geo` schema (which enables the
+PostGIS extension), then `auth`.
 
 ## Flows
 
@@ -106,6 +109,37 @@ profile data. **Incomplete onboarding** (email registered but no passkey enrolle
 dropped off after step 3, or lost the only device) is resolved through **recovery**: request a
 recovery code, get a recovery-scoped session, and enroll/re-enroll a passkey. There is no password to
 fall back on by design.
+
+## Geocoding (private address → point)
+
+Registration **best-effort** geocodes the new profile's address into a private point so a later phase can
+resolve participants into geographic [Regions](../docs/REGION-MODEL.md) (point-in-polygon). This is
+**structural resolvability** ("does this address resolve to a location?") — **not** KYC residency and
+**not** a district binding; no district/region id is ever stored on the user.
+
+- **Best-effort, never blocking.** If geocoding fails, times out, returns nothing, or the address is
+  below the attempt gate, registration still returns **201** with **no** cached point (warn-logged, never
+  with coordinates). The cached point is **private PII** and never appears on `GET /v1/profile`, the
+  OpenAPI schema, or logs.
+- **Attempt gate.** Geocode only a **Canadian** address with enough signal — a postal code, or
+  `line1` + `city` + `province`. Otherwise no attempt is made.
+- **Current + history.** `auth.profile_geocodes` holds the user's point *as of now* (upserted on success;
+  cleared only when the address drops below the gate or leaves Canada). `auth.profile_geocode_history`
+  appends every distinct address→point (deduped by `address_hash`) and is **never deleted** — the basis
+  for future "ever in region" filters. A *failed* re-geocode keeps the last-known-good current row.
+- **Re-geocode seam.** `GeocodeService.syncGeocodeForUser(userId)` refreshes the cache from the stored
+  profile when an address changes. (No `PATCH /v1/profile` route yet — the service/repo path exists for
+  follow-on work.)
+
+**Providers** (`GEOCODE_PROVIDER`, see `.env.example`):
+- `stub` *(default)* — deterministic, offline, no key; resolves only valid Canadian postal codes. Used by
+  CI/dev.
+- `geocodio` — real provider ([geocod.io](https://www.geocod.io)), `GEOCODE_API_KEY` required; Canada-only
+  results, street-level-or-better accuracy (coarser matches are dropped to `null`).
+- `nominatim` — **reserved, not implemented**: selecting it fails fast at startup. A self-hosted
+  Nominatim is future work — there is **no public `nominatim.openstreetmap.org`** for production use;
+  self-hosting removes the OSMF rate limits, and **ODbL attribution** ("© OpenStreetMap contributors")
+  is still required. Wire a provider against `GEOCODE_NOMINATIM_URL` when that lands.
 
 ## Dev cycle
 

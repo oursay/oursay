@@ -16,6 +16,7 @@ import { isValidHandle, normalizeHandle } from "../helpers/handle.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import type { AuthService, IssuedSession } from "./auth.service.js";
+import type { GeocodeService } from "./geocode.service.js";
 import type { OtpService, OtpRequestResult } from "./otp.service.js";
 
 export interface RegistrationProfileInput {
@@ -55,6 +56,8 @@ export interface RegistrationServiceDeps {
   profileRepo: ProfileRepo;
   otpService: OtpService;
   authService: AuthService;
+  /** Best-effort geocoding of the new profile's address into a private point. Never blocks registration. */
+  geocodeService: GeocodeService;
   config: RegistrationConfig;
   now?: Now;
 }
@@ -143,6 +146,10 @@ export class RegistrationService {
       await this.d.userRepo.delete(userId).catch(() => {});
       throw e;
     }
+
+    // Best-effort geocode of the just-normalized address (structural resolvability, not KYC). This must
+    // never fail registration — geocodeForUser swallows its own errors and leaves no point on failure.
+    await this.d.geocodeService.geocodeForUser(userId, addr);
 
     const session = await this.d.authService.issue(userId, "full", input.userAgent ?? null);
     return { userId, session };
