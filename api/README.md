@@ -3,6 +3,10 @@
 Account **registration & authentication** for OurSay — an OpenAPI-first Fastify service over a
 layered, testable core.
 
+For **what is implemented vs stubbed** and the pre-UI backend backlog, see
+[`docs/API-GAPS-AND-ROADMAP.md`](../docs/API-GAPS-AND-ROADMAP.md). Geographic filtering vocabulary:
+[`docs/REGION-MODEL.md`](../docs/REGION-MODEL.md).
+
 - **WebAuthn passkeys** — the preferred, day-to-day login (`@simplewebauthn/server`).
   **Multi-device**: a user may enroll several account-login passkeys (one per device).
 - **Email OTP** — never a standing login method. It serves exactly three **purposes**, all sent
@@ -395,11 +399,10 @@ tier. Browse-list summaries and thread-detail reaction tallies (`GET /v1/public/
 true); consumers must not assume geo/tier there.
 
 The `from`/`to` date range is enum-validated and echoed but **does not filter** counts yet
-(`applied.date` stays false). Petition-signature and poll-vote counts are surfaced **ungated in dev**
-(`countGating: "none"`); production will withhold them per jurisdiction/KYC policy regardless of whether a
-jurisdiction permits public voting on a given issue. **Perf note:** the scoped count path resolves region
-membership *and* tier per distinct participant (each memoized per request); a batched point-in-polygon /
-tier lookup is the optimization if it bites.
+(`applied.date` stays false). Petition and poll **`countGating` is still stubbed** (`"none"` everywhere);
+per-jurisdiction withhold rules are not wired yet ([`mvp-c9b-count-gating`](../docs/API-GAPS-AND-ROADMAP.md)).
+**Perf note:** the scoped count path resolves region membership and tier per distinct participant (memoized
+per request); batching point-in-polygon / tier lookups is the optimization if it bites.
 
 ## Not in this milestone
 

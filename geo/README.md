@@ -1,9 +1,8 @@
 # @oursay/geo
 
 Geographic foundation for OurSay: **PostGIS-backed electoral district boundaries**, a first-class
-**Region** model, **pluggable boundary ingest**, and an effective-dated **RegionResolver**. Consumed by
-`@oursay/api` (and later `@oursay/public-record`) via services. This package builds the substrate for
-geo filtering — it does **not** wire any `/v1/public/…` filter (those stay `applied: false`).
+**Region** model, **pluggable boundary ingest**, and an effective-dated **RegionResolver**. Consumed by `@oursay/api` via `RegionResolver` and `ParticipantGeoService`. Public count filtering
+(`GET /v1/public/…/:id/counts`) compiles `GeoScope` → `Region` here; list/detail routes do not filter.
 
 See [`docs/REGION-MODEL.md`](../docs/REGION-MODEL.md) for the model and [`docs/GLOSSARY.md`](../docs/GLOSSARY.md)
 for the canonical vocabulary (jurisdiction → district → region).
@@ -75,7 +74,7 @@ await ab.contains({ lon: -113.5065, lat: 53.5333 }); // true (Edmonton Legislatu
 await store.districtContaining("ab-ca-gov", { lon: -113.5065, lat: 53.5333 }, new Date("2020-01-01"));
 // → "edmonton-city-centre-2019"
 
-// Stub seam the public read service will consume later (asOf optional; not HTTP-wired yet):
+// Coarse scope → Region (same seam the public read count filter uses):
 const region = await reg.compileScope({ scope: "impacted-region", jurisdictionId: "ab-ca-gov",
   appliesToDistrictIds: ["edmonton-strathcona-2019"] });
 ```

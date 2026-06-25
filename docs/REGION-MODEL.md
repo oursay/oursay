@@ -79,26 +79,15 @@ tables hold it (PRIVATE PII; never on any HTTP response; see [`api/README.md` §
 - `auth.profile_geocodes` — the participant's **current** point (one row per user).
 - `auth.profile_geocode_history` — **append-only** log of every distinct address→point they've resolved to.
 
-A later phase (C7) will choose, per jurisdiction config, **which point** a scoped filter binds to:
+A later phase will choose, per jurisdiction config, **which point** a scoped filter binds to:
 
 | Filter mode | Point source | Question it answers |
 |---|---|---|
-| `current` | `auth.profile_geocodes` | Where is the participant **now**? |
-| `at_action` | a per-action snapshot frozen at civic-write time (**C4**) | Where were they **when they acted**? |
+| `current` | `auth.profile_geocodes` | Where is the participant **now**? **(live on counts)** |
+| `at_action` | per-action snapshot at civic-write time (**C4**, not built) | Where were they **when they acted**? |
 | `ever_in_region` | `auth.profile_geocode_history` ∪ action snapshots | Have they **ever** been in region? |
 
-**This phase (C2) ships only the `current` cache + history append** — no mode selection and no
-point-in-polygon filtering (that is C7), and no action-time snapshot (that is C4). For any *scoped* mode,
-**no usable point ⇒ out-of-area** for `jurisdiction` / `impacted-region` / `my-district`; `all-public`
-still includes such participants. Geocoding is best-effort: a participant without a resolvable address
-simply has no point.
-
-The **`current`-mode resolver** is in place: `@oursay/api`'s `ParticipantGeoService` links a record
-participant (`authorPubkey`=Pₜ, or a singleton's `nullifier`+`parentId`) to a `userId`, loads their
-current point, and reverse-resolves the containing district revision via `GeoStore.districtContaining`
-(the same effective-dated set as `forJurisdiction`). It exposes a `viewerDistrictId` for the
-authenticated `my-district` scope. C7 wires these inputs into `compileScope` + the public read filter;
-this layer never reimplements `contains` and never exposes points or linkage publicly.
+**Shipped today:** `current` mode on `/counts` only. Geocoding on register is best-effort; no usable point ⇒ out-of-area for scoped geo. Action-time and ever-in-region modes are not built.
 
 ## Discussion-scoped stake filtering (C7)
 
