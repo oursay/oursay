@@ -124,6 +124,23 @@ export const geocodeConfig: GeocodeConfig = {
   nominatimUrl: env("GEOCODE_NOMINATIM_URL", ""),
 };
 
+export type KycProviderName = "stub" | "equifax";
+
+export interface KycConfig {
+  /** Provider selection: 'stub' (default; deterministic, no network, awards the requested tier).
+   *  'equifax' is a reserved slot that is NOT implemented (fails fast in the factory). */
+  provider: KycProviderName;
+}
+
+/**
+ * KYC verification provider (docs/01 §4–5). Defaults to the offline stub so a fresh clone + CI need no
+ * vendor account: the stub awards the requested tier into public.kyc_attestations (platform-trust, R26).
+ * The awarded tier is read newest-first by recovery and the public count filter; no PII reaches the row.
+ */
+export const kycConfig: KycConfig = {
+  provider: env("KYC_PROVIDER", "stub") as KycProviderName,
+};
+
 export interface CivicConfig {
   /** The platform's P-256 binding key (hex) — signs each per-thread registration binding. */
   platformBindingPrivKeyHex: string;

@@ -16,6 +16,7 @@ import {
   civicConfig,
   geocodeConfig,
   jurisdictionConfig,
+  kycConfig,
   mailerConfig,
   otpConfig,
   pgConfig,
@@ -39,6 +40,8 @@ import { CivicDeviceService } from "./services/civic-device.service.js";
 import { CivicRecordService } from "./services/civic-record.service.js";
 import { GeocodeService } from "./services/geocode.service.js";
 import { makeGeocodeProvider, type GeocodeProvider } from "./services/geocode/index.js";
+import { KycService } from "./services/kyc.service.js";
+import { makeKycProvider, type KycProvider } from "./services/kyc/index.js";
 import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
@@ -83,6 +86,10 @@ export interface Services {
   geocodeProvider: GeocodeProvider;
   /** Best-effort private geocoding of profile addresses (cache + append-only history). */
   geocodeService: GeocodeService;
+  /** Pluggable KYC verification provider (stub by default; equifax reserved). */
+  kycProvider: KycProvider;
+  /** Issues verification attestations (provider -> kyc_attestations); single entry point for KYC. */
+  kycService: KycService;
   passkeyService: PasskeyService;
   recoveryService: RecoveryService;
   loginService: LoginService;
@@ -199,13 +206,19 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     geoStore,
   });
 
-  // The public read surface now resolves geo `scope` on the count endpoints via regionResolver +
-  // participantGeoService (region-first, current-point mode), with a k-anonymity floor; tier/date stay
-  // stubbed until [mvp-c-kyc-stub].
+  // KYC: pluggable provider (stub by default; equifax reserved → fails fast here) + the service that
+  // appends awarded tiers to kyc_attestations (the same table recovery + the count filter read).
+  const kycProvider = makeKycProvider(kycConfig);
+  const kycService = new KycService({ provider: kycProvider, recordStore, kycRepo: repos.kyc });
+
+  // The public read surface resolves geo `scope` AND KYC `tier` on the count endpoints: regionResolver +
+  // participantGeoService (region-first, current-point mode) for geo, and KycRepo (current tier, set
+  // membership) for tier, with a k-anonymity floor when either dimension narrows. Date stays stubbed.
   const publicRecordReadService = new PublicRecordReadService({
     recordStore,
     regionResolver,
     participantGeoService,
+    kycRepo: repos.kyc,
   });
 
   return {
@@ -217,6 +230,8 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     registrationService,
     geocodeProvider,
     geocodeService,
+    kycProvider,
+    kycService,
     passkeyService,
     recoveryService,
     loginService,

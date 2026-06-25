@@ -246,7 +246,7 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     expect(imp.filters.kAnonymityFloor).to.equal(5);
   });
 
-  it("post reactions: jurisdiction scope excludes out-of-province; tier + my-district stay inert", async function () {
+  it("post reactions: jurisdiction scope excludes out-of-province; tier set narrows; my-district inert", async function () {
     this.timeout(60000);
     disableKAnon(); // assert raw divergence
     const t = freshThread();
@@ -276,11 +276,16 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     expect(checkOf(jur)).to.equal(2);
     expect(jur.filters.applied.geo).to.equal(true);
 
-    // tier is parsed + echoed but does NOT change the count (awaits [mvp-c-kyc-stub]).
+    // tier is now RESOLVED on counts: attest the two Edmonton reactors as identity_verified; the
+    // Toronto reactor stays unverified. ?tier=identity_verified counts only the two attested reactors
+    // (set membership), independent of geo (scope=all-public).
+    await w.services.kycService.attest(edm1.userId, "identity_verified");
+    await w.services.kycService.attest(edm2.userId, "identity_verified");
     const tier = await counts(w, "posts", t.threadId, "?scope=all-public&tier=identity_verified");
-    expect(checkOf(tier)).to.equal(3);
-    expect(tier.filters.applied.tier).to.equal(false);
-    expect(tier.filters.tier).to.equal("identity_verified");
+    expect(checkOf(tier)).to.equal(2);
+    expect(tier.filters.applied.tier).to.equal(true);
+    expect(tier.filters.applied.geo).to.equal(false);
+    expect(tier.filters.tier).to.deep.equal(["identity_verified"]);
 
     // my-district is inert on unauthenticated routes ⇒ no geo filter, raw count.
     const mine = await counts(w, "posts", t.threadId, "?scope=my-district");

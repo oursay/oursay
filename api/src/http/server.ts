@@ -18,6 +18,7 @@ import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
 import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
+import { registerKycDevRoutes } from "./routes/kyc-dev.routes.js";
 import { registerProfileRoutes } from "./routes/profile.routes.js";
 import { registerPublicRecordReadRoutes } from "./routes/public-record-read.routes.js";
 import { registerRecoveryRoutes } from "./routes/recovery.routes.js";
@@ -85,8 +86,12 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
 
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
 
-  // Dev-only manual QA harness at /walk — never exposed in production.
-  if (!isProduction) registerWalkRoutes(app);
+  // Dev-only manual QA surfaces — never exposed in production: the /walk harness and the KYC
+  // self-attest route (so tests/QA can place a user at a tier without a raw kyc_attestations INSERT).
+  if (!isProduction) {
+    registerWalkRoutes(app);
+    registerKycDevRoutes(app, services);
+  }
 
   await app.ready();
   return app;

@@ -4,10 +4,10 @@
 // @oursay/public-record; the service assembles, this layer only validates + shapes HTTP.
 //
 // Browse lists + thread detail + dedicated filterable count endpoints, per root type (post / petition
-// / poll). On the count endpoints the geo `scope` is RESOLVED (region-first + k-anonymity); KYC `tier`
-// and the date range are still STUBS — JSON-schema-validated (400 on a bad enum) and echoed
-// (`applied.tier`/`applied.date` false), not resolved. Lists/detail apply no geo filter. See the
-// service for semantics.
+// / poll). On the count endpoints the geo `scope` AND the KYC `tier` set are RESOLVED (region-first +
+// set-membership tier + k-anonymity); the date range is still a STUB — JSON-schema-validated (400 on a
+// bad enum) and echoed (`applied.date` false), not resolved. Lists/detail apply no geo/tier filter
+// (parse + echo only). See the service for semantics.
 
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
@@ -18,21 +18,23 @@ import { errorSchema } from "../schemas.js";
 
 const appliedSchema = {
   type: "object",
-  description: "Per-dimension applied status. `geo` is live; `tier`/`date` await [mvp-c-kyc-stub].",
+  description: "Per-dimension applied status. `geo`/`tier` are resolved on count endpoints; `date` is not yet implemented.",
   properties: {
     geo: { type: "boolean", description: "True when scope compiled to a region and narrowed the count." },
-    tier: { type: "boolean", description: "Always false this phase (awaits [mvp-c-kyc-stub])." },
-    date: { type: "boolean", description: "Always false this phase." },
+    tier: { type: "boolean", description: "True when a requested tier set narrowed the count (counts only; never on lists/detail)." },
+    date: { type: "boolean", description: "Always false (date filtering not yet implemented)." },
   },
   required: ["geo", "tier", "date"],
 } as const;
 
+const tierEchoSchema = { type: "array", items: { type: "string", enum: KYC_TIERS }, nullable: true } as const;
+
 const filtersEchoSchema = {
   type: "object",
-  description: "Filter echo. `applied.geo` is resolved on count endpoints; tier/date stubbed ([mvp-c-kyc-stub]).",
+  description: "Filter echo. `applied.geo`/`applied.tier` are resolved on count endpoints; date not yet implemented.",
   properties: {
     scope: { type: "string", enum: GEO_SCOPES },
-    tier: { type: "string", enum: KYC_TIERS, nullable: true },
+    tier: tierEchoSchema,
     jurisdiction: { type: "string", nullable: true },
     from: { type: "string", nullable: true },
     to: { type: "string", nullable: true },
@@ -40,7 +42,7 @@ const filtersEchoSchema = {
     kAnonymityFloor: {
       type: "integer",
       nullable: true,
-      description: "Effective k-anonymity floor applied to a geo-scoped count; null on lists/all-public/my-district.",
+      description: "Effective k-anonymity floor applied when a count is narrowed by geo or tier; null on lists/all-public(no tier)/my-district.",
     },
     note: { type: "string" },
   },
@@ -134,14 +136,23 @@ const summaryBaseProps = {
   audienceScope: audienceScopeSchema,
 } as const;
 
+// `tier` is repeatable (a SET): `?tier=a&tier=b`. Accept a single value OR an array without enabling
+// global ajv array-coercion — anyOf still 400s on a bad enum value. The handlers normalize to KycTier[].
+const tierQuery = {
+  anyOf: [
+    { type: "string", enum: KYC_TIERS },
+    { type: "array", items: { type: "string", enum: KYC_TIERS } },
+  ],
+} as const;
+
 const listQuerystring = {
   type: "object",
   properties: {
-    scope: { type: "string", enum: GEO_SCOPES, description: "Coarse geo audience (STUB — echoed, not resolved)." },
-    tier: { type: "string", enum: KYC_TIERS, description: "KYC verification tier (STUB — echoed, not resolved)." },
-    jurisdiction: { type: "string", description: "Jurisdiction filter for multi-jurisdiction browse (STUB — echoed)." },
-    from: { type: "string", format: "date", description: "Start date, ISO (STUB — echoed, not resolved)." },
-    to: { type: "string", format: "date", description: "End date, ISO (STUB — echoed, not resolved)." },
+    scope: { type: "string", enum: GEO_SCOPES, description: "Coarse geo audience (echoed on lists, not resolved)." },
+    tier: { ...tierQuery, description: "KYC tier(s); repeatable (echoed on lists, not resolved)." },
+    jurisdiction: { type: "string", description: "Jurisdiction filter for multi-jurisdiction browse (echoed, not resolved)." },
+    from: { type: "string", format: "date", description: "Start date, ISO (echoed, not resolved)." },
+    to: { type: "string", format: "date", description: "End date, ISO (echoed, not resolved)." },
     limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
     offset: { type: "integer", minimum: 0, default: 0 },
   },
@@ -152,9 +163,9 @@ const countsQuerystring = {
   type: "object",
   properties: {
     scope: { type: "string", enum: GEO_SCOPES, description: "Coarse geo audience — RESOLVED on counts (region-first + k-anonymity); my-district is inert." },
-    tier: { type: "string", enum: KYC_TIERS, description: "KYC verification tier (STUB — echoed, not resolved; awaits [mvp-c-kyc-stub])." },
-    from: { type: "string", format: "date", description: "Start date, ISO (STUB — echoed, not resolved)." },
-    to: { type: "string", format: "date", description: "End date, ISO (STUB — echoed, not resolved)." },
+    tier: { ...tierQuery, description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is counted iff their current tier is in the set (set membership, not at-or-above)." },
+    from: { type: "string", format: "date", description: "Start date, ISO (echoed, not resolved)." },
+    to: { type: "string", format: "date", description: "End date, ISO (echoed, not resolved)." },
   },
   additionalProperties: false,
 } as const;
@@ -165,11 +176,17 @@ const idParams = {
   required: ["id"],
 } as const;
 
-// Helpers to coerce parsed query into the service's filter shape.
+// Helpers to coerce parsed query into the service's filter shape. `tier` arrives as a single string
+// (`?tier=a`) or an array (`?tier=a&tier=b`); normalize both to the KycTier[] the service expects.
+function tierList(raw: unknown): PublicReadFilters["tier"] {
+  if (Array.isArray(raw)) return raw as PublicReadFilters["tier"];
+  if (raw != null) return [raw as NonNullable<PublicReadFilters["tier"]>[number]];
+  return undefined;
+}
 function listFilters(q: Record<string, unknown>): PublicReadFilters {
   return {
     scope: q.scope as PublicReadFilters["scope"],
-    tier: q.tier as PublicReadFilters["tier"],
+    tier: tierList(q.tier),
     jurisdiction: q.jurisdiction as string | undefined,
     from: q.from as string | undefined,
     to: q.to as string | undefined,
@@ -180,7 +197,7 @@ function listFilters(q: Record<string, unknown>): PublicReadFilters {
 function countFilters(q: Record<string, unknown>): PublicReadFilters {
   return {
     scope: q.scope as PublicReadFilters["scope"],
-    tier: q.tier as PublicReadFilters["tier"],
+    tier: tierList(q.tier),
     from: q.from as string | undefined,
     to: q.to as string | undefined,
   };
@@ -196,7 +213,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Browse posts (Beliefs), newest first. Filters are stubbed.",
+        summary: "Browse posts (Beliefs), newest first. Filters are echoed, not resolved (counts resolve geo/tier).",
         querystring: listQuerystring,
         response: {
           200: {
@@ -249,7 +266,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Reaction tallies for a post (geo scope resolved + k-anonymity; tier/date stubbed).",
+        summary: "Reaction tallies for a post (geo scope + KYC tier resolved + k-anonymity; date stubbed).",
         params: idParams,
         querystring: countsQuerystring,
         response: {
@@ -278,7 +295,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Browse petitions, newest first. Filters are stubbed.",
+        summary: "Browse petitions, newest first. Filters are echoed, not resolved (counts resolve geo/tier).",
         querystring: listQuerystring,
         response: {
           200: {
@@ -332,7 +349,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Signature count for a petition (geo scope resolved + k-anonymity; tier/date stubbed; counts ungated in dev).",
+        summary: "Signature count for a petition (geo scope + KYC tier resolved + k-anonymity; date stubbed; counts ungated in dev).",
         params: idParams,
         querystring: countsQuerystring,
         response: {
@@ -363,7 +380,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Browse polls, newest first. Filters are stubbed.",
+        summary: "Browse polls, newest first. Filters are echoed, not resolved (counts resolve geo/tier).",
         querystring: listQuerystring,
         response: {
           200: {
@@ -417,7 +434,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Option results for a poll (geo scope resolved + k-anonymity; tier/date stubbed; counts ungated in dev).",
+        summary: "Option results for a poll (geo scope + KYC tier resolved + k-anonymity; date stubbed; counts ungated in dev).",
         params: idParams,
         querystring: countsQuerystring,
         response: {

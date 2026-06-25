@@ -4,11 +4,13 @@
 // reimplemented here. Every response is built from response-safe `PublicEntityView` semantics
 // (withheld content stays withheld) and carries audience-scope metadata.
 //
-// The geo `scope` is RESOLVED on the count endpoints (docs/06 §2–3): compileScope → Region, then
-// each participant is tested with participantInRegion and counts re-aggregate over distinct in-region
-// participants, with a k-anonymity floor (`applied.geo`/`kAnonymityFloor` in the echo). KYC `tier` and
-// the date range are still STUBS — parsed/validated and echoed (`applied.tier`/`applied.date` false),
-// not resolved, until [mvp-c-kyc-stub]. Lists + thread detail apply no geo filter. Petition-signature /
+// The geo `scope` AND the KYC `tier` are RESOLVED on the count endpoints (docs/06 §2–3): compileScope →
+// Region and the requested tier SET, then each distinct participant is tested (participantInRegion for
+// geo; resolveUserId → latest attestation for tier) and counts re-aggregate over participants passing
+// EVERY active dimension (AND), with a k-anonymity floor when either narrows (`applied.geo`/`applied.tier`/
+// `kAnonymityFloor` in the echo). Tier matching is SET MEMBERSHIP (current tier ∈ requested set), not
+// at-or-above. The date range is still a STUB — parsed/validated and echoed (`applied.date` false), not
+// resolved. Lists + thread detail apply no geo/tier filter (parse + echo only). Petition-signature /
 // poll-vote counts are surfaced ungated in dev; production withholds them per jurisdiction/KYC policy.
 
 import type { Region, RegionResolver } from "@oursay/geo";
@@ -26,6 +28,8 @@ import {
 } from "@oursay/public-record";
 import { publicCountsKAnon } from "../config.js";
 import { ServiceError } from "../errors.js";
+import type { KycRepo } from "../repo/kyc.repo.js";
+import { KYC_TIERS, normalizeTier, type KycTier } from "../types/kyc.js";
 import type { ParticipantGeoService, ParticipantRef } from "./participant-geo.service.js";
 
 /** The four coarse geographic audiences (fixed enum — no freeform district ids, which would invite
@@ -33,18 +37,19 @@ import type { ParticipantGeoService, ParticipantRef } from "./participant-geo.se
 export type GeoScope = "jurisdiction" | "impacted-region" | "my-district" | "all-public";
 export const GEO_SCOPES: GeoScope[] = ["jurisdiction", "impacted-region", "my-district", "all-public"];
 
-/** Canonical KYC verification tiers (docs/01 §4; KycRepo VERIFIED_TIERS). Enum-validated even
- *  though tier filtering is stubbed — a freeform string invites drift. */
-export type KycTier = "unverified" | "identity_verified" | "residency_verified" | "electoral_validated";
-export const KYC_TIERS: KycTier[] = ["unverified", "identity_verified", "residency_verified", "electoral_validated"];
+// Canonical KYC tiers live in ../types/kyc.js (shared, dependency-free) so the provider seam + routes
+// import the SAME enum without a cycle. Re-exported here for existing import sites (routes, tests).
+export { KYC_TIERS, normalizeTier, type KycTier };
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const DEFAULT_JURISDICTION = "oursay-global";
-const TIER_DATE_NOTE =
-  "tier and date filters are stubbed — parsed and echoed, not resolved (awaits [mvp-c-kyc-stub])";
+const DATE_NOTE =
+  "date range filter is not yet implemented — from/to are parsed and echoed, not resolved";
 const GEO_APPLIED_NOTE =
   "geo scope resolved to a region; counts reflect distinct in-region participants only";
+const TIER_APPLIED_NOTE =
+  "tier set resolved; counts reflect distinct participants whose current tier is in the requested set";
 const MY_DISTRICT_NOTE =
   "scope=my-district is inert on unauthenticated routes (no viewer identity to resolve a district); no geo filter applied";
 const COUNT_GATING_NOTE =
@@ -53,7 +58,9 @@ const COUNT_GATING_NOTE =
 /** Read filters as received from the HTTP layer (already enum-validated by JSON schema). */
 export interface PublicReadFilters {
   scope?: GeoScope;
-  tier?: KycTier;
+  /** Requested KYC tier(s) — a SET (OR). On counts, a participant is counted iff their CURRENT tier is
+   *  in this set (not at-or-above). Empty/absent ⇒ no tier filter. */
+  tier?: KycTier[];
   jurisdiction?: string;
   from?: string;
   to?: string;
@@ -67,20 +74,22 @@ export interface AudienceScope {
   appliesToDistrictIds: string[];
 }
 
-/** Per-dimension applied status. `geo` is live (this phase); `tier`/`date` stay false until
- *  [mvp-c-kyc-stub]. */
+/** Per-dimension applied status. `geo` and `tier` are live on counts (a narrowing filter was compiled
+ *  and used); `date` stays false (no date filtering yet). Lists/detail never set geo/tier true — they
+ *  parse + echo only. */
 export interface AppliedDimensions {
   geo: boolean;
-  tier: false;
+  tier: boolean;
   date: false;
 }
 
-/** The filter echo. `applied.geo` is true only when a non-null Region was compiled and used to narrow
- *  the count. `kAnonymityFloor` is the effective floor applied to a geo-scoped count payload, or null
- *  (lists, all-public, inert my-district). */
+/** The filter echo. `applied.geo`/`applied.tier` are true only when that dimension compiled to a
+ *  narrowing filter and was used. `tier` echoes the requested set (de-duped) or null. `kAnonymityFloor`
+ *  is the effective floor applied when EITHER dimension narrows a count payload, or null (lists,
+ *  all-public + no tier, inert my-district). */
 export interface FilterEcho {
   scope: GeoScope;
-  tier: KycTier | null;
+  tier: KycTier[] | null;
   jurisdiction: string | null;
   from: string | null;
   to: string | null;
@@ -174,6 +183,8 @@ export interface PublicRecordReadServiceDeps {
   recordStore: PrivateStore;
   regionResolver: RegionResolver;
   participantGeoService: ParticipantGeoService;
+  /** Read seam for the CURRENT verification tier of a resolved participant (latest attestation). */
+  kycRepo: KycRepo;
 }
 
 export class PublicRecordReadService {
@@ -251,32 +262,33 @@ export class PublicRecordReadService {
     const view = await this.requireRoot(id, "post");
     const audience = await this.audienceScope(id, view);
     const region = await this.resolveRegion(filters, audience);
+    const tierSet = narrowingTierSet(filters.tier);
 
-    if (!region) {
-      // Raw path (all-public / inert my-district): the existing tallies, unfiltered.
+    if (!region && !tierSet) {
+      // Raw path (all-public / inert my-district, no tier): the existing tallies, unfiltered.
       const [byEntity, byRevision] = await reactionTallies(this.d.recordStore, id);
       return {
         entityId: id,
         reactionsByEntity: byEntity.map(rawReaction),
         reactionsByCurrentRevision: byRevision.map(rawReaction),
-        filters: echoFilters(filters, { geoApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
       };
     }
 
     const k = this.effectiveK(audience.jurisdiction);
     const rows = await this.d.recordStore.listReactionParticipants(id);
     const rev = await this.d.recordStore.getCurrentRevision(id);
-    const memo = new Map<string, boolean>();
+    const f = newFilterMemos();
 
-    const byEntity = await this.tally(rows.map((r) => ({ bucket: r.kind, ...r })), region, k, memo);
+    const byEntity = await this.tally(rows.map((r) => ({ bucket: r.kind, ...r })), region, tierSet, k, f);
     const revRows = rev ? rows.filter((r) => r.parentRevisionHash === rev.hash) : [];
-    const byRevision = await this.tally(revRows.map((r) => ({ bucket: r.kind, ...r })), region, k, memo);
+    const byRevision = await this.tally(revRows.map((r) => ({ bucket: r.kind, ...r })), region, tierSet, k, f);
 
     return {
       entityId: id,
       reactionsByEntity: bucketsToReactions(byEntity),
       reactionsByCurrentRevision: bucketsToReactions(byRevision),
-      filters: echoFilters(filters, { geoApplied: true, kAnonymityFloor: k }),
+      filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
     };
   }
 
@@ -284,22 +296,22 @@ export class PublicRecordReadService {
     const view = await this.requireRoot(id, "petition");
     const audience = await this.audienceScope(id, view);
     const region = await this.resolveRegion(filters, audience);
+    const tierSet = narrowingTierSet(filters.tier);
 
-    if (!region) {
+    if (!region && !tierSet) {
       return {
         entityId: id,
         signatureCount: await this.d.recordStore.getPetitionSignatureCount(id),
         suppressed: false,
         countGating: "none",
         countGatingNote: COUNT_GATING_NOTE,
-        filters: echoFilters(filters, { geoApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
       };
     }
 
     const k = this.effectiveK(audience.jurisdiction);
     const rows = await this.d.recordStore.listSignatureParticipants(id);
-    const memo = new Map<string, boolean>();
-    const tallied = await this.tally(rows.map((r) => ({ bucket: "signature", ...r })), region, k, memo);
+    const tallied = await this.tally(rows.map((r) => ({ bucket: "signature", ...r })), region, tierSet, k, newFilterMemos());
     const b = tallied.get("signature") ?? { count: 0, suppressed: false };
 
     return {
@@ -308,7 +320,7 @@ export class PublicRecordReadService {
       suppressed: b.suppressed,
       countGating: "none",
       countGatingNote: COUNT_GATING_NOTE,
-      filters: echoFilters(filters, { geoApplied: true, kAnonymityFloor: k }),
+      filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
     };
   }
 
@@ -316,29 +328,29 @@ export class PublicRecordReadService {
     const view = await this.requireRoot(id, "poll");
     const audience = await this.audienceScope(id, view);
     const region = await this.resolveRegion(filters, audience);
+    const tierSet = narrowingTierSet(filters.tier);
 
-    if (!region) {
+    if (!region && !tierSet) {
       const results = await this.d.recordStore.getPollResults(id);
       return {
         entityId: id,
         results: results.map((r) => ({ option: r.option, count: r.count })),
         countGating: "none",
         countGatingNote: COUNT_GATING_NOTE,
-        filters: echoFilters(filters, { geoApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
       };
     }
 
     const k = this.effectiveK(audience.jurisdiction);
     const rows = await this.d.recordStore.listVoteParticipants(id);
-    const memo = new Map<string, boolean>();
-    const tallied = await this.tally(rows.map((r) => ({ bucket: r.option, ...r })), region, k, memo);
+    const tallied = await this.tally(rows.map((r) => ({ bucket: r.option, ...r })), region, tierSet, k, newFilterMemos());
 
     return {
       entityId: id,
       results: bucketsToPoll(tallied),
       countGating: "none",
       countGatingNote: COUNT_GATING_NOTE,
-      filters: echoFilters(filters, { geoApplied: true, kAnonymityFloor: k }),
+      filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
     };
   }
 
@@ -409,30 +421,45 @@ export class PublicRecordReadService {
     return Math.max(min, floor ?? def);
   }
 
-  /** Re-aggregate participant rows by bucket, counting only distinct in-region participants, then
-   *  suppress any bucket with `0 < count < effectiveK`. Every bucket present in `rows` appears in the
-   *  result (a bucket fully out-of-region reports a genuine 0, not suppressed). The participant key is
-   *  the SQL views' `COALESCE(nullifier, author_pubkey)` — used for BOTH the membership memo and the
-   *  distinct count so a dev-path row (pubkey only) and a signed row (nullifier) for one person neither
-   *  double-count nor split the cache. */
+  /** Re-aggregate participant rows by bucket, counting only distinct participants that pass EVERY active
+   *  filter (region AND tier — an absent dimension passes everyone), then suppress any bucket with
+   *  `0 < count < effectiveK`. Every bucket present in `rows` appears in the result (a bucket fully
+   *  filtered out reports a genuine 0, not suppressed). The participant key is the SQL views'
+   *  `COALESCE(nullifier, author_pubkey)` — used for BOTH the per-dimension memos and the distinct count
+   *  so a dev-path row (pubkey only) and a signed row (nullifier) for one person neither double-count nor
+   *  split the cache. */
   private async tally(
     rows: { bucket: string; authorPubkey: string; nullifier: string | null; parentId: string }[],
-    region: Region,
+    region: Region | null,
+    tierSet: Set<KycTier> | null,
     effectiveK: number,
-    memo: Map<string, boolean>,
+    memos: FilterMemos,
   ): Promise<Map<string, { count: number | null; suppressed: boolean }>> {
-    const inRegionByBucket = new Map<string, Set<string>>();
-    for (const r of rows) inRegionByBucket.set(r.bucket, inRegionByBucket.get(r.bucket) ?? new Set());
+    const byBucket = new Map<string, Set<string>>();
+    for (const r of rows) byBucket.set(r.bucket, byBucket.get(r.bucket) ?? new Set());
     for (const r of rows) {
-      if (await this.isInRegion(r, region, memo)) inRegionByBucket.get(r.bucket)!.add(participantKey(r));
+      if (await this.passesFilters(r, region, tierSet, memos)) byBucket.get(r.bucket)!.add(participantKey(r));
     }
     const out = new Map<string, { count: number | null; suppressed: boolean }>();
-    for (const [bucket, set] of inRegionByBucket) {
+    for (const [bucket, set] of byBucket) {
       const count = set.size;
       const suppressed = count > 0 && count < effectiveK;
       out.set(bucket, suppressed ? { count: null, suppressed: true } : { count, suppressed: false });
     }
     return out;
+  }
+
+  /** AND across the active dimensions: a participant counts iff they are in `region` (when geo narrows)
+   *  AND their current tier is in `tierSet` (when tier narrows). Each test is memoized by participant. */
+  private async passesFilters(
+    row: { authorPubkey: string; nullifier: string | null; parentId: string },
+    region: Region | null,
+    tierSet: Set<KycTier> | null,
+    memos: FilterMemos,
+  ): Promise<boolean> {
+    if (region && !(await this.isInRegion(row, region, memos.geo))) return false;
+    if (tierSet && !tierSet.has(await this.participantTier(row, memos.tier))) return false;
+    return true;
   }
 
   /** Memoized region membership for one participant (keyed by COALESCE(nullifier, authorPubkey)). */
@@ -444,15 +471,49 @@ export class PublicRecordReadService {
     const key = participantKey(row);
     const cached = memo.get(key);
     if (cached !== undefined) return cached;
-    const ref: ParticipantRef = {
-      authorPubkey: row.authorPubkey,
-      nullifier: row.nullifier ?? undefined,
-      parentId: row.parentId,
-    };
-    const inRegion = await this.d.participantGeoService.participantInRegion(ref, region);
+    const inRegion = await this.d.participantGeoService.participantInRegion(refOf(row), region);
     memo.set(key, inRegion);
     return inRegion;
   }
+
+  /** Memoized CURRENT tier for one participant (keyed by COALESCE(nullifier, authorPubkey)). Reuses the
+   *  participant→userId linkage (ParticipantGeoService.resolveUserId) the geo path uses, then reads the
+   *  latest attestation. An unlinkable participant or one with no attestation row is `unverified`. */
+  private async participantTier(
+    row: { authorPubkey: string; nullifier: string | null; parentId: string },
+    memo: Map<string, KycTier>,
+  ): Promise<KycTier> {
+    const key = participantKey(row);
+    const cached = memo.get(key);
+    if (cached !== undefined) return cached;
+    const userId = await this.d.participantGeoService.resolveUserId(refOf(row));
+    const tier = normalizeTier(userId ? await this.d.kycRepo.latestTier(userId) : null);
+    memo.set(key, tier);
+    return tier;
+  }
+}
+
+/** Per-request memoization for the count filters, keyed by participantKey: region membership and current
+ *  tier resolve at most once per distinct participant across by-entity/by-revision passes. */
+interface FilterMemos {
+  geo: Map<string, boolean>;
+  tier: Map<string, KycTier>;
+}
+function newFilterMemos(): FilterMemos {
+  return { geo: new Map(), tier: new Map() };
+}
+
+function refOf(row: { authorPubkey: string; nullifier: string | null; parentId: string }): ParticipantRef {
+  return { authorPubkey: row.authorPubkey, nullifier: row.nullifier ?? undefined, parentId: row.parentId };
+}
+
+/** The requested tier set when it actually NARROWS, else null. Null when absent/empty, or when it lists
+ *  every tier (a no-op that includes `unverified` ⇒ everyone, so neither `applied.tier` nor a tier-driven
+ *  k-anon floor should engage). A Set de-dupes, so `?tier=x&tier=x` behaves like a single `x`. */
+function narrowingTierSet(tier: KycTier[] | undefined): Set<KycTier> | null {
+  if (!tier || tier.length === 0) return null;
+  const set = new Set(tier);
+  return set.size >= KYC_TIERS.length ? null : set;
 }
 
 function pageParams(f: PublicReadFilters): { limit: number; offset: number } {
@@ -463,26 +524,30 @@ function pageParams(f: PublicReadFilters): { limit: number; offset: number } {
 
 function echoFilters(
   f: PublicReadFilters,
-  opts: { geoApplied?: boolean; kAnonymityFloor?: number | null } = {},
+  opts: { geoApplied?: boolean; tierApplied?: boolean; kAnonymityFloor?: number | null } = {},
 ): FilterEcho {
   const scope: GeoScope = f.scope ?? "all-public";
   const geoApplied = opts.geoApplied ?? false;
+  const tierApplied = opts.tierApplied ?? false;
   return {
     scope,
-    tier: f.tier ?? null,
+    tier: f.tier && f.tier.length > 0 ? [...new Set(f.tier)] : null,
     jurisdiction: f.jurisdiction ?? null,
     from: f.from ?? null,
     to: f.to ?? null,
-    applied: { geo: geoApplied, tier: false, date: false },
+    applied: { geo: geoApplied, tier: tierApplied, date: false },
     kAnonymityFloor: opts.kAnonymityFloor ?? null,
-    note: buildNote(scope, geoApplied),
+    note: buildNote(scope, geoApplied, tierApplied),
   };
 }
 
-function buildNote(scope: GeoScope, geoApplied: boolean): string {
-  if (scope === "my-district") return `${MY_DISTRICT_NOTE}. ${TIER_DATE_NOTE}`;
-  if (geoApplied) return `${GEO_APPLIED_NOTE}. ${TIER_DATE_NOTE}`;
-  return TIER_DATE_NOTE;
+function buildNote(scope: GeoScope, geoApplied: boolean, tierApplied: boolean): string {
+  const parts: string[] = [];
+  if (scope === "my-district" && !geoApplied) parts.push(MY_DISTRICT_NOTE);
+  if (geoApplied) parts.push(GEO_APPLIED_NOTE);
+  if (tierApplied) parts.push(TIER_APPLIED_NOTE);
+  parts.push(DATE_NOTE);
+  return parts.join(". ");
 }
 
 /** The participant dedup/membership key — mirrors the SQL views' COALESCE(nullifier, author_pubkey). */

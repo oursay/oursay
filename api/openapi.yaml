@@ -1881,7 +1881,8 @@ paths:
                   - error
   /v1/public/posts:
     get:
-      summary: Browse posts (Beliefs), newest first. Filters are stubbed.
+      summary: Browse posts (Beliefs), newest first. Filters are echoed, not resolved
+        (counts resolve geo/tier).
       tags:
         - public
       parameters:
@@ -1895,38 +1896,48 @@ paths:
           in: query
           name: scope
           required: false
-          description: Coarse geo audience (STUB — echoed, not resolved).
+          description: Coarse geo audience (echoed on lists, not resolved).
         - schema:
-            type: string
-            enum:
-              - unverified
-              - identity_verified
-              - residency_verified
-              - electoral_validated
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved).
+          description: KYC tier(s); repeatable (echoed on lists, not resolved).
         - schema:
             type: string
           in: query
           name: jurisdiction
           required: false
-          description: Jurisdiction filter for multi-jurisdiction browse (STUB — echoed).
+          description: Jurisdiction filter for multi-jurisdiction browse (echoed, not
+            resolved).
         - schema:
             type: string
             format: date
           in: query
           name: from
           required: false
-          description: Start date, ISO (STUB — echoed, not resolved).
+          description: Start date, ISO (echoed, not resolved).
         - schema:
             type: string
             format: date
           in: query
           name: to
           required: false
-          description: End date, ISO (STUB — echoed, not resolved).
+          description: End date, ISO (echoed, not resolved).
         - schema:
             type: integer
             minimum: 1
@@ -2020,8 +2031,8 @@ paths:
                       - total
                   filters:
                     type: object
-                    description: Filter echo. `applied.geo` is resolved on count endpoints;
-                      tier/date stubbed ([mvp-c-kyc-stub]).
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
                     properties:
                       scope:
                         type: string
@@ -2031,12 +2042,14 @@ paths:
                           - my-district
                           - all-public
                       tier:
-                        type: string
-                        enum:
-                          - unverified
-                          - identity_verified
-                          - residency_verified
-                          - electoral_validated
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
                         nullable: true
                       jurisdiction:
                         type: string
@@ -2049,18 +2062,19 @@ paths:
                         nullable: true
                       applied:
                         type: object
-                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
-                          [mvp-c-kyc-stub].
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented.
                         properties:
                           geo:
                             type: boolean
                             description: True when scope compiled to a region and narrowed the count.
                           tier:
                             type: boolean
-                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
                           date:
                             type: boolean
-                            description: Always false this phase.
+                            description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
@@ -2068,8 +2082,9 @@ paths:
                       kAnonymityFloor:
                         type: integer
                         nullable: true
-                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
-                          lists/all-public/my-district.
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
                       note:
                         type: string
                     required:
@@ -2311,8 +2326,8 @@ paths:
                   - error
   /v1/public/posts/{id}/counts:
     get:
-      summary: Reaction tallies for a post (geo scope resolved + k-anonymity;
-        tier/date stubbed).
+      summary: Reaction tallies for a post (geo scope + KYC tier resolved +
+        k-anonymity; date stubbed).
       tags:
         - public
       parameters:
@@ -2329,31 +2344,41 @@ paths:
           description: Coarse geo audience — RESOLVED on counts (region-first +
             k-anonymity); my-district is inert.
         - schema:
-            type: string
-            enum:
-              - unverified
-              - identity_verified
-              - residency_verified
-              - electoral_validated
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved; awaits
-            [mvp-c-kyc-stub]).
+          description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
+            counted iff their current tier is in the set (set membership, not
+            at-or-above)."
         - schema:
             type: string
             format: date
           in: query
           name: from
           required: false
-          description: Start date, ISO (STUB — echoed, not resolved).
+          description: Start date, ISO (echoed, not resolved).
         - schema:
             type: string
             format: date
           in: query
           name: to
           required: false
-          description: End date, ISO (STUB — echoed, not resolved).
+          description: End date, ISO (echoed, not resolved).
         - schema:
             type: string
           in: path
@@ -2406,8 +2431,8 @@ paths:
                         - count
                   filters:
                     type: object
-                    description: Filter echo. `applied.geo` is resolved on count endpoints;
-                      tier/date stubbed ([mvp-c-kyc-stub]).
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
                     properties:
                       scope:
                         type: string
@@ -2417,12 +2442,14 @@ paths:
                           - my-district
                           - all-public
                       tier:
-                        type: string
-                        enum:
-                          - unverified
-                          - identity_verified
-                          - residency_verified
-                          - electoral_validated
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
                         nullable: true
                       jurisdiction:
                         type: string
@@ -2435,18 +2462,19 @@ paths:
                         nullable: true
                       applied:
                         type: object
-                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
-                          [mvp-c-kyc-stub].
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented.
                         properties:
                           geo:
                             type: boolean
                             description: True when scope compiled to a region and narrowed the count.
                           tier:
                             type: boolean
-                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
                           date:
                             type: boolean
-                            description: Always false this phase.
+                            description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
@@ -2454,8 +2482,9 @@ paths:
                       kAnonymityFloor:
                         type: integer
                         nullable: true
-                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
-                          lists/all-public/my-district.
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
                       note:
                         type: string
                     required:
@@ -2514,7 +2543,8 @@ paths:
                   - error
   /v1/public/petitions:
     get:
-      summary: Browse petitions, newest first. Filters are stubbed.
+      summary: Browse petitions, newest first. Filters are echoed, not resolved
+        (counts resolve geo/tier).
       tags:
         - public
       parameters:
@@ -2528,38 +2558,48 @@ paths:
           in: query
           name: scope
           required: false
-          description: Coarse geo audience (STUB — echoed, not resolved).
+          description: Coarse geo audience (echoed on lists, not resolved).
         - schema:
-            type: string
-            enum:
-              - unverified
-              - identity_verified
-              - residency_verified
-              - electoral_validated
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved).
+          description: KYC tier(s); repeatable (echoed on lists, not resolved).
         - schema:
             type: string
           in: query
           name: jurisdiction
           required: false
-          description: Jurisdiction filter for multi-jurisdiction browse (STUB — echoed).
+          description: Jurisdiction filter for multi-jurisdiction browse (echoed, not
+            resolved).
         - schema:
             type: string
             format: date
           in: query
           name: from
           required: false
-          description: Start date, ISO (STUB — echoed, not resolved).
+          description: Start date, ISO (echoed, not resolved).
         - schema:
             type: string
             format: date
           in: query
           name: to
           required: false
-          description: End date, ISO (STUB — echoed, not resolved).
+          description: End date, ISO (echoed, not resolved).
         - schema:
             type: integer
             minimum: 1
@@ -2638,8 +2678,8 @@ paths:
                       - total
                   filters:
                     type: object
-                    description: Filter echo. `applied.geo` is resolved on count endpoints;
-                      tier/date stubbed ([mvp-c-kyc-stub]).
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
                     properties:
                       scope:
                         type: string
@@ -2649,12 +2689,14 @@ paths:
                           - my-district
                           - all-public
                       tier:
-                        type: string
-                        enum:
-                          - unverified
-                          - identity_verified
-                          - residency_verified
-                          - electoral_validated
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
                         nullable: true
                       jurisdiction:
                         type: string
@@ -2667,18 +2709,19 @@ paths:
                         nullable: true
                       applied:
                         type: object
-                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
-                          [mvp-c-kyc-stub].
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented.
                         properties:
                           geo:
                             type: boolean
                             description: True when scope compiled to a region and narrowed the count.
                           tier:
                             type: boolean
-                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
                           date:
                             type: boolean
-                            description: Always false this phase.
+                            description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
@@ -2686,8 +2729,9 @@ paths:
                       kAnonymityFloor:
                         type: integer
                         nullable: true
-                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
-                          lists/all-public/my-district.
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
                       note:
                         type: string
                     required:
@@ -2931,8 +2975,8 @@ paths:
                   - error
   /v1/public/petitions/{id}/counts:
     get:
-      summary: Signature count for a petition (geo scope resolved + k-anonymity;
-        tier/date stubbed; counts ungated in dev).
+      summary: Signature count for a petition (geo scope + KYC tier resolved +
+        k-anonymity; date stubbed; counts ungated in dev).
       tags:
         - public
       parameters:
@@ -2949,31 +2993,41 @@ paths:
           description: Coarse geo audience — RESOLVED on counts (region-first +
             k-anonymity); my-district is inert.
         - schema:
-            type: string
-            enum:
-              - unverified
-              - identity_verified
-              - residency_verified
-              - electoral_validated
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved; awaits
-            [mvp-c-kyc-stub]).
+          description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
+            counted iff their current tier is in the set (set membership, not
+            at-or-above)."
         - schema:
             type: string
             format: date
           in: query
           name: from
           required: false
-          description: Start date, ISO (STUB — echoed, not resolved).
+          description: Start date, ISO (echoed, not resolved).
         - schema:
             type: string
             format: date
           in: query
           name: to
           required: false
-          description: End date, ISO (STUB — echoed, not resolved).
+          description: End date, ISO (echoed, not resolved).
         - schema:
             type: string
           in: path
@@ -3005,8 +3059,8 @@ paths:
                     type: string
                   filters:
                     type: object
-                    description: Filter echo. `applied.geo` is resolved on count endpoints;
-                      tier/date stubbed ([mvp-c-kyc-stub]).
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
                     properties:
                       scope:
                         type: string
@@ -3016,12 +3070,14 @@ paths:
                           - my-district
                           - all-public
                       tier:
-                        type: string
-                        enum:
-                          - unverified
-                          - identity_verified
-                          - residency_verified
-                          - electoral_validated
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
                         nullable: true
                       jurisdiction:
                         type: string
@@ -3034,18 +3090,19 @@ paths:
                         nullable: true
                       applied:
                         type: object
-                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
-                          [mvp-c-kyc-stub].
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented.
                         properties:
                           geo:
                             type: boolean
                             description: True when scope compiled to a region and narrowed the count.
                           tier:
                             type: boolean
-                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
                           date:
                             type: boolean
-                            description: Always false this phase.
+                            description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
@@ -3053,8 +3110,9 @@ paths:
                       kAnonymityFloor:
                         type: integer
                         nullable: true
-                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
-                          lists/all-public/my-district.
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
                       note:
                         type: string
                     required:
@@ -3114,7 +3172,8 @@ paths:
                   - error
   /v1/public/polls:
     get:
-      summary: Browse polls, newest first. Filters are stubbed.
+      summary: Browse polls, newest first. Filters are echoed, not resolved (counts
+        resolve geo/tier).
       tags:
         - public
       parameters:
@@ -3128,38 +3187,48 @@ paths:
           in: query
           name: scope
           required: false
-          description: Coarse geo audience (STUB — echoed, not resolved).
+          description: Coarse geo audience (echoed on lists, not resolved).
         - schema:
-            type: string
-            enum:
-              - unverified
-              - identity_verified
-              - residency_verified
-              - electoral_validated
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved).
+          description: KYC tier(s); repeatable (echoed on lists, not resolved).
         - schema:
             type: string
           in: query
           name: jurisdiction
           required: false
-          description: Jurisdiction filter for multi-jurisdiction browse (STUB — echoed).
+          description: Jurisdiction filter for multi-jurisdiction browse (echoed, not
+            resolved).
         - schema:
             type: string
             format: date
           in: query
           name: from
           required: false
-          description: Start date, ISO (STUB — echoed, not resolved).
+          description: Start date, ISO (echoed, not resolved).
         - schema:
             type: string
             format: date
           in: query
           name: to
           required: false
-          description: End date, ISO (STUB — echoed, not resolved).
+          description: End date, ISO (echoed, not resolved).
         - schema:
             type: integer
             minimum: 1
@@ -3253,8 +3322,8 @@ paths:
                       - total
                   filters:
                     type: object
-                    description: Filter echo. `applied.geo` is resolved on count endpoints;
-                      tier/date stubbed ([mvp-c-kyc-stub]).
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
                     properties:
                       scope:
                         type: string
@@ -3264,12 +3333,14 @@ paths:
                           - my-district
                           - all-public
                       tier:
-                        type: string
-                        enum:
-                          - unverified
-                          - identity_verified
-                          - residency_verified
-                          - electoral_validated
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
                         nullable: true
                       jurisdiction:
                         type: string
@@ -3282,18 +3353,19 @@ paths:
                         nullable: true
                       applied:
                         type: object
-                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
-                          [mvp-c-kyc-stub].
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented.
                         properties:
                           geo:
                             type: boolean
                             description: True when scope compiled to a region and narrowed the count.
                           tier:
                             type: boolean
-                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
                           date:
                             type: boolean
-                            description: Always false this phase.
+                            description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
@@ -3301,8 +3373,9 @@ paths:
                       kAnonymityFloor:
                         type: integer
                         nullable: true
-                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
-                          lists/all-public/my-district.
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
                       note:
                         type: string
                     required:
@@ -3560,8 +3633,8 @@ paths:
                   - error
   /v1/public/polls/{id}/counts:
     get:
-      summary: Option results for a poll (geo scope resolved + k-anonymity; tier/date
-        stubbed; counts ungated in dev).
+      summary: Option results for a poll (geo scope + KYC tier resolved + k-anonymity;
+        date stubbed; counts ungated in dev).
       tags:
         - public
       parameters:
@@ -3578,31 +3651,41 @@ paths:
           description: Coarse geo audience — RESOLVED on counts (region-first +
             k-anonymity); my-district is inert.
         - schema:
-            type: string
-            enum:
-              - unverified
-              - identity_verified
-              - residency_verified
-              - electoral_validated
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved; awaits
-            [mvp-c-kyc-stub]).
+          description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
+            counted iff their current tier is in the set (set membership, not
+            at-or-above)."
         - schema:
             type: string
             format: date
           in: query
           name: from
           required: false
-          description: Start date, ISO (STUB — echoed, not resolved).
+          description: Start date, ISO (echoed, not resolved).
         - schema:
             type: string
             format: date
           in: query
           name: to
           required: false
-          description: End date, ISO (STUB — echoed, not resolved).
+          description: End date, ISO (echoed, not resolved).
         - schema:
             type: string
           in: path
@@ -3644,8 +3727,8 @@ paths:
                     type: string
                   filters:
                     type: object
-                    description: Filter echo. `applied.geo` is resolved on count endpoints;
-                      tier/date stubbed ([mvp-c-kyc-stub]).
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
                     properties:
                       scope:
                         type: string
@@ -3655,12 +3738,14 @@ paths:
                           - my-district
                           - all-public
                       tier:
-                        type: string
-                        enum:
-                          - unverified
-                          - identity_verified
-                          - residency_verified
-                          - electoral_validated
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
                         nullable: true
                       jurisdiction:
                         type: string
@@ -3673,18 +3758,19 @@ paths:
                         nullable: true
                       applied:
                         type: object
-                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
-                          [mvp-c-kyc-stub].
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented.
                         properties:
                           geo:
                             type: boolean
                             description: True when scope compiled to a region and narrowed the count.
                           tier:
                             type: boolean
-                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
                           date:
                             type: boolean
-                            description: Always false this phase.
+                            description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
@@ -3692,8 +3778,9 @@ paths:
                       kAnonymityFloor:
                         type: integer
                         nullable: true
-                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
-                          lists/all-public/my-district.
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
                       note:
                         type: string
                     required:

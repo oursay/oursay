@@ -141,6 +141,29 @@ resolve participants into geographic [Regions](../docs/REGION-MODEL.md) (point-i
   self-hosting removes the OSMF rate limits, and **ODbL attribution** ("© OpenStreetMap contributors")
   is still required. Wire a provider against `GEOCODE_NOMINATIM_URL` when that lands.
 
+## KYC verification tiers
+
+A user's **verification tier** is an attestation the platform records in `public.kyc_attestations`
+(append-only; the user's *current* tier is the latest row, `ORDER BY attested_at DESC LIMIT 1`). The
+four tiers (`docs/01-CONTRIBUTOR-SPEC.md` §4) are `unverified` (no row), `identity_verified`,
+`residency_verified`, and `electoral_validated`. Both recovery (`KycRepo`) and the public count filter
+read this same table — one source of truth.
+
+- **Pluggable provider** (`KYC_PROVIDER`), mirroring the geocode seam. The platform calls **`KycService`**,
+  never a vendor SDK directly (docs/01 §5.1):
+  - `stub` *(default)* — deterministic, offline, no key: awards the requested tier (no real identity
+    check). Used by CI/dev and the dev attestation route below.
+  - `equifax` — **reserved, not implemented**: selecting it fails fast at startup.
+- **Tiers are a SET, not a ladder.** On counts, `?tier=` is matched by **set membership**, not
+  at-or-above: a participant is counted iff their *current* tier is **in** the requested set. Tiers are
+  provider/purpose-specific (identity, residency, electoral, future capabilities) and don't form a single
+  strict order. `?tier=identity_verified&tier=electoral_validated` counts identity **or** electoral, not
+  residency. `unverified` in the set includes participants with no attestation row (and unlinkable ones).
+- **Dev attestation route** (`POST /v1/dev/kyc/attest`, body `{ tier? }`, full session) — registered
+  **only** when `NODE_ENV !== "production"` (same guard as `/walk`) and hidden from the OpenAPI spec. It
+  self-attests the authenticated user so manual QA / tests can place a user at a tier without a raw SQL
+  INSERT. Tests seed directly via `services.kycService.attest(userId, tier)`.
+
 ## Participant geo resolution (private)
 
 `ParticipantGeoService` is the **service-layer bridge** from a civic-record participant to the
@@ -319,7 +342,7 @@ projections (`getThread`, `reactionTallies`) and store queries (`getPollResults`
 |-------|---------|
 | `GET /v1/public/{posts,petitions,polls}` | browse list (newest first), each item with audience scope + a headline count (post → reaction tallies, petition → `signatureCount`, poll → option `results`) |
 | `GET /v1/public/{posts,petitions,polls}/:id` | the folded thread: root + reaction tallies + nested comment tree, plus the type-specific count |
-| `GET /v1/public/{posts,petitions,polls}/:id/counts` | just the counts, with **live geo `scope` resolution** (region-first + k-anonymity) and the filter echo; tier/date still stubbed |
+| `GET /v1/public/{posts,petitions,polls}/:id/counts` | just the counts, with **live geo `scope` + KYC `tier` resolution** (region-first + set-membership tier + k-anonymity) and the filter echo; date still stubbed |
 
 Responses use **`PublicEntityView`** semantics: redacted/erased content stays withheld (`content:
 null, withheld: true`); the commitment still proves inclusion. Tombstoned (deleted) roots are excluded
@@ -328,12 +351,12 @@ binding; defaults to `oursay-global` when no persona is bound) and `appliesToDis
 entity's governance rules; empty ⇒ whole jurisdiction). This is metadata for clients/future filters,
 not write-policy enforcement.
 
-### Geo `scope` resolution on counts (live); tier/date stubbed
+### Geo `scope` + KYC `tier` resolution on counts (live); date stubbed
 
-List and count endpoints accept a coarse geo `scope`, a KYC `tier`, an optional `jurisdiction` (lists
-only), and a `from`/`to` date range. All are **parsed and enum-validated** (a bad `scope`/`tier` ⇒
-400). The fixed `scope` enum is deliberate (docs/06 §2–3): it keeps geography coarse and avoids the
-freeform district slicing that enables cross-boundary re-identification.
+List and count endpoints accept a coarse geo `scope`, a KYC `tier` (repeatable — a **set**), an optional
+`jurisdiction` (lists only), and a `from`/`to` date range. All are **parsed and enum-validated** (a bad
+`scope`/`tier` ⇒ 400). The fixed `scope` enum is deliberate (docs/06 §2–3): it keeps geography coarse and
+avoids the freeform district slicing that enables cross-boundary re-identification.
 
 On the **count** endpoints (`…/:id/counts`) geo `scope` is now **resolved**:
 `RegionResolver.compileScope({ scope, jurisdictionId, appliesToDistrictIds, asOf: now })` builds one
@@ -343,7 +366,13 @@ and tested with `ParticipantGeoService.participantInRegion(ref, region)` (`curre
 action-time snapshot). Counts re-aggregate over only the **distinct in-region** participants; the
 distinct key matches the SQL views (`COALESCE(nullifier, author_pubkey)`). A participant with no usable
 point is **out-of-area** (excluded from a scoped count; still counted in `all-public`). The filter echo
-splits by dimension: `applied: { geo, tier: false, date: false }`.
+splits by dimension: `applied: { geo, tier, date: false }`.
+
+The **`tier`** set is resolved on the same surface: each distinct participant is resolved to its
+`userId` (reusing `ParticipantGeoService.resolveUserId`) and its current tier (`KycRepo.latestTier`,
+defaulting to `unverified`), and is counted iff that tier is **in** the requested set (set membership,
+not at-or-above). When both narrow, it is **AND** (in-region **and** in the tier set). A tier set that
+lists *every* tier is a no-op (`applied.tier: false`, no tier-driven floor) since it includes everyone.
 
 | `scope` | Audience on counts | Status |
 |---------|---------------------|--------|
@@ -352,29 +381,32 @@ splits by dimension: `applied: { geo, tier: false, date: false }`.
 | `my-district` | the **authenticated** viewer's inferred district | **inert** — no viewer identity on public routes; no geo filter applied |
 | `all-public` | all public participants, no geo filter (default) | no filter (raw) |
 
-**K-anonymity (docs/06 §3).** When a geo scope narrows a count, a bucket (reaction kind / poll option /
-the signature scalar) with `0 < count < effectiveK` is **suppressed** (`count: null, suppressed:
-true`); a genuine `0` stays `0`, and `all-public` is never masked. `effectiveK = max(min,
+**K-anonymity (docs/06 §3).** When **either** a geo scope **or** a tier set narrows a count, a bucket
+(reaction kind / poll option / the signature scalar) with `0 < count < effectiveK` is **suppressed**
+(`count: null, suppressed: true`); a genuine `0` stays `0`, and `all-public` with no tier is never
+masked. `effectiveK = max(min,
 jurisdiction.privacy?.kAnonymityFloor ?? default)` from `PUBLIC_COUNTS_K_ANONYMITY_MIN`/`_DEFAULT`
 (default 5/5; a deployment may only RAISE the floor; dev disables with 0/0). The applied floor is
 echoed as `filters.kAnonymityFloor`.
 
-**Scope of geo filtering (intentional gap).** Only the `…/:id/counts` endpoints filter by region.
-Browse-list summaries and thread-detail reaction tallies (`GET /v1/public/posts/:id`, etc.) stay
-**unfiltered** — consumers must not assume geo there.
+**Scope of geo/tier filtering (intentional gap).** Only the `…/:id/counts` endpoints filter by region or
+tier. Browse-list summaries and thread-detail reaction tallies (`GET /v1/public/posts/:id`, etc.) stay
+**unfiltered** — `scope`/`tier` there are parsed and echoed only (`applied.geo`/`applied.tier` never
+true); consumers must not assume geo/tier there.
 
-`tier` (`unverified` \| `identity_verified` \| `residency_verified` \| `electoral_validated`) and the
-`from`/`to` date range are enum-validated and echoed but **do not filter** counts yet (`applied.tier` /
-`applied.date` stay false) — they await **[mvp-c-kyc-stub]**. Petition-signature and poll-vote counts
-are surfaced **ungated in dev** (`countGating: "none"`); production will withhold them per
-jurisdiction/KYC policy regardless of whether a jurisdiction permits public voting on a given issue.
-**Perf note:** the scoped count path resolves region membership per distinct participant (memoized per
-request); a batched point-in-polygon pass is the optimization if it bites.
+The `from`/`to` date range is enum-validated and echoed but **does not filter** counts yet
+(`applied.date` stays false). Petition-signature and poll-vote counts are surfaced **ungated in dev**
+(`countGating: "none"`); production will withhold them per jurisdiction/KYC policy regardless of whether a
+jurisdiction permits public voting on a given issue. **Perf note:** the scoped count path resolves region
+membership *and* tier per distinct participant (each memoized per request); a batched point-in-polygon /
+tier lookup is the optimization if it bites.
 
 ## Not in this milestone
 
-Production WebAuthn PRF / non-exportable browser signing for civic keys, full KYC provider
-integration, Method-4 ZK, and production KMS / encryption-at-rest (schema hooks only). On the public
-read side, geo `scope` resolution + k-anonymity now ship on the count endpoints; still deferred:
-**tier/date** filter resolution ([mvp-c-kyc-stub]), C4 action-time / ever-in-region geo modes,
-per-viewer district inference (authenticated routes), and `result` derived-entity publishing.
+Production WebAuthn PRF / non-exportable browser signing for civic keys, a **real** KYC provider
+(Equifax) + sponsorship/waitlist UX + provider-signed attestation rows (R27), Method-4 ZK, and
+production KMS / encryption-at-rest (schema hooks only). On the public read side, geo `scope` **and** KYC
+`tier` resolution + k-anonymity now ship on the count endpoints (tier via the **stub** provider); still
+deferred: **date-range** filter resolution, C4 action-time / ever-in-region geo modes, multi-concurrent
+tier capabilities, per-viewer district inference (authenticated routes), and `result` derived-entity
+publishing.

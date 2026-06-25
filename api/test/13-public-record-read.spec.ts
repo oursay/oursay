@@ -174,6 +174,21 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
     expect(badTier.statusCode).to.equal(400);
   });
 
+  it("echoes the requested tier set as an array on lists, but never resolves it (applied.tier false)", async () => {
+    const svc = seeder(w);
+    await svc.create({ type: "post", author: "alice", content: { body: "hi" } });
+
+    // Single value coerces to a one-element array; lists parse + echo only (counts resolve tier, spec 17).
+    const one = (await w.app.inject({ method: "GET", url: "/v1/public/posts?tier=identity_verified" })).json() as any;
+    expect(one.filters.tier).to.deep.equal(["identity_verified"]);
+    expect(one.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+
+    // Repeated param parses as a set.
+    const many = (await w.app.inject({ method: "GET", url: "/v1/public/posts?tier=identity_verified&tier=residency_verified" })).json() as any;
+    expect(many.filters.tier).to.deep.equal(["identity_verified", "residency_verified"]);
+    expect(many.filters.applied.tier).to.equal(false);
+  });
+
   it("404s unknown ids and type mismatches", async () => {
     const svc = seeder(w);
     const poll = await svc.create({ type: "poll", author: "alice", content: { question: "q?", options: ["a", "b"] } });

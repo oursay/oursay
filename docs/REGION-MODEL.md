@@ -44,8 +44,11 @@ assignment row, not the year label).
 
 `api`'s `GeoScope` (`jurisdiction | impacted-region | my-district | all-public`) is **resolved** on the
 public count endpoints (`/v1/public/{posts,petitions,polls}/:id/counts`) via
-`RegionResolver.compileScope`; the filter echo reports `applied.geo`. (Browse lists + thread detail
-still echo only — geo filtering is intentionally scoped to the count endpoints.)
+`RegionResolver.compileScope`; the filter echo reports `applied.geo`. The KYC **`tier`** set is resolved
+on the same surface (set membership over each participant's current attestation tier — `applied.tier`);
+when both narrow they combine as **AND**, and the k-anonymity floor engages when **either** narrows.
+(Browse lists + thread detail still echo only — geo/tier filtering is intentionally scoped to the count
+endpoints.)
 
 | `GeoScope` | compiles to |
 |---|---|
@@ -101,8 +104,9 @@ this layer never reimplements `contains` and never exposes points or linkage pub
 
 How a public discussion answers "how much of this conversation comes from the impacted area?" — the
 **region-first** model, no user/district query parameters. **Now wired** on the public count endpoints
-(`/v1/public/{posts,petitions,polls}/:id/counts`) for the geo `scope`; tier filtering still awaits
-`[mvp-c-kyc-stub]`.
+(`/v1/public/{posts,petitions,polls}/:id/counts`) for the geo `scope`; the KYC `tier` set is wired on
+the same surface (`[mvp-c-kyc-stub]`, set membership over each participant's current tier, AND-combined
+with geo).
 
 - **Input: a discussion (root entity) id only.** The caller never supplies a user id or a district;
   there is no "who is in district D" surface to query.
