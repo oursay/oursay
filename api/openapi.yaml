@@ -2063,7 +2063,11 @@ paths:
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
-                          endpoints; `date` is not yet implemented.
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
                         properties:
                           geo:
                             type: boolean
@@ -2463,7 +2467,11 @@ paths:
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
-                          endpoints; `date` is not yet implemented.
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
                         properties:
                           geo:
                             type: boolean
@@ -2728,7 +2736,11 @@ paths:
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
-                          endpoints; `date` is not yet implemented.
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
                         properties:
                           geo:
                             type: boolean
@@ -3135,7 +3147,11 @@ paths:
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
-                          endpoints; `date` is not yet implemented.
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
                         properties:
                           geo:
                             type: boolean
@@ -3413,7 +3429,11 @@ paths:
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
-                          endpoints; `date` is not yet implemented.
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
                         properties:
                           geo:
                             type: boolean
@@ -3840,7 +3860,11 @@ paths:
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
-                          endpoints; `date` is not yet implemented.
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
                         properties:
                           geo:
                             type: boolean

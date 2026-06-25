@@ -172,6 +172,11 @@ export const civicConfig: CivicConfig = {
  * an entity opts in within its own rules. Generic by design (VALUES §7) — every field is
  * env-overridable config, never hardcoded platform logic. Product label mapping is presentational
  * (front-end), not stored on the record: a `post` is surfaced as a "Belief" in the Alberta product.
+ *
+ * NOTE: this is NOT the source of truth for per-jurisdiction rules — those live in
+ * `@oursay/jurisdiction-data`, which the container registers for every jurisdiction. This object only
+ * (a) selects the deployment DEFAULT id via `JURISDICTION_ID`, and (b) acts as the registry FALLBACK
+ * when that id is not shipped by the data package. It intentionally carries no `counts` policy.
  */
 export const jurisdictionConfig: JurisdictionConfig = {
   id: env("JURISDICTION_ID", "ab-ca-gov"),

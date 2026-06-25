@@ -18,7 +18,7 @@ import { errorSchema } from "../schemas.js";
 
 const appliedSchema = {
   type: "object",
-  description: "Per-dimension applied status. `geo`/`tier` are resolved on count endpoints; `date` is not yet implemented.",
+  description: "Per-dimension applied status. `geo`/`tier` are resolved on count endpoints; `date` is not yet implemented. When a count is withheld or tier-gated by jurisdiction policy (countGating ≠ none with a null scalar), no filter runs, so `geo`/`tier` stay false even if scope/tier were supplied.",
   properties: {
     geo: { type: "boolean", description: "True when scope compiled to a region and narrowed the count." },
     tier: { type: "boolean", description: "True when a requested tier set narrowed the count (counts only; never on lists/detail)." },

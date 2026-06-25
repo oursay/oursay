@@ -4,10 +4,11 @@
 // on its own. See docs/01-CONTRIBUTOR-SPEC §6.0 (canonical vocabulary).
 //
 // This module is the "jurisdiction router" seam doc 08 §9 anticipated: it maps a `jurisdictionId`
-// to its config (level + default gating rules). Today a deployment serves one jurisdiction (the
-// env-configured default); the registry lets later deployments host several. The jurisdiction's id
-// is realized as the chain's `chainId` value at the ledger boundary — the ledger layer keeps the
-// word "chain".
+// to its config (level + default gating rules + privacy/count-exposure policy). The API composition
+// root registers EVERY configured jurisdiction at startup (from @oursay/jurisdiction-data —
+// `oursay-global` + `ab-ca-gov` today), so reads resolve policy per thread's audience jurisdiction;
+// env (`JURISDICTION_ID`) only selects the deployment DEFAULT id. The jurisdiction's id is realized as
+// the chain's `chainId` value at the ledger boundary — the ledger layer keeps the word "chain".
 
 import { jurisdictionConfig } from "./config.js";
 import type { RecordType, SignScheme } from "./schema/types.js";

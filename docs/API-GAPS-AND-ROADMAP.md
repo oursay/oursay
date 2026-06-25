@@ -20,7 +20,7 @@ stable — especially jurisdiction policy, membership, and how official counts a
 | Client SDK | `@oursay/identity` `CivicHttpClient` |
 | Settlement | Worker settles `oursay-global` + `ab-ca-gov` (`WORKER_CHAIN_IDS`) |
 | Public read | `GET /v1/public/{posts,petitions,polls}` list, `/:id` detail, `/:id/counts` |
-| Browse/detail tallies | **Unfiltered** totals only (by design — see below) |
+| Browse/detail tallies | Post reactions are **unfiltered** totals; petition/poll signature/vote scalars are policy-gated (null + `countGating` under a withholding/tier-gating jurisdiction) but never geo/tier-*filtered* on list/detail (by design — see below) |
 
 ### Phase C — geography and count filtering (landed on `geo-foundation`)
 

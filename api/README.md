@@ -428,6 +428,13 @@ The two shipped jurisdictions: **`oursay-global`** (open sandbox — `none`, raw
 `minTier: [identity_verified, residency_verified]`; `electoral_validated` is intentionally excluded until
 Elections Alberta provides a KYC integration).
 
+**Gate vs filter (subtle, for clients).** Unlocking exposure and filtering participants are the *same*
+`?tier=` set but two distinct effects. `?tier=identity_verified` alone satisfies the `ab-ca-gov` gate
+(it is ⊆ `minTier`) **and** then narrows the C8 tier filter to identity-verified participants — so the
+returned number is the identity-verified count, **not** a residency-only or all-verified count. To see
+the residency count, request `?tier=residency_verified`; for both, pass both. Don't assume an unlocked
+count covers every verified tier.
+
 ## Not in this milestone
 
 Production WebAuthn PRF / non-exportable browser signing for civic keys, a **real** KYC provider
