@@ -53,7 +53,21 @@ const TIER_APPLIED_NOTE =
 const MY_DISTRICT_NOTE =
   "scope=my-district is inert on unauthenticated routes (no viewer identity to resolve a district); no geo filter applied";
 const COUNT_GATING_NOTE =
-  "vote/signature counts are ungated in dev; production withholds them per jurisdiction/KYC policy regardless of public-voting config";
+  "vote/signature counts are publicly exposed for this jurisdiction (subject to the k-anonymity floor)";
+const WITHHELD_NOTE =
+  "vote/signature counts are not publicly exposed for this jurisdiction";
+function tierGatedNote(minTier: readonly string[]): string {
+  return (
+    `vote/signature counts are tier-gated for this jurisdiction; restrict the request to verified ` +
+    `tier(s) in {${minTier.join(", ")}} (e.g. ?tier=${minTier[0]}) to view them`
+  );
+}
+
+/** Why a vote/signature scalar is (or isn't) on a public surface, driven by JurisdictionConfig.counts:
+ *  `none` — exposed (still subject to the k-anonymity floor); `withheld` — never publicly exposed for
+ *  this jurisdiction; `tier-gated` — exposed only when the request restricts to a tier set ⊆ the
+ *  jurisdiction's minTier (so list/detail, which never filter by tier, always withhold a gated scalar). */
+export type CountGating = "none" | "withheld" | "tier-gated";
 
 /** Read filters as received from the HTTP layer (already enum-validated by JSON schema). */
 export interface PublicReadFilters {
@@ -130,10 +144,18 @@ export interface PostSummary extends RootSummaryBase {
   reactions: ReactionCount[];
 }
 export interface PetitionSummary extends RootSummaryBase {
-  signatureCount: number;
+  /** Null when the jurisdiction's count policy withholds or tier-gates the scalar (lists never filter
+   *  by tier, so a tier-gated scalar is always null here — call /counts?tier=… to view it). */
+  signatureCount: number | null;
+  countGating: CountGating;
+  countGatingNote: string;
 }
 export interface PollSummary extends RootSummaryBase {
-  results: { option: string; count: number }[];
+  /** Option counts are null when the jurisdiction's count policy withholds/tier-gates votes (see
+   *  {@link PetitionSummary.signatureCount}); option labels are still listed. */
+  results: { option: string; count: number | null }[];
+  countGating: CountGating;
+  countGatingNote: string;
 }
 
 export interface ListResponse<T> {
@@ -150,10 +172,16 @@ export interface ThreadDetail {
   comments: Thread["comments"];
 }
 export interface PetitionDetail extends ThreadDetail {
-  signatureCount: number;
+  /** Null when the jurisdiction's count policy withholds/tier-gates the scalar (detail never filters by
+   *  tier, so a tier-gated scalar is always null — call /counts?tier=… to view it). */
+  signatureCount: number | null;
+  countGating: CountGating;
+  countGatingNote: string;
 }
 export interface PollDetail extends ThreadDetail {
-  results: { option: string; count: number }[];
+  results: { option: string; count: number | null }[];
+  countGating: CountGating;
+  countGatingNote: string;
 }
 
 export interface PostCounts {
@@ -164,17 +192,20 @@ export interface PostCounts {
 }
 export interface PetitionCounts {
   entityId: string;
+  /** Null when suppressed by the k-anonymity floor OR withheld/tier-gated by jurisdiction count policy
+   *  (distinguish via `suppressed` + `countGating`). */
   signatureCount: number | null;
-  /** True when the geo-scoped signature count was suppressed by the k-anonymity floor. */
+  /** True when an EXPOSED, geo/tier-scoped signature count was suppressed by the k-anonymity floor
+   *  (orthogonal to count-policy withholding, which sets `countGating` ≠ "none" with `suppressed` false). */
   suppressed: boolean;
-  countGating: "none";
+  countGating: CountGating;
   countGatingNote: string;
   filters: FilterEcho;
 }
 export interface PollCounts {
   entityId: string;
   results: PollResultView[];
-  countGating: "none";
+  countGating: CountGating;
   countGatingNote: string;
   filters: FilterEcho;
 }
@@ -217,8 +248,11 @@ export class PublicRecordReadService {
     const items = await Promise.all(
       rows.map(async (row) => {
         const view = toPublicView(row);
-        const signatureCount = await this.d.recordStore.getPetitionSignatureCount(row.entityId);
-        return { ...this.summaryBase(view, row.createdAt, await this.audienceScope(row.entityId, view)), signatureCount };
+        const audience = await this.audienceScope(row.entityId, view);
+        // Lists never filter by tier, so a tier-gated scalar is always withheld here (requestedTiers=null).
+        const exposure = this.countExposure(audience.jurisdiction, "signatures", null);
+        const signatureCount = exposure.exposed ? await this.d.recordStore.getPetitionSignatureCount(row.entityId) : null;
+        return { ...this.summaryBase(view, row.createdAt, audience), signatureCount, countGating: exposure.gating, countGatingNote: exposure.note };
       }),
     );
     return { items, page: { limit, offset, total }, filters: echoFilters(filters) };
@@ -233,8 +267,12 @@ export class PublicRecordReadService {
     const items = await Promise.all(
       rows.map(async (row) => {
         const view = toPublicView(row);
-        const results = await this.d.recordStore.getPollResults(row.entityId);
-        return { ...this.summaryBase(view, row.createdAt, await this.audienceScope(row.entityId, view)), results };
+        const audience = await this.audienceScope(row.entityId, view);
+        const exposure = this.countExposure(audience.jurisdiction, "votes", null);
+        const raw = await this.d.recordStore.getPollResults(row.entityId);
+        // Option labels stay listed even when withheld; only the counts are nulled.
+        const results = exposure.exposed ? raw : raw.map((r) => ({ option: r.option, count: null }));
+        return { ...this.summaryBase(view, row.createdAt, audience), results, countGating: exposure.gating, countGatingNote: exposure.note };
       }),
     );
     return { items, page: { limit, offset, total }, filters: echoFilters(filters) };
@@ -248,15 +286,28 @@ export class PublicRecordReadService {
 
   async getPetition(id: string): Promise<PetitionDetail> {
     const base = await this.threadDetail(id, "petition");
-    return { ...base, signatureCount: await this.d.recordStore.getPetitionSignatureCount(id) };
+    const exposure = this.countExposure(base.audienceScope.jurisdiction, "signatures", null);
+    return {
+      ...base,
+      signatureCount: exposure.exposed ? await this.d.recordStore.getPetitionSignatureCount(id) : null,
+      countGating: exposure.gating,
+      countGatingNote: exposure.note,
+    };
   }
 
   async getPoll(id: string): Promise<PollDetail> {
     const base = await this.threadDetail(id, "poll");
-    return { ...base, results: await this.d.recordStore.getPollResults(id) };
+    const exposure = this.countExposure(base.audienceScope.jurisdiction, "votes", null);
+    const raw = await this.d.recordStore.getPollResults(id);
+    return {
+      ...base,
+      results: exposure.exposed ? raw : raw.map((r) => ({ option: r.option, count: null })),
+      countGating: exposure.gating,
+      countGatingNote: exposure.note,
+    };
   }
 
-  // ── Dedicated count endpoints (geo scope + KYC tier resolved + k-anonymity; date stubbed) ──
+  // ── Dedicated count endpoints (jurisdiction exposure gate + geo scope + KYC tier + k-anonymity; date stubbed) ──
 
   async getPostCounts(id: string, filters: PublicReadFilters = {}): Promise<PostCounts> {
     const view = await this.requireRoot(id, "post");
@@ -295,6 +346,21 @@ export class PublicRecordReadService {
   async getPetitionCounts(id: string, filters: PublicReadFilters = {}): Promise<PetitionCounts> {
     const view = await this.requireRoot(id, "petition");
     const audience = await this.audienceScope(id, view);
+
+    // Exposure gate FIRST (jurisdiction count policy): the request's raw tier set unlocks a tier-gated
+    // scalar only when it is ⊆ the jurisdiction's minTier. Withheld ⇒ short-circuit (no count read).
+    const exposure = this.countExposure(audience.jurisdiction, "signatures", filters.tier ?? null);
+    if (!exposure.exposed) {
+      return {
+        entityId: id,
+        signatureCount: null,
+        suppressed: false,
+        countGating: exposure.gating,
+        countGatingNote: exposure.note,
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
+      };
+    }
+
     const region = await this.resolveRegion(filters, audience);
     const tierSet = narrowingTierSet(filters.tier);
 
@@ -303,8 +369,8 @@ export class PublicRecordReadService {
         entityId: id,
         signatureCount: await this.d.recordStore.getPetitionSignatureCount(id),
         suppressed: false,
-        countGating: "none",
-        countGatingNote: COUNT_GATING_NOTE,
+        countGating: exposure.gating,
+        countGatingNote: exposure.note,
         filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
       };
     }
@@ -318,8 +384,8 @@ export class PublicRecordReadService {
       entityId: id,
       signatureCount: b.count,
       suppressed: b.suppressed,
-      countGating: "none",
-      countGatingNote: COUNT_GATING_NOTE,
+      countGating: exposure.gating,
+      countGatingNote: exposure.note,
       filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
     };
   }
@@ -327,6 +393,20 @@ export class PublicRecordReadService {
   async getPollCounts(id: string, filters: PublicReadFilters = {}): Promise<PollCounts> {
     const view = await this.requireRoot(id, "poll");
     const audience = await this.audienceScope(id, view);
+
+    const exposure = this.countExposure(audience.jurisdiction, "votes", filters.tier ?? null);
+    if (!exposure.exposed) {
+      // Withheld: keep the option labels but null every count (no tally read).
+      const results = await this.d.recordStore.getPollResults(id);
+      return {
+        entityId: id,
+        results: results.map((r) => ({ option: r.option, count: null })),
+        countGating: exposure.gating,
+        countGatingNote: exposure.note,
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
+      };
+    }
+
     const region = await this.resolveRegion(filters, audience);
     const tierSet = narrowingTierSet(filters.tier);
 
@@ -335,8 +415,8 @@ export class PublicRecordReadService {
       return {
         entityId: id,
         results: results.map((r) => ({ option: r.option, count: r.count })),
-        countGating: "none",
-        countGatingNote: COUNT_GATING_NOTE,
+        countGating: exposure.gating,
+        countGatingNote: exposure.note,
         filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
       };
     }
@@ -348,8 +428,8 @@ export class PublicRecordReadService {
     return {
       entityId: id,
       results: bucketsToPoll(tallied),
-      countGating: "none",
-      countGatingNote: COUNT_GATING_NOTE,
+      countGating: exposure.gating,
+      countGatingNote: exposure.note,
       filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
     };
   }
@@ -419,6 +499,27 @@ export class PublicRecordReadService {
     const { min, default: def } = publicCountsKAnon();
     const floor = getJurisdiction(jurisdictionId).privacy?.kAnonymityFloor;
     return Math.max(min, floor ?? def);
+  }
+
+  /** Resolve the jurisdiction's PUBLIC COUNT EXPOSURE policy for one scalar (`JurisdictionConfig.counts`):
+   *  - no `counts` block, or the scalar flag `true` with no `minTier` ⇒ `none` (exposed).
+   *  - scalar flag `false` ⇒ `withheld` (never exposed).
+   *  - scalar flag `true` with a non-empty `minTier` ⇒ `tier-gated`: exposed iff the REQUEST restricts to
+   *    a tier set ⊆ `minTier` (`requestedTiers` is the raw `filters.tier`; null on list/detail, which never
+   *    filter by tier, so a gated scalar is always withheld there). `gating` reports the POLICY state; the
+   *    caller signals exposure by nulling the scalar (k-anon `suppressed` stays orthogonal). */
+  private countExposure(
+    jurisdictionId: string,
+    scalar: "votes" | "signatures",
+    requestedTiers: KycTier[] | null,
+  ): { gating: CountGating; exposed: boolean; note: string } {
+    const policy = getJurisdiction(jurisdictionId).counts;
+    if (!policy) return { gating: "none", exposed: true, note: COUNT_GATING_NOTE };
+    if (!policy[scalar]) return { gating: "withheld", exposed: false, note: WITHHELD_NOTE };
+    const minTier = policy.minTier;
+    if (!minTier || minTier.length === 0) return { gating: "none", exposed: true, note: COUNT_GATING_NOTE };
+    const exposed = !!requestedTiers && requestedTiers.length > 0 && requestedTiers.every((t) => minTier.includes(t));
+    return { gating: "tier-gated", exposed, note: tierGatedNote(minTier) };
   }
 
   /** Re-aggregate participant rows by bucket, counting only distinct participants that pass EVERY active

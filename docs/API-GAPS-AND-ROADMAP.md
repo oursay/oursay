@@ -35,6 +35,8 @@ stable — especially jurisdiction policy, membership, and how official counts a
 | Geo on counts | `scope` → `compileScope` → `Region`; live on `…/:id/counts` only (`current` point mode) |
 | Tier on counts | Repeatable `?tier=` **set membership** (not a ladder); `KycService` + stub provider; dev `POST /v1/dev/kyc/attest` |
 | k-anonymity | Suppresses narrow buckets when geo or tier narrows; floor from env + `JurisdictionConfig.privacy` |
+| Jurisdiction config | `@oursay/jurisdiction-data` workspace exports `JurisdictionConfig[]`; API registers **all** at startup (`oursay-global` + `ab-ca-gov`), not just the env default |
+| Count exposure (`countGating`) | Per-jurisdiction `JurisdictionConfig.counts` drives `none`/`withheld`/`tier-gated` on petition/poll list+detail+counts; `ab-ca-gov` tier-gates vote/signature scalars, `oursay-global` is permissive |
 
 **Intentional UX split:** geo and tier filtering apply only on **`GET …/:id/counts`**. List and thread
 detail endpoints parse `scope`/`tier` but do not filter embedded tallies (`applied.geo` / `applied.tier`
@@ -55,8 +57,6 @@ Grouped by dependency. Tags are proposed agent-loop names.
 | **`[mvp-c4c-my-district]`** | `scope=my-district` inert without auth | Needs authenticated counts (or viewer context) + `viewerDistrictId`. |
 | **`[mvp-c5-region-presets]`** | `geo.regions` exists; no service/API to create platform presets | Internal “southern Alberta”, rep bundles, etc. Service speaks `region_id`; public API stays coarse `GeoScope`. |
 | **`[mvp-c6-area-catalog]`** | No public district directory | Spec §7.2 — district ids + names (+ boundary metadata), **no geometry** on unauthenticated routes. |
-| **`[mvp-c9-jurisdiction-config]`** | `jurisdiction-data/ab-ca-gov` is a stub; API registers one jurisdiction at startup | Load rules, privacy floor, and count-exposure policy from data modules; register `oursay-global` + `ab-ca-gov` in one process. |
-| **`[mvp-c9b-count-gating]`** | `countGating` hard-coded `"none"` on petition/poll counts | Should follow per-jurisdiction config in dev and prod (withhold vote/signature scalars when policy says so). |
 
 ### Medium-term (multi-jurisdiction product)
 
@@ -90,8 +90,8 @@ Grouped by dependency. Tags are proposed agent-loop names.
 ## Suggested order (pre-UI)
 
 ```text
-1. [mvp-c9-jurisdiction-config] + [mvp-c9b-count-gating]
-      Load oursay-global vs ab-ca-gov policy; make countGating real.
+1. [mvp-c9-jurisdiction-config] + [mvp-c9b-count-gating]   ✅ LANDED
+      oursay-global vs ab-ca-gov policy loaded from @oursay/jurisdiction-data; countGating is real.
 
 2. [mvp-c6-area-catalog]
       Public district list for clients (no shapes).
@@ -111,7 +111,7 @@ Grouped by dependency. Tags are proposed agent-loop names.
 7. [mvp-c12-poll-results] → [mvp-c13-signed-count-snapshots] → [mvp-c14-count-amendments]
       Trust layer; can trail alpha if counts are honestly labelled “live recompute”.
 
-Phase D (web app) after 1–4 (or agreed subset): browse/detail + `/counts` panel, no feed UX until 6 if multi-jurisdiction matters.
+Phase D (web app) after 2–4 (or agreed subset): browse/detail + `/counts` panel, no feed UX until 6 if multi-jurisdiction matters.
 ```
 
 ---
@@ -136,4 +136,4 @@ When the app lands:
 
 ---
 
-_Last updated: 2026-06-24 — reflects Phase C geo/tier on `/counts` on branch `geo-foundation`._
+_Last updated: 2026-06-24 — Phase C geo/tier on `/counts` + per-jurisdiction count-exposure gating (c9/c9b) on branch `geo-foundation`._

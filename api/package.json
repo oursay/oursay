@@ -27,6 +27,7 @@
     "@noble/hashes": "^1.7.1",
     "@oursay/geo": "*",
     "@oursay/identity": "*",
+    "@oursay/jurisdiction-data": "*",
     "@oursay/public-record": "*",
     "@simplewebauthn/browser": "^13.1.0",
     "@simplewebauthn/server": "^13.1.1",

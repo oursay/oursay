@@ -87,6 +87,18 @@ const pollResultSchema = {
 } as const;
 const pollResultsArray = { type: "array", items: pollResultSchema } as const;
 
+// Per-jurisdiction public count exposure (JurisdictionConfig.counts): `none` exposed, `withheld` never
+// public, `tier-gated` exposed only when the request restricts to verified tiers ⊆ the jurisdiction's
+// minTier. Carried on every petition/poll surface that exposes a signature/vote scalar (list/detail/counts).
+const countGatingSchema = {
+  type: "string",
+  enum: ["none", "withheld", "tier-gated"],
+  description: "Public count exposure for this entity's jurisdiction: none (exposed), withheld (never public), tier-gated (only when filtered to verified tiers).",
+} as const;
+const countGatingNoteSchema = { type: "string", description: "Human-readable reason the count is visible, withheld, or tier-gated." } as const;
+// A petition signature scalar is null when suppressed by k-anonymity OR withheld/tier-gated by policy.
+const signatureCountSchema = { type: "integer", nullable: true, description: "Null when suppressed by the k-anonymity floor or withheld/tier-gated by jurisdiction count policy." } as const;
+
 // A response-safe entity view (PublicEntityView): `content` is null when withheld (redacted/erased).
 const publicEntityViewSchema = {
   type: "object",
@@ -295,7 +307,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Browse petitions, newest first. Filters are echoed, not resolved (counts resolve geo/tier).",
+        summary: "Browse petitions, newest first. Filters echoed (not resolved); signatureCount is null + countGating set when the jurisdiction withholds/tier-gates it.",
         querystring: listQuerystring,
         response: {
           200: {
@@ -303,7 +315,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
             properties: {
               items: {
                 type: "array",
-                items: { type: "object", properties: { ...summaryBaseProps, signatureCount: { type: "integer" } }, required: ["entityId", "type", "createdAt", "audienceScope", "signatureCount"] },
+                items: { type: "object", properties: { ...summaryBaseProps, signatureCount: signatureCountSchema, countGating: countGatingSchema, countGatingNote: countGatingNoteSchema }, required: ["entityId", "type", "createdAt", "audienceScope", "signatureCount", "countGating"] },
               },
               page: pageSchema,
               filters: filtersEchoSchema,
@@ -322,7 +334,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "A petition thread: root + signature count + reaction tallies + comments.",
+        summary: "A petition thread: root + signature count (null + countGating when withheld/tier-gated) + reaction tallies + comments.",
         params: idParams,
         response: {
           200: {
@@ -330,12 +342,14 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
             properties: {
               root: publicEntityViewSchema,
               audienceScope: audienceScopeSchema,
-              signatureCount: { type: "integer" },
+              signatureCount: signatureCountSchema,
+              countGating: countGatingSchema,
+              countGatingNote: countGatingNoteSchema,
               reactionsByEntity: reactionCountsArray,
               reactionsByCurrentRevision: reactionCountsArray,
               comments: { type: "array", items: threadCommentSchema },
             },
-            required: ["root", "audienceScope", "signatureCount", "comments"],
+            required: ["root", "audienceScope", "signatureCount", "countGating", "comments"],
           },
           404: errorSchema,
         },
@@ -349,7 +363,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Signature count for a petition (geo scope + KYC tier resolved + k-anonymity; date stubbed; counts ungated in dev).",
+        summary: "Signature count for a petition (jurisdiction exposure gate + geo scope + KYC tier + k-anonymity; date stubbed).",
         params: idParams,
         querystring: countsQuerystring,
         response: {
@@ -357,10 +371,10 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
             type: "object",
             properties: {
               entityId: { type: "string" },
-              signatureCount: { type: "integer", nullable: true, description: "Null when suppressed by the k-anonymity floor." },
-              suppressed: { type: "boolean", description: "True when the geo-scoped signature count was suppressed." },
-              countGating: { type: "string", enum: ["none"] },
-              countGatingNote: { type: "string" },
+              signatureCount: signatureCountSchema,
+              suppressed: { type: "boolean", description: "True when an exposed, geo/tier-scoped count was suppressed by the k-anonymity floor (distinct from policy withholding)." },
+              countGating: countGatingSchema,
+              countGatingNote: countGatingNoteSchema,
               filters: filtersEchoSchema,
             },
             required: ["entityId", "signatureCount", "suppressed", "countGating", "filters"],
@@ -380,7 +394,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Browse polls, newest first. Filters are echoed, not resolved (counts resolve geo/tier).",
+        summary: "Browse polls, newest first. Filters echoed (not resolved); option counts null + countGating set when the jurisdiction withholds/tier-gates votes.",
         querystring: listQuerystring,
         response: {
           200: {
@@ -388,7 +402,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
             properties: {
               items: {
                 type: "array",
-                items: { type: "object", properties: { ...summaryBaseProps, results: pollResultsArray }, required: ["entityId", "type", "createdAt", "audienceScope", "results"] },
+                items: { type: "object", properties: { ...summaryBaseProps, results: pollResultsArray, countGating: countGatingSchema, countGatingNote: countGatingNoteSchema }, required: ["entityId", "type", "createdAt", "audienceScope", "results", "countGating"] },
               },
               page: pageSchema,
               filters: filtersEchoSchema,
@@ -407,7 +421,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "A poll thread: root + option results + reaction tallies + comments.",
+        summary: "A poll thread: root + option results (counts null + countGating when withheld/tier-gated) + reaction tallies + comments.",
         params: idParams,
         response: {
           200: {
@@ -416,11 +430,13 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
               root: publicEntityViewSchema,
               audienceScope: audienceScopeSchema,
               results: pollResultsArray,
+              countGating: countGatingSchema,
+              countGatingNote: countGatingNoteSchema,
               reactionsByEntity: reactionCountsArray,
               reactionsByCurrentRevision: reactionCountsArray,
               comments: { type: "array", items: threadCommentSchema },
             },
-            required: ["root", "audienceScope", "results", "comments"],
+            required: ["root", "audienceScope", "results", "countGating", "comments"],
           },
           404: errorSchema,
         },
@@ -434,7 +450,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Option results for a poll (geo scope + KYC tier resolved + k-anonymity; date stubbed; counts ungated in dev).",
+        summary: "Option results for a poll (jurisdiction exposure gate + geo scope + KYC tier + k-anonymity; date stubbed).",
         params: idParams,
         querystring: countsQuerystring,
         response: {
@@ -443,8 +459,8 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
             properties: {
               entityId: { type: "string" },
               results: pollResultsArray,
-              countGating: { type: "string", enum: ["none"] },
-              countGatingNote: { type: "string" },
+              countGating: countGatingSchema,
+              countGatingNote: countGatingNoteSchema,
               filters: filtersEchoSchema,
             },
             required: ["entityId", "results", "countGating", "filters"],

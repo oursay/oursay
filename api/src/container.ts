@@ -6,6 +6,7 @@ import {
   IdentityRegistry,
 } from "@oursay/identity/server";
 import { GeoStore, RegionResolver } from "@oursay/geo";
+import { jurisdictions } from "@oursay/jurisdiction-data";
 import {
   PrivateStore,
   PublicChain,
@@ -111,9 +112,14 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const now: Now = opts.now ?? systemNow;
   const pool = db.pool;
 
-  // Register the launch jurisdiction in the public-record router (idempotent) so civic governance
-  // rules resolve. Done here — the composition root — so HTTP, CLI, and tests all share it.
-  registerJurisdiction(jurisdictionConfig);
+  // Register EVERY configured jurisdiction (from @oursay/jurisdiction-data) in the public-record router
+  // so civic governance rules + privacy floor + count-exposure policy resolve per thread, not just for
+  // the deployment default. Done here — the composition root — so HTTP, CLI, and tests all share it.
+  // Env (`JURISDICTION_ID`) only selects the DEFAULT id; the rules live in the data package. The env
+  // `jurisdictionConfig` is registered only as a fallback when it names an id the data package doesn't
+  // ship (so a deployment can still point at a not-yet-packaged jurisdiction without clobbering data rules).
+  for (const j of jurisdictions) registerJurisdiction(j);
+  if (!jurisdictions.some((j) => j.id === jurisdictionConfig.id)) registerJurisdiction(jurisdictionConfig);
 
   const repos: Repos = {
     user: new UserRepo(pool),

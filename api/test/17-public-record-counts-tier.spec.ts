@@ -17,6 +17,7 @@ process.env.OURSAY_DEV_PASSKEY = "1"; // dev passkey custody is env-guarded; set
 
 import { CivicHttpClient, DevPasskeyConnector, IdentitySession } from "@oursay/identity/client";
 import type { ThreadRef } from "@oursay/identity";
+import { getJurisdiction, registerJurisdiction } from "@oursay/public-record";
 import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
 import type { KycTier } from "../src/types/kyc.js";
 import { injectFetch } from "./helpers/inject-fetch.js";
@@ -110,11 +111,22 @@ function optionCount(results: { option: string; count: number | null; suppressed
 
 describe("17 public-record counts: KYC tier resolution (set membership) + combined geo+tier", () => {
   let w: World;
+  let abCaGovOriginal: ReturnType<typeof getJurisdiction>;
 
   before(async function () {
     this.timeout(60000);
     w = await resetWorld();
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
+    // C9 count-exposure gating is OFF for these TIER-FILTER tests: re-register ab-ca-gov with PERMISSIVE
+    // counts so the tier FILTER (which participants count) is isolated from the exposure GATE (whether the
+    // scalar is disclosed at all). The real tier-gated exposure policy is exercised in spec 18. Restored
+    // in after().
+    abCaGovOriginal = getJurisdiction(JURISDICTION);
+    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true } });
+  });
+
+  after(() => {
+    registerJurisdiction(abCaGovOriginal);
   });
 
   // Default (env unset) ⇒ k-anon floor 5/5. Tests asserting raw divergence disable it; restore after.

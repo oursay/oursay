@@ -108,11 +108,21 @@ function optionCount(results: { option: string; count: number | null; suppressed
 
 describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
   let w: World;
+  let abCaGovOriginal: ReturnType<typeof getJurisdiction>;
 
   before(async function () {
     this.timeout(60000);
     w = await resetWorld();
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
+    // C9 count-exposure gating is OFF for these GEO-filter tests: re-register ab-ca-gov with PERMISSIVE
+    // counts so raw/filtered signature/vote scalars stay visible and we isolate the geo dimension. The
+    // real tier-gated policy is exercised in spec 18. Restored in after().
+    abCaGovOriginal = getJurisdiction(JURISDICTION);
+    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true } });
+  });
+
+  after(() => {
+    registerJurisdiction(abCaGovOriginal);
   });
 
   // Default (env unset) ⇒ k-anon floor 5/5. Tests that assert raw divergence disable it; restore after.

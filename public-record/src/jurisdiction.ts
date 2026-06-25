@@ -33,14 +33,30 @@ export interface JurisdictionPrivacy {
   kAnonymityFloor?: number;
 }
 
+/** Per-jurisdiction PUBLIC COUNT EXPOSURE policy (docs/06 §2 minimum-aggregation; docs/01 §7 public
+ *  API). Governs whether vote/signature scalars may appear on the public read surfaces at all — a
+ *  layer ABOVE the geo/tier filtering + k-anonymity floor (those decide which participants count and
+ *  whether a small bucket is suppressed; this decides whether the scalar is disclosed in the first
+ *  place). Tier ids are KYC verification-tier slugs kept as plain strings here so this package stays
+ *  free of the api KYC enum. Reaction tallies are never gated through this seam. */
+export interface JurisdictionCountExposure {
+  votes: boolean; // poll option tallies publicly exposable
+  signatures: boolean; // petition signature scalar publicly exposable
+  /** When non-empty, votes/signatures are exposed only when the request restricts to a tier set that
+   *  is a SUBSET of these tiers (tier-gated); otherwise the scalar is withheld. Empty/absent ⇒ no
+   *  extra tier gate (the flag alone decides). */
+  minTier?: string[];
+}
+
 /** A jurisdiction's configuration: its id, governmental level, and default rules. Censoring /
- *  expiry policy is a per-jurisdiction extension point that will hang off this shape; `privacy` is
- *  the first such extension (k-anonymity floor for public count disclosure). */
+ *  expiry policy is a per-jurisdiction extension point that will hang off this shape; `privacy`
+ *  (k-anonymity floor) and `counts` (public count exposure) are the first such extensions. */
 export interface JurisdictionConfig {
   id: string;
   level: string; // federal | provincial | municipal | state | …
   rules: JurisdictionRules;
   privacy?: JurisdictionPrivacy;
+  counts?: JurisdictionCountExposure;
 }
 
 const registry = new Map<string, JurisdictionConfig>();

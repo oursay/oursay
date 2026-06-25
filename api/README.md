@@ -399,10 +399,34 @@ tier. Browse-list summaries and thread-detail reaction tallies (`GET /v1/public/
 true); consumers must not assume geo/tier there.
 
 The `from`/`to` date range is enum-validated and echoed but **does not filter** counts yet
-(`applied.date` stays false). Petition and poll **`countGating` is still stubbed** (`"none"` everywhere);
-per-jurisdiction withhold rules are not wired yet ([`mvp-c9b-count-gating`](../docs/API-GAPS-AND-ROADMAP.md)).
+(`applied.date` stays false).
 **Perf note:** the scoped count path resolves region membership and tier per distinct participant (memoized
 per request); batching point-in-polygon / tier lookups is the optimization if it bites.
+
+### Per-jurisdiction count exposure (`countGating`)
+
+Whether a petition signature scalar / poll vote tally may appear on the public surfaces at all is a
+**per-jurisdiction policy** — a layer *above* the geo/tier filtering and k-anonymity floor. It is authored
+in [`@oursay/jurisdiction-data`](../jurisdiction-data/README.md) (`JurisdictionConfig.counts`) and
+registered for **every** jurisdiction at startup (`buildServices` registers all; env `JURISDICTION_ID`
+only picks the default id). Each petition/poll **list item, detail, and `/counts`** response carries
+`countGating` + `countGatingNote`:
+
+| `countGating` | Meaning | Scalar |
+|---|---|---|
+| `none` | exposed (still subject to the k-anonymity floor) | the count (or `null` if k-anon-suppressed) |
+| `withheld` | `votes`/`signatures` is `false` for this jurisdiction | `null` everywhere |
+| `tier-gated` | non-empty `minTier`: exposed only when the request restricts to a tier set ⊆ `minTier` | `null` unless `…/counts?tier=…` satisfies the gate |
+
+So a `tier-gated` scalar is **always** withheld on list/detail (those never filter by tier) — the gate is
+enforced on every surface, not bypassable by reading the browse list. `countGating` reports the **policy
+state** (e.g. stays `tier-gated` even on an unlocked request); the scalar's `null`-ness reports exposure,
+and the petition `suppressed` flag (k-anonymity) is orthogonal. **Reaction tallies are never gated.**
+
+The two shipped jurisdictions: **`oursay-global`** (open sandbox — `none`, raw counts) and
+**`ab-ca-gov`** (launch — `tier-gated` on votes + signatures with
+`minTier: [identity_verified, residency_verified]`; `electoral_validated` is intentionally excluded until
+Elections Alberta provides a KYC integration).
 
 ## Not in this milestone
 

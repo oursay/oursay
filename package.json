@@ -18,6 +18,7 @@
     "passkey-test",
     "identity",
     "geo",
+    "jurisdiction-data",
     "api"
   ],
   "scripts": {
