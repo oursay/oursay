@@ -1,7 +1,8 @@
 // Public, unauthenticated read surface (/v1/public/…) over the civic record. Seeds entities via the
 // dev-path RecordService (like public-record/test/07-projections.spec.ts), then asserts the HTTP
-// responses match projection truth, carry audience scope, exclude tombstones, and validate the
-// stubbed filter params. No auth header is ever sent — these routes must be open.
+// responses match projection truth, carry audience scope, exclude tombstones, and validate the filter
+// params (geo scope is echoed here; its resolution + k-anonymity on counts is covered by spec 16; tier/
+// date stay stubbed). No auth header is ever sent — these routes must be open.
 
 import { expect } from "chai";
 import { randomUUID } from "node:crypto";
@@ -13,7 +14,7 @@ function seeder(w: World): RecordService {
   return new RecordService(new PublicChain(w.services.recordStore, randomUUID()), w.services.recordStore);
 }
 
-describe("13 public record read: browse, detail, counts, stubbed filters", () => {
+describe("13 public record read: browse, detail, counts, filter echo (geo resolution in spec 16)", () => {
   let w: World;
   beforeEach(async () => {
     w = await resetWorld();

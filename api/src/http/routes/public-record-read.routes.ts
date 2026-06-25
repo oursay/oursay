@@ -4,8 +4,10 @@
 // @oursay/public-record; the service assembles, this layer only validates + shapes HTTP.
 //
 // Browse lists + thread detail + dedicated filterable count endpoints, per root type (post / petition
-// / poll). The geo `scope`, KYC `tier`, and date range are STUBS — JSON-schema-validated (400 on a
-// bad enum) but echoed, not resolved (`filters.applied: false`). See the service for semantics.
+// / poll). On the count endpoints the geo `scope` is RESOLVED (region-first + k-anonymity); KYC `tier`
+// and the date range are still STUBS — JSON-schema-validated (400 on a bad enum) and echoed
+// (`applied.tier`/`applied.date` false), not resolved. Lists/detail apply no geo filter. See the
+// service for semantics.
 
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
@@ -149,8 +151,8 @@ const listQuerystring = {
 const countsQuerystring = {
   type: "object",
   properties: {
-    scope: { type: "string", enum: GEO_SCOPES, description: "Coarse geo audience (STUB — echoed, not resolved)." },
-    tier: { type: "string", enum: KYC_TIERS, description: "KYC verification tier (STUB — echoed, not resolved)." },
+    scope: { type: "string", enum: GEO_SCOPES, description: "Coarse geo audience — RESOLVED on counts (region-first + k-anonymity); my-district is inert." },
+    tier: { type: "string", enum: KYC_TIERS, description: "KYC verification tier (STUB — echoed, not resolved; awaits [mvp-c-kyc-stub])." },
     from: { type: "string", format: "date", description: "Start date, ISO (STUB — echoed, not resolved)." },
     to: { type: "string", format: "date", description: "End date, ISO (STUB — echoed, not resolved)." },
   },
@@ -247,7 +249,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Reaction tallies for a post (filterable; filters stubbed).",
+        summary: "Reaction tallies for a post (geo scope resolved + k-anonymity; tier/date stubbed).",
         params: idParams,
         querystring: countsQuerystring,
         response: {
@@ -330,7 +332,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Signature count for a petition (filterable; filters stubbed, counts ungated in dev).",
+        summary: "Signature count for a petition (geo scope resolved + k-anonymity; tier/date stubbed; counts ungated in dev).",
         params: idParams,
         querystring: countsQuerystring,
         response: {
@@ -415,7 +417,7 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
     {
       schema: {
         tags: ["public"],
-        summary: "Option results for a poll (filterable; filters stubbed, counts ungated in dev).",
+        summary: "Option results for a poll (geo scope resolved + k-anonymity; tier/date stubbed; counts ungated in dev).",
         params: idParams,
         querystring: countsQuerystring,
         response: {

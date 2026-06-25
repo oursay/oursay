@@ -20,6 +20,7 @@ process.env.OURSAY_DEV_PASSKEY = "1"; // dev passkey custody is env-guarded; set
 
 import { CivicHttpClient, DevPasskeyConnector, IdentitySession } from "@oursay/identity/client";
 import type { ThreadRef } from "@oursay/identity";
+import { getJurisdiction, registerJurisdiction } from "@oursay/public-record";
 import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
@@ -285,5 +286,72 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     const mine = await counts(w, "posts", t.threadId, "?scope=my-district");
     expect(checkOf(mine)).to.equal(3);
     expect(mine.filters.applied.geo).to.equal(false);
+  });
+
+  it("post reactions: reactionsByCurrentRevision is geo-filtered AND revision-pinned after an edit", async function () {
+    this.timeout(60000);
+    disableKAnon();
+    const t = freshThread();
+    const author = await joinMember(w, "cg-rev-author@example.com", "rev-author", t);
+    await author.client.createPost(t, { body: "v1" });
+    const parent = { type: "post" as const, id: t.threadId };
+
+    // Reaction on revision 1, then the author edits the post (→ a new current revision).
+    const edm1 = await joinMember(w, "cg-rev-edm1@example.com", "rev-edm1", t);
+    await edm1.client.addReaction(t, parent, { kind: "check" }); // pinned to revision 1
+    await author.client.append(t, { op: "update", type: "post", entityId: t.threadId, content: { body: "v2" } });
+
+    // Two reactions on revision 2 (current): one in-region (Edmonton), one out-of-province (Toronto).
+    const edm2 = await joinMember(w, "cg-rev-edm2@example.com", "rev-edm2", t);
+    const tor1 = await joinMember(w, "cg-rev-tor1@example.com", "rev-tor1", t);
+    await edm2.client.addReaction(t, parent, { kind: "check" }); // pinned to revision 2
+    await tor1.client.addReaction(t, parent, { kind: "check" }); // pinned to revision 2
+    await seedPoint(w, edm1.userId, EDMONTON_LEGISLATURE);
+    await seedPoint(w, edm2.userId, EDMONTON_LEGISLATURE);
+    await seedPoint(w, tor1.userId, TORONTO);
+
+    const checkOf = (arr: any[]) => arr.find((r) => r.kind === "check")?.count ?? 0;
+    const jur = await counts(w, "posts", t.threadId, "?scope=jurisdiction");
+
+    // Entity-pinned follows edits: edm1 (rev1) + edm2 (rev2) in-region; Toronto excluded ⇒ 2.
+    expect(checkOf(jur.reactionsByEntity)).to.equal(2);
+    // Revision-pinned to the CURRENT revision (rev2): excludes edm1 (rev1) and the out-of-region
+    // Toronto reactor ⇒ only edm2 ⇒ 1. Proves the by-revision tally is both pinned and geo-filtered.
+    expect(checkOf(jur.reactionsByCurrentRevision)).to.equal(1);
+    expect(jur.filters.applied.geo).to.equal(true);
+  });
+
+  it("k-anonymity floor honors a jurisdiction privacy override (effectiveK = max(min, floor ?? default))", async function () {
+    this.timeout(60000);
+    // Platform floor OFF (0/0) so ONLY the jurisdiction override can cause suppression.
+    process.env.PUBLIC_COUNTS_K_ANONYMITY_MIN = "0";
+    process.env.PUBLIC_COUNTS_K_ANONYMITY_DEFAULT = "0";
+    const original = getJurisdiction(JURISDICTION);
+    registerJurisdiction({ ...original, privacy: { kAnonymityFloor: 3 } });
+    try {
+      const t = freshThread();
+      const author = await joinMember(w, "cg-jfloor-author@example.com", "jfloor-author", t);
+      await author.client.append(t, {
+        op: "create", type: "poll", entityId: t.threadId,
+        content: { question: "Soon?", options: ["yes", "no"], rules: { appliesToDistrictIds: [EDMONTON_CITY_CENTRE_2019] } },
+      });
+      const parent = { type: "poll" as const, id: t.threadId };
+
+      const edm1 = await joinMember(w, "cg-jfloor-edm1@example.com", "jfloor-edm1", t);
+      const edm2 = await joinMember(w, "cg-jfloor-edm2@example.com", "jfloor-edm2", t);
+      await edm1.client.castVote(t, parent, { option: "yes" });
+      await edm2.client.castVote(t, parent, { option: "yes" });
+      await seedPoint(w, edm1.userId, EDMONTON_LEGISLATURE);
+      await seedPoint(w, edm2.userId, EDMONTON_LEGISLATURE);
+
+      // effectiveK = max(0, 3) = 3; 2 in-region voters ⇒ 0 < 2 < 3 ⇒ suppressed (platform default 0 alone would NOT suppress).
+      const imp = await counts(w, "polls", t.threadId, "?scope=impacted-region");
+      expect(imp.filters.kAnonymityFloor).to.equal(3);
+      const yes = optionCount(imp.results, "yes")!;
+      expect(yes.count).to.equal(null);
+      expect(yes.suppressed).to.equal(true);
+    } finally {
+      registerJurisdiction(original);
+    }
   });
 });

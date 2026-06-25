@@ -4,9 +4,12 @@
 // reimplemented here. Every response is built from response-safe `PublicEntityView` semantics
 // (withheld content stays withheld) and carries audience-scope metadata.
 //
-// The geo `scope`, KYC `tier`, and date range are STUBS this phase (docs/06 §2–3): parsed and
-// validated, echoed back, but not resolved — `applied: false`. Petition-signature / poll-vote
-// counts are surfaced ungated in dev; production withholds them per jurisdiction/KYC policy.
+// The geo `scope` is RESOLVED on the count endpoints (docs/06 §2–3): compileScope → Region, then
+// each participant is tested with participantInRegion and counts re-aggregate over distinct in-region
+// participants, with a k-anonymity floor (`applied.geo`/`kAnonymityFloor` in the echo). KYC `tier` and
+// the date range are still STUBS — parsed/validated and echoed (`applied.tier`/`applied.date` false),
+// not resolved, until [mvp-c-kyc-stub]. Lists + thread detail apply no geo filter. Petition-signature /
+// poll-vote counts are surfaced ungated in dev; production withholds them per jurisdiction/KYC policy.
 
 import type { Region, RegionResolver } from "@oursay/geo";
 import {
@@ -242,7 +245,7 @@ export class PublicRecordReadService {
     return { ...base, results: await this.d.recordStore.getPollResults(id) };
   }
 
-  // ── Dedicated, filterable count endpoints (filters stubbed) ───────────────────────────────
+  // ── Dedicated count endpoints (geo scope resolved + k-anonymity; tier/date stubbed) ───────
 
   async getPostCounts(id: string, filters: PublicReadFilters = {}): Promise<PostCounts> {
     const view = await this.requireRoot(id, "post");

@@ -2311,7 +2311,8 @@ paths:
                   - error
   /v1/public/posts/{id}/counts:
     get:
-      summary: Reaction tallies for a post (filterable; filters stubbed).
+      summary: Reaction tallies for a post (geo scope resolved + k-anonymity;
+        tier/date stubbed).
       tags:
         - public
       parameters:
@@ -2325,7 +2326,8 @@ paths:
           in: query
           name: scope
           required: false
-          description: Coarse geo audience (STUB — echoed, not resolved).
+          description: Coarse geo audience — RESOLVED on counts (region-first +
+            k-anonymity); my-district is inert.
         - schema:
             type: string
             enum:
@@ -2336,7 +2338,8 @@ paths:
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved).
+          description: KYC verification tier (STUB — echoed, not resolved; awaits
+            [mvp-c-kyc-stub]).
         - schema:
             type: string
             format: date
@@ -2928,8 +2931,8 @@ paths:
                   - error
   /v1/public/petitions/{id}/counts:
     get:
-      summary: Signature count for a petition (filterable; filters stubbed, counts
-        ungated in dev).
+      summary: Signature count for a petition (geo scope resolved + k-anonymity;
+        tier/date stubbed; counts ungated in dev).
       tags:
         - public
       parameters:
@@ -2943,7 +2946,8 @@ paths:
           in: query
           name: scope
           required: false
-          description: Coarse geo audience (STUB — echoed, not resolved).
+          description: Coarse geo audience — RESOLVED on counts (region-first +
+            k-anonymity); my-district is inert.
         - schema:
             type: string
             enum:
@@ -2954,7 +2958,8 @@ paths:
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved).
+          description: KYC verification tier (STUB — echoed, not resolved; awaits
+            [mvp-c-kyc-stub]).
         - schema:
             type: string
             format: date
@@ -3555,8 +3560,8 @@ paths:
                   - error
   /v1/public/polls/{id}/counts:
     get:
-      summary: Option results for a poll (filterable; filters stubbed, counts ungated
-        in dev).
+      summary: Option results for a poll (geo scope resolved + k-anonymity; tier/date
+        stubbed; counts ungated in dev).
       tags:
         - public
       parameters:
@@ -3570,7 +3575,8 @@ paths:
           in: query
           name: scope
           required: false
-          description: Coarse geo audience (STUB — echoed, not resolved).
+          description: Coarse geo audience — RESOLVED on counts (region-first +
+            k-anonymity); my-district is inert.
         - schema:
             type: string
             enum:
@@ -3581,7 +3587,8 @@ paths:
           in: query
           name: tier
           required: false
-          description: KYC verification tier (STUB — echoed, not resolved).
+          description: KYC verification tier (STUB — echoed, not resolved; awaits
+            [mvp-c-kyc-stub]).
         - schema:
             type: string
             format: date
