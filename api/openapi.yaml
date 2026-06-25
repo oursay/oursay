@@ -3942,6 +3942,219 @@ paths:
                       - message
                 required:
                   - error
+  /v1/public/jurisdictions:
+    get:
+      summary: List registered jurisdictions (id + level + optional public label). No
+        policy fields.
+      tags:
+        - public
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        level:
+                          type: string
+                          description: Governmental tier (federal | provincial | municipal | …).
+                        label:
+                          type: string
+                          description: Public display name; absent ⇒ fall back to id.
+                      required:
+                        - id
+                        - level
+                required:
+                  - items
+  /v1/public/jurisdictions/{jurisdictionId}/districts:
+    get:
+      summary: "Effective-dated district directory at asOf (default: today UTC). One
+        revision per riding; registered jurisdiction with no ingested boundaries
+        returns an empty list. include=geometry embeds boundaries (heavy)."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: asOf
+          required: false
+          description: "UTC calendar date (YYYY-MM-DD). Default: today's UTC date. Selects
+            one revision per riding (latest effective_date <= asOf)."
+        - schema:
+            type: string
+            enum:
+              - geometry
+          in: query
+          name: include
+          required: false
+          description: include=geometry embeds each riding's GeoJSON boundary. Heavy for a
+            full jurisdiction (~tens of MultiPolygons); default is
+            metadata-only.
+        - schema:
+            type: string
+          in: path
+          name: jurisdictionId
+          required: true
+          description: Registered jurisdiction id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jurisdictionId:
+                    type: string
+                  asOf:
+                    type: string
+                    description: The resolved UTC calendar date (YYYY-MM-DD) the directory was
+                      selected at.
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Stable district revision id (year-anchored slug).
+                        name:
+                          type: string
+                          description: Display name of the riding.
+                        ridingSlug:
+                          type: string
+                          description: Year-less logical-riding key grouping revisions across redraws.
+                        effectiveDate:
+                          type: string
+                          description: First day this geometry is in force (YYYY-MM-DD); the asOf lookup
+                            key.
+                        drawnDate:
+                          type: string
+                          nullable: true
+                          description: When the boundary was drawn/enacted, if known (YYYY-MM-DD).
+                        source:
+                          type: string
+                          description: Provenance (file + authority).
+                        sourceRef:
+                          type: string
+                          nullable: true
+                          description: Original source id (e.g. EDNumber20).
+                        geometry:
+                          type: object
+                          additionalProperties: true
+                          description: Official boundary as a GeoJSON MultiPolygon (EPSG:4326). Present
+                            only when include=geometry.
+                      required:
+                        - id
+                        - name
+                        - ridingSlug
+                        - effectiveDate
+                        - source
+                required:
+                  - jurisdictionId
+                  - asOf
+                  - items
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/jurisdictions/{jurisdictionId}/districts/{revisionId}/geometry:
+    get:
+      summary: Official GeoJSON MultiPolygon (EPSG:4326) for one district revision by
+        id. Returns ANY ingested revision, including superseded redraws not in
+        the current effective set (correct for audit).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: jurisdictionId
+          required: true
+          description: Registered jurisdiction id.
+        - schema:
+            type: string
+          in: path
+          name: revisionId
+          required: true
+          description: District revision id.
+      responses:
+        "200":
+          description: A GeoJSON MultiPolygon (EPSG:4326) — the official boundary of the
+            requested district revision.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: A GeoJSON MultiPolygon (EPSG:4326) — the official boundary of the
+                  requested district revision.
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/profile:
     get:
       summary: Get the authenticated user's own profile (private PII)
@@ -4084,8 +4297,9 @@ tags:
   - name: civic
     description: Civic signing device keys (public key only; separate from login passkeys)
   - name: public
-    description: Unauthenticated public reads of the civic record
-      (browse/detail/counts); filters stubbed
+    description: "Unauthenticated public reads: the civic record
+      (browse/detail/counts) and the area catalog (jurisdictions + district
+      boundaries)"
   - name: profile
     description: Private account profile
   - name: meta

@@ -15,6 +15,7 @@ import type { JurisdictionConfig } from "@oursay/public-record";
 export const abCaGov: JurisdictionConfig = {
   id: "ab-ca-gov",
   level: "provincial",
+  label: "Alberta",
   rules: {
     allowChange: false,
     allowRevoke: false,

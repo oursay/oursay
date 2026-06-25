@@ -55,6 +55,10 @@ export interface JurisdictionCountExposure {
 export interface JurisdictionConfig {
   id: string;
   level: string; // federal | provincial | municipal | state | …
+  /** Optional public DISPLAY name for the jurisdiction (e.g. "Alberta"), surfaced by the public area
+   *  catalog (`GET /v1/public/jurisdictions`). Display only — never a partition key; absent ⇒ clients
+   *  fall back to the id. */
+  label?: string;
   rules: JurisdictionRules;
   privacy?: JurisdictionPrivacy;
   counts?: JurisdictionCountExposure;

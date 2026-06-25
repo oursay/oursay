@@ -32,3 +32,9 @@ surfaces (list, detail, `/counts`):
   scalar; only `/counts?tier=…` can unlock it).
 
 Reaction tallies are never gated here (they stay publicly visible).
+
+## Public label
+
+Each config may set an optional `label` — the public DISPLAY name surfaced by the area catalog
+(`GET /v1/public/jurisdictions`), e.g. `ab-ca-gov` → `"Alberta"`, `oursay-global` → `"OurSay Global"`.
+It is display only (never a partition key); when absent, clients fall back to the id.

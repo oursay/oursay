@@ -29,6 +29,18 @@ export interface DistrictUpsert {
   geometryGeoJSON: unknown; // GeoJSON Polygon | MultiPolygon (source-CRS coordinates)
 }
 
+/** One district boundary revision's public metadata (no geometry). The public area catalog exposes
+ *  exactly these columns; `boundary_year` stays internal (slug/display only, never an API field). */
+export interface DistrictCatalogRow {
+  id: string;
+  name: string;
+  ridingSlug: string;
+  effectiveDate: string; // ISO DATE
+  drawnDate: string | null; // ISO DATE
+  source: string;
+  sourceRef: string | null;
+}
+
 /** A stored custom/platform region preset. Built-in regions are not persisted. */
 export interface RegionRow {
   id: string;
@@ -142,6 +154,66 @@ export class GeoStore {
       [jurisdictionId, asOf.toISOString().slice(0, 10)],
     );
     return r.rows.map((row) => row.id as string);
+  }
+
+  /** The effective-dated district directory for a jurisdiction at `asOf`: one revision per riding
+   *  (latest effective_date <= asOf), ordered by display name. Same selection rule as
+   *  `districtIdsAsOf`, but returning public metadata rows (and optionally GeoJSON geometry). Geometry
+   *  is the stored 4326 MultiPolygon as GeoJSON; the official electoral boundary, safe to expose. */
+  async listDistrictsAsOf(
+    jurisdictionId: string,
+    asOf: Date,
+    opts: { includeGeometry?: boolean } = {},
+  ): Promise<(DistrictCatalogRow & { geometry?: unknown })[]> {
+    const geomSelect = opts.includeGeometry ? ", ST_AsGeoJSON(geom)::json AS geometry" : "";
+    const r = await this.pool.query(
+      `SELECT * FROM (
+         SELECT DISTINCT ON (riding_slug)
+                id,
+                name,
+                riding_slug,
+                to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+                to_char(drawn_date, 'YYYY-MM-DD')     AS drawn_date,
+                source,
+                source_ref${geomSelect}
+           FROM geo.districts
+          WHERE jurisdiction_id = $1 AND effective_date <= $2
+          ORDER BY riding_slug, effective_date DESC
+       ) eff
+       ORDER BY name`,
+      [jurisdictionId, asOf.toISOString().slice(0, 10)],
+    );
+    return r.rows.map((row) => ({
+      id: row.id as string,
+      name: row.name as string,
+      ridingSlug: row.riding_slug as string,
+      effectiveDate: row.effective_date as string,
+      drawnDate: (row.drawn_date as string | null) ?? null,
+      source: row.source as string,
+      sourceRef: (row.source_ref as string | null) ?? null,
+      ...(opts.includeGeometry ? { geometry: row.geometry } : {}),
+    }));
+  }
+
+  /** The official GeoJSON geometry (4326 MultiPolygon) for ONE district revision by id, or null when
+   *  the id is unknown. No asOf filter: any ingested revision is fetchable by id (including superseded
+   *  redraws) — correct for maps and independent audit. */
+  async getDistrictGeometry(revisionId: string): Promise<unknown | null> {
+    const r = await this.pool.query(
+      "SELECT ST_AsGeoJSON(geom)::json AS geometry FROM geo.districts WHERE id = $1",
+      [revisionId],
+    );
+    return r.rows[0]?.geometry ?? null;
+  }
+
+  /** The jurisdiction a district revision belongs to, or null when the id is unknown — lets the API
+   *  404 a geometry request whose revision is not in the named jurisdiction. */
+  async districtJurisdiction(revisionId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      "SELECT jurisdiction_id FROM geo.districts WHERE id = $1",
+      [revisionId],
+    );
+    return (r.rows[0]?.jurisdiction_id as string | undefined) ?? null;
   }
 
   /** Total district revisions (optionally for one jurisdiction/year) — for tests + ingest smoke. */

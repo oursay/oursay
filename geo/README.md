@@ -74,6 +74,15 @@ await ab.contains({ lon: -113.5065, lat: 53.5333 }); // true (Edmonton Legislatu
 await store.districtContaining("ab-ca-gov", { lon: -113.5065, lat: 53.5333 }, new Date("2020-01-01"));
 // → "edmonton-city-centre-2019"
 
+// District catalog (backs the public area catalog API). One metadata row per riding at asOf
+// (same effective-dated rule as forJurisdiction), ordered by name; geometry is opt-in (heavy).
+await store.listDistrictsAsOf("ab-ca-gov", new Date("2020-01-01"));                       // metadata only
+await store.listDistrictsAsOf("ab-ca-gov", new Date("2020-01-01"), { includeGeometry: true });
+
+// Official GeoJSON (4326 MultiPolygon) for ONE revision by id — any ingested revision, including a
+// superseded redraw (no asOf filter); null when the id is unknown.
+await store.getDistrictGeometry("edmonton-city-centre-2019");
+
 // Coarse scope → Region (same seam the public read count filter uses):
 const region = await reg.compileScope({ scope: "impacted-region", jurisdictionId: "ab-ca-gov",
   appliesToDistrictIds: ["edmonton-strathcona-2019"] });

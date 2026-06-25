@@ -66,9 +66,18 @@ the platform may filter at either point, and a snapshot is **advertisement only*
 unchanged). `EntityRules.appliesToDistrictIds` ([governance](../public-record/src/governance.ts))
 compiles to an implicit `district_union` (impacted-region scope).
 
-Privacy ([06 §2–3](06-PRIVACY-REVIEW.md)): public geography stays **coarse**. Fine granularity (custom
-geometry, voting-area dissolve) is allowed **internally** but must not be exposed as arbitrary geometry
-or freeform district-id lists on unauthenticated routes.
+Privacy ([06 §2–3](06-PRIVACY-REVIEW.md)): public geography stays **coarse**. The protected risk is
+**user points and fine-grained slicing**, not official electoral boundaries. Concretely:
+
+- **Public (unauthenticated).** Official **district revision** metadata and their **GeoJSON geometry**
+  from `geo.districts` — this is electoral-authority data, appropriate for maps, labels, and
+  independent audit. Exposed by the area catalog (`GET /v1/public/jurisdictions`,
+  `…/jurisdictions/:id/districts`, `…/districts/:revisionId/geometry`; see
+  [`api/README.md`](../api/README.md)), keyed by effective-dated `asOf`.
+- **Internal only.** Custom `geo.regions` presets and arbitrary stored polygons, sub-riding
+  voting-area tiles, participant geocode points, and any **freeform district-id list** query surface.
+  Filtering on unauthenticated routes stays the coarse `GeoScope` enum on `…/:id/counts`; there is
+  never a public "is user *U* in district *D*" answer.
 
 ## Participant geocode (private input to `contains`)
 

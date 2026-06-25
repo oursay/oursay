@@ -8,6 +8,7 @@ import type { JurisdictionConfig } from "@oursay/public-record";
 export const oursayGlobal: JurisdictionConfig = {
   id: "oursay-global",
   level: "federal",
+  label: "OurSay Global",
   rules: {
     allowChange: true,
     allowRevoke: true,

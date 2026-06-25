@@ -4,7 +4,7 @@
 // package builds the substrate for geo filtering; it does NOT wire any public /v1/public/… filter.
 
 export { GeoStore } from "./store.js";
-export type { LngLat, DistrictUpsert, RegionRow } from "./store.js";
+export type { LngLat, DistrictUpsert, DistrictCatalogRow, RegionRow } from "./store.js";
 
 export { Region } from "./region.js";
 export type { RegionKind } from "./region.js";

@@ -36,6 +36,7 @@ import { ProfileRepo } from "./repo/profile.repo.js";
 import { RateLimitRepo } from "./repo/ratelimit.repo.js";
 import { SessionRepo } from "./repo/session.repo.js";
 import { UserRepo } from "./repo/user.repo.js";
+import { AreaCatalogService } from "./services/area-catalog.service.js";
 import { AuthService } from "./services/auth.service.js";
 import { CivicDeviceService } from "./services/civic-device.service.js";
 import { CivicRecordService } from "./services/civic-record.service.js";
@@ -104,6 +105,9 @@ export interface Services {
   participantGeoService: ParticipantGeoService;
   /** Unauthenticated public READ surface over the civic record (browse/detail/counts). */
   publicRecordReadService: PublicRecordReadService;
+  /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
+   *  official boundary geometry). Official electoral boundaries only — no private points. */
+  areaCatalogService: AreaCatalogService;
   /** The public-record private store backing the civic engine (read access for tests/projections). */
   recordStore: PrivateStore;
 }
@@ -227,6 +231,10 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     kycRepo: repos.kyc,
   });
 
+  // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
+  // (same `jurisdictions` list registered above). Official electoral boundaries only.
+  const areaCatalogService = new AreaCatalogService({ geoStore, jurisdictions });
+
   return {
     db,
     repos,
@@ -247,6 +255,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     regionResolver,
     participantGeoService,
     publicRecordReadService,
+    areaCatalogService,
     recordStore,
   };
 }

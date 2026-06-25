@@ -435,6 +435,42 @@ returned number is the identity-verified count, **not** a residency-only or all-
 the residency count, request `?tier=residency_verified`; for both, pass both. Don't assume an unlocked
 count covers every verified tier.
 
+## Public area catalog
+
+Unauthenticated district/jurisdiction reference data (`/v1/public/…`, tag `public`) for clients that
+render maps, labels, or run an independent audit — closes `[mvp-c6-area-catalog]`. HTTP stays thin:
+`AreaCatalogService` (`src/services/area-catalog.service.ts`) reads `@oursay/geo`'s `GeoStore` and the
+registered jurisdiction configs; no private rows are touched.
+
+| Route | Returns |
+|-------|---------|
+| `GET /v1/public/jurisdictions` | registered jurisdictions — `id`, `level`, optional public `label` (from `JurisdictionConfig.label`). No `rules`/`privacy`/`counts`. |
+| `GET /v1/public/jurisdictions/:jurisdictionId/districts` | the **effective-dated** district directory at `asOf`: one revision per riding (latest `effective_date <= asOf`), each with `id`, `name`, `ridingSlug`, `effectiveDate`, `drawnDate`, `source`, `sourceRef` |
+| `GET /v1/public/jurisdictions/:jurisdictionId/districts/:revisionId/geometry` | the official boundary as a GeoJSON `MultiPolygon` (EPSG:4326) |
+
+**`asOf` is a UTC calendar date.** The `?asOf=YYYY-MM-DD` query selects the boundary set in force on
+that date using the same rule as `RegionResolver.forJurisdiction` (`DISTINCT ON (riding_slug)` by latest
+`effective_date <= asOf`). When omitted it defaults to **today's UTC date** (matching the store's
+`asOf.toISOString().slice(0, 10)` convention) — not server-local midnight — so the default is stable
+across deployments. A redraw is just a later-dated revision: an `asOf` before it resolves to the older
+geometry, after it to the newer. `boundary_year` is never an API field (it is a slug/display detail).
+
+**Geometry by id includes superseded revisions.** `…/districts/:revisionId/geometry` returns **any**
+ingested revision by id, including a redraw that is no longer in the current effective set. This is
+deliberate — reproducing a historical map or audit needs the exact revision that was in force at the
+time — so a superseded id returning 200 is expected, not a bug. A registered jurisdiction with no
+ingested boundaries returns an empty `items` list (200); an unknown jurisdiction or revision is 404.
+
+**Payload size.** `…/districts?include=geometry` embeds every riding's `MultiPolygon` in one response —
+for a full jurisdiction (~87 ridings for `ab-ca-gov`) that is large. The list defaults to metadata only;
+prefer the per-revision geometry route for routine use and reserve `include=geometry` for bulk export.
+
+**Privacy.** This surface exposes **official electoral boundaries only** (`geo.districts`). It never
+returns user geocode points or addresses, never `geo.regions` custom presets or sub-riding voting-area
+tiles, and offers no freeform district-id query — consistent with docs/06 §2–3 (the risk is user points
+and fine-grained slicing, not official boundaries) and the public-API seam in
+[`../docs/REGION-MODEL.md`](../docs/REGION-MODEL.md).
+
 ## Not in this milestone
 
 Production WebAuthn PRF / non-exportable browser signing for civic keys, a **real** KYC provider
