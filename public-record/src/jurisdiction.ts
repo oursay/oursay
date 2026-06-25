@@ -24,12 +24,23 @@ export interface JurisdictionRules {
   signing?: { defaultScheme?: SignScheme };
 }
 
+/** Per-jurisdiction privacy policy. The first member is the k-anonymity floor a deployment may raise
+ *  above the platform default for geo/tier-filtered public counts (docs/06 §3 — minimum-aggregation
+ *  thresholds). A deployment can only RAISE the floor: consumers resolve it as
+ *  `max(platformMin, kAnonymityFloor ?? platformDefault)`, so a value below the platform minimum is
+ *  ignored, never weakening it. */
+export interface JurisdictionPrivacy {
+  kAnonymityFloor?: number;
+}
+
 /** A jurisdiction's configuration: its id, governmental level, and default rules. Censoring /
- *  expiry policy is a per-jurisdiction extension point that will hang off this shape. */
+ *  expiry policy is a per-jurisdiction extension point that will hang off this shape; `privacy` is
+ *  the first such extension (k-anonymity floor for public count disclosure). */
 export interface JurisdictionConfig {
   id: string;
   level: string; // federal | provincial | municipal | state | …
   rules: JurisdictionRules;
+  privacy?: JurisdictionPrivacy;
 }
 
 const registry = new Map<string, JurisdictionConfig>();

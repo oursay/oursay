@@ -40,11 +40,12 @@ new revision with a later `effective_date`; queries before/after it resolve to t
 automatically. Reproducibility = address + action timestamp + effective-dated boundaries (not a frozen
 assignment row, not the year label).
 
-## Public-API seam (stub — not wired this phase)
+## Public-API seam (LIVE on `…/:id/counts`)
 
-`api`'s `GeoScope` (`jurisdiction | impacted-region | my-district | all-public`) is parsed and echoed
-on `/v1/public/…` but **not resolved** (`filters.applied: false`). `RegionResolver.compileScope` is the
-seam a later phase will call:
+`api`'s `GeoScope` (`jurisdiction | impacted-region | my-district | all-public`) is **resolved** on the
+public count endpoints (`/v1/public/{posts,petitions,polls}/:id/counts`) via
+`RegionResolver.compileScope`; the filter echo reports `applied.geo`. (Browse lists + thread detail
+still echo only — geo filtering is intentionally scoped to the count endpoints.)
 
 | `GeoScope` | compiles to |
 |---|---|
@@ -53,8 +54,10 @@ seam a later phase will call:
 | `my-district` | the **authenticated** viewer's district, or `null` (inert — no viewer identity on public routes) |
 | `all-public` | `null` (no geo filter) |
 
-`compileScope` already accepts an optional **`asOf`** (entity creation time, poll open, …) even though
-no route passes one yet. **Which instant binds is future jurisdictional config:** a deployment will
+The count path passes **`asOf = now`** (current-point mode pairs with the current boundary set);
+`impacted-region` uses the entity's explicit `appliesToDistrictIds`, so its result is asOf-independent.
+`compileScope` accepts an optional **`asOf`** (entity creation time, poll open, …) for later modes.
+**Which instant binds is future jurisdictional config:** a deployment will
 choose creation-time vs resolution-time vs an advertised count-snapshot instant for public consumption;
 the platform may filter at either point, and a snapshot is **advertisement only** (the signed record is
 unchanged). `EntityRules.appliesToDistrictIds` ([governance](../public-record/src/governance.ts))
@@ -97,7 +100,9 @@ this layer never reimplements `contains` and never exposes points or linkage pub
 ## Discussion-scoped stake filtering (C7)
 
 How a public discussion answers "how much of this conversation comes from the impacted area?" — the
-**region-first** model, no user/district query parameters.
+**region-first** model, no user/district query parameters. **Now wired** on the public count endpoints
+(`/v1/public/{posts,petitions,polls}/:id/counts`) for the geo `scope`; tier filtering still awaits
+`[mvp-c-kyc-stub]`.
 
 - **Input: a discussion (root entity) id only.** The caller never supplies a user id or a district;
   there is no "who is in district D" surface to query.
@@ -114,8 +119,10 @@ How a public discussion answers "how much of this conversation comes from the im
 - **Privacy.** A participant's riding is only ever inferred for: (a) the **authenticated** viewer
   themselves (`my-district`, via `viewerDistrictId`); (b) a **single-district entity** scope, where
   "in scope" reveals nothing beyond the entity's own already-public district; or (c) a fully
-  **public** account that has opted in. Aggregate counts must respect the k-anonymity / tier rules C7
-  defines; raw membership of an identifiable third party is never returned.
+  **public** account that has opted in. Aggregate counts respect the k-anonymity floor (a scoped
+  bucket with `0 < count < effectiveK` is suppressed to `{ count: null, suppressed: true }`;
+  `effectiveK = max(platformMin, jurisdiction.privacy.kAnonymityFloor ?? platformDefault)`); raw
+  membership of an identifiable third party is never returned.
 - **Hard rule:** there must **never** be a public API that answers "is user *U* in district *D*".
   Membership is computed *inside* the count/filter service over a Region, and only aggregates leave it.
 

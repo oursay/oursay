@@ -1991,6 +1991,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - kind
                               - count
@@ -2015,8 +2020,8 @@ paths:
                       - total
                   filters:
                     type: object
-                    description: Stub filter echo — parsed/validated but NOT resolved this phase
-                      (Phase C populates it).
+                    description: Filter echo. `applied.geo` is resolved on count endpoints;
+                      tier/date stubbed ([mvp-c-kyc-stub]).
                     properties:
                       scope:
                         type: string
@@ -2043,8 +2048,28 @@ paths:
                         type: string
                         nullable: true
                       applied:
-                        type: boolean
-                        description: Always false this phase (filtering is stubbed).
+                        type: object
+                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
+                          [mvp-c-kyc-stub].
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                          date:
+                            type: boolean
+                            description: Always false this phase.
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
+                          lists/all-public/my-district.
                       note:
                         type: string
                     required:
@@ -2054,6 +2079,7 @@ paths:
                       - from
                       - to
                       - applied
+                      - kAnonymityFloor
                       - note
                 required:
                   - items
@@ -2154,6 +2180,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
@@ -2166,6 +2197,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
@@ -2212,6 +2248,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - kind
                               - count
@@ -2224,6 +2265,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - kind
                               - count
@@ -2330,6 +2376,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
@@ -2342,13 +2393,18 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
                   filters:
                     type: object
-                    description: Stub filter echo — parsed/validated but NOT resolved this phase
-                      (Phase C populates it).
+                    description: Filter echo. `applied.geo` is resolved on count endpoints;
+                      tier/date stubbed ([mvp-c-kyc-stub]).
                     properties:
                       scope:
                         type: string
@@ -2375,8 +2431,28 @@ paths:
                         type: string
                         nullable: true
                       applied:
-                        type: boolean
-                        description: Always false this phase (filtering is stubbed).
+                        type: object
+                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
+                          [mvp-c-kyc-stub].
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                          date:
+                            type: boolean
+                            description: Always false this phase.
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
+                          lists/all-public/my-district.
                       note:
                         type: string
                     required:
@@ -2386,6 +2462,7 @@ paths:
                       - from
                       - to
                       - applied
+                      - kAnonymityFloor
                       - note
                 required:
                   - entityId
@@ -2558,8 +2635,8 @@ paths:
                       - total
                   filters:
                     type: object
-                    description: Stub filter echo — parsed/validated but NOT resolved this phase
-                      (Phase C populates it).
+                    description: Filter echo. `applied.geo` is resolved on count endpoints;
+                      tier/date stubbed ([mvp-c-kyc-stub]).
                     properties:
                       scope:
                         type: string
@@ -2586,8 +2663,28 @@ paths:
                         type: string
                         nullable: true
                       applied:
-                        type: boolean
-                        description: Always false this phase (filtering is stubbed).
+                        type: object
+                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
+                          [mvp-c-kyc-stub].
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                          date:
+                            type: boolean
+                            description: Always false this phase.
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
+                          lists/all-public/my-district.
                       note:
                         type: string
                     required:
@@ -2597,6 +2694,7 @@ paths:
                       - from
                       - to
                       - applied
+                      - kAnonymityFloor
                       - note
                 required:
                   - items
@@ -2700,6 +2798,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
@@ -2712,6 +2815,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
@@ -2758,6 +2866,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - kind
                               - count
@@ -2770,6 +2883,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - kind
                               - count
@@ -2869,6 +2987,11 @@ paths:
                     type: string
                   signatureCount:
                     type: integer
+                    nullable: true
+                    description: Null when suppressed by the k-anonymity floor.
+                  suppressed:
+                    type: boolean
+                    description: True when the geo-scoped signature count was suppressed.
                   countGating:
                     type: string
                     enum:
@@ -2877,8 +3000,8 @@ paths:
                     type: string
                   filters:
                     type: object
-                    description: Stub filter echo — parsed/validated but NOT resolved this phase
-                      (Phase C populates it).
+                    description: Filter echo. `applied.geo` is resolved on count endpoints;
+                      tier/date stubbed ([mvp-c-kyc-stub]).
                     properties:
                       scope:
                         type: string
@@ -2905,8 +3028,28 @@ paths:
                         type: string
                         nullable: true
                       applied:
-                        type: boolean
-                        description: Always false this phase (filtering is stubbed).
+                        type: object
+                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
+                          [mvp-c-kyc-stub].
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                          date:
+                            type: boolean
+                            description: Always false this phase.
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
+                          lists/all-public/my-district.
                       note:
                         type: string
                     required:
@@ -2916,10 +3059,12 @@ paths:
                       - from
                       - to
                       - applied
+                      - kAnonymityFloor
                       - note
                 required:
                   - entityId
                   - signatureCount
+                  - suppressed
                   - countGating
                   - filters
         "400":
@@ -3074,6 +3219,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - option
                               - count
@@ -3098,8 +3248,8 @@ paths:
                       - total
                   filters:
                     type: object
-                    description: Stub filter echo — parsed/validated but NOT resolved this phase
-                      (Phase C populates it).
+                    description: Filter echo. `applied.geo` is resolved on count endpoints;
+                      tier/date stubbed ([mvp-c-kyc-stub]).
                     properties:
                       scope:
                         type: string
@@ -3126,8 +3276,28 @@ paths:
                         type: string
                         nullable: true
                       applied:
-                        type: boolean
-                        description: Always false this phase (filtering is stubbed).
+                        type: object
+                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
+                          [mvp-c-kyc-stub].
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                          date:
+                            type: boolean
+                            description: Always false this phase.
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
+                          lists/all-public/my-district.
                       note:
                         type: string
                     required:
@@ -3137,6 +3307,7 @@ paths:
                       - from
                       - to
                       - applied
+                      - kAnonymityFloor
                       - note
                 required:
                   - items
@@ -3237,6 +3408,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - option
                         - count
@@ -3249,6 +3425,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
@@ -3261,6 +3442,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - kind
                         - count
@@ -3307,6 +3493,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - kind
                               - count
@@ -3319,6 +3510,11 @@ paths:
                                 type: string
                               count:
                                 type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
                             required:
                               - kind
                               - count
@@ -3425,6 +3621,11 @@ paths:
                           type: string
                         count:
                           type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
                       required:
                         - option
                         - count
@@ -3436,8 +3637,8 @@ paths:
                     type: string
                   filters:
                     type: object
-                    description: Stub filter echo — parsed/validated but NOT resolved this phase
-                      (Phase C populates it).
+                    description: Filter echo. `applied.geo` is resolved on count endpoints;
+                      tier/date stubbed ([mvp-c-kyc-stub]).
                     properties:
                       scope:
                         type: string
@@ -3464,8 +3665,28 @@ paths:
                         type: string
                         nullable: true
                       applied:
-                        type: boolean
-                        description: Always false this phase (filtering is stubbed).
+                        type: object
+                        description: Per-dimension applied status. `geo` is live; `tier`/`date` await
+                          [mvp-c-kyc-stub].
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: Always false this phase (awaits [mvp-c-kyc-stub]).
+                          date:
+                            type: boolean
+                            description: Always false this phase.
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied to a geo-scoped count; null on
+                          lists/all-public/my-district.
                       note:
                         type: string
                     required:
@@ -3475,6 +3696,7 @@ paths:
                       - from
                       - to
                       - applied
+                      - kAnonymityFloor
                       - note
                 required:
                   - entityId

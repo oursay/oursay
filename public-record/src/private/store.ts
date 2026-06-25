@@ -454,6 +454,62 @@ export class PrivateStore {
     return r.rows.map((x) => ({ option: x.option, count: Number(x.count) }));
   }
 
+  // ── Participant-level enumeration (for geo/tier-scoped counts) ─────────────────────────────
+  // The aggregate getters above answer "how many?"; these answer "which participants?" so a caller
+  // (api ParticipantGeoService) can resolve each to a region and re-aggregate only those in scope.
+  // They return the same active rows the count VIEWS group over, carrying the participant keys
+  // (`authorPubkey`, `nullifier`) the views dedupe by (`COALESCE(nullifier, author_pubkey)`). These
+  // keys are public record fields, not PII — but the resolved point/user linkage stays in the caller
+  // and never reaches an HTTP response.
+
+  /** Active reactions on a parent, one row per reaction entity (mirrors `active_reactions`). Carries
+   *  `parentRevisionHash` so the caller can split the by-entity and by-current-revision tallies. */
+  async listReactionParticipants(
+    parentId: string,
+  ): Promise<{ kind: string; authorPubkey: string; nullifier: string | null; parentId: string; parentRevisionHash: string | null }[]> {
+    const r = await this.pool.query(
+      `SELECT kind, author_pubkey, nullifier, parent_id, parent_revision_hash
+       FROM active_reactions WHERE parent_id = $1`,
+      [parentId],
+    );
+    return r.rows.map((x) => ({
+      kind: x.kind,
+      authorPubkey: x.author_pubkey,
+      nullifier: x.nullifier ?? null,
+      parentId: x.parent_id,
+      parentRevisionHash: x.parent_revision_hash ?? null,
+    }));
+  }
+
+  /** Active (non-revoked) signatures on a petition, one row per signer (mirrors `active_signatures`). */
+  async listSignatureParticipants(
+    petitionId: string,
+  ): Promise<{ authorPubkey: string; nullifier: string | null; parentId: string }[]> {
+    const r = await this.pool.query(
+      `SELECT author_pubkey, nullifier, parent_id FROM active_signatures WHERE parent_id = $1`,
+      [petitionId],
+    );
+    return r.rows.map((x) => ({ authorPubkey: x.author_pubkey, nullifier: x.nullifier ?? null, parentId: x.parent_id }));
+  }
+
+  /** Active votes on a poll, one row per voter with their chosen option (mirrors `poll_results`'
+   *  source: latest non-deleted vote per voter). */
+  async listVoteParticipants(
+    pollId: string,
+  ): Promise<{ option: string; authorPubkey: string; nullifier: string | null; parentId: string }[]> {
+    const r = await this.pool.query(
+      `SELECT content->>'option' AS option, author_pubkey, nullifier, parent_id
+       FROM entity_state WHERE type = 'vote' AND parent_id = $1 AND NOT is_deleted`,
+      [pollId],
+    );
+    return r.rows.map((x) => ({
+      option: x.option,
+      authorPubkey: x.author_pubkey,
+      nullifier: x.nullifier ?? null,
+      parentId: x.parent_id,
+    }));
+  }
+
   /** Comments attached to a parent entity (entity-pinned), oldest → newest. */
   async getChildComments(parentId: string): Promise<EntityState[]> {
     const r = await this.pool.query(

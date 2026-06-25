@@ -14,19 +14,35 @@ import { errorSchema } from "../schemas.js";
 
 // ── Reusable schema fragments ───────────────────────────────────────────────────────────────
 
+const appliedSchema = {
+  type: "object",
+  description: "Per-dimension applied status. `geo` is live; `tier`/`date` await [mvp-c-kyc-stub].",
+  properties: {
+    geo: { type: "boolean", description: "True when scope compiled to a region and narrowed the count." },
+    tier: { type: "boolean", description: "Always false this phase (awaits [mvp-c-kyc-stub])." },
+    date: { type: "boolean", description: "Always false this phase." },
+  },
+  required: ["geo", "tier", "date"],
+} as const;
+
 const filtersEchoSchema = {
   type: "object",
-  description: "Stub filter echo — parsed/validated but NOT resolved this phase (Phase C populates it).",
+  description: "Filter echo. `applied.geo` is resolved on count endpoints; tier/date stubbed ([mvp-c-kyc-stub]).",
   properties: {
     scope: { type: "string", enum: GEO_SCOPES },
     tier: { type: "string", enum: KYC_TIERS, nullable: true },
     jurisdiction: { type: "string", nullable: true },
     from: { type: "string", nullable: true },
     to: { type: "string", nullable: true },
-    applied: { type: "boolean", description: "Always false this phase (filtering is stubbed)." },
+    applied: appliedSchema,
+    kAnonymityFloor: {
+      type: "integer",
+      nullable: true,
+      description: "Effective k-anonymity floor applied to a geo-scoped count; null on lists/all-public/my-district.",
+    },
     note: { type: "string" },
   },
-  required: ["scope", "tier", "jurisdiction", "from", "to", "applied", "note"],
+  required: ["scope", "tier", "jurisdiction", "from", "to", "applied", "kAnonymityFloor", "note"],
 } as const;
 
 const audienceScopeSchema = {
@@ -43,16 +59,26 @@ const audienceScopeSchema = {
   required: ["jurisdiction", "appliesToDistrictIds"],
 } as const;
 
+// `count` is nullable + `suppressed` optional so the same shape serves the raw detail/list tallies
+// (always an integer) and the geo-scoped count endpoints (null + suppressed:true below the k-anon floor).
 const reactionCountSchema = {
   type: "object",
-  properties: { kind: { type: "string" }, count: { type: "integer" } },
+  properties: {
+    kind: { type: "string" },
+    count: { type: "integer", nullable: true, description: "Null when suppressed by the k-anonymity floor." },
+    suppressed: { type: "boolean", description: "Present and true when this bucket was suppressed." },
+  },
   required: ["kind", "count"],
 } as const;
 const reactionCountsArray = { type: "array", items: reactionCountSchema } as const;
 
 const pollResultSchema = {
   type: "object",
-  properties: { option: { type: "string" }, count: { type: "integer" } },
+  properties: {
+    option: { type: "string" },
+    count: { type: "integer", nullable: true, description: "Null when suppressed by the k-anonymity floor." },
+    suppressed: { type: "boolean", description: "Present and true when this bucket was suppressed." },
+  },
   required: ["option", "count"],
 } as const;
 const pollResultsArray = { type: "array", items: pollResultSchema } as const;
@@ -312,12 +338,13 @@ export function registerPublicRecordReadRoutes(app: FastifyInstance, services: S
             type: "object",
             properties: {
               entityId: { type: "string" },
-              signatureCount: { type: "integer" },
+              signatureCount: { type: "integer", nullable: true, description: "Null when suppressed by the k-anonymity floor." },
+              suppressed: { type: "boolean", description: "True when the geo-scoped signature count was suppressed." },
               countGating: { type: "string", enum: ["none"] },
               countGatingNote: { type: "string" },
               filters: filtersEchoSchema,
             },
-            required: ["entityId", "signatureCount", "countGating", "filters"],
+            required: ["entityId", "signatureCount", "suppressed", "countGating", "filters"],
           },
           400: errorSchema,
           404: errorSchema,

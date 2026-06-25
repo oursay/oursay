@@ -34,7 +34,7 @@ describe("13 public record read: browse, detail, counts, stubbed filters", () =>
     expect(body.items[0].entityId).to.equal(post.entityId);
     expect(body.items[0].reactions).to.deep.equal([{ kind: "check", count: 2 }]);
     expect(body.page.total).to.equal(1);
-    expect(body.filters.applied).to.equal(false);
+    expect(body.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
 
     const detail = await w.app.inject({ method: "GET", url: `/v1/public/posts/${post.entityId}` });
     expect(detail.statusCode).to.equal(200);
@@ -67,7 +67,7 @@ describe("13 public record read: browse, detail, counts, stubbed filters", () =>
     const cbody = counts.json() as any;
     expect(cbody.results).to.deep.include.members([{ option: "yes", count: 2 }]);
     expect(cbody.countGating).to.equal("none");
-    expect(cbody.filters.applied).to.equal(false);
+    expect(cbody.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
   });
 
   it("counts active petition signatures (revocations excluded)", async () => {
@@ -162,7 +162,7 @@ describe("13 public record read: browse, detail, counts, stubbed filters", () =>
     expect(res.statusCode).to.equal(200);
     const body = res.json() as any;
     expect(body.filters.scope).to.equal("my-district");
-    expect(body.filters.applied).to.equal(false);
+    expect(body.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
     expect(body.filters.note).to.match(/inert|resolves nothing/i);
   });
 

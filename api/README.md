@@ -319,7 +319,7 @@ projections (`getThread`, `reactionTallies`) and store queries (`getPollResults`
 |-------|---------|
 | `GET /v1/public/{posts,petitions,polls}` | browse list (newest first), each item with audience scope + a headline count (post → reaction tallies, petition → `signatureCount`, poll → option `results`) |
 | `GET /v1/public/{posts,petitions,polls}/:id` | the folded thread: root + reaction tallies + nested comment tree, plus the type-specific count |
-| `GET /v1/public/{posts,petitions,polls}/:id/counts` | just the counts, with the (stubbed) filter echo — the future home of real geo/tier/date filtering |
+| `GET /v1/public/{posts,petitions,polls}/:id/counts` | just the counts, with **live geo `scope` resolution** (region-first + k-anonymity) and the filter echo; tier/date still stubbed |
 
 Responses use **`PublicEntityView`** semantics: redacted/erased content stays withheld (`content:
 null, withheld: true`); the commitment still proves inclusion. Tombstoned (deleted) roots are excluded
@@ -328,36 +328,53 @@ binding; defaults to `oursay-global` when no persona is bound) and `appliesToDis
 entity's governance rules; empty ⇒ whole jurisdiction). This is metadata for clients/future filters,
 not write-policy enforcement.
 
-### Stubbed filters (Phase C)
+### Geo `scope` resolution on counts (live); tier/date stubbed
 
 List and count endpoints accept a coarse geo `scope`, a KYC `tier`, an optional `jurisdiction` (lists
-only), and a `from`/`to` date range. This phase they are **parsed and enum-validated** (a bad `scope`
-or `tier` ⇒ 400) but **not resolved** — every response echoes them back with `filters.applied:
-false`. The fixed `scope` enum is deliberate (docs/06 §2–3): it keeps geography coarse and avoids the
+only), and a `from`/`to` date range. All are **parsed and enum-validated** (a bad `scope`/`tier` ⇒
+400). The fixed `scope` enum is deliberate (docs/06 §2–3): it keeps geography coarse and avoids the
 freeform district slicing that enables cross-boundary re-identification.
 
-The geographic substrate that will resolve `scope` already exists in **`@oursay/geo`**
-(`RegionResolver.compileScope` maps these same enum values to a `Region`; see
-[`docs/REGION-MODEL.md`](../docs/REGION-MODEL.md)). It is **not yet wired** here — these routes stay
-`applied: false` until a later phase threads `compileScope` (and an `asOf`/viewer-district) through.
+On the **count** endpoints (`…/:id/counts`) geo `scope` is now **resolved**:
+`RegionResolver.compileScope({ scope, jurisdictionId, appliesToDistrictIds, asOf: now })` builds one
+`Region` from the entity's own audience scope, and each countable participant (a reaction / vote /
+signature's `authorPubkey`, or a singleton's `nullifier`) is resolved to its **private current point**
+and tested with `ParticipantGeoService.participantInRegion(ref, region)` (`current`-mode only — no C4
+action-time snapshot). Counts re-aggregate over only the **distinct in-region** participants; the
+distinct key matches the SQL views (`COALESCE(nullifier, author_pubkey)`). A participant with no usable
+point is **out-of-area** (excluded from a scoped count; still counted in `all-public`). The filter echo
+splits by dimension: `applied: { geo, tier: false, date: false }`.
 
-| `scope` | Intended Phase-C audience | Status today |
-|---------|---------------------------|--------------|
-| `jurisdiction` | the whole jurisdiction the entity belongs to | stub (echoed) |
-| `impacted-region` | the entity's `appliesToDistrictIds` extent (empty ⇒ whole jurisdiction) | stub (echoed) |
-| `my-district` | the **authenticated** viewer's inferred district | **inert** — no viewer identity on public routes; resolves nothing |
-| `all-public` | all public comments/reactions, no geo filter (default) | stub (echoed) |
+| `scope` | Audience on counts | Status |
+|---------|---------------------|--------|
+| `jurisdiction` | the whole-jurisdiction extent at `asOf` (`forJurisdiction`) | **live** |
+| `impacted-region` | the entity's `appliesToDistrictIds` union (empty ⇒ whole jurisdiction) | **live** |
+| `my-district` | the **authenticated** viewer's inferred district | **inert** — no viewer identity on public routes; no geo filter applied |
+| `all-public` | all public participants, no geo filter (default) | no filter (raw) |
 
-`tier` (`unverified` \| `identity_verified` \| `residency_verified` \| `electoral_validated`) is
-enum-validated but not applied. Petition-signature and poll-vote counts are surfaced **ungated in dev**
-(`countGating: "none"`); production will withhold them per jurisdiction/KYC policy regardless of
-whether a jurisdiction permits public voting on a given issue. **Perf note:** list summaries fetch
-counts + jurisdiction per item (~N+1 at `limit ≤ 20`); the heavy counts live on detail/`…/counts`, and
-batching is the Phase-C optimization if it bites.
+**K-anonymity (docs/06 §3).** When a geo scope narrows a count, a bucket (reaction kind / poll option /
+the signature scalar) with `0 < count < effectiveK` is **suppressed** (`count: null, suppressed:
+true`); a genuine `0` stays `0`, and `all-public` is never masked. `effectiveK = max(min,
+jurisdiction.privacy?.kAnonymityFloor ?? default)` from `PUBLIC_COUNTS_K_ANONYMITY_MIN`/`_DEFAULT`
+(default 5/5; a deployment may only RAISE the floor; dev disables with 0/0). The applied floor is
+echoed as `filters.kAnonymityFloor`.
+
+**Scope of geo filtering (intentional gap).** Only the `…/:id/counts` endpoints filter by region.
+Browse-list summaries and thread-detail reaction tallies (`GET /v1/public/posts/:id`, etc.) stay
+**unfiltered** — consumers must not assume geo there.
+
+`tier` (`unverified` \| `identity_verified` \| `residency_verified` \| `electoral_validated`) and the
+`from`/`to` date range are enum-validated and echoed but **do not filter** counts yet (`applied.tier` /
+`applied.date` stay false) — they await **[mvp-c-kyc-stub]**. Petition-signature and poll-vote counts
+are surfaced **ungated in dev** (`countGating: "none"`); production will withhold them per
+jurisdiction/KYC policy regardless of whether a jurisdiction permits public voting on a given issue.
+**Perf note:** the scoped count path resolves region membership per distinct participant (memoized per
+request); a batched point-in-polygon pass is the optimization if it bites.
 
 ## Not in this milestone
 
 Production WebAuthn PRF / non-exportable browser signing for civic keys, full KYC provider
 integration, Method-4 ZK, and production KMS / encryption-at-rest (schema hooks only). On the public
-read side: real geo/tier/date filter resolution, per-viewer district inference, k-anonymity count
-thresholds, and `result` derived-entity publishing — all Phase C.
+read side, geo `scope` resolution + k-anonymity now ship on the count endpoints; still deferred:
+**tier/date** filter resolution ([mvp-c-kyc-stub]), C4 action-time / ever-in-region geo modes,
+per-viewer district inference (authenticated routes), and `result` derived-entity publishing.

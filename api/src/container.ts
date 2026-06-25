@@ -186,18 +186,26 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   });
   const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
   const civicRecordService = new CivicRecordService({ registry: identityRegistry, store: recordStore });
-  const publicRecordReadService = new PublicRecordReadService({ recordStore });
 
   // Geo: ONE process-lived GeoStore (its own small pool, mirroring recordStore) — the schema is
   // already ensured by Db.init(), so we don't re-init or close it here. RegionResolver is the
-  // compileScope seam the C7 public read filter consumes; ParticipantGeoService is the PRIVATE bridge
-  // (participant -> point -> district revision) that supplies its viewer-district hints.
+  // compileScope seam the public read filter consumes; ParticipantGeoService is the PRIVATE bridge
+  // (participant -> point -> district revision) the count filter resolves membership through.
   const geoStore = new GeoStore(pgConfig);
   const regionResolver = new RegionResolver({ geoStore });
   const participantGeoService = new ParticipantGeoService({
     recordStore,
     geocodeRepo: repos.geocode,
     geoStore,
+  });
+
+  // The public read surface now resolves geo `scope` on the count endpoints via regionResolver +
+  // participantGeoService (region-first, current-point mode), with a k-anonymity floor; tier/date stay
+  // stubbed until [mvp-c-kyc-stub].
+  const publicRecordReadService = new PublicRecordReadService({
+    recordStore,
+    regionResolver,
+    participantGeoService,
   });
 
   return {

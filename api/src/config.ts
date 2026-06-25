@@ -163,7 +163,27 @@ export const jurisdictionConfig: JurisdictionConfig = {
     allowChange: env("JURISDICTION_ALLOW_CHANGE", "false") === "true",
     allowRevoke: env("JURISDICTION_ALLOW_REVOKE", "false") === "true",
   },
+  // A deployment may RAISE this jurisdiction's k-anonymity floor above the platform default; the
+  // read service resolves max(platformMin, this ?? platformDefault), so a too-low value never weakens
+  // it. Unset by default (uses the platform default).
+  ...(process.env.JURISDICTION_K_ANONYMITY_FLOOR
+    ? { privacy: { kAnonymityFloor: Number(env("JURISDICTION_K_ANONYMITY_FLOOR", "0")) } }
+    : {}),
 };
+
+/**
+ * Public-count k-anonymity policy (docs/06 §3). When a public count is narrowed by a geo (or, later,
+ * tier) filter, buckets with `0 < count < effectiveK` are suppressed so a small area×tier slice can't
+ * isolate an individual. `effectiveK = max(min, jurisdictionFloor ?? default)`. Read LIVE from env on
+ * every request (not frozen at construction) so deployments — and the singleton test World — can tune
+ * it without a rebuild. Defaults 5/5 (docs/06 minimum-aggregation); dev disables with MIN=0/DEFAULT=0.
+ */
+export function publicCountsKAnon(): { min: number; default: number } {
+  return {
+    min: Number(env("PUBLIC_COUNTS_K_ANONYMITY_MIN", "5")),
+    default: Number(env("PUBLIC_COUNTS_K_ANONYMITY_DEFAULT", "5")),
+  };
+}
 
 export interface WebAuthnConfig {
   rpID: string;
