@@ -302,6 +302,34 @@ describe("17 public-record counts: KYC tier resolution (set membership) + combin
     expect(id.filters.tier).to.deep.equal(["identity_verified"]);
   });
 
+  it("post reactions: tier set narrows the by-entity tally", async function () {
+    this.timeout(60000);
+    disableKAnon();
+    const t = freshThread();
+    const author = await joinMember(w, "ct-post-author@example.com", "post-author", t);
+    await author.client.createPost(t, { body: "open belief" });
+    const parent = { type: "post" as const, id: t.threadId };
+
+    const rId = await joinMember(w, "ct-post-id@example.com", "post-id", t);
+    const rRes = await joinMember(w, "ct-post-res@example.com", "post-res", t);
+    const rUnv = await joinMember(w, "ct-post-unv@example.com", "post-unv", t);
+    for (const m of [rId, rRes, rUnv]) await m.client.addReaction(t, parent, { kind: "check" });
+    await attest(w, rId, "identity_verified");
+    await attest(w, rRes, "residency_verified");
+    // rUnv unverified.
+
+    const checkOf = (body: any) => (body.reactionsByEntity.find((r: any) => r.kind === "check")?.count ?? 0);
+
+    const pub = await counts(w, "posts", t.threadId, "?scope=all-public");
+    expect(checkOf(pub)).to.equal(3);
+
+    // ?tier=identity_verified&tier=residency_verified ⇒ the two attested reactors (unverified excluded).
+    const some = await counts(w, "posts", t.threadId, "?tier=identity_verified&tier=residency_verified");
+    expect(checkOf(some)).to.equal(2);
+    expect(some.filters.applied.tier).to.equal(true);
+    expect(some.filters.tier).to.deep.equal(["identity_verified", "residency_verified"]);
+  });
+
   it("dev attest route: full session self-attests; 401 without a session; writes the latest tier", async () => {
     const { userId, token } = await fullSessionAccount(w, "ct-dev-attest@example.com");
 

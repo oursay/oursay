@@ -256,7 +256,7 @@ export class PublicRecordReadService {
     return { ...base, results: await this.d.recordStore.getPollResults(id) };
   }
 
-  // ── Dedicated count endpoints (geo scope resolved + k-anonymity; tier/date stubbed) ───────
+  // ── Dedicated count endpoints (geo scope + KYC tier resolved + k-anonymity; date stubbed) ──
 
   async getPostCounts(id: string, filters: PublicReadFilters = {}): Promise<PostCounts> {
     const view = await this.requireRoot(id, "post");
@@ -507,13 +507,15 @@ function refOf(row: { authorPubkey: string; nullifier: string | null; parentId: 
   return { authorPubkey: row.authorPubkey, nullifier: row.nullifier ?? undefined, parentId: row.parentId };
 }
 
-/** The requested tier set when it actually NARROWS, else null. Null when absent/empty, or when it lists
- *  every tier (a no-op that includes `unverified` ⇒ everyone, so neither `applied.tier` nor a tier-driven
- *  k-anon floor should engage). A Set de-dupes, so `?tier=x&tier=x` behaves like a single `x`. */
+/** The requested tier set when it actually NARROWS, else null. Null when absent/empty, or when it
+ *  contains EVERY tier (a no-op that includes `unverified` ⇒ everyone, so neither `applied.tier` nor a
+ *  tier-driven k-anon floor should engage). A Set de-dupes, so `?tier=x&tier=x` behaves like a single
+ *  `x`. The full check is an explicit "covers every enum value" test (not a size compare) so adding a
+ *  fifth tier later can't let four arbitrary tiers masquerade as the full set. */
 function narrowingTierSet(tier: KycTier[] | undefined): Set<KycTier> | null {
   if (!tier || tier.length === 0) return null;
   const set = new Set(tier);
-  return set.size >= KYC_TIERS.length ? null : set;
+  return KYC_TIERS.every((t) => set.has(t)) ? null : set;
 }
 
 function pageParams(f: PublicReadFilters): { limit: number; offset: number } {
