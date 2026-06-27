@@ -163,7 +163,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("append only pools the tx; it reaches the chain on settlement", async () => {
     const { svc, settler } = await freshChainWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "pool v1" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "pool v1" } });
 
     expect(await recordTxExists(post.txId), "record_tx written").to.equal(true);
     expect(await outboxStatus(post.txId), "pooled, not yet settled").to.equal("pending");
@@ -177,7 +177,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("recovers an orphaned pool tx: pending → settle → chain verifies", async () => {
     const { svc, settler } = await freshChainWorld();
-    const post = await svc.create({ type: "post", author: "bob", content: { body: "orphan" } });
+    const post = await svc.create({ type: "post", author: "bob", content: { title: "Test post", body: "orphan" } });
 
     // Verification must FAIL while the commitment is unsettled.
     let verifiedBefore = false;
@@ -199,7 +199,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("is idempotent: a pre-delivered commitment and a re-settle never double-write", async () => {
     const { chainId, svc, settler } = await freshChainWorld();
-    const post = await svc.create({ type: "post", author: "carol", content: { body: "idem" } });
+    const post = await svc.create({ type: "post", author: "carol", content: { title: "Test post", body: "idem" } });
 
     // Simulate "commitment already on the chain but outbox not yet marked" (crash between).
     const [mine] = (await store.getPendingForSettlement(chainId, 100)).filter((p) => p.txId === post.txId);
@@ -222,7 +222,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("reconciles a crash after the header but before the mark: no new block, just marks sent", async () => {
     const { chainId, svc, settler } = await freshChainWorld();
-    const post = await svc.create({ type: "post", author: "dave", content: { body: "recon" } });
+    const post = await svc.create({ type: "post", author: "dave", content: { title: "Test post", body: "recon" } });
     const header1 = (await settler.settleBlock())!;
     expect(header1.blockHeight).to.equal(1);
 
@@ -242,7 +242,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     const tinyCfg = { maxPending: 0, maxPendingAgeMs: 0, maxBlockTxs: 2, minTxs: 1 };
     const { chainId, svc, settler } = await freshChainWorld(tinyCfg);
     const settled = await Promise.all(
-      [0, 1].map((i) => svc.create({ type: "post", author: "erin", content: { body: `s${i}` } })),
+      [0, 1].map((i) => svc.create({ type: "post", author: "erin", content: { title: "Test post", body: `s${i}` } })),
     );
     const h1 = (await settler.settleBlock())!;
     expect(h1.txCount).to.equal(2);
@@ -250,7 +250,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     // Reopen the whole settled block (crash-after-header on a FULL block) + add 2 fresh pending.
     for (const p of settled) await reopenOutbox(p.txId);
     const fresh = await Promise.all(
-      [0, 1].map((i) => svc.create({ type: "post", author: "erin", content: { body: `f${i}` } })),
+      [0, 1].map((i) => svc.create({ type: "post", author: "erin", content: { title: "Test post", body: `f${i}` } })),
     );
 
     const headers = await settler.flushPendingSettlement();
@@ -295,7 +295,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("retries the batch while immudb is healthy until it lands (retryAttempts)", async () => {
     const { chainId, svc } = await freshChainWorld();
-    const ref = await svc.create({ type: "post", author: "grace", content: { body: "retry" } });
+    const ref = await svc.create({ type: "post", author: "grace", content: { title: "Test post", body: "retry" } });
 
     const flaky = new FlakyConnector(connector, 2, [true]); // two failures, then success
     let sleeps = 0;
@@ -311,7 +311,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("backs off and re-healthchecks while immudb is down, then settles on recovery", async () => {
     const { chainId, svc } = await freshChainWorld();
-    const ref = await svc.create({ type: "post", author: "heidi", content: { body: "down-then-up" } });
+    const ref = await svc.create({ type: "post", author: "heidi", content: { title: "Test post", body: "down-then-up" } });
 
     const flaky = new FlakyConnector(connector, 1, [false, false, true]);
     let sleeps = 0;
@@ -326,7 +326,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("gives up after healthcheckAttempts and leaves the pool pending", async () => {
     const { chainId, svc } = await freshChainWorld();
-    const ref = await svc.create({ type: "post", author: "ivan", content: { body: "stays down" } });
+    const ref = await svc.create({ type: "post", author: "ivan", content: { title: "Test post", body: "stays down" } });
 
     const down = new DownConnector();
     let sleeps = 0;
@@ -339,7 +339,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
 
   it("0 means indefinite: keeps re-healthchecking past the finite limit until recovery", async () => {
     const { chainId, svc } = await freshChainWorld();
-    const ref = await svc.create({ type: "post", author: "judy", content: { body: "indefinite" } });
+    const ref = await svc.create({ type: "post", author: "judy", content: { title: "Test post", body: "indefinite" } });
 
     // Down for FOUR checks — a finite limit of 3 would give up, but 0 = indefinite must hold on.
     const flaky = new FlakyConnector(connector, 1, [false, false, false, false, true]);

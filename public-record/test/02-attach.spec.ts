@@ -5,7 +5,7 @@ import { getWorld, rejects } from "./helpers/world.js";
 describe("02 attach: parent rules + comment depth", () => {
   it("allows comments on post/petition/poll and nested comments; reactions on post/comment", async () => {
     const { svc } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "p" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "p" } });
     const petition = await svc.create({
       type: "petition",
       author: "alice",
@@ -30,7 +30,7 @@ describe("02 attach: parent rules + comment depth", () => {
 
   it("rejects reactions on petitions/polls, signatures on non-petitions, votes on non-polls", async () => {
     const { svc } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "p" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "p" } });
     const petition = await svc.create({ type: "petition", author: "alice", content: { title: "t", text: "x" } });
     const poll = await svc.create({ type: "poll", author: "alice", content: { question: "q?", options: ["yes"] } });
 
@@ -42,7 +42,7 @@ describe("02 attach: parent rules + comment depth", () => {
 
   it("allows comment depth 3 but rejects depth 4", async () => {
     const { svc } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "root" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "root" } });
     const c1 = await svc.create({ type: "comment", author: "a", content: { body: "d1" }, parent: { type: "post", id: post.entityId } });
     const c2 = await svc.create({ type: "comment", author: "a", content: { body: "d2" }, parent: { type: "comment", id: c1.entityId } });
     const c3 = await svc.create({ type: "comment", author: "a", content: { body: "d3" }, parent: { type: "comment", id: c2.entityId } });

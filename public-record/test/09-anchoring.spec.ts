@@ -44,7 +44,7 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
 
   async function makePosts(svc: RecordService, n: number): Promise<void> {
     for (let i = 0; i < n; i++) {
-      await svc.create({ type: "post", author: "alice", content: { body: `post-${i}` } });
+      await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: `post-${i}` } });
     }
   }
 
@@ -195,7 +195,7 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
 
   it("withholds reveals for redacted/erased entries (store retains raw); reveals recompute", async () => {
     const { svc, settler, publisher } = await chain();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "visible" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "visible" } });
     const redacted = await svc.create({ type: "comment", author: "bob", content: { body: "hateful content" }, parent: { type: "post", id: post.entityId } });
     const erased = await svc.create({ type: "comment", author: "bob", content: { body: "gone soon" }, parent: { type: "post", id: post.entityId } });
 

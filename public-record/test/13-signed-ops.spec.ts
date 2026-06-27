@@ -120,7 +120,7 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const author = await newUser();
     const postId = randomUUID();
     const aPost = await registerThread(author, postId);
-    await act(author, aPost.privKey, aPost.threadPubkey, { type: "post", entityId: postId, content: { body: "belief" } });
+    await act(author, aPost.privKey, aPost.threadPubkey, { type: "post", entityId: postId, content: { title: "Test post", body: "belief" } });
 
     const pollId = randomUUID();
     const aPoll = await registerThread(author, pollId);
@@ -150,7 +150,7 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const author = await newUser();
     const postId = randomUUID();
     const ak = await registerThread(author, postId);
-    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { body: "p" } });
+    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { title: "Test post", body: "p" } });
     const c1 = randomUUID();
     const c2 = randomUUID();
     await act(author, ak.privKey, ak.threadPubkey, { type: "comment", entityId: c1, parent: { type: "post", id: postId }, content: { body: "c1" } });
@@ -205,7 +205,7 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const author = await newUser();
     const postId = randomUUID();
     const ak = await registerThread(author, postId);
-    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { body: "p" } });
+    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { title: "Test post", body: "p" } });
 
     const bob = await newUser();
     const bk = await registerThread(bob, postId);
@@ -240,11 +240,11 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const author = await newUser();
     const postId = randomUUID();
     const ak = await registerThread(author, postId);
-    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { body: "v1" } });
-    const ref = await actMutation(ak.privKey, ak.threadPubkey, { op: "update", type: "post", entityId: postId, content: { body: "v2" } });
+    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { title: "Test post", body: "v1" } });
+    const ref = await actMutation(ak.privKey, ak.threadPubkey, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "v2" } });
     await settler.flushPendingSettlement();
 
-    expect((await store.getEntityState(postId))!.content).to.deep.equal({ body: "v2" });
+    expect((await store.getEntityState(postId))!.content).to.deep.equal({ title: "Test post", body: "v2" });
     expect((await connector.verifyRow(ref.txId)).verified).to.equal(true);
   });
 
@@ -307,7 +307,7 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const author = await newUser();
     const postId = randomUUID();
     const ak = await registerThread(author, postId);
-    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { body: "p" } });
+    await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { title: "Test post", body: "p" } });
 
     const bob = await newUser();
     const bk = await registerThread(bob, postId);
@@ -325,17 +325,17 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const author = await newUser();
     const postId = randomUUID();
     const ak = await registerThread(author, postId);
-    const created = await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { body: "v1" } });
+    const created = await act(author, ak.privKey, ak.threadPubkey, { type: "post", entityId: postId, content: { title: "Test post", body: "v1" } });
 
     // first edit moves the head
-    await actMutation(ak.privKey, ak.threadPubkey, { op: "update", type: "post", entityId: postId, content: { body: "v2" } });
+    await actMutation(ak.privKey, ak.threadPubkey, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "v2" } });
     // a second edit signed against the ORIGINAL head txHash ⇒ stale ⇒ rejected
-    expect(await rejects(actMutation(ak.privKey, ak.threadPubkey, { op: "update", type: "post", entityId: postId, content: { body: "v3" } }, { prevHash: created.txHash }))).to.equal(true);
+    expect(await rejects(actMutation(ak.privKey, ak.threadPubkey, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "v3" } }, { prevHash: created.txHash }))).to.equal(true);
 
     // a DIFFERENT user's thread key cannot edit the post (author-match fails)
     const mallory = await newUser();
     const mk = await registerThread(mallory, postId);
-    expect(await rejects(actMutation(mk.privKey, mk.threadPubkey, { op: "update", type: "post", entityId: postId, content: { body: "hijack" } }))).to.equal(true);
+    expect(await rejects(actMutation(mk.privKey, mk.threadPubkey, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "hijack" } }))).to.equal(true);
   });
 
   it("freshness gate: accepts a fresh createdAt, rejects an expired one and excessive future skew", async () => {
@@ -355,7 +355,7 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
       const { privKey } = await registerThread(u, entityId);
       const txId = randomUUID();
       const salt = newSalt();
-      const content = { body: "x" };
+      const content = { title: "Test post", body: "x" };
       const base: TxEnvelope = {
         v: 1, txId, type: "post", entityId, op: "create",
         authorPubkey: "", signature: "", createdAt, prevHash: null,

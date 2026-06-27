@@ -261,7 +261,7 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     disableKAnon(); // assert raw divergence
     const t = freshThread();
     const author = await joinMember(w, "cg-post-author@example.com", "post-author", t);
-    await author.client.createPost(t, { body: "open belief" });
+    await author.client.createPost(t, { title: "Test post", body: "open belief" });
     const parent = { type: "post" as const, id: t.threadId };
 
     const edm1 = await joinMember(w, "cg-post-edm1@example.com", "post-edm1", t);
@@ -308,13 +308,13 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     disableKAnon();
     const t = freshThread();
     const author = await joinMember(w, "cg-rev-author@example.com", "rev-author", t);
-    await author.client.createPost(t, { body: "v1" });
+    await author.client.createPost(t, { title: "Test post", body: "v1" });
     const parent = { type: "post" as const, id: t.threadId };
 
     // Reaction on revision 1, then the author edits the post (→ a new current revision).
     const edm1 = await joinMember(w, "cg-rev-edm1@example.com", "rev-edm1", t);
     await edm1.client.addReaction(t, parent, { kind: "check" }); // pinned to revision 1
-    await author.client.append(t, { op: "update", type: "post", entityId: t.threadId, content: { body: "v2" } });
+    await author.client.append(t, { op: "update", type: "post", entityId: t.threadId, content: { title: "Test post", body: "v2" } });
 
     // Two reactions on revision 2 (current): one in-region (Edmonton), one out-of-province (Toronto).
     const edm2 = await joinMember(w, "cg-rev-edm2@example.com", "rev-edm2", t);

@@ -260,7 +260,7 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
     const u = await newUser();
     const postId = randomUUID();
     const post = await joinDevice(u, postId);
-    await actWa(u, post, { type: "post", entityId: postId, content: { body: "hello" } });
+    await actWa(u, post, { type: "post", entityId: postId, content: { title: "Test post", body: "hello" } });
 
     const pollId = randomUUID();
     const poll = await joinDevice(u, pollId);
@@ -302,15 +302,15 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
     const u = await newUser();
     const postId = randomUUID();
     const a = await joinDevice(u, postId);
-    await actWa(u, a, { type: "post", entityId: postId, content: { body: "v1 from A" } });
+    await actWa(u, a, { type: "post", entityId: postId, content: { title: "Test post", body: "v1 from A" } });
 
     const b = await joinDevice(u, postId);
     expect(b.personaPubkey).to.equal(a.personaPubkey);
-    const ref = await updateWa(b, { entityId: postId, type: "post" }, { body: "v2 from B" });
+    const ref = await updateWa(b, { entityId: postId, type: "post" }, { title: "Test post", body: "v2 from B" });
     expect(ref.txHash).to.be.a("string");
 
     const state = await store.getEntityStatePublic(postId);
-    expect(state?.content).to.deep.equal({ body: "v2 from B" });
+    expect(state?.content).to.deep.equal({ title: "Test post", body: "v2 from B" });
   });
 
   it("rejects a p256-scheme vote (jurisdiction policy hard-requires webauthn-es256)", async () => {
@@ -332,14 +332,14 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
     const postId = randomUUID();
     const post = await joinDevice(u, postId);
     await store.revokeThreadCredential(post.signerPubkey);
-    expect(await rejects(actWa(u, post, { type: "post", entityId: postId, content: { body: "x" } }))).to.equal(true);
+    expect(await rejects(actWa(u, post, { type: "post", entityId: postId, content: { title: "Test post", body: "x" } }))).to.equal(true);
   });
 
   it("rejects a webauthn append missing signerPubkey", async () => {
     const u = await newUser();
     const postId = randomUUID();
     const post = await joinDevice(u, postId);
-    const prep = await svc.prepareAppend({ op: "create", type: "post", author: post.personaPubkey, entityId: postId, content: { body: "x" } });
+    const prep = await svc.prepareAppend({ op: "create", type: "post", author: post.personaPubkey, entityId: postId, content: { title: "Test post", body: "x" } });
     const txId = randomUUID();
     const salt = newSalt();
     const base: TxEnvelope = {
@@ -368,14 +368,14 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
       `UPDATE thread_civic_credentials SET credential_sig = $1 WHERE credential_pubkey = $2`,
       ["0".repeat(128), post.signerPubkey],
     );
-    expect(await rejects(actWa(u, post, { type: "post", entityId: postId, content: { body: "x" } }))).to.equal(true);
+    expect(await rejects(actWa(u, post, { type: "post", entityId: postId, content: { title: "Test post", body: "x" } }))).to.equal(true);
   });
 
   it("rejects a forged assertion (signer key mismatch)", async () => {
     const u = await newUser();
     const postId = randomUUID();
     const post = await joinDevice(u, postId);
-    const prep = await svc.prepareAppend({ op: "create", type: "post", author: post.personaPubkey, entityId: postId, content: { body: "x" } });
+    const prep = await svc.prepareAppend({ op: "create", type: "post", author: post.personaPubkey, entityId: postId, content: { title: "Test post", body: "x" } });
     const txId = randomUUID();
     const salt = newSalt();
     const base: TxEnvelope = {

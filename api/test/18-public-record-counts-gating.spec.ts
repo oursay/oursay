@@ -242,7 +242,7 @@ describe("18 public-record counts: per-jurisdiction exposure gating (countGating
     disableKAnon();
     const t = threadIn(AB_CA_GOV);
     const author = await joinMember(w, "cg-ab-post-author@example.com", "ab-post-author", t);
-    await author.client.createPost(t, { body: "open belief" });
+    await author.client.createPost(t, { title: "Test post", body: "open belief" });
     const parent = { type: "post" as const, id: t.threadId };
     const r1 = await joinMember(w, "cg-ab-post-r1@example.com", "ab-post-r1", t);
     const r2 = await joinMember(w, "cg-ab-post-r2@example.com", "ab-post-r2", t);

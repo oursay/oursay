@@ -6,7 +6,7 @@ import { getWorld } from "./helpers/world.js";
 describe("03 state fold: edit, reaction change, delete", () => {
   it("editing a comment updates folded state but keeps both transactions in history", async () => {
     const { svc, store } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "post" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "post" } });
     const comment = await svc.create({ type: "comment", author: "bob", content: { body: "original" }, parent: { type: "post", id: post.entityId } });
 
     await svc.update({ entityId: comment.entityId, author: "bob", content: { body: "edited" } });
@@ -19,7 +19,7 @@ describe("03 state fold: edit, reaction change, delete", () => {
 
   it("a reaction is mutually exclusive: changing check→cross flips the active reaction", async () => {
     const { svc, store } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "post" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "post" } });
 
     await svc.react("bob", { type: "post", id: post.entityId }, "check");
     let counts = await store.getReactionCountsByEntity(post.entityId);
@@ -37,7 +37,7 @@ describe("03 state fold: edit, reaction change, delete", () => {
 
   it("deleting a post tombstones folded state but the history (and chain) remain", async () => {
     const { svc, store } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "to delete" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "to delete" } });
     await svc.delete({ entityId: post.entityId, author: "alice" });
 
     const state = await store.getEntityState(post.entityId);
@@ -48,10 +48,10 @@ describe("03 state fold: edit, reaction change, delete", () => {
 
   it("only the author (or platform) may edit/delete", async () => {
     const { svc, store } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "mine" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "mine" } });
     let threw = false;
     try {
-      await svc.update({ entityId: post.entityId, author: "mallory", content: { body: "hijacked" } });
+      await svc.update({ entityId: post.entityId, author: "mallory", content: { title: "Test post", body: "hijacked" } });
     } catch {
       threw = true;
     }

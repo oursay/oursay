@@ -115,7 +115,7 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   it("the on-chain envelope carries thread_pubkey only — never the commitment or opening", async () => {
     const entityId = randomUUID();
     const { privKey, userId, commitment, saltT } = await registerThreadFor(entityId);
-    const { envelope, salt, content } = buildSignedPost(privKey, entityId, { body: "x" });
+    const { envelope, salt, content } = buildSignedPost(privKey, entityId, { title: "Test post", body: "x" });
     const ref = await svc.appendSigned({ envelope, salt, content });
     await settler.flushPendingSettlement();
 
@@ -129,7 +129,7 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
     // Derive a key but DO NOT register it.
     const entityId = randomUUID();
     const { privKey } = deriveThreadKey({ jurisdictionMaster: jurisdictionMaster(), threadId: entityId, jurisdiction });
-    const { envelope, salt, content } = buildSignedPost(privKey, entityId, { body: "should not land" });
+    const { envelope, salt, content } = buildSignedPost(privKey, entityId, { title: "Test post", body: "should not land" });
     expect(await rejects(svc.appendSigned({ envelope, salt, content }))).to.equal(true);
     expect(await store.getEntityState(envelope.entityId), "nothing written").to.not.exist;
   });
@@ -137,7 +137,7 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   it("rejects an invalid signature, a contentHash mismatch, and a non-create op", async () => {
     const entityId = randomUUID();
     const { privKey } = await registerThreadFor(entityId);
-    const signed = buildSignedPost(privKey, entityId, { body: "ok" });
+    const signed = buildSignedPost(privKey, entityId, { title: "Test post", body: "ok" });
 
     // tampered signature
     const badSig = { ...signed.envelope, signature: signed.envelope.signature.replace(/.$/, (c) => (c === "0" ? "1" : "0")) };

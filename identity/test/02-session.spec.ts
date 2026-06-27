@@ -57,7 +57,7 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
   it("buildSigned: authorPubkey = Pₜ, signerPubkey = device passkey, signScheme = webauthn-es256, verifies", async () => {
     const { sess } = await session();
     const entityId = randomUUID();
-    const intent: CreateIntent = { op: "create", type: "post", entityId, content: { body: "v1" } };
+    const intent: CreateIntent = { op: "create", type: "post", entityId, content: { title: "Test post", body: "v1" } };
     const prep: PreparedAppend = { prevHash: null, rootEntityId: entityId };
     const { envelope } = await sess.buildSigned(thread, prep, intent);
     expect(envelope.authorPubkey).to.equal(sess.personaPubkey(thread));
@@ -87,7 +87,7 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
     const sess = new IdentitySession(unlocked);
     await sess.signingPubkey(thread); // creates local credential, but no Pₜ yet
     const entityId = randomUUID();
-    const intent: CreateIntent = { op: "create", type: "post", entityId, content: { body: "v1" } };
+    const intent: CreateIntent = { op: "create", type: "post", entityId, content: { title: "Test post", body: "v1" } };
     const prep: PreparedAppend = { prevHash: null, rootEntityId: entityId };
     let err: unknown;
     try { await sess.buildSigned(thread, prep, intent); } catch (e) { err = e; }

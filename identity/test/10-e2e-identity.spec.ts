@@ -141,7 +141,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     const personaPubkey = await joinAs(sessA, t);
     await joinAs(sessB, t);
 
-    const ref = await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1 from A" } });
+    const ref = await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { title: "Test post", body: "v1 from A" } });
     const head = (await store!.getHeadTx(postId))!;
     const env = JSON.parse(head.envelope) as TxEnvelope;
     expect(env.signScheme).to.equal("webauthn-es256");
@@ -149,7 +149,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     expect(env.signerPubkey).to.equal(await sessA.signingPubkey(t));
 
     // Device B updates A's post → ACCEPTED (cross-device edit under stable Pₜ).
-    await act(sessB, t, { op: "update", type: "post", entityId: postId, content: { body: "v2 from B" } });
+    await act(sessB, t, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "v2 from B" } });
     const head2 = (await store!.getHeadTx(postId))!;
     const env2 = JSON.parse(head2.envelope) as TxEnvelope;
     expect(env2.authorPubkey).to.equal(personaPubkey);
@@ -157,7 +157,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     expect(head2.authorPubkey).to.equal(personaPubkey);
 
     const state = await store!.getEntityStatePublic(postId);
-    expect(state?.content).to.deep.equal({ body: "v2 from B" });
+    expect(state?.content).to.deep.equal({ title: "Test post", body: "v2 from B" });
 
     await settler.flushPendingSettlement();
     expect((await connector!.verifyRow(ref.txId)).verified).to.equal(true);
@@ -168,19 +168,19 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     const t: ThreadRef = { threadId: postId, jurisdiction };
     await joinAs(sessA, t);
     await joinAs(sessB, t);
-    await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1" } });
+    await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { title: "Test post", body: "v1" } });
 
     // Revoke device A's signer → A can no longer append.
     const signerA = await sessA.signingPubkey(t);
     await store!.revokeThreadCredential(signerA);
     expect(
-      await rejects(act(sessA, t, { op: "update", type: "post", entityId: postId, content: { body: "v2 from A" } })),
+      await rejects(act(sessA, t, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "v2 from A" } })),
     ).to.equal(true);
 
     // Device B (not revoked, same Pₜ) can still edit the post.
-    await act(sessB, t, { op: "update", type: "post", entityId: postId, content: { body: "v2 from B" } });
+    await act(sessB, t, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "v2 from B" } });
     const state = await store!.getEntityStatePublic(postId);
-    expect(state?.content).to.deep.equal({ body: "v2 from B" });
+    expect(state?.content).to.deep.equal({ title: "Test post", body: "v2 from B" });
   });
 
   it("vote: A votes; A cannot vote twice, and B's vote on the same poll is rejected (per-user nullifier holds cross-device)", async () => {
@@ -208,7 +208,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     const postId = randomUUID();
     const t: ThreadRef = { threadId: postId, jurisdiction };
     await joinAs(sessA, t);
-    await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { body: "v1" } });
+    await act(sessA, t, { op: "create", type: "post", entityId: postId, content: { title: "Test post", body: "v1" } });
 
     // Build a valid submission, then strip the webauthn assertion → must be rejected.
     const intent: Intent = { op: "create", type: "comment", entityId: randomUUID(), parent: { type: "post", id: postId }, content: { body: "x" } };

@@ -73,7 +73,7 @@ async function main(): Promise<void> {
   const edited = await svc.update({ entityId: post.entityId, author: "alice", content: { title: "Bike lanes", body: "We should add protected bike lanes on Main St. AND 1st Ave." } });
 
   // A throwaway post that gets deleted.
-  const doomed = await svc.create({ type: "post", author: "carol", content: { body: "duplicate — will delete" } });
+  const doomed = await svc.create({ type: "post", author: "carol", content: { title: "Test post", body: "duplicate — will delete" } });
   await svc.delete({ entityId: doomed.entityId, author: "carol" });
 
   // ── Report ────────────────────────────────────────────────────────────────────────────

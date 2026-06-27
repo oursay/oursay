@@ -40,7 +40,7 @@ describe("11 settlement cadence: count/age triggers, per-target publish cadence,
 
   async function makePosts(svc: RecordService, n: number): Promise<void> {
     for (let i = 0; i < n; i++) {
-      await svc.create({ type: "post", author: "alice", content: { body: `c-${i}` } });
+      await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: `c-${i}` } });
     }
   }
 
@@ -122,8 +122,8 @@ describe("11 settlement cadence: count/age triggers, per-target publish cadence,
     const a = await freshChainWorld(cadenceCfg);
     const b = await freshChainWorld(cadenceCfg);
 
-    const aPosts = await Promise.all([0, 1, 2].map(() => a.svc.create({ type: "post", author: "alice", content: { body: "a" } })));
-    const bPosts = await Promise.all([0, 1].map(() => b.svc.create({ type: "post", author: "bob", content: { body: "b" } })));
+    const aPosts = await Promise.all([0, 1, 2].map(() => a.svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "a" } })));
+    const bPosts = await Promise.all([0, 1].map(() => b.svc.create({ type: "post", author: "bob", content: { title: "Test post", body: "b" } })));
 
     // Settle chain A only.
     const aHeaders = await a.settler.flushPendingSettlement();

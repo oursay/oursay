@@ -89,7 +89,7 @@ describe("03 secure-store: PRF-unavailable fallback master (non-extractable AES 
     const master = await new WebCryptoMasterStore(new MemoryKeyStore()).getOrCreate("user-1");
     const session = new IdentitySession(sessionFromMaster(master, "user-1", "device-A"));
     const t: ThreadRef = { threadId: "thread-1", jurisdiction: "ab-ca-gov" };
-    const intent: Intent = { op: "create", type: "post", entityId: "thread-1", content: { body: "hi" } };
+    const intent: Intent = { op: "create", type: "post", entityId: "thread-1", content: { title: "Test post", body: "hi" } };
     const prep: PreparedAppend = { prevHash: null, rootEntityId: "thread-1" };
 
     // simulate first-device join: signer becomes Pₜ

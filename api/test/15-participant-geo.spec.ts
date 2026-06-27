@@ -116,7 +116,7 @@ describe("15 participant-geo: civic participant → private point → district r
 
   it("resolves a posting participant (authorPubkey/Pₜ, no nullifier) to their seeded riding", async () => {
     const m = await enrolledMember(w, "pg-edm@example.com", "edm");
-    await m.client.createPost(m.t, { body: "hello edmonton" });
+    await m.client.createPost(m.t, { title: "Test post", body: "hello edmonton" });
     await seedPoint(w, m.userId, EDMONTON_LEGISLATURE);
 
     const geo = await w.services.participantGeoService.resolveParticipant(
@@ -131,7 +131,7 @@ describe("15 participant-geo: civic participant → private point → district r
 
   it("resolves a second participant in a different riding to a different district", async () => {
     const m = await enrolledMember(w, "pg-cal@example.com", "cal");
-    await m.client.createPost(m.t, { body: "hello calgary" });
+    await m.client.createPost(m.t, { title: "Test post", body: "hello calgary" });
     await seedPoint(w, m.userId, CALGARY_CITY_HALL);
 
     const geo = await w.services.participantGeoService.resolveParticipant(
@@ -171,7 +171,7 @@ describe("15 participant-geo: civic participant → private point → district r
 
   it("a participant with no geocode row resolves to hasPoint:false (out-of-area, not an error)", async () => {
     const m = await enrolledMember(w, "pg-nopoint@example.com", "nopoint");
-    await m.client.createPost(m.t, { body: "no address on file" });
+    await m.client.createPost(m.t, { title: "Test post", body: "no address on file" });
 
     const geo = await w.services.participantGeoService.resolveParticipant(
       { authorPubkey: m.sess.personaPubkey(m.t) },
@@ -219,14 +219,14 @@ describe("15 participant-geo: civic participant → private point → district r
     expect(region, "impacted-region compiles to a Region").to.not.equal(null);
 
     const inside = await enrolledMember(w, "pg-region-in@example.com", "region-in");
-    await inside.client.createPost(inside.t, { body: "from inside the riding" });
+    await inside.client.createPost(inside.t, { title: "Test post", body: "from inside the riding" });
     await seedPoint(w, inside.userId, EDMONTON_LEGISLATURE);
     expect(await w.services.participantGeoService.participantInRegion(
       { authorPubkey: inside.sess.personaPubkey(inside.t) }, region!,
     )).to.equal(true);
 
     const outside = await enrolledMember(w, "pg-region-out@example.com", "region-out");
-    await outside.client.createPost(outside.t, { body: "from another riding" });
+    await outside.client.createPost(outside.t, { title: "Test post", body: "from another riding" });
     await seedPoint(w, outside.userId, CALGARY_CITY_HALL);
     expect(await w.services.participantGeoService.participantInRegion(
       { authorPubkey: outside.sess.personaPubkey(outside.t) }, region!,
@@ -243,7 +243,7 @@ describe("15 participant-geo: civic participant → private point → district r
 
     // Linked participant but no cached point ⇒ false.
     const m = await enrolledMember(w, "pg-region-nopoint@example.com", "region-nopoint");
-    await m.client.createPost(m.t, { body: "no address on file" });
+    await m.client.createPost(m.t, { title: "Test post", body: "no address on file" });
     expect(await w.services.participantGeoService.participantInRegion(
       { authorPubkey: m.sess.personaPubkey(m.t) }, region!,
     )).to.equal(false);

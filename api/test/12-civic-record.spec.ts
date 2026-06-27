@@ -90,18 +90,31 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
     const m = await enrolledMember(w, "civic-record@example.com", "golden");
 
     // One SDK call orchestrates prepare → WebAuthn-sign → submit.
-    const ref = await m.client.createPost(m.t, { body: "hello alberta" });
+    const ref = await m.client.createPost(m.t, { title: "Test post", body: "hello alberta" });
     expect(ref.entityId).to.equal(m.threadId);
 
     const head = await w.services.recordStore.getHeadTx(m.threadId);
     expect(head, "pooled head tx").to.not.equal(undefined);
     expect(head!.op).to.equal("create");
-    expect(head!.content).to.deep.equal({ body: "hello alberta" });
+    expect(head!.content).to.deep.equal({ title: "Test post", body: "hello alberta" });
     // authorPubkey on the appended row is Pₜ (= the session's persona for this thread).
     expect(head!.authorPubkey).to.equal(m.sess.personaPubkey(m.t));
 
     const pool = await w.services.recordStore.getPendingPoolStats(JURISDICTION);
     expect(pool.count).to.be.greaterThan(0);
+  });
+
+  it("rejects a post create with a missing or over-length title at prepare (400)", async () => {
+    const m = await enrolledMember(w, "civic-content@example.com", "content");
+    const author = m.sess.personaPubkey(m.t);
+    const prepare = (intent: Intent) =>
+      w.app.inject({ method: "POST", url: "/v1/civic/appends/prepare", headers: bearer(m.token), payload: { author, intent } });
+
+    const noTitle: Intent = { op: "create", type: "post", entityId: m.threadId, content: { body: "no title" } };
+    const longTitle: Intent = { op: "create", type: "post", entityId: m.threadId, content: { title: "x".repeat(201) } };
+
+    expect((await prepare(noTitle)).statusCode).to.equal(400);
+    expect((await prepare(longTitle)).statusCode).to.equal(400);
   });
 
   it("join returns 200 + { personaPubkey } (not 204) and the canonical Pₜ", async () => {
@@ -134,27 +147,27 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
 
   it("cross-device edit (HTTP path): device B updates device A's post (201)", async () => {
     const m = await enrolledMember(w, "civic-xdev@example.com", "xdev");
-    const ref = await m.client.createPost(m.t, { body: "v1 from A" });
+    const ref = await m.client.createPost(m.t, { title: "Test post", body: "v1 from A" });
     expect(ref.entityId).to.equal(m.threadId);
 
     const sessB = await enrolledSecondDevice(w, m, "xdev", "B");
-    const refB = await sessB.client.append(m.t, { op: "update", type: "post", entityId: m.threadId, content: { body: "v2 from B" } });
+    const refB = await sessB.client.append(m.t, { op: "update", type: "post", entityId: m.threadId, content: { title: "Test post", body: "v2 from B" } });
     expect(refB.entityId).to.equal(m.threadId);
     const head = await w.services.recordStore.getHeadTx(m.threadId);
-    expect(head!.content).to.deep.equal({ body: "v2 from B" });
+    expect(head!.content).to.deep.equal({ title: "Test post", body: "v2 from B" });
     expect(head!.authorPubkey).to.equal(m.sess.personaPubkey(m.t)); // still Pₜ
   });
 
   it("revoked signer is forbidden (403); a sibling signer under the same Pₜ still posts", async () => {
     const m = await enrolledMember(w, "civic-revoke@example.com", "revoke");
     const sessB = await enrolledSecondDevice(w, m, "revoke", "B");
-    await m.client.createPost(m.t, { body: "v1 from A" });
+    await m.client.createPost(m.t, { title: "Test post", body: "v1 from A" });
 
     // Revoke device A's signer credential on the server.
     const signerA = await m.sess.signingPubkey(m.t);
     await w.services.recordStore.revokeThreadCredential(signerA);
 
-    const intent: Intent = { op: "update", type: "post", entityId: m.threadId, content: { body: "v2 from A (revoked)" } };
+    const intent: Intent = { op: "update", type: "post", entityId: m.threadId, content: { title: "Test post", body: "v2 from A (revoked)" } };
     const prep = await w.app.inject({ method: "POST", url: "/v1/civic/appends/prepare", headers: bearer(m.token), payload: { author: m.sess.personaPubkey(m.t), intent } });
     expect(prep.statusCode).to.equal(200);
     const signed = await m.sess.buildSigned(m.t, prep.json() as never, intent);
@@ -162,13 +175,13 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
     expect(res.statusCode).to.equal(403);
 
     // Device B (not revoked) can still edit under the same Pₜ.
-    const refB = await sessB.client.append(m.t, { op: "update", type: "post", entityId: m.threadId, content: { body: "v2 from B" } });
+    const refB = await sessB.client.append(m.t, { op: "update", type: "post", entityId: m.threadId, content: { title: "Test post", body: "v2 from B" } });
     expect(refB.entityId).to.equal(m.threadId);
   });
 
   it("supports a comment under a post (attachment with server-derived parent fields)", async () => {
     const m = await enrolledMember(w, "civic-comment@example.com", "comment");
-    await m.client.createPost(m.t, { body: "root" });
+    await m.client.createPost(m.t, { title: "Test post", body: "root" });
 
     const ref = await m.client.createComment(m.t, { type: "post", id: m.threadId }, { body: "a reply" });
     const head = await w.services.recordStore.getHeadTx(ref.entityId);
@@ -177,7 +190,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
 
   it("supports a reaction on a post (signed singleton attachment)", async () => {
     const m = await enrolledMember(w, "civic-react@example.com", "react");
-    await m.client.createPost(m.t, { body: "root" });
+    await m.client.createPost(m.t, { title: "Test post", body: "root" });
 
     const ref = await m.client.addReaction(m.t, { type: "post", id: m.threadId }, { kind: "check" });
     const head = await w.services.recordStore.getHeadTx(ref.entityId);
@@ -215,7 +228,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
   it("rejects a submission whose author persona belongs to another account (forbidden)", async () => {
     const a = await enrolledMember(w, "civic-sign-a@example.com", "sign-a");
     const b = await enrolledMember(w, "civic-sign-b@example.com", "sign-b");
-    const intent: Intent = { op: "create", type: "post", entityId: a.threadId, content: { body: "a's post" } };
+    const intent: Intent = { op: "create", type: "post", entityId: a.threadId, content: { title: "Test post", body: "a's post" } };
 
     // A prepares + WebAuthn-signs with A's session, but B submits it under B's token.
     const prep = await w.app.inject({
@@ -234,7 +247,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
   it("rejects a prepare with a non-Pₜ author pubkey (wrong author ⇒ 404)", async () => {
     const m = await enrolledMember(w, "civic-wrongauthor@example.com", "wrongauthor");
     const bogus = "02" + "f".repeat(64); // valid-shaped pubkey, not a registered Pₜ
-    const intent: Intent = { op: "create", type: "post", entityId: m.threadId, content: { body: "x" } };
+    const intent: Intent = { op: "create", type: "post", entityId: m.threadId, content: { title: "Test post", body: "x" } };
     const res = await w.app.inject({
       method: "POST", url: "/v1/civic/appends/prepare", headers: bearer(m.token),
       payload: { author: bogus, intent },
@@ -244,7 +257,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
 
   it("rejects a webauthn envelope stripped of its assertion on the verified path", async () => {
     const m = await enrolledMember(w, "civic-strip@example.com", "strip");
-    const intent: Intent = { op: "create", type: "post", entityId: m.threadId, content: { body: "v1" } };
+    const intent: Intent = { op: "create", type: "post", entityId: m.threadId, content: { title: "Test post", body: "v1" } };
     const prep = await w.app.inject({
       method: "POST", url: "/v1/civic/appends/prepare", headers: bearer(m.token),
       payload: { author: m.sess.personaPubkey(m.t), intent },
@@ -261,7 +274,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
 
   it("rejects a webauthn envelope missing signerPubkey (400)", async () => {
     const m = await enrolledMember(w, "civic-nosigner@example.com", "nosigner");
-    const intent: Intent = { op: "create", type: "post", entityId: m.threadId, content: { body: "v1" } };
+    const intent: Intent = { op: "create", type: "post", entityId: m.threadId, content: { title: "Test post", body: "v1" } };
     const prep = await w.app.inject({
       method: "POST", url: "/v1/civic/appends/prepare", headers: bearer(m.token),
       payload: { author: m.sess.personaPubkey(m.t), intent },

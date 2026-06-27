@@ -194,7 +194,7 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
 
     async function makePosts(svc: RecordService, n: number): Promise<void> {
       for (let i = 0; i < n; i++) {
-        await svc.create({ type: "post", author: "alice", content: { body: `c-${i}` } });
+        await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: `c-${i}` } });
       }
     }
     function freshTarget(): { dir: string; target: FileAnchorTarget } {

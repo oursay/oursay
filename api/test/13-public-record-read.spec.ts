@@ -93,7 +93,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
 
   it("defaults audience scope to oursay-global with empty districts for a plain post", async () => {
     const svc = seeder(w);
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "hi" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "hi" } });
     const detail = (await w.app.inject({ method: "GET", url: `/v1/public/posts/${post.entityId}` })).json() as any;
     expect(detail.audienceScope).to.deep.equal({ jurisdiction: "oursay-global", appliesToDistrictIds: [] });
   });
@@ -112,7 +112,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
 
   it("resolves a non-default jurisdiction from the thread binding", async () => {
     const svc = seeder(w);
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "hi" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "hi" } });
     const userId = randomUUID();
     await w.services.recordStore.putUser({ id: userId });
     await w.services.recordStore.registerThreadBinding({
@@ -129,8 +129,8 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
 
   it("excludes tombstoned roots from the list and total, and 404s their detail", async () => {
     const svc = seeder(w);
-    const live = await svc.create({ type: "post", author: "alice", content: { body: "live" } });
-    const gone = await svc.create({ type: "post", author: "alice", content: { body: "gone" } });
+    const live = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "live" } });
+    const gone = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "gone" } });
     await svc.delete({ entityId: gone.entityId, author: "alice" });
 
     const list = (await w.app.inject({ method: "GET", url: "/v1/public/posts" })).json() as any;
@@ -143,7 +143,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
 
   it("withholds content for a redacted root (content null, withheld true)", async () => {
     const svc = seeder(w);
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "secret" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "secret" } });
     await w.services.recordStore.redact(post.txId);
 
     const detail = (await w.app.inject({ method: "GET", url: `/v1/public/posts/${post.entityId}` })).json() as any;
@@ -153,7 +153,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
 
   it("requires no authentication", async () => {
     const svc = seeder(w);
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "open" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "open" } });
     const res = await w.app.inject({ method: "GET", url: `/v1/public/posts/${post.entityId}` }); // no Authorization header
     expect(res.statusCode).to.equal(200);
   });
@@ -176,7 +176,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
 
   it("echoes the requested tier set as an array on lists, but never resolves it (applied.tier false)", async () => {
     const svc = seeder(w);
-    await svc.create({ type: "post", author: "alice", content: { body: "hi" } });
+    await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "hi" } });
 
     // Single value coerces to a one-element array; lists parse + echo only (counts resolve tier, spec 17).
     const one = (await w.app.inject({ method: "GET", url: "/v1/public/posts?tier=identity_verified" })).json() as any;

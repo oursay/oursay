@@ -148,7 +148,7 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
     const sA = await registerSigner(u, devA, postId);
     const sB = await registerSigner(u, devB, postId);
 
-    await actDevice(u, sA, persona, { type: "post", entityId: postId, content: { body: "p" } });
+    await actDevice(u, sA, persona, { type: "post", entityId: postId, content: { title: "Test post", body: "p" } });
     const c1 = randomUUID();
     await actDevice(u, sA, persona, { type: "comment", entityId: c1, parent: { type: "post", id: postId }, content: { body: "v1 from phone A" } });
 
@@ -175,7 +175,7 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
     const persona = await registerThread(u, postId);
     const devA = await enrollDevice(u);
     const sA = await registerSigner(u, devA, postId);
-    await actDevice(u, sA, persona, { type: "post", entityId: postId, content: { body: "p" } });
+    await actDevice(u, sA, persona, { type: "post", entityId: postId, content: { title: "Test post", body: "p" } });
 
     // a signer that was derived but never registered ⇒ rejected
     const devGhost = await enrollDevice(u);
@@ -201,9 +201,9 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
     const personaY = await registerThread(u, postY);
     const dev = await enrollDevice(u);
     const sX = await registerSigner(u, dev, postX); // scoped to thread X only
-    await actDevice(u, sX, personaX, { type: "post", entityId: postX, content: { body: "x" } });
+    await actDevice(u, sX, personaX, { type: "post", entityId: postX, content: { title: "Test post", body: "x" } });
     const sYsigner = await registerSigner(u, dev, postY);
-    await actDevice(u, sYsigner, personaY, { type: "post", entityId: postY, content: { body: "y" } });
+    await actDevice(u, sYsigner, personaY, { type: "post", entityId: postY, content: { title: "Test post", body: "y" } });
 
     // use thread-X's signer to sign on thread Y (author = personaY) ⇒ thread mismatch ⇒ rejected
     expect(await rejects(actDevice(u, sX, personaY, { type: "comment", entityId: randomUUID(), parent: { type: "post", id: postY }, content: { body: "wrong-thread" } }))).to.equal(true);
@@ -221,7 +221,7 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
     const persona = await registerThread(u, postId);
     const dev = await enrollDevice(u);
     const s = await registerSigner(u, dev, postId);
-    expect(await rejects(actDevice(u, s, persona, { type: "post", entityId: postId, content: { body: "p" }, proof: "deadbeef".repeat(8) }))).to.equal(true);
+    expect(await rejects(actDevice(u, s, persona, { type: "post", entityId: postId, content: { title: "Test post", body: "p" }, proof: "deadbeef".repeat(8) }))).to.equal(true);
   });
 
   it("requireDeviceSigner: a gated service rejects a persona-signed envelope with no device signer", async () => {

@@ -9,8 +9,8 @@ import { getWorld, settleAll } from "./helpers/world.js";
 describe("06 chain: verification, tamper detection, erasure", () => {
   it("verifies an entity's full create→update history (chain + immudb agree)", async () => {
     const { svc, store, connector } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "v1" } });
-    await svc.update({ entityId: post.entityId, author: "alice", content: { body: "v2" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "v1" } });
+    await svc.update({ entityId: post.entityId, author: "alice", content: { title: "Test post", body: "v2" } });
     await settleAll(); // commitments reach immudb only at settlement
 
     const report = await verifyEntityChain(store, connector, post.entityId);
@@ -21,7 +21,7 @@ describe("06 chain: verification, tamper detection, erasure", () => {
 
   it("detects tampering with raw content in the mutable store", async () => {
     const { svc, store, connector } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "honest" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "honest" } });
     await settleAll(); // commit the honest envelope to the chain before tampering Postgres
 
     // Tamper: rewrite the raw content in Postgres WITHOUT a new transaction / new commitment.
@@ -37,8 +37,8 @@ describe("06 chain: verification, tamper detection, erasure", () => {
 
   it("still verifies after true erasure (plaintext gone, chain intact on hashes alone)", async () => {
     const { svc, store, connector } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "to be erased" } });
-    await svc.update({ entityId: post.entityId, author: "alice", content: { body: "second revision" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "to be erased" } });
+    await svc.update({ entityId: post.entityId, author: "alice", content: { title: "Test post", body: "second revision" } });
     await settleAll(); // commit both revisions to the chain before erasing the plaintext
 
     await store.erase(post.txId); // destroy the first revision's plaintext + salt

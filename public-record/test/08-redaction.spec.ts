@@ -12,7 +12,7 @@ import { getWorld, settleAll } from "./helpers/world.js";
 describe("08 redaction & erasure: withhold from responses, retain or destroy the raw", () => {
   it("redaction: content withheld from public responses, retained internally, chain intact", async () => {
     const { svc, store, connector } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "root" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "root" } });
     const comment = await svc.create({
       type: "comment",
       author: "bob",
@@ -49,7 +49,7 @@ describe("08 redaction & erasure: withhold from responses, retain or destroy the
 
   it("erasure: raw content destroyed; the chain still verifies on hashes alone", async () => {
     const { svc, store, connector } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "root2" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "root2" } });
     const comment = await svc.create({
       type: "comment",
       author: "bob",

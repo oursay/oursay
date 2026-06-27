@@ -83,7 +83,7 @@ const { personaPubkey } = await registry.joinThread({
 });
 session.rememberPersona(thread, personaPubkey); // = authorPubkey on every envelope from this session
 // create a post: prepare → WebAuthn-sign (a user-verifying assertion) → submit
-const intent = { op: "create", type: "post", entityId: postId, content: { body: "hello" } };
+const intent = { op: "create", type: "post", entityId: postId, content: { title: "Hello", body: "hello" } };
 const prep = await registry.prepare(intent, await session.authorPubkey(thread));
 await registry.submit(await session.buildSigned(thread, prep, intent));
 ```
@@ -106,7 +106,7 @@ const thread = { threadId: postId, jurisdiction: "ab-ca-gov" };
 
 // one call: join thread (registers this device's signer under Pₜ; persists Pₜ on the session)
 //           → prepare → WebAuthn-sign (authorPubkey=Pₜ, signerPubkey=device) → submit
-const ref = await client.createPost(thread, { body: "hello" });
+const ref = await client.createPost(thread, { title: "Hello", body: "hello" });
 // advanced: client.joinThread (→ { personaPubkey: Pₜ }) / client.prepare / session.buildSigned /
 //           client.submit / session.rememberPersona are all exposed
 ```

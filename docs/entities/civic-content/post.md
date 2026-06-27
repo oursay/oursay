@@ -101,6 +101,6 @@ Posts do not expire unless archived by administrator.
 
 ## Gaps
 
-- **Field model drift** — `PostContent` today is `{ title?: string; body: string }` (body required, title optional, no max lengths) in `public-record/src/schema/types.ts`. Target is `title` **required** (≤200), `body` **optional** (≤2000), enforced via `JurisdictionConfig.contentLimits`. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-post-content-fields]`.
+- **Field model drift (RESOLVED 2026-06-27)** — `PostContent` is now `{ title: string; body?: string }` in `public-record/src/schema/types.ts`: `title` **required** (≤200), `body` **optional** (≤2000), enforced at create *and* update by `validateContent` (`public-record/src/schema/content.ts`) against the jurisdiction's `JurisdictionConfig.contentLimits` (falling back to `DEFAULT_CONTENT_LIMITS`). *History:* it was previously `{ title?: string; body: string }` (body required, title optional, no max lengths). Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-post-content-fields]`.
 - Category/tags linking not fully specified in schema — product extension on content JSON.
 - Action-time geo/tier snapshots for historical counts ([mvp-c4-action-snapshots]).

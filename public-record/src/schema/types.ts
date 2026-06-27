@@ -136,8 +136,8 @@ export function parentAllowed(childType: RecordType, parentType: RecordType): bo
 // ── Content shapes (guidance; stored as JSONB) ──────────────────────────────────────────
 
 export interface PostContent {
-  title?: string;
-  body: string;
+  title: string;
+  body?: string;
 }
 export interface CommentContent {
   body: string;

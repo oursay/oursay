@@ -319,7 +319,7 @@ describe("17 public-record counts: KYC tier resolution (set membership) + combin
     disableKAnon();
     const t = freshThread();
     const author = await joinMember(w, "ct-post-author@example.com", "post-author", t);
-    await author.client.createPost(t, { body: "open belief" });
+    await author.client.createPost(t, { title: "Test post", body: "open belief" });
     const parent = { type: "post" as const, id: t.threadId };
 
     const rId = await joinMember(w, "ct-post-id@example.com", "post-id", t);

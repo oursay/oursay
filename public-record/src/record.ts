@@ -3,6 +3,7 @@ import { canonicalJson, contentCommitment, newSalt } from "./crypto/commitment.j
 import { identityConfig } from "./config.js";
 import { canRevokeSignature, canChangeVote } from "./governance.js";
 import { requiredSignScheme } from "./jurisdiction.js";
+import { validateContent } from "./schema/content.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
 import { platformPublicKey, signNullifierAttestation, verifyCredentialAuth } from "./identity/platform-binding.js";
@@ -144,7 +145,7 @@ export class RecordService {
     if (!input.entityId) throw new Error("prepareAppend: update/delete requires entityId");
     const v =
       input.op === "update"
-        ? await this.validateUpdate(input.entityId, input.author)
+        ? await this.validateUpdate(input.entityId, input.author, input.content)
         : await this.validateDelete(input.entityId, input.author);
     return {
       prevHash: v.head.txHash,
@@ -318,7 +319,7 @@ export class RecordService {
       // author-match (proven by the signature over authorPubkey) + governance + op rules.
       const v =
         envelope.op === "update"
-          ? await this.validateUpdate(envelope.entityId, envelope.authorPubkey)
+          ? await this.validateUpdate(envelope.entityId, envelope.authorPubkey, content)
           : await this.validateDelete(envelope.entityId, envelope.authorPubkey);
       if (tk.threadId !== v.rootEntityId) {
         throw new Error("appendSigned: thread key is not scoped to this action's root entity");
@@ -361,6 +362,7 @@ export class RecordService {
     entityId: string;
   }): Promise<{ parentRevisionHash?: string; parentRevisionTxId?: string; rootEntityId: string; isSingleton: boolean }> {
     if (!opAllowed(i.type, "create")) throw new Error(`create not allowed for ${i.type}`);
+    validateContent(i.type, "create", i.content);
     let parentRevisionHash: string | undefined;
     let parentRevisionTxId: string | undefined;
     let rootEntityId = i.entityId;
@@ -415,12 +417,16 @@ export class RecordService {
   /** Validate an UPDATE against the entity's head (shared by the unsigned + signed paths). `actor`
    *  is the claimed author (unsigned) or the signed `authorPubkey` (signed, where the signature
    *  PROVES control). Throws on any rule violation; returns the head + the root entity. */
-  private async validateUpdate(entityId: string, actor: string): Promise<{ head: StoredTx; rootEntityId: string }> {
+  private async validateUpdate(entityId: string, actor: string, content?: unknown): Promise<{ head: StoredTx; rootEntityId: string }> {
     const head = await this.store.getHeadTx(entityId);
     if (!head) throw new Error(`entity ${entityId} not found`);
     if (head.op === "delete") throw new Error(`entity ${entityId} is deleted`);
     if (!opAllowed(head.type, "update")) throw new Error(`update not allowed for ${head.type}`);
     this.assertAuthor(head.authorPubkey, actor, entityId);
+    // Content-model + length caps on edits (the type is known only after we fetch the head). Skipped
+    // when no content is supplied (e.g. a prepare that only wants prevHash); the authoritative
+    // appendSigned/update() paths always pass it.
+    if (content !== undefined) validateContent(head.type, "update", content);
     if (head.type === "vote") {
       if (!head.parentId) throw new Error("vote has no parent poll");
       if (!(await canChangeVote(this.store, head.parentId))) {
@@ -492,7 +498,7 @@ export class RecordService {
     createdAt?: string;
     signature?: string;
   }): Promise<Ref> {
-    const { head } = await this.validateUpdate(input.entityId, input.author);
+    const { head } = await this.validateUpdate(input.entityId, input.author, input.content);
     return this.append({
       type: head.type,
       entityId: input.entityId,

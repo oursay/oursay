@@ -8,7 +8,7 @@ import { getWorld, settleAll } from "./helpers/world.js";
 describe("01 create: roots — commitments on the chain, content in Postgres", () => {
   it("creates a post; immudb stores no plaintext, Postgres stores the content", async () => {
     const { svc, store, connector } = await getWorld();
-    const ref = await svc.create({ type: "post", author: "alice", content: { body: "secret civic text" } });
+    const ref = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "secret civic text" } });
     await settleAll(); // pooled on append; reaches immudb only at settlement
 
     const envelope = await connector.getEnvelope(ref.txId);
@@ -24,7 +24,7 @@ describe("01 create: roots — commitments on the chain, content in Postgres", (
 
   it("verifies the committed row server-side via immudb_verify_row()", async () => {
     const { svc, connector } = await getWorld();
-    const ref = await svc.create({ type: "post", author: "bob", content: { body: "verify me" } });
+    const ref = await svc.create({ type: "post", author: "bob", content: { title: "Test post", body: "verify me" } });
     await settleAll();
     const v = await connector.verifyRow(ref.txId);
     expect(v.verified, "immudb_verify_row reports verified").to.equal(true);

@@ -113,6 +113,7 @@ export {
   opAllowed,
   parentAllowed,
 } from "./schema/types.js";
+export { validateContent } from "./schema/content.js";
 export type {
   RecordType,
   Op,
