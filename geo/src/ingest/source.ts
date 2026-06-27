@@ -35,10 +35,10 @@ export interface IngestResult {
   count: number;
 }
 
-/** Slug a district name into a year-less logical-riding key: strip diacritics, lowercase, collapse
+/** Slug a district name into a year-less logical-seat key: strip diacritics, lowercase, collapse
  *  non-alphanumerics to single dashes. "Lac Ste. Anne-Parkland" → "lac-ste-anne-parkland". */
 const COMBINING_MARKS = new RegExp("[\\u0300-\\u036f]", "g"); // accents after NFD decomposition
-export function ridingSlug(name: string): string {
+export function districtSlug(name: string): string {
   return name
     .normalize("NFD")
     .replace(COMBINING_MARKS, "")
@@ -48,21 +48,21 @@ export function ridingSlug(name: string): string {
 }
 
 /**
- * Ingest every district from a source. For each, computes the riding slug, allocates a stable revision
+ * Ingest every district from a source. For each, computes the district slug, allocates a stable revision
  * id (`{slug}-{year}`, with a `-{n}` suffix when a different boundary set already exists for the same
- * riding+year), and upserts (reproject + normalize to MultiPolygon happen in PostGIS). Re-ingesting the
+ * seat+year), and upserts (reproject + normalize to MultiPolygon happen in PostGIS). Re-ingesting the
  * same set (same effective_date) reuses the same id → idempotent overwrite.
  */
 export async function ingestBoundaries(store: GeoStore, source: BoundarySource): Promise<IngestResult> {
   let count = 0;
   for await (const raw of source.read()) {
-    const slug = ridingSlug(raw.name);
+    const slug = districtSlug(raw.name);
     const id = await allocateRevisionId(store, source, slug);
     const upsert: DistrictUpsert = {
       id,
       jurisdictionId: source.jurisdictionId,
       name: raw.name,
-      ridingSlug: slug,
+      districtSlug: slug,
       effectiveDate: source.effectiveDate,
       drawnDate: source.drawnDate ?? null,
       boundaryYear: source.boundaryYear,
@@ -82,7 +82,7 @@ export async function ingestBoundaries(store: GeoStore, source: BoundarySource):
   };
 }
 
-/** Pick the revision id for this riding+year+effectiveDate: reuse the existing id for the same
+/** Pick the revision id for this seat+year+effectiveDate: reuse the existing id for the same
  *  effective_date (idempotent re-ingest), else the next free `{slug}-{year}[-n]`. */
 async function allocateRevisionId(store: GeoStore, source: BoundarySource, slug: string): Promise<string> {
   const existing = await store.existingRevisions(source.jurisdictionId, slug, source.boundaryYear);

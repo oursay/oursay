@@ -3,10 +3,10 @@
 Deferred design intent for the `partitioning/` entities (jurisdiction, district, region, entity-rules). Not shipped.
 
 ## Thread audience model
-Target `EntityRules` audience axes, replacing the raw `appliesToDistrictIds` array:
-- **`appliesToRegion`** — `jurisdiction` / `riding:<riding_slug>` / `district:<revisionId>` / `region:<presetId>` / And-Or-Not unions.
+Remaining `EntityRules` audience axis (the raw `appliesToDistrictIds` array is now a deprecated alias):
+- **`appliesToRegion`** — *shipped*: a `RegionRef` — `jurisdiction` / `district:<district_slug>` (stable seat) / `revision:<revisionId>` (pinned version) / `region:<presetId>` / `{op:and|or|not, refs}` unions.
 - **`appliesToVerified`** — minimum KYC tier **set** counting toward stake/official totals.
-→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-applies-to-region]`, `[code-applies-to-verified]`.
+→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-applies-to-verified]`.
 
 ## entity_audience materialized projection
 A materialized **`entity_audience`** projection mapping each root entity to its resolved region(s) for fast district-page listing ("show every thread that applies to this riding"). Today audience is read from entity rules at query time.

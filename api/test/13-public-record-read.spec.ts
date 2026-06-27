@@ -91,14 +91,26 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
     expect(counts.countGating).to.equal("none");
   });
 
-  it("defaults audience scope to oursay-global with empty districts for a plain post", async () => {
+  it("defaults audience scope to oursay-global with a null region (whole jurisdiction) for a plain post", async () => {
     const svc = seeder(w);
     const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "hi" } });
     const detail = (await w.app.inject({ method: "GET", url: `/v1/public/posts/${post.entityId}` })).json() as any;
-    expect(detail.audienceScope).to.deep.equal({ jurisdiction: "oursay-global", appliesToDistrictIds: [] });
+    expect(detail.audienceScope).to.deep.equal({ jurisdiction: "oursay-global", appliesToRegion: null });
   });
 
-  it("surfaces appliesToDistrictIds from a poll's governance rules", async () => {
+  it("surfaces appliesToRegion from a poll's governance rules", async () => {
+    const svc = seeder(w);
+    const ref = { op: "or", refs: ["district:edmonton-strathcona"] };
+    const poll = await svc.create({
+      type: "poll",
+      author: "alice",
+      content: { question: "q?", options: ["yes", "no"], rules: { appliesToRegion: ref } },
+    });
+    const detail = (await w.app.inject({ method: "GET", url: `/v1/public/polls/${poll.entityId}` })).json() as any;
+    expect(detail.audienceScope.appliesToRegion).to.deep.equal(ref);
+  });
+
+  it("maps a legacy appliesToDistrictIds stake to an OR-of-revisions appliesToRegion", async () => {
     const svc = seeder(w);
     const districts = ["edmonton-strathcona-2026"];
     const poll = await svc.create({
@@ -107,7 +119,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
       content: { question: "q?", options: ["yes", "no"], rules: { appliesToDistrictIds: districts } },
     });
     const detail = (await w.app.inject({ method: "GET", url: `/v1/public/polls/${poll.entityId}` })).json() as any;
-    expect(detail.audienceScope.appliesToDistrictIds).to.deep.equal(districts);
+    expect(detail.audienceScope.appliesToRegion).to.deep.equal({ op: "or", refs: ["revision:edmonton-strathcona-2026"] });
   });
 
   it("resolves a non-default jurisdiction from the thread binding", async () => {

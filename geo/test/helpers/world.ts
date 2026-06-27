@@ -19,7 +19,7 @@ export const ALBERTA_2019_SHP = join(
   "EDS_ENACTED_BILL33_15DEC2017.shp",
 );
 
-/** Known lon/lat points (EPSG:4326) and the 2019 riding revision ids that contain them. */
+/** Known lon/lat points (EPSG:4326) and the 2019 district revision ids that contain them. */
 export const EDMONTON_LEGISLATURE = { lon: -113.5065, lat: 53.5333 }; // → Edmonton-City Centre
 export const CALGARY_CITY_HALL = { lon: -114.056, lat: 51.0451 }; // → Calgary-Buffalo
 export const TORONTO = { lon: -79.3832, lat: 43.6532 }; // outside Alberta

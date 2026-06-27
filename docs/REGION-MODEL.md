@@ -23,13 +23,14 @@ only **custom presets** are persisted (`geo.regions`). Containment is a single P
 EPSG:4326; source boundaries are reprojected on ingest (`ST_Transform`).
 
 > **Term & migration note.** The term **Region** is retained. A thread declares its geographic stake
-> through **`appliesToRegion`** (a RegionRef — `jurisdiction` / `riding:<riding_slug>` /
-> `district:<revisionId>` / `region:<presetId>` / And-Or-Not unions), **not** a raw district-id array on
-> the public surface. The code seam below still reads `EntityRules.appliesToDistrictIds` today; the
-> `appliesToRegion` migration is tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` (`[code-applies-to-region]`).
-> Stable district pages key off the year-less **`riding_slug`**; revision slugs (`id`) address a specific
-> boundary version for history. A region is, in theory, multi-jurisdiction-capable, but discussions stay
-> jurisdiction-scoped for now — the cross-jurisdiction path is future
+> through **`appliesToRegion`** (a RegionRef — `"jurisdiction"` / `"district:<district_slug>"` /
+> `"revision:<revisionId>"` / `"region:<presetId>"` / `{op:"and"|"or"|"not", refs}` unions), **not** a raw
+> district-id array on the public surface. The code seam below reads `EntityRules.appliesToRegion`
+> (`RegionResolver.resolveRegionRef`); `EntityRules.appliesToDistrictIds` remains a **deprecated alias**,
+> mapped internally to an OR-of-revisions RegionRef. Stable district pages key off the year-less
+> **`district_slug`** (`"district:<district_slug>"`); revision ids (`id`) address a specific boundary
+> version for history (`"revision:<revisionId>"`). A region is, in theory, multi-jurisdiction-capable, but
+> discussions stay jurisdiction-scoped for now — the cross-jurisdiction path is future
 > ([`entities/partitioning/future.md`](entities/partitioning/future.md)).
 
 ## Boundaries are effective-dated, not year-keyed
@@ -41,11 +42,11 @@ EPSG:4326; source boundaries are reprojected on ingest (`ST_Transform`).
 - **`effective_date`** (required) — the first day this geometry is in force. **This is the lookup key.**
 - **`drawn_date`** (optional) — when the map was drawn/enacted, if known (e.g. Alberta Bill-33, 2017‑12‑15).
 - **`boundary_year`** — slug/display only, derived from `effective_date`.
-- **`riding_slug`** — year-less logical-riding key, so revisions of the same seat group across redraws.
+- **`district_slug`** — year-less logical-seat key, so revisions of the same seat group across redraws.
 
 **`asOf` resolution.** `forJurisdiction(jurisdictionId, asOf)` selects districts with
-`effective_date <= asOf`, then **one revision per `riding_slug`** by the tie-break **latest
-`effective_date`** (`DISTINCT ON (riding_slug) … ORDER BY effective_date DESC`). So a redraw is just a
+`effective_date <= asOf`, then **one revision per `district_slug`** by the tie-break **latest
+`effective_date`** (`DISTINCT ON (district_slug) … ORDER BY effective_date DESC`). So a redraw is just a
 new revision with a later `effective_date`; queries before/after it resolve to the older/newer geometry
 automatically. Reproducibility = address + action timestamp + effective-dated boundaries (not a frozen
 assignment row, not the year label).
@@ -63,18 +64,19 @@ endpoints.)
 | `GeoScope` | compiles to |
 |---|---|
 | `jurisdiction` | `forJurisdiction(jurisdictionId, asOf)` |
-| `impacted-region` | `fromDistrictUnion(appliesToDistrictIds)`; empty ⇒ whole jurisdiction at `asOf` |
+| `impacted-region` | `resolveRegionRef(appliesToRegion)`; absent ⇒ whole jurisdiction at `asOf` (a legacy `appliesToDistrictIds` stake maps to an OR-of-revisions RegionRef) |
 | `my-district` | the **authenticated** viewer's district, or `null` (inert — no viewer identity on public routes) |
 | `all-public` | `null` (no geo filter) |
 
 The count path passes **`asOf = now`** (current-point mode pairs with the current boundary set);
-`impacted-region` uses the entity's explicit `appliesToDistrictIds`, so its result is asOf-independent.
-`compileScope` accepts an optional **`asOf`** (entity creation time, poll open, …) for later modes.
-**Which instant binds is future jurisdictional config:** a deployment will
-choose creation-time vs resolution-time vs an advertised count-snapshot instant for public consumption;
-the platform may filter at either point, and a snapshot is **advertisement only** (the signed record is
-unchanged). `EntityRules.appliesToDistrictIds` ([governance](../public-record/src/governance.ts))
-compiles to an implicit `district_union` (impacted-region scope).
+`impacted-region` resolves the entity's `appliesToRegion`. A `"revision:<id>"` (or legacy
+`appliesToDistrictIds`) stake is asOf-independent; a `"district:<district_slug>"` stable-seat ref resolves
+to the revision in force at `asOf`. `resolveRegionRef`/`compileScope` accept an **`asOf`** (entity
+creation time, poll open, …) for later modes. **Which instant binds is future jurisdictional config:** a
+deployment will choose creation-time vs resolution-time vs an advertised count-snapshot instant for public
+consumption; the platform may filter at either point, and a snapshot is **advertisement only** (the signed
+record is unchanged). `EntityRules.appliesToRegion` ([governance](../public-record/src/governance.ts))
+compiles to a `Region` (a `district_union` for a pure OR of districts; a `composite` for and/not).
 
 Privacy ([06 §2–3](06-PRIVACY-REVIEW.md)): public geography stays **coarse**. The protected risk is
 **user points and fine-grained slicing**, not official electoral boundaries. Concretely:
@@ -119,9 +121,10 @@ with geo).
 - **Input: a discussion (root entity) id only.** The caller never supplies a user id or a district;
   there is no "who is in district D" surface to query.
 - **Region:** derive the entity's geographic scope from its own governance rules —
-  `RegionResolver.compileScope("impacted-region", { jurisdictionId, appliesToDistrictIds })` where
-  `appliesToDistrictIds` comes from `EntityRules` (empty ⇒ whole jurisdiction at `asOf`). This is the
-  `fromDistrictUnion` path; the result is one `Region`.
+  `RegionResolver.compileScope({ scope: "impacted-region", jurisdictionId, appliesToRegion })` where
+  `appliesToRegion` (a RegionRef) comes from `EntityRules` (absent ⇒ whole jurisdiction at `asOf`;
+  a legacy `appliesToDistrictIds` stake is mapped to an OR-of-revisions RegionRef). The result is one
+  `Region` (district / union / jurisdiction / custom / composite).
 - **Participants:** the `authorPubkey` / `nullifier` of the comments, reactions, votes, and signatures
   **in that thread**. Resolve each to a private point with `ParticipantGeoService` and test membership
   with **`participantInRegion(ref, region)`** → `region.contains(point)`. Count code branches on the

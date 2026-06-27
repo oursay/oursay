@@ -58,11 +58,13 @@ async function main(): Promise<void> {
   await svc.sign("dave", petition.entityId);
   await svc.revoke("dave", petition.entityId);
 
-  // A poll that permits changing a vote before close.
+  // A poll that permits changing a vote before close. Its geographic stake uses the canonical
+  // appliesToRegion RegionRef (the stable district slug) — the petition above keeps the deprecated
+  // appliesToDistrictIds alias, so the seed exercises both forms.
   const poll = await svc.create({
     type: "poll",
     author: "alice",
-    content: { question: "Should Main St. get bike lanes?", options: ["yes", "no", "abstain"], rules: { appliesToDistrictIds: ["edmonton-ward-3-2026"], allowChange: true, deadline: isoFromNow(3 * 24 * 3600_000) } },
+    content: { question: "Should Main St. get bike lanes?", options: ["yes", "no", "abstain"], rules: { appliesToRegion: "district:edmonton-ward-3", allowChange: true, deadline: isoFromNow(3 * 24 * 3600_000) } },
   });
   await svc.vote("bob", poll.entityId, "yes");
   await svc.vote("carol", poll.entityId, "no");

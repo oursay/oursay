@@ -1984,15 +1984,18 @@ paths:
                             jurisdiction:
                               type: string
                               description: Jurisdiction id (default oursay-global when no persona is bound).
-                            appliesToDistrictIds:
-                              type: array
-                              items:
-                                type: string
-                              description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
-                                jurisdiction.
+                            appliesToRegion:
+                              nullable: true
+                              description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                                | "district:<district_slug>" |
+                                "revision:<revisionId>" | "region:<presetId>")
+                                or an { op: "and"|"or"|"not", refs: RegionRef[]
+                                } union. Null ⇒ whole jurisdiction. (A legacy
+                                appliesToDistrictIds stake is surfaced here as
+                                an OR of revisions.)'
                           required:
                             - jurisdiction
-                            - appliesToDistrictIds
+                            - appliesToRegion
                         reactions:
                           type: array
                           items:
@@ -2181,15 +2184,17 @@ paths:
                       jurisdiction:
                         type: string
                         description: Jurisdiction id (default oursay-global when no persona is bound).
-                      appliesToDistrictIds:
-                        type: array
-                        items:
-                          type: string
-                        description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
-                          jurisdiction.
+                      appliesToRegion:
+                        nullable: true
+                        description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                          | "district:<district_slug>" | "revision:<revisionId>"
+                          | "region:<presetId>") or an { op: "and"|"or"|"not",
+                          refs: RegionRef[] } union. Null ⇒ whole jurisdiction.
+                          (A legacy appliesToDistrictIds stake is surfaced here
+                          as an OR of revisions.)'
                     required:
                       - jurisdiction
-                      - appliesToDistrictIds
+                      - appliesToRegion
                   reactionsByEntity:
                     type: array
                     items:
@@ -2655,15 +2660,18 @@ paths:
                             jurisdiction:
                               type: string
                               description: Jurisdiction id (default oursay-global when no persona is bound).
-                            appliesToDistrictIds:
-                              type: array
-                              items:
-                                type: string
-                              description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
-                                jurisdiction.
+                            appliesToRegion:
+                              nullable: true
+                              description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                                | "district:<district_slug>" |
+                                "revision:<revisionId>" | "region:<presetId>")
+                                or an { op: "and"|"or"|"not", refs: RegionRef[]
+                                } union. Null ⇒ whole jurisdiction. (A legacy
+                                appliesToDistrictIds stake is surfaced here as
+                                an OR of revisions.)'
                           required:
                             - jurisdiction
-                            - appliesToDistrictIds
+                            - appliesToRegion
                         signatureCount:
                           type: integer
                           nullable: true
@@ -2855,15 +2863,17 @@ paths:
                       jurisdiction:
                         type: string
                         description: Jurisdiction id (default oursay-global when no persona is bound).
-                      appliesToDistrictIds:
-                        type: array
-                        items:
-                          type: string
-                        description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
-                          jurisdiction.
+                      appliesToRegion:
+                        nullable: true
+                        description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                          | "district:<district_slug>" | "revision:<revisionId>"
+                          | "region:<presetId>") or an { op: "and"|"or"|"not",
+                          refs: RegionRef[] } union. Null ⇒ whole jurisdiction.
+                          (A legacy appliesToDistrictIds stake is surfaced here
+                          as an OR of revisions.)'
                     required:
                       - jurisdiction
-                      - appliesToDistrictIds
+                      - appliesToRegion
                   signatureCount:
                     type: integer
                     nullable: true
@@ -3336,15 +3346,18 @@ paths:
                             jurisdiction:
                               type: string
                               description: Jurisdiction id (default oursay-global when no persona is bound).
-                            appliesToDistrictIds:
-                              type: array
-                              items:
-                                type: string
-                              description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
-                                jurisdiction.
+                            appliesToRegion:
+                              nullable: true
+                              description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                                | "district:<district_slug>" |
+                                "revision:<revisionId>" | "region:<presetId>")
+                                or an { op: "and"|"or"|"not", refs: RegionRef[]
+                                } union. Null ⇒ whole jurisdiction. (A legacy
+                                appliesToDistrictIds stake is surfaced here as
+                                an OR of revisions.)'
                           required:
                             - jurisdiction
-                            - appliesToDistrictIds
+                            - appliesToRegion
                         results:
                           type: array
                           items:
@@ -3548,15 +3561,17 @@ paths:
                       jurisdiction:
                         type: string
                         description: Jurisdiction id (default oursay-global when no persona is bound).
-                      appliesToDistrictIds:
-                        type: array
-                        items:
-                          type: string
-                        description: District(s) the entity applies to (year-tagged ids); empty ⇒ whole
-                          jurisdiction.
+                      appliesToRegion:
+                        nullable: true
+                        description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                          | "district:<district_slug>" | "revision:<revisionId>"
+                          | "region:<presetId>") or an { op: "and"|"or"|"not",
+                          refs: RegionRef[] } union. Null ⇒ whole jurisdiction.
+                          (A legacy appliesToDistrictIds stake is surfaced here
+                          as an OR of revisions.)'
                     required:
                       - jurisdiction
-                      - appliesToDistrictIds
+                      - appliesToRegion
                   results:
                     type: array
                     items:
@@ -4081,10 +4096,10 @@ paths:
                           description: Stable district revision id (year-anchored slug).
                         name:
                           type: string
-                          description: Display name of the riding.
-                        ridingSlug:
+                          description: Display name of the district.
+                        districtSlug:
                           type: string
-                          description: Year-less logical-riding key grouping revisions across redraws.
+                          description: Year-less logical-seat key grouping revisions across redraws.
                         effectiveDate:
                           type: string
                           description: First day this geometry is in force (YYYY-MM-DD); the asOf lookup
@@ -4108,7 +4123,7 @@ paths:
                       required:
                         - id
                         - name
-                        - ridingSlug
+                        - districtSlug
                         - effectiveDate
                         - source
                 required:

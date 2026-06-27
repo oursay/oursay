@@ -56,7 +56,7 @@ describe("03 geo: compileScope stub (GeoScope → Region)", () => {
     expect(region!.districtIds).to.have.length(87);
   });
 
-  it("impacted-region → union of appliesToDistrictIds", async () => {
+  it("impacted-region → union of appliesToDistrictIds (legacy alias)", async () => {
     const region = await reg.compileScope({
       scope: "impacted-region",
       jurisdictionId: JURISDICTION,
@@ -67,7 +67,32 @@ describe("03 geo: compileScope stub (GeoScope → Region)", () => {
     expect(await region!.contains(TORONTO)).to.equal(false);
   });
 
-  it("impacted-region with no districts → whole jurisdiction at asOf", async () => {
+  it("impacted-region → appliesToRegion (canonical RegionRef) takes precedence", async () => {
+    const region = await reg.compileScope({
+      scope: "impacted-region",
+      jurisdictionId: JURISDICTION,
+      appliesToRegion: { op: "or", refs: [`revision:${EDMONTON_CITY_CENTRE_2019}`, `revision:${CALGARY_BUFFALO_2019}`] },
+      // A different legacy alias is present but must be IGNORED when appliesToRegion is set.
+      appliesToDistrictIds: [],
+    });
+    expect(region!.kind).to.equal("district_union");
+    expect(await region!.contains(EDMONTON_LEGISLATURE)).to.equal(true);
+    expect(await region!.contains(TORONTO)).to.equal(false);
+  });
+
+  it("legacy appliesToDistrictIds resolves IDENTICALLY to the equivalent OR-of-revisions RegionRef", async () => {
+    const ids = [EDMONTON_CITY_CENTRE_2019, CALGARY_BUFFALO_2019];
+    const legacy = await reg.compileScope({ scope: "impacted-region", jurisdictionId: JURISDICTION, appliesToDistrictIds: ids });
+    const viaRef = await reg.compileScope({
+      scope: "impacted-region",
+      jurisdictionId: JURISDICTION,
+      appliesToRegion: { op: "or", refs: ids.map((id) => `revision:${id}`) },
+    });
+    expect(viaRef!.kind).to.equal(legacy!.kind); // both district_union
+    expect(viaRef!.districtIds).to.deep.equal(legacy!.districtIds);
+  });
+
+  it("impacted-region with no stake → whole jurisdiction at asOf", async () => {
     const region = await reg.compileScope({
       scope: "impacted-region",
       jurisdictionId: JURISDICTION,

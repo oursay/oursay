@@ -18,8 +18,8 @@ const districtItemSchema = {
   type: "object",
   properties: {
     id: { type: "string", description: "Stable district revision id (year-anchored slug)." },
-    name: { type: "string", description: "Display name of the riding." },
-    ridingSlug: { type: "string", description: "Year-less logical-riding key grouping revisions across redraws." },
+    name: { type: "string", description: "Display name of the district." },
+    districtSlug: { type: "string", description: "Year-less logical-seat key grouping revisions across redraws." },
     effectiveDate: { type: "string", description: "First day this geometry is in force (YYYY-MM-DD); the asOf lookup key." },
     drawnDate: { type: "string", nullable: true, description: "When the boundary was drawn/enacted, if known (YYYY-MM-DD)." },
     source: { type: "string", description: "Provenance (file + authority)." },
@@ -30,7 +30,7 @@ const districtItemSchema = {
       description: "Official boundary as a GeoJSON MultiPolygon (EPSG:4326). Present only when include=geometry.",
     },
   },
-  required: ["id", "name", "ridingSlug", "effectiveDate", "source"],
+  required: ["id", "name", "districtSlug", "effectiveDate", "source"],
 } as const;
 
 // Per-record-type display labels (docs/GLOSSARY "Civic content vocabulary"). Display only; absent keys

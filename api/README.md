@@ -445,11 +445,11 @@ registered jurisdiction configs; no private rows are touched.
 | Route | Returns |
 |-------|---------|
 | `GET /v1/public/jurisdictions` | registered jurisdictions — `id`, `level`, optional public `label` (from `JurisdictionConfig.label`). No `rules`/`privacy`/`counts`. |
-| `GET /v1/public/jurisdictions/:jurisdictionId/districts` | the **effective-dated** district directory at `asOf`: one revision per riding (latest `effective_date <= asOf`), each with `id`, `name`, `ridingSlug`, `effectiveDate`, `drawnDate`, `source`, `sourceRef` |
+| `GET /v1/public/jurisdictions/:jurisdictionId/districts` | the **effective-dated** district directory at `asOf`: one revision per riding (latest `effective_date <= asOf`), each with `id`, `name`, `districtSlug`, `effectiveDate`, `drawnDate`, `source`, `sourceRef` |
 | `GET /v1/public/jurisdictions/:jurisdictionId/districts/:revisionId/geometry` | the official boundary as a GeoJSON `MultiPolygon` (EPSG:4326) |
 
 **`asOf` is a UTC calendar date.** The `?asOf=YYYY-MM-DD` query selects the boundary set in force on
-that date using the same rule as `RegionResolver.forJurisdiction` (`DISTINCT ON (riding_slug)` by latest
+that date using the same rule as `RegionResolver.forJurisdiction` (`DISTINCT ON (district_slug)` by latest
 `effective_date <= asOf`). When omitted it defaults to **today's UTC date** (matching the store's
 `asOf.toISOString().slice(0, 10)` convention) — not server-local midnight — so the default is stable
 across deployments. A redraw is just a later-dated revision: an `asOf` before it resolves to the older

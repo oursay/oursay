@@ -42,6 +42,13 @@ describe("15 jurisdiction: layered rule resolution (default ⊕ entity override)
     ]);
     expect(resolveRules({}, {}).appliesToDistrictIds).to.equal(undefined);
   });
+
+  it("carries appliesToRegion (the canonical stake) through untouched", () => {
+    const ref = { op: "or" as const, refs: ["district:edmonton-strathcona", "revision:calgary-buffalo-2019"] };
+    expect(resolveRules({}, { appliesToRegion: ref }).appliesToRegion).to.deep.equal(ref);
+    expect(resolveRules({}, { appliesToRegion: "jurisdiction" }).appliesToRegion).to.equal("jurisdiction");
+    expect(resolveRules({}, {}).appliesToRegion).to.equal(undefined);
+  });
 });
 
 describe("15 jurisdiction: router", () => {

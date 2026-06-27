@@ -86,7 +86,7 @@ describe("19 public area catalog", () => {
     expect(body.jurisdictionId).to.equal(JURISDICTION);
     expect(body.asOf).to.equal("2020-01-01");
     expect(body.items).to.have.length(87);
-    const ecc = body.items.find((d: any) => d.ridingSlug === "edmonton-city-centre");
+    const ecc = body.items.find((d: any) => d.districtSlug === "edmonton-city-centre");
     expect(ecc.name).to.equal("Edmonton-City Centre");
     expect(ecc.id).to.equal(EDMONTON_CITY_CENTRE_REDRAW); // latest effective_date by 2020
     expect(ecc).to.not.have.property("geometry");
@@ -96,8 +96,8 @@ describe("19 public area catalog", () => {
   it("resolves the effective-dated revision before vs after a redraw", async () => {
     const before = await get(w, `/v1/public/jurisdictions/${JURISDICTION}/districts?asOf=2019-05-01`);
     const after = await get(w, `/v1/public/jurisdictions/${JURISDICTION}/districts?asOf=2019-11-01`);
-    const eccBefore = before.body.items.find((d: any) => d.ridingSlug === "edmonton-city-centre");
-    const eccAfter = after.body.items.find((d: any) => d.ridingSlug === "edmonton-city-centre");
+    const eccBefore = before.body.items.find((d: any) => d.districtSlug === "edmonton-city-centre");
+    const eccAfter = after.body.items.find((d: any) => d.districtSlug === "edmonton-city-centre");
     expect(eccBefore.id).to.equal(EDMONTON_CITY_CENTRE_2019);
     expect(eccBefore.effectiveDate).to.equal("2019-04-16");
     expect(eccAfter.id).to.equal(EDMONTON_CITY_CENTRE_REDRAW);

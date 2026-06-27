@@ -13,7 +13,7 @@
 // resolved. Lists + thread detail apply no geo/tier filter (parse + echo only). Petition-signature /
 // poll-vote counts are surfaced ungated in dev; production withholds them per jurisdiction/KYC policy.
 
-import type { Region, RegionResolver } from "@oursay/geo";
+import { regionRefFromDistrictIds, type Region, type RegionRef, type RegionResolver } from "@oursay/geo";
 import {
   getJurisdiction,
   getThread,
@@ -82,10 +82,12 @@ export interface PublicReadFilters {
   offset?: number;
 }
 
-/** Audience metadata for clients + future filters (not write-policy enforcement). */
+/** Audience metadata for clients + future filters (not write-policy enforcement). The geographic stake
+ *  is the entity's {@link RegionRef} (`appliesToRegion`); `null` ⇒ the whole jurisdiction. The legacy
+ *  `appliesToDistrictIds` alias is folded into this RegionRef (an OR of pinned revisions). */
 export interface AudienceScope {
   jurisdiction: string;
-  appliesToDistrictIds: string[];
+  appliesToRegion: RegionRef | null;
 }
 
 /** Per-dimension applied status. `geo` and `tier` are live on counts (a narrowing filter was compiled
@@ -473,12 +475,18 @@ export class PublicRecordReadService {
   }
 
   /** Audience metadata: jurisdiction (from the thread binding; platform fallback) + the entity's
-   *  district extent (from its governance rules; empty ⇒ whole jurisdiction). Withheld content
-   *  exposes no rules, so `appliesToDistrictIds` is empty for redacted/erased entities. */
+   *  geographic stake as a RegionRef (from its governance rules; `null` ⇒ whole jurisdiction). The
+   *  deprecated `appliesToDistrictIds` alias is mapped to an OR-of-revisions RegionRef. Withheld content
+   *  exposes no rules, so `appliesToRegion` is `null` for redacted/erased entities. */
   private async audienceScope(rootId: string, view: PublicEntityView): Promise<AudienceScope> {
     const jurisdiction = (await this.d.recordStore.getThreadJurisdiction(rootId)) ?? DEFAULT_JURISDICTION;
-    const appliesToDistrictIds = rulesOf(view.content).appliesToDistrictIds ?? [];
-    return { jurisdiction, appliesToDistrictIds };
+    const rules = rulesOf(view.content);
+    const appliesToRegion =
+      rules.appliesToRegion ??
+      (rules.appliesToDistrictIds && rules.appliesToDistrictIds.length > 0
+        ? regionRefFromDistrictIds(rules.appliesToDistrictIds)
+        : null);
+    return { jurisdiction, appliesToRegion };
   }
 
   /** Compile the requested coarse scope into a Region for the entity's own audience, or null when the
@@ -488,7 +496,7 @@ export class PublicRecordReadService {
     return this.d.regionResolver.compileScope({
       scope: filters.scope ?? "all-public",
       jurisdictionId: audience.jurisdiction,
-      appliesToDistrictIds: audience.appliesToDistrictIds,
+      appliesToRegion: audience.appliesToRegion ?? undefined,
       asOf: new Date(),
     });
   }

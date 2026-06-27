@@ -7,12 +7,19 @@ export { GeoStore } from "./store.js";
 export type { LngLat, DistrictUpsert, DistrictCatalogRow, RegionRow } from "./store.js";
 
 export { Region } from "./region.js";
-export type { RegionKind } from "./region.js";
+export type { RegionKind, RegionNode } from "./region.js";
+
+export {
+  isRegionRefUnion,
+  parseBaseRef,
+  regionRefFromDistrictIds,
+} from "./region-ref.js";
+export type { RegionRef, RegionRefOp, RegionRefUnion, ParsedBaseRef } from "./region-ref.js";
 
 export { RegionResolver } from "./region-resolver.js";
-export type { GeoScope, ScopeInput, RegionResolverDeps } from "./region-resolver.js";
+export type { GeoScope, ScopeInput, RegionResolverDeps, RegionRefContext } from "./region-resolver.js";
 
-export { ShapefileSource, ingestBoundaries, ridingSlug } from "./ingest/source.js";
+export { ShapefileSource, ingestBoundaries, districtSlug } from "./ingest/source.js";
 export type {
   BoundarySource,
   RawDistrict,

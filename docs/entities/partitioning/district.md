@@ -37,7 +37,7 @@ Two district revisions are the same if their `id` matches. Primary key: `id` (e.
 
 ## States & lifecycle
 
-Boundary revisions are **append-only**. A redraw adds a new row with a later `effective_date`. Resolution at instant `asOf`: select rows with `effective_date <= asOf`, then **one revision per `riding_slug`** (latest `effective_date` wins).
+Boundary revisions are **append-only**. A redraw adds a new row with a later `effective_date`. Resolution at instant `asOf`: select rows with `effective_date <= asOf`, then **one revision per `district_slug`** (latest `effective_date` wins).
 
 ```
 [boundary revision A, effective 2019-04-01]
@@ -53,7 +53,7 @@ Boundary revisions are **append-only**. A redraw adds a new row with a later `ef
 | Jurisdiction | N:1 | `jurisdiction_id` FK |
 | Region | 1:1 kind | Every district is a `district` region |
 | User | inferred | Via geocode point + `region.contains(point)` |
-| EntityRules | referenced | `appliesToRegion` on polls/petitions (today `appliesToDistrictIds`) |
+| EntityRules | referenced | `appliesToRegion` on polls/petitions — `"district:<district_slug>"` keys off the stable seat; `appliesToDistrictIds` is a deprecated alias |
 
 ## Invariants
 
@@ -72,7 +72,7 @@ Boundary revisions are **append-only**. A redraw adds a new row with a later `ef
 
 ## Examples
 
-**Valid:** `{ id: "edmonton-strathcona-2019", jurisdiction_id: "ab-ca-gov", riding_slug: "edmonton-strathcona", effective_date: "2019-04-01" }`
+**Valid:** `{ id: "edmonton-strathcona-2019", jurisdiction_id: "ab-ca-gov", district_slug: "edmonton-strathcona", effective_date: "2019-04-01" }`
 
 **Invalid:** Storing `district_id` on `auth.profiles` or `public.users` — membership is always inferred.
 

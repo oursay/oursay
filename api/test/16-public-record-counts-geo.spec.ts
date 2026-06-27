@@ -143,7 +143,9 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     const author = await joinMember(w, "cg-poll-author@example.com", "poll-author", t);
     await author.client.append(t, {
       op: "create", type: "poll", entityId: t.threadId,
-      content: { question: "Build it?", options: ["yes", "no"], rules: { appliesToDistrictIds: [EDMONTON_CITY_CENTRE_2019] } },
+      // Canonical stake via the stable district slug (resolves to the in-force revision at asOf) — the
+      // appliesToRegion path through compileScope. Equivalent to appliesToDistrictIds:[EDMONTON_CITY_CENTRE_2019].
+      content: { question: "Build it?", options: ["yes", "no"], rules: { appliesToRegion: "district:edmonton-city-centre" } },
     });
     const parent = { type: "poll" as const, id: t.threadId };
 

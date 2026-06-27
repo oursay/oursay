@@ -19,7 +19,7 @@ export interface DistrictUpsert {
   id: string;
   jurisdictionId: string;
   name: string;
-  ridingSlug: string;
+  districtSlug: string;
   effectiveDate: string; // ISO DATE
   drawnDate?: string | null; // ISO DATE
   boundaryYear: number;
@@ -34,7 +34,7 @@ export interface DistrictUpsert {
 export interface DistrictCatalogRow {
   id: string;
   name: string;
-  ridingSlug: string;
+  districtSlug: string;
   effectiveDate: string; // ISO DATE
   drawnDate: string | null; // ISO DATE
   source: string;
@@ -82,19 +82,19 @@ export class GeoStore {
 
   // ---- ingest ----------------------------------------------------------------
 
-  /** Existing revisions for a (jurisdiction, riding, year) — used to allocate a unique revision id
+  /** Existing revisions for a (jurisdiction, seat, year) — used to allocate a unique revision id
    *  when a second boundary set lands in the same calendar year. */
   async existingRevisions(
     jurisdictionId: string,
-    ridingSlug: string,
+    districtSlug: string,
     boundaryYear: number,
   ): Promise<{ id: string; effectiveDate: string }[]> {
     const r = await this.pool.query(
       `SELECT id, to_char(effective_date, 'YYYY-MM-DD') AS effective_date
          FROM geo.districts
-        WHERE jurisdiction_id = $1 AND riding_slug = $2 AND boundary_year = $3
+        WHERE jurisdiction_id = $1 AND district_slug = $2 AND boundary_year = $3
         ORDER BY effective_date ASC`,
-      [jurisdictionId, ridingSlug, boundaryYear],
+      [jurisdictionId, districtSlug, boundaryYear],
     );
     return r.rows.map((row) => ({ id: row.id as string, effectiveDate: row.effective_date as string }));
   }
@@ -104,14 +104,14 @@ export class GeoStore {
   async upsertDistrict(d: DistrictUpsert): Promise<void> {
     await this.pool.query(
       `INSERT INTO geo.districts
-         (id, jurisdiction_id, name, riding_slug, effective_date, drawn_date, boundary_year,
+         (id, jurisdiction_id, name, district_slug, effective_date, drawn_date, boundary_year,
           source, source_ref, geom)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,
           ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($10), $11), 4326)))
        ON CONFLICT (id) DO UPDATE SET
           jurisdiction_id = EXCLUDED.jurisdiction_id,
           name            = EXCLUDED.name,
-          riding_slug     = EXCLUDED.riding_slug,
+          district_slug   = EXCLUDED.district_slug,
           effective_date  = EXCLUDED.effective_date,
           drawn_date      = EXCLUDED.drawn_date,
           boundary_year   = EXCLUDED.boundary_year,
@@ -123,7 +123,7 @@ export class GeoStore {
         d.id,
         d.jurisdictionId,
         d.name,
-        d.ridingSlug,
+        d.districtSlug,
         d.effectiveDate,
         d.drawnDate ?? null,
         d.boundaryYear,
@@ -143,20 +143,40 @@ export class GeoStore {
     return r.rowCount! > 0;
   }
 
-  /** The boundary set in effect on `asOf`: one revision per riding (latest effective_date <= asOf).
+  /** The boundary set in effect on `asOf`: one revision per seat (latest effective_date <= asOf).
    *  This is the effective-dated resolution used by `forJurisdiction`. */
   async districtIdsAsOf(jurisdictionId: string, asOf: Date): Promise<string[]> {
     const r = await this.pool.query(
-      `SELECT DISTINCT ON (riding_slug) id
+      `SELECT DISTINCT ON (district_slug) id
          FROM geo.districts
         WHERE jurisdiction_id = $1 AND effective_date <= $2
-        ORDER BY riding_slug, effective_date DESC`,
+        ORDER BY district_slug, effective_date DESC`,
       [jurisdictionId, asOf.toISOString().slice(0, 10)],
     );
     return r.rows.map((row) => row.id as string);
   }
 
-  /** The effective-dated district directory for a jurisdiction at `asOf`: one revision per riding
+  /** The revision id for ONE stable seat (`district_slug`) in force on `asOf`: the latest revision with
+   *  effective_date <= asOf, or null when the seat has no revision yet at that instant. Same tie-break as
+   *  `districtIdsAsOf`, scoped to a single seat — the stable-seat → current-revision lookup that
+   *  `appliesToRegion: "district:<district_slug>"` resolves through. */
+  async districtIdBySlugAsOf(
+    jurisdictionId: string,
+    districtSlug: string,
+    asOf: Date,
+  ): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT id
+         FROM geo.districts
+        WHERE jurisdiction_id = $1 AND district_slug = $2 AND effective_date <= $3
+        ORDER BY effective_date DESC
+        LIMIT 1`,
+      [jurisdictionId, districtSlug, asOf.toISOString().slice(0, 10)],
+    );
+    return (r.rows[0]?.id as string | undefined) ?? null;
+  }
+
+  /** The effective-dated district directory for a jurisdiction at `asOf`: one revision per seat
    *  (latest effective_date <= asOf), ordered by display name. Same selection rule as
    *  `districtIdsAsOf`, but returning public metadata rows (and optionally GeoJSON geometry). Geometry
    *  is the stored 4326 MultiPolygon as GeoJSON; the official electoral boundary, safe to expose. */
@@ -168,17 +188,17 @@ export class GeoStore {
     const geomSelect = opts.includeGeometry ? ", ST_AsGeoJSON(geom)::json AS geometry" : "";
     const r = await this.pool.query(
       `SELECT * FROM (
-         SELECT DISTINCT ON (riding_slug)
+         SELECT DISTINCT ON (district_slug)
                 id,
                 name,
-                riding_slug,
+                district_slug,
                 to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
                 to_char(drawn_date, 'YYYY-MM-DD')     AS drawn_date,
                 source,
                 source_ref${geomSelect}
            FROM geo.districts
           WHERE jurisdiction_id = $1 AND effective_date <= $2
-          ORDER BY riding_slug, effective_date DESC
+          ORDER BY district_slug, effective_date DESC
        ) eff
        ORDER BY name`,
       [jurisdictionId, asOf.toISOString().slice(0, 10)],
@@ -186,7 +206,7 @@ export class GeoStore {
     return r.rows.map((row) => ({
       id: row.id as string,
       name: row.name as string,
-      ridingSlug: row.riding_slug as string,
+      districtSlug: row.district_slug as string,
       effectiveDate: row.effective_date as string,
       drawnDate: (row.drawn_date as string | null) ?? null,
       source: row.source as string,
@@ -237,19 +257,19 @@ export class GeoStore {
 
   /**
    * Reverse lookup: the district revision whose geometry contains `point`, chosen from the boundary
-   * set effective on `asOf` (one revision per riding, latest effective_date <= asOf) — the SAME set
+   * set effective on `asOf` (one revision per seat, latest effective_date <= asOf) — the SAME set
    * `districtIdsAsOf`/`forJurisdiction` resolve, so a reverse lookup always agrees with forward
-   * containment. Returns the revision id, or null when the point is outside every riding. Ridings in
+   * containment. Returns the revision id, or null when the point is outside every seat. Seats in
    * one effective set do not overlap, so at most one matches (LIMIT 1 for safety).
    */
   async districtContaining(jurisdictionId: string, point: LngLat, asOf: Date): Promise<string | null> {
     const r = await this.pool.query(
       `SELECT eff.id
          FROM (
-           SELECT DISTINCT ON (riding_slug) id, geom
+           SELECT DISTINCT ON (district_slug) id, geom
              FROM geo.districts
             WHERE jurisdiction_id = $1 AND effective_date <= $2
-            ORDER BY riding_slug, effective_date DESC
+            ORDER BY district_slug, effective_date DESC
          ) eff
         WHERE ST_Contains(eff.geom, ST_SetSRID(ST_Point($3, $4), 4326))
         LIMIT 1`,

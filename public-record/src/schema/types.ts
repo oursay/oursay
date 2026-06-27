@@ -44,6 +44,11 @@ export interface WebauthnAssertion {
   signature: string; // base64url, ASN.1 DER ECDSA over sha256(authData || sha256(clientDataJSON))
 }
 
+// The geographic stake (appliesToRegion) is a RegionRef owned by @oursay/geo — a serializable
+// reference (or and/or/not union) the resolver compiles into a Region. Type-only import: erased at
+// runtime, so this stays a pure schema module with no geo runtime dependency.
+import type { RegionRef } from "@oursay/geo";
+
 /** Reaction kinds. Mutually exclusive per (author, target); extensible later (custom emoji). */
 export type ReactionKind = "check" | "cross";
 export const REACTION_KINDS: ReactionKind[] = ["check", "cross"];
@@ -61,7 +66,11 @@ export const PLATFORM_PUBKEY = "platform";
  * signed FINAL, with no revocation.
  */
 export interface EntityRules {
-  appliesToDistrictIds?: string[]; // DISTRICT(s) this entity applies to (year-tagged ids, e.g. "edmonton-strathcona-2026"); absent/empty = the whole jurisdiction
+  appliesToRegion?: RegionRef; // GEOGRAPHIC STAKE: a RegionRef ("jurisdiction" | "district:<district_slug>" | "revision:<revisionId>" | "region:<presetId>" | and/or/not union); absent = the whole jurisdiction
+  /** @deprecated alias for {@link appliesToRegion}: a raw array of district REVISION ids (e.g.
+   *  "edmonton-strathcona-2026"); absent/empty = whole jurisdiction. Still accepted during migration —
+   *  the resolver maps it to an OR-of-revisions RegionRef and resolves it identically. Prefer `appliesToRegion`. */
+  appliesToDistrictIds?: string[];
   deadline?: string; // ISO 8601; after it, no change/revoke is permitted
   allowChange?: boolean; // poll: votes may change before deadline
   allowRevoke?: boolean; // petition: signatures may be revoked before deadline

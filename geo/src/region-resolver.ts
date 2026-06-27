@@ -5,16 +5,33 @@
 // a later phase — it is NOT wired to any HTTP route in this task.
 
 import { Region } from "./region.js";
+import {
+  isRegionRefUnion,
+  parseBaseRef,
+  regionRefFromDistrictIds,
+  type ParsedBaseRef,
+  type RegionRef,
+} from "./region-ref.js";
 import type { GeoStore } from "./store.js";
 
 /** Coarse public audience selector (mirrors the api GeoScope stub). */
 export type GeoScope = "jurisdiction" | "impacted-region" | "my-district" | "all-public";
 
+/** The instant + jurisdiction a RegionRef is resolved against. */
+export interface RegionRefContext {
+  jurisdictionId: string;
+  asOf: Date;
+}
+
 /** Inputs available when compiling a coarse scope into a concrete Region. */
 export interface ScopeInput {
   scope: GeoScope;
   jurisdictionId: string;
-  /** An entity's governance district extent (EntityRules.appliesToDistrictIds); empty ⇒ whole jurisdiction. */
+  /** An entity's geographic stake (EntityRules.appliesToRegion); absent ⇒ whole jurisdiction. Takes
+   *  precedence over the deprecated `appliesToDistrictIds` alias when both are present. */
+  appliesToRegion?: RegionRef;
+  /** DEPRECATED alias for `appliesToRegion`: an entity's raw district revision extent
+   *  (EntityRules.appliesToDistrictIds); empty ⇒ whole jurisdiction. Mapped to an OR-of-revisions RegionRef. */
   appliesToDistrictIds?: string[];
   /** An authenticated viewer's inferred district revision id; absent on unauthenticated routes. */
   viewerDistrictId?: string;
@@ -64,11 +81,66 @@ export class RegionResolver {
   }
 
   /**
-   * Compile a coarse GeoScope into a Region, or `null` when the scope implies no geo filter. STUB
-   * SEAM — not called from any route in this task. `asOf` is threaded through even though HTTP passes
-   * nothing yet.
+   * Resolve a {@link RegionRef} (the geographic stake on EntityRules.appliesToRegion) into a Region at
+   * `ctx.asOf`:
+   *   "jurisdiction"             → whole jurisdiction extent at asOf
+   *   "district:<district_slug>" → the stable seat's revision in force at asOf (empty region if none yet)
+   *   "revision:<revisionId>"    → that pinned boundary revision
+   *   "region:<presetId>"        → the stored custom/platform preset
+   *   { op: "or",  refs }        → a pure OR over district-based refs COLLAPSES to a district_union
+   *                                 (so a legacy appliesToDistrictIds stake resolves byte-identically);
+   *                                 otherwise a composite OR
+   *   { op: "and", refs }        → composite AND (a point must be in every child)
+   *   { op: "not", refs }        → composite NOT, bounded by the jurisdiction (not(X) ≡ jurisdiction ∖ X)
+   */
+  async resolveRegionRef(ref: RegionRef, ctx: RegionRefContext): Promise<Region> {
+    if (!isRegionRefUnion(ref)) return this.resolveBaseRef(parseBaseRef(ref), ctx);
+
+    const children = await Promise.all(ref.refs.map((r) => this.resolveRegionRef(r, ctx)));
+    switch (ref.op) {
+      case "or": {
+        // Collapse to a single district_union when every child is a plain district-based region (no
+        // custom geometry, no nested composite) — preserves the pre-RegionRef union behavior exactly.
+        if (children.every((c) => !c.node && !c.hasOwnGeom)) {
+          const ids = [...new Set(children.flatMap((c) => c.districtIds))];
+          return this.fromDistrictUnion(ids, ctx.jurisdictionId);
+        }
+        return Region.composite(this.d.geoStore, "composite:or", ctx.jurisdictionId, { op: "or", children });
+      }
+      case "and":
+        return Region.composite(this.d.geoStore, "composite:and", ctx.jurisdictionId, { op: "and", children });
+      case "not": {
+        const bound = await this.forJurisdiction(ctx.jurisdictionId, ctx.asOf);
+        return Region.composite(this.d.geoStore, "composite:not", ctx.jurisdictionId, { op: "not", children, bound });
+      }
+    }
+  }
+
+  /** Resolve a parsed base (non-union) ref. A `district:<slug>` with no revision in force at asOf yields
+   *  an empty district_union (contains() always false) rather than throwing. */
+  private async resolveBaseRef(ref: ParsedBaseRef, ctx: RegionRefContext): Promise<Region> {
+    switch (ref.kind) {
+      case "jurisdiction":
+        return this.forJurisdiction(ctx.jurisdictionId, ctx.asOf);
+      case "district": {
+        const revisionId = await this.d.geoStore.districtIdBySlugAsOf(ctx.jurisdictionId, ref.slug, ctx.asOf);
+        return revisionId
+          ? this.forDistrict(revisionId, ctx.jurisdictionId)
+          : new Region(this.d.geoStore, `district:${ref.slug}@empty`, "district_union", ctx.jurisdictionId, [], false);
+      }
+      case "revision":
+        return this.forDistrict(ref.revisionId, ctx.jurisdictionId);
+      case "region":
+        return this.resolve(ref.presetId);
+    }
+  }
+
+  /**
+   * Compile a coarse GeoScope into a Region, or `null` when the scope implies no geo filter. `asOf` is
+   * threaded through (HTTP passes `now` today).
    *   jurisdiction    → whole jurisdiction extent at asOf
-   *   impacted-region → union of the entity's appliesToDistrictIds (empty ⇒ whole jurisdiction)
+   *   impacted-region → the entity's appliesToRegion (or the legacy appliesToDistrictIds alias);
+   *                     absent/empty ⇒ whole jurisdiction
    *   my-district     → the viewer's district, or null (inert: no viewer identity on public routes)
    *   all-public      → null (no geo filter)
    */
@@ -77,10 +149,16 @@ export class RegionResolver {
     switch (input.scope) {
       case "jurisdiction":
         return this.forJurisdiction(input.jurisdictionId, asOf);
-      case "impacted-region":
-        return input.appliesToDistrictIds && input.appliesToDistrictIds.length > 0
-          ? this.fromDistrictUnion(input.appliesToDistrictIds, input.jurisdictionId)
+      case "impacted-region": {
+        const ref =
+          input.appliesToRegion ??
+          (input.appliesToDistrictIds && input.appliesToDistrictIds.length > 0
+            ? regionRefFromDistrictIds(input.appliesToDistrictIds)
+            : undefined);
+        return ref
+          ? this.resolveRegionRef(ref, { jurisdictionId: input.jurisdictionId, asOf })
           : this.forJurisdiction(input.jurisdictionId, asOf);
+      }
       case "my-district":
         return input.viewerDistrictId ? this.forDistrict(input.viewerDistrictId, input.jurisdictionId) : null;
       case "all-public":

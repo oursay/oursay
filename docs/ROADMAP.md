@@ -36,8 +36,8 @@ code-alignment prompts in [`../.agents/CODE-ALIGNMENT-PROMPTS.md`](../.agents/CO
 
 - **Vocabulary & content model** — `JurisdictionConfig.labels` + `contentLimits`; `PostContent`
   `title` required (≤200) / `body` optional (≤2000).
-- **Thread audience** — `appliesToRegion` (riding/district/region/union, keyed off `riding_slug`) and
-  `appliesToVerified` (tier set), replacing raw `appliesToDistrictIds`.
+- **Thread audience** — `appliesToRegion` (district/revision/region/union, keyed off `district_slug`;
+  **shipped**, with `appliesToDistrictIds` kept as a deprecated alias) and `appliesToVerified` (tier set).
 - **Identity / KYC** — Didit provider (dev ID-only + platform self-signed address; prod POA ~$2 CAD);
   `over_18` flag instead of stored birthdate.
 - **Auth** — `registration` session scope (enroll first passkey only) before `full`.

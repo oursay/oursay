@@ -21,7 +21,7 @@ key. Each revision carries:
 
 - `effective_date` (**required**) — first day this geometry is in force; the key `asOf` resolution uses.
 - `drawn_date` (optional) — enactment/draw date if known (Alberta Bill-33 ≈ `2017-12-15`).
-- `boundary_year` — slug/display only; `riding_slug` — year-less key grouping revisions of a seat.
+- `boundary_year` — slug/display only; `district_slug` — year-less key grouping revisions of a seat.
 
 **ID scheme:** `{riding-slug}-{boundary-year}`, e.g. `edmonton-strathcona-2019`. If a second boundary
 set lands the same calendar year, the id gets a monotonic suffix: `edmonton-strathcona-2019-2`.

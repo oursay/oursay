@@ -54,13 +54,15 @@ const audienceScopeSchema = {
   description: "Audience metadata for clients/future filters (not write-policy). Not PII.",
   properties: {
     jurisdiction: { type: "string", description: "Jurisdiction id (default oursay-global when no persona is bound)." },
-    appliesToDistrictIds: {
-      type: "array",
-      items: { type: "string" },
-      description: "District(s) the entity applies to (year-tagged ids); empty ⇒ whole jurisdiction.",
+    appliesToRegion: {
+      nullable: true,
+      description:
+        'Geographic stake as a RegionRef: a base ref string ("jurisdiction" | "district:<district_slug>" | ' +
+        '"revision:<revisionId>" | "region:<presetId>") or an { op: "and"|"or"|"not", refs: RegionRef[] } union. ' +
+        "Null ⇒ whole jurisdiction. (A legacy appliesToDistrictIds stake is surfaced here as an OR of revisions.)",
     },
   },
-  required: ["jurisdiction", "appliesToDistrictIds"],
+  required: ["jurisdiction", "appliesToRegion"],
 } as const;
 
 // `count` is nullable + `suppressed` optional so the same shape serves the raw detail/list tallies

@@ -42,15 +42,18 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
   comments, and reactions **inherit** it from their root. Two orthogonal axes (both target shape;
   see [`entities/partitioning/entity-rules.md`](entities/partitioning/entity-rules.md)):
   - **`jurisdictionId`** — required on every thread; the partition the thread lives in.
-  - **`appliesToRegion`** — the *geographic* stake: `jurisdiction`, `riding:<riding_slug>`,
-    `district:<revisionId>`, `region:<presetId>`, or a union of these. Stable district pages key off
-    `riding_slug`. Absent ⇒ the whole jurisdiction.
+  - **`appliesToRegion`** — the *geographic* stake (a RegionRef): `"jurisdiction"`,
+    `"district:<district_slug>"` (a stable seat, resolved to the revision in force at `asOf`),
+    `"revision:<revisionId>"` (a pinned boundary version), `"region:<presetId>"`, or an
+    `{op:"and"|"or"|"not", refs}` union of these. Stable district pages key off `district_slug`.
+    Absent ⇒ the whole jurisdiction.
   - **`appliesToVerified`** — the minimum KYC tier **set** that counts toward stake/official totals.
   - **Entity scope** — gating rules **default to the jurisdiction**; an individual poll/petition may
     narrow them via the axes above. This spans a vote about a single local crosswalk through to
     jurisdiction-wide policy.
-  > **Deprecated:** `EntityRules.appliesToDistrictIds` (raw district-id array) is still present in code
-  > today but superseded by `appliesToRegion` in the docs. See the superseded-terms table.
+  > **Deprecated:** `EntityRules.appliesToDistrictIds` (raw district-id array) remains accepted in code
+  > as an alias — mapped internally to an OR-of-revisions `appliesToRegion` — but is superseded by
+  > `appliesToRegion`. See the superseded-terms table.
 
 ## Civic content vocabulary (record types ↔ user-facing labels)
 
@@ -142,7 +145,8 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 | `level` as a crypto/dedupe partition key | **jurisdiction** | level is now only a *property* of a jurisdiction |
 | `levelMaster` / `level_master_keys` | `jurisdictionMaster` / `jurisdiction_master_keys` | re-keyed per (user, jurisdiction) |
 | identity `region` (e.g. `"ca-ab"`) | **jurisdiction** membership | the loose per-thread region field was dropped |
-| `EntityRules.region` | `appliesToDistrictIds` → **`appliesToRegion`** | the geographic stake of a thread; `appliesToDistrictIds` (raw district-id array) is still in code but deprecated in docs in favour of `appliesToRegion` (see Thread audience) |
+| `EntityRules.region` / `appliesToDistrictIds` | **`appliesToRegion`** | the geographic stake of a thread (a RegionRef); `appliesToDistrictIds` (raw district-id array) is a deprecated alias, mapped internally to an OR-of-revisions RegionRef (see Thread audience) |
+| `riding_slug` / `ridingSlug` (district key) | **`district_slug`** / **`districtSlug`** | year-less logical-seat key; backend uses "district" (a jurisdiction may still *display* "riding" via labels) |
 | address `region` | `province` | user/profile address component |
 | `users.handle` holding a free-text display name | `handle` + `display_name` (+ `first_name`/`last_name`) | one field no longer does several jobs |
 | product term **Belief** | **Statement** (label for `post`) | "Belief" is retired as a product label; record type stays `post` |

@@ -32,7 +32,7 @@ describe("04 geo: district catalog (listDistrictsAsOf + getDistrictGeometry)", (
     expect(rows).to.have.length(87);
     const names = rows.map((r) => r.name);
     expect(names).to.deep.equal([...names].sort());
-    const ecc = rows.find((r) => r.ridingSlug === "edmonton-city-centre");
+    const ecc = rows.find((r) => r.districtSlug === "edmonton-city-centre");
     expect(ecc).to.exist;
     expect(ecc!.id).to.equal(NEWER_REVISION); // latest effective_date wins by 2020
     expect(ecc!.effectiveDate).to.equal("2019-10-01");
@@ -42,7 +42,7 @@ describe("04 geo: district catalog (listDistrictsAsOf + getDistrictGeometry)", (
 
   it("selects the OLDER revision for an asOf before the redraw", async () => {
     const rows = await store.listDistrictsAsOf(JURISDICTION, new Date("2019-05-01"));
-    const ecc = rows.find((r) => r.ridingSlug === "edmonton-city-centre");
+    const ecc = rows.find((r) => r.districtSlug === "edmonton-city-centre");
     expect(ecc!.id).to.equal(EDMONTON_CITY_CENTRE_2019);
     expect(ecc!.effectiveDate).to.equal("2019-04-16");
   });

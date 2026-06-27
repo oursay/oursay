@@ -14,12 +14,14 @@ export function rulesOf(content: unknown): EntityRules {
 /**
  * Resolve the EFFECTIVE rules for an entity: the jurisdiction's defaults overlaid by the entity's
  * own overrides. The entity wins where it sets a value; otherwise the jurisdiction default applies
- * (and the absent/false floor remains FINAL-action semantics). `appliesToDistrictIds` is carried
- * through untouched — it records which district(s) the entity applies to (absent = whole
- * jurisdiction), not a gate the platform resolves yet.
+ * (and the absent/false floor remains FINAL-action semantics). The geographic stake is carried through
+ * untouched — `appliesToRegion` (the canonical RegionRef) and its deprecated `appliesToDistrictIds`
+ * alias both record which area the entity applies to (absent = whole jurisdiction), not a gate the
+ * platform resolves here; the RegionResolver compiles them at filter time.
  */
 export function resolveRules(base: JurisdictionRules, override: EntityRules): EntityRules {
   return {
+    appliesToRegion: override.appliesToRegion,
     appliesToDistrictIds: override.appliesToDistrictIds,
     deadline: override.deadline ?? base.defaultDeadline,
     allowChange: override.allowChange ?? base.allowChange ?? false,
