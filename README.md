@@ -50,6 +50,7 @@ Verified users have confirmed their identity and residency through a pluggable K
 /
 ├── docs/
 │   ├── 01-CONTRIBUTOR-SPEC.md     # Canonical product specification — read this first
+│   ├── entities/                  # Formal domain object specs (attributes, states, invariants)
 │   ├── 02-PUBLIC-EXPLAINER.md     # Public-facing platform overview
 │   ├── 03-OUTREACH-TEMPLATE.md    # Audience-specific outreach templates
 │   ├── 04-LEGAL-OUTREACH.md       # Legal & regulatory outreach materials
@@ -79,6 +80,10 @@ a real browser. See [`api/README.md`](api/README.md) for the full dev cycle.
 
 These documents define the project. Before writing any code, read the contributor spec — then the monorepo philosophy and engineering values before contributing code.
 
+### [`docs/PRD.md`](docs/PRD.md) — Product Requirements Document
+
+The stakeholder-facing product requirements for the Alberta launch: what ships and why, the audiences it serves, success metrics, and scope boundaries. Separates impact and adoption metrics (measured by the October 19, 2026 referendum) from the launch requirements that must be live for the July 18, 2026 soft launch. Sits above the contributor spec and links back to it for behavioural detail.
+
 ### [`docs/01-CONTRIBUTOR-SPEC.md`](docs/01-CONTRIBUTOR-SPEC.md) — Contributor Reference
 
 The canonical product specification. Covers what the system does and why — not how to implement it. When a design question comes up, this document answers it. If it doesn't, the answer belongs in a GitHub issue, then in this document before the issue closes.
@@ -86,6 +91,10 @@ The canonical product specification. Covers what the system does and why — not
 Covers: guiding principles, verification tiers, pluggable KYC provider architecture, sponsorship and waitlist mechanics, generic geographic area model, public API, the full content model (beliefs, petitions, public votes, results), the anonymity model, the distributed public ledger, build verification, forkability and global adaptability, and contributor decision-making.
 
 **Read this before touching the schema, the API, or the frontend.**
+
+### [`docs/entities/README.md`](docs/entities/README.md) — Formal Domain Object Specifications
+
+Structured definitions of every core domain noun — attributes, states, invariants, relationships, and implementation paths. Synthesizes the contributor spec, glossary, public-record requirements, and shipped schema. Use when you need an unambiguous object contract for product, design, or engineering work.
 
 ### [`docs/02-PUBLIC-EXPLAINER.md`](docs/02-PUBLIC-EXPLAINER.md) — Public Platform Overview
 

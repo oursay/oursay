@@ -2367,7 +2367,7 @@ paths:
           name: tier
           required: false
           description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
-            counted iff their current tier is in the set (set membership, not
+            counted if their current tier is in the set (set membership, not
             at-or-above)."
         - schema:
             type: string
@@ -3059,7 +3059,7 @@ paths:
           name: tier
           required: false
           description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
-            counted iff their current tier is in the set (set membership, not
+            counted if their current tier is in the set (set membership, not
             at-or-above)."
         - schema:
             type: string
@@ -3764,7 +3764,7 @@ paths:
           name: tier
           required: false
           description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
-            counted iff their current tier is in the set (set membership, not
+            counted if their current tier is in the set (set membership, not
             at-or-above)."
         - schema:
             type: string

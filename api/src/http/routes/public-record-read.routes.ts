@@ -175,7 +175,7 @@ const countsQuerystring = {
   type: "object",
   properties: {
     scope: { type: "string", enum: GEO_SCOPES, description: "Coarse geo audience — RESOLVED on counts (region-first + k-anonymity); my-district is inert." },
-    tier: { ...tierQuery, description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is counted iff their current tier is in the set (set membership, not at-or-above)." },
+    tier: { ...tierQuery, description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is counted if their current tier is in the set (set membership, not at-or-above)." },
     from: { type: "string", format: "date", description: "Start date, ISO (echoed, not resolved)." },
     to: { type: "string", format: "date", description: "End date, ISO (echoed, not resolved)." },
   },

@@ -4,6 +4,9 @@ This is the **single source of truth** for OurSay's core domain vocabulary. When
 or comments use these words, they mean exactly what is written here — do not use them interchangeably.
 If a term elsewhere disagrees with this file, this file wins; fix the other place.
 
+> **Formal object specs:** This glossary defines *terms*. Structured attributes, states, invariants,
+> and implementation paths for each domain object live in [`entities/README.md`](entities/README.md).
+
 ## Core terms
 
 - **Jurisdiction** — the primary partition of civic identity and rules. A jurisdiction (e.g.

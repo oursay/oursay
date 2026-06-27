@@ -159,7 +159,7 @@ read this same table — one source of truth.
     check). Used by CI/dev and the dev attestation route below.
   - `equifax` — **reserved, not implemented**: selecting it fails fast at startup.
 - **Tiers are a SET, not a ladder.** On counts, `?tier=` is matched by **set membership**, not
-  at-or-above: a participant is counted iff their *current* tier is **in** the requested set. Tiers are
+  at-or-above: a participant is counted if their *current* tier is **in** the requested set. Tiers are
   provider/purpose-specific (identity, residency, electoral, future capabilities) and don't form a single
   strict order. `?tier=identity_verified&tier=electoral_validated` counts identity **or** electoral, not
   residency. `unverified` in the set includes participants with no attestation row (and unlinkable ones).
@@ -374,7 +374,7 @@ splits by dimension: `applied: { geo, tier, date: false }`.
 
 The **`tier`** set is resolved on the same surface: each distinct participant is resolved to its
 `userId` (reusing `ParticipantGeoService.resolveUserId`) and its current tier (`KycRepo.latestTier`,
-defaulting to `unverified`), and is counted iff that tier is **in** the requested set (set membership,
+defaulting to `unverified`), and is counted if that tier is **in** the requested set (set membership,
 not at-or-above). When both narrow, it is **AND** (in-region **and** in the tier set). A tier set that
 lists *every* tier is a no-op (`applied.tier: false`, no tier-driven floor) since it includes everyone.
 

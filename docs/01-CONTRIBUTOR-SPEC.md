@@ -349,6 +349,8 @@ A belief is an informal expression of sentiment. A result is the formal, audited
 > | Result (§8.4) | `result` (derived) | **Published/derived** from a closed poll — not a user append. |
 >
 > The implemented record types are `post`, `comment`, `reaction`, `petition`, `petition_signature`, `poll`, `vote` — each appended as create/update/delete transactions, with **per-entity governance rules** (deadlines; whether votes may change / signatures may be revoked). The set is **not fixed** — it is extensible by configuration; candidate future types include `discussion` (a topic/thread container), `bill` (a tracked legislative item), and `official_response` (an official's reply to a petition, §8.2 / §4.5). See [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) R1 and [`../public-record/README.md`](../public-record/README.md).
+>
+> For formal attribute tables, state machines, invariants, and implementation paths per object, see [`entities/README.md`](entities/README.md).
 
 ### 8.1 Beliefs
 

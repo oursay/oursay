@@ -212,7 +212,7 @@ connectors will publish the same artifacts through.
 // 1. Pool writes (RecordService.create/update/... → PublicChain.append) accumulate in Postgres.
 // 2. Settle a block from the pool onto the append-only chain.
 const settler = new BlockSettler(store, connector, chainId);
-await settler.maybeSettleBlock();          // settles iff the count/age trigger fires
+await settler.maybeSettleBlock();          // settles if the count/age trigger fires
 // or settler.settleBlock() to force one, settler.flushPendingSettlement() to drain everything.
 
 // 3. Publish settled blocks to a target (append-only: anchors.jsonl + blocks/block-NNNNN.json).

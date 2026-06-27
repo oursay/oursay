@@ -51,7 +51,7 @@ export class GeocodeRepo {
     );
   }
 
-  /** Append to history iff this (user, address_hash) is new; otherwise a no-op. */
+  /** Append to history if this (user, address_hash) is new; otherwise a no-op. */
   async appendHistory(g: GeocodeUpsert): Promise<void> {
     await this.pool.query(
       `INSERT INTO auth.profile_geocode_history (user_id, address_hash, geom, provider, confidence)

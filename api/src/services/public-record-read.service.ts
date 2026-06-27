@@ -72,7 +72,7 @@ export type CountGating = "none" | "withheld" | "tier-gated";
 /** Read filters as received from the HTTP layer (already enum-validated by JSON schema). */
 export interface PublicReadFilters {
   scope?: GeoScope;
-  /** Requested KYC tier(s) — a SET (OR). On counts, a participant is counted iff their CURRENT tier is
+  /** Requested KYC tier(s) — a SET (OR). On counts, a participant is counted if their CURRENT tier is
    *  in this set (not at-or-above). Empty/absent ⇒ no tier filter. */
   tier?: KycTier[];
   jurisdiction?: string;
@@ -504,7 +504,7 @@ export class PublicRecordReadService {
   /** Resolve the jurisdiction's PUBLIC COUNT EXPOSURE policy for one scalar (`JurisdictionConfig.counts`):
    *  - no `counts` block, or the scalar flag `true` with no `minTier` ⇒ `none` (exposed).
    *  - scalar flag `false` ⇒ `withheld` (never exposed).
-   *  - scalar flag `true` with a non-empty `minTier` ⇒ `tier-gated`: exposed iff the REQUEST restricts to
+   *  - scalar flag `true` with a non-empty `minTier` ⇒ `tier-gated`: exposed if the REQUEST restricts to
    *    a tier set ⊆ `minTier` (`requestedTiers` is the raw `filters.tier`; null on list/detail, which never
    *    filter by tier, so a gated scalar is always withheld there). `gating` reports the POLICY state; the
    *    caller signals exposure by nulling the scalar (k-anon `suppressed` stays orthogonal). */
@@ -550,7 +550,7 @@ export class PublicRecordReadService {
     return out;
   }
 
-  /** AND across the active dimensions: a participant counts iff they are in `region` (when geo narrows)
+  /** AND across the active dimensions: a participant counts if they are in `region` (when geo narrows)
    *  AND their current tier is in `tierSet` (when tier narrows). Each test is memoized by participant. */
   private async passesFilters(
     row: { authorPubkey: string; nullifier: string | null; parentId: string },

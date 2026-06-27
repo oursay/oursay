@@ -54,7 +54,7 @@ export function hasGeocodableAddress(addr: NormalizedAddress): boolean {
 
 /** Stable content hash of a normalized address — the geocode cache key / invalidation signal. Uses a
  *  fixed field order (not JSON key order) and an escaped unit-separator delimiter, so the hash is
- *  deterministic across runs and changes iff a normalized field changes. */
+ *  deterministic across runs and changes if a normalized field changes. */
 export function hashAddress(addr: NormalizedAddress): string {
   const SEP = String.fromCharCode(0x1f); // unit separator — field delimiter (never typed by users)
   const fields = [addr.line1, addr.line2, addr.city, addr.province, addr.postalCode, addr.country, addr.memo];

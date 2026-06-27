@@ -86,7 +86,7 @@ export interface TxEnvelope {
   signerPubkey?: string; // webauthn-es256 (REQUIRED): this device's per-thread WebAuthn passkey pubkey — assertion verified against it, not authorPubkey. p256 path: thread-scoped DEVICE key that produced `signature` (Method 3 §5.4); absent ⇒ the persona signed.
   signScheme?: SignScheme; // how `signature`/`webauthn` were produced. Absent ⇒ "p256" (legacy envelopes hash unchanged).
   signature: string; // p256: ECDSA over the signing digest ("unsigned" on the dev path). WebAuthn path: "" (the ES256 sig lives in `webauthn`).
-  webauthn?: WebauthnAssertion; // present iff signScheme === "webauthn-es256". Blanked (like `signature`) in signingDigest; sealed populated in txHashOf.
+  webauthn?: WebauthnAssertion; // present if signScheme === "webauthn-es256". Blanked (like `signature`) in signingDigest; sealed populated in txHashOf.
   createdAt: string; // ISO 8601 — part of the hash
   prevHash: string | null; // per-entity link = txHash of the prior tx for entityId (null on create)
   contentHash: string; // salted commitment of THIS tx's content

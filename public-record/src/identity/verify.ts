@@ -22,7 +22,7 @@ export function bindingFromRow(row: ThreadBindingRow): ThreadBindingPublic {
 }
 
 /**
- * True iff `threadPubkey` is registered (a binding row exists) AND its stored `binding_sig` verifies
+ * True if `threadPubkey` is registered (a binding row exists) AND its stored `binding_sig` verifies
  * against the platform public key. A false here means the key is unverified-tier → the action must
  * stay off the verified ledger.
  */
