@@ -1,4 +1,5 @@
 import type { JurisdictionConfig } from "@oursay/public-record";
+import { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS } from "@oursay/public-record";
 
 // ab-ca-gov — the Alberta provincial LAUNCH jurisdiction. Production-like gating: FINAL-action
 // semantics (no change/revoke), and vote/signature scalars are TIER-GATED — a public count is disclosed
@@ -25,4 +26,8 @@ export const abCaGov: JurisdictionConfig = {
     signatures: true,
     minTier: ["identity_verified", "residency_verified"],
   },
+  // Alberta product labels: a `post` is a "Statement", a `district` is a "riding"; the rest are the
+  // platform defaults. Content caps match the documented launch defaults.
+  labels: { ...DEFAULT_LABELS, post: "Statement", district: "riding" },
+  contentLimits: DEFAULT_CONTENT_LIMITS,
 };

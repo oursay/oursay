@@ -3,7 +3,13 @@
 // `npx mocha test/15-jurisdiction.spec.ts`.
 import { expect } from "chai";
 import { resolveRules } from "../src/governance.js";
-import { getJurisdiction, registerJurisdiction, jurisdictionConfig } from "../src/index.js";
+import {
+  DEFAULT_CONTENT_LIMITS,
+  DEFAULT_LABELS,
+  getJurisdiction,
+  registerJurisdiction,
+  jurisdictionConfig,
+} from "../src/index.js";
 
 describe("15 jurisdiction: layered rule resolution (default ⊕ entity override)", () => {
   it("applies the jurisdiction default when the entity sets no rule", () => {
@@ -48,5 +54,39 @@ describe("15 jurisdiction: router", () => {
     expect(getJurisdiction("bc-ca-gov").rules.allowChange).to.equal(true);
     expect(getJurisdiction("bc-ca-gov").level).to.equal("provincial");
     expect(getJurisdiction("does-not-exist").id).to.equal(jurisdictionConfig.id);
+  });
+});
+
+// Mirrors the @oursay/jurisdiction-data configs (public-record can't import that package — it would be
+// a dependency cycle), exercising the labels/contentLimits seam through the same getJurisdiction() path.
+// The shipped data-package values are asserted end-to-end in api/test/19-public-area-catalog.spec.ts.
+describe("15 jurisdiction: labels + contentLimits resolve via getJurisdiction()", () => {
+  it("resolves Alberta's per-record-type labels and content caps", () => {
+    registerJurisdiction({
+      id: "ab-ca-gov",
+      level: "provincial",
+      rules: { allowChange: false, allowRevoke: false },
+      labels: { ...DEFAULT_LABELS, post: "Statement", district: "riding" },
+      contentLimits: DEFAULT_CONTENT_LIMITS,
+    });
+    const ab = getJurisdiction("ab-ca-gov");
+    expect(ab.labels?.post).to.equal("Statement");
+    expect(ab.labels?.district).to.equal("riding");
+    expect(ab.labels?.poll).to.equal("Poll");
+    expect(ab.contentLimits?.petition?.text).to.equal(5000);
+    expect(ab.contentLimits?.poll?.maxOptions).to.equal(10);
+  });
+
+  it("resolves the global jurisdiction to all platform defaults", () => {
+    registerJurisdiction({
+      id: "oursay-global",
+      level: "federal",
+      rules: { allowChange: true, allowRevoke: true },
+      labels: { ...DEFAULT_LABELS },
+      contentLimits: DEFAULT_CONTENT_LIMITS,
+    });
+    const g = getJurisdiction("oursay-global");
+    expect(g.labels).to.deep.equal(DEFAULT_LABELS);
+    expect(g.contentLimits).to.deep.equal(DEFAULT_CONTENT_LIMITS);
   });
 });

@@ -60,13 +60,21 @@ describe("19 public area catalog", () => {
     await ingestBoundaries(w.services.geoStore, alberta2019Source("2019-10-01"));
   });
 
-  it("lists registered jurisdictions with labels and no policy fields", async () => {
+  it("lists registered jurisdictions with labels, content limits, and no policy fields", async () => {
     const { status, body } = await get(w, "/v1/public/jurisdictions");
     expect(status).to.equal(200);
     const ids = body.items.map((j: any) => j.id);
     expect(ids).to.include.members(["ab-ca-gov", "oursay-global"]);
     const ab = body.items.find((j: any) => j.id === "ab-ca-gov");
-    expect(ab).to.deep.equal({ id: "ab-ca-gov", level: "provincial", label: "Alberta" });
+    expect(ab.id).to.equal("ab-ca-gov");
+    expect(ab.level).to.equal("provincial");
+    expect(ab.label).to.equal("Alberta");
+    // Per-record-type display labels: Alberta calls a `post` a "Statement", a district a "riding".
+    expect(ab.labels.post).to.equal("Statement");
+    expect(ab.labels.district).to.equal("riding");
+    // Hard content caps surface so clients can render limits without hardcoding.
+    expect(ab.contentLimits.petition.text).to.equal(5000);
+    expect(ab.contentLimits.poll.maxOptions).to.equal(10);
     for (const j of body.items) {
       expect(j).to.not.have.any.keys("rules", "counts", "privacy");
     }

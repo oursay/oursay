@@ -33,6 +33,47 @@ const districtItemSchema = {
   required: ["id", "name", "ridingSlug", "effectiveDate", "source"],
 } as const;
 
+// Per-record-type display labels (docs/GLOSSARY "Civic content vocabulary"). Display only; absent keys
+// ⇒ client falls back to platform defaults (Statement/Petition/Poll/Result/District).
+const jurisdictionLabelsSchema = {
+  type: "object",
+  properties: {
+    post: { type: "string", description: "Label for a `post` (default: Statement)." },
+    petition: { type: "string", description: "Label for a `petition` (default: Petition)." },
+    poll: { type: "string", description: "Label for a `poll` (default: Poll)." },
+    result: { type: "string", description: "Label for a poll `result` (default: Result)." },
+    district: { type: "string", description: "Label for a district (e.g. Alberta: riding)." },
+  },
+} as const;
+
+// Hard per-type content caps (max sizes). Numbers are character limits except poll.maxOptions (count).
+const jurisdictionContentLimitsSchema = {
+  type: "object",
+  properties: {
+    post: {
+      type: "object",
+      properties: { title: { type: "number" }, body: { type: "number" } },
+    },
+    comment: {
+      type: "object",
+      properties: { body: { type: "number" } },
+    },
+    petition: {
+      type: "object",
+      properties: { title: { type: "number" }, text: { type: "number" } },
+    },
+    poll: {
+      type: "object",
+      properties: {
+        question: { type: "number" },
+        option: { type: "number" },
+        maxOptions: { type: "number" },
+        description: { type: "number" },
+      },
+    },
+  },
+} as const;
+
 const jurisdictionsResponse = {
   type: "object",
   properties: {
@@ -44,6 +85,8 @@ const jurisdictionsResponse = {
           id: { type: "string" },
           level: { type: "string", description: "Governmental tier (federal | provincial | municipal | …)." },
           label: { type: "string", description: "Public display name; absent ⇒ fall back to id." },
+          labels: jurisdictionLabelsSchema,
+          contentLimits: jurisdictionContentLimitsSchema,
         },
         required: ["id", "level"],
       },
@@ -108,7 +151,9 @@ export function registerPublicAreaCatalogRoutes(app: FastifyInstance, services: 
     {
       schema: {
         tags: ["public"],
-        summary: "List registered jurisdictions (id + level + optional public label). No policy fields.",
+        summary:
+          "List registered jurisdictions (id + level + optional public label, per-record-type labels, " +
+          "and content caps). No policy fields.",
         response: { 200: jurisdictionsResponse },
       },
     },

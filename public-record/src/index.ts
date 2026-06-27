@@ -49,8 +49,8 @@ export {
 } from "./governance.js";
 
 // Jurisdiction (domain partition + router: id, level, default gating rules, signing policy)
-export { getJurisdiction, registerJurisdiction, requiredSignScheme } from "./jurisdiction.js";
-export type { JurisdictionConfig, JurisdictionCountExposure, JurisdictionPrivacy, JurisdictionRules } from "./jurisdiction.js";
+export { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS, getJurisdiction, registerJurisdiction, requiredSignScheme } from "./jurisdiction.js";
+export type { JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules } from "./jurisdiction.js";
 
 // Projections (fold-on-read state)
 export { getThread, reactionTallies } from "./projection.js";

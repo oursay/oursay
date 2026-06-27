@@ -5,14 +5,17 @@
 // or sub-riding tiles; only official ingested electoral boundaries (docs/06 §2–3).
 
 import type { DistrictCatalogRow, GeoStore } from "@oursay/geo";
-import type { JurisdictionConfig } from "@oursay/public-record";
+import type { JurisdictionConfig, JurisdictionContentLimits, JurisdictionLabels } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 
-/** A jurisdiction as exposed publicly: id + level + optional display label. No rules/privacy/counts. */
+/** A jurisdiction as exposed publicly: id + level + optional display label, per-record-type labels,
+ *  and content caps. No rules/privacy/counts (those stay platform-internal). */
 export interface JurisdictionSummary {
   id: string;
   level: string;
   label?: string;
+  labels?: JurisdictionLabels;
+  contentLimits?: JurisdictionContentLimits;
 }
 
 export interface DistrictListItem extends DistrictCatalogRow {
@@ -42,12 +45,15 @@ export class AreaCatalogService {
     this.jurisdictions = deps.jurisdictions;
   }
 
-  /** The registered jurisdiction index — id + level + optional public label only. */
+  /** The registered jurisdiction index — id + level + optional public label, per-record-type labels,
+   *  and content caps. Policy fields (rules/privacy/counts) stay internal. */
   listJurisdictions(): JurisdictionSummary[] {
     return this.jurisdictions.map((j) => ({
       id: j.id,
       level: j.level,
       ...(j.label !== undefined ? { label: j.label } : {}),
+      ...(j.labels !== undefined ? { labels: j.labels } : {}),
+      ...(j.contentLimits !== undefined ? { contentLimits: j.contentLimits } : {}),
     }));
   }
 

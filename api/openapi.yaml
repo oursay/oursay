@@ -3944,8 +3944,8 @@ paths:
                   - error
   /v1/public/jurisdictions:
     get:
-      summary: List registered jurisdictions (id + level + optional public label). No
-        policy fields.
+      summary: List registered jurisdictions (id + level + optional public label,
+        per-record-type labels, and content caps). No policy fields.
       tags:
         - public
       responses:
@@ -3969,6 +3969,57 @@ paths:
                         label:
                           type: string
                           description: Public display name; absent ⇒ fall back to id.
+                        labels:
+                          type: object
+                          properties:
+                            post:
+                              type: string
+                              description: "Label for a `post` (default: Statement)."
+                            petition:
+                              type: string
+                              description: "Label for a `petition` (default: Petition)."
+                            poll:
+                              type: string
+                              description: "Label for a `poll` (default: Poll)."
+                            result:
+                              type: string
+                              description: "Label for a poll `result` (default: Result)."
+                            district:
+                              type: string
+                              description: "Label for a district (e.g. Alberta: riding)."
+                        contentLimits:
+                          type: object
+                          properties:
+                            post:
+                              type: object
+                              properties:
+                                title:
+                                  type: number
+                                body:
+                                  type: number
+                            comment:
+                              type: object
+                              properties:
+                                body:
+                                  type: number
+                            petition:
+                              type: object
+                              properties:
+                                title:
+                                  type: number
+                                text:
+                                  type: number
+                            poll:
+                              type: object
+                              properties:
+                                question:
+                                  type: number
+                                option:
+                                  type: number
+                                maxOptions:
+                                  type: number
+                                description:
+                                  type: number
                       required:
                         - id
                         - level

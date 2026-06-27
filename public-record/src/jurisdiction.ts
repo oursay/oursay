@@ -49,6 +49,45 @@ export interface JurisdictionCountExposure {
   minTier?: string[];
 }
 
+/** Per-jurisdiction USER-FACING display labels for the canonical record types (docs/GLOSSARY
+ *  "Civic content vocabulary"). Display only — NEVER a partition key or dev term. Absent keys ⇒
+ *  client falls back to {@link DEFAULT_LABELS}. `result` and `district` are PRODUCT labels, not
+ *  RecordTypes, so this is its own keyset rather than keyed on RecordType. */
+export interface JurisdictionLabels {
+  post?: string;
+  petition?: string;
+  poll?: string;
+  result?: string;
+  district?: string;
+}
+
+/** Hard content caps per record type, enforced at create/update by per-type validators
+ *  ([code-post-content-fields]) — this config only DEFINES + EXPOSES them. Per-type nested numeric
+ *  caps; absent type/field ⇒ no cap from this seam. */
+export interface JurisdictionContentLimits {
+  post?: { title?: number; body?: number };
+  comment?: { body?: number };
+  petition?: { title?: number; text?: number };
+  poll?: { question?: number; option?: number; maxOptions?: number; description?: number };
+}
+
+/** Platform default user-facing labels (the "Statement → Petition → Poll → Result" hierarchy). */
+export const DEFAULT_LABELS: Required<JurisdictionLabels> = {
+  post: "Statement",
+  petition: "Petition",
+  poll: "Poll",
+  result: "Result",
+  district: "District",
+};
+
+/** Platform default content caps (the documented Alberta/launch caps; also the global defaults). */
+export const DEFAULT_CONTENT_LIMITS: JurisdictionContentLimits = {
+  post: { title: 200, body: 2000 },
+  comment: { body: 2000 },
+  petition: { title: 200, text: 5000 },
+  poll: { question: 200, option: 100, maxOptions: 10, description: 2000 },
+};
+
 /** A jurisdiction's configuration: its id, governmental level, and default rules. Censoring /
  *  expiry policy is a per-jurisdiction extension point that will hang off this shape; `privacy`
  *  (k-anonymity floor) and `counts` (public count exposure) are the first such extensions. */
@@ -57,11 +96,17 @@ export interface JurisdictionConfig {
   level: string; // federal | provincial | municipal | state | …
   /** Optional public DISPLAY name for the jurisdiction (e.g. "Alberta"), surfaced by the public area
    *  catalog (`GET /v1/public/jurisdictions`). Display only — never a partition key; absent ⇒ clients
-   *  fall back to the id. */
+   *  fall back to the id. Distinct from {@link labels} (the per-record-type display map): `label` names
+   *  the JURISDICTION itself; `labels` names what it calls each record type. */
   label?: string;
   rules: JurisdictionRules;
   privacy?: JurisdictionPrivacy;
   counts?: JurisdictionCountExposure;
+  /** Per-record-type user-facing display labels (e.g. Alberta calls a `post` a "Statement", a district
+   *  a "riding"). Display only; absent keys ⇒ {@link DEFAULT_LABELS}. */
+  labels?: JurisdictionLabels;
+  /** Hard per-type content caps. Defined + exposed here; enforced by per-type validators elsewhere. */
+  contentLimits?: JurisdictionContentLimits;
 }
 
 const registry = new Map<string, JurisdictionConfig>();
