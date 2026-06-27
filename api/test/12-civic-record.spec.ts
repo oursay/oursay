@@ -117,6 +117,19 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
     expect((await prepare(longTitle)).statusCode).to.equal(400);
   });
 
+  it("rejects an over-limit petition and poll create at prepare (400)", async () => {
+    const m = await enrolledMember(w, "civic-limits@example.com", "limits");
+    const author = m.sess.personaPubkey(m.t);
+    const prepare = (intent: Intent) =>
+      w.app.inject({ method: "POST", url: "/v1/civic/appends/prepare", headers: bearer(m.token), payload: { author, intent } });
+
+    const longText: Intent = { op: "create", type: "petition", entityId: m.threadId, content: { title: "Fix it", text: "x".repeat(5001) } };
+    const tooManyOptions: Intent = { op: "create", type: "poll", entityId: m.threadId, content: { question: "Pick one?", options: Array.from({ length: 11 }, (_, i) => `opt${i}`) } };
+
+    expect((await prepare(longText)).statusCode).to.equal(400);
+    expect((await prepare(tooManyOptions)).statusCode).to.equal(400);
+  });
+
   it("join returns 200 + { personaPubkey } (not 204) and the canonical Pₜ", async () => {
     const { userId, token } = await fullSessionAccount(w, "civic-200@example.com");
     const passkey = new DevPasskeyConnector({ rootDir: mkdtempSync(join(tmpdir(), "oursay-civic-")), seed: "p200" });
@@ -291,7 +304,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
 
   it("petition_signature policy: p256 envelope is rejected (webauthn-es256 hard-required)", async () => {
     const m = await enrolledMember(w, "civic-petsig@example.com", "petsig");
-    await m.client.append(m.t, { op: "create", type: "petition", entityId: m.threadId, content: { title: "Fix the road" } });
+    await m.client.append(m.t, { op: "create", type: "petition", entityId: m.threadId, content: { title: "Fix the road", text: "please" } });
 
     // Hand-build a p256-signed petition_signature envelope and submit it. The jurisdiction policy
     // hard-requires webauthn-es256 for this type — the service rejects it outright.

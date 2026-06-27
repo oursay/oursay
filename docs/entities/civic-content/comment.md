@@ -89,4 +89,5 @@ All comments — including removed — retain ledger hash for existence proof (c
 
 ## Gaps
 
+- **Content-limit enforcement (RESOLVED 2026-06-27)** — `body` is **required** (non-empty) and capped (AB: 2000) at create *and* update by `validateContent` (`public-record/src/schema/content.ts`) against the jurisdiction's `JurisdictionConfig.contentLimits` (falling back to `DEFAULT_CONTENT_LIMITS`); see the [jurisdiction.md](../partitioning/jurisdiction.md) contentLimits table. Completed alongside `post` ([code-post-content-fields]).
 - Engagement signals (likes on comments) left to contributor discretion — not specified in schema.

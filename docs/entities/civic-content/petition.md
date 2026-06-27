@@ -121,5 +121,6 @@ Signature count (total \| by tier) — policy-gated on list/detail; filterable o
 
 ## Gaps
 
+- **Content-limit enforcement (RESOLVED 2026-06-27)** — `title` and `text` are **required** (non-empty) and capped (AB: title 200, text 5000) at create *and* update by `validateContent` (`public-record/src/schema/content.ts`) against the jurisdiction's `JurisdictionConfig.contentLimits` (falling back to `DEFAULT_CONTENT_LIMITS`); see the [jurisdiction.md](../partitioning/jurisdiction.md) contentLimits table. `rules` (EntityRules) is untouched. Completed alongside `post` ([code-post-content-fields]).
 - Product status workflow (delivered/responded) not fully automated in API.
 - `official_response` record type is future ([REQUIREMENTS.md](../../../public-record/REQUIREMENTS.md) R1).
