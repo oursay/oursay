@@ -38,10 +38,41 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
   on raw district-id lists. Anyone on the platform may participate in any discussion regardless of
   region; regions are used to **filter the participant set** (by containment of the inferred address,
   plus later KYC status), never stored on the user row.
-- **Entity scope (poll/petition)** — gating rules **default to the jurisdiction**, but an individual
-  poll/petition may apply to a **specific district, several districts, or the whole jurisdiction**
-  (`EntityRules.appliesToDistrictIds`; absent/empty = the whole jurisdiction). This spans a vote about
-  a single local crosswalk through to jurisdiction-wide policy.
+- **Thread audience** — the stake declared on a **root entity** (`post` / `petition` / `poll`); votes,
+  comments, and reactions **inherit** it from their root. Two orthogonal axes (both target shape;
+  see [`entities/partitioning/entity-rules.md`](entities/partitioning/entity-rules.md)):
+  - **`jurisdictionId`** — required on every thread; the partition the thread lives in.
+  - **`appliesToRegion`** — the *geographic* stake: `jurisdiction`, `riding:<riding_slug>`,
+    `district:<revisionId>`, `region:<presetId>`, or a union of these. Stable district pages key off
+    `riding_slug`. Absent ⇒ the whole jurisdiction.
+  - **`appliesToVerified`** — the minimum KYC tier **set** that counts toward stake/official totals.
+  - **Entity scope** — gating rules **default to the jurisdiction**; an individual poll/petition may
+    narrow them via the axes above. This spans a vote about a single local crosswalk through to
+    jurisdiction-wide policy.
+  > **Deprecated:** `EntityRules.appliesToDistrictIds` (raw district-id array) is still present in code
+  > today but superseded by `appliesToRegion` in the docs. See the superseded-terms table.
+
+## Civic content vocabulary (record types ↔ user-facing labels)
+
+OurSay keeps a hard split between the **engineering record types** (stable, used in code, schema,
+OpenAPI routes, and these docs) and the **user-facing labels** a deployment shows (configurable per
+jurisdiction). **Never** use a display label as a canonical dev term.
+
+- **Record types** (canonical, lower-case, never renamed per deployment): `post`, `petition`, `poll`,
+  `result`, `vote`, `petition_signature` (plus the attachments `comment`, `reaction`). API routes use
+  these — e.g. `/v1/public/posts`.
+- **User-facing labels** — per jurisdiction via **`JurisdictionConfig.labels`** (post / petition / poll
+  / result / district). Defaults: **Statement, Petition, Poll, Result**. Alberta launch (`ab-ca-gov`):
+  **Statement** for `post`, **riding** for the district label. `oursay-global` = all defaults.
+- **Content hierarchy** (product): **Statement → Petition → Poll → Result**. Internal:
+  `post → petition → poll → result`.
+- **Statement** — the Alberta/default product label for a `post` (the informal, lowest-formality civic
+  content type). Replaces the retired product term *Belief*.
+- **Poll** — the product label for a `poll` (formal vote container). Replaces the retired product term
+  *Public Vote*. A user's individual ballot is a **`vote`**; "public vote" refers **only** to that
+  ballot, never to the poll container.
+- **vote / petition_signature** — a user's individual ballot on a poll / signature on a petition. Both
+  MUST be signed `webauthn-es256`.
 
 ## User / account vocabulary
 
@@ -50,6 +81,28 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 - **first_name / last_name** — private PII, used for KYC, never publicly surfaced (`auth.profiles`).
 - **province** — the province/territory address component (Canada-centric storage;
   `auth.profiles.province`). Jurisdiction-specific *display* labels live in the front-end.
+- **over_18** — the age-gate result (target: a boolean). The platform needs only "is this account an
+  adult", not a date of birth; if the KYC/recovery flow can re-prompt for age, the stored `birthdate`
+  column is dropped. Today the age gate stores `auth.profiles.birthdate` (DATE) and computes 18+ at
+  registration — see the superseded-terms table and [`account/future.md`](entities/account/future.md).
+- **Jurisdiction membership** — a user belongs to one or more jurisdictions via a membership table;
+  every account is auto-subscribed to **`oursay-global`** at registration. Future: geocode-suggested
+  subscription prompts.
+- **Reveal** — the act of linking a pseudonymous thread persona (Pₜ) to a public profile. Replaces the
+  old `claimed` / `claimed_at` flow. A **platform reveal** is reversible (off-ledger); an **on-chain
+  reveal** is nuclear (permanent). See [`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md) and
+  [`account/future.md`](entities/account/future.md).
+
+## Verification vocabulary
+
+- **Verification tier** — a KYC level resolved by **set membership**, never a strict ladder (see
+  [`account/verification.md`](entities/account/verification.md)). Tiers and **provider tags** are
+  orthogonal — a tier says *how verified*, a provider tag says *who attested*.
+- **Didit** — the MVP KYC provider. **Dev:** ID-only verification (free) + a platform self-signed
+  address KYC (POA-ready). **Prod:** Didit proof-of-address (POA) verification, ~$2 CAD/check. Equifax
+  (`canadian_verified`) and election commission KYC (`electoral_verified`) provider tags are future only.
+  Residency verification is **never** electoral eligibility, and OurSay must **never** imply a partnership with government or authority. Today the provider enum is `stub | equifax` — see the superseded-terms
+  table and [`account/future.md`](entities/account/future.md).
 
 ## Auth / device vocabulary
 
@@ -75,6 +128,12 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 - **Session scope** — `auth.sessions.scope`: **`full`** (complete access) vs the limited
   **`recovery`** and **`login`** scopes, which may *only* enroll a passkey. Recovery **revokes all
   prior sessions**; login does not.
+  > **Target (code gap):** OTP registration should yield a limited **`registration`** scope (enroll the
+  > first passkey only); a `full` session is issued **after** the user logs in with that passkey. Today
+  > registration issues `full` directly — see [`auth/future.md`](entities/auth/future.md) and the
+  > superseded-terms table.
+- **Passkey enrollment** — one account-login passkey per **enrolled authenticator** (device/security
+  key). A user may enroll several across devices.
 
 ## Superseded terms (do not reintroduce)
 
@@ -83,9 +142,14 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 | `level` as a crypto/dedupe partition key | **jurisdiction** | level is now only a *property* of a jurisdiction |
 | `levelMaster` / `level_master_keys` | `jurisdictionMaster` / `jurisdiction_master_keys` | re-keyed per (user, jurisdiction) |
 | identity `region` (e.g. `"ca-ab"`) | **jurisdiction** membership | the loose per-thread region field was dropped |
-| `EntityRules.region` | `appliesToDistrictIds` | which district(s) a poll/petition applies to (absent = whole jurisdiction); never a single "governing" district |
+| `EntityRules.region` | `appliesToDistrictIds` → **`appliesToRegion`** | the geographic stake of a thread; `appliesToDistrictIds` (raw district-id array) is still in code but deprecated in docs in favour of `appliesToRegion` (see Thread audience) |
 | address `region` | `province` | user/profile address component |
 | `users.handle` holding a free-text display name | `handle` + `display_name` (+ `first_name`/`last_name`) | one field no longer does several jobs |
+| product term **Belief** | **Statement** (label for `post`) | "Belief" is retired as a product label; record type stays `post` |
+| product term **Public Vote** | **Poll** (label for `poll`) | "Public Vote"/"public vote" now means only a user's `vote` ballot, never the poll container |
+| `thread_keys.claimed` / `claimed_at` | **reveal model** | persona→profile linking is now the reveal flow (platform-reversible vs on-chain-nuclear); the columns remain until migration |
+| `auth.profiles.birthdate` (stored DATE) | **`over_18`** (boolean target) | store only the adult flag if age can be re-prompted; column remains until migration |
+| KYC provider `equifax` (MVP) | **`didit`** (MVP) | Didit is the MVP provider; Equifax/electoral are future provider tags |
 
 ## Where the vocabulary is applied
 

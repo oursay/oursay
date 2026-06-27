@@ -2,7 +2,9 @@
 
 ## Definition
 
-The stable pseudonymous public identity **Pₜ** for a user within one civic thread (a belief, petition, or public vote root). Appears as `authorPubkey` on every envelope that user writes in that thread — identical across all their devices. One persona per `(user, thread)`; first device wins at join.
+The stable pseudonymous public identity **Pₜ** for a user within one civic thread (a `post`, `petition`, or `poll` root). Appears as `authorPubkey` on every envelope that user writes in that thread — identical across all their devices. One persona per `(user, thread)`; first device wins at join.
+
+Linking a persona to a public profile is the **reveal** flow (replacing the old `claimed`/`claimed_at` columns): a **platform reveal** is reversible (off-ledger), while an **on-chain reveal** is nuclear (permanent). See [09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md) and [civic-identity/future.md](./future.md).
 
 ## Aliases
 
@@ -27,8 +29,8 @@ Primary key: `thread_keys.id` (UUID). Uniqueness enforced on `(user_id, thread_i
 | `thread_id` | TEXT | yes | yes | Root entity id (post/petition/poll) |
 | `jurisdiction` | TEXT | yes | yes | Partition key |
 | `pubkey` | TEXT | yes | yes | Pₜ hex — public author on record |
-| `claimed` | BOOLEAN | yes | yes | User publicly claimed thread (future R8) |
-| `claimed_at` | TIMESTAMPTZ | no | yes | Claim timestamp (future R9) |
+| ~~`claimed`~~ | BOOLEAN | — | — | **Deprecated** — superseded by the reveal model; column remains until migration |
+| ~~`claimed_at`~~ | TIMESTAMPTZ | — | — | **Deprecated** — superseded by the reveal model; column remains until migration |
 
 ## States & lifecycle
 
@@ -40,9 +42,9 @@ Primary key: `thread_keys.id` (UUID). Uniqueness enforced on `(user_id, thread_i
         │
         ▼
 [all devices share same Pₜ as authorPubkey]
-        │ optional future
+        │ optional future (reveal flow)
         ▼
-[claimed = true — links pseudonym to public profile]
+[reveal — links pseudonym to public profile; platform-reversible or on-chain-nuclear]
 ```
 
 ## Relationships
@@ -69,7 +71,7 @@ Primary key: `thread_keys.id` (UUID). Uniqueness enforced on `(user_id, thread_i
 |--------|-----|
 | Create (join) | Authenticated user on first civic action in thread |
 | Read pubkey | Public on record envelopes |
-| Claim | Self (future) |
+| Reveal | Self (future) |
 
 ## Events
 
@@ -93,4 +95,4 @@ Primary key: `thread_keys.id` (UUID). Uniqueness enforced on `(user_id, thread_i
 
 ## Gaps
 
-- Public thread claim flow (R8/R9) not implemented — `claimed` columns exist.
+- **Reveal model not implemented** — the persona→profile link is the reveal flow (platform-reversible vs on-chain-nuclear), replacing the old `claimed`/`claimed_at` columns, which remain in `thread_keys` until migration. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-drop-claimed-columns]`; see [civic-identity/future.md](./future.md).

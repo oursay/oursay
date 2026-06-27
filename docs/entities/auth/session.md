@@ -36,6 +36,7 @@ Primary key: `auth.sessions.id` (UUID). Active session: `revoked_at IS NULL` AND
 | Scope | Meaning |
 |-------|---------|
 | `full` | Complete account access |
+| `registration` | **Target** — issued by OTP registration; may enroll the **first** passkey only. A `full` session is issued only after the user then logs in with that passkey. (See Gaps — today registration issues `full` directly.) |
 | `recovery` | Enroll passkey only; **revokes all prior sessions** |
 | `login` | Gated cross-device login; enroll-only; does **not** revoke others |
 
@@ -92,4 +93,4 @@ Primary key: `auth.sessions.id` (UUID). Active session: `revoked_at IS NULL` AND
 
 ## Gaps
 
-None for MVP account auth.
+- **Registration scope drift** — `RegistrationService` issues a `full` session directly (`api/src/services/registration.service.ts`), so a freshly registered account can perform full civic actions before enrolling a passkey. Target: issue a limited `registration` scope (enroll first passkey only), then `full` after passkey login. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-registration-scope]`; see [auth/future.md](./future.md).

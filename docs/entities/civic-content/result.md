@@ -2,7 +2,9 @@
 
 ## Definition
 
-The immutable, published outcome of a closed [PublicVote](./public-vote.md). Formal capstone of the content hierarchy. **Derived/published** — not a user-appended record type in the current implementation.
+The immutable, published outcome of a closed [Poll](./poll.md). Formal capstone of the content hierarchy. **Derived/published** — not a user-appended record type in the current implementation.
+
+Scope of this spec is deliberately narrow: **poll close + near-term publish**. Broader future result types (petition outcomes, bill/legislative outcomes, official responses) are out of scope here — see [civic-content/future.md](./future.md).
 
 ## Aliases
 
@@ -16,13 +18,13 @@ See [01-CONTRIBUTOR-SPEC.md §8.4](../../01-CONTRIBUTOR-SPEC.md).
 
 ## Identity
 
-One result per closed public vote. Linked to exactly one poll `entity_id`.
+One result per closed poll. Linked to exactly one poll `entity_id`.
 
 ## Attributes
 
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
-| `linked public vote` | UUID | yes | yes | Exactly one poll |
+| `linked poll` | UUID | yes | yes | Exactly one poll |
 | `final vote counts per option` | map | yes | yes | Total \| by tier |
 | `geographic breakdown` | nested | yes | yes | Per hierarchy level |
 | `tier breakdown` | map | yes | yes | |
@@ -48,8 +50,8 @@ No editing or deletion after publication.
 
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
-| PublicVote | 1:1 | Exactly one source poll |
-| Petition / Belief | transitive | Via poll links upstream |
+| Poll | 1:1 | Exactly one source poll |
+| Petition / Post | transitive | Via poll links upstream |
 | PublicRecord | 1:1 | Anchored on ledger |
 
 ## Invariants
@@ -92,3 +94,4 @@ No editing or deletion after publication.
 - **[mvp-c12-poll-results]**: No derived `result` entity at poll close — primary launch gap.
 - Geographic breakdown at result publish not formalized.
 - Signed count manifests ([mvp-c13-signed-count-snapshots]).
+- Broader result types (petitions, bills, official outcomes) — see [civic-content/future.md](./future.md).

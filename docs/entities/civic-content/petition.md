@@ -2,7 +2,7 @@
 
 ## Definition
 
-A formal call to action that collects signatures, addressed to a specific authority. Escalates formality from [Belief](./belief.md) in the content hierarchy.
+A formal call to action that collects signatures, addressed to a specific authority. Escalates formality from [Statement](./post.md) in the content hierarchy.
 
 ## Aliases
 
@@ -26,9 +26,21 @@ Primary key: `entity_id` (UUID) on root `petition` create transaction.
 | `text` | string | yes | yes | Full petition body |
 | `rules` | EntityRules | no | yes | See [EntityRules](../partitioning/entity-rules.md) |
 | `authorPubkey` | TEXT | yes | yes | May be anonymous |
-| `addressed to` | profile ref | no | yes | Official profile link |
-| `links to beliefs` | UUID[] | no | yes | Optional many |
-| `links to public votes` | UUID[] | no | yes | Optional many |
+| `addressedTo` | recipient ref(s) | no | yes | Inferred by default; see below |
+| `links to posts` | UUID[] | no | yes | Optional many |
+| `links to polls` | UUID[] | no | yes | Optional many |
+
+### addressedTo (recipient inference)
+
+`addressedTo` is **inferred by default** from the petition's audience, with a platform/moderation override:
+
+| Petition audience | Default recipient |
+|-------------------|-------------------|
+| District-scoped (`appliesToRegion` = riding/district) | The seated MLA(s) for those districts, as secondary recipients |
+| Jurisdiction-wide | The legislature (Alberta: the Legislative Assembly) |
+| Explicit **constitutional** checkbox | The relevant Minister / Lieutenant Governor |
+
+Recipients are **institutional roles**, not profile-only: a legislature, minister, agency, office, ministry, or governing body. Platform/moderation may override the inferred recipient.
 
 ### Product status (not separate record type today)
 
@@ -65,8 +77,8 @@ Signature count (total \| by tier) — policy-gated on list/detail; filterable o
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
 | PetitionSignature | 1:N | First-class signed commitments |
-| Belief | N:M | Optional upstream links |
-| PublicVote | N:M | Optional downstream links |
+| Post | N:M | Optional upstream links |
+| Poll | N:M | Optional downstream links |
 | Comment | 1:N | Discussion thread |
 | EntityRules | 1:1 | Embedded in create content |
 

@@ -65,7 +65,7 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 ## Invariants
 
 - District is **never stored** on the user row ([GLOSSARY.md](../../GLOSSARY.md)).
-- User may belong to **multiple jurisdictions** (membership model future).
+- User may belong to **multiple jurisdictions** via a jurisdiction-membership table; every account is auto-subscribed to **`oursay-global`** at registration. Future: geocode-suggested subscription prompts. (Membership table is target — see Gaps.)
 - Administrators cannot alter vote counts, verification statuses, or ledger records (contributor §4.7).
 - Account privacy model ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) is DESIGN TODO — not shipped.
 
@@ -100,5 +100,5 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 
 ## Gaps
 
-- **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription.
-- Account visibility / per-jurisdiction privacy ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) not built.
+- **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
+- Account visibility / per-jurisdiction privacy ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) not built — the reveal model replaces the old persona `claimed`/`claimed_at` flow.

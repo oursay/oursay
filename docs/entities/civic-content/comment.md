@@ -2,7 +2,7 @@
 
 ## Definition
 
-A threaded discussion comment attached to any content item — belief, petition, public vote, result, or another comment. First-class committed record type.
+A threaded discussion comment attached to any content item — post, petition, poll, result, or another comment. First-class committed record type.
 
 ## Aliases
 
@@ -47,7 +47,7 @@ All comments — including removed — retain ledger hash for existence proof (c
 
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
-| Belief/Petition/PublicVote/Result | N:1 | Root attachment |
+| Post/Petition/Poll/Result | N:1 | Root attachment |
 | Comment | N:1 | Threaded replies |
 | RecordTransaction | 1:N | Event log |
 

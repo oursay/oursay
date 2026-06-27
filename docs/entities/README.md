@@ -17,7 +17,7 @@ This library **formalizes** existing documentation; it does not replace it.
 
 | Rule | Detail |
 |------|--------|
-| Product ↔ record naming | Belief = `post`; Public Vote = `poll`; ballot = `vote`; signature = `petition_signature` |
+| Product ↔ record naming | Record types are canonical: `post`, `petition`, `poll`, `result`, `vote`, `petition_signature`. User-facing labels are per-jurisdiction (`JurisdictionConfig.labels`); defaults **Statement** (`post`), **Petition**, **Poll**, **Result**. A user's ballot = `vote`; "vote" means only that ballot, never the `poll` container. |
 | Tier semantics | Set membership, not a strict ladder — see [verification.md](./account/verification.md) |
 | District | Inferred from address at query time; **never stored on the user row** |
 | Finality defaults | Votes and signatures are final unless `EntityRules.allowChange` / `allowRevoke` + before deadline |
@@ -37,10 +37,10 @@ This library **formalizes** existing documentation; it does not replace it.
 | [Profile](./account/profile.md) | — | — | `auth.profiles` | [MVP] |
 | [Verification](./account/verification.md) | KYC attestation | — | `public.kyc_attestations` | [Gap] production provider |
 | [ProfileGeocode](./account/profile-geocode.md) | — | — | `auth.profile_geocodes` | [MVP] |
-| [Belief](./civic-content/belief.md) | Belief | `post` | `record_tx` | [MVP] |
+| [Post](./civic-content/post.md) | Statement | `post` | `record_tx` | [MVP] |
 | [Petition](./civic-content/petition.md) | Petition | `petition` | `record_tx` | [MVP] |
 | [PetitionSignature](./civic-content/petition-signature.md) | Signature | `petition_signature` | `record_tx` | [MVP] |
-| [PublicVote](./civic-content/public-vote.md) | Public Vote | `poll` | `record_tx` | [MVP] |
+| [Poll](./civic-content/poll.md) | Poll | `poll` | `record_tx` | [MVP] |
 | [Vote](./civic-content/vote.md) | Ballot | `vote` | `record_tx` | [MVP] |
 | [Result](./civic-content/result.md) | Result | derived | `poll_results` view | [Gap] formal publish |
 | [Comment](./civic-content/comment.md) | Discussion comment | `comment` | `record_tx` | [MVP] |
@@ -64,13 +64,13 @@ erDiagram
   User ||--o{ Verification : attested
   User ||--o{ ThreadPersona : participates
   ThreadPersona ||--o{ ThreadCredential : signs_with
-  Belief ||--o{ Reaction : receives
-  Belief ||--o{ Comment : threaded_on
+  Post ||--o{ Reaction : receives
+  Post ||--o{ Comment : threaded_on
   Petition ||--o{ PetitionSignature : collects
-  PublicVote ||--o{ Vote : receives
-  PublicVote ||--o| Result : derives
+  Poll ||--o{ Vote : receives
+  Poll ||--o| Result : derives
   Petition ||--o| EntityRules : governed_by
-  PublicVote ||--o| EntityRules : governed_by
+  Poll ||--o| EntityRules : governed_by
   RecordTransaction ||--|| PublicRecord : settles_to
   User }o--|| District : inferred_via_geocode
   District }o--|| Jurisdiction : within
@@ -103,7 +103,7 @@ docs/entities/
 ├── README.md                 ← this file
 ├── partitioning/             ← jurisdiction, district, region, entity-rules
 ├── account/                  ← user, profile, verification, profile-geocode
-├── civic-content/            ← belief, petition, vote, result, …
+├── civic-content/            ← post, petition, poll, vote, result, …
 ├── civic-identity/           ← thread persona, binding, credential, nullifier
 ├── record/                   ← record-transaction, public-record, entity-projection
 └── auth/                     ← session, passkey, email-otp (supporting objects)

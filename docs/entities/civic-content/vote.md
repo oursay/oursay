@@ -2,7 +2,7 @@
 
 ## Definition
 
-A cast ballot on a [PublicVote](./public-vote.md) — a signed record selecting one option. The real-world analog of casting a vote: **final once cast by default**.
+A cast ballot on a [Poll](./poll.md) — a signed record selecting one option. The real-world analog of casting a vote: **final once cast by default**.
 
 ## Aliases
 
@@ -49,7 +49,7 @@ Allowed ops: `create`, `update` only — **never deleted**.
 
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
-| PublicVote | N:1 | Parent poll |
+| Poll | N:1 | Parent poll |
 | Nullifier | 1:1 | One per user per poll |
 | Result | N:1 | Aggregated into poll close outcome |
 

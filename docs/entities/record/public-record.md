@@ -106,8 +106,21 @@ Settlement and anchoring are **distinct** steps (contributor §3.4).
 | Outbox | `public-record/src/schema/postgres.sql.ts` |
 | Worker | Settlement worker (`WORKER_CHAIN_IDS`) |
 
+## Platform-signed records (future, unimplemented)
+
+A class of records authored by the **platform key** rather than a participant persona — documented here as design intent, not yet built:
+
+- Final tallies and **tally amendments** (corrections to a published count).
+- **Censorship reasoning** (why a record was redacted/removed).
+- **District boundary revisions** (a redraw published as a signed record).
+- **Official profiles** (MLA / premier / agency), distinct from participant accounts.
+- **Post Archiving** when the platform has been required to archive the post/statement to comply with lawful requests.
+
+Comments and reactions *on* official records are a further future step. See [record/future.md](./future.md).
+
 ## Gaps
 
 - **[mvp-c13-signed-count-snapshots]**: No platform-signed count manifests (R26).
 - **[mvp-c12-poll-results]**: Formal derived result publish not complete.
+- Platform-signed records (tallies, amendments, censorship reasoning, boundary revisions, official profiles, post archiving) — see [record/future.md](./future.md).
 - External anchoring cadence / production deploy hashes — launch blocker per PRD open questions.

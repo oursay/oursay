@@ -34,7 +34,7 @@
 
 ## 1. Project Vision
 
-OurSay is an open source civic platform that gives communities a structured, verifiable, and auditable way to express political beliefs, sign petitions, and participate in public votes. It is designed to work for any democratic system, in any country, at any geographic level — from a local ward to a national constituency.
+OurSay is an open source civic platform that gives communities a structured, verifiable, and auditable way to express political views, sign petitions, and participate in polls. It is designed to work for any democratic system, in any country, at any geographic level — from a local ward to a national constituency.
 
 The platform makes the authentic will of verified participants legible, persistent, and publicly auditable. It is not a social network. It is not a polling service. It is civic infrastructure that can be adapted to any jurisdiction.
 
@@ -82,9 +82,9 @@ KYC providers are **pluggable and configurable per region or jurisdiction**. No 
 - Different providers returning different verification outputs, mapped to different verification tiers (see Section 4)
 - Provider configuration changes without rebuilding the platform
 
-The **preferred provider for the Alberta launch** is Equifax Connect, or an equivalent service capable of confirming identity, age, and address from public records.
+The **MVP provider for the Alberta launch** is **Didit**: in dev it performs ID-only verification (free) and the platform self-signs the address check; in production Didit performs proof-of-address (POA) verification (~$2 CAD/check). Verification **tiers** (how verified) and **provider tags** (who attested) are orthogonal.
 
-An integration with an official electoral authority (e.g., Elections Alberta) is the designed future path — it would constitute a separate, higher-trust provider yielding a distinct verification tier not available through commercial providers. The pluggable architecture exists precisely to make this possible without restructuring the platform.
+Commercial providers such as Equifax (`canadian_verified`) and an official electoral authority such as Elections Alberta (`electoral_verified`) are **future** provider tags yielding distinct, higher-trust tiers — not part of the launch. OurSay must **never** imply an Elections Alberta partnership, and residency verification is explicitly **not** electoral eligibility. The pluggable architecture exists precisely to add these later without restructuring the platform.
 
 ### 3.4 Distributed Public Ledger
 
@@ -116,11 +116,11 @@ Participants exist on a spectrum from anonymous guests to officially validated p
 
 ### 4.1 Guest
 
-No account. Can browse all public content, aggregate counts, and public vote results. Cannot take any action. No personal data collected.
+No account. Can browse all public content, aggregate counts, and poll results. Cannot take any action. No personal data collected.
 
 ### 4.2 Unverified User
 
-Account created, no KYC completed. Can express beliefs (agree/disagree), sign petitions, vote on public votes, participate in discussions, apply for verification, join the verification waitlist, and sponsor other users. Actions are publicly counted and displayed separately from all verified tiers.
+Account created, no KYC completed. Can create statements (agree/disagree), sign petitions, vote in polls, participate in discussions, apply for verification, join the verification waitlist, and sponsor other users. Actions are publicly counted and displayed separately from all verified tiers.
 
 ### 4.3 Identity Verified
 
@@ -238,8 +238,9 @@ These four terms have exact, non-overlapping meanings throughout the codebase, s
 
 - **Jurisdiction** — the primary partition of civic identity and rules. A jurisdiction (e.g. `ab-ca-gov`, `ca-gov`) is **one chain + one rule set + one governmental level**, and is **1:1 with a chain** (the append-only ledger mechanism keeps the word "chain" only where physically accurate). A user may belong to **multiple jurisdictions**. Cryptographic identity (persona master, nullifier/dedupe root) and gating rules (expiry, censoring, change/revoke) are partitioned **per jurisdiction**.
 - **Level** — a **property of a jurisdiction**: its governmental tier (`federal`, `provincial`, `municipal`, `state`, …). Level is descriptive metadata, **never** a partition key on its own.
-- **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A user is **never assigned or stored** a district; district membership is **inferred from address**, so views and vote counts can be validated by who is inside vs. outside a district or jurisdiction. District IDs carry the **boundary year** (boundaries are redrawn over time), e.g. `edmonton-strathcona-2026`. A poll/petition's gating rules default to the jurisdiction but may apply to a specific district, several districts, or the whole jurisdiction (`EntityRules.appliesToDistrictIds`).
+- **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A user is **never assigned or stored** a district; district membership is **inferred from address**, so views and vote counts can be validated by who is inside vs. outside a district or jurisdiction. District IDs carry the **boundary year** (boundaries are redrawn over time), e.g. `edmonton-strathcona-2026`. A poll/petition's gating rules default to the jurisdiction but may apply to a specific district, several districts, or the whole jurisdiction via its thread audience (`EntityRules.appliesToRegion` — a region reference keyed off the stable `district_slug`; today the code still uses the raw `appliesToDistrictIds` array, a documented gap).
 - **Region** — the generic, app-wide term for **any filterable geographic shape**, composed **inclusively and exclusively**: a single district, a curated preset (e.g. "southern Alberta", "Edmonton", urban/rural Alberta), a whole jurisdiction's extent, or a raw shape. A region resolves to an **additive list of districts** (presets expand to additive district shapes applied to a filter). **Every district is a region; not every region is a district.** Anyone may participate in any discussion regardless of region; regions only **filter the participant set** by **containment** of the inferred address (plus later KYC status), never by storing regions on the user row. Custom regions should be defined as unions of district boundaries to limit privacy leakage; finer-than-district public breakdowns are out of scope.
+- **Thread audience** — a root entity's declared stake on two axes: **`appliesToRegion`** (the geographic shape above) and **`appliesToVerified`** (the minimum KYC tier set counting toward stake/official totals). Votes, comments, and reactions inherit the audience from their root; a thread may **narrow** but never widen it.
 
 ### 6.1 Generic Area Model
 
@@ -274,7 +275,7 @@ Because boundaries are redrawn over time, district IDs carry a **boundary-year l
 
 ### 6.4 Filtering
 
-All aggregate counts — belief agreements/disagreements, petition signatures, public vote results — must be filterable by:
+All aggregate counts — statement agreements/disagreements, petition signatures, poll results — must be filterable by:
 
 - Any area or combination of areas in the hierarchy
 - Verification tier (any combination)
@@ -298,11 +299,11 @@ The platform exposes a public, read-only API for all aggregate data. No authenti
 
 ### 7.2 What the API Exposes
 
-- Aggregate counts for any content item (beliefs, petitions, public votes, results), filterable by area, verification tier, and date range
+- Aggregate counts for any content item (statements, petitions, polls, results), filterable by area, verification tier, and date range
 - Area definitions and hierarchy configuration for the deployment
-- Public vote results and status
+- Poll results and status
 - Petition status and signature counts
-- Belief agreement/disagreement counts
+- Statement agreement/disagreement counts
 - Public activity summaries (no PII)
 - Distributed ledger audit references for any result
 
@@ -330,66 +331,66 @@ Any fork or deployment must maintain a functioning public API as a condition of 
 Content on OurSay exists in a four-level hierarchy. Linkage between levels is always optional. The hierarchy represents escalating formality and consequence.
 
 ```
-Beliefs  →  Petitions  →  Public Votes  →  Results
+Statements  →  Petitions  →  Polls  →  Results
 ```
 
-A belief is an informal expression of sentiment. A result is the formal, audited outcome of a community vote. Links between levels allow a result to be traced back to the beliefs that shaped it.
+A statement is an informal expression of sentiment. A result is the formal, audited outcome of a community vote. Links between levels allow a result to be traced back to the statements that shaped it.
 
-> **Product concepts vs. public-record types.** The names above (Belief, Petition, Public Vote, Result) are **product/public-facing concepts**. Underneath, the public record commits a small set of **generic record types**, each a primitive the platform can surface under a jurisdiction-appropriate label (consistent with §13.1, generic by design):
+> **Product labels vs. public-record types.** The names above (Statement, Petition, Poll, Result) are **user-facing labels**, configured **per jurisdiction** via `JurisdictionConfig.labels` (defaults: Statement, Petition, Poll, Result; `oursay-global` uses the defaults). Underneath, the public record commits a small, **canonical set of record types** — `post`, `petition`, `poll`, `result`, `vote`, `petition_signature` (plus `comment`, `reaction`) — used unchanged in code, schema, and API routes (e.g. `/v1/public/posts`). **Never use a display label as a dev term.** Alongside `labels`, each jurisdiction also defines **`contentLimits`** — hard caps per type (Alberta: post title 200 / body 2000; comment 2000; petition title 200 / text 5000; poll question 200 / option 100 / ≤10 options / description 2000). Both `labels` and `contentLimits` are target `JurisdictionConfig` fields (see [`entities/partitioning/jurisdiction.md`](entities/partitioning/jurisdiction.md)).
 >
-> | Product concept | Public-record type | Notes |
+> | Record type | Default / Alberta label | Notes |
 > |---|---|---|
-> | Belief | `post` | Generic primitive; "Belief" is the Alberta deployment's label for a `post`. |
-> | Petition | `petition` | |
-> | (signing a petition) | `petition_signature` | A first-class record; revocable only where the petition's rules permit. |
-> | Public Vote | `poll` | The question/container (generic; legally safer than "referendum"). |
-> | (casting a vote) | `vote` | The signed cast ballot on a `poll`; changeable only where the poll's rules permit. |
-> | Discussion comment (§10) | `comment` | A first-class committed record type. |
-> | Reaction (lightweight signal) | `reaction` | A first-class committed record type (`check`/`cross`). |
-> | Result (§8.4) | `result` (derived) | **Published/derived** from a closed poll — not a user append. |
+> | `post` | Statement | Generic primitive; "Statement" is the Alberta/default label for a `post`. |
+> | `petition` | Petition | |
+> | `petition_signature` | (signing a petition) | A first-class record; revocable only where the petition's rules permit. |
+> | `poll` | Poll | The question/container (generic; legally safer than "referendum"). |
+> | `vote` | (casting a vote) | The signed cast ballot on a `poll`; changeable only where the poll's rules permit. |
+> | `comment` | Discussion comment (§10) | A first-class committed record type. |
+> | `reaction` | Reaction (lightweight signal) | A first-class committed record type (`check`/`cross`). |
+> | `result` (derived) | Result (§8.4) | **Published/derived** from a closed poll — not a user append. |
 >
 > The implemented record types are `post`, `comment`, `reaction`, `petition`, `petition_signature`, `poll`, `vote` — each appended as create/update/delete transactions, with **per-entity governance rules** (deadlines; whether votes may change / signatures may be revoked). The set is **not fixed** — it is extensible by configuration; candidate future types include `discussion` (a topic/thread container), `bill` (a tracked legislative item), and `official_response` (an official's reply to a petition, §8.2 / §4.5). See [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) R1 and [`../public-record/README.md`](../public-record/README.md).
 >
 > For formal attribute tables, state machines, invariants, and implementation paths per object, see [`entities/README.md`](entities/README.md).
 
-### 8.1 Beliefs
+### 8.1 Statements
 
-Informal statements that users create and others agree or disagree with. The starting point for civic conversation.
+Informal expressions of sentiment that users create and others agree or disagree with. The starting point for civic conversation.
 
-**Core attributes:** Statement/title, author (may be anonymous), creation timestamp, category/tags, links to petitions (optional, many), agree count (total | by verification tier), disagree count (total | by verification tier), discussion thread.
+**Core attributes:** Title (required), body (optional statement text), author (may be anonymous), creation timestamp, category/tags, links to petitions (optional, many), agree count (total | by verification tier), disagree count (total | by verification tier), discussion thread.
 
-**Behaviour:** Any registered user may create a belief. Any registered user may agree or disagree. Users may change their position. Anonymous participation is permitted. Beliefs do not expire unless archived by an administrator.
+**Behaviour:** Any registered user may create a statement. Any registered user may agree or disagree. Users may change their position. Anonymous participation is permitted. Statements do not expire unless archived by an administrator.
 
 ### 8.2 Petitions
 
 Formal calls to action that collect signatures, addressed to a specific authority.
 
-**Core attributes:** Title, full petition text, author (may be anonymous), addressed to (may link to an official profile), links to beliefs (optional, many), links to public votes (optional, many), signature count (total | by tier), optional deadline, status (open | closed | delivered | responded), discussion thread.
+**Core attributes:** Title, full petition text, author (may be anonymous), addressed to (inferred from the petition's audience to an institutional recipient — MLA(s) for district-scoped, the Legislative Assembly jurisdiction-wide, Minister/Lieutenant Governor for a constitutional petition — platform-overridable), links to statements (optional, many), links to polls (optional, many), signature count (total | by tier), optional deadline, status (open | closed | delivered | responded), discussion thread.
 
 **Behaviour:** Any registered user may create or sign. Signatories may include an optional comment, hidden if signing anonymously. Signatures are final by default; withdrawal before the deadline is supported only where the petition's governance rules permit it. When a petition is marked as delivered to an official with a platform account, the system notifies that official and prompts an official response.
 
-### 8.3 Public Votes
+### 8.3 Polls
 
 Formal votes — binary or multiple-choice — put to the community. Carry the greatest formal weight on the platform.
 
 **Core attributes:** Question/title, full description providing context, vote options (minimum: Yes / No; additional options permitted), author, links to petitions (optional, many), voting period (open and close timestamps), vote counts per option (total | by verification tier), status (upcoming | active | closed | result published), discussion thread.
 
-**Behaviour:** Any registered user may vote. Anonymous voting is permitted. **Votes are final once cast by default** — the real-world analog. Changing a vote before the deadline is *technically supported but off by default*, enabled only where the poll's governance rules permit it (e.g., a riding/region whose process allows it). Voting is open for a defined period. After the period closes, a result is generated. Public vote creation may be gated by a threshold (e.g., a linked petition reaching a configurable verified signature count).
+**Behaviour:** Any registered user may vote. Anonymous voting is permitted. **Votes are final once cast by default** — the real-world analog. Changing a vote before the deadline is *technically supported but off by default*, enabled only where the poll's governance rules permit it (e.g., a jurisdiction whose process allows it). Voting is open for a defined period. After the period closes, a result is generated. Poll creation may be gated by a threshold (e.g., a linked petition reaching a configurable verified signature count).
 
 ### 8.4 Results
 
-The immutable, permanent record of a closed public vote's outcome.
+The immutable, permanent record of a closed poll's outcome.
 
-**Core attributes:** Linked public vote (exactly one), final vote counts per option (total | by tier), geographic area breakdown at each hierarchy level, tier breakdown, publication timestamp, distributed ledger audit reference, discussion thread.
+**Core attributes:** Linked poll (exactly one), final vote counts per option (total | by tier), geographic area breakdown at each hierarchy level, tier breakdown, publication timestamp, distributed ledger audit reference, discussion thread.
 
-**Behaviour:** Immutable once published — no editing, no deletion. Publicly visible to all including guests. Results surface links back through the content hierarchy to the public vote, petitions, and beliefs. Every result is anchored on the distributed ledger for independent verification. Results are described as "designed to be tamper-resistant and permanently recorded" — not as guaranteed permanent by the platform.
+**Behaviour:** Immutable once published — no editing, no deletion. Publicly visible to all including guests. Results surface links back through the content hierarchy to the poll, petitions, and statements. Every result is anchored on the distributed ledger for independent verification. Results are described as "designed to be tamper-resistant and permanently recorded" — not as guaranteed permanent by the platform.
 
 ### 8.5 Content Hierarchy & Linking
 
-- A belief may link to zero or many petitions
-- A petition may link to zero or many beliefs, and to zero or many public votes
-- A public vote may link to zero or many petitions
-- A result links to exactly one public vote
+- A statement may link to zero or many petitions
+- A petition may link to zero or many statements, and to zero or many polls
+- A poll may link to zero or many petitions
+- A result links to exactly one poll
 
 Links are directional at creation but surfaced bidirectionally for navigation. Linking is always optional and never required.
 
@@ -397,7 +398,7 @@ Links are directional at creation but surfaced bidirectionally for navigation. L
 
 ## 9. User Actions
 
-### 9.1 Agreeing / Disagreeing on Beliefs
+### 9.1 Agreeing / Disagreeing on Statements
 
 Action record includes: user identity reference (pseudonymous ledger key for verified users; off-chain account reference for unverified), timestamp, geographic area at time of action, verification tier at time of action, anonymity flag.
 
@@ -405,13 +406,13 @@ Counts displayed as total and broken down by verification tier. Filterable by al
 
 ### 9.2 Signing Petitions
 
-Functionally equivalent to a belief agreement but carries formal intent. Same recording and anonymity rules. An optional signer comment may be attached, hidden if the signature is anonymous.
+Functionally equivalent to a statement agreement but carries formal intent. Same recording and anonymity rules. An optional signer comment may be attached, hidden if the signature is anonymous.
 
-### 9.3 Voting on Public Votes
+### 9.3 Voting in Polls
 
 - Votes are final — no changes after casting
 - Verified user votes are recorded on the distributed ledger
-- The ledger record links the vote to the user's pseudonymous key and the public vote record
+- The ledger record links the vote to the user's pseudonymous key and the poll record
 - Anonymous verified votes are still on-ledger; the user's pseudonymous key is used, but the public display shows the verification tier only (e.g., "Residency Verified — Anonymous")
 
 ### 9.4 Anonymity Model
@@ -426,7 +427,7 @@ Anonymity does not mean the action is unverifiable by the user themselves. They 
 
 ## 10. Discussions
 
-Every content item — belief, petition, public vote, result — has an associated discussion thread.
+Every content item — statement, petition, poll, result — has an associated discussion thread.
 
 **Core attributes:** Comment text, author (may be anonymous), timestamp, parent comment reference (for threaded replies), distributed ledger hash reference, engagement signal (implementation left to contributors).
 
@@ -445,11 +446,11 @@ The public record is an **append-only, tamper-evident verifiable ledger (immudb)
 The public record stores, for each action, a **commitment** (a salted hash of the content) plus **public metadata** — never raw content or PII. The kinds of action committed:
 
 - Verified participant signoffs (pseudonymous per-thread identity linked to verification tier — no PII committed)
-- Public vote votes (by verified users)
+- Poll votes (by verified users)
 - Petition signatures (by verified users)
-- Post agreements and disagreements (by verified users) — "posts" are the generic record type the Alberta deployment surfaces as "Beliefs" (see §8)
+- Post agreements and disagreements (by verified users) — "posts" are the generic record type the Alberta deployment surfaces as "Statements" (see §8)
 - Discussion comment commitments (all registered users)
-- Published result records (final counts of closed public votes — derived/published, not user-appended)
+- Published result records (final counts of closed polls — derived/published, not user-appended)
 - Build hashes (production deployment records)
 
 Commitments are committed to the ledger **in blocks at settlement** (each block carries a Merkle root over its entries); it is the **settled block** (its root / `(chainId, height)` tip) that is **published externally** — not every individual entry, and not a separate Postgres copy. Unverified user actions are stored in the mutable off-record database only.
@@ -466,7 +467,7 @@ A per-thread public key reveals nothing about a user's real-world identity. What
 ### 11.3 Public Auditability
 
 Any person must be able to independently:
-- Query the public record for total counts on any public vote, by tier
+- Query the public record for total counts on any poll, by tier
 - Verify that each entry represents a distinct verified participant (no duplicate voting)
 - Confirm that a published result matches the public record
 - Reproduce any platform-published result **offline**, against the externally-anchored root, without using OurSay's tooling or servers
@@ -578,7 +579,8 @@ The following are anticipated future developments. The architecture must not for
 - **Electoral authority integration:** Direct integration with official electoral bodies (e.g., Elections Alberta, Elections Canada) yielding the `electoral_validated` tier. The KYC abstraction layer and tier architecture exist to make this straightforward.
 - **Global expansion:** Additional country and region configurations, localised area taxonomies, additional KYC providers.
 - **Municipal layer:** Granular area definitions at ward and council level.
-- **Threshold-triggered public votes:** Automatic public vote creation when a linked petition reaches a configurable verified signature count.
+- **Threshold-triggered polls:** Automatic poll creation when a linked petition reaches a configurable verified signature count.
+- **Social tagging:** Future `#topic` / `@user` links inside content bodies — purely a UI/presentation concern; the record layer stores plain text.
 - **Petition delivery workflows:** Tracked, auditable delivery of petitions to named officials with response tracking.
 - **Multilingual support:** Internationalisation built into the platform, not added as a patch.
 - **Mobile applications:** Native iOS and Android applications.

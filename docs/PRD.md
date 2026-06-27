@@ -14,9 +14,9 @@ It sits **above** the engineering documents, not beside them. Behavioural detail
 
 Representative democracy was built for a world without instant communication. Between elections, citizens have no verified, persistent, auditable way to tell their representatives what they actually think — and representatives have no trustworthy way to find out. Opinion polls can be commissioned for a conclusion. Online petitions cannot confirm a single signature is real. Social media rewards the loudest voice, not the most representative one.
 
-**OurSay is civic infrastructure that closes that gap.** Albertans express political beliefs, sign petitions, and vote on public questions. Every result is public, broken down by district and by verification tier, and independently auditable — no one has to take OurSay's word for any number it publishes.
+**OurSay is civic infrastructure that closes that gap.** Albertans share statements, sign petitions, and vote in polls. Every result is public, broken down by district and by verification tier, and independently auditable — no one has to take OurSay's word for any number it publishes.
 
-- **What ships:** A verified, auditable platform where Albertans participate in beliefs, petitions, and public votes, with identity verification and a public record anyone can audit.
+- **What ships:** A verified, auditable platform where Albertans participate through statements, petitions, and polls, with identity verification and a public record anyone can audit.
 - **Soft launch:** Alberta, **July 18, 2026**. Soft because it depends on completing a legal review and on early responses from officials.
 - **Adoption deadline:** **October 19, 2026** — the Alberta fall referendum. This is when we measure whether enough Albertans and MLAs are using the platform.
 - **The real measure of success:** At least one MLA votes or acts in alignment with the verified will of residents in their constituency as shown on OurSay. Adoption numbers matter only because they make that outcome possible.
@@ -40,12 +40,12 @@ The product organizes participation into a four-level hierarchy of escalating fo
 
 ```mermaid
 flowchart LR
-  Beliefs --> Petitions --> PublicVotes["Public Votes"] --> Results
+  Statements --> Petitions --> Polls --> Results
 ```
 
 
 
-A **belief** is an informal statement others agree or disagree with. A **petition** is a formal call to action addressed to a named authority. A **public vote** is a formal question whose choices are final once cast. A **result** is the permanent, auditable outcome of a closed public vote. A result can be traced back through the votes, petitions, and beliefs that shaped it.
+A **statement** is an informal expression of sentiment others agree or disagree with. A **petition** is a formal call to action addressed to a named authority. A **poll** is a formal question whose choices are final once cast. A **result** is the permanent, auditable outcome of a closed poll. A result can be traced back through the votes, petitions, and statements that shaped it.
 
 The defining feature is **verification**. Anyone can participate without verifying, and unverified participation counts and is publicly visible. Verified users have confirmed their identity and Alberta residency through a verification process, and their actions are distinguished by tier in every count and filter. The difference between "people who clicked a button" and "confirmed, identity-verified Alberta residents in a specific district" is what gives the platform its value, and OurSay makes that difference visible everywhere (`[02-PUBLIC-EXPLAINER.md](02-PUBLIC-EXPLAINER.md)`).
 
@@ -117,7 +117,7 @@ These must be **shipped and live** for the soft launch. They are stated as requi
 | Requirement                         | What it means (stakeholder language)                                                                                                                                                                                         | Internal traceability                                                                                                 |
 | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Identity verification in production | Verified users confirm their identity and Alberta residency through a real verification provider, paying only the direct cost.                                                                                               | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §3.3, §5; `[mvp-c-kyc-provider]`                                   |
-| Full civic web app                  | An end-to-end web application for beliefs, petitions, and public votes — not a developer harness.                                                                                                                            | `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` Phase D                                                          |
+| Full civic web app                  | An end-to-end web application for statements, petitions, and polls — not a developer harness.                                                                                                                            | `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` Phase D                                                          |
 | External anchoring                  | The public record's roots are published to more than one independent public infrastructure target that OurSay does not control, so anyone can verify integrity without trusting us (a test network is acceptable at launch). | `[PHILOSOPHY.md](PHILOSOPHY.md)` §6–7; `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` Phase E                   |
 | Signed count manifests              | Published aggregate counts are signed by the platform, so a silent change to a number is detectable — not only recomputed live on each read.                                                                                 | `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` `[mvp-c13-signed-count-snapshots]`                               |
 | Public record sync for auditors     | A full sync/stream of the public record for voluntary independent auditors, beyond the read endpoints the web app itself uses.                                                                                               | `[05-TRUST-REVIEW.md](05-TRUST-REVIEW.md)` §1; `[../public-record/REQUIREMENTS.md](../public-record/REQUIREMENTS.md)` |
@@ -151,7 +151,7 @@ Explicitly out of scope for the July 18 soft launch. Listing these prevents the 
 
 | Persona                | Who they are                                         | What they need from OurSay                                                                                                     |
 | ---------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Verified resident      | An Albertan who has confirmed identity and residency | Express beliefs, sign petitions, vote, and see counts for their own district, with their verification reflected in totals      |
+| Verified resident      | An Albertan who has confirmed identity and residency | Share statements, sign petitions, vote, and see counts for their own district, with their verification reflected in totals      |
 | Unverified participant | An account holder who has not verified               | Participate fully, with a clear and honest distinction from verified totals                                                    |
 | Guest                  | Anyone browsing without an account                   | Read all public content, counts, and results; no action (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.1)              |
 | MLA / public official  | An elected representative for a constituency         | See the verified sentiment of residents in their riding, broken down by tier; later, claim a profile and respond on the record |
@@ -170,9 +170,9 @@ Grouped by persona. Each story maps to a feature requirement in §7.
 **Verified resident**
 
 - As a verified Alberta resident, I can verify my identity and residency once and have my tier reflected in every action I take.
-- As a verified resident, I can create a belief and agree or disagree with others' beliefs, optionally anonymously.
+- As a verified resident, I can create a statement and agree or disagree with others' statements, optionally anonymously.
 - As a verified resident, I can sign a petition addressed to a named authority, optionally with a comment.
-- As a verified resident, I can vote on a public vote, understanding that my vote is final once cast.
+- As a verified resident, I can vote in a poll, understanding that my vote is final once cast.
 - As a verified resident, I can filter any count to my own district and see how verified residents there compare to the province.
 
 **Unverified participant**
@@ -209,9 +209,9 @@ The launch scope is the **full civic participation flow**, end to end, not a rea
 | ---------------------------------------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Account registration, passkey auth, recovery               | Must                                  | `[api/README.md](../api/README.md)`; `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4                         |
 | Per-thread civic signing (WebAuthn)                        | Must                                  | `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` Phase A (landed)                                              |
-| Create / agree / disagree on beliefs                       | Must                                  | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.1                                                            |
+| Create / agree / disagree on statements                    | Must                                  | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.1                                                            |
 | Create / sign petitions                                    | Must (one content type among several) | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.2                                                            |
-| Create / vote on public votes                              | Must                                  | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.3                                                            |
+| Create / vote in polls                                     | Must                                  | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.3                                                            |
 | Public browse + geo/tier counts                            | Must                                  | `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` Phase C                                                       |
 | Identity verification (production provider)                | Launch requirement                    | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §5; `[mvp-c-kyc-provider]`                                      |
 | Full civic web app                                         | Launch requirement                    | `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` Phase D                                                       |
@@ -238,21 +238,21 @@ The launch scope is the **full civic participation flow**, end to end, not a rea
 
 Requirements reference the contributor spec for behavioural detail rather than restating it. Each subsection lists what must be true for launch.
 
-### 7.1 Beliefs
+### 7.1 Statements
 
-Any registered user can create a belief and can agree or disagree, optionally anonymously, and may change their position. Agree/disagree counts are shown as totals and broken down by verification tier. Beliefs do not expire. (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.1)
+Any registered user can create a statement and can agree or disagree, optionally anonymously, and may change their position. Agree/disagree counts are shown as totals and broken down by verification tier. Statements do not expire. (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.1)
 
 ### 7.2 Petitions
 
 Any registered user can create or sign a petition addressed to a named authority. A signer may add an optional comment, hidden when signing anonymously. Signatures are final by default; *This is a per jurisdiction rule. Other jurisdictions may allow revoking petition signatures.* Petitions are one content type among several — not the product's center of gravity. (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.2)
 
-### 7.3 Public votes and results
+### 7.3 Polls and results
 
-Any registered user can vote on a public vote, optionally anonymously. **Votes are final once cast** by default. *This is a per jurisdiction rule. Other jurisdictions may allow changing votes.* Voting runs for a defined period; when it closes, a result can be generated. Vote counts are shown per option, as totals and by tier. A formal derived `result` entity at poll close is a Should for launch (`[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` `[mvp-c12-poll-results]`); until it lands, closed-vote outcomes are presented honestly as live recomputed counts. (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.3–8.4)
+Any registered user can vote in a poll, optionally anonymously. **Votes are final once cast** by default. *This is a per jurisdiction rule. Other jurisdictions may allow changing votes.* Voting runs for a defined period; when it closes, a result can be generated. Vote counts are shown per option, as totals and by tier. A formal derived `result` entity at poll close is a Should for launch (`[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` `[mvp-c12-poll-results]`); until it lands, closed-poll outcomes are presented honestly as live recomputed counts. (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.3–8.4)
 
 ### 7.4 Identity and verification
 
-Verification is pluggable per jurisdiction; the Alberta launch uses a commercial provider (Equifax Connect preferred) that confirms identity, age, and address from public records (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §3.3, §5). Tiers map from provider output: identity confirmed → identity verified; identity + address → residency verified (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.3–4.4, §5.2). The user reviews and consents to the exact, at-cost price before paying (`[02-PUBLIC-EXPLAINER.md](02-PUBLIC-EXPLAINER.md)`). Residency verification confirms a real person at a verified address; it is explicitly **not** a determination of electoral eligibility, voter registration, or citizenship, and the platform makes no such claim. An electoral-authority integration (electorally-validated tier) is the designed future path, not a launch requirement (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.6).
+Verification is pluggable per jurisdiction; the Alberta launch uses **Didit** for identity verification, with the platform self-signing the address check (proof-of-address verification in production, ~$2 CAD/check; ID-only and a platform self-signed address in dev). Equifax and electoral-roll provider tags are future, not launch (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §3.3, §5). Tiers map from provider output: identity confirmed → identity verified; identity + address → residency verified (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.3–4.4, §5.2). The user reviews and consents to the exact, at-cost price before paying (`[02-PUBLIC-EXPLAINER.md](02-PUBLIC-EXPLAINER.md)`). Residency verification confirms a real person at a verified address; it is explicitly **not** a determination of electoral eligibility, voter registration, or citizenship, and the platform makes no such claim. An electoral-authority integration (electorally-validated tier) is the designed future path, not a launch requirement (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.6).
 
 ### 7.5 Geography and public counts
 
@@ -337,7 +337,7 @@ These need a decision before or during the build. Defaults are noted where the t
 2. **Legal review scope.** What specific question is the legal review answering (for example, third-party advertising obligations during the referendum window per `[04-LEGAL-OUTREACH.md](04-LEGAL-OUTREACH.md)`), and what is the go/no-go criterion? *Needed to make §8 precise.*
 3. **Production deploy and published build hashes.** Is a production deployment with a published, anchored build hash (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §3.5) an explicit July 18 blocker, or implied by "external anchoring"? *Default: treat as part of the launch requirement set.*
 4. **Verification pricing at launch.** Is at-cost user-paid verification live on day one, or is a stubbed/limited path acceptable for the soft launch? *Default: at-cost user-paid, since the verified tier is a launch requirement.*
-5. **Seed content.** Who creates the initial beliefs, petitions, and public votes so the platform is not empty on launch day?
+5. **Seed content.** Who creates the initial statements, petitions, and polls so the platform is not empty on launch day?
 6. **Accessibility target.** What WCAG level does the web app commit to for launch?
 
 ---
@@ -365,4 +365,4 @@ These need a decision before or during the build. Defaults are noted where the t
 
 ## Appendix B — Glossary
 
-Product and platform vocabulary (belief, petition, public vote, result, district, jurisdiction, verification tier) is defined in `[GLOSSARY.md](GLOSSARY.md)`.
+Product and platform vocabulary (statement, petition, poll, result, district, jurisdiction, verification tier) is defined in `[GLOSSARY.md](GLOSSARY.md)`.

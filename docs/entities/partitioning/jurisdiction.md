@@ -30,6 +30,33 @@ Two jurisdictions are the same if their `id` strings match. Primary key: `id` (i
 | `counts.votes` | boolean | yes | yes | Whether poll tallies are exposable |
 | `counts.signatures` | boolean | yes | yes | Whether petition scalars are exposable |
 | `counts.minTier` | string[] | no | yes | Tier-gated exposure subset |
+| `labels` | map | no | yes | **Target** — user-facing labels per record type; see below |
+| `contentLimits` | map | no | yes | **Target** — hard content caps per type; see below |
+
+### labels (user-facing display, target)
+
+Per-jurisdiction display labels for the canonical record types. Display only — never a partition key or dev term.
+
+| Key | Default | Alberta (`ab-ca-gov`) |
+|-----|---------|-----------------------|
+| `post` | Statement | Statement |
+| `petition` | Petition | Petition |
+| `poll` | Poll | Poll |
+| `result` | Result | Result |
+| `district` | District | riding |
+
+`oursay-global` uses all defaults.
+
+### contentLimits (hard caps, target)
+
+Per-type maximum sizes enforced at create/update. Alberta example:
+
+| Type | Caps |
+|------|------|
+| `post` | title 200, body 2000 |
+| `comment` | body 2000 |
+| `petition` | title 200, text 5000 |
+| `poll` | question 200, option 100, max 10 options, description 2000 |
 
 ### JurisdictionRules (defaults)
 
@@ -86,5 +113,6 @@ Configuration object — no runtime state machine. Registered at API startup fro
 
 ## Gaps
 
+- **JurisdictionConfig shape drift** — code today is `{ id, level, label, rules, privacy?, counts? }` in `public-record/src/jurisdiction.ts`; `labels` (per-record-type user-facing labels) and `contentLimits` (hard caps per type) are **not yet** present. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-jurisdiction-labels-limits]`. Note `label` (singular, the jurisdiction's own display name) is distinct from `labels` (the per-record-type map).
 - **[mvp-c10-multi-jurisdiction]**: API container still uses a single deployment-default chain for some write paths; worker is already multi-chain ([API-GAPS-AND-ROADMAP.md](../../API-GAPS-AND-ROADMAP.md)).
-- **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription model yet.
+- **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription model yet — see [partitioning/future.md](./future.md).

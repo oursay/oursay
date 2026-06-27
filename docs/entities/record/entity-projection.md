@@ -66,7 +66,7 @@ Geo/tier filtering on counts applies at **read time** via `ParticipantGeoService
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
 | RecordTransaction | N:1 | Source event log |
-| Belief/Petition/PublicVote | 1:1 | One projection per root entity |
+| Post/Petition/Poll | 1:1 | One projection per root entity |
 | Jurisdiction | N:1 | Count gating from config |
 
 ## Invariants

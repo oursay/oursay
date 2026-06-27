@@ -4,6 +4,12 @@
 
 Proof that a user has completed identity and/or residency confirmation through a KYC provider. Represented as append-only attestations; the **latest row wins** for tier resolution. Matching is **set membership**, not a strict ladder.
 
+**Tiers and provider tags are orthogonal.** A *tier* says how verified an account is; a *provider tag* says who attested it (and how). The MVP provider is **Didit**:
+- **Dev:** ID-only verification (free) + a **platform self-signed** address KYC (POA-ready).
+- **Prod:** Didit performs proof-of-address (POA) verification, charged at ~$2 CAD/check.
+
+Equifax (canadian_verified) and Elections Alberta (electoral_verified) provider tags are **future only**. Residency verification is **never** electoral eligibility, and OurSay must **never** imply an Elections Alberta partnership.
+
 ## Aliases
 
 | Layer | Name |
@@ -24,7 +30,7 @@ Each attestation is uniquely identified by `kyc_attestations.id` (UUID). A user'
 |-------|------|----------|--------|--------|
 | `id` | UUID | yes | no | Attestation id |
 | `user_id` | UUID | yes | no | FK → `users.id` |
-| `provider` | TEXT | yes | partial | `'stub'` \| `'equifax'` |
+| `provider` | TEXT | yes | partial | `'stub'` \| `'didit'` (MVP); `'equifax'`/electoral = future tags |
 | `tier` | `KycTier` | yes | partial | Tier slug only on public surfaces |
 | `region` | TEXT | no | no | Coarse provider region |
 | `attested_at` | TIMESTAMPTZ | yes | no | Ordering key |
@@ -98,7 +104,7 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 
 ## Examples
 
-**Valid:** Equifax returns identity + address → `residency_verified` attestation appended; user's verified petition signature goes on-ledger.
+**Valid:** Didit returns identity confirmed → `identity_verified` attestation appended; the platform self-signs the address check → `residency_verified`; the user's verified petition signature goes on-ledger.
 
 **Invalid:** Treating `identity_verified` as automatically including `residency_verified` in tier filters — they are distinct set members.
 
@@ -114,7 +120,9 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 
 ## Gaps
 
-- **[mvp-c-kyc-provider]**: Production Equifax (etc.) not implemented; dev stub only.
+- **Provider drift** — the provider enum today is `'stub' | 'equifax'` (`api/src/config.ts` `KycProviderName`). The MVP provider is **Didit**; the enum and provider seam need a `didit` implementation, and provider tags should be orthogonal to tiers. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-didit-provider]`.
+- **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
 - Recovery re-verify flow incomplete.
 - `official_verified` tier not in canonical enum yet.
 - Sponsorship / waitlist mechanics documented in contributor spec but not fully implemented.
+- Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).

@@ -16,7 +16,7 @@ See [GLOSSARY.md](../../GLOSSARY.md) and [REGION-MODEL.md](../../REGION-MODEL.md
 
 ## Identity
 
-Two district revisions are the same if their `id` matches. Primary key: `id` (e.g. `edmonton-strathcona-2019`). The year in the slug is a **label**; lookup uses `effective_date`, not the year alone.
+Two district revisions are the same if their `id` matches. Primary key: `id` (e.g. `edmonton-strathcona-2019`). The year in the slug is a **label**; lookup uses `effective_date`, not the year alone. The **`district_slug`** (year-less) is the stable key across revisions: stable district pages and `appliesToRegion: district:<district_slug>` key off it, while revision slugs (`id`) address a specific boundary version for history.
 
 ## Attributes
 
@@ -25,7 +25,7 @@ Two district revisions are the same if their `id` matches. Primary key: `id` (e.
 | `id` | TEXT | yes | yes | Revision slug |
 | `jurisdiction_id` | TEXT | yes | yes | Parent jurisdiction |
 | `name` | TEXT | yes | yes | Human-readable name |
-| `riding_slug` | TEXT | yes | yes | Year-less logical seat key |
+| `district_slug` | TEXT | yes | yes | Year-less logical seat key |
 | `effective_date` | DATE | yes | yes | First day geometry is in force |
 | `drawn_date` | DATE | no | yes | When map was enacted |
 | `boundary_year` | INT | yes | yes | Display only; derived from effective_date |
@@ -53,7 +53,7 @@ Boundary revisions are **append-only**. A redraw adds a new row with a later `ef
 | Jurisdiction | N:1 | `jurisdiction_id` FK |
 | Region | 1:1 kind | Every district is a `district` region |
 | User | inferred | Via geocode point + `region.contains(point)` |
-| EntityRules | referenced | `appliesToDistrictIds` on polls/petitions |
+| EntityRules | referenced | `appliesToRegion` on polls/petitions (today `appliesToDistrictIds`) |
 
 ## Invariants
 
@@ -88,3 +88,4 @@ Boundary revisions are **append-only**. A redraw adds a new row with a later `ef
 ## Gaps
 
 - None for MVP boundary catalog. Action-time district snapshots not built ([mvp-c4-action-snapshots]).
+- **Platform-signed boundary revisions** (a district redraw as a platform-signed record) are future — see [partitioning/future.md](./future.md).

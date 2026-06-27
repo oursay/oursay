@@ -22,6 +22,16 @@ only **custom presets** are persisted (`geo.regions`). Containment is a single P
 (`ST_Contains` over the union of member geometries, or the custom geometry). All geometry is stored in
 EPSG:4326; source boundaries are reprojected on ingest (`ST_Transform`).
 
+> **Term & migration note.** The term **Region** is retained. A thread declares its geographic stake
+> through **`appliesToRegion`** (a RegionRef — `jurisdiction` / `riding:<riding_slug>` /
+> `district:<revisionId>` / `region:<presetId>` / And-Or-Not unions), **not** a raw district-id array on
+> the public surface. The code seam below still reads `EntityRules.appliesToDistrictIds` today; the
+> `appliesToRegion` migration is tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` (`[code-applies-to-region]`).
+> Stable district pages key off the year-less **`riding_slug`**; revision slugs (`id`) address a specific
+> boundary version for history. A region is, in theory, multi-jurisdiction-capable, but discussions stay
+> jurisdiction-scoped for now — the cross-jurisdiction path is future
+> ([`entities/partitioning/future.md`](entities/partitioning/future.md)).
+
 ## Boundaries are effective-dated, not year-keyed
 
 `geo.districts` holds one row per boundary **revision**:

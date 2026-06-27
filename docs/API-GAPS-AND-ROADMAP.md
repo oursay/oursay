@@ -1,5 +1,10 @@
 # API gaps and pre-UI roadmap
 
+> **📍 For the product horizon (Current → MVP → V1 → V2), see [`ROADMAP.md`](./ROADMAP.md).** This
+> file is the granular, backend-facing companion: what `@oursay/api` does today, what is stubbed or
+> missing, and the phase-tagged work behind it. It is **not** deprecated — `ROADMAP.md` links here for
+> detail.
+
 What `@oursay/api` and the civic read/write surface **do today**, what is **stubbed or missing**, and
 suggested **backend work before Phase D (web app)**. UI planning stays deferred until these seams are
 stable — especially jurisdiction policy, membership, and how official counts are advertised.

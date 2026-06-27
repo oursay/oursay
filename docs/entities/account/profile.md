@@ -2,7 +2,7 @@
 
 ## Definition
 
-Private personally identifiable information (PII) for a registered user. Legal name, address, email, and birthdate live here — never on the public user row. Used for KYC, geocoding, and account recovery.
+Private personally identifiable information (PII) for a registered user. Legal name, address, and email live here — never on the public user row. Used for KYC, geocoding, and account recovery. The age gate is the **`over_18`** boolean (target); the platform needs only the adult flag, not a stored date of birth.
 
 ## Aliases
 
@@ -32,7 +32,7 @@ One profile per user. Primary key: `auth.profiles.user_id` → `public.users.id`
 | `postal_code` | TEXT | no | no | Private |
 | `country` | TEXT | yes | no | Default `'CA'` |
 | `address_memo` | TEXT | no | no | Jurisdiction-specific extra |
-| `birthdate` | DATE | yes | no | 18+ gate at registration |
+| `over_18` | boolean | yes | no | **Target** age gate; replaces stored `birthdate` (see Gaps) |
 | `email` | TEXT | yes | no | As user typed |
 | `email_canonical` | TEXT | yes | no | Normalized; unique |
 | `created_at` | TIMESTAMPTZ | yes | no | |
@@ -96,4 +96,5 @@ Created atomically at registration. Address changes trigger geocode refresh (ser
 
 ## Gaps
 
-- **[mvp-c10c-profile-patch]**: `GeocodeService.syncGeocodeForUser` exists; no `PATCH /v1/profile` yet.
+- **Age-gate storage drift** — code today stores `auth.profiles.birthdate` (DATE NOT NULL) and computes 18+ at registration (`api/src/helpers/age.ts`). Target stores only `over_18` (boolean), dropping the DOB if the KYC/recovery flow can re-prompt for age. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-over-18]`; the column remains until migration.
+- **[mvp-c10c-profile-patch]**: `GeocodeService.syncGeocodeForUser` exists; no `PATCH /v1/profile` yet — see [account/future.md](./future.md).
