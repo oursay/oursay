@@ -44,7 +44,11 @@ code-alignment prompts in [`../.agents/CODE-ALIGNMENT-PROMPTS.md`](../.agents/CO
 - **Results** — formal derived `result` published at poll close ([mvp-c12-poll-results]).
 - **Counts** — action-time geo/tier snapshots and signed count snapshots for official totals
   ([mvp-c4-action-snapshots], [mvp-c13-signed-count-snapshots]).
-- **Membership** — user ↔ jurisdiction membership table; auto `oursay-global` on register.
+- **Multi-jurisdiction foundation** — user ↔ jurisdiction membership table (auto `oursay-global` on
+  register); every root entity bound to a jurisdiction (`jurisdictionId`, default `oursay-global`); the
+  UI **jurisdiction-selector + unified-feed components** built to work with a single active chain. A
+  *populated* cross-jurisdiction feed across multiple live chains is **best-effort** (may slip;
+  `[mvp-c10-multi-jurisdiction]`).
 - **Profile** — `PATCH /v1/profile` with geocode refresh.
 - **Web app (Phase D)** — the end-user application over these seams.
 

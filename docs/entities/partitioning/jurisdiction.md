@@ -67,6 +67,22 @@ Per-type maximum sizes enforced at create/update. Alberta example:
 | `defaultDeadline` | ISO 8601 | — | Default close time when entity sets none |
 | `signing.defaultScheme` | `SignScheme` | — | Default signing scheme for non-forced types |
 
+### graduation (promotion policy, target)
+
+Per-jurisdiction control over the content ladder (`post → petition → poll → result`; see
+[01-CONTRIBUTOR-SPEC.md §8.6](../../01-CONTRIBUTOR-SPEC.md)). **Target — not yet present in code.**
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `graduation.policy` | `open` \| `ladder` | `open`: any member may create a root at any level directly (no gate). `ladder`: higher levels are reached only by graduation. |
+| `graduation.createTier` | map `record_type → tier set` | Minimum KYC tier set allowed to **create** each level (e.g. AB: `post` → any registered; `petition` → residency-verified). |
+| `actTier` (participation) | map `action → tier set` | **Who may *act*** on participation — `vote` / `petition_signature` / `comment` / `reaction` (distinct from *who counts officially*, which is `appliesToVerified`). Today only creation has a gate; this generalizes it. Target — see `[code-participation-act-eligibility]`. |
+| `graduation.petitionToPoll` | `{ threshold: number, deadlineSource: "duration" \| "explicit" }` | Verified-signature count that auto-graduates a linked petition into a poll, and how the poll's deadline is set. |
+
+Reference models: `oursay-global` = `policy: open`; `ab-ca-gov` = `policy: ladder`, `post` open / `petition`
+residency-verified, poll only via `petitionToPoll` graduation; `some-strict` = `policy: ladder` for every
+level. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-jurisdiction-graduation]`.
+
 ## States & lifecycle
 
 Configuration object — no runtime state machine. Registered at API startup from `@oursay/jurisdiction-data` (`oursay-global`, `ab-ca-gov` today).
@@ -83,6 +99,8 @@ Configuration object — no runtime state machine. Registered at API startup fro
 ## Invariants
 
 - Jurisdiction is the crypto/dedupe partition key, not level ([GLOSSARY](../../GLOSSARY.md)).
+- **Every root entity** (`post` / `petition` / `poll`) is bound to **exactly one** jurisdiction via its thread audience `jurisdictionId`; comments, reactions, votes, and signatures inherit it from their root. There is no unbound civic content.
+- **Fallback binding** — absent an explicit jurisdiction choice, a root entity is created in **`oursay-global`** (every account is auto-subscribed to it at registration). A jurisdiction is therefore never "none".
 - `vote` and `petition_signature` MUST use `webauthn-es256` regardless of jurisdiction config (R2, signing policy).
 - Count exposure policy is a layer above geo/tier filtering ([06-PRIVACY-REVIEW.md](../../06-PRIVACY-REVIEW.md) §2).
 
@@ -116,3 +134,6 @@ Configuration object — no runtime state machine. Registered at API startup fro
 - **JurisdictionConfig shape drift** — code today is `{ id, level, label, rules, privacy?, counts? }` in `public-record/src/jurisdiction.ts`; `labels` (per-record-type user-facing labels) and `contentLimits` (hard caps per type) are **not yet** present. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-jurisdiction-labels-limits]`. Note `label` (singular, the jurisdiction's own display name) is distinct from `labels` (the per-record-type map).
 - **[mvp-c10-multi-jurisdiction]**: API container still uses a single deployment-default chain for some write paths; worker is already multi-chain ([API-GAPS-AND-ROADMAP.md](../../API-GAPS-AND-ROADMAP.md)).
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription model yet — see [partitioning/future.md](./future.md).
+- **[code-jurisdiction-graduation]**: `JurisdictionRules.graduation` (policy / create-tier gate / petition→poll threshold) is **target only**; `JurisdictionConfig` has no graduation fields and no auto-graduation worker today.
+- **[code-participation-act-eligibility]**: *who may vote/sign/comment/react* is jurisdiction policy (PRD §5), but only **creation** is gated (`graduation.createTier`). A participation `actTier` map (distinct from `appliesToVerified` official-count gating) is **target only** — without it the public-vs-verified act decision cannot be encoded.
+- **[code-jurisdiction-binding-fallback]**: every root entity carries `jurisdictionId` in its audience, but the explicit **`oursay-global` fallback on create** (and its enforcement that no root is unbound) is not yet asserted in code.

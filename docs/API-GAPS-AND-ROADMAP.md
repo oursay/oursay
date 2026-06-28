@@ -63,14 +63,19 @@ Grouped by dependency. Tags are proposed agent-loop names.
 | **`[mvp-c4c-my-district]`** | `scope=my-district` inert without auth | Needs authenticated counts (or viewer context) + `viewerDistrictId`. |
 | **`[mvp-c5-region-presets]`** | `geo.regions` exists; no service/API to create platform presets | Internal “southern Alberta”, rep bundles, etc. Service speaks `region_id`; public API stays coarse `GeoScope`. |
 
-### Medium-term (multi-jurisdiction product)
+### MVP foundation (multi-jurisdiction)
+
+The **foundation** here is launch scope (see `[ROADMAP.md](./ROADMAP.md)` MVP and `[PRD.md](./PRD.md)` §3/§6):
+membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI selector + unified-feed
+**components** (which work with a single active chain). A *populated* multi-chain feed is best-effort.
+(`[mvp-c11-ever-in-region]` below is a later filter mode, not foundation — V1.)
 
 | Tag | Gap | Why it matters |
 |-----|-----|----------------|
-| **`[mvp-c10-multi-jurisdiction]`** | Single `CHAIN_ID` / one `RecordService` chain in API container | Writes and reads should follow each thread’s `audienceScope.jurisdiction`, not only deployment default. Worker already multi-chain. |
-| **`[mvp-c10b-membership]`** | No user ↔ jurisdiction subscription | Glossary: users may belong to multiple jurisdictions. Needed for unified feed + “my jurisdictions” without inferring from one default. |
+| **`[mvp-c10-multi-jurisdiction]`** | Single `CHAIN_ID` / one `RecordService` chain in API container | Writes and reads should follow each thread’s `audienceScope.jurisdiction`, not only deployment default. Worker already multi-chain. **Foundation = MVP; a populated multi-chain feed is best-effort.** |
+| **`[mvp-c10b-membership]`** | No user ↔ jurisdiction subscription | Glossary: users may belong to multiple jurisdictions. **MVP foundation** — the membership API backs the UI jurisdiction-selector + “my jurisdictions” unified feed even with one active chain. |
 | **`[mvp-c10c-profile-patch]`** | `GeocodeService.syncGeocodeForUser` exists; no `PATCH /v1/profile` | Address changes must refresh geocode cache. |
-| **`[mvp-c11-ever-in-region]`** | `profile_geocode_history` unused | Optional filter mode: “ever in region” using history ∪ action snapshots (REGION-MODEL). |
+| **`[mvp-c11-ever-in-region]`** | `profile_geocode_history` unused | Optional filter mode (V1): “ever in region” using history ∪ action snapshots (REGION-MODEL). |
 
 ### Trust and formal outcomes (overlap Phase E)
 
@@ -116,7 +121,10 @@ Grouped by dependency. Tags are proposed agent-loop names.
 7. [mvp-c12-poll-results] → [mvp-c13-signed-count-snapshots] → [mvp-c14-count-amendments]
       Trust layer; can trail alpha if counts are honestly labelled “live recompute”.
 
-Phase D (web app) after 2–4 (or agreed subset): browse/detail + `/counts` panel, no feed UX until 6 if multi-jurisdiction matters.
+Phase D (web app) after 2–4 (or agreed subset): browse/detail + `/counts` panel. Build the
+jurisdiction-selector + unified-feed **components** now — they work with a single active chain, and a
+hidden/one-option selector is far cheaper than retrofitting one later. A *populated* multi-chain feed
+waits on 6 (`[mvp-c10-multi-jurisdiction]` + `[mvp-c10b-membership]`).
 ```
 
 ---

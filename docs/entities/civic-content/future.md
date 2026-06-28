@@ -23,6 +23,14 @@ Unify the two governance flags into a single `allowChange` field covering both v
 ## On-record "intent" transactions
 When a change/revoke is rejected by the platform (e.g. after deadline), optionally record the *attempt* on-record for transparency toward officials. Discussion only.
 
+## Share / crosspost a root entity to another jurisdiction
+A root entity (`post` / `petition` / `poll`) is bound to **exactly one** jurisdiction at creation
+(default `oursay-global`; see [partitioning/jurisdiction.md](../partitioning/jurisdiction.md) Invariants).
+**Sharing / crossposting** that root into an *additional* jurisdiction's feed or record is **not MVP** —
+deferred. Crosspost creates a copy into the target chain. A participant legitamately in both jurisdictions is able to cast a second vote in the target jurisdiction independantly, they may even vote differently in different jurisdictions.
+Gating rules are per jurisdiction so to cross post you must be able to validly post the record in the target chain.
+→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[crosspost-share]` (future).
+
 ## Social tagging
 Future `#`/`@` links inside content bodies are a UI concern; the record layer stores plain text.
 

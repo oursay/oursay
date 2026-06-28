@@ -69,6 +69,15 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   **Statement** for `post`, **riding** for the district label. `oursay-global` = all defaults.
 - **Content hierarchy** (product): **Statement → Petition → Poll → Result**. Internal:
   `post → petition → poll → result`.
+- **Ladder / graduation** — the four content levels form a **ladder**; **graduation** is a lower level
+  producing the next (petition → poll; poll → result). Whether climbing is required, who may create at
+  each level, and whether graduation is automatic are **per-jurisdiction** config (`JurisdictionRules`;
+  see [`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)). A **threshold-triggered poll** is the automatic graduation of a petition into a poll when
+  it reaches a configured verified-signature count.
+- **Root entity** — a `post` / `petition` / `poll`: a thread root that carries the thread audience.
+  Every root entity is **bound to exactly one jurisdiction** (`jurisdictionId`); absent an explicit
+  choice it defaults to **`oursay-global`**. Comments, reactions, votes, and signatures inherit their
+  root's jurisdiction and audience.
 - **Statement** — the Alberta/default product label for a `post` (the informal, lowest-formality civic
   content type). Replaces the retired product term *Belief*.
 - **Poll** — the product label for a `poll` (formal vote container). Replaces the retired product term

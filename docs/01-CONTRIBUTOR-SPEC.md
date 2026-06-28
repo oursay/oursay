@@ -328,7 +328,7 @@ Any fork or deployment must maintain a functioning public API as a condition of 
 
 ## 8. Content Model
 
-Content on OurSay exists in a four-level hierarchy. Linkage between levels is always optional. The hierarchy represents escalating formality and consequence.
+Content on OurSay exists in a four-level hierarchy. *Linkage* between levels is always optional (§8.5); whether a level **graduates** into the next — and who may create at each level — is **per-jurisdiction** configuration (§8.6). The hierarchy represents escalating formality and consequence.
 
 ```
 Statements  →  Petitions  →  Polls  →  Results
@@ -375,7 +375,7 @@ Formal votes — binary or multiple-choice — put to the community. Carry the g
 
 **Core attributes:** Question/title, full description providing context, vote options (minimum: Yes / No; additional options permitted), author, links to petitions (optional, many), voting period (open and close timestamps), vote counts per option (total | by verification tier), status (upcoming | active | closed | result published), discussion thread.
 
-**Behaviour:** Any registered user may vote. Anonymous voting is permitted. **Votes are final once cast by default** — the real-world analog. Changing a vote before the deadline is *technically supported but off by default*, enabled only where the poll's governance rules permit it (e.g., a jurisdiction whose process allows it). Voting is open for a defined period. After the period closes, a result is generated. Poll creation may be gated by a threshold (e.g., a linked petition reaching a configurable verified signature count).
+**Behaviour:** Any registered user may vote. Anonymous voting is permitted. **Votes are final once cast by default** — the real-world analog. Changing a vote before the deadline is *technically supported but off by default*, enabled only where the poll's governance rules permit it (e.g., a jurisdiction whose process allows it). Voting is open for a defined period. After the period closes, a result is generated. Poll creation may be gated by **graduation** — e.g., a linked petition reaching a configurable verified-signature count (the *threshold-triggered poll*; see §8.6). In some jurisdictions (e.g. Alberta) a poll exists **only** by graduation from a petition; in others (e.g. `oursay-global`) any member may create a poll directly.
 
 ### 8.4 Results
 
@@ -393,6 +393,16 @@ The immutable, permanent record of a closed poll's outcome.
 - A result links to exactly one poll
 
 Links are directional at creation but surfaced bidirectionally for navigation. Linking is always optional and never required.
+
+### 8.6 Ladder & graduation (per-jurisdiction)
+
+The four levels form a **ladder**. **Graduation** is the act of a lower level producing the next — a petition graduating into a poll, a poll deriving a result. Linkage (§8.5) is always optional, but **graduation semantics — who may create at each level, and whether climbing is required or automatic — are per-jurisdiction configuration** (`JurisdictionRules`; see [`entities/partitioning/jurisdiction.md`](entities/partitioning/jurisdiction.md)). Three reference models:
+
+- **Open (`oursay-global`).** Any registered member may create a root entity at **any** level directly — statement, petition, or poll — with no graduation gate. Creators may set custom deadlines/durations and control automatic promotion. Most permissive.
+- **Partial ladder (`ab-ca-gov`, Alberta).** Anyone may create a **statement**; **residency-verified** members may create a **petition**; a **poll exists only by graduation** from a petition reaching a configurable **verified-signature threshold** (the *threshold-triggered poll*, §16). The petition's creator may **pre-attach** the poll, which **starts on graduation**; the platform sets the poll's deadline (whether the source is an explicit deadline or an inferred duration is jurisdiction config — see open questions). A **result** derives at poll close (§8.4). Standalone polls are not offered in Alberta.
+- **Full ladder (`some-strict`).** Every level must be climbed in order; subscription is residency-gated (a private jurisdiction); writes and comments may be district-scoped (the thread audience `appliesToRegion` + `appliesToVerified`).
+
+A **threshold-triggered poll** is the *automatic graduation* of a petition into a poll, not a separate feature; §16 lists it among anticipated developments and this section is its canonical definition.
 
 ---
 
@@ -579,7 +589,7 @@ The following are anticipated future developments. The architecture must not for
 - **Electoral authority integration:** Direct integration with official electoral bodies (e.g., Elections Alberta, Elections Canada) yielding the `electoral_validated` tier. The KYC abstraction layer and tier architecture exist to make this straightforward.
 - **Global expansion:** Additional country and region configurations, localised area taxonomies, additional KYC providers.
 - **Municipal layer:** Granular area definitions at ward and council level.
-- **Threshold-triggered polls:** Automatic poll creation when a linked petition reaches a configurable verified signature count.
+- **Threshold-triggered polls:** Automatic poll creation when a linked petition reaches a configurable verified-signature count. This is the automatic **graduation** trigger defined canonically in §8.6 (per-jurisdiction); the gap is its *implementation* (`[code-jurisdiction-graduation]`), not the concept.
 - **Social tagging:** Future `#topic` / `@user` links inside content bodies — purely a UI/presentation concern; the record layer stores plain text.
 - **Petition delivery workflows:** Tracked, auditable delivery of petitions to named officials with response tracking.
 - **Multilingual support:** Internationalisation built into the platform, not added as a patch.

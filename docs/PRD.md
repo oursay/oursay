@@ -47,6 +47,8 @@ flowchart LR
 
 A **statement** is an informal expression of sentiment others agree or disagree with. A **petition** is a formal call to action addressed to a named authority. A **poll** is a formal question whose choices are final once cast. A **result** is the permanent, auditable outcome of a closed poll. A result can be traced back through the votes, petitions, and statements that shaped it.
 
+*Linkage* between levels is opt-in, but where a jurisdiction configures **graduation**, a linked petition can auto-promote to a poll once it reaches a verified-signature threshold. Who may create at each level, and whether climbing the ladder is required, are per-jurisdiction settings (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.6) — e.g. Alberta lets anyone post a statement, comment and vote, residency-verified residents create petitions, and reaches a poll only by graduating a petition.
+
 The defining feature is **verification**. Anyone can participate without verifying, and unverified participation counts and is publicly visible. Verified users have confirmed their identity and Alberta residency through a verification process, and their actions are distinguished by tier in every count and filter. The difference between "people who clicked a button" and "confirmed, identity-verified Alberta residents in a specific district" is what gives the platform its value, and OurSay makes that difference visible everywhere (`[02-PUBLIC-EXPLAINER.md](02-PUBLIC-EXPLAINER.md)`).
 
 Why now: Alberta's debates over autonomy, federal relations, and resource policy are live and consequential, and the fall referendum on October 19, 2026 concentrates public attention on exactly the kind of question OurSay is built to measure. The referendum is the context for urgency, not the product itself.
@@ -138,7 +140,7 @@ Explicitly out of scope for the July 18 soft launch. Listing these prevents the 
 - **Official responses to petitions and votes.** The on-record reply feature for officials is post-launch (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.2, §4.5).
 - **Elections Alberta integration / electorally-validated tier.** This is the designed future path and a higher trust tier (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.6); it is not a launch dependency.
 - **Sponsorship and verification waitlist flows.** Community sponsorship and the waitlist (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §5) are post-launch.
-- **Multi-jurisdiction feed.** Alberta is the only deployment at launch; cross-jurisdiction membership and a unified feed are later (`[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` `[mvp-c10-multi-jurisdiction]`).
+- **Populated cross-jurisdiction feed.** The multi-jurisdiction *foundation* **is** in launch scope — jurisdiction membership, every root entity bound to a jurisdiction (defaulting to `oursay-global`), and the UI jurisdiction-selector + unified-feed components, all built to work with a single active chain. What is **not** a launch commitment is a *populated* feed across multiple live chains: at launch Alberta (`ab-ca-gov`) is the only jurisdiction users reach through the UI, and a fully populated cross-jurisdiction feed is best-effort (it may slip past July 18). The seams are built now precisely so adding jurisdictions later is not an overhaul (`[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` `[mvp-c10-multi-jurisdiction]`, `[mvp-c10b-membership]`).
 - **Municipal and federal geographies.** Launch scope is Alberta provincial districts; ward and riding levels come later (`[03-OUTREACH-TEMPLATE.md](03-OUTREACH-TEMPLATE.md)`).
 - **Implementation internals.** Cryptographic envelope formats, schemas, and signing details stay in the contributor spec and public-record docs.
 
@@ -220,6 +222,8 @@ The launch scope is the **full civic participation flow**, end to end, not a rea
 | Public record sync/stream for auditors                     | Launch requirement                    | `[05-TRUST-REVIEW.md](05-TRUST-REVIEW.md)`; `[../public-record/REQUIREMENTS.md](../public-record/REQUIREMENTS.md)` |
 | Settlement worker in production                            | Launch requirement                    | `[API-GAPS-AND-ROADMAP.md](API-GAPS-AND-ROADMAP.md)` Phase A4 (landed)                                             |
 | Alberta jurisdiction + district catalog                    | Must                                  | Landed (`ab-ca-gov`)                                                                                               |
+| Multi-jurisdiction foundation (membership, root↔jurisdiction binding + `oursay-global` fallback, UI jurisdiction-selector + unified-feed components) | Must | `[ROADMAP.md](ROADMAP.md)` MVP; `[mvp-c10b-membership]`                                                            |
+| Populated cross-jurisdiction feed (multiple live chains)   | Should (best-effort)                  | §3; `[mvp-c10-multi-jurisdiction]`                                                                                 |
 | Auto-generated official profiles (read-only)               | Should                                | `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.5                                                            |
 | MLA profile-claim workflow                                 | Won't (fast-follow; KPI by Oct 19)    | §3                                                                                                                 |
 | Official responses to petitions/votes                      | Won't (this launch)                   | §3                                                                                                                 |
@@ -358,6 +362,7 @@ These need a decision before or during the build. Defaults are noted where the t
 | Public record, settlement, anchoring requirements      | `[../public-record/REQUIREMENTS.md](../public-record/REQUIREMENTS.md)`, `[../public-record/README.md](../public-record/README.md)` |
 | Account API surface                                    | `[api/README.md](../api/README.md)`                                                                                                |
 | Identity and device policy                             | `[08-IDENTITY-AND-DEVICE-POLICY.md](08-IDENTITY-AND-DEVICE-POLICY.md)`                                                             |
+| Story + acceptance layer (below §5; front-end)         | `[10-USER-STORIES.md](10-USER-STORIES.md)`                                                                                       |
 | Formal domain objects (attributes, states, invariants) | `[entities/README.md](entities/README.md)`                                                                                         |
 
 

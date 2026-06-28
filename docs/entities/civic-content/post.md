@@ -65,7 +65,7 @@ Posts do not expire unless archived by administrator.
 
 ## Invariants
 
-- **R1**: `post` is a root type — no parent. It is a thread root and carries the thread audience (`jurisdictionId` + `appliesToRegion` + `appliesToVerified`; see [entity-rules.md](../partitioning/entity-rules.md)).
+- **R1**: `post` is a root type — no parent. It is a thread root and carries the thread audience (`jurisdictionId` + `appliesToRegion` + `appliesToVerified`; see [entity-rules.md](../partitioning/entity-rules.md)). As a **root entity** it is bound to **exactly one jurisdiction** (`jurisdictionId`), defaulting to **`oursay-global`** when none is chosen (backend, frontend enforces a choice) — the same binding invariant holds for `petition` and `poll` roots (see [jurisdiction.md](../partitioning/jurisdiction.md) Invariants).
 - Verified user reactions on-ledger; unverified off-ledger (contributor §11.1).
 - Users may change agree/disagree position (reaction update allowed).
 - Anonymous participation permitted; verified anonymous counted in tier totals (contributor §9.4).

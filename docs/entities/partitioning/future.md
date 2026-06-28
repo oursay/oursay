@@ -16,6 +16,14 @@ A materialized **`entity_audience`** projection mapping each root entity to its 
 Add per-jurisdiction **`labels`** (post/petition/poll/result/district user-facing labels) and **`contentLimits`** (hard caps per type). Today `JurisdictionConfig` has neither.
 → `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-jurisdiction-labels-limits]`.
 
+## Graduation / promotion config
+Add `JurisdictionRules.graduation` — promotion `policy` (`open` | `ladder`), per-record-type **create-tier gate**, and the **petition→poll threshold** (verified-signature count + deadline source) that auto-graduates a linked petition into a poll. Canonical model: [01-CONTRIBUTOR-SPEC.md §8.6](../../01-CONTRIBUTOR-SPEC.md); shape: [jurisdiction.md](./jurisdiction.md). Today `JurisdictionConfig` has no graduation fields and no auto-graduation worker.
+→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-jurisdiction-graduation]`.
+
+## Participation act-eligibility (`actTier`)
+Generalize the create-tier gate to participation: a map `action → tier set` answering **who may *act*** on `vote` / `petition_signature` / `comment` / `reaction` — distinct from `appliesToVerified` (who counts in the **official** total). This is what encodes "public voting, verified-only official counts" vs "verified participants only" (PRD §5). Today only creation is gated.
+→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-participation-act-eligibility]`.
+
 ## allowChange / allowRevoke unification
 Collapse the two governance flags into a single `allowChange` field covering both vote change and signature revoke. The deadline gates both submit and change/revoke.
 
