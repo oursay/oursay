@@ -644,9 +644,9 @@
     </g>
     <text x="30" y="280" font-size="12">Record types — &#10003; include</text>
     <text x="30" y="295" font-size="12">(min 1), tap = only that</text>
-    <text x="30" y="365" font-size="12">Verified: None/ID/Residency</text>
-    <text x="30" y="380" font-size="12">My Districts — residency only;</text>
-    <text x="30" y="395" font-size="12">on ⇒ Verified jumps to Residency</text>
+    <text x="30" y="365" font-size="12">Verified: None/ID/Residency/Official</text>
+    <text x="30" y="380" font-size="12">My Districts — residency acct;</text>
+    <text x="30" y="395" font-size="12">keeps Global + your ridings</text>
   </g>
 
   <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
@@ -720,7 +720,9 @@
       profileOpen: false,      // profile modal (logged-in only)
       labelsOn: true,
       page: "other",           // this is a district page → FAB shows the "go to Feed" icon
+      mapOpen: true,           // collapsible Map section
       aboutOpen: true,         // collapsible About / Rules section
+      feedOpen: false,         // collapsible inline District Feed (collapsed by default)
       distScroll: 0,           // page vertical scroll offset (px)
       kyc: 0,                  // 0 unverified · 1 identity · 2 residency
       deviceCount: 3,          // passkeys/devices on the account
@@ -983,9 +985,7 @@
       vVal.setAttribute("text-anchor", "end");
       vRow.appendChild(vVal);
       vRow.addEventListener("click", function () {
-        state.verified = (state.verified + 1) % VERIFIED_LEVELS.length;
-        // dropping below Residency drops My Districts (it requires a residency-scoped feed)
-        if (state.verified !== 2) state.myDistricts = false;
+        state.verified = (state.verified + 1) % VERIFIED_LEVELS.length; // None→ID→Residency→Official
         render();
       });
       inner.appendChild(vRow);
@@ -1003,8 +1003,9 @@
       dRow.appendChild(txt(FD_X + 42, dRowY + 25, "My Districts", 14, dCol));
       if (canDistricts) {
         var toggleDistricts = function () {
+          // geography filter only — independent of the Verified (author) filter, so Global and
+          // lower-tier posts stay visible; keeps Global + posts scoped to your ridings
           state.myDistricts = !state.myDistricts;
-          if (state.myDistricts) state.verified = 2; // my districts ⇒ residency-verified authors
           render();
         };
         eye.style.cursor = "pointer";
@@ -1377,9 +1378,13 @@
     // address at query time (never stored), boundaries are effective-dated, and district-scoped
     // content keys off appliesToRegion: district:<district_slug>. The seated-MLA → public-profile
     // link assumes an official→profile mapping with no first-class entity today (see jurisdiction page).
+    // The inline District Feed is the same card list as content-feed, pre-scoped to this riding
+    // (record-type + Refine still apply); leader links + map mirror the jurisdiction page.
     var DISTRICT = {
       name: "Edmonton-Strathcona", slug: "edmonton-strathcona", jur: "Alberta",
-      mla: "Rae Nguyen, MLA", boundaryYear: 2023, source: "Elections Alberta",
+      // leader = name only; the seat/role (MLA) is inferred from the jurisdiction and shown
+      // on the profile page, not appended here
+      leader: "Rae Nguyen", boundaryYear: 2023, source: "Elections Alberta",
       about: [
         "Part of Alberta — provincial (ladder) rules apply.",
         "District-scoped posts use appliesToRegion: district.",
@@ -1396,53 +1401,255 @@
       var r = rect(x, y, w, h, 4, "#ffffff"); r.setAttribute("opacity", "0"); r.style.cursor = "pointer";
       r.addEventListener("click", onClick); g.appendChild(r);
     }
-    function collHeader(parent, x, w, y, label, open, countText, onToggle) {
-      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
-      g.appendChild(rect(x, y, w, 36, 8, "#f7f7f7", "#e2e2e2"));
-      g.appendChild(icon(open ? "#ic-chevron" : "#ic-chevron-right", x + 10, y + 10, 16, "#333"));
-      var t = txt(x + 36, y + 23, label, 14, "#333"); t.setAttribute("font-weight", "bold"); g.appendChild(t);
-      if (countText) { var c = txt(x + w - 12, y + 23, countText, 12.5, "#999"); c.setAttribute("text-anchor", "end"); g.appendChild(c); }
-      g.addEventListener("click", onToggle);
-      parent.appendChild(g);
-      return y + 36;
+
+    // initials from a name: first word + last word, with any ", MLA"-style suffix stripped
+    function initials(name) {
+      var base = name.split(",")[0].trim().split(/\s+/);
+      var f = base[0] || "", l = base[base.length - 1] || "";
+      return ((f[0] || "") + (l[0] || "")).toUpperCase();
     }
-    // single-district map: province tiles with this riding highlighted
-    function drawDistrictMap(parent, label, x, y, w, h) {
-      parent.appendChild(rect(x, y, w, h, 10, "#fafafa", "#ddd"));
-      var tiles = [[x + 14, y + 14, 104, 58, 0], [x + 128, y + 14, 108, 58, 1], [x + 246, y + 14, 110, 58, 0],
-                   [x + 14, y + 82, 150, 54, 0], [x + 172, y + 82, 86, 54, 0], [x + 266, y + 82, 90, 54, 0]];
-      tiles.forEach(function (t) {
-        var hl = t[4] === 1;
-        parent.appendChild(rect(t[0], t[1], t[2], t[3], 8, hl ? "#333" : "#eee", hl ? "#333" : "#ddd"));
-      });
-      parent.appendChild(icon("#ic-pin", x + 128 + 54 - 9, y + 22, 18, "#fff"));
-      var lb = txt(x + 128 + 54, y + 62, label, 10.5, "#fff"); lb.setAttribute("text-anchor", "middle"); parent.appendChild(lb);
+    // right-aligned leader link: a small initials avatar + the name, ending at rightX (no arrow, no caption)
+    function leaderLink(parent, rightX, baselineY, name, nameSize, onClick) {
+      var nameW = name.length * (nameSize * 0.54), nameStartX = rightX - nameW;
+      var avCx = nameStartX - 15, avCy = baselineY - 4, r = 11;
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var av = document.createElementNS(SVG_NS, "circle");
+      av.setAttribute("cx", avCx); av.setAttribute("cy", avCy); av.setAttribute("r", r);
+      av.setAttribute("fill", "#e8e8e8"); av.setAttribute("stroke", "#ccc"); g.appendChild(av);
+      var it = txt(avCx, avCy + 3, initials(name), 9, "#777"); it.setAttribute("text-anchor", "middle"); g.appendChild(it);
+      var nt = txt(rightX, baselineY, name, nameSize, "#333"); nt.setAttribute("text-anchor", "end"); g.appendChild(nt);
+      clickRect(g, avCx - r - 4, baselineY - 18, rightX - (avCx - r - 4), 26, onClick);
+      parent.appendChild(g);
     }
 
+    // a collapsible section header — leading icon, label, chevron on the RIGHT. Returns y below it.
+    function collHeader(parent, x, w, y, iconHref, label, open, countText, onToggle) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      g.appendChild(rect(x, y, w, 38, 8, "#f7f7f7", "#e2e2e2"));
+      g.appendChild(icon(iconHref, x + 12, y + 11, 16, "#333"));
+      var t = txt(x + 38, y + 24, label, 14, "#333"); t.setAttribute("font-weight", "bold"); g.appendChild(t);
+      g.appendChild(icon(open ? "#ic-chevron" : "#ic-chevron-right", x + w - 26, y + 11, 16, "#666"));
+      if (countText) { var c = txt(x + w - 34, y + 24, countText, 12, "#999"); c.setAttribute("text-anchor", "end"); g.appendChild(c); }
+      g.addEventListener("click", onToggle);
+      parent.appendChild(g);
+      return y + 38;
+    }
+
+    // pretend map vector: light province with this riding as a red translucent region inside it
+    function poly(pts, x, y) { return "M" + pts.map(function (p) { return (x + p[0]) + "," + (y + p[1]); }).join(" L ") + " Z"; }
+    function pathEl(d, fill, stroke, sw, op) {
+      var p = document.createElementNS(SVG_NS, "path");
+      p.setAttribute("d", d); p.setAttribute("fill", fill);
+      if (stroke) { p.setAttribute("stroke", stroke); p.setAttribute("stroke-width", sw || 1.5); }
+      if (op != null) p.setAttribute("fill-opacity", op);
+      p.setAttribute("stroke-linejoin", "round"); return p;
+    }
+    function drawDistrictMap(parent, x, y, w, h, label) {
+      parent.appendChild(rect(x, y, w, h, 10, "#eef2f4", "#dfe5e8"));
+      var land = [[16,86],[54,52],[110,64],[150,40],[214,52],[276,40],[330,60],[352,96],[330,140],[268,156],[196,146],[122,156],[58,142],[26,118]];
+      parent.appendChild(pathEl(poly(land, x, y), "#e3e6e3", "#cdd2cd", 1.4, null));
+      // the riding: a small red translucent region sitting inside the province
+      var riding = [[150,74],[196,68],[206,104],[158,112]];
+      parent.appendChild(pathEl(poly(riding, x, y), "#e74c3c", "#c0392b", 1.6, 0.32));
+      parent.appendChild(icon("#ic-pin", x + 178 - 9, y + 80, 18, "#c0392b"));
+      var lb = txt(x + 150, y + 134, label, 11, "#c0392b"); lb.setAttribute("font-weight", "bold"); parent.appendChild(lb);
+    }
+
+    var DISTRICT_NAMES = {
+      "edmonton-strathcona": "Edmonton-Strathcona",
+      "edmonton-city-centre": "Edmonton-City Centre",
+      "calgary-elbow": "Calgary-Elbow",
+      "calgary-mountain-view": "Calgary-Mountain View"
+    };
+    function districtName(slug) { return DISTRICT_NAMES[slug] || slug; }
+
+    // same faked feed used by content-feed; the page pre-scopes it to THIS riding.
+    // tier: 0 None (public) · 1 ID · 2 Residency · 3 Official (MLA / government).
+    // districts: [] = jurisdiction-wide · [slug] = one riding · [slug,slug] = a list of ridings.
+    var POSTS = [
+      { type:"statement", jur:"Global", tier:0, districts:[], author:"Dana Whitecloud", handle:"dwhitecloud",
+        title:"Transit funding should be a national priority",
+        body:["Inter-city rail keeps falling behind. A standing fund would let","provinces plan past a single election cycle."], agree:48, disagree:12, comments:9 },
+      { type:"poll", jur:"Global", tier:0, districts:[], author:"OurSay Stewards", handle:"oursay",
+        title:"Should OurSay add ranked-choice polls?",
+        body:["Ranked choice lets you order options instead of picking one.","Worth the added complexity?"],
+        options:[{label:"Yes",v:412},{label:"No",v:88},{label:"Unsure",v:54}], comments:12 },
+      { type:"petition", jur:"Global", tier:1, districts:[], author:"Priya Anand", handle:"priya",
+        title:"Open-source the public election software",
+        body:["Code that counts votes should be auditable by anyone.","Publish the source under an OSI licence."], sig:8300, goal:10000, comments:33 },
+      { type:"statement", jur:"Global", tier:1, districts:[], author:"Marcus Lee", handle:"mlee",
+        title:"Lower the voting age to 16",
+        body:["Sixteen-year-olds work, pay tax, and drive. They should have","a say in the policies that shape their future."], agree:64, disagree:71, comments:40 },
+      { type:"result", jur:"Global", tier:0, districts:[], author:"OurSay Stewards", handle:"oursay",
+        title:"Result: Platform name vote",
+        body:["The community vote on the platform name has closed.","Turnout exceeded the k-anonymity floor."], outcome:"Passed · “OurSay” 58%", agree:33, disagree:9, comments:5 },
+      { type:"statement", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
+        title:"Constituency update: Whitemud ravine review",
+        body:["I've asked the ministry to pause the rezoning until the","environmental review is complete."], agree:204, disagree:46, comments:38 },
+      { type:"statement", jur:"Alberta", tier:3, districts:[], author:"Hon. A. Premier", handle:"premier",
+        title:"Budget 2027 consultation now open",
+        body:["Residents can weigh in on provincial priorities through","the end of the month."], agree:512, disagree:288, comments:96 },
+      { type:"poll", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
+        title:"Provincial budget priority for 2027",
+        body:["Where should the next provincial budget lead?","One vote per residency-verified elector."],
+        options:[{label:"Healthcare",v:320},{label:"Education",v:280},{label:"Roads",v:110}], comments:19 },
+      { type:"result", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
+        title:"Result: Bill 12 community poll",
+        body:["The non-binding community poll on Bill 12 has closed.","Counts shown are residency-verified electors only."], outcome:"Closed · 71% Oppose", agree:90, disagree:20, comments:27 },
+      { type:"statement", jur:"Alberta", tier:0, districts:["edmonton-strathcona"], author:"Jordan Vance", handle:"jvance",
+        title:"More bike lanes on Whyte Avenue",
+        body:["Whyte gets dangerous at rush hour. Protected lanes would","help everyone share the road."], agree:51, disagree:28, comments:11 },
+      { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow"], author:"Priti Shah", handle:"pshah",
+        title:"Save the Elbow Park outdoor rink",
+        body:["The community rink needs a small grant to reopen this","winter. Let's fund it."], agree:73, disagree:6, comments:13 },
+      { type:"statement", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Hana Okafor", handle:"hanao",
+        title:"Protect the Whitemud Creek ravine",
+        body:["Proposed access roads cut through old-growth ravine.","Council should pause the rezoning pending review."], agree:132, disagree:7, comments:21 },
+      { type:"petition", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Sam Driver", handle:"samd",
+        title:"Repave 109 Street before winter",
+        body:["Potholes on 109 St have damaged dozens of vehicles.","Fund resurfacing in this budget cycle."], sig:1240, goal:5000, comments:14 },
+      { type:"petition", jur:"Alberta", tier:2, districts:["calgary-elbow"], author:"Rosa Klein", handle:"rosak",
+        title:"Fund the Green Line LRT extension",
+        body:["The Green Line stalled at the river. Commit the provincial","share so construction can resume."], sig:4520, goal:8000, comments:22 },
+      { type:"petition", jur:"Alberta", tier:2, districts:["edmonton-strathcona","edmonton-city-centre"], author:"Wei Chen", handle:"weichen",
+        title:"Twin the river-valley commuter path",
+        body:["A continuous path would link the two ridings end to end.","Commit the capital in this cycle."], sig:3120, goal:6000, comments:17 },
+      { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow","calgary-mountain-view"], author:"Dale Friesen", handle:"dfriesen",
+        title:"Coordinate snow clearing across Calgary core",
+        body:["Neighbouring wards clear on different schedules. A shared","plan would cut complaints."], agree:88, disagree:19, comments:15 }
+    ];
+
+    function fmt(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
+    // author verification tag: 0 None (no tag) · 1 Identity · 2 Residency · 3 Official (MLA / gov)
+    function tierLabel(t) { return ["", "Identity", "Residency", "Official"][t] || ""; }
+    function hasReactions(p) { return p.type === "statement" || p.type === "result"; }
+    var FEED_TYPE_NAME = { statement: "Statements", petition: "Petitions", poll: "Polls", result: "Results" };
+
+    // ---- geography + count-scaling helpers (see content-feed for the full rationale) ----
+    var MY_DISTRICTS = ["edmonton-strathcona"]; // the example signed-in resident's home riding(s)
+    function postDistricts(p) { return p.districts || []; }
+    function inMyDistricts(p) { return postDistricts(p).some(function (s) { return MY_DISTRICTS.indexOf(s) >= 0; }); }
+    function districtTag(p) {
+      var ds = postDistricts(p);
+      if (!ds.length) return "";
+      return ds.length === 1 ? districtName(ds[0]) : (districtName(ds[0]) + " +" + (ds.length - 1));
+    }
+    // shown counts shrink as the Verified filter rises: social (comments + reactions) drop at every
+    // level; civic (signatures + votes) only drop at Official, since participation already needs residency.
+    var SOCIAL_SCALE = [1, 0.62, 0.34, 0.08];
+    var CIVIC_SCALE  = [1, 1, 1, 0.12];
+    function scaleSocial(n) { return Math.max(0, Math.round(n * SOCIAL_SCALE[state.verified])); }
+    function scaleCivic(n)  { return Math.max(0, Math.round(n * CIVIC_SCALE[state.verified])); }
+
+    // ---- the inline post card (same shape as content-feed) ----
+    function buildCard(p, opts) {
+      opts = opts || {};
+      var W = 370, px = 16;
+      var g = document.createElementNS(SVG_NS, "g");
+      var kids = [], hits = [];
+      function add(n) { kids.push(n); return n; }
+      function hit(n) { hits.push(n); return n; }
+      var av = document.createElementNS(SVG_NS, "circle");
+      av.setAttribute("cx", px + 14); av.setAttribute("cy", 26); av.setAttribute("r", 14);
+      av.setAttribute("fill", "#e8e8e8"); av.setAttribute("stroke", "#ccc"); add(av);
+      var ini = (p.author.split(" ").map(function (s) { return s[0]; }).join("")).slice(0, 2).toUpperCase();
+      var it = txt(px + 14, 30, ini, 11, "#777"); it.setAttribute("text-anchor", "middle"); add(it);
+      var nm = txt(px + 38, 22, p.author, 13.5, "#333"); nm.setAttribute("font-weight", "bold"); add(nm);
+      add(txt(px + 38, 37, "@" + p.handle, 11.5, "#999"));
+      var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, 0, 8, 190, 34, navStub("content-profile.svg")); hit(aHit);
+      if (p.tier > 0) {
+        add(icon("#ic-shield", W - px - 88, 13, 14, "#666"));
+        var tl = txt(W - px, 24, tierLabel(p.tier), 11.5, "#666"); tl.setAttribute("text-anchor", "end"); add(tl);
+      }
+      var parts = [];
+      if (!opts.hideJur) parts.push(p.jur);
+      if (!opts.hideDistrict) { var dt = districtTag(p); if (dt) parts.push(dt); }
+      var tag = parts.join(" · ");
+      if (tag) { var tg = txt(W - px, 38, tag, 11.5, "#999"); tg.setAttribute("text-anchor", "end"); add(tg); }
+      var ti = txt(px, 66, p.title, 15, "#222"); ti.setAttribute("font-weight", "bold"); add(ti);
+      add(txt(px, 90, p.body[0], 12.5, "#777"));
+      add(txt(px, 108, p.body[1] || "", 12.5, "#777"));
+      var more = txt(px, 130, "…more", 12.5, "#333"); more.setAttribute("font-weight", "bold"); add(more);
+      var postHit = document.createElementNS(SVG_NS, "g");
+      clickRect(postHit, px - 4, 54, W - 2 * px + 8, 22, navStub("content-post.svg"));
+      clickRect(postHit, px - 4, 120, 80, 18, navStub("content-post.svg"));
+      hit(postHit);
+      var y = 150;
+      if (p.type === "petition") {
+        var sig = scaleCivic(p.sig);
+        var frac = clamp(sig / p.goal, 0, 1);
+        add(rect(px, y + 2, W - 2 * px, 10, 5, "#f2f2f2", "#ccc"));
+        add(rect(px, y + 2, Math.round((W - 2 * px) * frac), 10, 5, "#333"));
+        add(txt(px, y + 32, fmt(sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
+        var cta = rect(px, y + 44, 150, 26, 13, "#ffffff", "#333"); add(cta);
+        var ct = txt(px + 75, y + 61, "Sign the Petition", 12.5, "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
+        y += 84;
+      } else if (p.type === "poll") {
+        var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
+        p.options.forEach(function (o) {
+          var ov = scaleCivic(o.v), bw = W - 2 * px;
+          add(rect(px, y, bw, 18, 4, "#f4f4f4", "#e2e2e2"));
+          add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, "#e3e3e3"));
+          add(txt(px + 8, y + 13, o.label, 11.5, "#555"));
+          var pv = txt(W - px - 6, y + 13, fmt(ov), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); add(pv);
+          y += 24;
+        });
+        y += 4;
+      } else if (p.type === "result") {
+        add(rect(px, y, W - 2 * px, 28, 6, "#f7f7f7", "#ddd"));
+        add(icon("#ic-check-circle", px + 8, y + 6, 16, "#555"));
+        add(txt(px + 32, y + 19, p.outcome, 12.5, "#444"));
+        y += 38;
+      }
+      var fy = y + 14;
+      if (hasReactions(p)) {
+        add(txt(px, fy, "✓ " + fmt(scaleSocial(p.agree)), 13, "#555"));
+        add(txt(px + 66, fy, "✗ " + fmt(scaleSocial(p.disagree)), 13, "#999"));
+      } else if (p.type === "poll") {
+        var tv = p.options.reduce(function (a, o) { return a + scaleCivic(o.v); }, 0);
+        add(txt(px, fy, fmt(tv) + " votes", 13, "#555"));
+      } else {
+        add(txt(px, fy, fmt(scaleCivic(p.sig)) + " signatures", 13, "#555"));
+      }
+      add(icon("#ic-message", W - px - 64, fy - 13, 15, "#777"));
+      var cc = txt(W - px, fy, fmt(scaleSocial(p.comments)), 13, "#777"); cc.setAttribute("text-anchor", "end"); add(cc);
+      var cardH = fy + 16;
+      g.appendChild(rect(0, 0, W, cardH, 12, "#ffffff", "#ccc"));
+      kids.forEach(function (n) { g.appendChild(n); });
+      hits.forEach(function (n) { g.appendChild(n); });
+      g._h = cardH;
+      return g;
+    }
+
+    // feed match, pre-scoped to THIS page's riding (record-type + Refine still apply)
+    function distFeedMatches(p) {
+      if (postDistricts(p).indexOf(DISTRICT.slug) < 0) return false; // applies to THIS riding (incl multi-district)
+      var rt = state.recordTypes.filter(function (r) { return r.name === FEED_TYPE_NAME[p.type]; })[0];
+      if (!rt || !rt.included) return false;
+      if (p.tier < state.verified) return false;
+      return true;
+    }
+
+    var FOOTER_PAD = 80;    // bottom whitespace so the FAB never covers a heading at full scroll
     var distMax = 0;
     function buildDistrict() {
       var body = $("distBody");
       while (body.firstChild) body.removeChild(body.firstChild);
       var X = 30, W = 370, d = DISTRICT, y = 124;
 
-      // --- title bar: riding name + parent + seated-MLA profile link ---
+      // --- title bar: riding name + parent line (left) + leader profile link (right) ---
       var nm = txt(X, y + 24, d.name, 19, "#222"); nm.setAttribute("font-weight", "bold"); body.appendChild(nm);
-      body.appendChild(txt(X, y + 42, d.jur + " · riding · " + d.boundaryYear, 11.5, "#999"));
-      var lead = document.createElementNS(SVG_NS, "g"); lead.style.cursor = "pointer";
-      lead.appendChild(icon("#ic-user", X + W - 150, y + 10, 16, "#555"));
-      lead.appendChild(txt(X + W - 126, y + 22, d.mla, 12.5, "#333"));
-      lead.appendChild(icon("#ic-chevron-right", X + W - 18, y + 9, 16, "#777"));
-      var cap = txt(X + W - 2, y + 38, "MLA profile →", 10.5, "#bbb"); cap.setAttribute("text-anchor", "end"); lead.appendChild(cap);
-      clickRect(lead, X + W - 156, y + 2, 156, 44, navStub("content-profile.svg"));
-      body.appendChild(lead);
+      body.appendChild(txt(X, y + 42, d.jur + " · riding · boundary " + d.boundaryYear, 11.5, "#999"));
+      leaderLink(body, X + W - 2, y + 20, d.leader, 12.5, navStub("content-profile.svg"));
       y += 56;
 
-      // --- map ---
-      drawDistrictMap(body, d.name, X, y, W, 150);
-      y += 164;
+      // --- Map (collapsible) — this riding highlighted within the province ---
+      y = collHeader(body, X, W, y, "#ic-pin", "Map", state.mapOpen, null, function () { state.mapOpen = !state.mapOpen; render(); });
+      if (state.mapOpen) { y += 8; drawDistrictMap(body, X, y, W, 176, d.name); y += 176 + 8; }
+      else { y += 12; }
 
-      // --- About / Rules (collapsible) ---
-      y = collHeader(body, X, W, y, "About this riding", state.aboutOpen, null,
+      // --- About this riding (collapsible) ---
+      y = collHeader(body, X, W, y, "#ic-file", "About this riding", state.aboutOpen, null,
         function () { state.aboutOpen = !state.aboutOpen; render(); });
       if (state.aboutOpen) {
         y += 8;
@@ -1454,15 +1661,28 @@
         y += 8;
       } else { y += 12; }
 
-      // --- Posts (link-out placeholder → Feed, scoped to this riding) ---
-      var pg = document.createElementNS(SVG_NS, "g"); pg.style.cursor = "pointer";
-      pg.appendChild(rect(X, y, W, 40, 8, "#f7f7f7", "#e2e2e2"));
-      pg.appendChild(icon("#ic-list", X + 12, y + 11, 18, "#333"));
-      pg.appendChild(txt(X + 40, y + 25, "View this riding's posts in Feed", 13.5, "#333"));
-      pg.appendChild(icon("#ic-chevron-right", X + W - 28, y + 11, 16, "#777"));
-      clickRect(pg, X, y, W, 40, navStub("content-feed.svg"));
-      body.appendChild(pg);
-      y += 52;
+      // --- District Feed (collapsible, collapsed by default; inline, pre-filtered cards) ---
+      var shown = POSTS.filter(distFeedMatches);
+      y = collHeader(body, X, W, y, "#ic-newspaper", "District Feed", state.feedOpen, shown.length + " posts",
+        function () { state.feedOpen = !state.feedOpen; render(); });
+      if (state.feedOpen) {
+        y += 10;
+        body.appendChild(txt(X + 2, y, "Pre-filtered to " + d.name + " — record type & Refine (F) still apply.", 10.5, "#bbb"));
+        y += 16;
+        if (shown.length === 0) {
+          var e1 = txt(X + W / 2, y + 18, "No posts match the current filter.", 13, "#999"); e1.setAttribute("text-anchor", "middle"); body.appendChild(e1);
+          y += 44;
+        }
+        shown.forEach(function (p) {
+          var card = buildCard(p, { hideJur: true, hideDistrict: true }); // riding is implied → drop both tags
+          card.setAttribute("transform", "translate(" + X + "," + y + ")");
+          body.appendChild(card);
+          y += card._h + 14;
+        });
+      } else { y += 12; }
+
+      // footer whitespace (FAB clearance)
+      y += FOOTER_PAD;
 
       distMax = Math.max(0, y - 885 + 8);
       state.distScroll = clamp(state.distScroll, 0, distMax);
@@ -1481,8 +1701,9 @@
       $("annoLoginA").textContent = state.loggedIn ? "Signed in (avatar shown)" : "Logged out";
       $("annoLoginB").textContent = state.loggedIn ? "tap → profile (L to toggle)" : "tap → register / log in (L)";
 
-      // selector label reflects the unified-feed filter
-      $("curJur").textContent = pillLabel();
+      // district page: the selector always names this riding's PARENT jurisdiction, whether or
+      // not the viewer subscribes to it (req: selector tracks the page, not the feed filter)
+      $("curJur").textContent = DISTRICT.jur;
 
       // dropdown
       if (state.dropdownOpen) buildDropdown();
@@ -1666,7 +1887,7 @@
         case "f": case "F": state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); break;
         case "a": case "A": openModal(); break;
         case "o": case "O": state.otpAllowed = !state.otpAllowed; state.loginVerified = false; render(); break; // OTP-login window
-        case "p": case "P": state.page = (state.page === "feed") ? "other" : "feed"; render(); break;
+        case "p": case "P": break; // FAB is locked to the "go to Feed" (home) action on content pages
         case "Escape": closeOverlays(); break;
       }
     });

@@ -644,9 +644,9 @@
     </g>
     <text x="30" y="280" font-size="12">Record types — &#10003; include</text>
     <text x="30" y="295" font-size="12">(min 1), tap = only that</text>
-    <text x="30" y="365" font-size="12">Verified: None/ID/Residency</text>
-    <text x="30" y="380" font-size="12">My Districts — residency only;</text>
-    <text x="30" y="395" font-size="12">on ⇒ Verified jumps to Residency</text>
+    <text x="30" y="365" font-size="12">Verified: None/ID/Residency/Official</text>
+    <text x="30" y="380" font-size="12">My Districts — residency acct;</text>
+    <text x="30" y="395" font-size="12">keeps Global + your ridings</text>
   </g>
 
   <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
@@ -748,7 +748,7 @@
     };
 
     var KYC_TIERS = ["Unverified", "Identity Verified", "Residency Verified"];
-    var VERIFIED_LEVELS = ["None", "ID", "Residency"];
+    var VERIFIED_LEVELS = ["None", "ID", "Residency", "Official"];
 
     // postable root types and the roots each jurisdiction allows (default = all).
     // Alberta accepts statements + petitions only; a 1-root jurisdiction skips the type step.
@@ -982,9 +982,7 @@
       vVal.setAttribute("text-anchor", "end");
       vRow.appendChild(vVal);
       vRow.addEventListener("click", function () {
-        state.verified = (state.verified + 1) % VERIFIED_LEVELS.length;
-        // dropping below Residency drops My Districts (it requires a residency-scoped feed)
-        if (state.verified !== 2) state.myDistricts = false;
+        state.verified = (state.verified + 1) % VERIFIED_LEVELS.length; // None→ID→Residency→Official
         render();
       });
       inner.appendChild(vRow);
@@ -1002,8 +1000,9 @@
       dRow.appendChild(txt(FD_X + 42, dRowY + 25, "My Districts", 14, dCol));
       if (canDistricts) {
         var toggleDistricts = function () {
+          // geography filter only — independent of the Verified (author) filter, so Global and
+          // lower-tier posts stay visible; keeps Global + posts scoped to your ridings
           state.myDistricts = !state.myDistricts;
-          if (state.myDistricts) state.verified = 2; // my districts ⇒ residency-verified authors
           render();
         };
         eye.style.cursor = "pointer";
@@ -1375,52 +1374,90 @@
     // NOTE(tech) card metrics are faked. In the real model they come from distinct entities:
     //   agree/disagree = `reaction` (post & comment only) · petitions = `petition_signature`
     //   counts · polls = `vote` tallies · comments = `comment` count. Don't conflate them.
-    var DISTRICT_NAMES = { "edmonton-strathcona": "Edmonton-Strathcona", "calgary-elbow": "Calgary-Elbow" };
+    var DISTRICT_NAMES = {
+      "edmonton-strathcona": "Edmonton-Strathcona",
+      "edmonton-city-centre": "Edmonton-City Centre",
+      "calgary-elbow": "Calgary-Elbow",
+      "calgary-mountain-view": "Calgary-Mountain View"
+    };
     function districtName(slug) { return DISTRICT_NAMES[slug] || slug; }
 
+    // tier: 0 None (public) · 1 ID-verified · 2 Residency-verified · 3 Official (MLA / government).
+    // districts: [] = jurisdiction-wide · [slug] = one riding · [slug,slug] = a list of ridings.
     var POSTS = [
-      { type:"statement", jur:"Global", tier:0, district:null, author:"Dana Whitecloud", handle:"dwhitecloud",
+      // --- Global (mixed verification; jurisdiction-wide) ---
+      { type:"statement", jur:"Global", tier:0, districts:[], author:"Dana Whitecloud", handle:"dwhitecloud",
         title:"Transit funding should be a national priority",
         body:["Inter-city rail keeps falling behind. A standing fund would let",
               "provinces plan past a single election cycle."], agree:48, disagree:12, comments:9 },
-      { type:"poll", jur:"Global", tier:0, district:null, author:"OurSay Stewards", handle:"oursay",
+      { type:"poll", jur:"Global", tier:0, districts:[], author:"OurSay Stewards", handle:"oursay",
         title:"Should OurSay add ranked-choice polls?",
         body:["Ranked choice lets you order options instead of picking one.",
               "Worth the added complexity?"],
         options:[{label:"Yes",v:412},{label:"No",v:88},{label:"Unsure",v:54}], comments:12 },
-      { type:"petition", jur:"Global", tier:1, district:null, author:"Priya Anand", handle:"priya",
+      { type:"petition", jur:"Global", tier:1, districts:[], author:"Priya Anand", handle:"priya",
         title:"Open-source the public election software",
         body:["Code that counts votes should be auditable by anyone.",
               "Publish the source under an OSI licence."], sig:8300, goal:10000, comments:33 },
-      { type:"statement", jur:"Global", tier:1, district:null, author:"Marcus Lee", handle:"mlee",
+      { type:"statement", jur:"Global", tier:1, districts:[], author:"Marcus Lee", handle:"mlee",
         title:"Lower the voting age to 16",
         body:["Sixteen-year-olds work, pay tax, and drive. They should have",
               "a say in the policies that shape their future."], agree:64, disagree:71, comments:40 },
-      { type:"result", jur:"Global", tier:0, district:null, author:"OurSay Stewards", handle:"oursay",
+      { type:"result", jur:"Global", tier:0, districts:[], author:"OurSay Stewards", handle:"oursay",
         title:"Result: Platform name vote",
         body:["The community vote on the platform name has closed.",
               "Turnout exceeded the k-anonymity floor."], outcome:"Passed · “OurSay” 58%", agree:33, disagree:9, comments:5 },
-      { type:"statement", jur:"Alberta", tier:2, district:"edmonton-strathcona", author:"Hana Okafor", handle:"hanao",
+
+      // --- Alberta · officials (MLA / government → "Official" tag, tier 3) ---
+      { type:"statement", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
+        title:"Constituency update: Whitemud ravine review",
+        body:["I've asked the ministry to pause the rezoning until the",
+              "environmental review is complete."], agree:204, disagree:46, comments:38 },
+      { type:"statement", jur:"Alberta", tier:3, districts:[], author:"Hon. A. Premier", handle:"premier",
+        title:"Budget 2027 consultation now open",
+        body:["Residents can weigh in on provincial priorities through",
+              "the end of the month."], agree:512, disagree:288, comments:96 },
+      { type:"poll", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
+        title:"Provincial budget priority for 2027",
+        body:["Where should the next provincial budget lead?",
+              "One vote per residency-verified elector."],
+        options:[{label:"Healthcare",v:320},{label:"Education",v:280},{label:"Roads",v:110}], comments:19 },
+      { type:"result", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
+        title:"Result: Bill 12 community poll",
+        body:["The non-binding community poll on Bill 12 has closed.",
+              "Counts shown are residency-verified electors only."], outcome:"Closed · 71% Oppose", agree:90, disagree:20, comments:27 },
+
+      // --- Alberta · residents (public / ID / residency) ---
+      { type:"statement", jur:"Alberta", tier:0, districts:["edmonton-strathcona"], author:"Jordan Vance", handle:"jvance",
+        title:"More bike lanes on Whyte Avenue",
+        body:["Whyte gets dangerous at rush hour. Protected lanes would",
+              "help everyone share the road."], agree:51, disagree:28, comments:11 },
+      { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow"], author:"Priti Shah", handle:"pshah",
+        title:"Save the Elbow Park outdoor rink",
+        body:["The community rink needs a small grant to reopen this",
+              "winter. Let's fund it."], agree:73, disagree:6, comments:13 },
+      { type:"statement", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Hana Okafor", handle:"hanao",
         title:"Protect the Whitemud Creek ravine",
         body:["Proposed access roads cut through old-growth ravine.",
               "Council should pause the rezoning pending review."], agree:132, disagree:7, comments:21 },
-      { type:"petition", jur:"Alberta", tier:2, district:"edmonton-strathcona", author:"Sam Driver", handle:"samd",
+      { type:"petition", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Sam Driver", handle:"samd",
         title:"Repave 109 Street before winter",
         body:["Potholes on 109 St have damaged dozens of vehicles.",
               "Fund resurfacing in this budget cycle."], sig:1240, goal:5000, comments:14 },
-      { type:"poll", jur:"Alberta", tier:2, district:null, author:"Alberta Assembly", handle:"ableg",
-        title:"Provincial budget priority for 2027",
-        body:["Where should the next provincial budget lead?",
-              "One vote per resident-verified elector."],
-        options:[{label:"Healthcare",v:320},{label:"Education",v:280},{label:"Roads",v:110}], comments:19 },
-      { type:"petition", jur:"Alberta", tier:2, district:"calgary-elbow", author:"Rosa Klein", handle:"rosak",
+      { type:"petition", jur:"Alberta", tier:2, districts:["calgary-elbow"], author:"Rosa Klein", handle:"rosak",
         title:"Fund the Green Line LRT extension",
         body:["The Green Line stalled at the river. Commit the provincial",
               "share so construction can resume."], sig:4520, goal:8000, comments:22 },
-      { type:"result", jur:"Alberta", tier:2, district:null, author:"Alberta Assembly", handle:"ableg",
-        title:"Result: Bill 12 community poll",
-        body:["The non-binding community poll on Bill 12 has closed.",
-              "Counts shown are residency-verified electors only."], outcome:"Closed · 71% Oppose", agree:90, disagree:20, comments:27 }
+
+      // --- Alberta · multi-district (a list of ridings, not the whole province) ---
+      { type:"petition", jur:"Alberta", tier:2, districts:["edmonton-strathcona","edmonton-city-centre"], author:"Wei Chen", handle:"weichen",
+        title:"Twin the river-valley commuter path",
+        body:["A continuous path would link the two ridings end to end.",
+              "Commit the capital in this cycle."], sig:3120, goal:6000, comments:17 },
+      { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow","calgary-mountain-view"], author:"Dale Friesen", handle:"dfriesen",
+        title:"Coordinate snow clearing across Calgary core",
+        body:["Neighbouring wards clear on different schedules. A shared",
+              "plan would cut complaints."], agree:88, disagree:19, comments:15 }
     ];
 
     function fmt(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
@@ -1434,9 +1471,29 @@
       var r = rect(x, y, w, h, 4, "#ffffff"); r.setAttribute("opacity", "0"); r.style.cursor = "pointer";
       r.addEventListener("click", onClick); g.appendChild(r);
     }
-    function tierLabel(t) { return t === 2 ? "Residency" : (t === 1 ? "Identity" : ""); }
+    // author verification tag: 0 None (no tag) · 1 Identity · 2 Residency · 3 Official (MLA / gov)
+    function tierLabel(t) { return ["", "Identity", "Residency", "Official"][t] || ""; }
     function hasReactions(p) { return p.type === "statement" || p.type === "result"; }
     var FEED_TYPE_NAME = { statement: "Statements", petition: "Petitions", poll: "Polls", result: "Results" };
+
+    // ---- geography helpers (districts is a list: [] jurisdiction-wide · [slug…] specific ridings) ----
+    var MY_DISTRICTS = ["edmonton-strathcona"]; // the example signed-in resident's home riding(s)
+    function postDistricts(p) { return p.districts || []; }
+    function inMyDistricts(p) { return postDistricts(p).some(function (s) { return MY_DISTRICTS.indexOf(s) >= 0; }); }
+    function districtTag(p) {
+      var ds = postDistricts(p);
+      if (!ds.length) return "";
+      return ds.length === 1 ? districtName(ds[0]) : (districtName(ds[0]) + " +" + (ds.length - 1));
+    }
+
+    // ---- count scaling: shown counts shrink as the Verified filter rises (fewer qualifying voices) ----
+    // social = comments + agree/disagree reactions (drop at every level).
+    // civic  = petition signatures + poll votes — only drop at Official, since Alberta participation
+    //          already requires residency verification (so ID/Residency filters don't thin them).
+    var SOCIAL_SCALE = [1, 0.62, 0.34, 0.08];
+    var CIVIC_SCALE  = [1, 1, 1, 0.12];
+    function scaleSocial(n) { return Math.max(0, Math.round(n * SOCIAL_SCALE[state.verified])); }
+    function scaleCivic(n)  { return Math.max(0, Math.round(n * CIVIC_SCALE[state.verified])); }
 
     // the filter matrix: record types × subscribed jurisdictions × Refine (verified / my districts)
     function feedMatches(p) {
@@ -1445,12 +1502,15 @@
       var sub = subByName(p.jur);
       if (!sub || !sub.included) return false;            // jurisdiction (unified-feed) filter
       if (p.tier < state.verified) return false;          // minimum author verification
-      if (state.myDistricts && !p.district) return false; // My Districts visibility
+      // My Districts: keep all Global posts, but limit jurisdiction content to your own ridings
+      if (state.myDistricts && p.jur !== "Global" && !inMyDistricts(p)) return false;
       return true;
     }
 
-    // build one card; returns a <g> with a ._h height property the caller stacks by
-    function buildCard(p) {
+    // build one card; returns a <g> with a ._h height property the caller stacks by.
+    // opts.hideJur / opts.hideDistrict drop the redundant tag parts the page already implies.
+    function buildCard(p, opts) {
+      opts = opts || {};
       var W = 370, px = 16;
       var g = document.createElementNS(SVG_NS, "g");
       var kids = [], hits = [];
@@ -1472,8 +1532,12 @@
         add(icon("#ic-shield", W - px - 88, 13, 14, "#666"));
         var tl = txt(W - px, 24, tierLabel(p.tier), 11.5, "#666"); tl.setAttribute("text-anchor", "end"); add(tl);
       }
-      var tag = p.jur + (p.district ? " · " + districtName(p.district) : "");
-      var tg = txt(W - px, 38, tag, 11.5, "#999"); tg.setAttribute("text-anchor", "end"); add(tg);
+      // jurisdiction/district tag — hidden parts are inferred from the page / selector context
+      var parts = [];
+      if (!opts.hideJur) parts.push(p.jur);
+      if (!opts.hideDistrict) { var dt = districtTag(p); if (dt) parts.push(dt); }
+      var tag = parts.join(" · ");
+      if (tag) { var tg = txt(W - px, 38, tag, 11.5, "#999"); tg.setAttribute("text-anchor", "end"); add(tg); }
 
       // title (tap → post)
       var ti = txt(px, 66, p.title, 15, "#222"); ti.setAttribute("font-weight", "bold"); add(ti);
@@ -1490,21 +1554,22 @@
       // type-specific section
       var y = 150;
       if (p.type === "petition") {
-        var frac = clamp(p.sig / p.goal, 0, 1);
+        var sig = scaleCivic(p.sig);
+        var frac = clamp(sig / p.goal, 0, 1);
         add(rect(px, y + 2, W - 2 * px, 10, 5, "#f2f2f2", "#ccc"));
         add(rect(px, y + 2, Math.round((W - 2 * px) * frac), 10, 5, "#333"));
-        add(txt(px, y + 32, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
+        add(txt(px, y + 32, fmt(sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
         var cta = rect(px, y + 44, 150, 26, 13, "#ffffff", "#333"); add(cta);
         var ct = txt(px + 75, y + 61, "Sign the Petition", 12.5, "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
         y += 84;
       } else if (p.type === "poll") {
         var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
         p.options.forEach(function (o) {
-          var bw = W - 2 * px;
+          var ov = scaleCivic(o.v), bw = W - 2 * px;
           add(rect(px, y, bw, 18, 4, "#f4f4f4", "#e2e2e2"));
           add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, "#e3e3e3"));
           add(txt(px + 8, y + 13, o.label, 11.5, "#555"));
-          var pv = txt(W - px - 6, y + 13, fmt(o.v), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); add(pv);
+          var pv = txt(W - px - 6, y + 13, fmt(ov), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); add(pv);
           y += 24;
         });
         y += 4;
@@ -1518,16 +1583,16 @@
       // footer: reactions (where applicable) + comments
       var fy = y + 14;
       if (hasReactions(p)) {
-        add(txt(px, fy, "✓ " + fmt(p.agree), 13, "#555"));
-        add(txt(px + 66, fy, "✗ " + fmt(p.disagree), 13, "#999"));
+        add(txt(px, fy, "✓ " + fmt(scaleSocial(p.agree)), 13, "#555"));
+        add(txt(px + 66, fy, "✗ " + fmt(scaleSocial(p.disagree)), 13, "#999"));
       } else if (p.type === "poll") {
-        var tv = p.options.reduce(function (a, o) { return a + o.v; }, 0);
+        var tv = p.options.reduce(function (a, o) { return a + scaleCivic(o.v); }, 0);
         add(txt(px, fy, fmt(tv) + " votes", 13, "#555"));
       } else {
-        add(txt(px, fy, fmt(p.sig) + " signatures", 13, "#555"));
+        add(txt(px, fy, fmt(scaleCivic(p.sig)) + " signatures", 13, "#555"));
       }
       add(icon("#ic-message", W - px - 64, fy - 13, 15, "#777"));
-      var cc = txt(W - px, fy, fmt(p.comments), 13, "#777"); cc.setAttribute("text-anchor", "end"); add(cc);
+      var cc = txt(W - px, fy, fmt(scaleSocial(p.comments)), 13, "#777"); cc.setAttribute("text-anchor", "end"); add(cc);
 
       var cardH = fy + 16;
       // border behind content
@@ -1543,6 +1608,8 @@
       var list = $("feedList");
       while (list.firstChild) list.removeChild(list.firstChild);
       var X = 30, y = 124, GAP = 14;
+      // single jurisdiction selected ⇒ the selector already names it, so drop the jur tag on cards
+      var single = state.subs.filter(function (s) { return s.included; }).length === 1;
       var shown = POSTS.filter(feedMatches);
       if (shown.length === 0) {
         var e1 = txt(215, 320, "No posts match the current filter.", 14, "#999");
@@ -1551,7 +1618,7 @@
         e2.setAttribute("text-anchor", "middle"); list.appendChild(e2);
       }
       shown.forEach(function (p) {
-        var card = buildCard(p);
+        var card = buildCard(p, { hideJur: single });
         card.setAttribute("transform", "translate(" + X + "," + y + ")");
         list.appendChild(card);
         y += card._h + GAP;
