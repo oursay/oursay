@@ -58,8 +58,8 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
     row dimmed when off). These move independently of the record-type selection.
 - **Jurisdiction selector** (centre): opens the subscribed-jurisdiction list. Each row has two
   distinct actions:
-  - **Tap the name** → switch the feed to **only** that jurisdiction (deselects all others) and
-    closes the dropdown — a single-jurisdiction view.
+  - **Tap the name** → switch to **only** that jurisdiction (deselects all others), open its
+    **Feed** (FAB becomes the compose/quill post button), and close the dropdown.
   - **Tap the checkbox** (✓, shown only when the list has **more than one** jurisdiction) → toggle
     whether that jurisdiction is **included in the unified feed** (multi-select filter). At least one
     jurisdiction is always selected — you can't uncheck the last one, so the feed is never empty.
