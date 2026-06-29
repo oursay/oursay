@@ -1,0 +1,1897 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 920 1000" width="920" height="1000" font-family="sans-serif">
+
+  <!-- =========================================================================
+       OurSay — Mobile · Jurisdiction page (content-jurisdiction) — forked from app-frame.svg
+       Open this file directly in a browser. Keys + clicks toggle live states.
+       One jurisdiction: title bar (name + leader link), map, collapsible Rules,
+       collapsible Districts (hidden for Global; "Ridings" for Alberta), Posts link-out.
+       Keys:  G flip Global/Alberta · L login/out · V labels · F filter · J jurisdiction · A add · Esc close · wheel = scroll
+       Phone display is centred; red callouts live in the canvas margins.
+       Chrome callouts describe the LIVE state; dropdown/modal callouts only
+       appear while that overlay is open.
+       Icons: Feather (MIT, https://feathericons.com) + a custom building glyph.
+       Fork contract: copy this file, keep #chrome + <script>, swap #content only.
+       ========================================================================= -->
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+    <clipPath id="screenClip">
+      <rect x="15" y="15" width="400" height="870" rx="36"/>
+    </clipPath>
+    <!-- viewport for the poll-options list once it exceeds 5 rows (geometry set in JS) -->
+    <clipPath id="pollOptClip">
+      <rect id="pollOptClipRect" x="0" y="0" width="0" height="0"/>
+    </clipPath>
+
+    <!-- ===== icon symbols (stroke-based, 24x24) ===== -->
+    <symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </symbol>
+    <symbol id="ic-building" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2 2 8h20z"/><path d="M2 8h20"/>
+      <path d="M5 8v12M9 8v12M15 8v12M19 8v12"/><path d="M3 20h18"/>
+    </symbol>
+    <symbol id="ic-chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </symbol>
+    <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </symbol>
+    <symbol id="ic-login" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+    </symbol>
+    <symbol id="ic-user" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </symbol>
+    <symbol id="ic-feather" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/>
+    </symbol>
+    <symbol id="ic-list" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+      <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+    </symbol>
+    <symbol id="ic-newspaper" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+      <path d="M18 14h-8"/><path d="M15 18h-6"/><path d="M10 6h8v4h-8V6Z"/>
+    </symbol>
+    <symbol id="ic-external" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+    </symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </symbol>
+    <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </symbol>
+    <symbol id="ic-key" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+    </symbol>
+    <symbol id="ic-settings" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </symbol>
+    <symbol id="ic-logout" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    </symbol>
+    <symbol id="ic-mail" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+    </symbol>
+    <symbol id="ic-edit" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </symbol>
+    <symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+    </symbol>
+    <symbol id="ic-file" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>
+    </symbol>
+    <symbol id="ic-chevron-right" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
+    </symbol>
+    <symbol id="ic-x" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </symbol>
+    <symbol id="ic-eye" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="ic-eye-off" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </symbol>
+    <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </symbol>
+    <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </symbol>
+    <symbol id="ic-filter" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </symbol>
+    <symbol id="ic-message" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </symbol>
+    <symbol id="ic-clipboard" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+    </symbol>
+    <symbol id="ic-bar" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+    </symbol>
+    <symbol id="ic-check-circle" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+    </symbol>
+  </defs>
+
+  <!-- page backdrop -->
+  <rect x="0" y="0" width="920" height="1000" fill="#f4f4f4"/>
+
+  <!-- title (always visible) -->
+  <text x="460" y="40" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">OurSay · Mobile app frame — Feed</text>
+  <text x="460" y="60" font-size="12" fill="#999" text-anchor="middle">Interactive wireframe — press V to toggle the red labels</text>
+
+  <!-- ===================== THE PHONE (centred via translate) ===================== -->
+  <g id="phone" transform="translate(245,55)">
+
+    <rect x="15" y="15" width="400" height="870" rx="36" fill="#ffffff" stroke="#333" stroke-width="2"/>
+
+    <g clip-path="url(#screenClip)">
+
+      <!-- ===================== CONTENT (the swappable region) ===================== -->
+      <g id="content">
+        <!-- transparent wheel-catcher behind the scrolling page body -->
+        <rect id="jurWheel" x="15" y="113" width="400" height="772" fill="#ffffff" opacity="0"/>
+        <!-- jurisdiction page body is built in JS and scrolls inside #screenClip -->
+        <g id="jurScroll"><g id="jurBody"></g></g>
+      </g>
+
+      <!-- ===================== CHROME (reused by every view) ===================== -->
+      <g id="chrome">
+
+        <g>
+          <text x="36" y="44" font-size="13" fill="#333" font-weight="bold">9:41</text>
+          <g fill="#333">
+            <rect x="350" y="36" width="18" height="10" rx="2" fill="none" stroke="#333"/>
+            <rect x="352" y="38" width="11" height="6" rx="1"/>
+            <rect x="369" y="38" width="2" height="6" rx="1"/>
+          </g>
+        </g>
+
+        <line x1="15" y1="112" x2="415" y2="112" stroke="#e0e0e0" stroke-width="1"/>
+
+        <!-- feed filter (left) -->
+        <g id="filterBtn" style="cursor:pointer">
+          <circle id="filterCircle" cx="47" cy="83" r="19" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-filter" xlink:href="#ic-filter" x="36" y="72" width="22" height="22" stroke="#333"/>
+        </g>
+
+        <!-- jurisdiction selector (centre) -->
+        <g id="selectorBtn" style="cursor:pointer">
+          <rect x="140" y="66" width="150" height="34" rx="17" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-globe" xlink:href="#ic-globe" x="154" y="74" width="18" height="18" stroke="#333"/>
+          <text id="curJur" x="180" y="88" font-size="15" fill="#333">Global</text>
+          <use href="#ic-chevron" xlink:href="#ic-chevron" x="262" y="75" width="16" height="16" stroke="#333"/>
+        </g>
+
+        <!-- login / profile (right) -->
+        <g id="authBtn" style="cursor:pointer">
+          <circle id="authCircle" cx="382" cy="83" r="19" fill="#ffffff" stroke="#333"/>
+          <use id="loginGlyph"   href="#ic-user" xlink:href="#ic-user" x="371" y="72" width="22" height="22" stroke="#333"/>
+          <text id="profileGlyph" x="382" y="88" font-size="13" fill="#fff" text-anchor="middle" font-weight="bold" display="none">AM</text>
+        </g>
+
+        <!-- floating action button (bottom-right) -->
+        <g id="fab" style="cursor:pointer">
+          <circle cx="362" cy="812" r="30" fill="#333"/>
+          <use id="fabCompose" href="#ic-feather" xlink:href="#ic-feather" x="348" y="798" width="28" height="28" stroke="#fff"/>
+          <use id="fabFeed"    href="#ic-newspaper" xlink:href="#ic-newspaper" x="348" y="798" width="28" height="28" stroke="#fff" display="none"/>
+        </g>
+
+      </g><!-- /chrome -->
+
+      <!-- ===================== FEED FILTER DROPDOWN (left button) ===================== -->
+      <g id="filterDropdown" display="none">
+        <rect id="filterBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0" style="cursor:default"/>
+        <rect id="fdBg" x="28" y="106" width="250" height="120" rx="12" fill="#ffffff" stroke="#333"/>
+        <g id="fdInner"></g>
+      </g>
+
+      <!-- ===================== JURISDICTION DROPDOWN (centre button) ===================== -->
+      <g id="dropdown" display="none">
+        <rect id="ddBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0" style="cursor:default"/>
+        <rect id="ddBg" x="97" y="106" width="236" height="120" rx="12" fill="#ffffff" stroke="#333"/>
+        <g id="ddInner"></g>
+      </g>
+
+      <!-- ===================== ADD-JURISDICTION SPOTLIGHT MODAL ===================== -->
+      <g id="modal" display="none">
+        <rect id="modalBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <g>
+          <rect x="45" y="150" width="340" height="260" rx="14" fill="#ffffff" stroke="#333"/>
+          <rect x="65" y="172" width="300" height="40" rx="8" fill="#fafafa" stroke="#999"/>
+          <use href="#ic-search" xlink:href="#ic-search" x="78" y="183" width="18" height="18" stroke="#999"/>
+          <text x="106" y="197" font-size="14" fill="#999">Search jurisdictions&#8230;</text>
+          <line x1="65" y1="226" x2="365" y2="226" stroke="#eee"/>
+          <g id="resultAlberta" style="cursor:pointer">
+            <rect x="65" y="236" width="300" height="44" rx="8" fill="#ffffff"/>
+            <use href="#ic-building" xlink:href="#ic-building" x="80" y="249" width="18" height="18" stroke="#333"/>
+            <text x="108" y="263" font-size="15" fill="#333">Alberta</text>
+            <text id="albertaAction" x="345" y="263" font-size="13" fill="#999" text-anchor="end">Join &#8250;</text>
+          </g>
+          <text x="80" y="305" font-size="12" fill="#bbb">(Only Alberta is reachable at launch.)</text>
+          <text x="215" y="392" font-size="12" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+          <!-- close button — circle hanging off the card's top-right corner -->
+          <g id="modalCloseBtn" style="cursor:pointer">
+            <circle cx="385" cy="150" r="13" fill="#333"/>
+            <use href="#ic-x" xlink:href="#ic-x" x="378" y="143" width="14" height="14" stroke="#fff"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- ===================== REGISTER / LOGIN MODAL (logged-out → tap login) ===================== -->
+      <g id="authModal" display="none">
+        <rect id="authBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <g>
+          <rect x="55" y="250" width="320" height="320" rx="16" fill="#ffffff" stroke="#333"/>
+          <text x="215" y="298" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Join OurSay</text>
+          <text x="215" y="322" font-size="13" fill="#999" text-anchor="middle">Register or log in to take part</text>
+          <g id="registerBtn" style="cursor:pointer">
+            <rect x="79" y="346" width="272" height="46" rx="10" fill="#333"/>
+            <text x="215" y="375" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Register</text>
+          </g>
+          <g id="loginBtn" style="cursor:pointer">
+            <rect x="79" y="404" width="272" height="46" rx="10" fill="#ffffff" stroke="#333"/>
+            <text x="215" y="433" font-size="15" fill="#333" text-anchor="middle">Log In</text>
+          </g>
+          <g id="recoverBtn" style="cursor:pointer">
+            <text x="215" y="486" font-size="13" fill="#555" text-anchor="middle" text-decoration="underline">Trouble signing in? Recover account</text>
+          </g>
+          <text x="215" y="546" font-size="12" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+          <!-- close button — circle hanging off the card's top-right corner -->
+          <g id="authCloseBtn" style="cursor:pointer">
+            <circle cx="375" cy="250" r="13" fill="#333"/>
+            <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- ===================== REGISTER MODAL (form → enroll first passkey) ===================== -->
+      <!-- Collects Profile PII (name, address, email) + optional public User fields; the age gate is
+           an over_18 yes/no flag (no stored DOB — see docs/entities/account/profile.md). Submit mocks
+           OTP-verified registration + enrolling the FIRST account-login passkey, then hands off to the
+           login-only modal for the full-session passkey login (docs gap [code-registration-scope]). -->
+      <g id="registerModal" display="none">
+        <rect id="registerBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="20" y="70" width="390" height="800" rx="24" fill="#ffffff" stroke="#333"/>
+
+        <text x="44" y="104" font-size="16" fill="#333" font-weight="bold">Create Account</text>
+        <text x="44" y="124" font-size="11.5" fill="#999">Verify email · add a passkey — no date of birth needed</text>
+        <g id="registerCloseBtn" style="cursor:pointer">
+          <circle cx="400" cy="72" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="393" y="65" width="14" height="14" stroke="#fff"/>
+        </g>
+
+        <!-- public profile (User: handle / display_name) -->
+        <text x="44" y="152" font-size="11" fill="#999" font-weight="bold">PUBLIC PROFILE</text>
+        <text x="44" y="172" font-size="11" fill="#999">Display name</text>
+        <rect x="44" y="180" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="199" font-size="12" fill="#bbb">Jane</text>
+        <text x="44" y="222" font-size="11" fill="#999">Handle</text>
+        <rect x="44" y="230" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="249" font-size="12" fill="#bbb">@jane_alberta</text>
+
+        <!-- private details (Profile PII — never public) -->
+        <text x="44" y="282" font-size="11" fill="#999" font-weight="bold">YOUR DETAILS — PRIVATE (KYC)</text>
+        <text x="44" y="302" font-size="11" fill="#999">First name</text>
+        <rect x="44" y="310" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="329" font-size="12" fill="#bbb">Jane</text>
+        <text x="223" y="302" font-size="11" fill="#999">Last name</text>
+        <rect x="223" y="310" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="233" y="329" font-size="12" fill="#bbb">Doe</text>
+        <text x="44" y="352" font-size="11" fill="#999">Email</text>
+        <rect x="44" y="360" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="379" font-size="12" fill="#bbb">jane@example.ca</text>
+
+        <!-- address (sets districts via geocode; never publicly surfaced) -->
+        <text x="44" y="412" font-size="11" fill="#999" font-weight="bold">ADDRESS — SETS YOUR DISTRICTS, NEVER PUBLIC</text>
+        <text x="44" y="432" font-size="11" fill="#999">Street address</text>
+        <rect x="44" y="440" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="459" font-size="12" fill="#bbb">123 Main St</text>
+        <text x="44" y="482" font-size="11" fill="#999">Apt / unit (optional)</text>
+        <rect x="44" y="490" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="509" font-size="12" fill="#bbb">Unit 4</text>
+        <text x="44" y="532" font-size="11" fill="#999">City</text>
+        <rect x="44" y="540" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="559" font-size="12" fill="#bbb">Calgary</text>
+        <text x="223" y="532" font-size="11" fill="#999">Province</text>
+        <rect x="223" y="540" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="233" y="559" font-size="12" fill="#bbb">AB</text>
+        <text x="44" y="582" font-size="11" fill="#999">Postal code</text>
+        <rect x="44" y="590" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="609" font-size="12" fill="#bbb">T2P 1A1</text>
+        <text x="223" y="582" font-size="11" fill="#999">Country</text>
+        <rect x="223" y="590" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="233" y="609" font-size="12" fill="#bbb">Canada (CA)</text>
+
+        <!-- age gate: over_18 yes/no flag (replaces stored birthdate — deprecated) -->
+        <rect x="44" y="634" width="18" height="18" rx="4" fill="#333"/>
+        <use href="#ic-check" xlink:href="#ic-check" x="45" y="635" width="16" height="16" stroke="#fff"/>
+        <text x="72" y="648" font-size="12.5" fill="#333">I am 18 or older</text>
+        <text x="190" y="648" font-size="11" fill="#999">— stored as a yes/no flag, no birthdate</text>
+
+        <!-- email verification note: a code is sent on submit; the passkey is enrolled on the next step -->
+        <rect x="44" y="668" width="342" height="56" rx="10" fill="#fafafa" stroke="#ddd"/>
+        <use href="#ic-mail" xlink:href="#ic-mail" x="60" y="685" width="22" height="22" stroke="#333"/>
+        <text x="94" y="692" font-size="13" fill="#333" font-weight="bold">We'll email you a 6-digit code</text>
+        <text x="94" y="710" font-size="11" fill="#999">Verify it on the next step, then add a passkey</text>
+
+        <g id="regSubmitBtn" style="cursor:pointer">
+          <rect x="44" y="740" width="342" height="46" rx="10" fill="#333"/>
+          <text x="215" y="769" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Send Verification Code</text>
+        </g>
+        <text x="215" y="812" font-size="11.5" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+      </g>
+
+      <!-- ===================== VERIFY MODAL (registration page 2: OTP → register passkey → in) ===================== -->
+      <!-- Shown after the form sends a registration OTP. Enter the code and tap Register Passkey: that
+           enrolls this device's account-login passkey and signs you in (all logins are passkey, so there
+           is no separate "log in with passkey" step here). -->
+      <g id="verifyModal" display="none">
+        <rect id="verifyBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="55" y="250" width="320" height="300" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="294" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Verify Your Email</text>
+        <text x="215" y="318" font-size="12" fill="#999" text-anchor="middle">Enter the 6-digit code sent to jane@example.ca</text>
+        <!-- OTP input — six code boxes (mock; no real entry) -->
+        <g id="otpBoxes">
+          <rect x="92"  y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="134" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="176" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="218" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="260" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="302" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <text x="110" y="367" font-size="17" fill="#bbb" text-anchor="middle">4</text>
+          <text x="152" y="367" font-size="17" fill="#bbb" text-anchor="middle">7</text>
+          <text x="194" y="367" font-size="17" fill="#bbb" text-anchor="middle">2</text>
+          <text x="236" y="367" font-size="17" fill="#bbb" text-anchor="middle">9</text>
+          <text x="278" y="367" font-size="17" fill="#bbb" text-anchor="middle">0</text>
+          <text x="320" y="367" font-size="17" fill="#bbb" text-anchor="middle">5</text>
+        </g>
+        <g id="regPasskeyBtn" style="cursor:pointer">
+          <rect x="79" y="410" width="272" height="46" rx="10" fill="#333"/>
+          <use href="#ic-key" xlink:href="#ic-key" x="116" y="422" width="22" height="22" stroke="#fff"/>
+          <text x="234" y="439" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Register Passkey</text>
+        </g>
+        <text x="215" y="484" font-size="11.5" fill="#999" text-anchor="middle">Registers this device's passkey and signs you in</text>
+        <g id="verifyResendBtn" style="cursor:pointer">
+          <text x="215" y="510" font-size="12" fill="#555" text-anchor="middle" text-decoration="underline">Didn't get a code? Resend</text>
+        </g>
+        <text x="215" y="536" font-size="11" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+        <g id="verifyCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="250" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
+      <!-- ===================== LOGIN MODAL (returning user) ===================== -->
+      <!-- All logins are passkey: by default this is a single "Log In With Passkey". When the account
+           is in the OTP-login-allow window (toggle with O), it also offers an email OTP — entering the
+           code runs the Register-Passkey flow (enrol a passkey on this new device), while an existing
+           device can still log in with its passkey and skip OTP entirely. Body is built in JS. -->
+      <g id="loginModal" display="none">
+        <rect id="loginBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect id="loginCard" x="55" y="250" width="320" height="250" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="298" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Log In</text>
+        <g id="loginInner"></g>
+        <g id="loginCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="250" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
+      <!-- ===================== PROFILE MODAL (logged-in → tap avatar) ===================== -->
+      <g id="profileModal" display="none">
+        <rect id="profileBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="20" y="70" width="390" height="800" rx="24" fill="#ffffff" stroke="#333"/>
+
+        <!-- header -->
+        <text x="44" y="104" font-size="16" fill="#333" font-weight="bold">Profile</text>
+        <!-- close button — circle hanging off the card's top-right corner -->
+        <g id="profileCloseBtn" style="cursor:pointer">
+          <circle cx="400" cy="72" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="393" y="65" width="14" height="14" stroke="#fff"/>
+        </g>
+        <circle cx="64" cy="150" r="26" fill="#333"/>
+        <text x="64" y="156" font-size="16" fill="#fff" text-anchor="middle" font-weight="bold">AM</text>
+        <text x="102" y="145" font-size="16" fill="#333">Amanda M.</text>
+        <text x="102" y="165" font-size="12" fill="#999">@maple-otter-41 · private to you</text>
+        <line x1="44" y1="186" x2="386" y2="186" stroke="#eee"/>
+
+        <!-- widget: ID verification / KYC tier -->
+        <text x="44" y="212" font-size="13" fill="#333" font-weight="bold">Identity verification</text>
+        <g id="kycBadge">
+          <rect x="44" y="224" width="176" height="30" rx="15" fill="#f2f2f2" stroke="#999"/>
+          <use id="kycShield" href="#ic-shield" xlink:href="#ic-shield" x="54" y="231" width="16" height="16" stroke="#666"/>
+          <text id="kycBadgeText" x="78" y="244" font-size="13" fill="#555">Unverified</text>
+        </g>
+        <g id="validateBtn" style="cursor:pointer">
+          <rect x="250" y="224" width="120" height="30" rx="15" fill="#333"/>
+          <text x="310" y="244" font-size="13" fill="#fff" text-anchor="middle">Validate ID</text>
+        </g>
+        <text x="44" y="276" font-size="11" fill="#999">Alt: KYC tier — at-cost, no PII on the public record</text>
+        <line x1="44" y1="292" x2="386" y2="292" stroke="#eee"/>
+
+        <!-- widget: devices & passkeys -->
+        <text id="deviceLabel" x="44" y="318" font-size="13" fill="#333" font-weight="bold">Devices &amp; passkeys (3)</text>
+        <use href="#ic-key" xlink:href="#ic-key" x="48" y="332" width="16" height="16" stroke="#666"/>
+        <text x="74" y="345" font-size="13" fill="#333">iPhone 15 — this device</text>
+        <use href="#ic-key" xlink:href="#ic-key" x="48" y="358" width="16" height="16" stroke="#666"/>
+        <text x="74" y="371" font-size="13" fill="#333">MacBook Pro</text>
+        <text id="deviceMore" x="74" y="396" font-size="12" fill="#999">+1 more</text>
+        <g id="addDeviceBtn" style="cursor:pointer">
+          <rect x="44" y="412" width="160" height="34" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-plus" xlink:href="#ic-plus" x="56" y="421" width="16" height="16" stroke="#333"/>
+          <text x="124" y="434" font-size="13" fill="#333" text-anchor="middle">Add Device</text>
+        </g>
+        <g id="addDeviceEmailBtn" style="cursor:pointer">
+          <rect x="216" y="412" width="160" height="34" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-mail" xlink:href="#ic-mail" x="228" y="421" width="16" height="16" stroke="#333"/>
+          <text x="300" y="434" font-size="13" fill="#333" text-anchor="middle">Add by Email</text>
+        </g>
+        <text x="44" y="466" font-size="11" fill="#999">Alt: Add Device = passkey on this device · by Email = OTP to a new one</text>
+
+        <!-- account settings: direct items (full-width, listed) -->
+        <line x1="44" y1="490" x2="386" y2="490" stroke="#eee"/>
+        <text x="44" y="514" font-size="13" fill="#333" font-weight="bold">Account settings</text>
+        <g id="editProfileBtn" style="cursor:pointer">
+          <rect x="44" y="524" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-edit" xlink:href="#ic-edit" x="58" y="533" width="18" height="18" stroke="#333"/>
+          <text x="86" y="547" font-size="13" fill="#333">Edit Profile</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="534" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="changeAddrBtn" style="cursor:pointer">
+          <rect x="44" y="566" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-pin" xlink:href="#ic-pin" x="58" y="575" width="18" height="18" stroke="#333"/>
+          <text x="86" y="589" font-size="13" fill="#333">Change Address</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="576" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="privacySettingsBtn" style="cursor:pointer">
+          <rect x="44" y="608" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-eye" xlink:href="#ic-eye" x="58" y="617" width="18" height="18" stroke="#333"/>
+          <text x="86" y="631" font-size="13" fill="#333">Privacy Settings</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="618" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="jurisdictionsBtn" style="cursor:pointer">
+          <rect x="44" y="650" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-globe" xlink:href="#ic-globe" x="58" y="659" width="18" height="18" stroke="#333"/>
+          <text x="86" y="673" font-size="13" fill="#333">Jurisdictions</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="660" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="themeBtn" style="cursor:pointer">
+          <rect x="44" y="692" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use id="themeIcon" href="#ic-sun" xlink:href="#ic-sun" x="58" y="701" width="18" height="18" stroke="#333"/>
+          <text x="86" y="715" font-size="13" fill="#333">Theme</text>
+          <text id="themeValue" x="350" y="715" font-size="13" fill="#555" text-anchor="end">Light</text>
+        </g>
+
+        <!-- log out (full width) + legal links + copyright -->
+        <line x1="20" y1="756" x2="410" y2="756" stroke="#eee"/>
+        <g id="logoutBtn" style="cursor:pointer">
+          <rect x="44" y="770" width="342" height="40" rx="8" fill="#ffffff" stroke="#c0392b"/>
+          <use href="#ic-logout" xlink:href="#ic-logout" x="178" y="780" width="20" height="20" stroke="#c0392b"/>
+          <text x="208" y="795" font-size="14" fill="#c0392b">Log out</text>
+        </g>
+        <text id="termsBtn" x="206" y="836" font-size="12" fill="#555" text-anchor="end" text-decoration="underline" style="cursor:pointer">Terms of Service</text>
+        <text x="215" y="836" font-size="12" fill="#bbb" text-anchor="middle">&#183;</text>
+        <text id="privacyBtn" x="224" y="836" font-size="12" fill="#555" text-anchor="start" text-decoration="underline" style="cursor:pointer">Privacy Policy</text>
+        <text x="215" y="858" font-size="11" fill="#bbb" text-anchor="middle">© 2026 OurSay · all rights reserved</text>
+      </g>
+
+      <!-- ===================== COMPOSE: WHERE MODAL (only when >1 jurisdiction selected) ===================== -->
+      <!-- Tap the compose FAB while logged in with more than one jurisdiction in the feed → pick which
+           one to post in. With exactly one selected this step is skipped (that jurisdiction is assumed). -->
+      <g id="whereModal" display="none">
+        <rect id="whereBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect id="whereCard" x="55" y="210" width="320" height="220" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="252" font-size="17" fill="#333" text-anchor="middle" font-weight="bold">Where Do You Want to Post?</text>
+        <text x="215" y="276" font-size="12" fill="#999" text-anchor="middle">Pick a jurisdiction</text>
+        <g id="whereInner"></g>
+        <g id="whereCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="210" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="203" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
+      <!-- ===================== COMPOSE: TYPE MODAL (allowed root types for the jurisdiction) ===================== -->
+      <!-- Choose the post root type. Allowed roots are per-jurisdiction (Global = all; Alberta =
+           statements + petitions). If a jurisdiction allows only ONE root, this step is skipped. -->
+      <g id="typeModal" display="none">
+        <rect id="typeBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect id="typeCard" x="55" y="230" width="320" height="220" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="272" font-size="17" fill="#333" text-anchor="middle" font-weight="bold">What Do You Want to Post?</text>
+        <text id="typeSubtitle" x="215" y="296" font-size="12" fill="#999" text-anchor="middle">In Global</text>
+        <g id="typeInner"></g>
+        <g id="typeCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="230" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="223" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
+      <!-- ===================== COMPOSE MODAL (the editor) ===================== -->
+      <!-- Jurisdiction dropdown changes where it posts, but only to jurisdictions that support the
+           current root type — unsupported ones are greyed out. A Type label + Change button jump back
+           to the type step (hidden when the jurisdiction allows only one root). Esc / tap-outside / ✕ close. -->
+      <g id="composeModal" display="none">
+        <rect id="composeBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect id="composeCard" x="45" y="170" width="340" height="440" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="68" y="210" font-size="17" fill="#333" font-weight="bold">New Post</text>
+        <g id="composeCloseBtn" style="cursor:pointer">
+          <circle cx="370" cy="172" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="363" y="165" width="14" height="14" stroke="#fff"/>
+        </g>
+
+        <!-- post type + change (now ABOVE "Posting in") -->
+        <text x="68" y="236" font-size="10.5" fill="#999" font-weight="bold">TYPE</text>
+        <use id="composeTypeIcon" href="#ic-message" xlink:href="#ic-message" x="68" y="244" width="20" height="20" stroke="#333"/>
+        <text id="composeTypeLabel" x="96" y="259" font-size="14" fill="#333">Statement</text>
+        <g id="composeChangeBtn" style="cursor:pointer">
+          <rect x="298" y="242" width="60" height="24" rx="6" fill="#ffffff" stroke="#333"/>
+          <text x="328" y="258" font-size="12" fill="#333" text-anchor="middle">Change</text>
+        </g>
+
+        <!-- jurisdiction selector (change where it posts) -->
+        <text x="68" y="292" font-size="10.5" fill="#999" font-weight="bold">POSTING IN</text>
+        <g id="composeJurBtn" style="cursor:pointer">
+          <rect x="68" y="300" width="210" height="38" rx="8" fill="#f7f7f7" stroke="#ddd"/>
+          <use id="composeJurIcon" href="#ic-globe" xlink:href="#ic-globe" x="80" y="309" width="20" height="20" stroke="#333"/>
+          <text id="composeJurName" x="108" y="324" font-size="14" fill="#333">Global</text>
+          <path d="M250,315 l12,0 l-6,7 z" fill="#888"/>
+        </g>
+
+        <!-- type-specific editor (built in JS): inputs + Post + hint. Card height is set to fit. -->
+        <g id="composeEditor"></g>
+
+        <!-- jurisdiction dropdown panel (popover; last child so it paints over the editor) -->
+        <g id="composeJurMenu" display="none">
+          <rect id="composeJurBg" x="68" y="342" width="210" height="80" rx="8" fill="#ffffff" stroke="#333"/>
+          <g id="composeJurInner"></g>
+        </g>
+      </g>
+
+    </g><!-- /screenClip -->
+  </g><!-- /phone -->
+
+  <!-- ===================== SHORTCUT LEGEND (margin, always visible) ===================== -->
+  <g>
+    <rect x="30" y="686" width="200" height="208" rx="10" fill="#ffffff" stroke="#333"/>
+    <text x="46" y="710" font-size="13" fill="#333" font-weight="bold">Shortcuts</text>
+    <g font-size="12" fill="#333">
+      <text x="46" y="732">L &#160;&#8212; login / out</text>
+      <text x="46" y="750">V &#160;&#8212; labels on / off</text>
+      <text x="46" y="768">F &#160;&#8212; feed filter dropdown</text>
+      <text x="46" y="786">J &#160;&#8212; jurisdiction dropdown</text>
+      <text x="46" y="804">A &#160;&#8212; add jurisdiction</text>
+      <text x="46" y="822">O &#160;&#8212; OTP login window</text>
+      <text x="46" y="840">P &#160;&#8212; page (FAB icon swap)</text>
+      <text x="46" y="858">Esc &#8212; close overlay</text>
+    </g>
+  </g>
+
+  <!-- ===================== CHROME CALLOUTS (margins, toggled by V) ===================== -->
+  <g id="anno-chrome" fill="#c0392b">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="200" y1="92" x2="388" y2="128" marker-end="url(#arrow)"/>
+      <line x1="200" y1="132" x2="276" y2="132" marker-end="url(#arrow)"/>
+      <line x1="206" y1="560" x2="280" y2="560" marker-end="url(#arrow)"/>
+      <line x1="686" y1="128" x2="645" y2="136" marker-end="url(#arrow)"/>
+      <line x1="686" y1="864" x2="635" y2="868" marker-end="url(#arrow)"/>
+    </g>
+
+    <!-- selector (centre) -->
+    <text x="30" y="78" font-size="12">Jurisdiction selector</text>
+    <text x="30" y="93" font-size="12">— scopes the feed</text>
+    <!-- filter (left) -->
+    <text x="30" y="132" font-size="12">Filter — record types,</text>
+    <text x="30" y="147" font-size="12">verified, my districts</text>
+    <!-- feed -->
+    <text x="30" y="552" font-size="12">Feed — placeholder content</text>
+    <text x="30" y="567" font-size="12">(swap the #content group)</text>
+    <!-- login (state-driven) -->
+    <text id="annoLoginA" x="690" y="124" font-size="12">Logged out</text>
+    <text id="annoLoginB" x="690" y="139" font-size="12">tap → sign in (L to toggle)</text>
+    <!-- fab (state-driven) -->
+    <text id="annoFabA" x="690" y="844" font-size="12">On Feed</text>
+    <text id="annoFabB" x="690" y="859" font-size="12">tap → compose a post (quill)</text>
+    <text x="690" y="874" font-size="12" fill="#c0392b">P toggles the page (icon swaps)</text>
+  </g>
+
+  <!-- ===================== DROPDOWN CALLOUTS (only while jurisdiction dropdown open) ===================== -->
+  <g id="anno-dropdown" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="686" y1="196" x2="564" y2="192" marker-end="url(#arrow)"/>
+      <line x1="686" y1="320" x2="566" y2="266" marker-end="url(#arrow)"/>
+    </g>
+    <text x="690" y="176" font-size="12">Subscribed jurisdictions</text>
+    <text x="690" y="191" font-size="12">— saved to a cookie,</text>
+    <text x="690" y="206" font-size="12">works logged-out · &#8599; opens</text>
+    <text x="690" y="221" font-size="12">its page (selects only it)</text>
+    <text x="690" y="330" font-size="12">+ Add Jurisdiction (A)</text>
+  </g>
+
+  <!-- jurisdiction include checkbox callout — only when there is more than one jurisdiction -->
+  <g id="anno-dd-filter" fill="#c0392b" display="none">
+    <line x1="230" y1="212" x2="352" y2="194" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <text x="30" y="200" font-size="12">&#10003; include in feed (min 1);</text>
+    <text x="30" y="215" font-size="12">tap name = only it + Feed;</text>
+    <text x="30" y="230" font-size="12">&#8599; = its jurisdiction page</text>
+  </g>
+
+  <!-- ===================== FILTER CALLOUTS (only while feed filter dropdown open) ===================== -->
+  <g id="anno-filter" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="200" y1="288" x2="285" y2="288" marker-end="url(#arrow)"/>
+      <line x1="200" y1="380" x2="285" y2="395" marker-end="url(#arrow)"/>
+    </g>
+    <text x="30" y="280" font-size="12">Record types — &#10003; include</text>
+    <text x="30" y="295" font-size="12">(min 1), tap = only that</text>
+    <text x="30" y="365" font-size="12">Verified: None/ID/Residency</text>
+    <text x="30" y="380" font-size="12">My Districts — residency only;</text>
+    <text x="30" y="395" font-size="12">on ⇒ Verified jumps to Residency</text>
+  </g>
+
+  <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
+  <g id="anno-modal" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="200" y1="220" x2="308" y2="228" marker-end="url(#arrow)"/>
+    </g>
+    <text x="30" y="212" font-size="12">Spotlight-style search</text>
+    <text x="30" y="227" font-size="12">(only Alberta at launch)</text>
+    <text x="30" y="247" font-size="12">Row action toggles:</text>
+    <text x="30" y="262" font-size="12">Join ↔ Delete if subscribed</text>
+  </g>
+
+  <!-- ===================== AUTH CALLOUTS (only while register/login modal open) ===================== -->
+  <g id="anno-auth" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="686" y1="408" x2="600" y2="408" marker-end="url(#arrow)"/>
+      <line x1="686" y1="540" x2="560" y2="540" marker-end="url(#arrow)"/>
+    </g>
+    <text x="690" y="398" font-size="12">Logged-out tap →</text>
+    <text x="690" y="413" font-size="12">Register / Log in</text>
+    <text x="690" y="428" font-size="12">(buttons span the card)</text>
+    <text x="690" y="536" font-size="12">Recover account —</text>
+    <text x="690" y="551" font-size="12">passkey/OTP recovery</text>
+  </g>
+
+  <!-- ===================== PROFILE CALLOUTS (only while profile modal open) ===================== -->
+  <g id="anno-profile" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="235" y1="205" x2="285" y2="205" marker-end="url(#arrow)"/>
+      <line x1="686" y1="294" x2="620" y2="294" marker-end="url(#arrow)"/>
+      <line x1="686" y1="462" x2="620" y2="462" marker-end="url(#arrow)"/>
+      <line x1="686" y1="630" x2="622" y2="630" marker-end="url(#arrow)"/>
+      <line x1="686" y1="888" x2="462" y2="872" marker-end="url(#arrow)"/>
+    </g>
+    <!-- header (left) -->
+    <text x="30" y="196" font-size="12">Profile — logged in</text>
+    <text x="30" y="211" font-size="12">(private to you)</text>
+    <!-- KYC (right) -->
+    <text x="690" y="284" font-size="12">ID verification —</text>
+    <text x="690" y="299" font-size="12">KYC tier badge +</text>
+    <text x="690" y="314" font-size="12">Validate ID button</text>
+    <!-- devices (right) -->
+    <text x="690" y="440" font-size="12">Devices &amp; passkeys —</text>
+    <text x="690" y="455" font-size="12">truncated list + count;</text>
+    <text x="690" y="470" font-size="12">Add Device (local key) /</text>
+    <text x="690" y="485" font-size="12">Add by Email (OTP flow)</text>
+    <!-- account settings (right) -->
+    <text x="690" y="600" font-size="12">Account settings —</text>
+    <text x="690" y="615" font-size="12">Privacy &amp; reveal paths</text>
+    <text x="690" y="630" font-size="12">(per jurisdiction / app),</text>
+    <text x="690" y="645" font-size="12">Theme toggle, Edit</text>
+    <text x="690" y="660" font-size="12">Profile, Address, legal</text>
+    <!-- logout (right, bottom) -->
+    <text x="690" y="884" font-size="12">Log out (full width)</text>
+    <text x="690" y="899" font-size="12">TOS &amp; privacy policy</text>
+    <text x="690" y="914" font-size="12">© copyright below</text>
+  </g>
+
+  <script type="application/ecmascript"><![CDATA[
+    var SVG_NS = "http://www.w3.org/2000/svg";
+    var XLINK  = "http://www.w3.org/1999/xlink";
+
+    var state = {
+      loggedIn: false,
+      dropdownOpen: false,
+      modalOpen: false,        // add-jurisdiction spotlight
+      authView: null,          // logged-out auth flow: null | "choose" | "register" | "verify" | "login"
+      otpAllowed: false,       // account's OTP-login-allow window open (toggle: O) — adds email-code login
+      loginVerified: false,    // login modal: email OTP verified → passkey button becomes "Register Passkey"
+      profileOpen: false,      // profile modal (logged-in only)
+      labelsOn: true,
+      page: "other",           // this is a jurisdiction page → FAB shows the "go to Feed" icon
+      jur: "Alberta",          // which jurisdiction this page shows (G flips Global/Alberta)
+      mapOpen: true,           // collapsible Map section (hidden for Global)
+      rulesOpen: true,         // collapsible Rules section
+      districtsOpen: true,     // collapsible Districts/Ridings section
+      feedOpen: false,         // collapsible inline Jurisdiction Feed (collapsed by default)
+      jurScroll: 0,            // page vertical scroll offset (px)
+      kyc: 0,                  // 0 unverified · 1 identity · 2 residency
+      deviceCount: 3,          // passkeys/devices on the account
+      theme: "Light",          // "Light" | "Dark" — UI preference toggle only
+      filterOpen: false,       // feed filter dropdown (left button)
+      // record-type filter — same min-1 / exclusive-select interlock as jurisdictions
+      recordTypes: [
+        { name: "Statements", icon: "#ic-message",      included: true },
+        { name: "Petitions",  icon: "#ic-clipboard",    included: true },
+        { name: "Polls",      icon: "#ic-bar",          included: true },
+        { name: "Results",    icon: "#ic-check-circle", included: true }
+      ],
+      verified: 0,             // min author verification: 0 None · 1 ID · 2 Residency
+      myDistricts: false,      // limit to my districts — independent of record types (off by default)
+      // compose flow (new-post FAB): where → type → compose
+      composeStep: null,       // null | "where" | "type" | "compose"
+      composeJur: null,        // chosen jurisdiction name
+      composeType: null,       // chosen root key: "statement" | "petition" | "poll"
+      composeJurOpen: false,   // jurisdiction dropdown inside the compose modal
+      pollOptions: ["", ""],   // poll compose: ≥2 options, add up to the jurisdiction max
+      pollScroll: 0,           // poll options scroll offset (px) once the list exceeds 5 rows
+      petitionSupport: "Sign the Petition", // petition compose: customizable signature CTA (≤60) — PROPOSED field
+      // subscribed jurisdictions: persisted to a cookie (works logged-out).
+      // `included` drives the unified-feed filter.
+      subs: [{ name: "Global", icon: "#ic-globe", included: true }]
+    };
+
+    var KYC_TIERS = ["Unverified", "Identity Verified", "Residency Verified"];
+    var VERIFIED_LEVELS = ["None", "ID", "Residency"];
+
+    // postable root types and the roots each jurisdiction allows (default = all).
+    // Alberta accepts statements + petitions only; a 1-root jurisdiction skips the type step.
+    var ROOT_TYPES = [
+      { key: "statement", label: "Statement", icon: "#ic-message" },
+      { key: "petition",  label: "Petition",  icon: "#ic-clipboard" },
+      { key: "poll",      label: "Poll",      icon: "#ic-bar" }
+    ];
+    var JUR_ROOTS = { "Global": ["statement", "petition", "poll"], "Alberta": ["statement", "petition"] };
+    function rootsFor(name) { return JUR_ROOTS[name] || ["statement", "petition", "poll"]; }
+    function rootMeta(key) { return ROOT_TYPES.filter(function (r) { return r.key === key; })[0] || ROOT_TYPES[0]; }
+    function subByName(name) { return state.subs.filter(function (s) { return s.name === name; })[0]; }
+
+    // NOTE(tech) compose-editor config — wire these to JurisdictionConfig.contentLimits, do not hardcode:
+    //   pollMax  → contentLimits.maxPollOptions (spec: ≤10; see docs/entities/civic-content/poll.md)
+    //   SUPPORT_LABEL_MAX → PROPOSED petition field (see petition.md gap [proposed-petition-support-label])
+    var SUPPORT_LABEL_MAX = 60;
+    function pollMax(name) { return 10; }
+
+    function $(id) { return document.getElementById(id); }
+    function show(el, on) { el.setAttribute("display", on ? "inline" : "none"); }
+
+    function icon(href, x, y, size, stroke) {
+      var u = document.createElementNS(SVG_NS, "use");
+      u.setAttribute("href", href);
+      u.setAttributeNS(XLINK, "href", href);
+      u.setAttribute("x", x); u.setAttribute("y", y);
+      u.setAttribute("width", size); u.setAttribute("height", size);
+      u.setAttribute("stroke", stroke);
+      return u;
+    }
+    function txt(x, y, s, size, fill) {
+      var t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", x); t.setAttribute("y", y);
+      t.setAttribute("font-size", size || 15);
+      t.setAttribute("fill", fill || "#333");
+      t.textContent = s;
+      return t;
+    }
+    function rect(x, y, w, h, rx, fill, stroke) {
+      var r = document.createElementNS(SVG_NS, "rect");
+      r.setAttribute("x", x); r.setAttribute("y", y);
+      r.setAttribute("width", w); r.setAttribute("height", h);
+      r.setAttribute("rx", rx); r.setAttribute("fill", fill);
+      if (stroke) r.setAttribute("stroke", stroke);
+      return r;
+    }
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    // a centred row of six OTP code boxes (mock; no real entry) appended to `parent`
+    function otpRow(parent, centerX, y, sample) {
+      var bw = 36, gap = 6, n = 6, total = n * bw + (n - 1) * gap, x0 = centerX - total / 2;
+      for (var i = 0; i < n; i++) {
+        var bx = x0 + i * (bw + gap);
+        parent.appendChild(rect(bx, y, bw, 42, 6, "#f7f7f7", "#ddd"));
+        var t = txt(bx + bw / 2, y + 29, sample[i] || "", 17, "#bbb");
+        t.setAttribute("text-anchor", "middle");
+        parent.appendChild(t);
+      }
+    }
+
+    // ---- jurisdiction dropdown interior (built from state.subs) -------------
+    var DD_X = 97, DD_W = 236, DD_TOP = 106, ROW_H = 40, PAD = 8;
+
+    function buildDropdown() {
+      var inner = $("ddInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+
+      // checkboxes only make sense once there is more than one jurisdiction to filter
+      var hasCheckbox = state.subs.length > 1;
+      var iconX = hasCheckbox ? DD_X + 40 : DD_X + 16;
+      var nameX = hasCheckbox ? DD_X + 66 : DD_X + 42;
+
+      var y = DD_TOP + PAD;
+      state.subs.forEach(function (item) {
+        var rowY = y;
+        var row = document.createElementNS(SVG_NS, "g");
+        row.style.cursor = "pointer";
+        row.appendChild(rect(DD_X + 4, rowY, DD_W - 8, ROW_H, 8, "#ffffff"));
+
+        // tapping a row (its name) switches the feed to ONLY that jurisdiction
+        row.addEventListener("click", function () { selectOnly(item); });
+
+        if (hasCheckbox) {
+          // include checkbox toggles multi-select inclusion (overrides the row's select-only)
+          var cb = document.createElementNS(SVG_NS, "g");
+          cb.style.cursor = "pointer";
+          cb.appendChild(rect(DD_X + 12, rowY + 11, 18, 18, 4, item.included ? "#333" : "#ffffff", "#333"));
+          if (item.included) cb.appendChild(icon("#ic-check", DD_X + 13, rowY + 12, 16, "#ffffff"));
+          cb.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var includedCount = state.subs.filter(function (s) { return s.included; }).length;
+            if (item.included && includedCount <= 1) return; // keep ≥1 selected (never None)
+            item.included = !item.included;
+            render();
+          });
+          row.appendChild(cb);
+        }
+
+        // jurisdiction icon + name
+        row.appendChild(icon(item.icon, iconX, rowY + 11, 18, "#333"));
+        row.appendChild(txt(nameX, rowY + 25, item.name, 15, "#333"));
+
+        // external-open → open this jurisdiction's page: select ONLY it + flip off the
+        // Feed (so the FAB shows the newspaper "go to Feed" icon)
+        var ext = document.createElementNS(SVG_NS, "g");
+        ext.style.cursor = "pointer";
+        var extHit = rect(DD_X + DD_W - 42, rowY + 4, 34, 34, 6, "#000"); // full clickable target
+        extHit.setAttribute("opacity", "0");                              // (the bare glyph only
+        ext.appendChild(extHit);                                          //  hit on its strokes)
+        ext.appendChild(icon("#ic-external", DD_X + DD_W - 34, rowY + 11, 18, "#666"));
+        ext.addEventListener("click", function (e) {
+          e.stopPropagation();
+          state.subs.forEach(function (s) { s.included = (s === item); });
+          state.page = "other";        // a jurisdiction page (not the Feed)
+          state.dropdownOpen = false;
+          render();
+        });
+        row.appendChild(ext);
+
+        inner.appendChild(row);
+        y += ROW_H;
+      });
+
+      // full-width "+ Add Jurisdiction" button
+      var addY = y + 4;
+      var btn = document.createElementNS(SVG_NS, "g");
+      btn.style.cursor = "pointer";
+      var bRect = rect(DD_X + 8, addY, DD_W - 16, 36, 8, "#f2f2f2", "#333");
+      bRect.setAttribute("stroke-dasharray", "4 3");
+      btn.appendChild(bRect);
+      btn.appendChild(icon("#ic-plus", DD_X + 44, addY + 10, 16, "#333"));
+      var bt = txt(DD_X + DD_W / 2 + 10, addY + 23, "Add Jurisdiction", 14, "#333");
+      bt.setAttribute("text-anchor", "middle");
+      btn.appendChild(bt);
+      btn.addEventListener("click", openModal);
+      inner.appendChild(btn);
+
+      $("ddBg").setAttribute("height", (addY + 36 + PAD) - DD_TOP);
+    }
+
+    function pillLabel() {
+      var inc = state.subs.filter(function (s) { return s.included; });
+      if (inc.length === 0) return "None";
+      if (inc.length === 1) return inc[0].name;
+      return inc.length + " selected";
+    }
+
+    // tap a jurisdiction name → show ONLY that one (deselect the rest) and open the
+    // Feed (so the FAB is the compose/quill post button)
+    function selectOnly(item) {
+      state.subs.forEach(function (s) { s.included = (s === item); });
+      state.page = "feed";         // its Feed → FAB shows the compose (new-post) icon
+      state.dropdownOpen = false;
+      render();
+    }
+
+    // ---- feed filter dropdown interior (record types + refine) --------------
+    var FD_X = 28, FD_W = 250, FD_TOP = 106, FROW_H = 38, FPAD = 8;
+
+    // a ✓ checkbox cell reflecting `on`; runs onToggle (already stops propagation)
+    function checkbox(x, y, on, onToggle) {
+      var cb = document.createElementNS(SVG_NS, "g");
+      cb.style.cursor = "pointer";
+      cb.appendChild(rect(x, y, 18, 18, 4, on ? "#333" : "#ffffff", "#333"));
+      if (on) cb.appendChild(icon("#ic-check", x + 1, y + 1, 16, "#ffffff"));
+      cb.addEventListener("click", function (e) { e.stopPropagation(); onToggle(); });
+      return cb;
+    }
+    function sectionHdr(x, y, s) {
+      var t = txt(x, y, s, 12, "#999");
+      t.setAttribute("font-weight", "bold");
+      return t;
+    }
+    function filterRow(y) {
+      var row = document.createElementNS(SVG_NS, "g");
+      row.style.cursor = "pointer";
+      row.appendChild(rect(FD_X + 4, y, FD_W - 8, FROW_H, 8, "#ffffff"));
+      return row;
+    }
+
+    function buildFilter() {
+      var inner = $("fdInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+
+      var y = FD_TOP + FPAD;
+
+      // --- section 1: record types (min-1 multi-include + exclusive body select) ---
+      inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Record types"));
+      y += 24;
+
+      // "All Records" — quick select-all button (no checkbox)
+      var allRowY = y, allRow = filterRow(allRowY);
+      allRow.addEventListener("click", function () {
+        state.recordTypes.forEach(function (t) { t.included = true; });
+        render();
+      });
+      allRow.appendChild(icon("#ic-list", FD_X + 12, allRowY + 10, 18, "#333"));
+      var allLbl = txt(FD_X + 40, allRowY + 25, "All Records", 14, "#333");
+      allLbl.setAttribute("font-weight", "bold");
+      allRow.appendChild(allLbl);
+      inner.appendChild(allRow);
+      y += FROW_H;
+
+      state.recordTypes.forEach(function (item) {
+        var rowY = y, row = filterRow(rowY);
+        row.addEventListener("click", function () { selectTypeOnly(item); }); // body → only this
+        row.appendChild(checkbox(FD_X + 12, rowY + 10, item.included, function () {
+          var inc = state.recordTypes.filter(function (t) { return t.included; }).length;
+          if (item.included && inc <= 1) return; // keep ≥1 selected (never None)
+          item.included = !item.included;
+          render();
+        }));
+        row.appendChild(icon(item.icon, FD_X + 40, rowY + 10, 18, "#333"));
+        row.appendChild(txt(FD_X + 66, rowY + 25, item.name, 14, "#333"));
+        inner.appendChild(row);
+        y += FROW_H;
+      });
+
+      // --- section 2: refine (independent of the record-type interlock) ---
+      y += 8;
+      inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Refine"));
+      y += 24;
+
+      // verified — value toggle: None / ID / Residency (dimmed when None, like My districts)
+      var vRowY = y, vRow = filterRow(vRowY);
+      var vOn = state.verified > 0;
+      vRow.appendChild(icon("#ic-shield", FD_X + 12, vRowY + 10, 18, vOn ? "#333" : "#999"));
+      vRow.appendChild(txt(FD_X + 42, vRowY + 25, "Verified", 14, vOn ? "#333" : "#999"));
+      var vVal = txt(FD_X + FD_W - 16, vRowY + 25, VERIFIED_LEVELS[state.verified], 13, vOn ? "#555" : "#999");
+      vVal.setAttribute("text-anchor", "end");
+      vRow.appendChild(vVal);
+      vRow.addEventListener("click", function () {
+        state.verified = (state.verified + 1) % VERIFIED_LEVELS.length;
+        // dropping below Residency drops My Districts (it requires a residency-scoped feed)
+        if (state.verified !== 2) state.myDistricts = false;
+        render();
+      });
+      inner.appendChild(vRow);
+      y += FROW_H;
+
+      // my districts — eye / eye-off. ONLY available to residency-verified accounts (kyc === 2).
+      // Interlock: turning it on jumps Verified → Residency; Verified leaving Residency drops it.
+      // NOTE(tech): gate on the account's residency tier (or higher elector tier, future).
+      var dRowY = y, dRow = filterRow(dRowY);
+      var canDistricts = state.kyc === 2;            // residency-verified account required
+      var dOn = state.myDistricts && canDistricts;
+      var dCol = !canDistricts ? "#ccc" : (dOn ? "#333" : "#999");
+      var eye = icon(dOn ? "#ic-eye" : "#ic-eye-off", FD_X + 11, dRowY + 10, 20, dCol);
+      dRow.appendChild(eye);
+      dRow.appendChild(txt(FD_X + 42, dRowY + 25, "My Districts", 14, dCol));
+      if (canDistricts) {
+        var toggleDistricts = function () {
+          state.myDistricts = !state.myDistricts;
+          if (state.myDistricts) state.verified = 2; // my districts ⇒ residency-verified authors
+          render();
+        };
+        eye.style.cursor = "pointer";
+        eye.addEventListener("click", function (e) { e.stopPropagation(); toggleDistricts(); });
+        dRow.addEventListener("click", toggleDistricts);
+      } else {
+        var note = txt(FD_X + FD_W - 16, dRowY + 25, "Residency only", 11, "#bbb");
+        note.setAttribute("text-anchor", "end");
+        dRow.appendChild(note);
+        dRow.style.cursor = "default";
+      }
+      inner.appendChild(dRow);
+      y += FROW_H;
+
+      $("fdBg").setAttribute("height", (y + FPAD) - FD_TOP);
+    }
+
+    // tap a record-type name → show ONLY that type (deselect the rest)
+    function selectTypeOnly(item) {
+      state.recordTypes.forEach(function (t) { t.included = (t === item); });
+      render(); // keep the panel open — more sections below
+    }
+
+    // ---- compose flow (new-post FAB): where → type → compose -----------------
+    function startCompose() {
+      state.dropdownOpen = false; state.filterOpen = false; state.modalOpen = false;
+      state.composeJurOpen = false;
+      var sel = state.subs.filter(function (s) { return s.included; });
+      if (sel.length > 1) { state.composeJur = null; state.composeStep = "where"; render(); }
+      else { enterType(sel[0].name); }                 // exactly one selected → assume it
+    }
+    // chosen (or assumed) jurisdiction → type step, skipped when only one root is allowed
+    function enterType(name) {
+      state.composeJur = name;
+      var roots = rootsFor(name);
+      if (roots.length === 1) { state.composeType = roots[0]; state.composeStep = "compose"; }
+      else {
+        if (roots.indexOf(state.composeType) === -1) state.composeType = null; // drop a now-invalid type
+        state.composeStep = "type";
+      }
+      state.composeJurOpen = false;
+      render();
+    }
+    function enterCompose(key) {
+      state.composeType = key;
+      if (key === "poll") { state.pollOptions = ["", ""]; state.pollScroll = 0; } // fresh Yes/No baseline
+      if (key === "petition") state.petitionSupport = "Sign the Petition"; // default signature CTA
+      state.composeStep = "compose";
+      render();
+    }
+
+    // "Where do you want to post" — the selected jurisdictions
+    function buildWhere() {
+      var inner = $("whereInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+      var X = 55, W = 320, TOP = 296, RH = 44, y = TOP;
+      state.subs.filter(function (s) { return s.included; }).forEach(function (item) {
+        var rowY = y, row = document.createElementNS(SVG_NS, "g");
+        row.style.cursor = "pointer";
+        row.appendChild(rect(X + 12, rowY, W - 24, RH - 6, 8, "#ffffff", "#ddd"));
+        row.appendChild(icon(item.icon, X + 26, rowY + 9, 20, "#333"));
+        row.appendChild(txt(X + 54, rowY + 25, item.name, 15, "#333"));
+        row.appendChild(icon("#ic-chevron-right", X + W - 40, rowY + 9, 20, "#999"));
+        row.addEventListener("click", function () { enterType(item.name); });
+        inner.appendChild(row);
+        y += RH;
+      });
+      $("whereCard").setAttribute("height", (y + 16) - 210);
+    }
+
+    // post-type picker — the roots the chosen jurisdiction allows
+    function buildType() {
+      var inner = $("typeInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+      $("typeSubtitle").textContent = "In " + (state.composeJur || "Global");
+      var X = 55, W = 320, TOP = 316, RH = 52, y = TOP;
+      rootsFor(state.composeJur).forEach(function (key) {
+        var rm = rootMeta(key), rowY = y, row = document.createElementNS(SVG_NS, "g");
+        row.style.cursor = "pointer";
+        row.appendChild(rect(X + 12, rowY, W - 24, RH - 8, 8, "#ffffff", "#ddd"));
+        row.appendChild(icon(rm.icon, X + 28, rowY + 11, 22, "#333"));
+        row.appendChild(txt(X + 62, rowY + 28, rm.label, 15, "#333"));
+        row.appendChild(icon("#ic-chevron-right", X + W - 40, rowY + 12, 20, "#999"));
+        row.addEventListener("click", function () { enterCompose(key); });
+        inner.appendChild(row);
+        y += RH;
+      });
+      $("typeCard").setAttribute("height", (y + 16) - 230);
+    }
+
+    // jurisdiction dropdown inside the compose editor — unsupported roots are greyed out
+    function buildComposeJurMenu() {
+      var inner = $("composeJurInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+      var X = 68, W = 210, TOP = 346, RH = 36, y = TOP;
+      state.subs.forEach(function (item) {
+        var supported = rootsFor(item.name).indexOf(state.composeType) !== -1;
+        var col = supported ? "#333" : "#bbb", rowY = y;
+        var row = document.createElementNS(SVG_NS, "g");
+        row.appendChild(rect(X + 4, rowY, W - 8, RH, 6, "#ffffff"));
+        row.appendChild(icon(item.icon, X + 12, rowY + 9, 18, col));
+        row.appendChild(txt(X + 38, rowY + 23, item.name, 13.5, col));
+        if (supported) {
+          row.style.cursor = "pointer";
+          if (item.name === state.composeJur) row.appendChild(icon("#ic-check", X + W - 28, rowY + 9, 16, "#333"));
+          row.addEventListener("click", function (e) { e.stopPropagation(); state.composeJur = item.name; state.composeJurOpen = false; render(); });
+        } else {
+          var na = txt(X + W - 12, rowY + 23, "type N/A", 10.5, "#bbb");
+          na.setAttribute("text-anchor", "end");
+          row.appendChild(na);
+        }
+        inner.appendChild(row);
+        y += RH;
+      });
+      $("composeJurBg").setAttribute("height", (y + 6) - TOP);
+    }
+
+    // ---- compose editor (type-specific fields) -------------------------------
+    function fieldLbl(x, y, s) { var t = txt(x, y, s, 10.5, "#999"); t.setAttribute("font-weight", "bold"); return t; }
+    function inputBox(x, y, w, h, ph, phCol) {
+      var g = document.createElementNS(SVG_NS, "g");
+      g.appendChild(rect(x, y, w, h, 6, "#f7f7f7", "#ddd"));
+      g.appendChild(txt(x + 12, y + 21, ph, 12, phCol || "#bbb"));
+      return g;
+    }
+    function dashBtn(x, y, w, label, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var r = rect(x, y, w, 32, 8, "#f2f2f2", "#333"); r.setAttribute("stroke-dasharray", "4 3");
+      g.appendChild(r);
+      g.appendChild(icon("#ic-plus", x + 12, y + 8, 16, "#333"));
+      g.appendChild(txt(x + 34, y + 21, label, 13, "#333"));
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
+    function removeBtn(x, y, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var hit = rect(x, y, 24, 24, 6, "#000"); hit.setAttribute("opacity", "0");
+      g.appendChild(hit);
+      g.appendChild(icon("#ic-x", x + 3, y + 3, 18, "#999"));
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
+
+    // build the per-type editor and size the card to fit; returns nothing
+    function buildComposeEditor() {
+      var g = $("composeEditor");
+      while (g.firstChild) g.removeChild(g.firstChild);
+      var X = 68, W = 290, y = 356, type = state.composeType, rm = rootMeta(type);
+
+      // title / question (every type)
+      var isPoll = type === "poll";
+      g.appendChild(fieldLbl(X, y, isPoll ? "Question" : "Title"));
+      g.appendChild(inputBox(X, y + 8, W, 34,
+        isPoll ? "Ask a yes/no or multiple-choice question…"
+               : (type === "petition" ? "What are you calling for?" : "A clear headline…")));
+      y += 52;
+
+      if (isPoll) {
+        // options — ≥2 baseline; the list grows the card up to 5 rows, then the 6th+ scroll
+        // inside a fixed 5-row viewport (the card never grows past 5). Add up to the jur max.
+        g.appendChild(fieldLbl(X, y, "Options"));
+        y += 14;
+        var ROWH = 36, n = state.pollOptions.length, visRows = Math.min(n, 5);
+        var vpTop = y, vpH = visRows * ROWH, contentH = n * ROWH;
+        var maxScroll = Math.max(0, contentH - vpH);
+        state.pollScroll = clamp(state.pollScroll, 0, maxScroll);
+
+        // clipped viewport: rows live in an inner group translated by the scroll offset
+        $("pollOptClipRect").setAttribute("x", X - 4);
+        $("pollOptClipRect").setAttribute("y", vpTop - 2);
+        $("pollOptClipRect").setAttribute("width", W + 12);
+        $("pollOptClipRect").setAttribute("height", vpH + 4);
+        var clipG = document.createElementNS(SVG_NS, "g");
+        clipG.setAttribute("clip-path", "url(#pollOptClip)");
+        var innerG = document.createElementNS(SVG_NS, "g");
+        innerG.setAttribute("transform", "translate(0," + (-state.pollScroll) + ")");
+        state.pollOptions.forEach(function (opt, i) {
+          var rowY = vpTop + i * ROWH;
+          innerG.appendChild(inputBox(X, rowY, W - 34, 32, opt || ("Option " + (i + 1)), opt ? "#333" : "#bbb"));
+          if (n > 2) innerG.appendChild(removeBtn(X + W - 26, rowY + 4, function () { state.pollOptions.splice(i, 1); render(); }));
+        });
+        clipG.appendChild(innerG);
+        // wheel-to-scroll (only meaningful once scrollable)
+        if (maxScroll > 0) {
+          clipG.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            state.pollScroll = clamp(state.pollScroll + e.deltaY, 0, maxScroll);
+            render();
+          }, { passive: false });
+        }
+        g.appendChild(clipG);
+
+        // scrollbar thumb (right edge of the viewport) when there is overflow
+        if (maxScroll > 0) {
+          var trackX = X + W + 2, thumbH = Math.max(24, vpH * vpH / contentH);
+          var thumbY = vpTop + (state.pollScroll / maxScroll) * (vpH - thumbH);
+          g.appendChild(rect(trackX, vpTop, 4, vpH, 2, "#eee"));
+          g.appendChild(rect(trackX, thumbY, 4, thumbH, 2, "#bbb"));
+        }
+        y = vpTop + vpH + 6;
+
+        var max = pollMax(state.composeJur);
+        if (n < max) {
+          g.appendChild(dashBtn(X, y, 150, "Add option", function () { state.pollOptions.push(""); render(); }));
+          y += 42;
+        } else {
+          g.appendChild(txt(X, y + 14, "Maximum " + max + " options reached", 11, "#999"));
+          y += 26;
+        }
+        // NOTE(tech): option count cap is per-jurisdiction (contentLimits.maxPollOptions, default 10)
+      } else {
+        // body (statement + petition)
+        g.appendChild(fieldLbl(X, y, "Body"));
+        g.appendChild(inputBox(X, y + 8, W, 96, "Write your " + rm.label.toLowerCase() + "…"));
+        y += 116;
+
+        if (type === "petition") {
+          // PROPOSED: customizable signature call-to-action ("support statement"), max 60 chars
+          g.appendChild(fieldLbl(X, y, "Support statement (signature button)"));
+          var box = inputBox(X, y + 8, W, 34, state.petitionSupport, "#333");
+          var counter = txt(X + W - 10, y + 29, state.petitionSupport.length + "/" + SUPPORT_LABEL_MAX, 10.5, "#999");
+          counter.setAttribute("text-anchor", "end");
+          box.appendChild(counter);
+          g.appendChild(box);
+          y += 48;
+          g.appendChild(txt(X, y + 8, "Defaults to “Sign the Petition” · editable, max 60", 10.5, "#999"));
+          y += 22;
+        }
+      }
+
+      // post (mock submit → back to Feed) + dismissal hint
+      var post = document.createElementNS(SVG_NS, "g"); post.style.cursor = "pointer";
+      post.appendChild(rect(X, y + 6, W, 44, 10, "#333"));
+      var pt = txt(X + W / 2, y + 34, "Post", 15, "#ffffff");
+      pt.setAttribute("text-anchor", "middle"); pt.setAttribute("font-weight", "bold");
+      post.appendChild(pt);
+      post.addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+      g.appendChild(post);
+      y += 58;
+
+      var hint = txt(X + W / 2, y + 8, "Alt: Esc or tap outside to close", 11, "#999");
+      hint.setAttribute("text-anchor", "middle");
+      g.appendChild(hint);
+      y += 18;
+
+      $("composeCard").setAttribute("height", (y + 10) - 170);
+    }
+
+    // ---- modals --------------------------------------------------------------
+    function openModal() { state.modalOpen = true; state.dropdownOpen = false; state.filterOpen = false; state.profileOpen = false; state.authView = null; render(); }
+    function closeOverlays() {
+      state.modalOpen = false;
+      state.dropdownOpen = false;
+      state.filterOpen = false;
+      state.profileOpen = false;
+      state.authView = null;
+      state.loginVerified = false;
+      state.composeStep = null;
+      state.composeJurOpen = false;
+      render();
+    }
+
+    // new-post FAB: on another page it goes home to the Feed; on the Feed it composes
+    // (logged-out → register/login chooser; logged-in → the where/type/compose flow)
+    function onFabClick() {
+      if (state.page !== "feed") { void navStub("content-feed.svg")(); return; } // go to Feed (deferred stub)
+      if (!state.loggedIn) { state.authView = "choose"; render(); return; }
+      startCompose();
+    }
+
+    // logged out: open the register/login chooser · logged in: toggle profile modal
+    function onAuthClick() {
+      if (!state.loggedIn) { state.authView = state.authView ? null : "choose"; }
+      else { state.profileOpen = !state.profileOpen; }
+      render();
+    }
+    // passkey login resolves to a full signed-in session (demo) — closes the auth flow
+    function signIn() { state.loggedIn = true; state.authView = null; state.loginVerified = false; render(); }
+
+    // login modal body — all logins are passkey. The modal only opens when the OTP window is on
+    // (O off logs in straight from the chooser). Three states:
+    //   otp + not verified : OTP boxes · Verify Email · — or — · Log In With Passkey (→ in)
+    //   otp + verified     : Register Passkey (enrols this device's key, then reverts + closes OTP)
+    //   otp off            : just Log In With Passkey (the post-register / direct state)
+    function buildLoginInner() {
+      var g = $("loginInner");
+      while (g.firstChild) g.removeChild(g.firstChild);
+      var CX = 215, y;
+
+      if (state.otpAllowed && state.loginVerified) {
+        // email verified → register a passkey on this device (does NOT log in; reverts + closes OTP window)
+        g.appendChild(centerTxt(CX, 322, "Email verified — add a passkey to this device", 12, "#999"));
+        g.appendChild(centerTxt(CX, 346, "✓ jane@example.ca", 12.5, "#333"));
+        g.appendChild(primaryBtn(79, 366, 272, "Register Passkey", "#ic-key", function () {
+          state.loginVerified = false; state.otpAllowed = false; render(); // Login button returns, O turns off
+        }));
+        y = 432;
+      } else if (state.otpAllowed) {
+        // OTP path OR straight passkey login
+        g.appendChild(centerTxt(CX, 322, "Enter your email code, or use your passkey", 12, "#999"));
+        otpRow(g, CX, 338, ["4", "7", "2", "9", "0", "5"]);
+        g.appendChild(primaryBtn(79, 396, 272, "Verify Email", "#ic-mail", function () {
+          state.loginVerified = true; render(); // assumed correct → passkey button becomes Register
+        }));
+        g.appendChild(orDivider(CX, 458));
+        g.appendChild(outlineBtn(79, 472, 272, "Log In With Passkey", "#ic-key", signIn));
+        y = 530;
+      } else {
+        // default + post-register: a single passkey login
+        g.appendChild(centerTxt(CX, 322, "Use your passkey to sign in", 12, "#999"));
+        g.appendChild(primaryBtn(79, 346, 272, "Log In With Passkey", "#ic-key", signIn));
+        y = 404;
+      }
+
+      y += 4; // nudge the recover line + footer down a touch
+      var rec = document.createElementNS(SVG_NS, "g"); rec.style.cursor = "pointer";
+      var rt = centerTxt(CX, y, "Lost your passkey? Recover account", 13, "#555");
+      rt.setAttribute("text-decoration", "underline");
+      rec.appendChild(rt);
+      rec.addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); }); // reset reuses register flow
+      g.appendChild(rec);
+      y += 24;
+      g.appendChild(centerTxt(CX, y, "Alt: O toggles the email-code (OTP) login window", 11, "#999"));
+      y += 18;
+      g.appendChild(centerTxt(CX, y, "Alt: Esc or tap outside to close", 11, "#999"));
+      $("loginCard").setAttribute("height", (y + 14) - 250);
+    }
+    // "— or —" divider between the two login paths
+    function orDivider(cx, y) {
+      var g = document.createElementNS(SVG_NS, "g");
+      function hline(x1, x2) {
+        var l = document.createElementNS(SVG_NS, "line");
+        l.setAttribute("x1", x1); l.setAttribute("x2", x2);
+        l.setAttribute("y1", y); l.setAttribute("y2", y);
+        l.setAttribute("stroke", "#ddd");
+        return l;
+      }
+      g.appendChild(hline(79, cx - 16));
+      g.appendChild(hline(cx + 16, 351));
+      g.appendChild(centerTxt(cx, y + 4, "or", 11, "#999"));
+      return g;
+    }
+    // small builders shared by the login body
+    function centerTxt(cx, y, s, size, fill) { var t = txt(cx, y, s, size, fill); t.setAttribute("text-anchor", "middle"); return t; }
+    function primaryBtn(x, y, w, label, ic, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      g.appendChild(rect(x, y, w, 46, 10, "#333"));
+      g.appendChild(icon(ic, x + 37, y + 12, 22, "#fff"));
+      var t = txt(x + w / 2 + 18, y + 29, label, 15, "#ffffff");
+      t.setAttribute("text-anchor", "middle"); t.setAttribute("font-weight", "bold");
+      g.appendChild(t);
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
+    function outlineBtn(x, y, w, label, ic, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      g.appendChild(rect(x, y, w, 46, 10, "#ffffff", "#333"));
+      g.appendChild(icon(ic, x + 37, y + 12, 22, "#333"));
+      var t = txt(x + w / 2 + 18, y + 29, label, 14, "#333");
+      t.setAttribute("text-anchor", "middle");
+      g.appendChild(t);
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
+    function logout() { state.loggedIn = false; state.profileOpen = false; render(); }
+
+    // ---- main render ---------------------------------------------------------
+    // ===================== content-jurisdiction: one jurisdiction page =====================
+    // NOTE(tech) Rules text is rendered from JurisdictionConfig facts (graduation policy,
+    // labels, counts.minTier, k-anonymity). The leader profile links (title bar + each riding)
+    // assume a seated-official → public-profile mapping that has NO first-class entity today
+    // (petition.md recipients are institutional roles). The inline Jurisdiction Feed is the same
+    // card list as content-feed, pre-scoped to this jurisdiction (record-type + Refine still apply).
+    var JUR_DATA = {
+      "Global": {
+        leader: { name: "OurSay Stewards" },
+        rules: [
+          "Open policy — any member may post any root type.",
+          "Statements, Petitions and Polls are open to all.",
+          "Verified posts are written to the public ledger.",
+          "Unverified posts stay off-ledger.",
+          "Counts appear once past the k-anonymity floor."
+        ],
+        districtLabel: null, districts: []
+      },
+      "Alberta": {
+        leader: { name: "Hon. A. Premier" },
+        rules: [
+          "Ladder policy — levels graduate upward.",
+          "Statements: open to any registered member.",
+          "Petitions: residency-verified authors only.",
+          "Polls: via petition→poll graduation threshold.",
+          "Verified actions are written on-ledger.",
+          "Official counts: residency-verified electors only."
+        ],
+        districtLabel: "Ridings",
+        // leader = name only; the seat/role (MLA) is inferred from the jurisdiction and shown
+        // on the profile page, not appended here
+        districts: [
+          { name: "Edmonton-Strathcona",   leader: "Rae Nguyen" },
+          { name: "Calgary-Elbow",         leader: "Tom Berg" },
+          { name: "Edmonton-City Centre",  leader: "Lena Park" },
+          { name: "Calgary-Mountain View", leader: "Joss Ferns" }
+        ]
+      }
+    };
+
+    var DISTRICT_NAMES = { "edmonton-strathcona": "Edmonton-Strathcona", "calgary-elbow": "Calgary-Elbow" };
+    function districtName(slug) { return DISTRICT_NAMES[slug] || slug; }
+
+    // same faked feed used by content-feed; the page pre-scopes it to this jurisdiction
+    var POSTS = [
+      { type:"statement", jur:"Global", tier:0, district:null, author:"Dana Whitecloud", handle:"dwhitecloud",
+        title:"Transit funding should be a national priority",
+        body:["Inter-city rail keeps falling behind. A standing fund would let","provinces plan past a single election cycle."], agree:48, disagree:12, comments:9 },
+      { type:"poll", jur:"Global", tier:0, district:null, author:"OurSay Stewards", handle:"oursay",
+        title:"Should OurSay add ranked-choice polls?",
+        body:["Ranked choice lets you order options instead of picking one.","Worth the added complexity?"],
+        options:[{label:"Yes",v:412},{label:"No",v:88},{label:"Unsure",v:54}], comments:12 },
+      { type:"petition", jur:"Global", tier:1, district:null, author:"Priya Anand", handle:"priya",
+        title:"Open-source the public election software",
+        body:["Code that counts votes should be auditable by anyone.","Publish the source under an OSI licence."], sig:8300, goal:10000, comments:33 },
+      { type:"statement", jur:"Global", tier:1, district:null, author:"Marcus Lee", handle:"mlee",
+        title:"Lower the voting age to 16",
+        body:["Sixteen-year-olds work, pay tax, and drive. They should have","a say in the policies that shape their future."], agree:64, disagree:71, comments:40 },
+      { type:"result", jur:"Global", tier:0, district:null, author:"OurSay Stewards", handle:"oursay",
+        title:"Result: Platform name vote",
+        body:["The community vote on the platform name has closed.","Turnout exceeded the k-anonymity floor."], outcome:"Passed · “OurSay” 58%", agree:33, disagree:9, comments:5 },
+      { type:"statement", jur:"Alberta", tier:2, district:"edmonton-strathcona", author:"Hana Okafor", handle:"hanao",
+        title:"Protect the Whitemud Creek ravine",
+        body:["Proposed access roads cut through old-growth ravine.","Council should pause the rezoning pending review."], agree:132, disagree:7, comments:21 },
+      { type:"petition", jur:"Alberta", tier:2, district:"edmonton-strathcona", author:"Sam Driver", handle:"samd",
+        title:"Repave 109 Street before winter",
+        body:["Potholes on 109 St have damaged dozens of vehicles.","Fund resurfacing in this budget cycle."], sig:1240, goal:5000, comments:14 },
+      { type:"poll", jur:"Alberta", tier:2, district:null, author:"Alberta Assembly", handle:"ableg",
+        title:"Provincial budget priority for 2027",
+        body:["Where should the next provincial budget lead?","One vote per resident-verified elector."],
+        options:[{label:"Healthcare",v:320},{label:"Education",v:280},{label:"Roads",v:110}], comments:19 },
+      { type:"petition", jur:"Alberta", tier:2, district:"calgary-elbow", author:"Rosa Klein", handle:"rosak",
+        title:"Fund the Green Line LRT extension",
+        body:["The Green Line stalled at the river. Commit the provincial","share so construction can resume."], sig:4520, goal:8000, comments:22 },
+      { type:"result", jur:"Alberta", tier:2, district:null, author:"Alberta Assembly", handle:"ableg",
+        title:"Result: Bill 12 community poll",
+        body:["The non-binding community poll on Bill 12 has closed.","Counts shown are residency-verified electors only."], outcome:"Closed · 71% Oppose", agree:90, disagree:20, comments:27 }
+    ];
+
+    function fmt(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
+    function tierLabel(t) { return t === 2 ? "Residency" : (t === 1 ? "Identity" : ""); }
+    function hasReactions(p) { return p.type === "statement" || p.type === "result"; }
+    var FEED_TYPE_NAME = { statement: "Statements", petition: "Petitions", poll: "Polls", result: "Results" };
+
+    // deferred in-file navigation stub (no real cross-file link — mirrors app-frame external glyph)
+    function navStub(target) {
+      return function (e) { if (e) e.stopPropagation(); void target; /* NOTE(nav): → wireframes/mobile/<target> (deferred) */ };
+    }
+    function clickRect(g, x, y, w, h, onClick) {
+      var r = rect(x, y, w, h, 4, "#ffffff"); r.setAttribute("opacity", "0"); r.style.cursor = "pointer";
+      r.addEventListener("click", onClick); g.appendChild(r);
+    }
+
+    // initials from a name: first word + last word, with any ", MLA"-style suffix stripped
+    function initials(name) {
+      var base = name.split(",")[0].trim().split(/\s+/);
+      var f = base[0] || "", l = base[base.length - 1] || "";
+      return ((f[0] || "") + (l[0] || "")).toUpperCase();
+    }
+    // right-aligned leader link: a small initials avatar + the name, ending at rightX (no arrow, no caption)
+    function leaderLink(parent, rightX, baselineY, name, nameSize, onClick) {
+      var nameW = name.length * (nameSize * 0.54), nameStartX = rightX - nameW;
+      var avCx = nameStartX - 15, avCy = baselineY - 4, r = 11;
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var av = document.createElementNS(SVG_NS, "circle");
+      av.setAttribute("cx", avCx); av.setAttribute("cy", avCy); av.setAttribute("r", r);
+      av.setAttribute("fill", "#e8e8e8"); av.setAttribute("stroke", "#ccc"); g.appendChild(av);
+      var it = txt(avCx, avCy + 3, initials(name), 9, "#777"); it.setAttribute("text-anchor", "middle"); g.appendChild(it);
+      var nt = txt(rightX, baselineY, name, nameSize, "#333"); nt.setAttribute("text-anchor", "end"); g.appendChild(nt);
+      clickRect(g, avCx - r - 4, baselineY - 18, rightX - (avCx - r - 4), 26, onClick);
+      parent.appendChild(g);
+    }
+
+    // a collapsible section header — leading icon, label, chevron on the RIGHT. Returns y below it.
+    function collHeader(parent, x, w, y, iconHref, label, open, countText, onToggle) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      g.appendChild(rect(x, y, w, 38, 8, "#f7f7f7", "#e2e2e2"));
+      g.appendChild(icon(iconHref, x + 12, y + 11, 16, "#333"));
+      var t = txt(x + 38, y + 24, label, 14, "#333"); t.setAttribute("font-weight", "bold"); g.appendChild(t);
+      g.appendChild(icon(open ? "#ic-chevron" : "#ic-chevron-right", x + w - 26, y + 11, 16, "#666"));
+      if (countText) { var c = txt(x + w - 34, y + 24, countText, 12, "#999"); c.setAttribute("text-anchor", "end"); g.appendChild(c); }
+      g.addEventListener("click", onToggle);
+      parent.appendChild(g);
+      return y + 38;
+    }
+
+    // pretend map vector: light landmass with the jurisdiction as a red translucent region
+    function poly(pts, x, y) { return "M" + pts.map(function (p) { return (x + p[0]) + "," + (y + p[1]); }).join(" L ") + " Z"; }
+    function pathEl(d, fill, stroke, sw, op) {
+      var p = document.createElementNS(SVG_NS, "path");
+      p.setAttribute("d", d); p.setAttribute("fill", fill);
+      if (stroke) { p.setAttribute("stroke", stroke); p.setAttribute("stroke-width", sw || 1.5); }
+      if (op != null) p.setAttribute("fill-opacity", op);
+      p.setAttribute("stroke-linejoin", "round"); return p;
+    }
+    function drawMapVector(parent, x, y, w, h, label) {
+      parent.appendChild(rect(x, y, w, h, 10, "#eef2f4", "#dfe5e8"));
+      var land = [[16,86],[54,52],[110,64],[150,40],[214,52],[276,40],[330,60],[352,96],[330,140],[268,156],[196,146],[122,156],[58,142],[26,118]];
+      parent.appendChild(pathEl(poly(land, x, y), "#e3e6e3", "#cdd2cd", 1.4, null));
+      var bl = document.createElementNS(SVG_NS, "path");
+      bl.setAttribute("d", "M" + (x + 196) + "," + (y + 50) + " L" + (x + 196) + "," + (y + 150));
+      bl.setAttribute("stroke", "#d3d8d3"); bl.setAttribute("fill", "none"); bl.setAttribute("stroke-dasharray", "3 3"); parent.appendChild(bl);
+      var prov = [[120,70],[176,66],[190,150],[128,156]];
+      parent.appendChild(pathEl(poly(prov, x, y), "#e74c3c", "#c0392b", 1.6, 0.32));
+      parent.appendChild(icon("#ic-pin", x + 150 - 9, y + 92, 18, "#c0392b"));
+      var lb = txt(x + 154, y + 128, label, 11, "#c0392b"); lb.setAttribute("font-weight", "bold"); parent.appendChild(lb);
+    }
+
+    // ---- the inline post card (same shape as content-feed) ----
+    function buildCard(p) {
+      var W = 370, px = 16;
+      var g = document.createElementNS(SVG_NS, "g");
+      var kids = [], hits = [];
+      function add(n) { kids.push(n); return n; }
+      function hit(n) { hits.push(n); return n; }
+      var av = document.createElementNS(SVG_NS, "circle");
+      av.setAttribute("cx", px + 14); av.setAttribute("cy", 26); av.setAttribute("r", 14);
+      av.setAttribute("fill", "#e8e8e8"); av.setAttribute("stroke", "#ccc"); add(av);
+      var ini = (p.author.split(" ").map(function (s) { return s[0]; }).join("")).slice(0, 2).toUpperCase();
+      var it = txt(px + 14, 30, ini, 11, "#777"); it.setAttribute("text-anchor", "middle"); add(it);
+      var nm = txt(px + 38, 22, p.author, 13.5, "#333"); nm.setAttribute("font-weight", "bold"); add(nm);
+      add(txt(px + 38, 37, "@" + p.handle, 11.5, "#999"));
+      var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, 0, 8, 190, 34, navStub("content-profile.svg")); hit(aHit);
+      if (p.tier > 0) {
+        add(icon("#ic-shield", W - px - 88, 13, 14, "#666"));
+        var tl = txt(W - px, 24, tierLabel(p.tier), 11.5, "#666"); tl.setAttribute("text-anchor", "end"); add(tl);
+      }
+      var tag = p.jur + (p.district ? " · " + districtName(p.district) : "");
+      var tg = txt(W - px, 38, tag, 11.5, "#999"); tg.setAttribute("text-anchor", "end"); add(tg);
+      var ti = txt(px, 66, p.title, 15, "#222"); ti.setAttribute("font-weight", "bold"); add(ti);
+      add(txt(px, 90, p.body[0], 12.5, "#777"));
+      add(txt(px, 108, p.body[1] || "", 12.5, "#777"));
+      var more = txt(px, 130, "…more", 12.5, "#333"); more.setAttribute("font-weight", "bold"); add(more);
+      var postHit = document.createElementNS(SVG_NS, "g");
+      clickRect(postHit, px - 4, 54, W - 2 * px + 8, 22, navStub("content-post.svg"));
+      clickRect(postHit, px - 4, 120, 80, 18, navStub("content-post.svg"));
+      hit(postHit);
+      var y = 150;
+      if (p.type === "petition") {
+        var frac = clamp(p.sig / p.goal, 0, 1);
+        add(rect(px, y + 2, W - 2 * px, 10, 5, "#f2f2f2", "#ccc"));
+        add(rect(px, y + 2, Math.round((W - 2 * px) * frac), 10, 5, "#333"));
+        add(txt(px, y + 32, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
+        var cta = rect(px, y + 44, 150, 26, 13, "#ffffff", "#333"); add(cta);
+        var ct = txt(px + 75, y + 61, "Sign the Petition", 12.5, "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
+        y += 84;
+      } else if (p.type === "poll") {
+        var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
+        p.options.forEach(function (o) {
+          var bw = W - 2 * px;
+          add(rect(px, y, bw, 18, 4, "#f4f4f4", "#e2e2e2"));
+          add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, "#e3e3e3"));
+          add(txt(px + 8, y + 13, o.label, 11.5, "#555"));
+          var pv = txt(W - px - 6, y + 13, fmt(o.v), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); add(pv);
+          y += 24;
+        });
+        y += 4;
+      } else if (p.type === "result") {
+        add(rect(px, y, W - 2 * px, 28, 6, "#f7f7f7", "#ddd"));
+        add(icon("#ic-check-circle", px + 8, y + 6, 16, "#555"));
+        add(txt(px + 32, y + 19, p.outcome, 12.5, "#444"));
+        y += 38;
+      }
+      var fy = y + 14;
+      if (hasReactions(p)) {
+        add(txt(px, fy, "✓ " + fmt(p.agree), 13, "#555"));
+        add(txt(px + 66, fy, "✗ " + fmt(p.disagree), 13, "#999"));
+      } else if (p.type === "poll") {
+        var tv = p.options.reduce(function (a, o) { return a + o.v; }, 0);
+        add(txt(px, fy, fmt(tv) + " votes", 13, "#555"));
+      } else {
+        add(txt(px, fy, fmt(p.sig) + " signatures", 13, "#555"));
+      }
+      add(icon("#ic-message", W - px - 64, fy - 13, 15, "#777"));
+      var cc = txt(W - px, fy, fmt(p.comments), 13, "#777"); cc.setAttribute("text-anchor", "end"); add(cc);
+      var cardH = fy + 16;
+      g.appendChild(rect(0, 0, W, cardH, 12, "#ffffff", "#ccc"));
+      kids.forEach(function (n) { g.appendChild(n); });
+      hits.forEach(function (n) { g.appendChild(n); });
+      g._h = cardH;
+      return g;
+    }
+
+    // feed match, pre-scoped to THIS page's jurisdiction (record-type + Refine still apply)
+    function jurFeedMatches(p) {
+      if (p.jur !== state.jur) return false;
+      var rt = state.recordTypes.filter(function (r) { return r.name === FEED_TYPE_NAME[p.type]; })[0];
+      if (!rt || !rt.included) return false;
+      if (p.tier < state.verified) return false;
+      if (state.myDistricts && !p.district) return false;
+      return true;
+    }
+
+    var FOOTER_PAD = 80;    // bottom whitespace so the FAB never covers a heading at full scroll
+    var jurMax = 0;
+    function buildJurisdiction() {
+      var body = $("jurBody");
+      while (body.firstChild) body.removeChild(body.firstChild);
+      var X = 30, W = 370, d = JUR_DATA[state.jur], y = 124;
+
+      // --- title bar: name (left) + leader profile link (right) ---
+      var nm = txt(X, y + 26, state.jur, 22, "#222"); nm.setAttribute("font-weight", "bold"); body.appendChild(nm);
+      leaderLink(body, X + W - 2, y + 22, d.leader.name, 12.5, navStub("content-profile.svg"));
+      y += 50;
+
+      // --- Map (collapsible; hidden for Global) ---
+      if (state.jur !== "Global") {
+        y = collHeader(body, X, W, y, "#ic-pin", "Map", state.mapOpen, null, function () { state.mapOpen = !state.mapOpen; render(); });
+        if (state.mapOpen) { y += 8; drawMapVector(body, X, y, W, 176, state.jur); y += 176 + 8; }
+        else { y += 12; }
+      }
+
+      // --- Rules (collapsible) ---
+      y = collHeader(body, X, W, y, "#ic-file", "Rules", state.rulesOpen, null, function () { state.rulesOpen = !state.rulesOpen; render(); });
+      if (state.rulesOpen) {
+        y += 8;
+        d.rules.forEach(function (line) {
+          body.appendChild(txt(X + 14, y + 12, "•", 13, "#999"));
+          body.appendChild(txt(X + 30, y + 12, line, 12.5, "#555"));
+          y += 22;
+        });
+        y += 8;
+      } else { y += 12; }
+
+      // --- Districts / Ridings (collapsible; hidden entirely when the jurisdiction has none) ---
+      if (d.districts.length) {
+        y = collHeader(body, X, W, y, "#ic-list", d.districtLabel, state.districtsOpen,
+          d.districts.length + " " + d.districtLabel.toLowerCase(),
+          function () { state.districtsOpen = !state.districtsOpen; render(); });
+        if (state.districtsOpen) {
+          y += 8;
+          d.districts.forEach(function (dr) {
+            var rowY = y, row = document.createElementNS(SVG_NS, "g");
+            row.appendChild(rect(X, rowY, W, 44, 8, "#ffffff", "#eee"));
+            var rn = txt(X + 14, rowY + 27, dr.name, 13.5, "#333"); rn.setAttribute("font-weight", "bold"); row.appendChild(rn);
+            clickRect(row, X, rowY, W, 44, navStub("content-district.svg"));        // name/body → district
+            leaderLink(row, X + W - 12, rowY + 27, dr.leader, 11.5, navStub("content-profile.svg")); // → profile (on top)
+            body.appendChild(row);
+            y += 50;
+          });
+          y += 4;
+        } else { y += 12; }
+      }
+
+      // --- Jurisdiction Feed (collapsible, collapsed by default; inline, pre-filtered cards) ---
+      var shown = POSTS.filter(jurFeedMatches);
+      y = collHeader(body, X, W, y, "#ic-newspaper", "Jurisdiction Feed", state.feedOpen, shown.length + " posts",
+        function () { state.feedOpen = !state.feedOpen; render(); });
+      if (state.feedOpen) {
+        y += 10;
+        body.appendChild(txt(X + 2, y, "Pre-filtered to " + state.jur + " — record type & Refine (F) still apply.", 10.5, "#bbb"));
+        y += 16;
+        if (shown.length === 0) {
+          var e1 = txt(X + W / 2, y + 18, "No posts match the current filter.", 13, "#999"); e1.setAttribute("text-anchor", "middle"); body.appendChild(e1);
+          y += 44;
+        }
+        shown.forEach(function (p) {
+          var card = buildCard(p);
+          card.setAttribute("transform", "translate(" + X + "," + y + ")");
+          body.appendChild(card);
+          y += card._h + 14;
+        });
+      } else { y += 12; }
+
+      // footer whitespace (FAB clearance)
+      y += FOOTER_PAD;
+
+      jurMax = Math.max(0, y - 885 + 8);
+      state.jurScroll = clamp(state.jurScroll, 0, jurMax);
+      $("jurScroll").setAttribute("transform", "translate(0," + (-state.jurScroll) + ")");
+    }
+
+    function render() {
+      // My Districts requires a residency-verified account — never let it stick otherwise
+      if (state.kyc < 2) state.myDistricts = false;
+      buildJurisdiction();
+
+      // auth state + its callout
+      show($("loginGlyph"), !state.loggedIn);
+      show($("profileGlyph"), state.loggedIn);
+      $("authCircle").setAttribute("fill", state.loggedIn ? "#333" : "#ffffff");
+      $("annoLoginA").textContent = state.loggedIn ? "Signed in (avatar shown)" : "Logged out";
+      $("annoLoginB").textContent = state.loggedIn ? "tap → profile (L to toggle)" : "tap → register / log in (L)";
+
+      // selector label reflects the unified-feed filter
+      $("curJur").textContent = pillLabel();
+
+      // dropdown
+      if (state.dropdownOpen) buildDropdown();
+      show($("dropdown"), state.dropdownOpen);
+      show($("modal"), state.modalOpen);
+
+      // feed filter dropdown (left button)
+      if (state.filterOpen) buildFilter();
+      show($("filterDropdown"), state.filterOpen);
+
+      // logged-out auth flow: chooser → register form → verify (OTP + passkey) · or → login
+      var inAuth = !state.loggedIn;
+      show($("authModal"),     inAuth && state.authView === "choose");
+      show($("registerModal"), inAuth && state.authView === "register");
+      show($("verifyModal"),   inAuth && state.authView === "verify");
+      show($("loginModal"),    inAuth && state.authView === "login");
+      if (inAuth && state.authView === "login") buildLoginInner();
+
+      // spotlight result: if Alberta is already subscribed, offer Delete instead of Join
+      var hasAlberta = state.subs.some(function (s) { return s.name === "Alberta"; });
+      var act = $("albertaAction");
+      act.textContent = hasAlberta ? "Delete ✕" : "Join ›";
+      act.setAttribute("fill", hasAlberta ? "#c0392b" : "#999");
+
+      // profile modal (only meaningful while logged in)
+      show($("profileModal"), state.profileOpen && state.loggedIn);
+      $("kycBadgeText").textContent = KYC_TIERS[state.kyc];
+      $("kycBadge").querySelector("rect").setAttribute("fill", state.kyc === 0 ? "#f2f2f2" : "#333");
+      $("kycBadgeText").setAttribute("fill", state.kyc === 0 ? "#555" : "#fff");
+      $("kycShield").setAttribute("stroke", state.kyc === 0 ? "#666" : "#fff");
+      $("deviceLabel").textContent = "Devices & passkeys (" + state.deviceCount + ")";
+      var more = state.deviceCount - 2;
+      var moreEl = $("deviceMore");
+      moreEl.textContent = "+" + more + " more";
+      show(moreEl, more > 0);
+
+      // theme preference toggle (button only — no app-wide repaint)
+      var dark = state.theme === "Dark";
+      $("themeValue").textContent = state.theme;
+      $("themeIcon").setAttribute("href", dark ? "#ic-moon" : "#ic-sun");
+      $("themeIcon").setAttributeNS(XLINK, "href", dark ? "#ic-moon" : "#ic-sun");
+
+      // compose flow: where → type → compose (logged-in only)
+      show($("whereModal"),   state.loggedIn && state.composeStep === "where");
+      show($("typeModal"),    state.loggedIn && state.composeStep === "type");
+      show($("composeModal"), state.loggedIn && state.composeStep === "compose");
+      if (state.composeStep === "where") buildWhere();
+      if (state.composeStep === "type") buildType();
+      if (state.composeStep === "compose") {
+        var jn = state.composeJur || "Global", sub = subByName(jn), rm = rootMeta(state.composeType);
+        $("composeJurName").textContent = jn;
+        $("composeJurIcon").setAttribute("href", sub ? sub.icon : "#ic-globe");
+        $("composeJurIcon").setAttributeNS(XLINK, "href", sub ? sub.icon : "#ic-globe");
+        $("composeTypeLabel").textContent = rm.label;
+        $("composeTypeIcon").setAttribute("href", rm.icon);
+        $("composeTypeIcon").setAttributeNS(XLINK, "href", rm.icon);
+        show($("composeChangeBtn"), rootsFor(jn).length > 1); // nothing to change if only one root
+        buildComposeEditor();                                 // type-specific fields + Post
+        if (state.composeJurOpen) buildComposeJurMenu();
+        show($("composeJurMenu"), state.composeJurOpen);
+      }
+
+      // fab icon + callout depend on the current page
+      show($("fabCompose"), state.page === "feed");
+      show($("fabFeed"), state.page !== "feed");
+      $("annoFabA").textContent = state.page === "feed" ? "On Feed" : "On another page";
+      $("annoFabB").textContent = state.page === "feed" ? "tap → compose a post (quill)" : "tap → go to Feed (newspaper)";
+
+      // labels: chrome shown unless the full-screen profile sheet covers it;
+      // overlay callouts only while that overlay is open;
+      // the include-filter callout only when checkboxes are actually shown
+      show($("anno-chrome"), state.labelsOn && !state.profileOpen);
+      show($("anno-dropdown"), state.labelsOn && state.dropdownOpen);
+      show($("anno-dd-filter"), state.labelsOn && state.dropdownOpen && state.subs.length > 1);
+      show($("anno-filter"), state.labelsOn && state.filterOpen);
+      show($("anno-modal"), state.labelsOn && state.modalOpen);
+      show($("anno-auth"), state.labelsOn && !!state.authView && !state.loggedIn);
+      show($("anno-profile"), state.labelsOn && state.profileOpen && state.loggedIn);
+    }
+
+    // ---- wiring --------------------------------------------------------------
+    $("filterBtn").addEventListener("click", function () { state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); });
+    $("selectorBtn").addEventListener("click", function () { state.dropdownOpen = !state.dropdownOpen; state.filterOpen = false; render(); });
+    // wheel over the content area scrolls the page (no scroll while an overlay is open)
+    $("content").addEventListener("wheel", function (e) {
+      if (state.filterOpen || state.dropdownOpen || state.modalOpen || state.composeStep || state.profileOpen || state.authView) return;
+      e.preventDefault();
+      state.jurScroll = clamp(state.jurScroll + e.deltaY, 0, jurMax);
+      $("jurScroll").setAttribute("transform", "translate(0," + (-state.jurScroll) + ")");
+    }, { passive: false });
+    $("authBtn").addEventListener("click", onAuthClick);
+    $("fab").addEventListener("click", onFabClick);
+    $("modalBackdrop").addEventListener("click", closeOverlays);
+    $("filterBackdrop").addEventListener("click", closeOverlays); // click outside → close
+    $("ddBackdrop").addEventListener("click", closeOverlays);     // click outside → close
+    $("modalCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });   // X button
+    $("profileCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); }); // X button
+    $("authCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });    // X button
+    $("resultAlberta").addEventListener("click", function () {
+      var i = state.subs.findIndex(function (s) { return s.name === "Alberta"; });
+      if (i === -1) {
+        state.subs.push({ name: "Alberta", icon: "#ic-building", included: true });
+      } else {
+        state.subs.splice(i, 1); // already subscribed → Delete removes it
+        // never leave the feed with nothing selected
+        if (!state.subs.some(function (s) { return s.included; })) state.subs[0].included = true;
+      }
+      state.modalOpen = false;
+      state.dropdownOpen = true; // reopen list so the change is visible
+      render();
+    });
+
+    // chooser modal: pick register or login (logged-out only)
+    $("authBackdrop").addEventListener("click", closeOverlays);
+    $("registerBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); });
+    $("loginBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (!state.otpAllowed) { signIn(); }                                       // O off → direct passkey login
+      else { state.authView = "login"; state.loginVerified = false; render(); }   // O on → OTP/passkey modal
+    });
+    $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); }); // reset reuses register flow
+
+    // register form: submit sends the registration OTP email, then opens the verify page
+    $("registerBackdrop").addEventListener("click", closeOverlays);
+    $("registerCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("regSubmitBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "verify"; render(); });
+
+    // verify page: enter OTP, tap Register Passkey → enrols this device's passkey and signs in
+    $("verifyBackdrop").addEventListener("click", closeOverlays);
+    $("verifyCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("regPasskeyBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
+    $("verifyResendBtn").addEventListener("click", function (e) { e.stopPropagation(); /* resend OTP — deferred */ });
+
+    // login modal (returning user): body + handlers are built in buildLoginInner()
+    $("loginBackdrop").addEventListener("click", closeOverlays);
+    $("loginCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+
+    // compose flow: where → type → compose
+    $("whereBackdrop").addEventListener("click", closeOverlays);
+    $("whereCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("typeBackdrop").addEventListener("click", closeOverlays);
+    $("typeCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("composeBackdrop").addEventListener("click", closeOverlays);
+    $("composeCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("composeJurBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeJurOpen = !state.composeJurOpen; render(); });
+    $("composeChangeBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeStep = "type"; state.composeJurOpen = false; render(); });
+
+    // profile modal actions
+    $("profileBackdrop").addEventListener("click", closeOverlays);
+    $("logoutBtn").addEventListener("click", logout);
+    $("validateBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      state.kyc = (state.kyc + 1) % KYC_TIERS.length; // demo: cycle the tier badge
+      render();
+    });
+    $("addDeviceBtn").addEventListener("click", function (e) { e.stopPropagation(); state.deviceCount++; render(); });
+    $("addDeviceEmailBtn").addEventListener("click", function (e) { e.stopPropagation(); state.otpAllowed = true; render(); }); // open the OTP-login window for the new device
+
+    // direct account-settings items (each its own destination — deferred no-ops)
+    ["editProfileBtn", "changeAddrBtn", "privacySettingsBtn", "jurisdictionsBtn", "termsBtn", "privacyBtn"].forEach(function (id) {
+      $(id).addEventListener("click", function (e) { e.stopPropagation(); /* deferred */ });
+    });
+
+    // theme: live toggle (Light ↔ Dark) — preference only, no page flip
+    $("themeBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      state.theme = (state.theme === "Light") ? "Dark" : "Light";
+      render();
+    });
+
+    document.addEventListener("keydown", function (e) {
+      switch (e.key) {
+        case "l": case "L":
+          // quick toggle: sign in / out (logging out also closes the profile)
+          state.loggedIn = !state.loggedIn;
+          if (!state.loggedIn) state.profileOpen = false;
+          render();
+          break;
+        case "v": case "V": state.labelsOn = !state.labelsOn; render(); break;
+        case "j": case "J": state.dropdownOpen = !state.dropdownOpen; state.filterOpen = false; render(); break;
+        case "f": case "F": state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); break;
+        case "a": case "A": openModal(); break;
+        case "o": case "O": state.otpAllowed = !state.otpAllowed; state.loginVerified = false; render(); break; // OTP-login window
+        case "p": case "P": break; // FAB is locked to the "go to Feed" (home) action on content pages
+        case "g": case "G": // flip which jurisdiction this page shows
+          state.jur = (state.jur === "Alberta") ? "Global" : "Alberta"; state.jurScroll = 0; render(); break;
+        case "Escape": closeOverlays(); break;
+      }
+    });
+
+    render();
+  ]]></script>
+</svg>

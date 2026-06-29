@@ -18,6 +18,47 @@ script** — open it in a real browser to use the interactions.)
 | File | What it is |
 |------|------------|
 | [`mobile/app-frame.svg`](mobile/app-frame.svg) | The reusable mobile app-frame template: top bar (jurisdiction selector + login/profile), placeholder Feed, and the bottom-right new-post FAB. |
+| [`mobile/content-feed.svg`](mobile/content-feed.svg) | **Feed** — a filter-driven list of post-type cards (faked data). The filter matrix (record types × subscribed jurisdictions × Refine) decides which cards show. |
+| [`mobile/content-jurisdiction.svg`](mobile/content-jurisdiction.svg) | **Jurisdiction page** — title bar (name + leader link), collapsible **Map** (red-highlighted region, hidden for Global), collapsible **Rules**, collapsible **Districts** (hidden for Global, "Ridings" for Alberta), and an inline collapsible **Jurisdiction Feed** pre-filtered to the jurisdiction. |
+| [`mobile/content-district.svg`](mobile/content-district.svg) | **District / riding page** — title bar (name + seated-MLA link), single-region map, collapsible **About this riding**, Posts link-out. |
+| [`mobile/content-profile.svg`](mobile/content-profile.svg) | **Public profile** — a leader/member persona (identity header, activity stats, Posts link-out). Distinct from the account profile *modal* (settings) in the chrome. |
+| [`mobile/content-post.svg`](mobile/content-post.svg) | **Post detail** — the full post + a comment thread nested to depth 3, with tap-to-toggle agree/disagree on the post and every comment. |
+
+### Content views (forks of `app-frame.svg`)
+
+The five `content-*.svg` files are the first **forks** of the template (see the Fork contract
+below): each keeps the chrome + `<script>` and swaps the `#content` group, adding a little
+page-specific state and a builder hooked into `render()`. They inherit every chrome interaction
+(F / J / A / L / O / P / V / Esc, the filter + selector dropdowns, auth/compose modals, the FAB).
+
+Page-specific keys / clicks:
+
+- **content-feed** — **F** (or the filter circle) opens the filter; toggling record types, cycling
+  **Verified**, toggling **My Districts**, or changing the jurisdiction selection re-filters the
+  cards live. **Wheel** scrolls the list. On a card, the **title** and **"…more"** both open the
+  post (same target); the **author name** opens that profile.
+- **content-jurisdiction** — **G** flips the page between **Global** and **Alberta** (to show the
+  Map/Ridings-hidden-for-Global behaviour and the differing Rules). Every section is collapsible
+  with a leading icon and a chevron on the **right**: **Map** (a pretend map vector with a
+  red/translucent highlight), **Rules**, **Ridings**, and a collapsed-by-default **Jurisdiction
+  Feed** — an inline post list pre-filtered to this jurisdiction (record type & Refine still apply).
+  Leader links are right-aligned **initials avatars** (no arrow). **Wheel** scrolls, and a footer
+  whitespace pad keeps the FAB from ever covering a heading at full scroll.
+- **content-district** — click **About this riding** to collapse/expand; **wheel** scrolls.
+- **content-post** — tap **✓ / ✗** on the post or any comment to toggle your agree/disagree
+  (mutually exclusive, like a `reaction`); the thread stops nesting at **depth 3**
+  (`COMMENT_MAX_DEPTH`); **wheel** scrolls.
+
+**Navigation is deferred in-file stubs.** Cross-page links (card title/"…more" → post, external
+glyph → jurisdiction, leader link → profile, riding name → district) are **no-op handlers**
+carrying a `NOTE(nav)` that names the target file — mirroring the app-frame external glyph. There
+are no real cross-file `<a href>` links; open each file directly to explore it. On a content page
+the **FAB is locked to the newspaper "go to Feed" (home) icon** — the feed/compose toggle (P) is
+disabled there, since the page is static. The **Jurisdiction** page embeds an inline pre-filtered
+feed (still in-file); the **district / profile** pages keep a lighter **link-out placeholder**
+(`→ View posts in Feed`). Where a page makes a product assumption (card metric sourcing; the
+leader/seated-official → public-profile link, which has no first-class entity today) there is an
+inline `NOTE(tech)` for the doc/API teams.
 
 ## Layout
 
