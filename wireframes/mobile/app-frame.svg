@@ -58,6 +58,47 @@
     <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </symbol>
+    <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </symbol>
+    <symbol id="ic-key" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+    </symbol>
+    <symbol id="ic-settings" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </symbol>
+    <symbol id="ic-logout" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+    </symbol>
+    <symbol id="ic-mail" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+    </symbol>
+    <symbol id="ic-edit" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </symbol>
+    <symbol id="ic-pin" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+    </symbol>
+    <symbol id="ic-file" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>
+    </symbol>
+    <symbol id="ic-chevron-right" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="9 18 15 12 9 6"/>
+    </symbol>
+    <symbol id="ic-eye" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="5"/>
+      <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+      <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+    </symbol>
+    <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </symbol>
   </defs>
 
   <!-- page backdrop -->
@@ -169,11 +210,129 @@
             <rect x="65" y="236" width="300" height="44" rx="8" fill="#ffffff"/>
             <use href="#ic-building" xlink:href="#ic-building" x="80" y="249" width="18" height="18" stroke="#333"/>
             <text x="108" y="263" font-size="15" fill="#333">Alberta</text>
-            <text x="345" y="263" font-size="13" fill="#999" text-anchor="end">Join &#8250;</text>
+            <text id="albertaAction" x="345" y="263" font-size="13" fill="#999" text-anchor="end">Join &#8250;</text>
           </g>
           <text x="80" y="305" font-size="12" fill="#bbb">(Only Alberta is reachable at launch.)</text>
           <text x="215" y="392" font-size="12" fill="#999" text-anchor="middle">Esc or tap outside to close</text>
         </g>
+      </g>
+
+      <!-- ===================== REGISTER / LOGIN MODAL (logged-out → tap login) ===================== -->
+      <g id="authModal" display="none">
+        <rect id="authBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <g>
+          <rect x="55" y="250" width="320" height="320" rx="16" fill="#ffffff" stroke="#333"/>
+          <text x="215" y="298" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Join OurSay</text>
+          <text x="215" y="322" font-size="13" fill="#999" text-anchor="middle">Register or log in to take part</text>
+          <g id="registerBtn" style="cursor:pointer">
+            <rect x="79" y="346" width="272" height="46" rx="10" fill="#333"/>
+            <text x="215" y="375" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Register</text>
+          </g>
+          <g id="loginBtn" style="cursor:pointer">
+            <rect x="79" y="404" width="272" height="46" rx="10" fill="#ffffff" stroke="#333"/>
+            <text x="215" y="433" font-size="15" fill="#333" text-anchor="middle">Log in</text>
+          </g>
+          <g id="recoverBtn" style="cursor:pointer">
+            <text x="215" y="486" font-size="13" fill="#555" text-anchor="middle" text-decoration="underline">Trouble signing in? Recover account</text>
+          </g>
+          <text x="215" y="546" font-size="12" fill="#999" text-anchor="middle">Esc or tap outside to close</text>
+        </g>
+      </g>
+
+      <!-- ===================== PROFILE MODAL (logged-in → tap avatar) ===================== -->
+      <g id="profileModal" display="none">
+        <rect id="profileBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="20" y="70" width="390" height="800" rx="24" fill="#ffffff" stroke="#333"/>
+
+        <!-- header -->
+        <text x="44" y="104" font-size="16" fill="#333" font-weight="bold">Profile</text>
+        <circle cx="64" cy="150" r="26" fill="#333"/>
+        <text x="64" y="156" font-size="16" fill="#fff" text-anchor="middle" font-weight="bold">AM</text>
+        <text x="102" y="145" font-size="16" fill="#333">Amanda M.</text>
+        <text x="102" y="165" font-size="12" fill="#999">@maple-otter-41 · private to you</text>
+        <line x1="44" y1="186" x2="386" y2="186" stroke="#eee"/>
+
+        <!-- widget: ID verification / KYC tier -->
+        <text x="44" y="212" font-size="13" fill="#333" font-weight="bold">Identity verification</text>
+        <g id="kycBadge">
+          <rect x="44" y="224" width="176" height="30" rx="15" fill="#f2f2f2" stroke="#999"/>
+          <use id="kycShield" href="#ic-shield" xlink:href="#ic-shield" x="54" y="231" width="16" height="16" stroke="#666"/>
+          <text id="kycBadgeText" x="78" y="244" font-size="13" fill="#555">Unverified</text>
+        </g>
+        <g id="validateBtn" style="cursor:pointer">
+          <rect x="250" y="224" width="120" height="30" rx="15" fill="#333"/>
+          <text x="310" y="244" font-size="13" fill="#fff" text-anchor="middle">Validate ID</text>
+        </g>
+        <text x="44" y="276" font-size="11" fill="#999">KYC tier — at-cost, no PII on the public record</text>
+        <line x1="44" y1="292" x2="386" y2="292" stroke="#eee"/>
+
+        <!-- widget: devices & passkeys -->
+        <text id="deviceLabel" x="44" y="318" font-size="13" fill="#333" font-weight="bold">Devices &amp; passkeys (3)</text>
+        <use href="#ic-key" xlink:href="#ic-key" x="48" y="332" width="16" height="16" stroke="#666"/>
+        <text x="74" y="345" font-size="13" fill="#333">iPhone 15 — this device</text>
+        <use href="#ic-key" xlink:href="#ic-key" x="48" y="358" width="16" height="16" stroke="#666"/>
+        <text x="74" y="371" font-size="13" fill="#333">MacBook Pro</text>
+        <text id="deviceMore" x="74" y="396" font-size="12" fill="#999">+1 more</text>
+        <g id="addDeviceBtn" style="cursor:pointer">
+          <rect x="44" y="412" width="160" height="34" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-plus" xlink:href="#ic-plus" x="56" y="421" width="16" height="16" stroke="#333"/>
+          <text x="124" y="434" font-size="13" fill="#333" text-anchor="middle">Add Device</text>
+        </g>
+        <g id="addDeviceEmailBtn" style="cursor:pointer">
+          <rect x="216" y="412" width="160" height="34" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-mail" xlink:href="#ic-mail" x="228" y="421" width="16" height="16" stroke="#333"/>
+          <text x="300" y="434" font-size="13" fill="#333" text-anchor="middle">Add by Email</text>
+        </g>
+        <text x="44" y="466" font-size="11" fill="#999">Add Device = passkey on this device · by Email = OTP to a new one</text>
+
+        <!-- account settings: direct items (full-width, listed) -->
+        <line x1="44" y1="490" x2="386" y2="490" stroke="#eee"/>
+        <text x="44" y="514" font-size="13" fill="#333" font-weight="bold">Account settings</text>
+        <g id="editProfileBtn" style="cursor:pointer">
+          <rect x="44" y="524" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-edit" xlink:href="#ic-edit" x="58" y="533" width="18" height="18" stroke="#333"/>
+          <text x="86" y="547" font-size="13" fill="#333">Edit Profile</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="534" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="changeAddrBtn" style="cursor:pointer">
+          <rect x="44" y="566" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-pin" xlink:href="#ic-pin" x="58" y="575" width="18" height="18" stroke="#333"/>
+          <text x="86" y="589" font-size="13" fill="#333">Change Address</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="576" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="privacySettingsBtn" style="cursor:pointer">
+          <rect x="44" y="608" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-eye" xlink:href="#ic-eye" x="58" y="617" width="18" height="18" stroke="#333"/>
+          <text x="86" y="631" font-size="13" fill="#333">Privacy Settings</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="618" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="themeBtn" style="cursor:pointer">
+          <rect x="44" y="650" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use id="themeIcon" href="#ic-sun" xlink:href="#ic-sun" x="58" y="659" width="18" height="18" stroke="#333"/>
+          <text x="86" y="673" font-size="13" fill="#333">Theme</text>
+          <text id="themeValue" x="350" y="673" font-size="13" fill="#555" text-anchor="end">Light</text>
+        </g>
+        <g id="termsBtn" style="cursor:pointer">
+          <rect x="44" y="692" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-file" xlink:href="#ic-file" x="58" y="701" width="18" height="18" stroke="#333"/>
+          <text x="86" y="715" font-size="13" fill="#333">Terms of Service</text>
+          <use href="#ic-external" xlink:href="#ic-external" x="358" y="702" width="16" height="16" stroke="#999"/>
+        </g>
+        <g id="privacyBtn" style="cursor:pointer">
+          <rect x="44" y="734" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-shield" xlink:href="#ic-shield" x="58" y="743" width="18" height="18" stroke="#333"/>
+          <text x="86" y="757" font-size="13" fill="#333">Privacy Policy</text>
+          <use href="#ic-external" xlink:href="#ic-external" x="358" y="744" width="16" height="16" stroke="#999"/>
+        </g>
+
+        <!-- log out (full width) + copyright -->
+        <line x1="20" y1="784" x2="410" y2="784" stroke="#eee"/>
+        <g id="logoutBtn" style="cursor:pointer">
+          <rect x="44" y="800" width="342" height="40" rx="8" fill="#ffffff" stroke="#c0392b"/>
+          <use href="#ic-logout" xlink:href="#ic-logout" x="178" y="810" width="20" height="20" stroke="#c0392b"/>
+          <text x="208" y="825" font-size="14" fill="#c0392b">Log out</text>
+        </g>
+        <text x="215" y="862" font-size="11" fill="#bbb" text-anchor="middle">© 2026 OurSay · all rights reserved</text>
       </g>
 
     </g><!-- /screenClip -->
@@ -197,7 +356,7 @@
   <g id="anno-chrome" fill="#c0392b">
     <g stroke="#c0392b" fill="none" stroke-width="1.2">
       <line x1="196" y1="100" x2="271" y2="136" marker-end="url(#arrow)"/>
-      <line x1="206" y1="430" x2="330" y2="430" marker-end="url(#arrow)"/>
+      <line x1="206" y1="430" x2="280" y2="430" marker-end="url(#arrow)"/>
       <line x1="686" y1="128" x2="650" y2="136" marker-end="url(#arrow)"/>
       <line x1="686" y1="864" x2="641" y2="868" marker-end="url(#arrow)"/>
     </g>
@@ -221,7 +380,7 @@
     <g stroke="#c0392b" fill="none" stroke-width="1.2">
       <line x1="200" y1="150" x2="271" y2="170" marker-end="url(#arrow)"/>
       <line x1="206" y1="206" x2="471" y2="192" marker-end="url(#arrow)"/>
-      <line x1="205" y1="250" x2="280" y2="234" marker-end="url(#arrow)"/>
+      <line x1="205" y1="300" x2="300" y2="260" marker-end="url(#arrow)"/>
     </g>
     <text x="30" y="118" font-size="12">Subscribed jurisdictions —</text>
     <text x="30" y="133" font-size="12">saved to a cookie for cross-</text>
@@ -231,29 +390,71 @@
     <text x="30" y="198" font-size="12">Open jurisdiction page</text>
     <text x="30" y="213" font-size="12">(deferred)</text>
 
-    <text x="30" y="248" font-size="12">+ Add Jurisdiction →</text>
-    <text x="30" y="263" font-size="12">spotlight search (A)</text>
+    <text x="30" y="308" font-size="12">+ Add Jurisdiction →</text>
+    <text x="30" y="323" font-size="12">spotlight search (A)</text>
   </g>
 
   <!-- include checkbox callout — only when there is more than one jurisdiction -->
   <g id="anno-dd-filter" fill="#c0392b" display="none">
-    <line x1="200" y1="210" x2="284" y2="189" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
-    <text x="30" y="205" font-size="12">&#10003; check = include in feed</text>
-    <text x="30" y="220" font-size="12">tap name = switch to that only</text>
+    <line x1="200" y1="255" x2="284" y2="234" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <text x="30" y="255" font-size="12">&#10003; check = include in feed</text>
+    <text x="30" y="270" font-size="12">tap name = switch to that only</text>
   </g>
 
   <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
   <g id="anno-modal" fill="#c0392b" display="none">
     <g stroke="#c0392b" fill="none" stroke-width="1.2">
       <line x1="200" y1="220" x2="308" y2="228" marker-end="url(#arrow)"/>
-      <line x1="200" y1="305" x2="322" y2="304" marker-end="url(#arrow)"/>
     </g>
     <text x="30" y="212" font-size="12">Spotlight-style search</text>
     <text x="30" y="227" font-size="12">(only Alberta at launch)</text>
+    <text x="30" y="247" font-size="12">Row action toggles:</text>
+    <text x="30" y="262" font-size="12">Join ↔ Delete if subscribed</text>
+  </g>
 
-    <text x="30" y="290" font-size="12">Government-building icon</text>
-    <text x="30" y="305" font-size="12">marks a government</text>
-    <text x="30" y="320" font-size="12">jurisdiction (Alberta)</text>
+  <!-- ===================== AUTH CALLOUTS (only while register/login modal open) ===================== -->
+  <g id="anno-auth" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="686" y1="408" x2="600" y2="408" marker-end="url(#arrow)"/>
+      <line x1="686" y1="540" x2="560" y2="540" marker-end="url(#arrow)"/>
+    </g>
+    <text x="690" y="398" font-size="12">Logged-out tap →</text>
+    <text x="690" y="413" font-size="12">Register / Log in</text>
+    <text x="690" y="428" font-size="12">(buttons span the card)</text>
+    <text x="690" y="536" font-size="12">Recover account —</text>
+    <text x="690" y="551" font-size="12">passkey/OTP recovery</text>
+  </g>
+
+  <!-- ===================== PROFILE CALLOUTS (only while profile modal open) ===================== -->
+  <g id="anno-profile" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="235" y1="205" x2="285" y2="205" marker-end="url(#arrow)"/>
+      <line x1="686" y1="294" x2="620" y2="294" marker-end="url(#arrow)"/>
+      <line x1="686" y1="462" x2="620" y2="462" marker-end="url(#arrow)"/>
+      <line x1="686" y1="630" x2="622" y2="630" marker-end="url(#arrow)"/>
+      <line x1="686" y1="888" x2="462" y2="892" marker-end="url(#arrow)"/>
+    </g>
+    <!-- header (left) -->
+    <text x="30" y="196" font-size="12">Profile — logged in</text>
+    <text x="30" y="211" font-size="12">(private to you)</text>
+    <!-- KYC (right) -->
+    <text x="690" y="284" font-size="12">ID verification —</text>
+    <text x="690" y="299" font-size="12">KYC tier badge +</text>
+    <text x="690" y="314" font-size="12">Validate ID button</text>
+    <!-- devices (right) -->
+    <text x="690" y="440" font-size="12">Devices &amp; passkeys —</text>
+    <text x="690" y="455" font-size="12">truncated list + count;</text>
+    <text x="690" y="470" font-size="12">Add Device (local key) /</text>
+    <text x="690" y="485" font-size="12">Add by Email (OTP flow)</text>
+    <!-- account settings (right) -->
+    <text x="690" y="600" font-size="12">Account settings —</text>
+    <text x="690" y="615" font-size="12">Privacy &amp; reveal paths</text>
+    <text x="690" y="630" font-size="12">(per jurisdiction / app),</text>
+    <text x="690" y="645" font-size="12">Theme toggle, Edit</text>
+    <text x="690" y="660" font-size="12">Profile, Address, legal</text>
+    <!-- logout (right, bottom) -->
+    <text x="690" y="884" font-size="12">Log out (full width)</text>
+    <text x="690" y="899" font-size="12">© copyright below</text>
   </g>
 
   <script type="application/ecmascript"><![CDATA[
@@ -263,13 +464,20 @@
     var state = {
       loggedIn: false,
       dropdownOpen: false,
-      modalOpen: false,
+      modalOpen: false,        // add-jurisdiction spotlight
+      authModalOpen: false,    // register / login modal (logged-out only)
+      profileOpen: false,      // profile modal (logged-in only)
       labelsOn: true,
-      page: "feed",          // "feed" | "other"
+      page: "feed",            // "feed" | "other"
+      kyc: 0,                  // 0 unverified · 1 identity · 2 residency
+      deviceCount: 3,          // passkeys/devices on the account
+      theme: "Light",          // "Light" | "Dark" — UI preference toggle only
       // subscribed jurisdictions: persisted to a cookie (works logged-out).
       // `included` drives the unified-feed filter.
       subs: [{ name: "Global", icon: "#ic-globe", included: true }]
     };
+
+    var KYC_TIERS = ["Unverified", "Identity Verified", "Residency Verified"];
 
     function $(id) { return document.getElementById(id); }
     function show(el, on) { el.setAttribute("display", on ? "inline" : "none"); }
@@ -383,9 +591,25 @@
       render();
     }
 
-    // ---- modal ---------------------------------------------------------------
-    function openModal() { state.modalOpen = true; state.dropdownOpen = false; render(); }
-    function closeOverlays() { state.modalOpen = false; state.dropdownOpen = false; render(); }
+    // ---- modals --------------------------------------------------------------
+    function openModal() { state.modalOpen = true; state.dropdownOpen = false; state.profileOpen = false; state.authModalOpen = false; render(); }
+    function closeOverlays() {
+      state.modalOpen = false;
+      state.dropdownOpen = false;
+      state.profileOpen = false;
+      state.authModalOpen = false;
+      render();
+    }
+
+    // logged out: open register/login modal · logged in: toggle profile modal
+    function onAuthClick() {
+      if (!state.loggedIn) { state.authModalOpen = !state.authModalOpen; }
+      else { state.profileOpen = !state.profileOpen; }
+      render();
+    }
+    // register or log in resolves to a signed-in session (demo)
+    function signIn() { state.loggedIn = true; state.authModalOpen = false; render(); }
+    function logout() { state.loggedIn = false; state.profileOpen = false; render(); }
 
     // ---- main render ---------------------------------------------------------
     function render() {
@@ -394,7 +618,7 @@
       show($("profileGlyph"), state.loggedIn);
       $("authCircle").setAttribute("fill", state.loggedIn ? "#333" : "#ffffff");
       $("annoLoginA").textContent = state.loggedIn ? "Signed in (avatar shown)" : "Logged out";
-      $("annoLoginB").textContent = state.loggedIn ? "tap → profile (L to toggle)" : "tap → sign in (L to toggle)";
+      $("annoLoginB").textContent = state.loggedIn ? "tap → profile (L to toggle)" : "tap → register / log in (L)";
 
       // selector label reflects the unified-feed filter
       $("curJur").textContent = pillLabel();
@@ -404,37 +628,106 @@
       show($("dropdown"), state.dropdownOpen);
       show($("modal"), state.modalOpen);
 
+      // register/login modal (only meaningful while logged out)
+      show($("authModal"), state.authModalOpen && !state.loggedIn);
+
+      // spotlight result: if Alberta is already subscribed, offer Delete instead of Join
+      var hasAlberta = state.subs.some(function (s) { return s.name === "Alberta"; });
+      var act = $("albertaAction");
+      act.textContent = hasAlberta ? "Delete ✕" : "Join ›";
+      act.setAttribute("fill", hasAlberta ? "#c0392b" : "#999");
+
+      // profile modal (only meaningful while logged in)
+      show($("profileModal"), state.profileOpen && state.loggedIn);
+      $("kycBadgeText").textContent = KYC_TIERS[state.kyc];
+      $("kycBadge").querySelector("rect").setAttribute("fill", state.kyc === 0 ? "#f2f2f2" : "#333");
+      $("kycBadgeText").setAttribute("fill", state.kyc === 0 ? "#555" : "#fff");
+      $("kycShield").setAttribute("stroke", state.kyc === 0 ? "#666" : "#fff");
+      $("deviceLabel").textContent = "Devices & passkeys (" + state.deviceCount + ")";
+      var more = state.deviceCount - 2;
+      var moreEl = $("deviceMore");
+      moreEl.textContent = "+" + more + " more";
+      show(moreEl, more > 0);
+
+      // theme preference toggle (button only — no app-wide repaint)
+      var dark = state.theme === "Dark";
+      $("themeValue").textContent = state.theme;
+      $("themeIcon").setAttribute("href", dark ? "#ic-moon" : "#ic-sun");
+      $("themeIcon").setAttributeNS(XLINK, "href", dark ? "#ic-moon" : "#ic-sun");
+
       // fab icon + callout depend on the current page
       show($("fabCompose"), state.page === "feed");
       show($("fabFeed"), state.page !== "feed");
       $("annoFabA").textContent = state.page === "feed" ? "On Feed" : "On another page";
       $("annoFabB").textContent = state.page === "feed" ? "tap → compose a post (quill)" : "tap → go to Feed (list)";
 
-      // labels: chrome always (when on); dropdown/modal only while open;
+      // labels: chrome shown unless the full-screen profile sheet covers it;
+      // overlay callouts only while that overlay is open;
       // the include-filter callout only when checkboxes are actually shown
-      show($("anno-chrome"), state.labelsOn);
+      show($("anno-chrome"), state.labelsOn && !state.profileOpen);
       show($("anno-dropdown"), state.labelsOn && state.dropdownOpen);
       show($("anno-dd-filter"), state.labelsOn && state.dropdownOpen && state.subs.length > 1);
       show($("anno-modal"), state.labelsOn && state.modalOpen);
+      show($("anno-auth"), state.labelsOn && state.authModalOpen && !state.loggedIn);
+      show($("anno-profile"), state.labelsOn && state.profileOpen && state.loggedIn);
     }
 
     // ---- wiring --------------------------------------------------------------
     $("selectorBtn").addEventListener("click", function () { state.dropdownOpen = !state.dropdownOpen; render(); });
-    $("authBtn").addEventListener("click", function () { state.loggedIn = !state.loggedIn; render(); });
+    $("authBtn").addEventListener("click", onAuthClick);
     $("fab").addEventListener("click", function () { state.page = (state.page === "feed") ? "other" : "feed"; render(); });
     $("modalBackdrop").addEventListener("click", closeOverlays);
     $("resultAlberta").addEventListener("click", function () {
-      if (!state.subs.some(function (s) { return s.name === "Alberta"; })) {
+      var i = state.subs.findIndex(function (s) { return s.name === "Alberta"; });
+      if (i === -1) {
         state.subs.push({ name: "Alberta", icon: "#ic-building", included: true });
+      } else {
+        state.subs.splice(i, 1); // already subscribed → Delete removes it
+        // never leave the feed with nothing selected
+        if (!state.subs.some(function (s) { return s.included; })) state.subs[0].included = true;
       }
       state.modalOpen = false;
-      state.dropdownOpen = true; // reopen list so the new entry is visible
+      state.dropdownOpen = true; // reopen list so the change is visible
+      render();
+    });
+
+    // register / login modal actions (both resolve to a signed-in session here)
+    $("authBackdrop").addEventListener("click", closeOverlays);
+    $("registerBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
+    $("loginBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
+    $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); /* recovery flow — deferred */ });
+
+    // profile modal actions
+    $("profileBackdrop").addEventListener("click", closeOverlays);
+    $("logoutBtn").addEventListener("click", logout);
+    $("validateBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      state.kyc = (state.kyc + 1) % KYC_TIERS.length; // demo: cycle the tier badge
+      render();
+    });
+    $("addDeviceBtn").addEventListener("click", function (e) { e.stopPropagation(); state.deviceCount++; render(); });
+    $("addDeviceEmailBtn").addEventListener("click", function (e) { e.stopPropagation(); state.deviceCount++; render(); });
+
+    // direct account-settings items (each its own destination — deferred no-ops)
+    ["editProfileBtn", "changeAddrBtn", "privacySettingsBtn", "termsBtn", "privacyBtn"].forEach(function (id) {
+      $(id).addEventListener("click", function (e) { e.stopPropagation(); /* deferred */ });
+    });
+
+    // theme: live toggle (Light ↔ Dark) — preference only, no page flip
+    $("themeBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      state.theme = (state.theme === "Light") ? "Dark" : "Light";
       render();
     });
 
     document.addEventListener("keydown", function (e) {
       switch (e.key) {
-        case "l": case "L": state.loggedIn = !state.loggedIn; render(); break;
+        case "l": case "L":
+          // quick toggle: sign in / out (logging out also closes the profile)
+          state.loggedIn = !state.loggedIn;
+          if (!state.loggedIn) state.profileOpen = false;
+          render();
+          break;
         case "v": case "V": state.labelsOn = !state.labelsOn; render(); break;
         case "j": case "J": state.dropdownOpen = !state.dropdownOpen; render(); break;
         case "a": case "A": openModal(); break;

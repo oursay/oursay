@@ -61,16 +61,32 @@ Clicks mirror the keys: selector → dropdown, "+ Add Jurisdiction" → modal, b
   marked with a government-building icon (the only jurisdiction reachable at launch). Selecting it
   appends Alberta to the subscribed list.
 - **Login / profile** (top-right): login glyph when logged out, filled avatar when logged in.
+  Flow: tap while logged out to open the **register / login modal** (a centered card — not a
+  full-screen sheet — with **Register** and **Log in** buttons that span the card, plus a
+  **Recover account** link for passkey/OTP recovery; both buttons resolve to a signed-in session in
+  the demo). While logged in, tap the avatar to open the **profile modal**, which holds:
+  - **Identity verification** widget — current KYC tier badge + a **Validate ID** button (tap to
+    cycle Unverified → Identity Verified → Residency Verified for the demo).
+  - **Devices & passkeys** widget — a truncated device list with the full count, plus **Add Device**
+    (a local passkey) and **Add by Email** (the cross-device OTP flow). Both bump the count here.
+  - **Account settings** — a full-width, listed set of items (no separate settings screen):
+    **Edit Profile**, **Change Address**, **Privacy & reveal paths** (control which persona/details
+    are revealed per jurisdiction or app), a **Theme** toggle (flips Light ↔ Dark in place — button
+    state only, no page flip), and the **Terms of Service** / **Privacy Policy** documents. The nav
+    items are deferred no-ops; only the Theme toggle is live.
+  - A full-width **Log out** button that signs out and closes the modal, with a **© copyright** line
+    beneath it.
 - **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a feed/list
   icon on any other page so it acts as "go home".
 
 ### Callout behaviour
 
 Red margin callouts describe the **live state** — the login and FAB labels change wording as you
-press **L** / **P**. Callouts for an overlay (the dropdown's checkbox/cookie/external/add notes, and
-the modal's icon/search notes) only appear **while that overlay is open**, so the margins stay quiet
-until the relevant component is visible. **V** still toggles all callouts; the grayscale Shortcut
-legend stays visible regardless.
+press **L** / **P**. Callouts for an overlay (the dropdown's checkbox/cookie/external/add notes, the
+spotlight modal's notes, and the profile modal's widget notes) only appear **while that overlay is
+open**, so the margins stay quiet until the relevant component is visible. The chrome callouts hide
+while the full-screen profile sheet is up (it would cover the chrome they point at). **V** toggles
+all callouts; the grayscale Shortcut legend stays visible regardless.
 
 ## Fork contract (using this as a template)
 
