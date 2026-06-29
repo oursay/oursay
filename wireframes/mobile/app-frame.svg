@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 920 1000" width="920" height="1000" font-family="sans-serif">
+
+  <!-- =========================================================================
+       OurSay — Mobile app-frame wireframe (interactive template)
+       Open this file directly in a browser. Keys + clicks toggle live states.
+       Keys:  L login/out · V labels · J dropdown · A add-jurisdiction · P page · Esc close
+       Phone display is centred; red callouts live in the canvas margins.
+       Chrome callouts describe the LIVE state; dropdown/modal callouts only
+       appear while that overlay is open.
+       Icons: Feather (MIT, https://feathericons.com) + a custom building glyph.
+       Fork contract: copy this file, keep #chrome + <script>, swap #content only.
+       ========================================================================= -->
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/>
+    </marker>
+    <clipPath id="screenClip">
+      <rect x="15" y="15" width="400" height="870" rx="36"/>
+    </clipPath>
+
+    <!-- ===== icon symbols (stroke-based, 24x24) ===== -->
+    <symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </symbol>
+    <symbol id="ic-building" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2 2 8h20z"/><path d="M2 8h20"/>
+      <path d="M5 8v12M9 8v12M15 8v12M19 8v12"/><path d="M3 20h18"/>
+    </symbol>
+    <symbol id="ic-chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="6 9 12 15 18 9"/>
+    </symbol>
+    <symbol id="ic-check" viewBox="0 0 24 24" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </symbol>
+    <symbol id="ic-login" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+    </symbol>
+    <symbol id="ic-user" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+    </symbol>
+    <symbol id="ic-feather" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/>
+    </symbol>
+    <symbol id="ic-list" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+      <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+    </symbol>
+    <symbol id="ic-external" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+    </symbol>
+    <symbol id="ic-search" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </symbol>
+    <symbol id="ic-plus" viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </symbol>
+  </defs>
+
+  <!-- page backdrop -->
+  <rect x="0" y="0" width="920" height="1000" fill="#f4f4f4"/>
+
+  <!-- title (always visible) -->
+  <text x="460" y="40" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">OurSay · Mobile app frame — Feed</text>
+  <text x="460" y="60" font-size="12" fill="#999" text-anchor="middle">Interactive wireframe — press V to toggle the red labels</text>
+
+  <!-- ===================== THE PHONE (centred via translate) ===================== -->
+  <g id="phone" transform="translate(245,55)">
+
+    <rect x="15" y="15" width="400" height="870" rx="36" fill="#ffffff" stroke="#333" stroke-width="2"/>
+
+    <g clip-path="url(#screenClip)">
+
+      <!-- ===================== CONTENT (the swappable region) ===================== -->
+      <g id="content">
+        <g stroke="#cccccc" fill="none">
+          <rect x="30" y="130" width="370" height="150" rx="10"/>
+          <rect x="30" y="300" width="370" height="150" rx="10"/>
+          <rect x="30" y="470" width="370" height="150" rx="10"/>
+        </g>
+        <g>
+          <g transform="translate(0,0)">
+            <circle cx="55" cy="158" r="12" fill="#e8e8e8" stroke="#ccc"/>
+            <rect x="78" y="148" width="120" height="9" rx="4" fill="#e8e8e8"/>
+            <rect x="78" y="163" width="70" height="8" rx="4" fill="#efefef"/>
+            <rect x="50" y="195" width="330" height="9" rx="4" fill="#efefef"/>
+            <rect x="50" y="212" width="300" height="9" rx="4" fill="#efefef"/>
+            <rect x="50" y="229" width="200" height="9" rx="4" fill="#efefef"/>
+            <text x="52" y="262" font-size="14" fill="#bbb">&#10003; &#160;&#160;&#160; &#10007;</text>
+          </g>
+          <g transform="translate(0,170)">
+            <circle cx="55" cy="158" r="12" fill="#e8e8e8" stroke="#ccc"/>
+            <rect x="78" y="148" width="120" height="9" rx="4" fill="#e8e8e8"/>
+            <rect x="78" y="163" width="70" height="8" rx="4" fill="#efefef"/>
+            <rect x="50" y="195" width="330" height="9" rx="4" fill="#efefef"/>
+            <rect x="50" y="212" width="300" height="9" rx="4" fill="#efefef"/>
+            <rect x="50" y="229" width="200" height="9" rx="4" fill="#efefef"/>
+            <text x="52" y="262" font-size="14" fill="#bbb">&#10003; &#160;&#160;&#160; &#10007;</text>
+          </g>
+          <g transform="translate(0,340)">
+            <circle cx="55" cy="158" r="12" fill="#e8e8e8" stroke="#ccc"/>
+            <rect x="78" y="148" width="120" height="9" rx="4" fill="#e8e8e8"/>
+            <rect x="78" y="163" width="70" height="8" rx="4" fill="#efefef"/>
+            <rect x="50" y="195" width="330" height="9" rx="4" fill="#efefef"/>
+            <rect x="50" y="212" width="300" height="9" rx="4" fill="#efefef"/>
+            <rect x="50" y="229" width="200" height="9" rx="4" fill="#efefef"/>
+            <text x="52" y="262" font-size="14" fill="#bbb">&#10003; &#160;&#160;&#160; &#10007;</text>
+          </g>
+        </g>
+      </g>
+
+      <!-- ===================== CHROME (reused by every view) ===================== -->
+      <g id="chrome">
+
+        <g>
+          <text x="36" y="44" font-size="13" fill="#333" font-weight="bold">9:41</text>
+          <g fill="#333">
+            <rect x="350" y="36" width="18" height="10" rx="2" fill="none" stroke="#333"/>
+            <rect x="352" y="38" width="11" height="6" rx="1"/>
+            <rect x="369" y="38" width="2" height="6" rx="1"/>
+          </g>
+        </g>
+
+        <line x1="15" y1="112" x2="415" y2="112" stroke="#e0e0e0" stroke-width="1"/>
+
+        <!-- jurisdiction selector (left) -->
+        <g id="selectorBtn" style="cursor:pointer">
+          <rect x="28" y="66" width="150" height="34" rx="17" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-globe" xlink:href="#ic-globe" x="42" y="74" width="18" height="18" stroke="#333"/>
+          <text id="curJur" x="68" y="88" font-size="15" fill="#333">Global</text>
+          <use href="#ic-chevron" xlink:href="#ic-chevron" x="150" y="75" width="16" height="16" stroke="#333"/>
+        </g>
+
+        <!-- login / profile (right) -->
+        <g id="authBtn" style="cursor:pointer">
+          <circle id="authCircle" cx="382" cy="83" r="19" fill="#ffffff" stroke="#333"/>
+          <use id="loginGlyph"   href="#ic-login" xlink:href="#ic-login" x="371" y="72" width="22" height="22" stroke="#333"/>
+          <use id="profileGlyph" href="#ic-user"  xlink:href="#ic-user"  x="371" y="72" width="22" height="22" stroke="#fff" display="none"/>
+        </g>
+
+        <!-- floating action button (bottom-right) -->
+        <g id="fab" style="cursor:pointer">
+          <circle cx="362" cy="812" r="30" fill="#333"/>
+          <use id="fabCompose" href="#ic-feather" xlink:href="#ic-feather" x="348" y="798" width="28" height="28" stroke="#fff"/>
+          <use id="fabFeed"    href="#ic-list"    xlink:href="#ic-list"    x="348" y="798" width="28" height="28" stroke="#fff" display="none"/>
+        </g>
+
+      </g><!-- /chrome -->
+
+      <!-- ===================== JURISDICTION DROPDOWN ===================== -->
+      <g id="dropdown" display="none">
+        <rect id="ddBg" x="28" y="106" width="236" height="120" rx="12" fill="#ffffff" stroke="#333"/>
+        <g id="ddInner"></g>
+      </g>
+
+      <!-- ===================== ADD-JURISDICTION SPOTLIGHT MODAL ===================== -->
+      <g id="modal" display="none">
+        <rect id="modalBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <g>
+          <rect x="45" y="150" width="340" height="260" rx="14" fill="#ffffff" stroke="#333"/>
+          <rect x="65" y="172" width="300" height="40" rx="8" fill="#fafafa" stroke="#999"/>
+          <use href="#ic-search" xlink:href="#ic-search" x="78" y="183" width="18" height="18" stroke="#999"/>
+          <text x="106" y="197" font-size="14" fill="#999">Search jurisdictions&#8230;</text>
+          <line x1="65" y1="226" x2="365" y2="226" stroke="#eee"/>
+          <g id="resultAlberta" style="cursor:pointer">
+            <rect x="65" y="236" width="300" height="44" rx="8" fill="#ffffff"/>
+            <use href="#ic-building" xlink:href="#ic-building" x="80" y="249" width="18" height="18" stroke="#333"/>
+            <text x="108" y="263" font-size="15" fill="#333">Alberta</text>
+            <text x="345" y="263" font-size="13" fill="#999" text-anchor="end">Join &#8250;</text>
+          </g>
+          <text x="80" y="305" font-size="12" fill="#bbb">(Only Alberta is reachable at launch.)</text>
+          <text x="215" y="392" font-size="12" fill="#999" text-anchor="middle">Esc or tap outside to close</text>
+        </g>
+      </g>
+
+    </g><!-- /screenClip -->
+  </g><!-- /phone -->
+
+  <!-- ===================== SHORTCUT LEGEND (margin, always visible) ===================== -->
+  <g>
+    <rect x="30" y="600" width="200" height="170" rx="10" fill="#ffffff" stroke="#333"/>
+    <text x="46" y="626" font-size="13" fill="#333" font-weight="bold">Shortcuts</text>
+    <g font-size="12" fill="#333">
+      <text x="46" y="650">L &#160;&#8212; login / out</text>
+      <text x="46" y="670">V &#160;&#8212; labels on / off</text>
+      <text x="46" y="690">J &#160;&#8212; jurisdiction dropdown</text>
+      <text x="46" y="710">A &#160;&#8212; add jurisdiction</text>
+      <text x="46" y="730">P &#160;&#8212; page (FAB icon swap)</text>
+      <text x="46" y="750">Esc &#8212; close overlay</text>
+    </g>
+  </g>
+
+  <!-- ===================== CHROME CALLOUTS (margins, toggled by V) ===================== -->
+  <g id="anno-chrome" fill="#c0392b">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="196" y1="100" x2="271" y2="136" marker-end="url(#arrow)"/>
+      <line x1="206" y1="430" x2="330" y2="430" marker-end="url(#arrow)"/>
+      <line x1="686" y1="128" x2="650" y2="136" marker-end="url(#arrow)"/>
+      <line x1="686" y1="864" x2="641" y2="868" marker-end="url(#arrow)"/>
+    </g>
+    <!-- selector -->
+    <text x="30" y="72" font-size="12">Jurisdiction selector</text>
+    <text x="30" y="87" font-size="12">— filters the unified feed</text>
+    <!-- feed -->
+    <text x="30" y="422" font-size="12">Feed — placeholder content</text>
+    <text x="30" y="437" font-size="12">(swap the #content group)</text>
+    <!-- login (state-driven) -->
+    <text id="annoLoginA" x="690" y="124" font-size="12">Logged out</text>
+    <text id="annoLoginB" x="690" y="139" font-size="12">tap → sign in (L to toggle)</text>
+    <!-- fab (state-driven) -->
+    <text id="annoFabA" x="690" y="844" font-size="12">On Feed</text>
+    <text id="annoFabB" x="690" y="859" font-size="12">tap → compose a post (quill)</text>
+    <text x="690" y="874" font-size="12" fill="#c0392b">P toggles the page (icon swaps)</text>
+  </g>
+
+  <!-- ===================== DROPDOWN CALLOUTS (only while dropdown open) ===================== -->
+  <g id="anno-dropdown" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="200" y1="150" x2="271" y2="170" marker-end="url(#arrow)"/>
+      <line x1="206" y1="206" x2="471" y2="192" marker-end="url(#arrow)"/>
+      <line x1="205" y1="250" x2="280" y2="234" marker-end="url(#arrow)"/>
+    </g>
+    <text x="30" y="118" font-size="12">Subscribed jurisdictions —</text>
+    <text x="30" y="133" font-size="12">saved to a cookie for cross-</text>
+    <text x="30" y="148" font-size="12">session memory (works</text>
+    <text x="30" y="163" font-size="12">logged-out, no account)</text>
+
+    <text x="30" y="198" font-size="12">Open jurisdiction page</text>
+    <text x="30" y="213" font-size="12">(deferred)</text>
+
+    <text x="30" y="248" font-size="12">+ Add Jurisdiction →</text>
+    <text x="30" y="263" font-size="12">spotlight search (A)</text>
+  </g>
+
+  <!-- include checkbox callout — only when there is more than one jurisdiction -->
+  <g id="anno-dd-filter" fill="#c0392b" display="none">
+    <line x1="200" y1="210" x2="284" y2="189" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <text x="30" y="205" font-size="12">&#10003; check = include in feed</text>
+    <text x="30" y="220" font-size="12">tap name = switch to that only</text>
+  </g>
+
+  <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
+  <g id="anno-modal" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="200" y1="220" x2="308" y2="228" marker-end="url(#arrow)"/>
+      <line x1="200" y1="305" x2="322" y2="304" marker-end="url(#arrow)"/>
+    </g>
+    <text x="30" y="212" font-size="12">Spotlight-style search</text>
+    <text x="30" y="227" font-size="12">(only Alberta at launch)</text>
+
+    <text x="30" y="290" font-size="12">Government-building icon</text>
+    <text x="30" y="305" font-size="12">marks a government</text>
+    <text x="30" y="320" font-size="12">jurisdiction (Alberta)</text>
+  </g>
+
+  <script type="application/ecmascript"><![CDATA[
+    var SVG_NS = "http://www.w3.org/2000/svg";
+    var XLINK  = "http://www.w3.org/1999/xlink";
+
+    var state = {
+      loggedIn: false,
+      dropdownOpen: false,
+      modalOpen: false,
+      labelsOn: true,
+      page: "feed",          // "feed" | "other"
+      // subscribed jurisdictions: persisted to a cookie (works logged-out).
+      // `included` drives the unified-feed filter.
+      subs: [{ name: "Global", icon: "#ic-globe", included: true }]
+    };
+
+    function $(id) { return document.getElementById(id); }
+    function show(el, on) { el.setAttribute("display", on ? "inline" : "none"); }
+
+    function icon(href, x, y, size, stroke) {
+      var u = document.createElementNS(SVG_NS, "use");
+      u.setAttribute("href", href);
+      u.setAttributeNS(XLINK, "href", href);
+      u.setAttribute("x", x); u.setAttribute("y", y);
+      u.setAttribute("width", size); u.setAttribute("height", size);
+      u.setAttribute("stroke", stroke);
+      return u;
+    }
+    function txt(x, y, s, size, fill) {
+      var t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", x); t.setAttribute("y", y);
+      t.setAttribute("font-size", size || 15);
+      t.setAttribute("fill", fill || "#333");
+      t.textContent = s;
+      return t;
+    }
+    function rect(x, y, w, h, rx, fill, stroke) {
+      var r = document.createElementNS(SVG_NS, "rect");
+      r.setAttribute("x", x); r.setAttribute("y", y);
+      r.setAttribute("width", w); r.setAttribute("height", h);
+      r.setAttribute("rx", rx); r.setAttribute("fill", fill);
+      if (stroke) r.setAttribute("stroke", stroke);
+      return r;
+    }
+
+    // ---- jurisdiction dropdown interior (built from state.subs) -------------
+    var DD_X = 28, DD_W = 236, DD_TOP = 106, ROW_H = 40, PAD = 8;
+
+    function buildDropdown() {
+      var inner = $("ddInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+
+      // checkboxes only make sense once there is more than one jurisdiction to filter
+      var hasCheckbox = state.subs.length > 1;
+      var iconX = hasCheckbox ? DD_X + 40 : DD_X + 16;
+      var nameX = hasCheckbox ? DD_X + 66 : DD_X + 42;
+
+      var y = DD_TOP + PAD;
+      state.subs.forEach(function (item) {
+        var rowY = y;
+        var row = document.createElementNS(SVG_NS, "g");
+        row.style.cursor = "pointer";
+        row.appendChild(rect(DD_X + 4, rowY, DD_W - 8, ROW_H, 8, "#ffffff"));
+
+        // tapping a row (its name) switches the feed to ONLY that jurisdiction
+        row.addEventListener("click", function () { selectOnly(item); });
+
+        if (hasCheckbox) {
+          // include checkbox toggles multi-select inclusion (overrides the row's select-only)
+          var cb = document.createElementNS(SVG_NS, "g");
+          cb.style.cursor = "pointer";
+          cb.appendChild(rect(DD_X + 12, rowY + 11, 18, 18, 4, item.included ? "#333" : "#ffffff", "#333"));
+          if (item.included) cb.appendChild(icon("#ic-check", DD_X + 13, rowY + 12, 16, "#ffffff"));
+          cb.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var includedCount = state.subs.filter(function (s) { return s.included; }).length;
+            if (item.included && includedCount <= 1) return; // keep ≥1 selected (never None)
+            item.included = !item.included;
+            render();
+          });
+          row.appendChild(cb);
+        }
+
+        // jurisdiction icon + name
+        row.appendChild(icon(item.icon, iconX, rowY + 11, 18, "#333"));
+        row.appendChild(txt(nameX, rowY + 25, item.name, 15, "#333"));
+
+        // external-open (jurisdiction page — deferred no-op)
+        var ext = icon("#ic-external", DD_X + DD_W - 34, rowY + 11, 18, "#666");
+        ext.style.cursor = "pointer";
+        ext.addEventListener("click", function (e) { e.stopPropagation(); });
+        row.appendChild(ext);
+
+        inner.appendChild(row);
+        y += ROW_H;
+      });
+
+      // full-width "+ Add Jurisdiction" button
+      var addY = y + 4;
+      var btn = document.createElementNS(SVG_NS, "g");
+      btn.style.cursor = "pointer";
+      var bRect = rect(DD_X + 8, addY, DD_W - 16, 36, 8, "#f2f2f2", "#333");
+      bRect.setAttribute("stroke-dasharray", "4 3");
+      btn.appendChild(bRect);
+      btn.appendChild(icon("#ic-plus", DD_X + 44, addY + 10, 16, "#333"));
+      var bt = txt(DD_X + DD_W / 2 + 10, addY + 23, "Add Jurisdiction", 14, "#333");
+      bt.setAttribute("text-anchor", "middle");
+      btn.appendChild(bt);
+      btn.addEventListener("click", openModal);
+      inner.appendChild(btn);
+
+      $("ddBg").setAttribute("height", (addY + 36 + PAD) - DD_TOP);
+    }
+
+    function pillLabel() {
+      var inc = state.subs.filter(function (s) { return s.included; });
+      if (inc.length === 0) return "None";
+      if (inc.length === 1) return inc[0].name;
+      return inc.length + " selected";
+    }
+
+    // tap a jurisdiction name → switch the feed to ONLY that one (deselect the rest)
+    function selectOnly(item) {
+      state.subs.forEach(function (s) { s.included = (s === item); });
+      state.dropdownOpen = false;
+      render();
+    }
+
+    // ---- modal ---------------------------------------------------------------
+    function openModal() { state.modalOpen = true; state.dropdownOpen = false; render(); }
+    function closeOverlays() { state.modalOpen = false; state.dropdownOpen = false; render(); }
+
+    // ---- main render ---------------------------------------------------------
+    function render() {
+      // auth state + its callout
+      show($("loginGlyph"), !state.loggedIn);
+      show($("profileGlyph"), state.loggedIn);
+      $("authCircle").setAttribute("fill", state.loggedIn ? "#333" : "#ffffff");
+      $("annoLoginA").textContent = state.loggedIn ? "Signed in (avatar shown)" : "Logged out";
+      $("annoLoginB").textContent = state.loggedIn ? "tap → profile (L to toggle)" : "tap → sign in (L to toggle)";
+
+      // selector label reflects the unified-feed filter
+      $("curJur").textContent = pillLabel();
+
+      // dropdown
+      if (state.dropdownOpen) buildDropdown();
+      show($("dropdown"), state.dropdownOpen);
+      show($("modal"), state.modalOpen);
+
+      // fab icon + callout depend on the current page
+      show($("fabCompose"), state.page === "feed");
+      show($("fabFeed"), state.page !== "feed");
+      $("annoFabA").textContent = state.page === "feed" ? "On Feed" : "On another page";
+      $("annoFabB").textContent = state.page === "feed" ? "tap → compose a post (quill)" : "tap → go to Feed (list)";
+
+      // labels: chrome always (when on); dropdown/modal only while open;
+      // the include-filter callout only when checkboxes are actually shown
+      show($("anno-chrome"), state.labelsOn);
+      show($("anno-dropdown"), state.labelsOn && state.dropdownOpen);
+      show($("anno-dd-filter"), state.labelsOn && state.dropdownOpen && state.subs.length > 1);
+      show($("anno-modal"), state.labelsOn && state.modalOpen);
+    }
+
+    // ---- wiring --------------------------------------------------------------
+    $("selectorBtn").addEventListener("click", function () { state.dropdownOpen = !state.dropdownOpen; render(); });
+    $("authBtn").addEventListener("click", function () { state.loggedIn = !state.loggedIn; render(); });
+    $("fab").addEventListener("click", function () { state.page = (state.page === "feed") ? "other" : "feed"; render(); });
+    $("modalBackdrop").addEventListener("click", closeOverlays);
+    $("resultAlberta").addEventListener("click", function () {
+      if (!state.subs.some(function (s) { return s.name === "Alberta"; })) {
+        state.subs.push({ name: "Alberta", icon: "#ic-building", included: true });
+      }
+      state.modalOpen = false;
+      state.dropdownOpen = true; // reopen list so the new entry is visible
+      render();
+    });
+
+    document.addEventListener("keydown", function (e) {
+      switch (e.key) {
+        case "l": case "L": state.loggedIn = !state.loggedIn; render(); break;
+        case "v": case "V": state.labelsOn = !state.labelsOn; render(); break;
+        case "j": case "J": state.dropdownOpen = !state.dropdownOpen; render(); break;
+        case "a": case "A": openModal(); break;
+        case "p": case "P": state.page = (state.page === "feed") ? "other" : "feed"; render(); break;
+        case "Escape": closeOverlays(); break;
+      }
+    });
+
+    render();
+  ]]></script>
+</svg>
