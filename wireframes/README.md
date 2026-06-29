@@ -53,9 +53,10 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
     stays selected — never None), or tap a **name** to switch to **only** that type. No external
     links, no "add" button.
   - **Refine** (separate from the type interlock) — a **Verified** value toggle cycling
-    **None → ID → Residency** (minimum author verification), and a **My districts** visibility
-    toggle shown as an **eye / closed-eye** (open eye = shown, struck-through eye = hidden, with the
-    row dimmed when off). These move independently of the record-type selection.
+    **None → ID → Residency** (minimum author verification; the row is **dimmed at None**), and a
+    **My districts** visibility toggle shown as an **eye / closed-eye** (open eye = shown,
+    struck-through eye = hidden, row dimmed when off — and it defaults to **off**). These move
+    independently of the record-type selection.
 - **Jurisdiction selector** (centre): opens the subscribed-jurisdiction list. Each row has two
   distinct actions:
   - **Tap the name** → switch to **only** that jurisdiction (deselects all others), open its
@@ -74,7 +75,8 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
 - **Add Jurisdiction** (Spotlight modal): a search field plus a single fixed result, **Alberta**,
   marked with a government-building icon (the only jurisdiction reachable at launch). Selecting it
   appends Alberta to the subscribed list.
-- **Login / profile** (top-right): login glyph when logged out, filled avatar when logged in.
+- **Login / profile** (top-right): the login (door-arrow) glyph when logged out; when logged in it
+  becomes the **"AM" initials avatar** (matching the profile-modal header).
   Flow: tap while logged out to open the **register / login modal** (a centered card — not a
   full-screen sheet — with **Register** and **Log in** buttons that span the card, plus a
   **Recover account** link for passkey/OTP recovery; both buttons resolve to a signed-in session in
@@ -90,6 +92,10 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
     are deferred no-ops; only the Theme toggle is live.
   - A full-width **Log out** button, then the **Terms of Service · Privacy Policy** hyperlinks, and a
     **© copyright** line at the very bottom.
+
+  The spotlight and profile modals each have an explicit **✕ close button** (top-right) in addition
+  to Esc / tap-outside; their secondary hint lines are prefixed **"Alt:"** to mark them as the
+  alternative dismissal.
 - **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a **newspaper**
   ("go to Feed") icon on any other page — including a jurisdiction page opened from the selector's
   external-open glyph — so it acts as "go home".
