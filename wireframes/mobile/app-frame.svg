@@ -528,6 +528,86 @@
         <text x="215" y="858" font-size="11" fill="#bbb" text-anchor="middle">© 2026 OurSay · all rights reserved</text>
       </g>
 
+      <!-- ===================== COMPOSE: WHERE MODAL (only when >1 jurisdiction selected) ===================== -->
+      <!-- Tap the compose FAB while logged in with more than one jurisdiction in the feed → pick which
+           one to post in. With exactly one selected this step is skipped (that jurisdiction is assumed). -->
+      <g id="whereModal" display="none">
+        <rect id="whereBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect id="whereCard" x="55" y="210" width="320" height="220" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="252" font-size="17" fill="#333" text-anchor="middle" font-weight="bold">Where Do You Want to Post?</text>
+        <text x="215" y="276" font-size="12" fill="#999" text-anchor="middle">Pick a jurisdiction</text>
+        <g id="whereInner"></g>
+        <g id="whereCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="210" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="203" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
+      <!-- ===================== COMPOSE: TYPE MODAL (allowed root types for the jurisdiction) ===================== -->
+      <!-- Choose the post root type. Allowed roots are per-jurisdiction (Global = all; Alberta =
+           statements + petitions). If a jurisdiction allows only ONE root, this step is skipped. -->
+      <g id="typeModal" display="none">
+        <rect id="typeBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect id="typeCard" x="55" y="230" width="320" height="220" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="272" font-size="17" fill="#333" text-anchor="middle" font-weight="bold">What Do You Want to Post?</text>
+        <text id="typeSubtitle" x="215" y="296" font-size="12" fill="#999" text-anchor="middle">In Global</text>
+        <g id="typeInner"></g>
+        <g id="typeCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="230" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="223" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
+      <!-- ===================== COMPOSE MODAL (the editor) ===================== -->
+      <!-- Jurisdiction dropdown changes where it posts, but only to jurisdictions that support the
+           current root type — unsupported ones are greyed out. A Type label + Change button jump back
+           to the type step (hidden when the jurisdiction allows only one root). Esc / tap-outside / ✕ close. -->
+      <g id="composeModal" display="none">
+        <rect id="composeBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="45" y="170" width="340" height="440" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="68" y="210" font-size="17" fill="#333" font-weight="bold">New Post</text>
+        <g id="composeCloseBtn" style="cursor:pointer">
+          <circle cx="370" cy="172" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="363" y="165" width="14" height="14" stroke="#fff"/>
+        </g>
+
+        <!-- jurisdiction selector (change where it posts) -->
+        <text x="68" y="238" font-size="10.5" fill="#999" font-weight="bold">POSTING IN</text>
+        <g id="composeJurBtn" style="cursor:pointer">
+          <rect x="68" y="246" width="210" height="38" rx="8" fill="#f7f7f7" stroke="#ddd"/>
+          <use id="composeJurIcon" href="#ic-globe" xlink:href="#ic-globe" x="80" y="255" width="20" height="20" stroke="#333"/>
+          <text id="composeJurName" x="108" y="270" font-size="14" fill="#333">Global</text>
+          <path d="M250,261 l12,0 l-6,7 z" fill="#888"/>
+        </g>
+
+        <!-- post type + change -->
+        <text x="68" y="312" font-size="10.5" fill="#999" font-weight="bold">TYPE</text>
+        <use id="composeTypeIcon" href="#ic-message" xlink:href="#ic-message" x="68" y="320" width="20" height="20" stroke="#333"/>
+        <text id="composeTypeLabel" x="96" y="335" font-size="14" fill="#333">Statement</text>
+        <g id="composeChangeBtn" style="cursor:pointer">
+          <rect x="298" y="318" width="60" height="24" rx="6" fill="#ffffff" stroke="#333"/>
+          <text x="328" y="334" font-size="12" fill="#333" text-anchor="middle">Change</text>
+        </g>
+
+        <!-- editor placeholders (mock, no real input) -->
+        <rect x="68" y="356" width="290" height="34" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="80" y="378" font-size="12" fill="#bbb">Title</text>
+        <rect x="68" y="400" width="290" height="120" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text id="composeBodyPh" x="80" y="422" font-size="12" fill="#bbb">Write your statement…</text>
+
+        <g id="composePostBtn" style="cursor:pointer">
+          <rect x="68" y="536" width="290" height="44" rx="10" fill="#333"/>
+          <text x="213" y="564" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Post</text>
+        </g>
+        <text x="215" y="598" font-size="11" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+
+        <!-- jurisdiction dropdown panel (popover; last child so it paints over the form) -->
+        <g id="composeJurMenu" display="none">
+          <rect id="composeJurBg" x="68" y="288" width="210" height="80" rx="8" fill="#ffffff" stroke="#333"/>
+          <g id="composeJurInner"></g>
+        </g>
+      </g>
+
     </g><!-- /screenClip -->
   </g><!-- /phone -->
 
@@ -691,6 +771,11 @@
       ],
       verified: 0,             // min author verification: 0 None · 1 ID · 2 Residency
       myDistricts: false,      // limit to my districts — independent of record types (off by default)
+      // compose flow (new-post FAB): where → type → compose
+      composeStep: null,       // null | "where" | "type" | "compose"
+      composeJur: null,        // chosen jurisdiction name
+      composeType: null,       // chosen root key: "statement" | "petition" | "poll"
+      composeJurOpen: false,   // jurisdiction dropdown inside the compose modal
       // subscribed jurisdictions: persisted to a cookie (works logged-out).
       // `included` drives the unified-feed filter.
       subs: [{ name: "Global", icon: "#ic-globe", included: true }]
@@ -698,6 +783,18 @@
 
     var KYC_TIERS = ["Unverified", "Identity Verified", "Residency Verified"];
     var VERIFIED_LEVELS = ["None", "ID", "Residency"];
+
+    // postable root types and the roots each jurisdiction allows (default = all).
+    // Alberta accepts statements + petitions only; a 1-root jurisdiction skips the type step.
+    var ROOT_TYPES = [
+      { key: "statement", label: "Statement", icon: "#ic-message" },
+      { key: "petition",  label: "Petition",  icon: "#ic-clipboard" },
+      { key: "poll",      label: "Poll",      icon: "#ic-bar" }
+    ];
+    var JUR_ROOTS = { "Global": ["statement", "petition", "poll"], "Alberta": ["statement", "petition"] };
+    function rootsFor(name) { return JUR_ROOTS[name] || ["statement", "petition", "poll"]; }
+    function rootMeta(key) { return ROOT_TYPES.filter(function (r) { return r.key === key; })[0] || ROOT_TYPES[0]; }
+    function subByName(name) { return state.subs.filter(function (s) { return s.name === name; })[0]; }
 
     function $(id) { return document.getElementById(id); }
     function show(el, on) { el.setAttribute("display", on ? "inline" : "none"); }
@@ -927,6 +1024,94 @@
       render(); // keep the panel open — more sections below
     }
 
+    // ---- compose flow (new-post FAB): where → type → compose -----------------
+    function startCompose() {
+      state.dropdownOpen = false; state.filterOpen = false; state.modalOpen = false;
+      state.composeJurOpen = false;
+      var sel = state.subs.filter(function (s) { return s.included; });
+      if (sel.length > 1) { state.composeJur = null; state.composeStep = "where"; render(); }
+      else { enterType(sel[0].name); }                 // exactly one selected → assume it
+    }
+    // chosen (or assumed) jurisdiction → type step, skipped when only one root is allowed
+    function enterType(name) {
+      state.composeJur = name;
+      var roots = rootsFor(name);
+      if (roots.length === 1) { state.composeType = roots[0]; state.composeStep = "compose"; }
+      else {
+        if (roots.indexOf(state.composeType) === -1) state.composeType = null; // drop a now-invalid type
+        state.composeStep = "type";
+      }
+      state.composeJurOpen = false;
+      render();
+    }
+    function enterCompose(key) { state.composeType = key; state.composeStep = "compose"; render(); }
+
+    // "Where do you want to post" — the selected jurisdictions
+    function buildWhere() {
+      var inner = $("whereInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+      var X = 55, W = 320, TOP = 296, RH = 44, y = TOP;
+      state.subs.filter(function (s) { return s.included; }).forEach(function (item) {
+        var rowY = y, row = document.createElementNS(SVG_NS, "g");
+        row.style.cursor = "pointer";
+        row.appendChild(rect(X + 12, rowY, W - 24, RH - 6, 8, "#ffffff", "#ddd"));
+        row.appendChild(icon(item.icon, X + 26, rowY + 9, 20, "#333"));
+        row.appendChild(txt(X + 54, rowY + 25, item.name, 15, "#333"));
+        row.appendChild(icon("#ic-chevron-right", X + W - 40, rowY + 9, 20, "#999"));
+        row.addEventListener("click", function () { enterType(item.name); });
+        inner.appendChild(row);
+        y += RH;
+      });
+      $("whereCard").setAttribute("height", (y + 16) - 210);
+    }
+
+    // post-type picker — the roots the chosen jurisdiction allows
+    function buildType() {
+      var inner = $("typeInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+      $("typeSubtitle").textContent = "In " + (state.composeJur || "Global");
+      var X = 55, W = 320, TOP = 316, RH = 52, y = TOP;
+      rootsFor(state.composeJur).forEach(function (key) {
+        var rm = rootMeta(key), rowY = y, row = document.createElementNS(SVG_NS, "g");
+        row.style.cursor = "pointer";
+        row.appendChild(rect(X + 12, rowY, W - 24, RH - 8, 8, "#ffffff", "#ddd"));
+        row.appendChild(icon(rm.icon, X + 28, rowY + 11, 22, "#333"));
+        row.appendChild(txt(X + 62, rowY + 28, rm.label, 15, "#333"));
+        row.appendChild(icon("#ic-chevron-right", X + W - 40, rowY + 12, 20, "#999"));
+        row.addEventListener("click", function () { enterCompose(key); });
+        inner.appendChild(row);
+        y += RH;
+      });
+      $("typeCard").setAttribute("height", (y + 16) - 230);
+    }
+
+    // jurisdiction dropdown inside the compose editor — unsupported roots are greyed out
+    function buildComposeJurMenu() {
+      var inner = $("composeJurInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+      var X = 68, W = 210, TOP = 292, RH = 36, y = TOP;
+      state.subs.forEach(function (item) {
+        var supported = rootsFor(item.name).indexOf(state.composeType) !== -1;
+        var col = supported ? "#333" : "#bbb", rowY = y;
+        var row = document.createElementNS(SVG_NS, "g");
+        row.appendChild(rect(X + 4, rowY, W - 8, RH, 6, "#ffffff"));
+        row.appendChild(icon(item.icon, X + 12, rowY + 9, 18, col));
+        row.appendChild(txt(X + 38, rowY + 23, item.name, 13.5, col));
+        if (supported) {
+          row.style.cursor = "pointer";
+          if (item.name === state.composeJur) row.appendChild(icon("#ic-check", X + W - 28, rowY + 9, 16, "#333"));
+          row.addEventListener("click", function (e) { e.stopPropagation(); state.composeJur = item.name; state.composeJurOpen = false; render(); });
+        } else {
+          var na = txt(X + W - 12, rowY + 23, "type N/A", 10.5, "#bbb");
+          na.setAttribute("text-anchor", "end");
+          row.appendChild(na);
+        }
+        inner.appendChild(row);
+        y += RH;
+      });
+      $("composeJurBg").setAttribute("height", (y + 6) - TOP);
+    }
+
     // ---- modals --------------------------------------------------------------
     function openModal() { state.modalOpen = true; state.dropdownOpen = false; state.filterOpen = false; state.profileOpen = false; state.authView = null; render(); }
     function closeOverlays() {
@@ -936,7 +1121,17 @@
       state.profileOpen = false;
       state.authView = null;
       state.passkeyEnrolled = false;
+      state.composeStep = null;
+      state.composeJurOpen = false;
       render();
+    }
+
+    // new-post FAB: on another page it goes home to the Feed; on the Feed it composes
+    // (logged-out → register/login chooser; logged-in → the where/type/compose flow)
+    function onFabClick() {
+      if (state.page !== "feed") { state.page = "feed"; render(); return; }
+      if (!state.loggedIn) { state.authView = "choose"; render(); return; }
+      startCompose();
     }
 
     // logged out: open the register/login chooser · logged in: toggle profile modal
@@ -1006,6 +1201,26 @@
       $("themeIcon").setAttribute("href", dark ? "#ic-moon" : "#ic-sun");
       $("themeIcon").setAttributeNS(XLINK, "href", dark ? "#ic-moon" : "#ic-sun");
 
+      // compose flow: where → type → compose (logged-in only)
+      show($("whereModal"),   state.loggedIn && state.composeStep === "where");
+      show($("typeModal"),    state.loggedIn && state.composeStep === "type");
+      show($("composeModal"), state.loggedIn && state.composeStep === "compose");
+      if (state.composeStep === "where") buildWhere();
+      if (state.composeStep === "type") buildType();
+      if (state.composeStep === "compose") {
+        var jn = state.composeJur || "Global", sub = subByName(jn), rm = rootMeta(state.composeType);
+        $("composeJurName").textContent = jn;
+        $("composeJurIcon").setAttribute("href", sub ? sub.icon : "#ic-globe");
+        $("composeJurIcon").setAttributeNS(XLINK, "href", sub ? sub.icon : "#ic-globe");
+        $("composeTypeLabel").textContent = rm.label;
+        $("composeTypeIcon").setAttribute("href", rm.icon);
+        $("composeTypeIcon").setAttributeNS(XLINK, "href", rm.icon);
+        $("composeBodyPh").textContent = "Write your " + rm.label.toLowerCase() + "…";
+        show($("composeChangeBtn"), rootsFor(jn).length > 1); // nothing to change if only one root
+        if (state.composeJurOpen) buildComposeJurMenu();
+        show($("composeJurMenu"), state.composeJurOpen);
+      }
+
       // fab icon + callout depend on the current page
       show($("fabCompose"), state.page === "feed");
       show($("fabFeed"), state.page !== "feed");
@@ -1028,7 +1243,7 @@
     $("filterBtn").addEventListener("click", function () { state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); });
     $("selectorBtn").addEventListener("click", function () { state.dropdownOpen = !state.dropdownOpen; state.filterOpen = false; render(); });
     $("authBtn").addEventListener("click", onAuthClick);
-    $("fab").addEventListener("click", function () { state.page = (state.page === "feed") ? "other" : "feed"; render(); });
+    $("fab").addEventListener("click", onFabClick);
     $("modalBackdrop").addEventListener("click", closeOverlays);
     $("filterBackdrop").addEventListener("click", closeOverlays); // click outside → close
     $("ddBackdrop").addEventListener("click", closeOverlays);     // click outside → close
@@ -1075,6 +1290,17 @@
     $("loginCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
     $("loginPasskeyBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
     $("loginRecoverBtn").addEventListener("click", function (e) { e.stopPropagation(); /* recovery flow — deferred */ });
+
+    // compose flow: where → type → compose
+    $("whereBackdrop").addEventListener("click", closeOverlays);
+    $("whereCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("typeBackdrop").addEventListener("click", closeOverlays);
+    $("typeCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("composeBackdrop").addEventListener("click", closeOverlays);
+    $("composeCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("composeJurBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeJurOpen = !state.composeJurOpen; render(); });
+    $("composeChangeBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeStep = "type"; state.composeJurOpen = false; render(); });
+    $("composePostBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); /* mock submit → back to Feed */ });
 
     // profile modal actions
     $("profileBackdrop").addEventListener("click", closeOverlays);

@@ -112,12 +112,25 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
   - A full-width **Log out** button, then the **Terms of Service · Privacy Policy** hyperlinks, and a
     **© copyright** line at the very bottom.
 
-  Every modal (spotlight, chooser, register, login, profile) has a small circular **black ✕ close
-  button** hanging off the card's top-right corner, in addition to Esc / tap-outside; their
-  secondary hint lines are prefixed **"Alt:"** to mark them as the alternative dismissal.
+  Every modal (spotlight, chooser, register, login, profile, and the compose-flow modals) has a small
+  circular **black ✕ close button** hanging off the card's top-right corner, in addition to Esc /
+  tap-outside; their secondary hint lines are prefixed **"Alt:"** to mark them as the alternative
+  dismissal.
 - **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a **newspaper**
   ("go to Feed") icon on any other page — including a jurisdiction page opened from the selector's
-  external-open glyph — so it acts as "go home".
+  external-open glyph — so it acts as "go home". On another page it just returns to the Feed; on the
+  Feed it starts a **compose flow** that mirrors the posting rules:
+  - **Logged out** → the register / login chooser (you must have an account to post).
+  - **Logged in, >1 jurisdiction selected** → a **"Where Do You Want to Post?"** modal to pick which
+    of the selected jurisdictions to post in. With exactly **one** selected, that step is skipped and
+    the jurisdiction is assumed.
+  - Then a **post-type** step listing the **allowed root types for that jurisdiction** (Global allows
+    all — Statement / Petition / Poll; Alberta allows Statement + Petition only). If a jurisdiction
+    allows just **one** root, this step is skipped too.
+  - Finally the **compose modal** (mock editor): a **jurisdiction dropdown** to change where it posts
+    — but only to jurisdictions that **support the current root type** (unsupported ones are **greyed
+    out**) — plus a **Type** label with a **Change** button back to the type step (hidden when the
+    jurisdiction allows only one root). Same Esc / tap-outside / ✕ dismissal as every other modal.
 
 ### Callout behaviour
 
