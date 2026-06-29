@@ -744,6 +744,7 @@
       modalOpen: false,        // add-jurisdiction spotlight
       authView: null,          // logged-out auth flow: null | "choose" | "register" | "verify" | "login"
       otpAllowed: false,       // account's OTP-login-allow window open (toggle: O) — adds email-code login
+      loginVerified: false,    // login modal: email OTP verified → passkey button becomes "Register Passkey"
       profileOpen: false,      // profile modal (logged-in only)
       labelsOn: true,
       page: "feed",            // "feed" | "other"
@@ -1286,6 +1287,7 @@
       state.filterOpen = false;
       state.profileOpen = false;
       state.authView = null;
+      state.loginVerified = false;
       state.composeStep = null;
       state.composeJurOpen = false;
       render();
@@ -1306,27 +1308,44 @@
       render();
     }
     // passkey login resolves to a full signed-in session (demo) — closes the auth flow
-    function signIn() { state.loggedIn = true; state.authView = null; render(); }
+    function signIn() { state.loggedIn = true; state.authView = null; state.loginVerified = false; render(); }
 
-    // login modal body — all logins are passkey; the OTP path appears only in the allow window
+    // login modal body — all logins are passkey. The modal only opens when the OTP window is on
+    // (O off logs in straight from the chooser). Three states:
+    //   otp + not verified : OTP boxes · Verify Email · — or — · Log In With Passkey (→ in)
+    //   otp + verified     : Register Passkey (enrols this device's key, then reverts + closes OTP)
+    //   otp off            : just Log In With Passkey (the post-register / direct state)
     function buildLoginInner() {
       var g = $("loginInner");
       while (g.firstChild) g.removeChild(g.firstChild);
       var CX = 215, y;
 
-      if (state.otpAllowed) {
-        g.appendChild(centerTxt(CX, 322, "Enter your email code — or use your passkey", 12, "#999"));
-        otpRow(g, CX, 340, ["4", "7", "2", "9", "0", "5"]);
-        // entering the OTP runs the Register-Passkey flow (enrol a passkey on this new device)
-        g.appendChild(primaryBtn(79, 400, 272, "Register Passkey", "#ic-key", signIn));
-        g.appendChild(outlineBtn(79, 458, 272, "Log In With Passkey", "#ic-key", signIn));
-        y = 512;
+      if (state.otpAllowed && state.loginVerified) {
+        // email verified → register a passkey on this device (does NOT log in; reverts + closes OTP window)
+        g.appendChild(centerTxt(CX, 322, "Email verified — add a passkey to this device", 12, "#999"));
+        g.appendChild(centerTxt(CX, 346, "✓ jane@example.ca", 12.5, "#333"));
+        g.appendChild(primaryBtn(79, 366, 272, "Register Passkey", "#ic-key", function () {
+          state.loginVerified = false; state.otpAllowed = false; render(); // Login button returns, O turns off
+        }));
+        y = 432;
+      } else if (state.otpAllowed) {
+        // OTP path OR straight passkey login
+        g.appendChild(centerTxt(CX, 322, "Enter your email code, or use your passkey", 12, "#999"));
+        otpRow(g, CX, 338, ["4", "7", "2", "9", "0", "5"]);
+        g.appendChild(primaryBtn(79, 396, 272, "Verify Email", "#ic-mail", function () {
+          state.loginVerified = true; render(); // assumed correct → passkey button becomes Register
+        }));
+        g.appendChild(orDivider(CX, 458));
+        g.appendChild(outlineBtn(79, 472, 272, "Log In With Passkey", "#ic-key", signIn));
+        y = 530;
       } else {
+        // default + post-register: a single passkey login
         g.appendChild(centerTxt(CX, 322, "Use your passkey to sign in", 12, "#999"));
         g.appendChild(primaryBtn(79, 346, 272, "Log In With Passkey", "#ic-key", signIn));
         y = 404;
       }
 
+      y += 4; // nudge the recover line + footer down a touch
       var rec = document.createElementNS(SVG_NS, "g"); rec.style.cursor = "pointer";
       var rt = centerTxt(CX, y, "Lost your passkey? Recover account", 13, "#555");
       rt.setAttribute("text-decoration", "underline");
@@ -1338,6 +1357,21 @@
       y += 18;
       g.appendChild(centerTxt(CX, y, "Alt: Esc or tap outside to close", 11, "#999"));
       $("loginCard").setAttribute("height", (y + 14) - 250);
+    }
+    // "— or —" divider between the two login paths
+    function orDivider(cx, y) {
+      var g = document.createElementNS(SVG_NS, "g");
+      function hline(x1, x2) {
+        var l = document.createElementNS(SVG_NS, "line");
+        l.setAttribute("x1", x1); l.setAttribute("x2", x2);
+        l.setAttribute("y1", y); l.setAttribute("y2", y);
+        l.setAttribute("stroke", "#ddd");
+        return l;
+      }
+      g.appendChild(hline(79, cx - 16));
+      g.appendChild(hline(cx + 16, 351));
+      g.appendChild(centerTxt(cx, y + 4, "or", 11, "#999"));
+      return g;
     }
     // small builders shared by the login body
     function centerTxt(cx, y, s, size, fill) { var t = txt(cx, y, s, size, fill); t.setAttribute("text-anchor", "middle"); return t; }
@@ -1485,7 +1519,11 @@
     // chooser modal: pick register or login (logged-out only)
     $("authBackdrop").addEventListener("click", closeOverlays);
     $("registerBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); });
-    $("loginBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "login"; render(); });
+    $("loginBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (!state.otpAllowed) { signIn(); }                                       // O off → direct passkey login
+      else { state.authView = "login"; state.loginVerified = false; render(); }   // O on → OTP/passkey modal
+    });
     $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); }); // reset reuses register flow
 
     // register form: submit sends the registration OTP email, then opens the verify page
@@ -1522,7 +1560,7 @@
       render();
     });
     $("addDeviceBtn").addEventListener("click", function (e) { e.stopPropagation(); state.deviceCount++; render(); });
-    $("addDeviceEmailBtn").addEventListener("click", function (e) { e.stopPropagation(); state.deviceCount++; render(); });
+    $("addDeviceEmailBtn").addEventListener("click", function (e) { e.stopPropagation(); state.otpAllowed = true; render(); }); // open the OTP-login window for the new device
 
     // direct account-settings items (each its own destination — deferred no-ops)
     ["editProfileBtn", "changeAddrBtn", "privacySettingsBtn", "jurisdictionsBtn", "termsBtn", "privacyBtn"].forEach(function (id) {
@@ -1548,7 +1586,7 @@
         case "j": case "J": state.dropdownOpen = !state.dropdownOpen; state.filterOpen = false; render(); break;
         case "f": case "F": state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); break;
         case "a": case "A": openModal(); break;
-        case "o": case "O": state.otpAllowed = !state.otpAllowed; render(); break; // OTP-login window
+        case "o": case "O": state.otpAllowed = !state.otpAllowed; state.loginVerified = false; render(); break; // OTP-login window
         case "p": case "P": state.page = (state.page === "feed") ? "other" : "feed"; render(); break;
         case "Escape": closeOverlays(); break;
       }

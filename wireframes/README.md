@@ -95,12 +95,18 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
     code boxes** and a single **Register Passkey** button — tapping it enrolls this device's
     account-login passkey and signs you in (all logins are passkey, so there is no separate
     "log in with passkey" step here). A **Resend** link covers a lost code.
-  - The chooser's **Log In** path (returning user) opens the **login modal**. Since **all logins are
-    passkey**, by default it is a single **Log In With Passkey** button. When the account is in the
-    **OTP-login-allow window** (toggle with **O**), it additionally shows **OTP code boxes**: entering
-    the code runs the **Register Passkey** flow (enrol a passkey on this new device), while an existing
-    device can still tap **Log In With Passkey** and skip OTP entirely. The **Recover account** link
-    (here and on the chooser) routes into the **register/reset flow** (reset reuses the register form).
+  - The chooser's **Log In** path (returning user) depends on the **OTP-login-allow window** (toggle
+    with **O**). Since **all logins are passkey**:
+    - **O off** → **Log In logs you in immediately** (assumes a valid passkey on this device) — no
+      intermediate modal.
+    - **O on** → opens the **login modal** with **OTP code boxes**, a **Verify Email** button, an
+      **— or —** divider, and a **Log In With Passkey** button. **Log In With Passkey** signs you in
+      directly (skips OTP). **Verify Email** (assumed correct) turns the passkey button into **Register
+      Passkey**; tapping that enrols a passkey on this new device, after which the **Log In With
+      Passkey** button reappears and the **OTP window closes (O turns off)** — so you finish by logging
+      in with the freshly-registered passkey.
+    The **Recover account** link (here and on the chooser) routes into the **register/reset flow**
+    (reset reuses the register form).
 
   In the demo, the passkey login resolves to a signed-in session. While logged in, tap the avatar to
   open the **profile modal**, which holds:
