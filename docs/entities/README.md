@@ -113,6 +113,7 @@ docs/entities/
 
 - [01-CONTRIBUTOR-SPEC.md](../01-CONTRIBUTOR-SPEC.md) — behavioural narrative
 - [10-USER-STORIES.md](../10-USER-STORIES.md) — story + acceptance layer (front-end), traces back here
+- [11-USER-FLOWS.md](../11-USER-FLOWS.md) — journey layer (steps/screens/branches), wireframe prerequisite
 - [GLOSSARY.md](../GLOSSARY.md) — canonical vocabulary
 - [REGION-MODEL.md](../REGION-MODEL.md) — geo implementation anchor
 - [08-IDENTITY-AND-DEVICE-POLICY.md](../08-IDENTITY-AND-DEVICE-POLICY.md) — signing and privacy
