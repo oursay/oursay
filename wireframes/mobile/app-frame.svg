@@ -276,7 +276,7 @@
           </g>
           <g id="loginBtn" style="cursor:pointer">
             <rect x="79" y="404" width="272" height="46" rx="10" fill="#ffffff" stroke="#333"/>
-            <text x="215" y="433" font-size="15" fill="#333" text-anchor="middle">Log in</text>
+            <text x="215" y="433" font-size="15" fill="#333" text-anchor="middle">Log In</text>
           </g>
           <g id="recoverBtn" style="cursor:pointer">
             <text x="215" y="486" font-size="13" fill="#555" text-anchor="middle" text-decoration="underline">Trouble signing in? Recover account</text>
@@ -287,6 +287,146 @@
             <circle cx="375" cy="250" r="13" fill="#333"/>
             <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
           </g>
+        </g>
+      </g>
+
+      <!-- ===================== REGISTER MODAL (form → enroll first passkey) ===================== -->
+      <!-- Collects Profile PII (name, address, email) + optional public User fields; the age gate is
+           an over_18 yes/no flag (no stored DOB — see docs/entities/account/profile.md). Submit mocks
+           OTP-verified registration + enrolling the FIRST account-login passkey, then hands off to the
+           login-only modal for the full-session passkey login (docs gap [code-registration-scope]). -->
+      <g id="registerModal" display="none">
+        <rect id="registerBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="20" y="70" width="390" height="800" rx="24" fill="#ffffff" stroke="#333"/>
+
+        <text x="44" y="104" font-size="16" fill="#333" font-weight="bold">Create Account</text>
+        <text x="44" y="124" font-size="11.5" fill="#999">Verify email · add a passkey — no date of birth needed</text>
+        <g id="registerCloseBtn" style="cursor:pointer">
+          <circle cx="400" cy="72" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="393" y="65" width="14" height="14" stroke="#fff"/>
+        </g>
+
+        <!-- public profile (User: handle / display_name) -->
+        <text x="44" y="152" font-size="11" fill="#999" font-weight="bold">PUBLIC PROFILE</text>
+        <text x="44" y="172" font-size="11" fill="#999">Display name</text>
+        <rect x="44" y="180" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="199" font-size="12" fill="#bbb">Jane</text>
+        <text x="44" y="222" font-size="11" fill="#999">Handle</text>
+        <rect x="44" y="230" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="249" font-size="12" fill="#bbb">@jane_alberta</text>
+
+        <!-- private details (Profile PII — never public) -->
+        <text x="44" y="282" font-size="11" fill="#999" font-weight="bold">YOUR DETAILS — PRIVATE (KYC)</text>
+        <text x="44" y="302" font-size="11" fill="#999">First name</text>
+        <rect x="44" y="310" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="329" font-size="12" fill="#bbb">Jane</text>
+        <text x="223" y="302" font-size="11" fill="#999">Last name</text>
+        <rect x="223" y="310" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="233" y="329" font-size="12" fill="#bbb">Doe</text>
+        <text x="44" y="352" font-size="11" fill="#999">Email</text>
+        <rect x="44" y="360" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="379" font-size="12" fill="#bbb">jane@example.ca</text>
+
+        <!-- address (sets districts via geocode; never publicly surfaced) -->
+        <text x="44" y="412" font-size="11" fill="#999" font-weight="bold">ADDRESS — SETS YOUR DISTRICTS, NEVER PUBLIC</text>
+        <text x="44" y="432" font-size="11" fill="#999">Street address</text>
+        <rect x="44" y="440" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="459" font-size="12" fill="#bbb">123 Main St</text>
+        <text x="44" y="482" font-size="11" fill="#999">Apt / unit (optional)</text>
+        <rect x="44" y="490" width="342" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="509" font-size="12" fill="#bbb">Unit 4</text>
+        <text x="44" y="532" font-size="11" fill="#999">City</text>
+        <rect x="44" y="540" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="559" font-size="12" fill="#bbb">Calgary</text>
+        <text x="223" y="532" font-size="11" fill="#999">Province</text>
+        <rect x="223" y="540" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="233" y="559" font-size="12" fill="#bbb">AB</text>
+        <text x="44" y="582" font-size="11" fill="#999">Postal code</text>
+        <rect x="44" y="590" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="54" y="609" font-size="12" fill="#bbb">T2P 1A1</text>
+        <text x="223" y="582" font-size="11" fill="#999">Country</text>
+        <rect x="223" y="590" width="163" height="28" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="233" y="609" font-size="12" fill="#bbb">Canada (CA)</text>
+
+        <!-- age gate: over_18 yes/no flag (replaces stored birthdate — deprecated) -->
+        <rect x="44" y="634" width="18" height="18" rx="4" fill="#333"/>
+        <use href="#ic-check" xlink:href="#ic-check" x="45" y="635" width="16" height="16" stroke="#fff"/>
+        <text x="72" y="648" font-size="12.5" fill="#333">I am 18 or older</text>
+        <text x="190" y="648" font-size="11" fill="#999">— stored as a yes/no flag, no birthdate</text>
+
+        <!-- email verification note: a code is sent on submit; the passkey is enrolled on the next step -->
+        <rect x="44" y="668" width="342" height="56" rx="10" fill="#fafafa" stroke="#ddd"/>
+        <use href="#ic-mail" xlink:href="#ic-mail" x="60" y="685" width="22" height="22" stroke="#333"/>
+        <text x="94" y="692" font-size="13" fill="#333" font-weight="bold">We'll email you a 6-digit code</text>
+        <text x="94" y="710" font-size="11" fill="#999">Verify it on the next step, then add a passkey</text>
+
+        <g id="regSubmitBtn" style="cursor:pointer">
+          <rect x="44" y="740" width="342" height="46" rx="10" fill="#333"/>
+          <text x="215" y="769" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Send Verification Code</text>
+        </g>
+        <text x="215" y="812" font-size="11.5" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+      </g>
+
+      <!-- ===================== VERIFY MODAL (registration page 2: OTP → enroll passkey → login) ===================== -->
+      <!-- Shown after the form sends a registration OTP to the user's email. Enter the code, tap
+           Register Passkey to enroll the first account-login passkey (limited registration scope); the
+           button then cycles to Login With Passkey, whose passkey login grants the FULL session and
+           closes the flow (docs gap [code-registration-scope]). -->
+      <g id="verifyModal" display="none">
+        <rect id="verifyBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="55" y="250" width="320" height="300" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="294" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Verify Your Email</text>
+        <text x="215" y="318" font-size="12" fill="#999" text-anchor="middle">Enter the 6-digit code sent to jane@example.ca</text>
+        <!-- OTP input — six code boxes (mock; no real entry) -->
+        <g id="otpBoxes">
+          <rect x="92"  y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="134" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="176" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="218" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="260" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <rect x="302" y="338" width="36" height="42" rx="6" fill="#f7f7f7" stroke="#ddd"/>
+          <text x="110" y="367" font-size="17" fill="#bbb" text-anchor="middle">4</text>
+          <text x="152" y="367" font-size="17" fill="#bbb" text-anchor="middle">7</text>
+          <text x="194" y="367" font-size="17" fill="#bbb" text-anchor="middle">2</text>
+          <text x="236" y="367" font-size="17" fill="#bbb" text-anchor="middle">9</text>
+          <text x="278" y="367" font-size="17" fill="#bbb" text-anchor="middle">0</text>
+          <text x="320" y="367" font-size="17" fill="#bbb" text-anchor="middle">5</text>
+        </g>
+        <g id="regPasskeyBtn" style="cursor:pointer">
+          <rect x="79" y="410" width="272" height="46" rx="10" fill="#333"/>
+          <use href="#ic-key" xlink:href="#ic-key" x="116" y="422" width="22" height="22" stroke="#fff"/>
+          <text id="regPasskeyLabel" x="234" y="439" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Register Passkey</text>
+        </g>
+        <text id="verifyHint" x="215" y="484" font-size="11.5" fill="#999" text-anchor="middle">Adds this device's passkey — your first sign-in credential</text>
+        <g id="verifyResendBtn" style="cursor:pointer">
+          <text x="215" y="510" font-size="12" fill="#555" text-anchor="middle" text-decoration="underline">Didn't get a code? Resend</text>
+        </g>
+        <text x="215" y="536" font-size="11" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+        <g id="verifyCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="250" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
+      <!-- ===================== LOGIN MODAL (returning user: passkey login → full session) ===================== -->
+      <!-- The chooser's "Log In" path for an existing account — a passkey login grants the FULL session. -->
+      <g id="loginModal" display="none">
+        <rect id="loginBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="55" y="250" width="320" height="250" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="298" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Log In</text>
+        <text x="215" y="322" font-size="12" fill="#999" text-anchor="middle">Use your passkey to unlock full access</text>
+        <g id="loginPasskeyBtn" style="cursor:pointer">
+          <rect x="79" y="346" width="272" height="46" rx="10" fill="#333"/>
+          <use href="#ic-key" xlink:href="#ic-key" x="116" y="358" width="22" height="22" stroke="#fff"/>
+          <text x="234" y="375" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Log In With Passkey</text>
+        </g>
+        <g id="loginRecoverBtn" style="cursor:pointer">
+          <text x="215" y="428" font-size="13" fill="#555" text-anchor="middle" text-decoration="underline">Lost your passkey? Recover account</text>
+        </g>
+        <text x="215" y="470" font-size="12" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+        <g id="loginCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="250" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
         </g>
       </g>
 
@@ -533,7 +673,8 @@
       loggedIn: false,
       dropdownOpen: false,
       modalOpen: false,        // add-jurisdiction spotlight
-      authModalOpen: false,    // register / login modal (logged-out only)
+      authView: null,          // logged-out auth flow: null | "choose" | "register" | "verify" | "login"
+      passkeyEnrolled: false,  // verify page: false → "Register Passkey", true → "Login With Passkey"
       profileOpen: false,      // profile modal (logged-in only)
       labelsOn: true,
       page: "feed",            // "feed" | "other"
@@ -716,6 +857,20 @@
       // --- section 1: record types (min-1 multi-include + exclusive body select) ---
       inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Record types"));
       y += 24;
+
+      // "All Records" — quick select-all button (no checkbox)
+      var allRowY = y, allRow = filterRow(allRowY);
+      allRow.addEventListener("click", function () {
+        state.recordTypes.forEach(function (t) { t.included = true; });
+        render();
+      });
+      allRow.appendChild(icon("#ic-list", FD_X + 12, allRowY + 10, 18, "#333"));
+      var allLbl = txt(FD_X + 40, allRowY + 25, "All Records", 14, "#333");
+      allLbl.setAttribute("font-weight", "bold");
+      allRow.appendChild(allLbl);
+      inner.appendChild(allRow);
+      y += FROW_H;
+
       state.recordTypes.forEach(function (item) {
         var rowY = y, row = filterRow(rowY);
         row.addEventListener("click", function () { selectTypeOnly(item); }); // body → only this
@@ -773,24 +928,25 @@
     }
 
     // ---- modals --------------------------------------------------------------
-    function openModal() { state.modalOpen = true; state.dropdownOpen = false; state.filterOpen = false; state.profileOpen = false; state.authModalOpen = false; render(); }
+    function openModal() { state.modalOpen = true; state.dropdownOpen = false; state.filterOpen = false; state.profileOpen = false; state.authView = null; render(); }
     function closeOverlays() {
       state.modalOpen = false;
       state.dropdownOpen = false;
       state.filterOpen = false;
       state.profileOpen = false;
-      state.authModalOpen = false;
+      state.authView = null;
+      state.passkeyEnrolled = false;
       render();
     }
 
-    // logged out: open register/login modal · logged in: toggle profile modal
+    // logged out: open the register/login chooser · logged in: toggle profile modal
     function onAuthClick() {
-      if (!state.loggedIn) { state.authModalOpen = !state.authModalOpen; }
+      if (!state.loggedIn) { state.authView = state.authView ? null : "choose"; }
       else { state.profileOpen = !state.profileOpen; }
       render();
     }
-    // register or log in resolves to a signed-in session (demo)
-    function signIn() { state.loggedIn = true; state.authModalOpen = false; render(); }
+    // passkey login resolves to a full signed-in session (demo) — closes the auth flow
+    function signIn() { state.loggedIn = true; state.authView = null; state.passkeyEnrolled = false; render(); }
     function logout() { state.loggedIn = false; state.profileOpen = false; render(); }
 
     // ---- main render ---------------------------------------------------------
@@ -814,8 +970,17 @@
       if (state.filterOpen) buildFilter();
       show($("filterDropdown"), state.filterOpen);
 
-      // register/login modal (only meaningful while logged out)
-      show($("authModal"), state.authModalOpen && !state.loggedIn);
+      // logged-out auth flow: chooser → register form → verify (OTP + passkey) · or → login
+      var inAuth = !state.loggedIn;
+      show($("authModal"),     inAuth && state.authView === "choose");
+      show($("registerModal"), inAuth && state.authView === "register");
+      show($("verifyModal"),   inAuth && state.authView === "verify");
+      show($("loginModal"),    inAuth && state.authView === "login");
+      // verify page: Register Passkey → (after enroll) Login With Passkey
+      $("regPasskeyLabel").textContent = state.passkeyEnrolled ? "Login With Passkey" : "Register Passkey";
+      $("verifyHint").textContent = state.passkeyEnrolled
+        ? "Passkey added — log in with it to finish"
+        : "Adds this device's passkey — your first sign-in credential";
 
       // spotlight result: if Alberta is already subscribed, offer Delete instead of Join
       var hasAlberta = state.subs.some(function (s) { return s.name === "Alberta"; });
@@ -855,7 +1020,7 @@
       show($("anno-dd-filter"), state.labelsOn && state.dropdownOpen && state.subs.length > 1);
       show($("anno-filter"), state.labelsOn && state.filterOpen);
       show($("anno-modal"), state.labelsOn && state.modalOpen);
-      show($("anno-auth"), state.labelsOn && state.authModalOpen && !state.loggedIn);
+      show($("anno-auth"), state.labelsOn && !!state.authView && !state.loggedIn);
       show($("anno-profile"), state.labelsOn && state.profileOpen && state.loggedIn);
     }
 
@@ -884,11 +1049,32 @@
       render();
     });
 
-    // register / login modal actions (both resolve to a signed-in session here)
+    // chooser modal: pick register or login (logged-out only)
     $("authBackdrop").addEventListener("click", closeOverlays);
-    $("registerBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
-    $("loginBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
+    $("registerBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); });
+    $("loginBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "login"; render(); });
     $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); /* recovery flow — deferred */ });
+
+    // register form: submit sends the registration OTP email, then opens the verify page
+    $("registerBackdrop").addEventListener("click", closeOverlays);
+    $("registerCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("regSubmitBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "verify"; state.passkeyEnrolled = false; render(); });
+
+    // verify page: enter OTP, enroll the first passkey, then the same button logs in (full session) and closes
+    $("verifyBackdrop").addEventListener("click", closeOverlays);
+    $("verifyCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("regPasskeyBtn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (!state.passkeyEnrolled) { state.passkeyEnrolled = true; render(); } // enroll first passkey → button cycles
+      else { signIn(); }                                                       // passkey login → full session, close
+    });
+    $("verifyResendBtn").addEventListener("click", function (e) { e.stopPropagation(); /* resend OTP — deferred */ });
+
+    // login modal (returning user): passkey login grants the full session and closes
+    $("loginBackdrop").addEventListener("click", closeOverlays);
+    $("loginCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("loginPasskeyBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
+    $("loginRecoverBtn").addEventListener("click", function (e) { e.stopPropagation(); /* recovery flow — deferred */ });
 
     // profile modal actions
     $("profileBackdrop").addEventListener("click", closeOverlays);

@@ -77,10 +77,29 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
   appends Alberta to the subscribed list.
 - **Login / profile** (top-right): a **person** icon when logged out; when logged in it becomes the
   **"AM" initials avatar** (matching the profile-modal header).
-  Flow: tap while logged out to open the **register / login modal** (a centered card — not a
+  Flow: tap while logged out to open the **register / login chooser** (a centered card — not a
   full-screen sheet — with **Register** and **Log in** buttons that span the card, plus a
-  **Recover account** link for passkey/OTP recovery; both buttons resolve to a signed-in session in
-  the demo). While logged in, tap the avatar to open the **profile modal**, which holds:
+  **Recover account** link). The two buttons branch into the real auth flow:
+  - **Register** → a near-full-screen **registration form** mirroring what the API actually
+    collects: public profile (**display name**, **handle**), private KYC details (**first / last
+    name**, **email**), and a Canadian **address** (street, unit, city, province, postal code,
+    country — used only to derive your districts, never shown publicly). The age gate is an
+    **"I am 18 or older"** yes/no flag — there is **no date-of-birth field** (the stored DOB is
+    being deprecated in favour of an `over_18` boolean). The form ends with a note that a 6-digit
+    code will be emailed. Inputs are mock placeholders; **Send Verification Code** assumes valid
+    values and (mock-)emails the code.
+  - That opens the **verify page** (registration step 2, shown after the email arrives): six **OTP
+    code boxes** and a single button that **cycles**. It starts as **Register Passkey** — tapping it
+    enrolls the first account-login passkey (the limited registration scope) and the button becomes
+    **Login With Passkey**; tapping that performs the passkey login that grants the **full** session
+    and **closes the flow**. A **Resend** link covers a lost code. (This two-step register-then-login
+    split reflects a documented API gap: registration issues a limited scope, then full access comes
+    from the passkey login.)
+  - The chooser's **Log In** path (returning user) opens the **login modal** — just **Log In With
+    Passkey** (→ full access, closes) plus a recover link; no email-code fallback.
+
+  In the demo, the passkey login resolves to a signed-in session. While logged in, tap the avatar to
+  open the **profile modal**, which holds:
   - **Identity verification** widget — current KYC tier badge + a **Validate ID** button (tap to
     cycle Unverified → Identity Verified → Residency Verified for the demo).
   - **Devices & passkeys** widget — a truncated device list with the full count, plus **Add Device**
@@ -93,9 +112,9 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
   - A full-width **Log out** button, then the **Terms of Service · Privacy Policy** hyperlinks, and a
     **© copyright** line at the very bottom.
 
-  The spotlight and profile modals each have a circular **✕ close button** hanging off the card's
-  top-right corner, in addition to Esc / tap-outside; their secondary hint lines are prefixed
-  **"Alt:"** to mark them as the alternative dismissal.
+  Every modal (spotlight, chooser, register, login, profile) has a small circular **black ✕ close
+  button** hanging off the card's top-right corner, in addition to Esc / tap-outside; their
+  secondary hint lines are prefixed **"Alt:"** to mark them as the alternative dismissal.
 - **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a **newspaper**
   ("go to Feed") icon on any other page — including a jurisdiction page opened from the selector's
   external-open glyph — so it acts as "go home".
