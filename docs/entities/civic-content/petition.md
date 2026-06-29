@@ -121,6 +121,7 @@ Signature count (total \| by tier) — policy-gated on list/detail; filterable o
 
 ## Gaps
 
+- **[proposed-petition-support-label] (PROPOSED — wireframe 2026-06-29)** — The mobile compose wireframe (`wireframes/mobile/app-frame.svg`) introduces a per-petition **support statement**: the customizable call-to-action label shown on the signature button, **defaulting to "Sign the Petition"**, capped at **60 chars**. This is a **new content field** on petition (suggested `supportLabel` / `signCta`) **not in the Attributes table above**. **Decision pending product/doc approval.** If approved: add the field to `PetitionContent` (`public-record/src/schema/types.ts`), add a `supportLabel` cap (≤60) to `JurisdictionConfig.contentLimits` + `DEFAULT_CONTENT_LIMITS`, enforce in `validateContent`, and surface it in the Attributes table. Flagged here for the doc/API teams.
 - **Content-limit enforcement (RESOLVED 2026-06-27)** — `title` and `text` are **required** (non-empty) and capped (AB: title 200, text 5000) at create *and* update by `validateContent` (`public-record/src/schema/content.ts`) against the jurisdiction's `JurisdictionConfig.contentLimits` (falling back to `DEFAULT_CONTENT_LIMITS`); see the [jurisdiction.md](../partitioning/jurisdiction.md) contentLimits table. `rules` (EntityRules) is untouched. Completed alongside `post` ([code-post-content-fields]).
 - Product status workflow (delivered/responded) not fully automated in API.
 - `official_response` record type is future ([REQUIREMENTS.md](../../../public-record/REQUIREMENTS.md) R1).

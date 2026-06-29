@@ -52,11 +52,13 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
     jurisdiction list: tap a **checkbox** to include/exclude a type in the feed (at least one always
     stays selected — never None), or tap a **name** to switch to **only** that type. No external
     links, no "add" button.
-  - **Refine** (separate from the type interlock) — a **Verified** value toggle cycling
-    **None → ID → Residency** (minimum author verification; the row is **dimmed at None**), and a
-    **My districts** visibility toggle shown as an **eye / closed-eye** (open eye = shown,
-    struck-through eye = hidden, row dimmed when off — and it defaults to **off**). These move
-    independently of the record-type selection.
+  - **Refine** — a **Verified** value toggle cycling **None → ID → Residency** (minimum author
+    verification; the row is **dimmed at None**), and a **My Districts** visibility toggle shown as an
+    **eye / closed-eye** (open eye = shown, struck-through eye = hidden; defaults to **off**).
+    **My Districts is only available to residency-verified accounts** (otherwise the row is greyed
+    with a "Residency only" note), and it is **interlocked with Verified**: turning My Districts on
+    jumps **Verified → Residency**, and changing Verified to anything below Residency drops My
+    Districts back off. (The KYC tier is cycled from the profile's **Validate ID** button.)
 - **Jurisdiction selector** (centre): opens the subscribed-jurisdiction list. Each row has two
   distinct actions:
   - **Tap the name** → switch to **only** that jurisdiction (deselects all others), open its
@@ -127,10 +129,21 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
   - Then a **post-type** step listing the **allowed root types for that jurisdiction** (Global allows
     all — Statement / Petition / Poll; Alberta allows Statement + Petition only). If a jurisdiction
     allows just **one** root, this step is skipped too.
-  - Finally the **compose modal** (mock editor): a **jurisdiction dropdown** to change where it posts
-    — but only to jurisdictions that **support the current root type** (unsupported ones are **greyed
-    out**) — plus a **Type** label with a **Change** button back to the type step (hidden when the
-    jurisdiction allows only one root). Same Esc / tap-outside / ✕ dismissal as every other modal.
+  - Finally the **compose modal** (mock editor). At the top, a **Type** label + **Change** button
+    (back to the type step; hidden when the jurisdiction allows only one root), then **Posting in**
+    with a **jurisdiction dropdown** to change where it posts — but only to jurisdictions that
+    **support the current root type** (unsupported ones are **greyed out** with a "type N/A" note).
+    The editor body is **type-specific**:
+    - **Statement** — Title + Body.
+    - **Petition** — Title + Body + a **Support statement** field: the customizable signature-button
+      label, defaulting to **"Sign the Petition"**, **60-char** limit (with a live counter). This is a
+      *proposed new petition field* — flagged for the doc/API teams in
+      [`petition.md`](../docs/entities/civic-content/petition.md) (`[proposed-petition-support-label]`).
+    - **Poll** — Question + an **Options** list starting at **2** (Yes/No baseline) with an **Add
+      option** control up to the jurisdiction's max (default 10; options past the first two get a
+      remove ✕). The cap is meant to come from per-jurisdiction `contentLimits`, not a hardcoded 10.
+
+    Same Esc / tap-outside / ✕ dismissal as every other modal; the card grows to fit the editor.
 
 ### Callout behaviour
 

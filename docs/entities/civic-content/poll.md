@@ -106,6 +106,7 @@ Poll creation may be gated by petition signature threshold (future).
 
 ## Gaps
 
+- **[wireframe-poll-options] (2026-06-29)** — The mobile compose wireframe (`wireframes/mobile/app-frame.svg`) seeds **2 options** (the Yes/No baseline) with an **add-option** control up to the jurisdiction's max. This matches the `options` spec above. **Technical teams:** wire the composer's cap to the per-jurisdiction **`contentLimits` maxPollOptions** (default 10) — do **not** hardcode 10 in the client.
 - **Content-limit enforcement (RESOLVED 2026-06-27)** — `question` is **required** (non-empty, AB: ≤200) and `options` is **required** (non-empty array, AB: ≤10 options, each a string ≤100); an optional `description` is capped (AB: 2000) when present. Enforced at create *and* update by `validateContent` (`public-record/src/schema/content.ts`) against the jurisdiction's `JurisdictionConfig.contentLimits` (falling back to `DEFAULT_CONTENT_LIMITS`); see the [jurisdiction.md](../partitioning/jurisdiction.md) contentLimits table. `rules` (EntityRules) is untouched; `description` is not yet a field on `PollContent`. Completed alongside `post` ([code-post-content-fields]).
 - **[mvp-c12-poll-results]**: No formal derived `result` entity publish at close.
 - Creation threshold from linked petition not implemented.

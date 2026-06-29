@@ -564,46 +564,37 @@
            to the type step (hidden when the jurisdiction allows only one root). Esc / tap-outside / ✕ close. -->
       <g id="composeModal" display="none">
         <rect id="composeBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
-        <rect x="45" y="170" width="340" height="440" rx="16" fill="#ffffff" stroke="#333"/>
+        <rect id="composeCard" x="45" y="170" width="340" height="440" rx="16" fill="#ffffff" stroke="#333"/>
         <text x="68" y="210" font-size="17" fill="#333" font-weight="bold">New Post</text>
         <g id="composeCloseBtn" style="cursor:pointer">
           <circle cx="370" cy="172" r="13" fill="#333"/>
           <use href="#ic-x" xlink:href="#ic-x" x="363" y="165" width="14" height="14" stroke="#fff"/>
         </g>
 
-        <!-- jurisdiction selector (change where it posts) -->
-        <text x="68" y="238" font-size="10.5" fill="#999" font-weight="bold">POSTING IN</text>
-        <g id="composeJurBtn" style="cursor:pointer">
-          <rect x="68" y="246" width="210" height="38" rx="8" fill="#f7f7f7" stroke="#ddd"/>
-          <use id="composeJurIcon" href="#ic-globe" xlink:href="#ic-globe" x="80" y="255" width="20" height="20" stroke="#333"/>
-          <text id="composeJurName" x="108" y="270" font-size="14" fill="#333">Global</text>
-          <path d="M250,261 l12,0 l-6,7 z" fill="#888"/>
-        </g>
-
-        <!-- post type + change -->
-        <text x="68" y="312" font-size="10.5" fill="#999" font-weight="bold">TYPE</text>
-        <use id="composeTypeIcon" href="#ic-message" xlink:href="#ic-message" x="68" y="320" width="20" height="20" stroke="#333"/>
-        <text id="composeTypeLabel" x="96" y="335" font-size="14" fill="#333">Statement</text>
+        <!-- post type + change (now ABOVE "Posting in") -->
+        <text x="68" y="236" font-size="10.5" fill="#999" font-weight="bold">TYPE</text>
+        <use id="composeTypeIcon" href="#ic-message" xlink:href="#ic-message" x="68" y="244" width="20" height="20" stroke="#333"/>
+        <text id="composeTypeLabel" x="96" y="259" font-size="14" fill="#333">Statement</text>
         <g id="composeChangeBtn" style="cursor:pointer">
-          <rect x="298" y="318" width="60" height="24" rx="6" fill="#ffffff" stroke="#333"/>
-          <text x="328" y="334" font-size="12" fill="#333" text-anchor="middle">Change</text>
+          <rect x="298" y="242" width="60" height="24" rx="6" fill="#ffffff" stroke="#333"/>
+          <text x="328" y="258" font-size="12" fill="#333" text-anchor="middle">Change</text>
         </g>
 
-        <!-- editor placeholders (mock, no real input) -->
-        <rect x="68" y="356" width="290" height="34" rx="6" fill="#f7f7f7" stroke="#ddd"/>
-        <text x="80" y="378" font-size="12" fill="#bbb">Title</text>
-        <rect x="68" y="400" width="290" height="120" rx="6" fill="#f7f7f7" stroke="#ddd"/>
-        <text id="composeBodyPh" x="80" y="422" font-size="12" fill="#bbb">Write your statement…</text>
-
-        <g id="composePostBtn" style="cursor:pointer">
-          <rect x="68" y="536" width="290" height="44" rx="10" fill="#333"/>
-          <text x="213" y="564" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Post</text>
+        <!-- jurisdiction selector (change where it posts) -->
+        <text x="68" y="292" font-size="10.5" fill="#999" font-weight="bold">POSTING IN</text>
+        <g id="composeJurBtn" style="cursor:pointer">
+          <rect x="68" y="300" width="210" height="38" rx="8" fill="#f7f7f7" stroke="#ddd"/>
+          <use id="composeJurIcon" href="#ic-globe" xlink:href="#ic-globe" x="80" y="309" width="20" height="20" stroke="#333"/>
+          <text id="composeJurName" x="108" y="324" font-size="14" fill="#333">Global</text>
+          <path d="M250,315 l12,0 l-6,7 z" fill="#888"/>
         </g>
-        <text x="215" y="598" font-size="11" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
 
-        <!-- jurisdiction dropdown panel (popover; last child so it paints over the form) -->
+        <!-- type-specific editor (built in JS): inputs + Post + hint. Card height is set to fit. -->
+        <g id="composeEditor"></g>
+
+        <!-- jurisdiction dropdown panel (popover; last child so it paints over the editor) -->
         <g id="composeJurMenu" display="none">
-          <rect id="composeJurBg" x="68" y="288" width="210" height="80" rx="8" fill="#ffffff" stroke="#333"/>
+          <rect id="composeJurBg" x="68" y="342" width="210" height="80" rx="8" fill="#ffffff" stroke="#333"/>
           <g id="composeJurInner"></g>
         </g>
       </g>
@@ -684,8 +675,8 @@
     <text x="30" y="280" font-size="12">Record types — &#10003; include</text>
     <text x="30" y="295" font-size="12">(min 1), tap = only that</text>
     <text x="30" y="365" font-size="12">Verified: None/ID/Residency</text>
-    <text x="30" y="380" font-size="12">My districts: on/off</text>
-    <text x="30" y="395" font-size="12">(independent of types)</text>
+    <text x="30" y="380" font-size="12">My Districts — residency only;</text>
+    <text x="30" y="395" font-size="12">on ⇒ Verified jumps to Residency</text>
   </g>
 
   <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
@@ -776,6 +767,8 @@
       composeJur: null,        // chosen jurisdiction name
       composeType: null,       // chosen root key: "statement" | "petition" | "poll"
       composeJurOpen: false,   // jurisdiction dropdown inside the compose modal
+      pollOptions: ["", ""],   // poll compose: ≥2 options, add up to the jurisdiction max
+      petitionSupport: "Sign the Petition", // petition compose: customizable signature CTA (≤60) — PROPOSED field
       // subscribed jurisdictions: persisted to a cookie (works logged-out).
       // `included` drives the unified-feed filter.
       subs: [{ name: "Global", icon: "#ic-globe", included: true }]
@@ -795,6 +788,12 @@
     function rootsFor(name) { return JUR_ROOTS[name] || ["statement", "petition", "poll"]; }
     function rootMeta(key) { return ROOT_TYPES.filter(function (r) { return r.key === key; })[0] || ROOT_TYPES[0]; }
     function subByName(name) { return state.subs.filter(function (s) { return s.name === name; })[0]; }
+
+    // NOTE(tech) compose-editor config — wire these to JurisdictionConfig.contentLimits, do not hardcode:
+    //   pollMax  → contentLimits.maxPollOptions (spec: ≤10; see docs/entities/civic-content/poll.md)
+    //   SUPPORT_LABEL_MAX → PROPOSED petition field (see petition.md gap [proposed-petition-support-label])
+    var SUPPORT_LABEL_MAX = 60;
+    function pollMax(name) { return 10; }
 
     function $(id) { return document.getElementById(id); }
     function show(el, on) { el.setAttribute("display", on ? "inline" : "none"); }
@@ -998,20 +997,38 @@
       vRow.appendChild(vVal);
       vRow.addEventListener("click", function () {
         state.verified = (state.verified + 1) % VERIFIED_LEVELS.length;
+        // dropping below Residency drops My Districts (it requires a residency-scoped feed)
+        if (state.verified !== 2) state.myDistricts = false;
         render();
       });
       inner.appendChild(vRow);
       y += FROW_H;
 
-      // my districts — eye / eye-off visibility toggle (independent of record types)
+      // my districts — eye / eye-off. ONLY available to residency-verified accounts (kyc === 2).
+      // Interlock: turning it on jumps Verified → Residency; Verified leaving Residency drops it.
+      // NOTE(tech): gate on the account's residency tier (or higher elector tier, future).
       var dRowY = y, dRow = filterRow(dRowY);
-      var toggleDistricts = function () { state.myDistricts = !state.myDistricts; render(); };
-      var eye = icon(state.myDistricts ? "#ic-eye" : "#ic-eye-off", FD_X + 11, dRowY + 10, 20, state.myDistricts ? "#333" : "#999");
-      eye.style.cursor = "pointer";
-      eye.addEventListener("click", function (e) { e.stopPropagation(); toggleDistricts(); });
+      var canDistricts = state.kyc === 2;            // residency-verified account required
+      var dOn = state.myDistricts && canDistricts;
+      var dCol = !canDistricts ? "#ccc" : (dOn ? "#333" : "#999");
+      var eye = icon(dOn ? "#ic-eye" : "#ic-eye-off", FD_X + 11, dRowY + 10, 20, dCol);
       dRow.appendChild(eye);
-      dRow.appendChild(txt(FD_X + 42, dRowY + 25, "My districts", 14, state.myDistricts ? "#333" : "#999"));
-      dRow.addEventListener("click", toggleDistricts);
+      dRow.appendChild(txt(FD_X + 42, dRowY + 25, "My Districts", 14, dCol));
+      if (canDistricts) {
+        var toggleDistricts = function () {
+          state.myDistricts = !state.myDistricts;
+          if (state.myDistricts) state.verified = 2; // my districts ⇒ residency-verified authors
+          render();
+        };
+        eye.style.cursor = "pointer";
+        eye.addEventListener("click", function (e) { e.stopPropagation(); toggleDistricts(); });
+        dRow.addEventListener("click", toggleDistricts);
+      } else {
+        var note = txt(FD_X + FD_W - 16, dRowY + 25, "Residency only", 11, "#bbb");
+        note.setAttribute("text-anchor", "end");
+        dRow.appendChild(note);
+        dRow.style.cursor = "default";
+      }
       inner.appendChild(dRow);
       y += FROW_H;
 
@@ -1044,7 +1061,13 @@
       state.composeJurOpen = false;
       render();
     }
-    function enterCompose(key) { state.composeType = key; state.composeStep = "compose"; render(); }
+    function enterCompose(key) {
+      state.composeType = key;
+      if (key === "poll") state.pollOptions = ["", ""];                 // fresh Yes/No baseline
+      if (key === "petition") state.petitionSupport = "Sign the Petition"; // default signature CTA
+      state.composeStep = "compose";
+      render();
+    }
 
     // "Where do you want to post" — the selected jurisdictions
     function buildWhere() {
@@ -1089,7 +1112,7 @@
     function buildComposeJurMenu() {
       var inner = $("composeJurInner");
       while (inner.firstChild) inner.removeChild(inner.firstChild);
-      var X = 68, W = 210, TOP = 292, RH = 36, y = TOP;
+      var X = 68, W = 210, TOP = 346, RH = 36, y = TOP;
       state.subs.forEach(function (item) {
         var supported = rootsFor(item.name).indexOf(state.composeType) !== -1;
         var col = supported ? "#333" : "#bbb", rowY = y;
@@ -1110,6 +1133,104 @@
         y += RH;
       });
       $("composeJurBg").setAttribute("height", (y + 6) - TOP);
+    }
+
+    // ---- compose editor (type-specific fields) -------------------------------
+    function fieldLbl(x, y, s) { var t = txt(x, y, s, 10.5, "#999"); t.setAttribute("font-weight", "bold"); return t; }
+    function inputBox(x, y, w, h, ph, phCol) {
+      var g = document.createElementNS(SVG_NS, "g");
+      g.appendChild(rect(x, y, w, h, 6, "#f7f7f7", "#ddd"));
+      g.appendChild(txt(x + 12, y + 21, ph, 12, phCol || "#bbb"));
+      return g;
+    }
+    function dashBtn(x, y, w, label, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var r = rect(x, y, w, 32, 8, "#f2f2f2", "#333"); r.setAttribute("stroke-dasharray", "4 3");
+      g.appendChild(r);
+      g.appendChild(icon("#ic-plus", x + 12, y + 8, 16, "#333"));
+      g.appendChild(txt(x + 34, y + 21, label, 13, "#333"));
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
+    function removeBtn(x, y, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var hit = rect(x, y, 24, 24, 6, "#000"); hit.setAttribute("opacity", "0");
+      g.appendChild(hit);
+      g.appendChild(icon("#ic-x", x + 3, y + 3, 18, "#999"));
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
+
+    // build the per-type editor and size the card to fit; returns nothing
+    function buildComposeEditor() {
+      var g = $("composeEditor");
+      while (g.firstChild) g.removeChild(g.firstChild);
+      var X = 68, W = 290, y = 356, type = state.composeType, rm = rootMeta(type);
+
+      // title / question (every type)
+      var isPoll = type === "poll";
+      g.appendChild(fieldLbl(X, y, isPoll ? "Question" : "Title"));
+      g.appendChild(inputBox(X, y + 8, W, 34,
+        isPoll ? "Ask a yes/no or multiple-choice question…"
+               : (type === "petition" ? "What are you calling for?" : "A clear headline…")));
+      y += 52;
+
+      if (isPoll) {
+        // options — ≥2 baseline, add up to the jurisdiction's max
+        g.appendChild(fieldLbl(X, y, "Options"));
+        y += 14;
+        state.pollOptions.forEach(function (opt, i) {
+          g.appendChild(inputBox(X, y, W - 34, 32, opt || ("Option " + (i + 1)), opt ? "#333" : "#bbb"));
+          if (state.pollOptions.length > 2) {
+            g.appendChild(removeBtn(X + W - 26, y + 4, function () { state.pollOptions.splice(i, 1); render(); }));
+          }
+          y += 36;
+        });
+        var max = pollMax(state.composeJur);
+        if (state.pollOptions.length < max) {
+          g.appendChild(dashBtn(X, y, 150, "Add option", function () { state.pollOptions.push(""); render(); }));
+          y += 42;
+        } else {
+          g.appendChild(txt(X, y + 14, "Maximum " + max + " options reached", 11, "#999"));
+          y += 26;
+        }
+        // NOTE(tech): option count cap is per-jurisdiction (contentLimits.maxPollOptions, default 10)
+      } else {
+        // body (statement + petition)
+        g.appendChild(fieldLbl(X, y, "Body"));
+        g.appendChild(inputBox(X, y + 8, W, 96, "Write your " + rm.label.toLowerCase() + "…"));
+        y += 116;
+
+        if (type === "petition") {
+          // PROPOSED: customizable signature call-to-action ("support statement"), max 60 chars
+          g.appendChild(fieldLbl(X, y, "Support statement (signature button)"));
+          var box = inputBox(X, y + 8, W, 34, state.petitionSupport, "#333");
+          var counter = txt(X + W - 10, y + 29, state.petitionSupport.length + "/" + SUPPORT_LABEL_MAX, 10.5, "#999");
+          counter.setAttribute("text-anchor", "end");
+          box.appendChild(counter);
+          g.appendChild(box);
+          y += 48;
+          g.appendChild(txt(X, y + 8, "Defaults to “Sign the Petition” · editable, max 60", 10.5, "#999"));
+          y += 22;
+        }
+      }
+
+      // post (mock submit → back to Feed) + dismissal hint
+      var post = document.createElementNS(SVG_NS, "g"); post.style.cursor = "pointer";
+      post.appendChild(rect(X, y + 6, W, 44, 10, "#333"));
+      var pt = txt(X + W / 2, y + 34, "Post", 15, "#ffffff");
+      pt.setAttribute("text-anchor", "middle"); pt.setAttribute("font-weight", "bold");
+      post.appendChild(pt);
+      post.addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+      g.appendChild(post);
+      y += 58;
+
+      var hint = txt(X + W / 2, y + 8, "Alt: Esc or tap outside to close", 11, "#999");
+      hint.setAttribute("text-anchor", "middle");
+      g.appendChild(hint);
+      y += 18;
+
+      $("composeCard").setAttribute("height", (y + 10) - 170);
     }
 
     // ---- modals --------------------------------------------------------------
@@ -1146,6 +1267,9 @@
 
     // ---- main render ---------------------------------------------------------
     function render() {
+      // My Districts requires a residency-verified account — never let it stick otherwise
+      if (state.kyc < 2) state.myDistricts = false;
+
       // auth state + its callout
       show($("loginGlyph"), !state.loggedIn);
       show($("profileGlyph"), state.loggedIn);
@@ -1215,8 +1339,8 @@
         $("composeTypeLabel").textContent = rm.label;
         $("composeTypeIcon").setAttribute("href", rm.icon);
         $("composeTypeIcon").setAttributeNS(XLINK, "href", rm.icon);
-        $("composeBodyPh").textContent = "Write your " + rm.label.toLowerCase() + "…";
         show($("composeChangeBtn"), rootsFor(jn).length > 1); // nothing to change if only one root
+        buildComposeEditor();                                 // type-specific fields + Post
         if (state.composeJurOpen) buildComposeJurMenu();
         show($("composeJurMenu"), state.composeJurOpen);
       }
@@ -1300,7 +1424,6 @@
     $("composeCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
     $("composeJurBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeJurOpen = !state.composeJurOpen; render(); });
     $("composeChangeBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeStep = "type"; state.composeJurOpen = false; render(); });
-    $("composePostBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); /* mock submit → back to Feed */ });
 
     // profile modal actions
     $("profileBackdrop").addEventListener("click", closeOverlays);
