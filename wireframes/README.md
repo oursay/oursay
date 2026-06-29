@@ -75,8 +75,8 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
 - **Add Jurisdiction** (Spotlight modal): a search field plus a single fixed result, **Alberta**,
   marked with a government-building icon (the only jurisdiction reachable at launch). Selecting it
   appends Alberta to the subscribed list.
-- **Login / profile** (top-right): the login (door-arrow) glyph when logged out; when logged in it
-  becomes the **"AM" initials avatar** (matching the profile-modal header).
+- **Login / profile** (top-right): a **person** icon when logged out; when logged in it becomes the
+  **"AM" initials avatar** (matching the profile-modal header).
   Flow: tap while logged out to open the **register / login modal** (a centered card — not a
   full-screen sheet — with **Register** and **Log in** buttons that span the card, plus a
   **Recover account** link for passkey/OTP recovery; both buttons resolve to a signed-in session in
@@ -93,9 +93,9 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
   - A full-width **Log out** button, then the **Terms of Service · Privacy Policy** hyperlinks, and a
     **© copyright** line at the very bottom.
 
-  The spotlight and profile modals each have an explicit **✕ close button** (top-right) in addition
-  to Esc / tap-outside; their secondary hint lines are prefixed **"Alt:"** to mark them as the
-  alternative dismissal.
+  The spotlight and profile modals each have a circular **✕ close button** hanging off the card's
+  top-right corner, in addition to Esc / tap-outside; their secondary hint lines are prefixed
+  **"Alt:"** to mark them as the alternative dismissal.
 - **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a **newspaper**
   ("go to Feed") icon on any other page — including a jurisdiction page opened from the selector's
   external-open glyph — so it acts as "go home".

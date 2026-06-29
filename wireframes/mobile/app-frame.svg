@@ -211,7 +211,7 @@
         <!-- login / profile (right) -->
         <g id="authBtn" style="cursor:pointer">
           <circle id="authCircle" cx="382" cy="83" r="19" fill="#ffffff" stroke="#333"/>
-          <use id="loginGlyph"   href="#ic-login" xlink:href="#ic-login" x="371" y="72" width="22" height="22" stroke="#333"/>
+          <use id="loginGlyph"   href="#ic-user" xlink:href="#ic-user" x="371" y="72" width="22" height="22" stroke="#333"/>
           <text id="profileGlyph" x="382" y="88" font-size="13" fill="#fff" text-anchor="middle" font-weight="bold" display="none">AM</text>
         </g>
 
@@ -243,13 +243,9 @@
         <rect id="modalBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
         <g>
           <rect x="45" y="150" width="340" height="260" rx="14" fill="#ffffff" stroke="#333"/>
-          <rect x="65" y="172" width="264" height="40" rx="8" fill="#fafafa" stroke="#999"/>
+          <rect x="65" y="172" width="300" height="40" rx="8" fill="#fafafa" stroke="#999"/>
           <use href="#ic-search" xlink:href="#ic-search" x="78" y="183" width="18" height="18" stroke="#999"/>
           <text x="106" y="197" font-size="14" fill="#999">Search jurisdictions&#8230;</text>
-          <g id="modalCloseBtn" style="cursor:pointer">
-            <rect x="341" y="174" width="36" height="36" rx="8" fill="#000" opacity="0"/>
-            <use href="#ic-x" xlink:href="#ic-x" x="349" y="182" width="20" height="20" stroke="#666"/>
-          </g>
           <line x1="65" y1="226" x2="365" y2="226" stroke="#eee"/>
           <g id="resultAlberta" style="cursor:pointer">
             <rect x="65" y="236" width="300" height="44" rx="8" fill="#ffffff"/>
@@ -259,6 +255,11 @@
           </g>
           <text x="80" y="305" font-size="12" fill="#bbb">(Only Alberta is reachable at launch.)</text>
           <text x="215" y="392" font-size="12" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+          <!-- close button — circle hanging off the card's top-right corner -->
+          <g id="modalCloseBtn" style="cursor:pointer">
+            <circle cx="385" cy="150" r="13" fill="#333"/>
+            <use href="#ic-x" xlink:href="#ic-x" x="378" y="143" width="14" height="14" stroke="#fff"/>
+          </g>
         </g>
       </g>
 
@@ -281,6 +282,11 @@
             <text x="215" y="486" font-size="13" fill="#555" text-anchor="middle" text-decoration="underline">Trouble signing in? Recover account</text>
           </g>
           <text x="215" y="546" font-size="12" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+          <!-- close button — circle hanging off the card's top-right corner -->
+          <g id="authCloseBtn" style="cursor:pointer">
+            <circle cx="375" cy="250" r="13" fill="#333"/>
+            <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
+          </g>
         </g>
       </g>
 
@@ -291,9 +297,10 @@
 
         <!-- header -->
         <text x="44" y="104" font-size="16" fill="#333" font-weight="bold">Profile</text>
+        <!-- close button — circle hanging off the card's top-right corner -->
         <g id="profileCloseBtn" style="cursor:pointer">
-          <rect x="360" y="82" width="36" height="36" rx="8" fill="#000" opacity="0"/>
-          <use href="#ic-x" xlink:href="#ic-x" x="368" y="90" width="20" height="20" stroke="#666"/>
+          <circle cx="400" cy="72" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="393" y="65" width="14" height="14" stroke="#fff"/>
         </g>
         <circle cx="64" cy="150" r="26" fill="#333"/>
         <text x="64" y="156" font-size="16" fill="#fff" text-anchor="middle" font-weight="bold">AM</text>
@@ -862,6 +869,7 @@
     $("ddBackdrop").addEventListener("click", closeOverlays);     // click outside → close
     $("modalCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });   // X button
     $("profileCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); }); // X button
+    $("authCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });    // X button
     $("resultAlberta").addEventListener("click", function () {
       var i = state.subs.findIndex(function (s) { return s.name === "Alberta"; });
       if (i === -1) {
