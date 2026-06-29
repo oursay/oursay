@@ -5,7 +5,7 @@
   <!-- =========================================================================
        OurSay — Mobile app-frame wireframe (interactive template)
        Open this file directly in a browser. Keys + clicks toggle live states.
-       Keys:  L login/out · V labels · J dropdown · A add-jurisdiction · P page · Esc close
+       Keys:  L login/out · V labels · F filter · J jurisdiction · A add-jurisdiction · P page · Esc close
        Phone display is centred; red callouts live in the canvas margins.
        Chrome callouts describe the LIVE state; dropdown/modal callouts only
        appear while that overlay is open.
@@ -49,6 +49,10 @@
       <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
       <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
     </symbol>
+    <symbol id="ic-newspaper" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/>
+      <path d="M18 14h-8"/><path d="M15 18h-6"/><path d="M10 6h8v4h-8V6Z"/>
+    </symbol>
     <symbol id="ic-external" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
     </symbol>
@@ -89,6 +93,10 @@
     <symbol id="ic-eye" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
     </symbol>
+    <symbol id="ic-eye-off" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+      <line x1="1" y1="1" x2="23" y2="23"/>
+    </symbol>
     <symbol id="ic-sun" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <circle cx="12" cy="12" r="5"/>
       <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
@@ -98,6 +106,22 @@
     </symbol>
     <symbol id="ic-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </symbol>
+    <symbol id="ic-filter" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+    </symbol>
+    <symbol id="ic-message" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </symbol>
+    <symbol id="ic-clipboard" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+    </symbol>
+    <symbol id="ic-bar" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+    </symbol>
+    <symbol id="ic-check-circle" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
     </symbol>
   </defs>
 
@@ -167,12 +191,18 @@
 
         <line x1="15" y1="112" x2="415" y2="112" stroke="#e0e0e0" stroke-width="1"/>
 
-        <!-- jurisdiction selector (left) -->
+        <!-- feed filter (left) -->
+        <g id="filterBtn" style="cursor:pointer">
+          <circle id="filterCircle" cx="47" cy="83" r="19" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-filter" xlink:href="#ic-filter" x="36" y="72" width="22" height="22" stroke="#333"/>
+        </g>
+
+        <!-- jurisdiction selector (centre) -->
         <g id="selectorBtn" style="cursor:pointer">
-          <rect x="28" y="66" width="150" height="34" rx="17" fill="#ffffff" stroke="#333"/>
-          <use href="#ic-globe" xlink:href="#ic-globe" x="42" y="74" width="18" height="18" stroke="#333"/>
-          <text id="curJur" x="68" y="88" font-size="15" fill="#333">Global</text>
-          <use href="#ic-chevron" xlink:href="#ic-chevron" x="150" y="75" width="16" height="16" stroke="#333"/>
+          <rect x="140" y="66" width="150" height="34" rx="17" fill="#ffffff" stroke="#333"/>
+          <use href="#ic-globe" xlink:href="#ic-globe" x="154" y="74" width="18" height="18" stroke="#333"/>
+          <text id="curJur" x="180" y="88" font-size="15" fill="#333">Global</text>
+          <use href="#ic-chevron" xlink:href="#ic-chevron" x="262" y="75" width="16" height="16" stroke="#333"/>
         </g>
 
         <!-- login / profile (right) -->
@@ -186,14 +216,22 @@
         <g id="fab" style="cursor:pointer">
           <circle cx="362" cy="812" r="30" fill="#333"/>
           <use id="fabCompose" href="#ic-feather" xlink:href="#ic-feather" x="348" y="798" width="28" height="28" stroke="#fff"/>
-          <use id="fabFeed"    href="#ic-list"    xlink:href="#ic-list"    x="348" y="798" width="28" height="28" stroke="#fff" display="none"/>
+          <use id="fabFeed"    href="#ic-newspaper" xlink:href="#ic-newspaper" x="348" y="798" width="28" height="28" stroke="#fff" display="none"/>
         </g>
 
       </g><!-- /chrome -->
 
-      <!-- ===================== JURISDICTION DROPDOWN ===================== -->
+      <!-- ===================== FEED FILTER DROPDOWN (left button) ===================== -->
+      <g id="filterDropdown" display="none">
+        <rect id="filterBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0" style="cursor:default"/>
+        <rect id="fdBg" x="28" y="106" width="250" height="120" rx="12" fill="#ffffff" stroke="#333"/>
+        <g id="fdInner"></g>
+      </g>
+
+      <!-- ===================== JURISDICTION DROPDOWN (centre button) ===================== -->
       <g id="dropdown" display="none">
-        <rect id="ddBg" x="28" y="106" width="236" height="120" rx="12" fill="#ffffff" stroke="#333"/>
+        <rect id="ddBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0" style="cursor:default"/>
+        <rect id="ddBg" x="97" y="106" width="236" height="120" rx="12" fill="#ffffff" stroke="#333"/>
         <g id="ddInner"></g>
       </g>
 
@@ -306,33 +344,30 @@
           <text x="86" y="631" font-size="13" fill="#333">Privacy Settings</text>
           <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="618" width="16" height="16" stroke="#999"/>
         </g>
-        <g id="themeBtn" style="cursor:pointer">
+        <g id="jurisdictionsBtn" style="cursor:pointer">
           <rect x="44" y="650" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
-          <use id="themeIcon" href="#ic-sun" xlink:href="#ic-sun" x="58" y="659" width="18" height="18" stroke="#333"/>
-          <text x="86" y="673" font-size="13" fill="#333">Theme</text>
-          <text id="themeValue" x="350" y="673" font-size="13" fill="#555" text-anchor="end">Light</text>
+          <use href="#ic-globe" xlink:href="#ic-globe" x="58" y="659" width="18" height="18" stroke="#333"/>
+          <text x="86" y="673" font-size="13" fill="#333">Jurisdictions</text>
+          <use href="#ic-chevron-right" xlink:href="#ic-chevron-right" x="358" y="660" width="16" height="16" stroke="#999"/>
         </g>
-        <g id="termsBtn" style="cursor:pointer">
+        <g id="themeBtn" style="cursor:pointer">
           <rect x="44" y="692" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
-          <use href="#ic-file" xlink:href="#ic-file" x="58" y="701" width="18" height="18" stroke="#333"/>
-          <text x="86" y="715" font-size="13" fill="#333">Terms of Service</text>
-          <use href="#ic-external" xlink:href="#ic-external" x="358" y="702" width="16" height="16" stroke="#999"/>
-        </g>
-        <g id="privacyBtn" style="cursor:pointer">
-          <rect x="44" y="734" width="342" height="36" rx="8" fill="#ffffff" stroke="#333"/>
-          <use href="#ic-shield" xlink:href="#ic-shield" x="58" y="743" width="18" height="18" stroke="#333"/>
-          <text x="86" y="757" font-size="13" fill="#333">Privacy Policy</text>
-          <use href="#ic-external" xlink:href="#ic-external" x="358" y="744" width="16" height="16" stroke="#999"/>
+          <use id="themeIcon" href="#ic-sun" xlink:href="#ic-sun" x="58" y="701" width="18" height="18" stroke="#333"/>
+          <text x="86" y="715" font-size="13" fill="#333">Theme</text>
+          <text id="themeValue" x="350" y="715" font-size="13" fill="#555" text-anchor="end">Light</text>
         </g>
 
-        <!-- log out (full width) + copyright -->
-        <line x1="20" y1="784" x2="410" y2="784" stroke="#eee"/>
+        <!-- log out (full width) + legal links + copyright -->
+        <line x1="20" y1="756" x2="410" y2="756" stroke="#eee"/>
         <g id="logoutBtn" style="cursor:pointer">
-          <rect x="44" y="800" width="342" height="40" rx="8" fill="#ffffff" stroke="#c0392b"/>
-          <use href="#ic-logout" xlink:href="#ic-logout" x="178" y="810" width="20" height="20" stroke="#c0392b"/>
-          <text x="208" y="825" font-size="14" fill="#c0392b">Log out</text>
+          <rect x="44" y="770" width="342" height="40" rx="8" fill="#ffffff" stroke="#c0392b"/>
+          <use href="#ic-logout" xlink:href="#ic-logout" x="178" y="780" width="20" height="20" stroke="#c0392b"/>
+          <text x="208" y="795" font-size="14" fill="#c0392b">Log out</text>
         </g>
-        <text x="215" y="862" font-size="11" fill="#bbb" text-anchor="middle">© 2026 OurSay · all rights reserved</text>
+        <text id="termsBtn" x="206" y="836" font-size="12" fill="#555" text-anchor="end" text-decoration="underline" style="cursor:pointer">Terms of Service</text>
+        <text x="215" y="836" font-size="12" fill="#bbb" text-anchor="middle">&#183;</text>
+        <text id="privacyBtn" x="224" y="836" font-size="12" fill="#555" text-anchor="start" text-decoration="underline" style="cursor:pointer">Privacy Policy</text>
+        <text x="215" y="858" font-size="11" fill="#bbb" text-anchor="middle">© 2026 OurSay · all rights reserved</text>
       </g>
 
     </g><!-- /screenClip -->
@@ -340,29 +375,35 @@
 
   <!-- ===================== SHORTCUT LEGEND (margin, always visible) ===================== -->
   <g>
-    <rect x="30" y="600" width="200" height="170" rx="10" fill="#ffffff" stroke="#333"/>
+    <rect x="30" y="600" width="200" height="190" rx="10" fill="#ffffff" stroke="#333"/>
     <text x="46" y="626" font-size="13" fill="#333" font-weight="bold">Shortcuts</text>
     <g font-size="12" fill="#333">
       <text x="46" y="650">L &#160;&#8212; login / out</text>
       <text x="46" y="670">V &#160;&#8212; labels on / off</text>
-      <text x="46" y="690">J &#160;&#8212; jurisdiction dropdown</text>
-      <text x="46" y="710">A &#160;&#8212; add jurisdiction</text>
-      <text x="46" y="730">P &#160;&#8212; page (FAB icon swap)</text>
-      <text x="46" y="750">Esc &#8212; close overlay</text>
+      <text x="46" y="690">F &#160;&#8212; feed filter dropdown</text>
+      <text x="46" y="710">J &#160;&#8212; jurisdiction dropdown</text>
+      <text x="46" y="730">A &#160;&#8212; add jurisdiction</text>
+      <text x="46" y="750">P &#160;&#8212; page (FAB icon swap)</text>
+      <text x="46" y="770">Esc &#8212; close overlay</text>
     </g>
   </g>
 
   <!-- ===================== CHROME CALLOUTS (margins, toggled by V) ===================== -->
   <g id="anno-chrome" fill="#c0392b">
     <g stroke="#c0392b" fill="none" stroke-width="1.2">
-      <line x1="196" y1="100" x2="271" y2="136" marker-end="url(#arrow)"/>
+      <line x1="200" y1="92" x2="388" y2="128" marker-end="url(#arrow)"/>
+      <line x1="200" y1="132" x2="276" y2="132" marker-end="url(#arrow)"/>
       <line x1="206" y1="430" x2="280" y2="430" marker-end="url(#arrow)"/>
-      <line x1="686" y1="128" x2="650" y2="136" marker-end="url(#arrow)"/>
+      <line x1="686" y1="128" x2="645" y2="136" marker-end="url(#arrow)"/>
       <line x1="686" y1="864" x2="641" y2="868" marker-end="url(#arrow)"/>
     </g>
-    <!-- selector -->
-    <text x="30" y="72" font-size="12">Jurisdiction selector</text>
-    <text x="30" y="87" font-size="12">— filters the unified feed</text>
+
+    <!-- selector (centre) -->
+    <text x="30" y="78" font-size="12">Jurisdiction selector</text>
+    <text x="30" y="93" font-size="12">— scopes the feed</text>
+    <!-- filter (left) -->
+    <text x="30" y="132" font-size="12">Filter — record types,</text>
+    <text x="30" y="147" font-size="12">verified, my districts</text>
     <!-- feed -->
     <text x="30" y="422" font-size="12">Feed — placeholder content</text>
     <text x="30" y="437" font-size="12">(swap the #content group)</text>
@@ -375,30 +416,37 @@
     <text x="690" y="874" font-size="12" fill="#c0392b">P toggles the page (icon swaps)</text>
   </g>
 
-  <!-- ===================== DROPDOWN CALLOUTS (only while dropdown open) ===================== -->
+  <!-- ===================== DROPDOWN CALLOUTS (only while jurisdiction dropdown open) ===================== -->
   <g id="anno-dropdown" fill="#c0392b" display="none">
     <g stroke="#c0392b" fill="none" stroke-width="1.2">
-      <line x1="200" y1="150" x2="271" y2="170" marker-end="url(#arrow)"/>
-      <line x1="206" y1="206" x2="471" y2="192" marker-end="url(#arrow)"/>
-      <line x1="205" y1="300" x2="300" y2="260" marker-end="url(#arrow)"/>
+      <line x1="686" y1="196" x2="564" y2="192" marker-end="url(#arrow)"/>
+      <line x1="686" y1="320" x2="566" y2="266" marker-end="url(#arrow)"/>
     </g>
-    <text x="30" y="118" font-size="12">Subscribed jurisdictions —</text>
-    <text x="30" y="133" font-size="12">saved to a cookie for cross-</text>
-    <text x="30" y="148" font-size="12">session memory (works</text>
-    <text x="30" y="163" font-size="12">logged-out, no account)</text>
-
-    <text x="30" y="198" font-size="12">Open jurisdiction page</text>
-    <text x="30" y="213" font-size="12">(deferred)</text>
-
-    <text x="30" y="308" font-size="12">+ Add Jurisdiction →</text>
-    <text x="30" y="323" font-size="12">spotlight search (A)</text>
+    <text x="690" y="176" font-size="12">Subscribed jurisdictions</text>
+    <text x="690" y="191" font-size="12">— saved to a cookie,</text>
+    <text x="690" y="206" font-size="12">works logged-out · &#8599; opens</text>
+    <text x="690" y="221" font-size="12">its page (selects only it)</text>
+    <text x="690" y="330" font-size="12">+ Add Jurisdiction (A)</text>
   </g>
 
-  <!-- include checkbox callout — only when there is more than one jurisdiction -->
+  <!-- jurisdiction include checkbox callout — only when there is more than one jurisdiction -->
   <g id="anno-dd-filter" fill="#c0392b" display="none">
-    <line x1="200" y1="255" x2="284" y2="234" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
-    <text x="30" y="255" font-size="12">&#10003; check = include in feed</text>
-    <text x="30" y="270" font-size="12">tap name = switch to that only</text>
+    <line x1="230" y1="212" x2="352" y2="194" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
+    <text x="30" y="200" font-size="12">&#10003; include in feed (min 1);</text>
+    <text x="30" y="215" font-size="12">tap name = that one only</text>
+  </g>
+
+  <!-- ===================== FILTER CALLOUTS (only while feed filter dropdown open) ===================== -->
+  <g id="anno-filter" fill="#c0392b" display="none">
+    <g stroke="#c0392b" fill="none" stroke-width="1.2">
+      <line x1="230" y1="218" x2="270" y2="205" marker-end="url(#arrow)"/>
+      <line x1="230" y1="360" x2="270" y2="388" marker-end="url(#arrow)"/>
+    </g>
+    <text x="30" y="200" font-size="12">Record types — &#10003; include</text>
+    <text x="30" y="215" font-size="12">(min 1), tap = only that</text>
+    <text x="30" y="345" font-size="12">Verified: None/ID/Residency</text>
+    <text x="30" y="360" font-size="12">My districts: on/off</text>
+    <text x="30" y="375" font-size="12">(independent of types)</text>
   </g>
 
   <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
@@ -472,12 +520,23 @@
       kyc: 0,                  // 0 unverified · 1 identity · 2 residency
       deviceCount: 3,          // passkeys/devices on the account
       theme: "Light",          // "Light" | "Dark" — UI preference toggle only
+      filterOpen: false,       // feed filter dropdown (left button)
+      // record-type filter — same min-1 / exclusive-select interlock as jurisdictions
+      recordTypes: [
+        { name: "Statements", icon: "#ic-message",      included: true },
+        { name: "Petitions",  icon: "#ic-clipboard",    included: true },
+        { name: "Polls",      icon: "#ic-bar",          included: true },
+        { name: "Results",    icon: "#ic-check-circle", included: true }
+      ],
+      verified: 0,             // min author verification: 0 None · 1 ID · 2 Residency
+      myDistricts: true,       // limit to my districts — independent of record types
       // subscribed jurisdictions: persisted to a cookie (works logged-out).
       // `included` drives the unified-feed filter.
       subs: [{ name: "Global", icon: "#ic-globe", included: true }]
     };
 
     var KYC_TIERS = ["Unverified", "Identity Verified", "Residency Verified"];
+    var VERIFIED_LEVELS = ["None", "ID", "Residency"];
 
     function $(id) { return document.getElementById(id); }
     function show(el, on) { el.setAttribute("display", on ? "inline" : "none"); }
@@ -509,7 +568,7 @@
     }
 
     // ---- jurisdiction dropdown interior (built from state.subs) -------------
-    var DD_X = 28, DD_W = 236, DD_TOP = 106, ROW_H = 40, PAD = 8;
+    var DD_X = 97, DD_W = 236, DD_TOP = 106, ROW_H = 40, PAD = 8;
 
     function buildDropdown() {
       var inner = $("ddInner");
@@ -550,10 +609,21 @@
         row.appendChild(icon(item.icon, iconX, rowY + 11, 18, "#333"));
         row.appendChild(txt(nameX, rowY + 25, item.name, 15, "#333"));
 
-        // external-open (jurisdiction page — deferred no-op)
-        var ext = icon("#ic-external", DD_X + DD_W - 34, rowY + 11, 18, "#666");
+        // external-open → open this jurisdiction's page: select ONLY it + flip off the
+        // Feed (so the FAB shows the newspaper "go to Feed" icon)
+        var ext = document.createElementNS(SVG_NS, "g");
         ext.style.cursor = "pointer";
-        ext.addEventListener("click", function (e) { e.stopPropagation(); });
+        var extHit = rect(DD_X + DD_W - 42, rowY + 4, 34, 34, 6, "#000"); // full clickable target
+        extHit.setAttribute("opacity", "0");                              // (the bare glyph only
+        ext.appendChild(extHit);                                          //  hit on its strokes)
+        ext.appendChild(icon("#ic-external", DD_X + DD_W - 34, rowY + 11, 18, "#666"));
+        ext.addEventListener("click", function (e) {
+          e.stopPropagation();
+          state.subs.forEach(function (s) { s.included = (s === item); });
+          state.page = "other";        // a jurisdiction page (not the Feed)
+          state.dropdownOpen = false;
+          render();
+        });
         row.appendChild(ext);
 
         inner.appendChild(row);
@@ -591,11 +661,100 @@
       render();
     }
 
+    // ---- feed filter dropdown interior (record types + refine) --------------
+    var FD_X = 28, FD_W = 250, FD_TOP = 106, FROW_H = 38, FPAD = 8;
+
+    // a ✓ checkbox cell reflecting `on`; runs onToggle (already stops propagation)
+    function checkbox(x, y, on, onToggle) {
+      var cb = document.createElementNS(SVG_NS, "g");
+      cb.style.cursor = "pointer";
+      cb.appendChild(rect(x, y, 18, 18, 4, on ? "#333" : "#ffffff", "#333"));
+      if (on) cb.appendChild(icon("#ic-check", x + 1, y + 1, 16, "#ffffff"));
+      cb.addEventListener("click", function (e) { e.stopPropagation(); onToggle(); });
+      return cb;
+    }
+    function sectionHdr(x, y, s) {
+      var t = txt(x, y, s, 12, "#999");
+      t.setAttribute("font-weight", "bold");
+      return t;
+    }
+    function filterRow(y) {
+      var row = document.createElementNS(SVG_NS, "g");
+      row.style.cursor = "pointer";
+      row.appendChild(rect(FD_X + 4, y, FD_W - 8, FROW_H, 8, "#ffffff"));
+      return row;
+    }
+
+    function buildFilter() {
+      var inner = $("fdInner");
+      while (inner.firstChild) inner.removeChild(inner.firstChild);
+
+      var y = FD_TOP + FPAD;
+
+      // --- section 1: record types (min-1 multi-include + exclusive body select) ---
+      inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Record types"));
+      y += 24;
+      state.recordTypes.forEach(function (item) {
+        var rowY = y, row = filterRow(rowY);
+        row.addEventListener("click", function () { selectTypeOnly(item); }); // body → only this
+        row.appendChild(checkbox(FD_X + 12, rowY + 10, item.included, function () {
+          var inc = state.recordTypes.filter(function (t) { return t.included; }).length;
+          if (item.included && inc <= 1) return; // keep ≥1 selected (never None)
+          item.included = !item.included;
+          render();
+        }));
+        row.appendChild(icon(item.icon, FD_X + 40, rowY + 10, 18, "#333"));
+        row.appendChild(txt(FD_X + 66, rowY + 25, item.name, 14, "#333"));
+        inner.appendChild(row);
+        y += FROW_H;
+      });
+
+      // --- section 2: refine (independent of the record-type interlock) ---
+      y += 8;
+      inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Refine"));
+      y += 24;
+
+      // verified — value toggle: None / ID / Residency
+      var vRowY = y, vRow = filterRow(vRowY);
+      vRow.appendChild(icon("#ic-shield", FD_X + 12, vRowY + 10, 18, "#333"));
+      vRow.appendChild(txt(FD_X + 42, vRowY + 25, "Verified", 14, "#333"));
+      var vVal = txt(FD_X + FD_W - 16, vRowY + 25, VERIFIED_LEVELS[state.verified], 13, "#555");
+      vVal.setAttribute("text-anchor", "end");
+      vRow.appendChild(vVal);
+      vRow.addEventListener("click", function () {
+        state.verified = (state.verified + 1) % VERIFIED_LEVELS.length;
+        render();
+      });
+      inner.appendChild(vRow);
+      y += FROW_H;
+
+      // my districts — eye / eye-off visibility toggle (independent of record types)
+      var dRowY = y, dRow = filterRow(dRowY);
+      var toggleDistricts = function () { state.myDistricts = !state.myDistricts; render(); };
+      var eye = icon(state.myDistricts ? "#ic-eye" : "#ic-eye-off", FD_X + 11, dRowY + 10, 20, state.myDistricts ? "#333" : "#999");
+      eye.style.cursor = "pointer";
+      eye.addEventListener("click", function (e) { e.stopPropagation(); toggleDistricts(); });
+      dRow.appendChild(eye);
+      dRow.appendChild(txt(FD_X + 42, dRowY + 25, "My districts", 14, state.myDistricts ? "#333" : "#999"));
+      dRow.addEventListener("click", toggleDistricts);
+      inner.appendChild(dRow);
+      y += FROW_H;
+
+      $("fdBg").setAttribute("height", (y + FPAD) - FD_TOP);
+    }
+
+    // tap a record-type name → show ONLY that type (deselect the rest)
+    function selectTypeOnly(item) {
+      state.recordTypes.forEach(function (t) { t.included = (t === item); });
+      render(); // keep the panel open — more sections below
+    }
+
     // ---- modals --------------------------------------------------------------
-    function openModal() { state.modalOpen = true; state.dropdownOpen = false; state.profileOpen = false; state.authModalOpen = false; render(); }
+    function openModal() { state.modalOpen = true; state.dropdownOpen = false; state.filterOpen = false; state.profileOpen = false; state.authModalOpen = false; render(); }
     function closeOverlays() {
       state.modalOpen = false;
       state.dropdownOpen = false;
+      state.filterOpen = false;
       state.profileOpen = false;
       state.authModalOpen = false;
       render();
@@ -628,6 +787,10 @@
       show($("dropdown"), state.dropdownOpen);
       show($("modal"), state.modalOpen);
 
+      // feed filter dropdown (left button)
+      if (state.filterOpen) buildFilter();
+      show($("filterDropdown"), state.filterOpen);
+
       // register/login modal (only meaningful while logged out)
       show($("authModal"), state.authModalOpen && !state.loggedIn);
 
@@ -659,7 +822,7 @@
       show($("fabCompose"), state.page === "feed");
       show($("fabFeed"), state.page !== "feed");
       $("annoFabA").textContent = state.page === "feed" ? "On Feed" : "On another page";
-      $("annoFabB").textContent = state.page === "feed" ? "tap → compose a post (quill)" : "tap → go to Feed (list)";
+      $("annoFabB").textContent = state.page === "feed" ? "tap → compose a post (quill)" : "tap → go to Feed (newspaper)";
 
       // labels: chrome shown unless the full-screen profile sheet covers it;
       // overlay callouts only while that overlay is open;
@@ -667,16 +830,20 @@
       show($("anno-chrome"), state.labelsOn && !state.profileOpen);
       show($("anno-dropdown"), state.labelsOn && state.dropdownOpen);
       show($("anno-dd-filter"), state.labelsOn && state.dropdownOpen && state.subs.length > 1);
+      show($("anno-filter"), state.labelsOn && state.filterOpen);
       show($("anno-modal"), state.labelsOn && state.modalOpen);
       show($("anno-auth"), state.labelsOn && state.authModalOpen && !state.loggedIn);
       show($("anno-profile"), state.labelsOn && state.profileOpen && state.loggedIn);
     }
 
     // ---- wiring --------------------------------------------------------------
-    $("selectorBtn").addEventListener("click", function () { state.dropdownOpen = !state.dropdownOpen; render(); });
+    $("filterBtn").addEventListener("click", function () { state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); });
+    $("selectorBtn").addEventListener("click", function () { state.dropdownOpen = !state.dropdownOpen; state.filterOpen = false; render(); });
     $("authBtn").addEventListener("click", onAuthClick);
     $("fab").addEventListener("click", function () { state.page = (state.page === "feed") ? "other" : "feed"; render(); });
     $("modalBackdrop").addEventListener("click", closeOverlays);
+    $("filterBackdrop").addEventListener("click", closeOverlays); // click outside → close
+    $("ddBackdrop").addEventListener("click", closeOverlays);     // click outside → close
     $("resultAlberta").addEventListener("click", function () {
       var i = state.subs.findIndex(function (s) { return s.name === "Alberta"; });
       if (i === -1) {
@@ -709,7 +876,7 @@
     $("addDeviceEmailBtn").addEventListener("click", function (e) { e.stopPropagation(); state.deviceCount++; render(); });
 
     // direct account-settings items (each its own destination — deferred no-ops)
-    ["editProfileBtn", "changeAddrBtn", "privacySettingsBtn", "termsBtn", "privacyBtn"].forEach(function (id) {
+    ["editProfileBtn", "changeAddrBtn", "privacySettingsBtn", "jurisdictionsBtn", "termsBtn", "privacyBtn"].forEach(function (id) {
       $(id).addEventListener("click", function (e) { e.stopPropagation(); /* deferred */ });
     });
 
@@ -729,7 +896,8 @@
           render();
           break;
         case "v": case "V": state.labelsOn = !state.labelsOn; render(); break;
-        case "j": case "J": state.dropdownOpen = !state.dropdownOpen; render(); break;
+        case "j": case "J": state.dropdownOpen = !state.dropdownOpen; state.filterOpen = false; render(); break;
+        case "f": case "F": state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); break;
         case "a": case "A": openModal(); break;
         case "p": case "P": state.page = (state.page === "feed") ? "other" : "feed"; render(); break;
         case "Escape": closeOverlays(); break;

@@ -33,17 +33,30 @@ pointing back to each element. A grayscale **Shortcut legend** sits in the left 
 |-----|--------|
 | **L** | Toggle logged-in / logged-out (right button switches login ↔ profile; subscribed list reflects it). |
 | **V** | Toggle annotation labels + arrows + keymap legend. |
-| **J** | Toggle the jurisdiction dropdown (also: click the selector pill). |
+| **F** | Toggle the feed filter dropdown (also: click the filter circle, top-left). |
+| **J** | Toggle the jurisdiction dropdown (also: click the centre selector pill). |
 | **A** | Open the Add-Jurisdiction spotlight modal (also: the "+ Add Jurisdiction" button). |
 | **P** | Toggle current page (Feed ↔ other) to demonstrate the FAB icon swap. |
 | **Esc** | Close any open dropdown / modal. |
 
-Clicks mirror the keys: selector → dropdown, "+ Add Jurisdiction" → modal, backdrop → close,
-**Alberta** → add to list, login button → toggle login.
+Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdiction dropdown,
+"+ Add Jurisdiction" → modal, backdrop → close, **Alberta** → add/remove, login button → auth modal.
 
 ### What the states show
 
-- **Jurisdiction selector** (top-left): opens the subscribed-jurisdiction list. Each row has two
+- **Top bar layout**: a **filter circle** (left), the **jurisdiction selector** pill (centre), and
+  the **login / profile** circle (right). The filter and jurisdiction dropdowns are mutually
+  exclusive — opening one closes the other.
+- **Feed filter** (left circle): a dropdown with two independent sections.
+  - **Record types** — **Statements, Petitions, Polls, Results**, using the same interlock as the
+    jurisdiction list: tap a **checkbox** to include/exclude a type in the feed (at least one always
+    stays selected — never None), or tap a **name** to switch to **only** that type. No external
+    links, no "add" button.
+  - **Refine** (separate from the type interlock) — a **Verified** value toggle cycling
+    **None → ID → Residency** (minimum author verification), and a **My districts** visibility
+    toggle shown as an **eye / closed-eye** (open eye = shown, struck-through eye = hidden, with the
+    row dimmed when off). These move independently of the record-type selection.
+- **Jurisdiction selector** (centre): opens the subscribed-jurisdiction list. Each row has two
   distinct actions:
   - **Tap the name** → switch the feed to **only** that jurisdiction (deselects all others) and
     closes the dropdown — a single-jurisdiction view.
@@ -52,8 +65,9 @@ Clicks mirror the keys: selector → dropdown, "+ Add Jurisdiction" → modal, b
     jurisdiction is always selected — you can't uncheck the last one, so the feed is never empty.
 
   With a single jurisdiction the checkboxes are hidden entirely. The pill label reflects the filter
-  (a single name, or "N selected"). Each row also has an external-open glyph (leads to a
-  jurisdiction page — deferred, currently a no-op). Below the list: a full-width
+  (a single name, or "N selected"). Each row also has an external-open glyph that **opens that
+  jurisdiction's page**: it selects **only** that jurisdiction and leaves the Feed (so the FAB swaps
+  to its "go to Feed" icon). Below the list: a full-width
   **+ Add Jurisdiction** button. The subscribed list is **saved to a cookie for cross-session
   memory** — it works for a logged-out public user, no account required (**Global** is the default
   entry).
@@ -70,14 +84,15 @@ Clicks mirror the keys: selector → dropdown, "+ Add Jurisdiction" → modal, b
   - **Devices & passkeys** widget — a truncated device list with the full count, plus **Add Device**
     (a local passkey) and **Add by Email** (the cross-device OTP flow). Both bump the count here.
   - **Account settings** — a full-width, listed set of items (no separate settings screen):
-    **Edit Profile**, **Change Address**, **Privacy & reveal paths** (control which persona/details
-    are revealed per jurisdiction or app), a **Theme** toggle (flips Light ↔ Dark in place — button
-    state only, no page flip), and the **Terms of Service** / **Privacy Policy** documents. The nav
-    items are deferred no-ops; only the Theme toggle is live.
-  - A full-width **Log out** button that signs out and closes the modal, with a **© copyright** line
-    beneath it.
-- **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a feed/list
-  icon on any other page so it acts as "go home".
+    **Edit Profile**, **Change Address**, **Privacy Settings** (control which persona/details are
+    revealed per jurisdiction or app), **Jurisdictions** (manage the subscribed list), and a
+    **Theme** toggle (flips Light ↔ Dark in place — button state only, no page flip). The nav items
+    are deferred no-ops; only the Theme toggle is live.
+  - A full-width **Log out** button, then the **Terms of Service · Privacy Policy** hyperlinks, and a
+    **© copyright** line at the very bottom.
+- **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a **newspaper**
+  ("go to Feed") icon on any other page — including a jurisdiction page opened from the selector's
+  external-open glyph — so it acts as "go home".
 
 ### Callout behaviour
 
