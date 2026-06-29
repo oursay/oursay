@@ -20,6 +20,10 @@
     <clipPath id="screenClip">
       <rect x="15" y="15" width="400" height="870" rx="36"/>
     </clipPath>
+    <!-- viewport for the poll-options list once it exceeds 5 rows (geometry set in JS) -->
+    <clipPath id="pollOptClip">
+      <rect id="pollOptClipRect" x="0" y="0" width="0" height="0"/>
+    </clipPath>
 
     <!-- ===== icon symbols (stroke-based, 24x24) ===== -->
     <symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -367,11 +371,10 @@
         <text x="215" y="812" font-size="11.5" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
       </g>
 
-      <!-- ===================== VERIFY MODAL (registration page 2: OTP → enroll passkey → login) ===================== -->
-      <!-- Shown after the form sends a registration OTP to the user's email. Enter the code, tap
-           Register Passkey to enroll the first account-login passkey (limited registration scope); the
-           button then cycles to Login With Passkey, whose passkey login grants the FULL session and
-           closes the flow (docs gap [code-registration-scope]). -->
+      <!-- ===================== VERIFY MODAL (registration page 2: OTP → register passkey → in) ===================== -->
+      <!-- Shown after the form sends a registration OTP. Enter the code and tap Register Passkey: that
+           enrolls this device's account-login passkey and signs you in (all logins are passkey, so there
+           is no separate "log in with passkey" step here). -->
       <g id="verifyModal" display="none">
         <rect id="verifyBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
         <rect x="55" y="250" width="320" height="300" rx="16" fill="#ffffff" stroke="#333"/>
@@ -395,9 +398,9 @@
         <g id="regPasskeyBtn" style="cursor:pointer">
           <rect x="79" y="410" width="272" height="46" rx="10" fill="#333"/>
           <use href="#ic-key" xlink:href="#ic-key" x="116" y="422" width="22" height="22" stroke="#fff"/>
-          <text id="regPasskeyLabel" x="234" y="439" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Register Passkey</text>
+          <text x="234" y="439" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Register Passkey</text>
         </g>
-        <text id="verifyHint" x="215" y="484" font-size="11.5" fill="#999" text-anchor="middle">Adds this device's passkey — your first sign-in credential</text>
+        <text x="215" y="484" font-size="11.5" fill="#999" text-anchor="middle">Registers this device's passkey and signs you in</text>
         <g id="verifyResendBtn" style="cursor:pointer">
           <text x="215" y="510" font-size="12" fill="#555" text-anchor="middle" text-decoration="underline">Didn't get a code? Resend</text>
         </g>
@@ -408,22 +411,16 @@
         </g>
       </g>
 
-      <!-- ===================== LOGIN MODAL (returning user: passkey login → full session) ===================== -->
-      <!-- The chooser's "Log In" path for an existing account — a passkey login grants the FULL session. -->
+      <!-- ===================== LOGIN MODAL (returning user) ===================== -->
+      <!-- All logins are passkey: by default this is a single "Log In With Passkey". When the account
+           is in the OTP-login-allow window (toggle with O), it also offers an email OTP — entering the
+           code runs the Register-Passkey flow (enrol a passkey on this new device), while an existing
+           device can still log in with its passkey and skip OTP entirely. Body is built in JS. -->
       <g id="loginModal" display="none">
         <rect id="loginBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
-        <rect x="55" y="250" width="320" height="250" rx="16" fill="#ffffff" stroke="#333"/>
+        <rect id="loginCard" x="55" y="250" width="320" height="250" rx="16" fill="#ffffff" stroke="#333"/>
         <text x="215" y="298" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Log In</text>
-        <text x="215" y="322" font-size="12" fill="#999" text-anchor="middle">Use your passkey to unlock full access</text>
-        <g id="loginPasskeyBtn" style="cursor:pointer">
-          <rect x="79" y="346" width="272" height="46" rx="10" fill="#333"/>
-          <use href="#ic-key" xlink:href="#ic-key" x="116" y="358" width="22" height="22" stroke="#fff"/>
-          <text x="234" y="375" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Log In With Passkey</text>
-        </g>
-        <g id="loginRecoverBtn" style="cursor:pointer">
-          <text x="215" y="428" font-size="13" fill="#555" text-anchor="middle" text-decoration="underline">Lost your passkey? Recover account</text>
-        </g>
-        <text x="215" y="470" font-size="12" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+        <g id="loginInner"></g>
         <g id="loginCloseBtn" style="cursor:pointer">
           <circle cx="375" cy="250" r="13" fill="#333"/>
           <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
@@ -604,16 +601,17 @@
 
   <!-- ===================== SHORTCUT LEGEND (margin, always visible) ===================== -->
   <g>
-    <rect x="30" y="700" width="200" height="190" rx="10" fill="#ffffff" stroke="#333"/>
-    <text x="46" y="726" font-size="13" fill="#333" font-weight="bold">Shortcuts</text>
+    <rect x="30" y="686" width="200" height="208" rx="10" fill="#ffffff" stroke="#333"/>
+    <text x="46" y="710" font-size="13" fill="#333" font-weight="bold">Shortcuts</text>
     <g font-size="12" fill="#333">
-      <text x="46" y="750">L &#160;&#8212; login / out</text>
-      <text x="46" y="770">V &#160;&#8212; labels on / off</text>
-      <text x="46" y="790">F &#160;&#8212; feed filter dropdown</text>
-      <text x="46" y="810">J &#160;&#8212; jurisdiction dropdown</text>
-      <text x="46" y="830">A &#160;&#8212; add jurisdiction</text>
-      <text x="46" y="850">P &#160;&#8212; page (FAB icon swap)</text>
-      <text x="46" y="870">Esc &#8212; close overlay</text>
+      <text x="46" y="732">L &#160;&#8212; login / out</text>
+      <text x="46" y="750">V &#160;&#8212; labels on / off</text>
+      <text x="46" y="768">F &#160;&#8212; feed filter dropdown</text>
+      <text x="46" y="786">J &#160;&#8212; jurisdiction dropdown</text>
+      <text x="46" y="804">A &#160;&#8212; add jurisdiction</text>
+      <text x="46" y="822">O &#160;&#8212; OTP login window</text>
+      <text x="46" y="840">P &#160;&#8212; page (FAB icon swap)</text>
+      <text x="46" y="858">Esc &#8212; close overlay</text>
     </g>
   </g>
 
@@ -745,7 +743,7 @@
       dropdownOpen: false,
       modalOpen: false,        // add-jurisdiction spotlight
       authView: null,          // logged-out auth flow: null | "choose" | "register" | "verify" | "login"
-      passkeyEnrolled: false,  // verify page: false → "Register Passkey", true → "Login With Passkey"
+      otpAllowed: false,       // account's OTP-login-allow window open (toggle: O) — adds email-code login
       profileOpen: false,      // profile modal (logged-in only)
       labelsOn: true,
       page: "feed",            // "feed" | "other"
@@ -768,6 +766,7 @@
       composeType: null,       // chosen root key: "statement" | "petition" | "poll"
       composeJurOpen: false,   // jurisdiction dropdown inside the compose modal
       pollOptions: ["", ""],   // poll compose: ≥2 options, add up to the jurisdiction max
+      pollScroll: 0,           // poll options scroll offset (px) once the list exceeds 5 rows
       petitionSupport: "Sign the Petition", // petition compose: customizable signature CTA (≤60) — PROPOSED field
       // subscribed jurisdictions: persisted to a cookie (works logged-out).
       // `included` drives the unified-feed filter.
@@ -822,6 +821,19 @@
       r.setAttribute("rx", rx); r.setAttribute("fill", fill);
       if (stroke) r.setAttribute("stroke", stroke);
       return r;
+    }
+    function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+    // a centred row of six OTP code boxes (mock; no real entry) appended to `parent`
+    function otpRow(parent, centerX, y, sample) {
+      var bw = 36, gap = 6, n = 6, total = n * bw + (n - 1) * gap, x0 = centerX - total / 2;
+      for (var i = 0; i < n; i++) {
+        var bx = x0 + i * (bw + gap);
+        parent.appendChild(rect(bx, y, bw, 42, 6, "#f7f7f7", "#ddd"));
+        var t = txt(bx + bw / 2, y + 29, sample[i] || "", 17, "#bbb");
+        t.setAttribute("text-anchor", "middle");
+        parent.appendChild(t);
+      }
     }
 
     // ---- jurisdiction dropdown interior (built from state.subs) -------------
@@ -1063,7 +1075,7 @@
     }
     function enterCompose(key) {
       state.composeType = key;
-      if (key === "poll") state.pollOptions = ["", ""];                 // fresh Yes/No baseline
+      if (key === "poll") { state.pollOptions = ["", ""]; state.pollScroll = 0; } // fresh Yes/No baseline
       if (key === "petition") state.petitionSupport = "Sign the Petition"; // default signature CTA
       state.composeStep = "compose";
       render();
@@ -1176,18 +1188,51 @@
       y += 52;
 
       if (isPoll) {
-        // options — ≥2 baseline, add up to the jurisdiction's max
+        // options — ≥2 baseline; the list grows the card up to 5 rows, then the 6th+ scroll
+        // inside a fixed 5-row viewport (the card never grows past 5). Add up to the jur max.
         g.appendChild(fieldLbl(X, y, "Options"));
         y += 14;
+        var ROWH = 36, n = state.pollOptions.length, visRows = Math.min(n, 5);
+        var vpTop = y, vpH = visRows * ROWH, contentH = n * ROWH;
+        var maxScroll = Math.max(0, contentH - vpH);
+        state.pollScroll = clamp(state.pollScroll, 0, maxScroll);
+
+        // clipped viewport: rows live in an inner group translated by the scroll offset
+        $("pollOptClipRect").setAttribute("x", X - 4);
+        $("pollOptClipRect").setAttribute("y", vpTop - 2);
+        $("pollOptClipRect").setAttribute("width", W + 12);
+        $("pollOptClipRect").setAttribute("height", vpH + 4);
+        var clipG = document.createElementNS(SVG_NS, "g");
+        clipG.setAttribute("clip-path", "url(#pollOptClip)");
+        var innerG = document.createElementNS(SVG_NS, "g");
+        innerG.setAttribute("transform", "translate(0," + (-state.pollScroll) + ")");
         state.pollOptions.forEach(function (opt, i) {
-          g.appendChild(inputBox(X, y, W - 34, 32, opt || ("Option " + (i + 1)), opt ? "#333" : "#bbb"));
-          if (state.pollOptions.length > 2) {
-            g.appendChild(removeBtn(X + W - 26, y + 4, function () { state.pollOptions.splice(i, 1); render(); }));
-          }
-          y += 36;
+          var rowY = vpTop + i * ROWH;
+          innerG.appendChild(inputBox(X, rowY, W - 34, 32, opt || ("Option " + (i + 1)), opt ? "#333" : "#bbb"));
+          if (n > 2) innerG.appendChild(removeBtn(X + W - 26, rowY + 4, function () { state.pollOptions.splice(i, 1); render(); }));
         });
+        clipG.appendChild(innerG);
+        // wheel-to-scroll (only meaningful once scrollable)
+        if (maxScroll > 0) {
+          clipG.addEventListener("wheel", function (e) {
+            e.preventDefault();
+            state.pollScroll = clamp(state.pollScroll + e.deltaY, 0, maxScroll);
+            render();
+          }, { passive: false });
+        }
+        g.appendChild(clipG);
+
+        // scrollbar thumb (right edge of the viewport) when there is overflow
+        if (maxScroll > 0) {
+          var trackX = X + W + 2, thumbH = Math.max(24, vpH * vpH / contentH);
+          var thumbY = vpTop + (state.pollScroll / maxScroll) * (vpH - thumbH);
+          g.appendChild(rect(trackX, vpTop, 4, vpH, 2, "#eee"));
+          g.appendChild(rect(trackX, thumbY, 4, thumbH, 2, "#bbb"));
+        }
+        y = vpTop + vpH + 6;
+
         var max = pollMax(state.composeJur);
-        if (state.pollOptions.length < max) {
+        if (n < max) {
           g.appendChild(dashBtn(X, y, 150, "Add option", function () { state.pollOptions.push(""); render(); }));
           y += 42;
         } else {
@@ -1241,7 +1286,6 @@
       state.filterOpen = false;
       state.profileOpen = false;
       state.authView = null;
-      state.passkeyEnrolled = false;
       state.composeStep = null;
       state.composeJurOpen = false;
       render();
@@ -1262,7 +1306,61 @@
       render();
     }
     // passkey login resolves to a full signed-in session (demo) — closes the auth flow
-    function signIn() { state.loggedIn = true; state.authView = null; state.passkeyEnrolled = false; render(); }
+    function signIn() { state.loggedIn = true; state.authView = null; render(); }
+
+    // login modal body — all logins are passkey; the OTP path appears only in the allow window
+    function buildLoginInner() {
+      var g = $("loginInner");
+      while (g.firstChild) g.removeChild(g.firstChild);
+      var CX = 215, y;
+
+      if (state.otpAllowed) {
+        g.appendChild(centerTxt(CX, 322, "Enter your email code — or use your passkey", 12, "#999"));
+        otpRow(g, CX, 340, ["4", "7", "2", "9", "0", "5"]);
+        // entering the OTP runs the Register-Passkey flow (enrol a passkey on this new device)
+        g.appendChild(primaryBtn(79, 400, 272, "Register Passkey", "#ic-key", signIn));
+        g.appendChild(outlineBtn(79, 458, 272, "Log In With Passkey", "#ic-key", signIn));
+        y = 512;
+      } else {
+        g.appendChild(centerTxt(CX, 322, "Use your passkey to sign in", 12, "#999"));
+        g.appendChild(primaryBtn(79, 346, 272, "Log In With Passkey", "#ic-key", signIn));
+        y = 404;
+      }
+
+      var rec = document.createElementNS(SVG_NS, "g"); rec.style.cursor = "pointer";
+      var rt = centerTxt(CX, y, "Lost your passkey? Recover account", 13, "#555");
+      rt.setAttribute("text-decoration", "underline");
+      rec.appendChild(rt);
+      rec.addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); }); // reset reuses register flow
+      g.appendChild(rec);
+      y += 24;
+      g.appendChild(centerTxt(CX, y, "Alt: O toggles the email-code (OTP) login window", 11, "#999"));
+      y += 18;
+      g.appendChild(centerTxt(CX, y, "Alt: Esc or tap outside to close", 11, "#999"));
+      $("loginCard").setAttribute("height", (y + 14) - 250);
+    }
+    // small builders shared by the login body
+    function centerTxt(cx, y, s, size, fill) { var t = txt(cx, y, s, size, fill); t.setAttribute("text-anchor", "middle"); return t; }
+    function primaryBtn(x, y, w, label, ic, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      g.appendChild(rect(x, y, w, 46, 10, "#333"));
+      g.appendChild(icon(ic, x + 37, y + 12, 22, "#fff"));
+      var t = txt(x + w / 2 + 18, y + 29, label, 15, "#ffffff");
+      t.setAttribute("text-anchor", "middle"); t.setAttribute("font-weight", "bold");
+      g.appendChild(t);
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
+    function outlineBtn(x, y, w, label, ic, onClick) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      g.appendChild(rect(x, y, w, 46, 10, "#ffffff", "#333"));
+      g.appendChild(icon(ic, x + 37, y + 12, 22, "#333"));
+      var t = txt(x + w / 2 + 18, y + 29, label, 14, "#333");
+      t.setAttribute("text-anchor", "middle");
+      g.appendChild(t);
+      g.addEventListener("click", function (e) { e.stopPropagation(); onClick(); });
+      return g;
+    }
     function logout() { state.loggedIn = false; state.profileOpen = false; render(); }
 
     // ---- main render ---------------------------------------------------------
@@ -1295,11 +1393,7 @@
       show($("registerModal"), inAuth && state.authView === "register");
       show($("verifyModal"),   inAuth && state.authView === "verify");
       show($("loginModal"),    inAuth && state.authView === "login");
-      // verify page: Register Passkey → (after enroll) Login With Passkey
-      $("regPasskeyLabel").textContent = state.passkeyEnrolled ? "Login With Passkey" : "Register Passkey";
-      $("verifyHint").textContent = state.passkeyEnrolled
-        ? "Passkey added — log in with it to finish"
-        : "Adds this device's passkey — your first sign-in credential";
+      if (inAuth && state.authView === "login") buildLoginInner();
 
       // spotlight result: if Alberta is already subscribed, offer Delete instead of Join
       var hasAlberta = state.subs.some(function (s) { return s.name === "Alberta"; });
@@ -1392,28 +1486,22 @@
     $("authBackdrop").addEventListener("click", closeOverlays);
     $("registerBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); });
     $("loginBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "login"; render(); });
-    $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); /* recovery flow — deferred */ });
+    $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); }); // reset reuses register flow
 
     // register form: submit sends the registration OTP email, then opens the verify page
     $("registerBackdrop").addEventListener("click", closeOverlays);
     $("registerCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
-    $("regSubmitBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "verify"; state.passkeyEnrolled = false; render(); });
+    $("regSubmitBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "verify"; render(); });
 
-    // verify page: enter OTP, enroll the first passkey, then the same button logs in (full session) and closes
+    // verify page: enter OTP, tap Register Passkey → enrols this device's passkey and signs in
     $("verifyBackdrop").addEventListener("click", closeOverlays);
     $("verifyCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
-    $("regPasskeyBtn").addEventListener("click", function (e) {
-      e.stopPropagation();
-      if (!state.passkeyEnrolled) { state.passkeyEnrolled = true; render(); } // enroll first passkey → button cycles
-      else { signIn(); }                                                       // passkey login → full session, close
-    });
+    $("regPasskeyBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
     $("verifyResendBtn").addEventListener("click", function (e) { e.stopPropagation(); /* resend OTP — deferred */ });
 
-    // login modal (returning user): passkey login grants the full session and closes
+    // login modal (returning user): body + handlers are built in buildLoginInner()
     $("loginBackdrop").addEventListener("click", closeOverlays);
     $("loginCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
-    $("loginPasskeyBtn").addEventListener("click", function (e) { e.stopPropagation(); signIn(); });
-    $("loginRecoverBtn").addEventListener("click", function (e) { e.stopPropagation(); /* recovery flow — deferred */ });
 
     // compose flow: where → type → compose
     $("whereBackdrop").addEventListener("click", closeOverlays);
@@ -1460,6 +1548,7 @@
         case "j": case "J": state.dropdownOpen = !state.dropdownOpen; state.filterOpen = false; render(); break;
         case "f": case "F": state.filterOpen = !state.filterOpen; state.dropdownOpen = false; render(); break;
         case "a": case "A": openModal(); break;
+        case "o": case "O": state.otpAllowed = !state.otpAllowed; render(); break; // OTP-login window
         case "p": case "P": state.page = (state.page === "feed") ? "other" : "feed"; render(); break;
         case "Escape": closeOverlays(); break;
       }

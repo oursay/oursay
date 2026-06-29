@@ -36,6 +36,7 @@ pointing back to each element. A grayscale **Shortcut legend** sits in the left 
 | **F** | Toggle the feed filter dropdown (also: click the filter circle, top-left). |
 | **J** | Toggle the jurisdiction dropdown (also: click the centre selector pill). |
 | **A** | Open the Add-Jurisdiction spotlight modal (also: the "+ Add Jurisdiction" button). |
+| **O** | Toggle the account's **OTP-login-allow window** (changes what the Log In modal offers). |
 | **P** | Toggle current page (Feed ↔ other) to demonstrate the FAB icon swap. |
 | **Esc** | Close any open dropdown / modal. |
 
@@ -91,14 +92,15 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
     code will be emailed. Inputs are mock placeholders; **Send Verification Code** assumes valid
     values and (mock-)emails the code.
   - That opens the **verify page** (registration step 2, shown after the email arrives): six **OTP
-    code boxes** and a single button that **cycles**. It starts as **Register Passkey** — tapping it
-    enrolls the first account-login passkey (the limited registration scope) and the button becomes
-    **Login With Passkey**; tapping that performs the passkey login that grants the **full** session
-    and **closes the flow**. A **Resend** link covers a lost code. (This two-step register-then-login
-    split reflects a documented API gap: registration issues a limited scope, then full access comes
-    from the passkey login.)
-  - The chooser's **Log In** path (returning user) opens the **login modal** — just **Log In With
-    Passkey** (→ full access, closes) plus a recover link; no email-code fallback.
+    code boxes** and a single **Register Passkey** button — tapping it enrolls this device's
+    account-login passkey and signs you in (all logins are passkey, so there is no separate
+    "log in with passkey" step here). A **Resend** link covers a lost code.
+  - The chooser's **Log In** path (returning user) opens the **login modal**. Since **all logins are
+    passkey**, by default it is a single **Log In With Passkey** button. When the account is in the
+    **OTP-login-allow window** (toggle with **O**), it additionally shows **OTP code boxes**: entering
+    the code runs the **Register Passkey** flow (enrol a passkey on this new device), while an existing
+    device can still tap **Log In With Passkey** and skip OTP entirely. The **Recover account** link
+    (here and on the chooser) routes into the **register/reset flow** (reset reuses the register form).
 
   In the demo, the passkey login resolves to a signed-in session. While logged in, tap the avatar to
   open the **profile modal**, which holds:
@@ -141,7 +143,9 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
       [`petition.md`](../docs/entities/civic-content/petition.md) (`[proposed-petition-support-label]`).
     - **Poll** — Question + an **Options** list starting at **2** (Yes/No baseline) with an **Add
       option** control up to the jurisdiction's max (default 10; options past the first two get a
-      remove ✕). The cap is meant to come from per-jurisdiction `contentLimits`, not a hardcoded 10.
+      remove ✕). The list **grows the card up to 5 options, then the 6th+ scroll** inside a fixed
+      5-row viewport (mouse wheel; a thumb shows position) — the modal never grows past five. The cap
+      is meant to come from per-jurisdiction `contentLimits`, not a hardcoded 10.
 
     Same Esc / tap-outside / ✕ dismissal as every other modal; the card grows to fit the editor.
 
