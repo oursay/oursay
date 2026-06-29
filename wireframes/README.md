@@ -35,16 +35,25 @@ Page-specific keys / clicks:
 
 - **content-feed** — **F** (or the filter circle) opens the filter; toggling record types, cycling
   **Verified**, toggling **My Districts**, or changing the jurisdiction selection re-filters the
-  cards live. **Wheel** scrolls the list. On a card, the **title** and **"…more"** both open the
-  post (same target); the **author name** opens that profile.
+  cards live. The author tier shows as a tag (**Identity / Residency / Official**); cycling Verified
+  raises the **minimum** tier and **shrinks the shown reaction/comment counts** (petition signatures
+  and poll votes only shrink at **Official**, since Alberta participation already requires residency).
+  When a **single jurisdiction** is selected the card's jurisdiction tag is dropped (the selector
+  already names it). **Wheel** scrolls the list. On a card, the **title** and **"…more"** both open
+  the post (same target); the **author name** opens that profile.
 - **content-jurisdiction** — **G** flips the page between **Global** and **Alberta** (to show the
   Map/Ridings-hidden-for-Global behaviour and the differing Rules). Every section is collapsible
   with a leading icon and a chevron on the **right**: **Map** (a pretend map vector with a
   red/translucent highlight), **Rules**, **Ridings**, and a collapsed-by-default **Jurisdiction
-  Feed** — an inline post list pre-filtered to this jurisdiction (record type & Refine still apply).
-  Leader links are right-aligned **initials avatars** (no arrow). **Wheel** scrolls, and a footer
-  whitespace pad keeps the FAB from ever covering a heading at full scroll.
-- **content-district** — click **About this riding** to collapse/expand; **wheel** scrolls.
+  Feed** — an inline post list pre-filtered to this jurisdiction (record type & Refine still apply;
+  cards drop the redundant jurisdiction tag). Leader links are right-aligned **initials avatars**
+  (no arrow). The selector pill **always shows this page's jurisdiction**, whether or not you
+  subscribe to it. **Wheel** scrolls, and a footer whitespace pad keeps the FAB from ever covering a
+  heading at full scroll.
+- **content-district** — collapsible **Map** / **About this riding** / **District Feed** (icon +
+  right chevron), the last pre-filtered to this riding — including **multi-district** posts that list
+  it among several ridings — with both jurisdiction and district tags dropped (both are implied).
+  The selector shows the **parent jurisdiction** (Alberta). **Wheel** scrolls.
 - **content-post** — tap **✓ / ✗** on the post or any comment to toggle your agree/disagree
   (mutually exclusive, like a `reaction`); the thread stops nesting at **depth 3**
   (`COMMENT_MAX_DEPTH`); **wheel** scrolls.
@@ -54,11 +63,11 @@ glyph → jurisdiction, leader link → profile, riding name → district) are *
 carrying a `NOTE(nav)` that names the target file — mirroring the app-frame external glyph. There
 are no real cross-file `<a href>` links; open each file directly to explore it. On a content page
 the **FAB is locked to the newspaper "go to Feed" (home) icon** — the feed/compose toggle (P) is
-disabled there, since the page is static. The **Jurisdiction** page embeds an inline pre-filtered
-feed (still in-file); the **district / profile** pages keep a lighter **link-out placeholder**
-(`→ View posts in Feed`). Where a page makes a product assumption (card metric sourcing; the
-leader/seated-official → public-profile link, which has no first-class entity today) there is an
-inline `NOTE(tech)` for the doc/API teams.
+disabled there, since the page is static. The **Jurisdiction** and **District** pages both embed an
+inline pre-filtered feed (still in-file); only the **profile** page keeps a lighter **link-out
+placeholder** (`→ View posts in Feed`). Where a page makes a product assumption (card metric
+sourcing; the leader/seated-official → public-profile link, which has no first-class entity today)
+there is an inline `NOTE(tech)` for the doc/API teams.
 
 ## Layout
 
@@ -94,13 +103,19 @@ Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdic
     jurisdiction list: tap a **checkbox** to include/exclude a type in the feed (at least one always
     stays selected — never None), or tap a **name** to switch to **only** that type. No external
     links, no "add" button.
-  - **Refine** — a **Verified** value toggle cycling **None → ID → Residency** (minimum author
-    verification; the row is **dimmed at None**), and a **My Districts** visibility toggle shown as an
-    **eye / closed-eye** (open eye = shown, struck-through eye = hidden; defaults to **off**).
-    **My Districts is only available to residency-verified accounts** (otherwise the row is greyed
-    with a "Residency only" note), and it is **interlocked with Verified**: turning My Districts on
-    jumps **Verified → Residency**, and changing Verified to anything below Residency drops My
-    Districts back off. (The KYC tier is cycled from the profile's **Validate ID** button.)
+  - **Refine** — a **Verified** value toggle cycling **None → ID → Residency → Official** (minimum
+    author tier; the row is **dimmed at None**). Raising it filters out lower-tier authors **and
+    shrinks the counts** shown on the remaining cards (fewer qualifying voices): reactions and
+    comments thin at every level, while petition signatures and poll votes hold steady until
+    **Official** (Alberta participation already requires residency, so ID/Residency don't thin them).
+    The ladder is inclusive upward — an **ID** filter still shows Residency and Official authors; an
+    **Official** filter shows only officials (a resident does **not** appear). Alongside it, a **My
+    Districts** visibility toggle shown as an **eye / closed-eye** (open eye = shown, struck-through =
+    hidden; defaults to **off**). **My Districts is only available to residency-verified accounts**
+    (otherwise the row is greyed with a "Residency only" note). It is a **geography filter only**,
+    independent of Verified: it **keeps all Global posts** and limits jurisdiction content to your own
+    ridings (the example resident's riding is Edmonton-Strathcona). (The account KYC tier is cycled
+    from the profile's **Validate ID** button.)
 - **Jurisdiction selector** (centre): opens the subscribed-jurisdiction list. Each row has two
   distinct actions:
   - **Tap the name** → switch to **only** that jurisdiction (deselects all others), open its
