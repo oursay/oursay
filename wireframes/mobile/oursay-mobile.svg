@@ -713,6 +713,15 @@
         { name: "Polls",      icon: "#ic-bar",          included: true },
         { name: "Results",    icon: "#ic-check-circle", included: true }
       ],
+      // Profile page: which tab + the profile's own record-type filter (user-created kinds,
+      // distinct from the feed set — no Results, plus Comments). Filters Posts/Activity by kind.
+      profileTab: "posts",     // "posts" (authored roots) | "activity" (all actions) | "mentions"
+      profileTypes: [
+        { name: "Statements", icon: "#ic-feather",   included: true },
+        { name: "Comments",   icon: "#ic-message",   included: true },
+        { name: "Petitions",  icon: "#ic-clipboard", included: true },
+        { name: "Polls",      icon: "#ic-bar",       included: true }
+      ],
       verified: 0,             // min author verification: 0 None · 1 ID · 2 Residency · 3 Official
       myDistricts: false,      // geography filter — independent of Verified (off by default)
       composeStep: null,       // null | "where" | "type" | "compose"
@@ -898,43 +907,51 @@
       return row;
     }
 
-    // the feed-bearing views (each renders a filtered card list); a single Post / Profile has none,
+    // the feed-bearing views (each renders a filtered card list); a single Post has none,
     // so the record-type filter is meaningless there and the modal drops that section.
     function viewHasFeed() { return state.view === "feed" || state.view === "jurisdiction" || state.view === "district"; }
+    // views that carry a record/activity-type filter: the feeds (recordTypes) + the Profile
+    // (profileTypes). Only a single Post has neither. Drives both buildFilter and its callout.
+    function viewHasTypeFilter() { return viewHasFeed() || state.view === "profile"; }
+    // one record/activity-type section (All + per-type checkboxes; min-1 multi-include + tap-to-isolate).
+    // Shared by the feed filter (recordTypes) and the profile filter (profileTypes). Returns the next y.
+    function typeFilterSection(inner, y, types, header, allLabel) {
+      inner.appendChild(sectionHdr(FD_X + 16, y + 14, header));
+      y += 24;
+      var allRowY = y, allRow = filterRow(allRowY);
+      allRow.addEventListener("click", function () { types.forEach(function (t) { t.included = true; }); render(); });
+      allRow.appendChild(icon("#ic-list", FD_X + 12, allRowY + 10, 18, "#333"));
+      var allLbl = txt(FD_X + 40, allRowY + 25, allLabel, 14, "#333"); allLbl.setAttribute("font-weight", "bold");
+      allRow.appendChild(allLbl);
+      inner.appendChild(allRow);
+      y += FROW_H;
+      types.forEach(function (item) {
+        var rowY = y, row = filterRow(rowY);
+        row.addEventListener("click", function () { selectTypeOnly(types, item); });
+        row.appendChild(checkbox(FD_X + 12, rowY + 10, item.included, function () {
+          var inc = types.filter(function (t) { return t.included; }).length;
+          if (item.included && inc <= 1) return; // keep >=1 selected (never None)
+          item.included = !item.included;
+          render();
+        }));
+        row.appendChild(icon(item.icon, FD_X + 40, rowY + 10, 18, "#333"));
+        row.appendChild(txt(FD_X + 66, rowY + 25, item.name, 14, "#333"));
+        inner.appendChild(row);
+        y += FROW_H;
+      });
+      return y;
+    }
     function buildFilter() {
       var inner = $("fdInner");
       while (inner.firstChild) inner.removeChild(inner.firstChild);
       var y = FD_TOP + FPAD;
 
-      // --- section 1: record types (min-1 multi-include + exclusive body select) — feed views only ---
-      if (viewHasFeed()) {
-        inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Record types"));
-        y += 24;
-        var allRowY = y, allRow = filterRow(allRowY);
-        allRow.addEventListener("click", function () {
-          state.recordTypes.forEach(function (t) { t.included = true; });
-          render();
-        });
-        allRow.appendChild(icon("#ic-list", FD_X + 12, allRowY + 10, 18, "#333"));
-        var allLbl = txt(FD_X + 40, allRowY + 25, "All Records", 14, "#333");
-        allLbl.setAttribute("font-weight", "bold");
-        allRow.appendChild(allLbl);
-        inner.appendChild(allRow);
-        y += FROW_H;
-        state.recordTypes.forEach(function (item) {
-          var rowY = y, row = filterRow(rowY);
-          row.addEventListener("click", function () { selectTypeOnly(item); });
-          row.appendChild(checkbox(FD_X + 12, rowY + 10, item.included, function () {
-            var inc = state.recordTypes.filter(function (t) { return t.included; }).length;
-            if (item.included && inc <= 1) return; // keep >=1 selected (never None)
-            item.included = !item.included;
-            render();
-          }));
-          row.appendChild(icon(item.icon, FD_X + 40, rowY + 10, 18, "#333"));
-          row.appendChild(txt(FD_X + 66, rowY + 25, item.name, 14, "#333"));
-          inner.appendChild(row);
-          y += FROW_H;
-        });
+      // --- section 1: record/activity types — feeds use recordTypes, Profile uses profileTypes ---
+      var typeSet = viewHasFeed() ? { types: state.recordTypes, hdr: "Record types", all: "All Records" }
+                  : state.view === "profile" ? { types: state.profileTypes, hdr: "Activity types", all: "All Activity" }
+                  : null;
+      if (typeSet) {
+        y = typeFilterSection(inner, y, typeSet.types, typeSet.hdr, typeSet.all);
         y += 8; // separator before Refine
       }
 
@@ -983,8 +1000,8 @@
       y += FROW_H;
       $("fdBg").setAttribute("height", (y + FPAD) - FD_TOP);
     }
-    function selectTypeOnly(item) {
-      state.recordTypes.forEach(function (t) { t.included = (t === item); });
+    function selectTypeOnly(types, item) {
+      types.forEach(function (t) { t.included = (t === item); });
       render();
     }
 
@@ -1439,7 +1456,47 @@
     // tier 3 = Official (MLA / government), matching her Alberta posts.
     var PROFILE = {
       name: "Rae Nguyen", handle: "raenguyen", role: "MLA · Edmonton-Strathcona", tier: 3,
-      stats: [ { n: 18, label: "Statements" }, { n: 42, label: "Petitions signed" }, { n: 7, label: "Polls" } ]
+      stats: [ { n: 18, label: "Statements" }, { n: 42, label: "Petitions signed" }, { n: 7, label: "Polls" } ],
+      // Posts tab — authored root records (POSTS-shaped, so buildCard renders them). No Results:
+      // a Result is a system outcome, not a user-created post (and has no profile-type toggle).
+      posts: [
+        { type:"statement", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
+          title:"Constituency update: ravine review",
+          body:["I've asked the ministry to pause the rezoning until the",
+                "environmental review is complete."], up:204, down:46, comments:38 },
+        { type:"petition", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
+          title:"Repair the Mill Creek footbridge",
+          body:["The footbridge has been closed since spring. Fund the",
+                "repair so the trail reconnects before winter."], sig:1880, goal:3000, comments:24 },
+        { type:"poll", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
+          title:"Which local priority should I table first?",
+          body:["Help me rank what to raise at the next sitting.",
+                "One vote per resident."],
+          options:[{label:"Transit",v:240},{label:"Parks",v:190},{label:"Roads",v:120}], comments:31 },
+        { type:"statement", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
+          title:"Town hall Saturday at the library",
+          body:["Drop in 10–12 at the Strathcona branch. Bring questions",
+                "on the budget, transit, or the ravine review."], up:96, down:4, comments:12 }
+      ],
+      // Activity tab — every public action (kind drives the icon + the profile-type filter; reactions
+      // have no toggle, so they always show). Representative targets: each row taps through to a Post.
+      activity: [
+        { kind:"statement", text:"Posted “Constituency update: ravine”", meta:"2d · Alberta" },
+        { kind:"comment",   text:"Commented on “Whitemud ravine”",       meta:"3d" },
+        { kind:"petition",  text:"Signed “Repave 109 Street”",           meta:"5d" },
+        { kind:"poll",      text:"Voted in “Budget priority 2027”",      meta:"6d" },
+        { kind:"reaction",  text:"Agreed with “Bike lanes on Whyte”",    meta:"1w" },
+        { kind:"comment",   text:"Replied to Marcus Lee on the vote",    meta:"1w" },
+        { kind:"statement", text:"Posted “Town hall Saturday”",          meta:"2w" },
+        { kind:"reaction",  text:"Disagreed with “Voting age 16”",       meta:"3w" }
+      ],
+      // Mentions tab — others referencing @raenguyen (not type-filtered; a different axis).
+      mentions: [
+        { author:"Sam Driver",  handle:"samd",  text:"@raenguyen can you weigh in on the rezoning?", meta:"on “Whitemud ravine” · 1d" },
+        { author:"Priya Anand", handle:"priya", text:"Thanks @raenguyen for the budget update",      meta:"2d" },
+        { author:"Marcus Lee",  handle:"mlee",  text:"@raenguyen what's the timeline on the vote?",  meta:"4d" },
+        { author:"Hana Okafor", handle:"hanao", text:"Grateful for @raenguyen's ravine review",      meta:"1w" }
+      ]
     };
 
     // Post view subject — one post in full + a comment thread nested to depth 3.
@@ -1914,17 +1971,93 @@
       });
       y += 84;
 
-      // posts (link-out → Feed filtered by this author; representative target → Feed)
-      var pg = document.createElementNS(SVG_NS, "g"); pg.style.cursor = "pointer";
-      pg.appendChild(rect(X, y, W, 40, 8, "#f7f7f7", "#e2e2e2"));
-      pg.appendChild(icon("#ic-list", X + 12, y + 11, 18, "#333"));
-      pg.appendChild(txt(X + 40, y + 25, "View their posts in Feed", 14, "#333"));
-      pg.appendChild(icon("#ic-chevron-right", X + W - 28, y + 11, 16, "#777"));
-      clickRect(pg, X, y, W, 40, go("feed"));
-      body.appendChild(pg);
-      y += 56;
+      // segmented Posts · Activity · Mentions tabs, then the active tab's scrollable list
+      y = profileTabs(body, X, W, y);
+      y += 16;
+      if (state.profileTab === "posts") {
+        var posts = PROFILE.posts.filter(function (po) { return profileTypeOn(po.type); });
+        if (!posts.length) y = emptyRow(body, X, W, y, "No posts match the Activity-type filter.");
+        posts.forEach(function (po) {
+          var card = buildCard(po);
+          card.setAttribute("transform", "translate(" + X + "," + y + ")");
+          body.appendChild(card);
+          y += card._h + 14;
+        });
+      } else if (state.profileTab === "activity") {
+        var acts = PROFILE.activity.filter(function (a) { return profileTypeOn(a.kind); });
+        if (!acts.length) y = emptyRow(body, X, W, y, "No activity matches the Activity-type filter.");
+        acts.forEach(function (a) { y = activityRow(body, X, W, y, a); });
+      } else {
+        PROFILE.mentions.forEach(function (m) { y = mentionRow(body, X, W, y, m); });
+      }
 
       setViewScroll("profile", y);
+    }
+    // interlocking segmented control — Posts | Activity | Mentions (active = filled inset pill)
+    function profileTabs(parent, X, W, y) {
+      var tabs = [["posts", "Posts"], ["activity", "Activity"], ["mentions", "Mentions"]];
+      var H = 38, segW = W / 3;
+      var g = document.createElementNS(SVG_NS, "g");
+      g.appendChild(rect(X, y, W, H, 10, "#f1f1f1", "#ddd")); // shared track
+      tabs.forEach(function (t, i) {
+        var sx = X + i * segW, active = state.profileTab === t[0];
+        // divider only between two inactive segments (the active pill supplies its own edge)
+        if (i > 0 && !active && state.profileTab !== tabs[i - 1][0]) {
+          var ln = document.createElementNS(SVG_NS, "line");
+          ln.setAttribute("x1", sx); ln.setAttribute("y1", y + 9); ln.setAttribute("x2", sx); ln.setAttribute("y2", y + H - 9);
+          ln.setAttribute("stroke", "#d2d2d2"); g.appendChild(ln);
+        }
+        if (active) g.appendChild(rect(sx + 3, y + 3, segW - 6, H - 6, 8, "#333"));
+        var lbl = txt(sx + segW / 2, y + 24, t[1], 13.5, active ? "#fff" : "#555");
+        lbl.setAttribute("text-anchor", "middle"); if (active) lbl.setAttribute("font-weight", "bold");
+        g.appendChild(lbl);
+        var hit = document.createElementNS(SVG_NS, "g");
+        clickRect(hit, sx, y, segW, H, function (e) {
+          if (e) e.stopPropagation();
+          if (state.profileTab !== t[0]) { state.profileTab = t[0]; state.scroll = 0; render(); }
+        });
+        g.appendChild(hit);
+      });
+      parent.appendChild(g);
+      return y + H;
+    }
+    // a profile kind (statement/comment/petition/poll) maps to its profile-type toggle; kinds with
+    // no toggle (reaction, result) always show. Governs the Posts and Activity lists.
+    function profileTypeOn(kind) {
+      var name = { statement: "Statements", comment: "Comments", petition: "Petitions", poll: "Polls" }[kind];
+      if (!name) return true;
+      var t = state.profileTypes.filter(function (x) { return x.name === name; })[0];
+      return !t || t.included;
+    }
+    var ACT_ICON = { statement: "#ic-feather", comment: "#ic-message", petition: "#ic-clipboard", poll: "#ic-bar", reaction: "#ic-check-circle" };
+    function activityRow(parent, X, W, y, a) {
+      var H = 52, g = document.createElementNS(SVG_NS, "g");
+      g.appendChild(rect(X, y, W, H, 10, "#ffffff", "#eee"));
+      g.appendChild(icon(ACT_ICON[a.kind] || "#ic-message", X + 14, y + 16, 18, "#666"));
+      g.appendChild(txt(X + 46, y + 24, a.text, 12.5, "#333"));
+      g.appendChild(txt(X + 46, y + 41, a.meta, 11, "#999"));
+      clickRect(g, X, y, W, H, go("post")); // representative target → the Post view
+      parent.appendChild(g);
+      return y + H + 10;
+    }
+    function mentionRow(parent, X, W, y, m) {
+      var H = 56, g = document.createElementNS(SVG_NS, "g");
+      g.appendChild(rect(X, y, W, H, 10, "#ffffff", "#eee"));
+      var av = document.createElementNS(SVG_NS, "circle");
+      av.setAttribute("cx", X + 24); av.setAttribute("cy", y + 24); av.setAttribute("r", 13);
+      av.setAttribute("fill", "#eee"); av.setAttribute("stroke", "#ddd"); g.appendChild(av);
+      var it = txt(X + 24, y + 28, initials(m.author), 9, "#888"); it.setAttribute("text-anchor", "middle"); g.appendChild(it);
+      var nm = txt(X + 46, y + 20, m.author, 12.5, "#333"); nm.setAttribute("font-weight", "bold"); g.appendChild(nm);
+      g.appendChild(txt(X + 46 + Math.round(m.author.length * 12.5 * 0.55) + 6, y + 20, "@" + m.handle, 10.5, "#aaa"));
+      g.appendChild(txt(X + 46, y + 38, m.text, 12, "#555"));
+      g.appendChild(txt(X + 46, y + 51, m.meta, 10.5, "#bbb"));
+      clickRect(g, X, y, W, H, go("post"));
+      parent.appendChild(g);
+      return y + H + 10;
+    }
+    function emptyRow(parent, X, W, y, msg) {
+      var e = txt(X + W / 2, y + 26, msg, 13, "#999"); e.setAttribute("text-anchor", "middle"); parent.appendChild(e);
+      return y + 52;
     }
 
     // ---- POST (one post + threaded comments to depth 3) -----------------------
@@ -2066,7 +2199,7 @@
       feed:         ["Feed — unified, filtered list", "tap a card → Post; author → Profile"],
       jurisdiction: ["Jurisdiction view (G flips Glob/AB)", "leader → Profile; riding → District"],
       district:     ["District view (one riding)", "leader → Profile; cards → Post"],
-      profile:      ["Profile view (public)", "View posts → Feed"],
+      profile:      ["Profile — Posts · Activity · Mentions", "tabs; type filter (F) gates kinds"],
       post:         ["Post + comment thread (depth 3)", "✓/✗ react; ↳ Reply (stub)"]
     };
 
@@ -2173,8 +2306,8 @@
       show($("anno-dd-filter"), state.labelsOn && state.dropdownOpen && state.subs.length > 1);
       show($("anno-filter"), state.labelsOn && state.filterOpen);
       // record-types callout only on feed views; refine callout slides up by the dropped section's height
-      show($("anno-filter-types"), viewHasFeed());
-      $("anno-filter-refine").setAttribute("transform", viewHasFeed() ? "translate(0,0)" : "translate(0," + (-(24 + 5 * FROW_H + 8)) + ")");
+      show($("anno-filter-types"), viewHasTypeFilter());
+      $("anno-filter-refine").setAttribute("transform", viewHasTypeFilter() ? "translate(0,0)" : "translate(0," + (-(24 + 5 * FROW_H + 8)) + ")");
       show($("anno-modal"), state.labelsOn && state.modalOpen);
       show($("anno-auth"), state.labelsOn && !!state.authView && !state.loggedIn);
       show($("anno-profile"), state.labelsOn && state.profileOpen && state.loggedIn);
