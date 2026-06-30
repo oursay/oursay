@@ -49,7 +49,8 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 ### 1.4 Icons: Feather, with Lucide preferred for anything missing
 - **Decision:** icons are inlined `<symbol>`s, mostly from [Feather](https://feathericons.com) (MIT).
   When a glyph isn't in Feather, take it from [Lucide](https://lucide.dev) rather than another set —
-  e.g. `ic-gavel` (Official tier) is Lucide's `gavel`, since Feather has none.
+  e.g. `ic-gavel` (Official tier) is Lucide's `gavel` and `ic-pin-house` (residency neighbour, §2.1) is
+  Lucide's `map-pin-house`, since Feather has neither.
 - **Why:** Lucide is Feather's actively-maintained successor and shares the exact design language
   (24×24 grid, 2px round-cap strokes), so a borrowed glyph sits beside the Feather ones without looking
   foreign. Other libraries (Tabler, Phosphor, Material) carry a gavel too but with different stroke
@@ -71,6 +72,12 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   is read, and the metaphors map to the thing verified — a badge for *who you are*, a pin for *where
   you live*, a gavel for *holding office*. The generic **shield** is kept only where verification is
   referenced as a *category* rather than a specific type — the "Verified" filter row.
+- **Residency neighbours get a map-pin-*house*:** a Residency-verified author **in my own district**
+  shows Lucide's `map-pin-house` instead of the plain pin — but only when **I** am residency-verified
+  (`isHomeAuthor`: `state.kyc >= 2` + district overlap). The label stays "Residency"; only the glyph
+  changes. **Why:** "a verified neighbour in your riding" is a stronger civic signal than "verified
+  somewhere," and it's the same residency-gated lens as **My Districts** (§4.4) — if you can't see
+  districts, the distinction isn't surfaced. It rides on the existing pill, so it costs no extra space.
 - **Why:** in a civic space, *who is speaking* and *how strongly they're verified* is first-class
   information; it should be visible at the point of reading, not buried in a profile. Darker = more
   verified gives an at-a-glance signal without reading the label.
@@ -177,14 +184,30 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 - **Why:** a verified-only view is showing *fewer voices*, so the tallies should reflect that, not
   imply the full crowd agreed. Civic counts don't thin at the lower tiers because Alberta civic
   participation already requires residency — the lower filters wouldn't actually remove those voices.
-- **Trade-off / rejected:** the Post detail shows its count **raw** (unscaled); a single record you've
-  opened isn't a filtered list, so scaling it there would mislead.
+- **Where it reaches:** reaction tallies are thinned by the filter everywhere they appear — feed cards,
+  the **Post**, and **its comments** — so the discussion you're reading reflects the same verified-only
+  view as the list you came from (consistent with comment filtering, §4.6). The one count left **raw**
+  is the comment-count **pill**, which reports the record's true total (the "N hidden by filters" note,
+  §4.6, already explains the gap between that total and what's shown).
 
-### 4.4 "My Districts" is a separate geography axis
-- **Decision:** My Districts is independent of the Verified filter, off by default, and only available
-  to residency-verified accounts (otherwise greyed "Residency only").
-- **Why:** "where" and "how verified" are different questions; bundling them would make either one
-  impossible to use alone. District is inferred from address at query time, never stored on the user.
+### 4.4 "My Districts" is coupled to the Verified filter (inferable only at Residency+)
+- **Decision:** My Districts is a geography filter, off by default, available to residency-verified
+  accounts. It is only **inferable** when the **Verified filter** sits at **Residency or Official** —
+  at None/ID it **disengages** (greyed, "Residency+") because lower-tier authors have no verified
+  district to match. The toggle **remembers its intent** across Verified changes, and turning it on
+  **jumps Verified up to Residency** (Official stays put). It applies to the feed, the jurisdiction
+  list, **and comments**.
+- **Why:** a district can only be known for residency/official-verified people, so geographic filtering
+  is meaningless while the list still includes lower tiers — coupling keeps the filter honest. But a
+  user who briefly drops the Verified filter shouldn't silently lose their geography choice, hence the
+  remembered intent; and "show my district" should just work, hence the one-tap Verified-jump.
+- **Trade-off / rejected:** the earlier model treated the two axes as fully independent — rejected
+  because it let you "filter to my district" over a feed that still included unverified authors with no
+  inferable district, which is incoherent. District is still inferred from address at query time, never
+  stored on the user.
+- **Mechanics:** `state.myDistricts` = remembered intent; `effectiveMyDistricts()` = intent **&&**
+  residency account **&&** Verified ≥ Residency — the single predicate used by both the feed matcher
+  and the comment thread, so every list and **every filter modal** disengages together.
 
 ### 4.5 Every participatory action is login-gated through one gate
 - **Decision:** all participation runs through a single `requireAuth(action)` — logged-out taps open
@@ -205,6 +228,22 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   `requireAuth`); it was refactored to call `requireAuth(startCompose)` so compose is gated by the
   *same* path as everything else. The gate is on **entry** to the action (you can't even open the
   reply composer logged-out), not on submit.
+
+### 4.6 The Verified + My Districts filters also prune comments (with reply-promotion)
+- **Decision:** the same Verified ladder **and** the My Districts geography filter that filter feed
+  cards now also apply to **comments** on the Post — a comment whose author is below the selected tier,
+  or (under an engaged My Districts, §4.4) names a district that isn't mine, is hidden. District-less
+  comments (e.g. officials) are **kept** by My Districts. A hidden comment's **qualifying replies are
+  promoted** up to its level, so a surviving reply under a filtered parent still shows. A right-aligned
+  **"N hidden by filters"** note sits by the Comments header; the comment-count pill keeps the record's
+  **true total**.
+- **Why:** a reader who has filtered to "Residency+" expects that to apply to the *discussion* too, not
+  just the list of posts. Promotion preserves the inclusive-upward intent (§2.2) — you never lose a
+  higher-tier voice just because its parent was lower-tier. The note keeps it honest that you're seeing
+  fewer comments by choice, echoing the count-thinning of §4.3.
+- **Trade-off / rejected:** pruning whole subtrees (simpler) was rejected — it would hide an *Official*
+  reply merely because it sat under an unverified comment, the opposite of inclusive-upward. The post
+  itself is never filtered (you navigated to it directly); only its comments are.
 
 ---
 

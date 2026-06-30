@@ -96,6 +96,10 @@
     <symbol id="ic-gavel" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3l8.384-8.381"/><path d="m16 16 6-6"/><path d="m21.5 10.5-8-8"/><path d="m8 8 6-6"/><path d="m8.5 7.5 8 8"/>
     </symbol>
+    <!-- ic-pin-house: Lucide "map-pin-house" (ISC) — residency-verified author in *my* district -->
+    <symbol id="ic-pin-house" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M15 22a1 1 0 0 1-1-1v-4a1 1 0 0 1 .445-.832l3-2a1 1 0 0 1 1.11 0l3 2A1 1 0 0 1 22 17v4a1 1 0 0 1-1 1z"/><path d="M18 10a8 8 0 0 0-16 0c0 4.993 5.539 10.193 7.399 11.799a1 1 0 0 0 .601.2"/><path d="M18 22v-3"/><circle cx="10" cy="10" r="3"/>
+    </symbol>
     <symbol id="ic-key" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
     </symbol>
@@ -733,9 +737,9 @@
       scroll: 0,               // active view's vertical scroll offset (px); reset by nav()
       jur: "Alberta",          // which jurisdiction the Jurisdiction view shows (G flips Global/Alberta)
       // collapsible sections — Jurisdiction view
-      jurMapOpen: true, jurRulesOpen: true, jurDistrictsOpen: true, jurFeedOpen: false,
+      jurMapOpen: true, jurRulesOpen: true, jurDistrictsOpen: false, jurFeedOpen: true,
       // collapsible sections — District view
-      distMapOpen: true, distAboutOpen: true, distFeedOpen: false,
+      distMapOpen: true, distAboutOpen: false, distFeedOpen: true,
 
       loggedIn: false,
       dropdownOpen: false,
@@ -1021,21 +1025,36 @@
       inner.appendChild(vRow);
       y += FROW_H;
 
-      // My Districts — geography filter, INDEPENDENT of Verified (decoupled). Only available to
-      // residency-verified accounts (kyc === 2). Keeps Global + posts scoped to your own ridings.
-      // NOTE(tech): gate on the account's residency tier (or higher elector tier, future).
+      // My Districts — geography filter, now coupled to Verified: districts are only inferable at
+      // Residency/Official, so the row disengages (greyed, eye-off effect) when Verified is None/ID,
+      // while REMEMBERING the intent (state.myDistricts) so it re-applies when Verified climbs back.
+      // Toggling it on jumps Verified up to Residency (Official stays). Account still must be
+      // residency-verified (kyc) to have a home district at all.
       var dRowY = y, dRow = filterRow(dRowY);
-      var canDistricts = state.kyc === 2;
-      var dOn = state.myDistricts && canDistricts;
-      var dCol = !canDistricts ? "#ccc" : (dOn ? "#333" : "#999");
-      var eye = icon(dOn ? "#ic-eye" : "#ic-eye-off", FD_X + 11, dRowY + 10, 20, dCol);
+      var canDistricts = state.kyc >= 2;              // account has a home district
+      var inferable = districtsInferable();           // Verified filter at Residency/Official
+      var dEngaged = state.myDistricts && canDistricts && inferable; // actually filtering right now
+      var dCol = !canDistricts ? "#ccc" : (!inferable ? "#bbb" : (dEngaged ? "#333" : "#999"));
+      // eye open = remembered intent on (greyed while paused); closed = off
+      var intentOn = canDistricts && state.myDistricts;
+      var eye = icon((intentOn && inferable) ? "#ic-eye" : "#ic-eye-off", FD_X + 11, dRowY + 10, 20, dCol);
       dRow.appendChild(eye);
       dRow.appendChild(txt(FD_X + 42, dRowY + 25, "My Districts", 14, dCol));
       if (canDistricts) {
-        var toggleDistricts = function () { state.myDistricts = !state.myDistricts; render(); };
+        // toggle intent; turning it on jumps Verified up to Residency (Official stays) so districts
+        // become inferable. Intent is remembered if Verified later drops to None/ID.
+        var toggleDistricts = function () {
+          state.myDistricts = !state.myDistricts;
+          if (state.myDistricts && state.verified < 2) state.verified = 2; // the Verified jump
+          render();
+        };
         eye.style.cursor = "pointer";
         eye.addEventListener("click", function (e) { e.stopPropagation(); toggleDistricts(); });
         dRow.addEventListener("click", toggleDistricts);
+        if (!inferable) { // paused: only applies at Verified ≥ Residency
+          var hint = txt(FD_X + FD_W - 16, dRowY + 25, "Residency+", 11, "#bbb");
+          hint.setAttribute("text-anchor", "end"); dRow.appendChild(hint);
+        }
       } else {
         var note = txt(FD_X + FD_W - 16, dRowY + 25, "Residency only", 11, "#bbb");
         note.setAttribute("text-anchor", "end");
@@ -1555,8 +1574,9 @@
     // reaction records on the post or a comment (exclusive per author per target; modelled by _my).
     var COMMENT_MAX_DEPTH = 3;
     // `tier` (0–3) = author verification → renders a pill next to the name on the post & in comments.
-    // `ts` = created time (ISO) → relTime(). `edits` = how many times it was revised → "N edit(s)"
-    // link to the (deferred) edit-history timeline. `ts` is display-only; see relTime()/NOW above.
+    // `districts` = author's riding slug(s) → a Residency author in my district gets the map-pin-house
+    // (isHomeAuthor). `ts` = created time (ISO) → relTime(). `edits` = how many times it was revised →
+    // "N edit(s)" link to the (deferred) edit-history timeline. `ts` is display-only; see relTime()/NOW.
     var POST = {
       author: "Hana Okafor", handle: "hanao", tier: 2, jur: "Alberta", district: "Edmonton-Strathcona",
       ts: "2026-06-22T10:15:00", edits: 3,   // >6d old → shows the absolute date "2026-06-22"; revised 3×
@@ -1570,13 +1590,13 @@
       up: 132, down: 7, _my: null
     };
     var COMMENTS = [
-      { author: "Sam Driver", handle: "samd", tier: 2, ts: "2026-06-27T09:00:00", edits: 1,
+      { author: "Sam Driver", handle: "samd", tier: 2, districts:["edmonton-strathcona"], ts: "2026-06-27T09:00:00", edits: 1,
         body: ["Agreed — the rookery alone should trigger a review."], up: 14, down: 1, _my: null,
         replies: [
           { author: "Rae Nguyen", handle: "raenguyen", tier: 3, ts: "2026-06-30T08:40:00",
             body: ["I've asked Parks to share the 2023 survey data."], up: 9, down: 0, _my: null,
             replies: [
-              { author: "Hana Okafor", handle: "hanao", tier: 2, ts: "2026-06-25T14:00:00",
+              { author: "Hana Okafor", handle: "hanao", tier: 2, districts:["edmonton-strathcona"], ts: "2026-06-25T14:00:00",
                 body: ["Thank you — please post it here when you can."], up: 4, down: 0, _my: null, replies: [] }
             ] }
         ] },
@@ -1586,7 +1606,7 @@
           { author: "Priya Anand", handle: "priya", tier: 1, ts: "2026-06-24T16:20:00",
             body: ["Next council session, per the agenda."], up: 5, down: 0, _my: null, replies: [] }
         ] },
-      { author: "Rosa Klein", handle: "rosak", tier: 2, ts: "2026-06-29T19:10:00", edits: 2,
+      { author: "Rosa Klein", handle: "rosak", tier: 2, districts:["calgary-elbow"], ts: "2026-06-29T19:10:00", edits: 2,
         body: ["Roads could be rerouted around the south edge instead."], up: 6, down: 2, _my: null, replies: [] }
     ];
 
@@ -1635,7 +1655,11 @@
     function tierShade(t) { return t === 3 ? "#222" : t === 2 ? "#555" : "#8a8a8a"; }
     // unique glyph per verification type: Identity = ID badge · Residency = map pin · Official = gavel.
     // (the generic shield stays for the "Verified" filter category, which isn't a single type.)
-    function tierIcon(t) { return ["#ic-shield", "#ic-badge", "#ic-pin", "#ic-gavel"][t] || "#ic-shield"; }
+    // `home` upgrades a Residency author to the map-pin-house when they're in *my* district (see isHomeAuthor).
+    function tierIcon(t, home) {
+      if (t === 2 && home) return "#ic-pin-house";
+      return ["#ic-shield", "#ic-badge", "#ic-pin", "#ic-gavel"][t] || "#ic-shield";
+    }
     // rough rendered width of a label: narrow glyphs (i, l, f, t, I…) count for much less
     // than the flat per-char average, so pills hug words like "Official" / "Identity" tightly.
     function textW(s, size) {
@@ -1648,13 +1672,13 @@
     }
     // tightly-bound verification pill, right-aligned so its right edge sits at rightX.
     // returns a <g>; empty when tier is 0 so callers can add() it unconditionally.
-    function tierPill(rightX, y, tier) {
+    function tierPill(rightX, y, tier, home) {
       var g = document.createElementNS(SVG_NS, "g");
       if (tier > 0) {
         var label = tierLabel(tier), pad = 6, ico = 12, gap = 3, h = 18;
         var w = Math.round(pad + ico + gap + textW(label, 10.5) + pad), x = rightX - w;
         g.appendChild(rect(x, y, w, h, 9, tierShade(tier)));
-        g.appendChild(icon(tierIcon(tier), x + pad, y + (h - ico) / 2, ico, "#fff"));
+        g.appendChild(icon(tierIcon(tier, home), x + pad, y + (h - ico) / 2, ico, "#fff"));
         g.appendChild(txt(x + pad + ico + gap, y + 13, label, 10.5, "#fff"));
       }
       return g;
@@ -1677,6 +1701,26 @@
     var MY_DISTRICTS = ["edmonton-strathcona"]; // the example signed-in resident's home riding(s)
     function postDistricts(p) { return p.districts || []; }
     function inMyDistricts(p) { return postDistricts(p).some(function (s) { return MY_DISTRICTS.indexOf(s) >= 0; }); }
+    // an author "in my district": only meaningful when *I'm* residency-verified (kyc >= 2). Accepts the
+    // card shape (p.districts slugs) and the single-post shape (p.district display string). Drives the
+    // map-pin-house glyph for residency-verified neighbours (see tierIcon).
+    function authorDistrictSlugs(p) {
+      if (p.districts && p.districts.length) return p.districts;
+      if (p.district) return [String(p.district).toLowerCase()];
+      return [];
+    }
+    function isHomeAuthor(p) {
+      return state.kyc >= 2 && authorDistrictSlugs(p).some(function (s) { return MY_DISTRICTS.indexOf(s) >= 0; });
+    }
+    // My Districts geography filter, refined. A district can only be inferred for Residency/Official
+    // authors, so the filter is only *inferable* when the Verified filter sits at Residency (2) or
+    // Official (3). `state.myDistricts` is the remembered intent; effectiveMyDistricts() is what
+    // actually filters — it disengages (without forgetting the intent) whenever districts aren't
+    // inferable or the account itself isn't residency-verified. Used by the feed matcher AND comments.
+    function districtsInferable() { return state.verified >= 2; }
+    function effectiveMyDistricts() { return state.myDistricts && state.kyc >= 2 && districtsInferable(); }
+    // a record/comment names a district that isn't mine (district-less ones — e.g. officials — are kept)
+    function outsideMyDistricts(p) { return (p.districts || []).length > 0 && !inMyDistricts(p); }
     function districtTag(p) {
       var ds = postDistricts(p);
       if (!ds.length) return "";
@@ -1789,12 +1833,12 @@
       if (scope === "feed") {
         var sub = subByName(p.jur);
         if (!sub || !sub.included) return false;    // unified-feed jurisdiction filter
-        if (state.myDistricts && p.jur !== "Global" && !inMyDistricts(p)) return false;
+        if (effectiveMyDistricts() && p.jur !== "Global" && !inMyDistricts(p)) return false;
         return true;
       }
       if (scope === "jurisdiction") {
         if (p.jur !== state.jur) return false;
-        if (state.myDistricts && !inMyDistricts(p)) return false;
+        if (effectiveMyDistricts() && !inMyDistricts(p)) return false;
         return true;
       }
       if (scope === "district") {
@@ -1823,11 +1867,13 @@
       var nm = txt(px + 38, 22, p.author, 13.5, "#333"); nm.setAttribute("font-weight", "bold"); add(nm);
       add(txt(px + 38, 37, "@" + p.handle, 11.5, "#999"));
       var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, 0, 8, 190, 34, go("profile")); hit(aHit);
-      // verification tier (tight pill, shade by level) + jurisdiction/district tag
-      if (p.tier > 0) add(tierPill(W - px, 4, p.tier));
+      // verification tier (tight pill, shade by level) + jurisdiction/district tag — the author-row
+      // right stack hugs the card edge (inset 4, not the body's 16) to match the Post/comment tags.
+      var tagRight = W - 4;
+      if (p.tier > 0) add(tierPill(tagRight, 4, p.tier, isHomeAuthor(p)));
       var jurName = opts.hideJur ? "" : p.jur;
       var distLabel = opts.hideDistrict ? "" : districtTag(p);
-      if (jurName || distLabel) hit(scopeTagLink(jurName, distLabel, W - px, 38));
+      if (jurName || distLabel) hit(scopeTagLink(jurName, distLabel, tagRight, 38));
 
       // title (tap → post)
       var ti = txt(px, 66, p.title, 15, "#222"); ti.setAttribute("font-weight", "bold"); add(ti);
@@ -1981,7 +2027,7 @@
         } else { y += 12; }
       }
 
-      // Jurisdiction Feed (collapsible, collapsed by default; inline, pre-filtered cards)
+      // Jurisdiction Feed (collapsible, expanded by default; inline, pre-filtered cards)
       var shown = POSTS.filter(function (p) { return matches(p, "jurisdiction"); });
       y = collHeader(body, X, W, y, "#ic-newspaper", "Jurisdiction Feed", state.jurFeedOpen, shown.length + " posts",
         function () { state.jurFeedOpen = !state.jurFeedOpen; render(); });
@@ -2036,9 +2082,9 @@
         y += 8;
       } else { y += 12; }
 
-      // District Feed (collapsible, collapsed by default; inline, pre-filtered cards)
+      // Riding Feed (collapsible, expanded by default; inline, pre-filtered cards)
       var shown = POSTS.filter(function (p) { return matches(p, "district"); });
-      y = collHeader(body, X, W, y, "#ic-newspaper", "District Feed", state.distFeedOpen, shown.length + " posts",
+      y = collHeader(body, X, W, y, "#ic-newspaper", "Riding Feed", state.distFeedOpen, shown.length + " posts",
         function () { state.distFeedOpen = !state.distFeedOpen; render(); });
       if (state.distFeedOpen) {
         y += 10;
@@ -2207,6 +2253,13 @@
     function countComments(nodes) {
       return nodes.reduce(function (a, n) { return a + 1 + countComments(n.replies || []); }, 0);
     }
+    // comments that survive the Verified + My Districts filters (at any depth)
+    function countVisibleComments(nodes) {
+      return nodes.reduce(function (a, n) {
+        var kept = (n.tier || 0) >= state.verified && !(effectiveMyDistricts() && outsideMyDistricts(n));
+        return a + (kept ? 1 : 0) + countVisibleComments(n.replies || []);
+      }, 0);
+    }
     // toggle the viewer's agree/disagree on a target (post or comment); mutually exclusive
     function toggleReact(node, dir) {
       if (node._my === dir) { node[dir]--; node._my = null; }
@@ -2291,6 +2344,14 @@
     function buildThread(parent, nodes, depth, y) {
       var X0 = 30, W0 = 370;
       nodes.forEach(function (node) {
+        // Verified + My Districts filters (same rules as the feed): a comment whose author is below the
+        // active tier, or (under an engaged My Districts) names a district that isn't mine, is hidden —
+        // but its qualifying replies are promoted to this level so a surviving voice under a filtered
+        // parent isn't lost. District-less comments (e.g. officials) are kept by My Districts.
+        if ((node.tier || 0) < state.verified || (effectiveMyDistricts() && outsideMyDistricts(node))) {
+          if (node.replies && node.replies.length) y = buildThread(parent, node.replies, depth, y);
+          return;
+        }
         var indent = (depth - 1) * 20, x = X0 + indent, w = W0 - indent;
         // avatar + bold name → the author's Profile (one clickable group; handle dropped for space —
         // "Name · 3d ago" reads inline, with the tier pill right-justified). Production routes by author id.
@@ -2305,11 +2366,12 @@
         clickRect(ag, x, y - 6, 28 + nameW + 4, 24, go("profile")); parent.appendChild(ag);
         // "Name · 3d ago" — relative timestamp inline after the name
         if (node.ts) parent.appendChild(txt(x + 28 + nameW + 6, y + 6, "• " + relTime(node.ts), 11, "#999"));
-        // verification pill right-justified (matches feed cards + post author row; omitted for tier 0)
-        if (node.tier > 0) parent.appendChild(tierPill(x + w, y - 5, node.tier));
+        // verification pill right-justified (matches feed cards + post author row; omitted for tier 0).
+        // Residency neighbours in my district get the map-pin-house, same as the feed/post (see isHomeAuthor).
+        if (node.tier > 0) parent.appendChild(tierPill(x + w, y - 5, node.tier, isHomeAuthor(node)));
         var yy = y + 24;
         node.body.forEach(function (line) { parent.appendChild(txt(x + 28, yy, line, 12, "#555")); yy += 16; });
-        reactPill(parent, node, x + 28, yy + 8);
+        reactPill(parent, node, x + 28, yy + 8, scaleSocial);
         var atMax = depth >= COMMENT_MAX_DEPTH;
         replyBtn(parent, x + 132, yy + 8, { node: node, atMax: atMax });
         // "N edit(s)" → the (deferred) edit-history timeline; only on revised comments
@@ -2338,7 +2400,7 @@
       // posted timestamp under the name (handle dropped for space; the tier pill + scope tag carry identity)
       if (p.ts) body.appendChild(txt(X + 38, y + 28, relTime(p.ts), 11.5, "#999"));
       var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, X, y, 190, 34, go("profile")); body.appendChild(aHit);
-      if (p.tier > 0) body.appendChild(tierPill(X + W, y - 6, p.tier));
+      if (p.tier > 0) body.appendChild(tierPill(X + W, y - 6, p.tier, isHomeAuthor(p)));
       body.appendChild(scopeTagLink(p.jur, p.district || "", X + W, y + 30));
       y += 48;
 
@@ -2349,10 +2411,10 @@
       y += 22;
 
       // post reaction bar (split pill) + reply (root comment) + "N edit(s)" + comment count pill
-      reactPill(body, p, X, y);
+      reactPill(body, p, X, y, scaleSocial);   // tallies thinned by the Verified filter (like the feed / comments)
       replyBtn(body, X + 110, y, { post: true });
       editsLink(body, X + 185, y, p.edits, { post: true });   // → deferred edit-history timeline
-      var nC = countComments(COMMENTS);
+      var nC = countComments(COMMENTS), nVis = countVisibleComments(COMMENTS);
       body.appendChild(commentPill(X + W, y, nC));
       y += 22;
       // root-comment composer (no prefill — replies to the post sit at the top level)
@@ -2364,6 +2426,8 @@
       ln.setAttribute("stroke", "#eee"); body.appendChild(ln);
       y += 24;
       var ch = txt(X, y, "Comments (" + nC + ")", 13.5, "#333"); ch.setAttribute("font-weight", "bold"); body.appendChild(ch);
+      // honesty note: when the Verified / My Districts filters hide comments, say how many
+      if (nVis < nC) { var hid = txt(X + W, y, (nC - nVis) + " hidden by filters", 11, "#999"); hid.setAttribute("text-anchor", "end"); body.appendChild(hid); }
       y += 18;
 
       // thread
