@@ -32,6 +32,10 @@
     <clipPath id="pollOptClip">
       <rect id="pollOptClipRect" x="0" y="0" width="0" height="0"/>
     </clipPath>
+    <!-- viewport for the Profile list — header + tabs stay fixed; only this scrolls (geometry set in JS) -->
+    <clipPath id="profListClip">
+      <rect id="profListClipRect" x="15" y="0" width="400" height="0"/>
+    </clipPath>
 
     <!-- ===== icon symbols (stroke-based, 24x24) ===== -->
     <symbol id="ic-globe" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -163,7 +167,7 @@
         <g id="vFeed"><g id="vFeedBody"></g></g>
         <g id="vJur"  display="none"><g id="vJurBody"></g></g>
         <g id="vDist" display="none"><g id="vDistBody"></g></g>
-        <g id="vProf" display="none"><g id="vProfBody"></g></g>
+        <g id="vProf" display="none"><g id="vProfFixed"></g><g clip-path="url(#profListClip)"><g id="vProfBody"></g></g></g>
         <g id="vPost" display="none"><g id="vPostBody"></g></g>
       </g>
 
@@ -702,6 +706,7 @@
       otpAllowed: false,       // account's OTP-login-allow window open (toggle: O)
       loginVerified: false,    // login modal: email OTP verified → passkey button becomes "Register Passkey"
       profileOpen: false,      // profile modal (logged-in only)
+      replyTo: null,           // open inline reply composer: null | { post:true } | { node, atMax }
       labelsOn: true,
       kyc: 0,                  // 0 unverified · 1 identity · 2 residency
       deviceCount: 3,          // passkeys/devices on the account
@@ -714,13 +719,14 @@
         { name: "Results",    icon: "#ic-check-circle", included: true }
       ],
       // Profile page: which tab + the profile's own record-type filter (user-created kinds,
-      // distinct from the feed set — no Results, plus Comments). Filters Posts/Activity by kind.
+      // distinct from the feed set — no Results, plus Comments & Reactions). Filters Posts/Activity by kind.
       profileTab: "posts",     // "posts" (authored roots) | "activity" (all actions) | "mentions"
       profileTypes: [
-        { name: "Statements", icon: "#ic-feather",   included: true },
-        { name: "Comments",   icon: "#ic-message",   included: true },
-        { name: "Petitions",  icon: "#ic-clipboard", included: true },
-        { name: "Polls",      icon: "#ic-bar",       included: true }
+        { name: "Statements", icon: "#ic-feather",      included: true },
+        { name: "Comments",   icon: "#ic-message",      included: true },
+        { name: "Petitions",  icon: "#ic-clipboard",    included: true },
+        { name: "Polls",      icon: "#ic-bar",          included: true },
+        { name: "Reactions",  icon: "#ic-check-circle", included: true }
       ],
       verified: 0,             // min author verification: 0 None · 1 ID · 2 Residency · 3 Official
       myDistricts: false,      // geography filter — independent of Verified (off by default)
@@ -913,6 +919,8 @@
     // views that carry a record/activity-type filter: the feeds (recordTypes) + the Profile
     // (profileTypes). Only a single Post has neither. Drives both buildFilter and its callout.
     function viewHasTypeFilter() { return viewHasFeed() || state.view === "profile"; }
+    // pixel height of a type section with n toggles: header + "All" row + n rows + separator.
+    function typeSectionHeight(n) { return 24 + (n + 1) * FROW_H + 8; }
     // one record/activity-type section (All + per-type checkboxes; min-1 multi-include + tap-to-isolate).
     // Shared by the feed filter (recordTypes) and the profile filter (profileTypes). Returns the next y.
     function typeFilterSection(inner, y, types, header, allLabel) {
@@ -1205,7 +1213,7 @@
     function closeOverlays() {
       state.modalOpen = false; state.dropdownOpen = false; state.filterOpen = false;
       state.profileOpen = false; state.authView = null; state.loginVerified = false;
-      state.composeStep = null; state.composeJurOpen = false;
+      state.composeStep = null; state.composeJurOpen = false; state.replyTo = null;
       render();
     }
 
@@ -1538,6 +1546,42 @@
     }
     // author verification tag: 0 None (no tag) · 1 Identity · 2 Residency · 3 Official (MLA / gov)
     function tierLabel(t) { return ["", "Identity", "Residency", "Official"][t] || ""; }
+    // shade of black per verification level — darkens as the tier climbs.
+    function tierShade(t) { return t === 3 ? "#222" : t === 2 ? "#555" : "#8a8a8a"; }
+    // rough rendered width of a label: narrow glyphs (i, l, f, t, I…) count for much less
+    // than the flat per-char average, so pills hug words like "Official" / "Identity" tightly.
+    function textW(s, size) {
+      var narrow = "ijltfI.,'!|", wide = "mwMW", w = 0;
+      for (var i = 0; i < s.length; i++) {
+        var c = s.charAt(i);
+        w += (narrow.indexOf(c) >= 0 ? 0.34 : wide.indexOf(c) >= 0 ? 0.92 : 0.62) * size;
+      }
+      return w;
+    }
+    // tightly-bound verification pill, right-aligned so its right edge sits at rightX.
+    // returns a <g>; empty when tier is 0 so callers can add() it unconditionally.
+    function tierPill(rightX, y, tier) {
+      var g = document.createElementNS(SVG_NS, "g");
+      if (tier > 0) {
+        var label = tierLabel(tier), pad = 6, ico = 12, gap = 3, h = 18;
+        var w = Math.round(pad + ico + gap + textW(label, 10.5) + pad), x = rightX - w;
+        g.appendChild(rect(x, y, w, h, 9, tierShade(tier)));
+        g.appendChild(icon("#ic-shield", x + pad, y + (h - ico) / 2, ico, "#fff"));
+        g.appendChild(txt(x + pad + ico + gap, y + 13, label, 10.5, "#fff"));
+      }
+      return g;
+    }
+    // comment count in a tight pill (icon + number); tapping it opens the post.
+    function commentPill(rightX, yBase, count, onClick) {
+      var g = document.createElementNS(SVG_NS, "g");
+      var label = fmtN(count), pad = 7, ico = 13, gap = 4, h = 20;
+      var w = Math.round(pad + ico + gap + label.length * 7.2 + pad), top = yBase - 14, x = rightX - w;
+      g.appendChild(rect(x, top, w, h, 10, "#ffffff", "#ddd"));
+      g.appendChild(icon("#ic-message", x + pad, top + (h - ico) / 2, ico, "#777"));
+      g.appendChild(txt(x + pad + ico + gap, yBase, label, 12.5, "#777"));
+      if (onClick) clickRect(g, x, top, w, h, onClick);
+      return g;
+    }
     function hasReactions(p) { return p.type === "statement" || p.type === "result"; }
     var FEED_TYPE_NAME = { statement: "Statements", petition: "Petitions", poll: "Polls", result: "Results" };
 
@@ -1691,11 +1735,8 @@
       var nm = txt(px + 38, 22, p.author, 13.5, "#333"); nm.setAttribute("font-weight", "bold"); add(nm);
       add(txt(px + 38, 37, "@" + p.handle, 11.5, "#999"));
       var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, 0, 8, 190, 34, go("profile")); hit(aHit);
-      // verification tier + jurisdiction/district tag
-      if (p.tier > 0) {
-        add(icon("#ic-shield", W - px - 88, 13, 14, "#666"));
-        var tl = txt(W - px, 24, tierLabel(p.tier), 11.5, "#666"); tl.setAttribute("text-anchor", "end"); add(tl);
-      }
+      // verification tier (tight pill, shade by level) + jurisdiction/district tag
+      if (p.tier > 0) add(tierPill(W - px, 4, p.tier));
       var jurName = opts.hideJur ? "" : p.jur;
       var distLabel = opts.hideDistrict ? "" : districtTag(p);
       if (jurName || distLabel) hit(scopeTagLink(jurName, distLabel, W - px, 38));
@@ -1718,17 +1759,22 @@
         add(rect(px, y + 2, W - 2 * px, 10, 5, "#f2f2f2", "#ccc"));
         add(rect(px, y + 2, Math.round((W - 2 * px) * frac), 10, 5, "#333"));
         add(txt(px, y + 32, fmt(sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
-        var cta = rect(px, y + 44, 150, 26, 13, "#ffffff", "#333"); add(cta);
-        var ct = txt(px + 75, y + 61, "Sign the Petition", 12.5, "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
+        var signed = !!p._signed;
+        add(rect(px, y + 44, 150, 26, 13, signed ? "#333" : "#ffffff", "#333"));
+        var ct = txt(px + 75, y + 61, signed ? "Signed ✓" : "Sign the Petition", 12.5, signed ? "#fff" : "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
+        var psign = document.createElementNS(SVG_NS, "g");
+        clickRect(psign, px, y + 44, 150, 26, function (e) { if (e) e.stopPropagation(); petitionSign(p); }); hit(psign);
         y += 84;
       } else if (p.type === "poll") {
         var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
         p.options.forEach(function (o) {
-          var ov = scaleCivic(o.v), bw = W - 2 * px;
-          add(rect(px, y, bw, 18, 4, "#f4f4f4", "#e2e2e2"));
-          add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, "#e3e3e3"));
-          add(txt(px + 8, y + 13, o.label, 11.5, "#555"));
+          var ov = scaleCivic(o.v), bw = W - 2 * px, mine = p._vote === o.label;
+          add(rect(px, y, bw, 18, 4, "#f4f4f4", mine ? "#333" : "#e2e2e2"));
+          add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, mine ? "#cfcfcf" : "#e3e3e3"));
+          var lbl = txt(px + 8, y + 13, (mine ? "✓ " : "") + o.label, 11.5, mine ? "#222" : "#555"); if (mine) lbl.setAttribute("font-weight", "bold"); add(lbl);
           var pv = txt(W - px - 6, y + 13, fmt(ov), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); add(pv);
+          var pg = document.createElementNS(SVG_NS, "g");
+          clickRect(pg, px, y, bw, 18, function (e) { if (e) e.stopPropagation(); pollVote(p, o.label); }); hit(pg);
           y += 24;
         });
         y += 4;
@@ -1742,11 +1788,10 @@
       // footer: reactions (where applicable) + comments
       var fy = y + 14;
       if (hasReactions(p)) {
-        // same reactBtn the post page uses — clickable, login-gated, thinned by the Verified filter.
+        // same reactPill the post page uses — clickable, login-gated, thinned by the Verified filter.
         // collected in a hit group so the buttons sit above the card background (added below kids).
         var rg = document.createElementNS(SVG_NS, "g");
-        reactBtn(rg, p, "up", px, fy, scaleSocial);
-        reactBtn(rg, p, "down", px + 66, fy, scaleSocial);
+        reactPill(rg, p, px, fy, scaleSocial);
         hit(rg);
       } else if (p.type === "poll") {
         var tv = p.options.reduce(function (a, o) { return a + scaleCivic(o.v); }, 0);
@@ -1754,8 +1799,8 @@
       } else {
         add(txt(px, fy, fmt(scaleCivic(p.sig)) + " signatures", 13, "#555"));
       }
-      add(icon("#ic-message", W - px - 64, fy - 13, 15, "#777"));
-      var cc = txt(W - px, fy, fmt(scaleSocial(p.comments)), 13, "#777"); cc.setAttribute("text-anchor", "end"); add(cc);
+      // comment pill opens the post
+      var cg = commentPill(W - px, fy, scaleSocial(p.comments), go("post")); hit(cg);
 
       var cardH = fy + 16;
       g.appendChild(rect(0, 0, W, cardH, 12, "#ffffff", "#ccc"));
@@ -1925,39 +1970,41 @@
 
     // ---- PROFILE (public profile of a representative — the MLA Rae Nguyen) -----
     function buildProfile() {
-      var body = $("vProfBody");
+      // two layers: a FIXED header/stats/tabs group, and a CLIPPED list group that alone scrolls
+      var fixed = $("vProfFixed"), body = $("vProfBody");
+      while (fixed.firstChild) fixed.removeChild(fixed.firstChild);
       while (body.firstChild) body.removeChild(body.firstChild);
       var X = 30, W = 370, p = PROFILE, y = 124;
 
-      body.appendChild(txt(X, y + 6, "Public profile", 11, "#bbb"));
+      fixed.appendChild(txt(X, y + 6, "Public profile", 11, "#bbb"));
 
       // identity header
       var av = document.createElementNS(SVG_NS, "circle");
       av.setAttribute("cx", X + 38); av.setAttribute("cy", y + 60); av.setAttribute("r", 34);
-      av.setAttribute("fill", "#e8e8e8"); av.setAttribute("stroke", "#ccc"); body.appendChild(av);
+      av.setAttribute("fill", "#e8e8e8"); av.setAttribute("stroke", "#ccc"); fixed.appendChild(av);
       var ini = (p.name.split(" ").map(function (s) { return s[0]; }).join("")).slice(0, 2).toUpperCase();
-      var it = txt(X + 38, y + 68, ini, 22, "#888"); it.setAttribute("text-anchor", "middle"); body.appendChild(it);
+      var it = txt(X + 38, y + 68, ini, 22, "#888"); it.setAttribute("text-anchor", "middle"); fixed.appendChild(it);
 
-      var nm = txt(X + 90, y + 44, p.name, 19, "#222"); nm.setAttribute("font-weight", "bold"); body.appendChild(nm);
-      body.appendChild(txt(X + 90, y + 64, "@" + p.handle, 12.5, "#999"));
+      var nm = txt(X + 90, y + 44, p.name, 19, "#222"); nm.setAttribute("font-weight", "bold"); fixed.appendChild(nm);
+      fixed.appendChild(txt(X + 90, y + 64, "@" + p.handle, 12.5, "#999"));
       // role reads "<seat> · <riding>" — deep-link + underline the riding segment to the District view
       var roleParts = p.role.split(" · "), distSeg = roleParts[roleParts.length - 1];
       if (roleParts.length > 1 && DISTRICT.name === distSeg) {
         var prefix = p.role.slice(0, p.role.length - distSeg.length);
-        body.appendChild(txtSeg(X + 90, y + 84, 12.5, "#555", [[prefix, false], [distSeg, true]]));
+        fixed.appendChild(txtSeg(X + 90, y + 84, 12.5, "#555", [[prefix, false], [distSeg, true]]));
         var preW = prefix.length * 12.5 * 0.54, segW = distSeg.length * 12.5 * 0.54;
         var rdg = document.createElementNS(SVG_NS, "g"); rdg.style.cursor = "pointer";
-        clickRect(rdg, X + 90 + preW - 2, y + 72, segW + 4, 17, go("district")); body.appendChild(rdg);
+        clickRect(rdg, X + 90 + preW - 2, y + 72, segW + 4, 17, go("district")); fixed.appendChild(rdg);
       } else {
-        body.appendChild(txt(X + 90, y + 84, p.role, 12.5, "#555"));
+        fixed.appendChild(txt(X + 90, y + 84, p.role, 12.5, "#555"));
       }
-      // verification badge: Official (tier 3, MLA / gov) or Residency Verified (tier 2)
+      // verification badge: Official (tier 3, MLA / gov) or Residency Verified (tier 2); shade by tier
       if (p.tier >= 2) {
         var badge = p.tier === 3 ? "Official" : "Residency Verified";
-        var bw = p.tier === 3 ? 96 : 132;
-        body.appendChild(rect(X + 90, y + 94, bw, 22, 11, "#333"));
-        body.appendChild(icon("#ic-shield", X + 98, y + 97, 15, "#fff"));
-        body.appendChild(txt(X + 118, y + 109, badge, 11, "#fff"));
+        var bw = p.tier === 3 ? 75 : 132;
+        fixed.appendChild(rect(X + 90, y + 94, bw, 22, 11, tierShade(p.tier)));
+        fixed.appendChild(icon("#ic-shield", X + 98, y + 97, 15, "#fff"));
+        fixed.appendChild(txt(X + 118, y + 109, badge, 11, "#fff"));
       }
       y += 140;
 
@@ -1965,33 +2012,38 @@
       var tw = (W - 16) / 3;
       p.stats.forEach(function (s, i) {
         var sx = X + i * (tw + 8);
-        body.appendChild(rect(sx, y, tw, 64, 10, "#fafafa", "#eee"));
-        var n = txt(sx + tw / 2, y + 30, fmtN(s.n), 20, "#333"); n.setAttribute("text-anchor", "middle"); n.setAttribute("font-weight", "bold"); body.appendChild(n);
-        var l = txt(sx + tw / 2, y + 50, s.label, 10.5, "#999"); l.setAttribute("text-anchor", "middle"); body.appendChild(l);
+        fixed.appendChild(rect(sx, y, tw, 64, 10, "#fafafa", "#eee"));
+        var n = txt(sx + tw / 2, y + 30, fmtN(s.n), 20, "#333"); n.setAttribute("text-anchor", "middle"); n.setAttribute("font-weight", "bold"); fixed.appendChild(n);
+        var l = txt(sx + tw / 2, y + 50, s.label, 10.5, "#999"); l.setAttribute("text-anchor", "middle"); fixed.appendChild(l);
       });
       y += 84;
 
-      // segmented Posts · Activity · Mentions tabs, then the active tab's scrollable list
-      y = profileTabs(body, X, W, y);
-      y += 16;
+      // segmented Posts · Activity · Mentions tabs — also fixed (the header anchors the page)
+      y = profileTabs(fixed, X, W, y);
+
+      // ---- scrolling list below the tabs: clip to [listTop .. screen bottom] ----
+      var listTop = y + 8;
+      $("profListClipRect").setAttribute("y", listTop);
+      $("profListClipRect").setAttribute("height", 885 - listTop);
+      var ly = listTop + 8;
       if (state.profileTab === "posts") {
         var posts = PROFILE.posts.filter(function (po) { return profileTypeOn(po.type); });
-        if (!posts.length) y = emptyRow(body, X, W, y, "No posts match the Activity-type filter.");
+        if (!posts.length) ly = emptyRow(body, X, W, ly, "No posts match the Activity-type filter.");
         posts.forEach(function (po) {
           var card = buildCard(po);
-          card.setAttribute("transform", "translate(" + X + "," + y + ")");
+          card.setAttribute("transform", "translate(" + X + "," + ly + ")");
           body.appendChild(card);
-          y += card._h + 14;
+          ly += card._h + 14;
         });
       } else if (state.profileTab === "activity") {
         var acts = PROFILE.activity.filter(function (a) { return profileTypeOn(a.kind); });
-        if (!acts.length) y = emptyRow(body, X, W, y, "No activity matches the Activity-type filter.");
-        acts.forEach(function (a) { y = activityRow(body, X, W, y, a); });
+        if (!acts.length) ly = emptyRow(body, X, W, ly, "No activity matches the Activity-type filter.");
+        acts.forEach(function (a) { ly = activityRow(body, X, W, ly, a); });
       } else {
-        PROFILE.mentions.forEach(function (m) { y = mentionRow(body, X, W, y, m); });
+        PROFILE.mentions.forEach(function (m) { ly = mentionRow(body, X, W, ly, m); });
       }
 
-      setViewScroll("profile", y);
+      setViewScroll("profile", ly);
     }
     // interlocking segmented control — Posts | Activity | Mentions (active = filled inset pill)
     function profileTabs(parent, X, W, y) {
@@ -2024,8 +2076,8 @@
     // a profile kind (statement/comment/petition/poll) maps to its profile-type toggle; kinds with
     // no toggle (reaction, result) always show. Governs the Posts and Activity lists.
     function profileTypeOn(kind) {
-      var name = { statement: "Statements", comment: "Comments", petition: "Petitions", poll: "Polls" }[kind];
-      if (!name) return true;
+      var name = { statement: "Statements", comment: "Comments", petition: "Petitions", poll: "Polls", reaction: "Reactions" }[kind];
+      if (!name) return true; // any kind without a toggle (e.g. result) always shows
       var t = state.profileTypes.filter(function (x) { return x.name === name; })[0];
       return !t || t.included;
     }
@@ -2070,31 +2122,80 @@
       else { if (node._my) node[node._my]--; node[dir]++; node._my = dir; }
       render();
     }
-    // a reaction click only counts for a signed-in member; logged-out → auth gateway
-    function reactClick(node, dir) {
+    // any member-only action routes through here: logged-out pops the auth chooser, signed-in runs it.
+    function requireAuth(action) {
       if (!state.loggedIn) { state.authView = "choose"; render(); return; }
-      toggleReact(node, dir);
+      action();
     }
-    // one reaction pill (✓ agree / ✗ disagree). Shared by the post, comment threads, and
-    // feed/jurisdiction/district cards — every reaction in the app routes through here, so the
-    // login gate and toggle behave identically everywhere. `scale` maps the raw count to its
+    // a reaction click only counts for a signed-in member; logged-out → auth gateway
+    function reactClick(node, dir) { requireAuth(function () { toggleReact(node, dir); }); }
+    // cast / retract a poll vote (one per member); the chosen option highlights
+    function pollVote(p, label) { requireAuth(function () { p._vote = (p._vote === label ? null : label); render(); }); }
+    // add / remove the member's signature; the CTA reflects the signed state
+    function petitionSign(p) { requireAuth(function () { p._signed = !p._signed; render(); }); }
+    // split reaction pill: ✓ agree | ✗ disagree joined in one capsule with a centre divider.
+    // Shared by the post, comment threads, and feed/jurisdiction/district cards — every reaction
+    // routes through here, so the login gate and toggle behave identically everywhere. Each half
+    // is independently clickable; the chosen side fills darker. `scale` maps the raw count to its
     // shown value (cards thin by the Verified filter via scaleSocial; the post shows it raw).
-    function reactBtn(parent, node, dir, x, y, scale) {
+    // Returns the pill width so callers can lay out what follows. Left edge sits at x.
+    function reactPill(parent, node, x, y, scale) {
       scale = scale || function (n) { return n; };
-      var sym = dir === "up" ? "✓ " : "✗ ";
-      var active = node._my === dir;
-      var col = active ? "#333" : (dir === "up" ? "#666" : "#999");
+      var half = 46, w = half * 2, h = 20, top = y - 14;
       var g = document.createElementNS(SVG_NS, "g");
-      var t = txt(x, y, sym + fmtN(scale(node[dir])), 13, col); if (active) t.setAttribute("font-weight", "bold"); g.appendChild(t);
-      clickRect(g, x - 4, y - 14, 54, 20, function (e) { if (e) e.stopPropagation(); reactClick(node, dir); });
+      g.appendChild(rect(x, top, w, h, 10, "#ffffff", "#ddd"));
+      if (node._my === "up") g.appendChild(rect(x, top, half, h, 10, "#ececec"));
+      else if (node._my === "down") g.appendChild(rect(x + half, top, half, h, 10, "#ececec"));
+      var ln = document.createElementNS(SVG_NS, "line");
+      ln.setAttribute("x1", x + half); ln.setAttribute("y1", top + 3); ln.setAttribute("x2", x + half); ln.setAttribute("y2", top + h - 3);
+      ln.setAttribute("stroke", "#e2e2e2"); g.appendChild(ln);
+      var upCol = node._my === "up" ? "#222" : "#666", dnCol = node._my === "down" ? "#222" : "#999";
+      var ut = txt(x + half / 2, y, "✓ " + fmtN(scale(node.up)), 12.5, upCol); ut.setAttribute("text-anchor", "middle"); if (node._my === "up") ut.setAttribute("font-weight", "bold"); g.appendChild(ut);
+      var dt = txt(x + half + half / 2, y, "✗ " + fmtN(scale(node.down)), 12.5, dnCol); dt.setAttribute("text-anchor", "middle"); if (node._my === "down") dt.setAttribute("font-weight", "bold"); g.appendChild(dt);
+      clickRect(g, x, top, half, h, function (e) { if (e) e.stopPropagation(); reactClick(node, "up"); });
+      clickRect(g, x + half, top, half, h, function (e) { if (e) e.stopPropagation(); reactClick(node, "down"); });
       parent.appendChild(g);
+      return w;
     }
-    function replyStub(parent, x, y, enabled) {
-      if (!enabled) { parent.appendChild(txt(x, y, "↳ max depth", 12, "#ccc")); return; }
+    // open / close the single inline reply composer (login-gated entry).
+    function startReply(target) { requireAuth(function () { state.replyTo = target; render(); }); }
+    function cancelReply() { state.replyTo = null; render(); }
+    function replyTargetIs(t) {
+      var r = state.replyTo;
+      if (!r || !t) return false;
+      return t.post ? !!r.post : r.node === t.node;
+    }
+    // a reply affordance — used on the post (root comments) and on every comment incl. max depth.
+    function replyBtn(parent, x, y, target) {
       var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
       g.appendChild(txt(x, y, "↳ Reply", 12, "#999"));
-      clickRect(g, x - 4, y - 13, 60, 19, function (e) { if (e) e.stopPropagation(); /* NOTE(nav): compose a reply (comment create) — deferred */ });
+      clickRect(g, x - 4, y - 13, 60, 19, function (e) { if (e) e.stopPropagation(); startReply(target); });
       parent.appendChild(g);
+    }
+    // inline reply composer. `prefill` seeds the input; at max depth it is the replyee's @mention,
+    // which becomes the first word of the reply since it can't nest deeper and lands as a sibling.
+    // Returns the y below the composer. (Submit is deferred — wireframe compose stub.)
+    function replyComposer(parent, x, w, y, prefill) {
+      var h = 32;
+      parent.appendChild(rect(x, y, w, h, 8, "#fafafa", "#ddd"));
+      if (prefill) {
+        var mt = txt(x + 10, y + 20, prefill, 12, "#333"); mt.setAttribute("font-weight", "bold"); parent.appendChild(mt);
+        parent.appendChild(txt(x + 10 + Math.round(textW(prefill, 12)) + 6, y + 20, "Write a reply…", 12, "#bbb"));
+      } else {
+        parent.appendChild(txt(x + 10, y + 20, "Write a reply…", 12, "#bbb"));
+      }
+      var by = y + h + 8, bw = 60;
+      var bx = x + w - bw;
+      parent.appendChild(rect(bx, by, bw, 24, 12, "#333"));
+      var pt = txt(bx + bw / 2, by + 16, "Post", 12, "#fff"); pt.setAttribute("text-anchor", "middle"); parent.appendChild(pt);
+      var pg = document.createElementNS(SVG_NS, "g"); pg.style.cursor = "pointer";
+      clickRect(pg, bx, by, bw, 24, function (e) { if (e) e.stopPropagation(); /* NOTE(nav): submit reply (comment create) — deferred */ cancelReply(); });
+      parent.appendChild(pg);
+      var cg = document.createElementNS(SVG_NS, "g"); cg.style.cursor = "pointer";
+      cg.appendChild(txt(x, by + 16, "Cancel", 12, "#999"));
+      clickRect(cg, x - 4, by, 56, 22, function (e) { if (e) e.stopPropagation(); cancelReply(); });
+      parent.appendChild(cg);
+      return by + 24 + 10;
     }
     function buildThread(parent, nodes, depth, y) {
       var X0 = 30, W0 = 370;
@@ -2109,10 +2210,12 @@
         var hd = txt(x + w, y + 6, "@" + node.handle, 10.5, "#aaa"); hd.setAttribute("text-anchor", "end"); parent.appendChild(hd);
         var yy = y + 24;
         node.body.forEach(function (line) { parent.appendChild(txt(x + 28, yy, line, 12, "#555")); yy += 16; });
-        reactBtn(parent, node, "up", x + 28, yy + 8);
-        reactBtn(parent, node, "down", x + 82, yy + 8);
-        replyStub(parent, x + 140, yy + 8, depth < COMMENT_MAX_DEPTH);
+        reactPill(parent, node, x + 28, yy + 8);
+        var atMax = depth >= COMMENT_MAX_DEPTH;
+        replyBtn(parent, x + 132, yy + 8, { node: node, atMax: atMax });
         yy += 24;
+        // inline composer for this comment; max-depth replies seed the replyee's @mention
+        if (replyTargetIs({ node: node })) yy = replyComposer(parent, x + 28, w - 28, yy, atMax ? "@" + node.handle : "");
         var ny = yy;
         if (node.replies && node.replies.length && depth < COMMENT_MAX_DEPTH) ny = buildThread(parent, node.replies, depth + 1, yy);
         y = ny + 10;
@@ -2133,10 +2236,7 @@
       var nm = txt(X + 38, y + 12, p.author, 14, "#333"); nm.setAttribute("font-weight", "bold"); body.appendChild(nm);
       body.appendChild(txt(X + 38, y + 28, "@" + p.handle, 11.5, "#999"));
       var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, X, y, 190, 34, go("profile")); body.appendChild(aHit);
-      if (p.tier > 0) {
-        body.appendChild(icon("#ic-shield", X + W - 92, y + 3, 14, "#666"));
-        var tl = txt(X + W, y + 14, tierLabel(p.tier), 11.5, "#666"); tl.setAttribute("text-anchor", "end"); body.appendChild(tl);
-      }
+      if (p.tier > 0) body.appendChild(tierPill(X + W, y - 6, p.tier));
       body.appendChild(scopeTagLink(p.jur, p.district || "", X + W, y + 30));
       y += 48;
 
@@ -2144,15 +2244,16 @@
       var ti = txt(X, y + 16, p.title, 17, "#222"); ti.setAttribute("font-weight", "bold"); body.appendChild(ti);
       y += 30;
       p.body.forEach(function (line) { body.appendChild(txt(X, y + 14, line, 13, "#555")); y += 18; });
-      y += 10;
-
-      // post reaction bar
-      reactBtn(body, p, "up", X, y);
-      reactBtn(body, p, "down", X + 66, y);
-      var nC = countComments(COMMENTS);
-      body.appendChild(icon("#ic-message", X + W - 64, y - 13, 15, "#777"));
-      var cc = txt(X + W, y, fmtN(nC), 13, "#777"); cc.setAttribute("text-anchor", "end"); body.appendChild(cc);
       y += 22;
+
+      // post reaction bar (split pill) + reply (root comment) + comment count pill
+      reactPill(body, p, X, y);
+      replyBtn(body, X + 110, y, { post: true });
+      var nC = countComments(COMMENTS);
+      body.appendChild(commentPill(X + W, y, nC));
+      y += 22;
+      // root-comment composer (no prefill — replies to the post sit at the top level)
+      if (replyTargetIs({ post: true })) y = replyComposer(body, X, W, y, "") + 2;
 
       // divider + comments header
       var ln = document.createElementNS(SVG_NS, "line");
@@ -2307,7 +2408,13 @@
       show($("anno-filter"), state.labelsOn && state.filterOpen);
       // record-types callout only on feed views; refine callout slides up by the dropped section's height
       show($("anno-filter-types"), viewHasTypeFilter());
-      $("anno-filter-refine").setAttribute("transform", viewHasTypeFilter() ? "translate(0,0)" : "translate(0," + (-(24 + 5 * FROW_H + 8)) + ")");
+      // the refine callout is calibrated to the feed layout; track the actual Refine position:
+      // 0 on feeds, +1 row on Profile (extra type), or up by the whole section on the Post page.
+      var feedSecH = typeSectionHeight(state.recordTypes.length);
+      var refineDY = !viewHasTypeFilter() ? -feedSecH
+                   : state.view === "profile" ? typeSectionHeight(state.profileTypes.length) - feedSecH
+                   : 0;
+      $("anno-filter-refine").setAttribute("transform", "translate(0," + refineDY + ")");
       show($("anno-modal"), state.labelsOn && state.modalOpen);
       show($("anno-auth"), state.labelsOn && !!state.authView && !state.loggedIn);
       show($("anno-profile"), state.labelsOn && state.profileOpen && state.loggedIn);
