@@ -608,16 +608,20 @@
 
   <!-- ===================== FILTER CALLOUTS (only while feed filter dropdown open) ===================== -->
   <g id="anno-filter" fill="#c0392b" display="none">
-    <g stroke="#c0392b" fill="none" stroke-width="1.2">
-      <line x1="200" y1="288" x2="285" y2="288" marker-end="url(#arrow)"/>
-      <line x1="200" y1="380" x2="285" y2="395" marker-end="url(#arrow)"/>
+    <!-- record-types callout: hidden on Post/Profile (no feed → no record-type section) -->
+    <g id="anno-filter-types">
+      <line x1="200" y1="288" x2="285" y2="288" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="30" y="280" font-size="12">Record types — &#10003; include</text>
+      <text x="30" y="295" font-size="12">(min 1), tap = only that</text>
     </g>
-    <text x="30" y="280" font-size="12">Record types — &#10003; include</text>
-    <text x="30" y="295" font-size="12">(min 1), tap = only that</text>
-    <text x="30" y="357" font-size="12">Verified ladder: None / ID /</text>
-    <text x="30" y="372" font-size="12">Residency / Official (inclusive)</text>
-    <text x="30" y="387" font-size="12">My Districts — geography only,</text>
-    <text x="30" y="402" font-size="12">independent (residency acct)</text>
+    <!-- refine callout: slides up (translate) when the record-types section is dropped -->
+    <g id="anno-filter-refine">
+      <line x1="200" y1="380" x2="285" y2="395" stroke="#c0392b" fill="none" stroke-width="1.2" marker-end="url(#arrow)"/>
+      <text x="30" y="357" font-size="12">Verified ladder: None / ID /</text>
+      <text x="30" y="372" font-size="12">Residency / Official (inclusive)</text>
+      <text x="30" y="387" font-size="12">My Districts — geography only,</text>
+      <text x="30" y="402" font-size="12">independent (residency acct)</text>
+    </g>
   </g>
 
   <!-- ===================== MODAL CALLOUTS (only while modal open) ===================== -->
@@ -763,6 +767,20 @@
       t.textContent = s;
       return t;
     }
+    // a <text> assembled from [string, underline?] segments — used to underline only the
+    // linkable words of a tag while the separator / surrounding label stay plain.
+    function txtSeg(x, y, size, fill, segs) {
+      var t = document.createElementNS(SVG_NS, "text");
+      t.setAttribute("x", x); t.setAttribute("y", y);
+      t.setAttribute("font-size", size); t.setAttribute("fill", fill);
+      segs.forEach(function (s) {
+        var ts = document.createElementNS(SVG_NS, "tspan");
+        ts.textContent = s[0];
+        if (s[1]) ts.setAttribute("text-decoration", "underline");
+        t.appendChild(ts);
+      });
+      return t;
+    }
     function rect(x, y, w, h, rx, fill, stroke) {
       var r = document.createElementNS(SVG_NS, "rect");
       r.setAttribute("x", x); r.setAttribute("y", y);
@@ -880,42 +898,47 @@
       return row;
     }
 
+    // the feed-bearing views (each renders a filtered card list); a single Post / Profile has none,
+    // so the record-type filter is meaningless there and the modal drops that section.
+    function viewHasFeed() { return state.view === "feed" || state.view === "jurisdiction" || state.view === "district"; }
     function buildFilter() {
       var inner = $("fdInner");
       while (inner.firstChild) inner.removeChild(inner.firstChild);
       var y = FD_TOP + FPAD;
 
-      // --- section 1: record types (min-1 multi-include + exclusive body select) ---
-      inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Record types"));
-      y += 24;
-      var allRowY = y, allRow = filterRow(allRowY);
-      allRow.addEventListener("click", function () {
-        state.recordTypes.forEach(function (t) { t.included = true; });
-        render();
-      });
-      allRow.appendChild(icon("#ic-list", FD_X + 12, allRowY + 10, 18, "#333"));
-      var allLbl = txt(FD_X + 40, allRowY + 25, "All Records", 14, "#333");
-      allLbl.setAttribute("font-weight", "bold");
-      allRow.appendChild(allLbl);
-      inner.appendChild(allRow);
-      y += FROW_H;
-      state.recordTypes.forEach(function (item) {
-        var rowY = y, row = filterRow(rowY);
-        row.addEventListener("click", function () { selectTypeOnly(item); });
-        row.appendChild(checkbox(FD_X + 12, rowY + 10, item.included, function () {
-          var inc = state.recordTypes.filter(function (t) { return t.included; }).length;
-          if (item.included && inc <= 1) return; // keep >=1 selected (never None)
-          item.included = !item.included;
+      // --- section 1: record types (min-1 multi-include + exclusive body select) — feed views only ---
+      if (viewHasFeed()) {
+        inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Record types"));
+        y += 24;
+        var allRowY = y, allRow = filterRow(allRowY);
+        allRow.addEventListener("click", function () {
+          state.recordTypes.forEach(function (t) { t.included = true; });
           render();
-        }));
-        row.appendChild(icon(item.icon, FD_X + 40, rowY + 10, 18, "#333"));
-        row.appendChild(txt(FD_X + 66, rowY + 25, item.name, 14, "#333"));
-        inner.appendChild(row);
+        });
+        allRow.appendChild(icon("#ic-list", FD_X + 12, allRowY + 10, 18, "#333"));
+        var allLbl = txt(FD_X + 40, allRowY + 25, "All Records", 14, "#333");
+        allLbl.setAttribute("font-weight", "bold");
+        allRow.appendChild(allLbl);
+        inner.appendChild(allRow);
         y += FROW_H;
-      });
+        state.recordTypes.forEach(function (item) {
+          var rowY = y, row = filterRow(rowY);
+          row.addEventListener("click", function () { selectTypeOnly(item); });
+          row.appendChild(checkbox(FD_X + 12, rowY + 10, item.included, function () {
+            var inc = state.recordTypes.filter(function (t) { return t.included; }).length;
+            if (item.included && inc <= 1) return; // keep >=1 selected (never None)
+            item.included = !item.included;
+            render();
+          }));
+          row.appendChild(icon(item.icon, FD_X + 40, rowY + 10, 18, "#333"));
+          row.appendChild(txt(FD_X + 66, rowY + 25, item.name, 14, "#333"));
+          inner.appendChild(row);
+          y += FROW_H;
+        });
+        y += 8; // separator before Refine
+      }
 
       // --- section 2: refine ---
-      y += 8;
       inner.appendChild(sectionHdr(FD_X + 16, y + 14, "Refine"));
       y += 24;
 
@@ -1178,6 +1201,8 @@
     // ============================================================================
     function nav(view) { state.view = view; state.scroll = 0; render(); }
     function go(view) { return function (e) { if (e) e.stopPropagation(); nav(view); }; }
+    // like go("jurisdiction"), but first aims the Jurisdiction view at a named jurisdiction
+    function goJur(name) { return function (e) { if (e) e.stopPropagation(); if (JUR_DATA[name]) state.jur = name; nav("jurisdiction"); }; }
 
     // new-post FAB: off the Feed it goes home to the Feed; on the Feed it composes
     // (logged-out → register/login chooser; logged-in → where/type/compose).
@@ -1271,8 +1296,8 @@
     // ============================================================================
     // DATA — one copy, shared by every view (the whole point of the monolith).
     // Maps to OurSay entities: a POSTS row ≈ a root content record (statement /
-    // petition / poll / result); agree/disagree ≈ reaction (✓/✗, exclusive per
-    // author per target); sig ≈ petition_signature count; options[].v ≈ poll vote
+    // petition / poll / result); up/down ≈ agree/disagree reaction (✓/✗, exclusive
+    // per author per target, _my = viewer's pick); sig ≈ petition_signature count; options[].v ≈ poll vote
     // counts; comments ≈ comment count. tier = author verification, districts =
     // appliesToRegion list. See docs/entities/ for the real shapes.
     // ============================================================================
@@ -1326,7 +1351,7 @@
       { type:"statement", jur:"Global", tier:0, districts:[], author:"Dana Whitecloud", handle:"dwhitecloud",
         title:"Transit funding should be a national priority",
         body:["Inter-city rail keeps falling behind. A standing fund would let",
-              "provinces plan past a single election cycle."], agree:48, disagree:12, comments:9 },
+              "provinces plan past a single election cycle."], up:48, down:12, comments:9 },
       { type:"poll", jur:"Global", tier:3, districts:[], author:"OurSay Stewards", handle:"oursay",
         title:"Should OurSay add ranked-choice polls?",
         body:["Ranked choice lets you order options instead of picking one.",
@@ -1339,21 +1364,21 @@
       { type:"statement", jur:"Global", tier:1, districts:[], author:"Marcus Lee", handle:"mlee",
         title:"Lower the voting age to 16",
         body:["Sixteen-year-olds work, pay tax, and drive. They should have",
-              "a say in the policies that shape their future."], agree:64, disagree:71, comments:40 },
+              "a say in the policies that shape their future."], up:64, down:71, comments:40 },
       { type:"result", jur:"Global", tier:3, districts:[], author:"OurSay Stewards", handle:"oursay",
         title:"Result: Platform name vote",
         body:["The community vote on the platform name has closed.",
-              "Turnout exceeded the k-anonymity floor."], outcome:"Passed · “OurSay” 58%", agree:33, disagree:9, comments:5 },
+              "Turnout exceeded the k-anonymity floor."], outcome:"Passed · “OurSay” 58%", up:33, down:9, comments:5 },
 
       // --- Alberta · officials (MLA / government → "Official" tag, tier 3) ---
       { type:"statement", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
         title:"Constituency update: Whitemud ravine review",
         body:["I've asked the ministry to pause the rezoning until the",
-              "environmental review is complete."], agree:204, disagree:46, comments:38 },
+              "environmental review is complete."], up:204, down:46, comments:38 },
       { type:"statement", jur:"Alberta", tier:3, districts:[], author:"Hon. A. Premier", handle:"premier",
         title:"Budget 2027 consultation now open",
         body:["Residents can weigh in on provincial priorities through",
-              "the end of the month."], agree:512, disagree:288, comments:96 },
+              "the end of the month."], up:512, down:288, comments:96 },
       { type:"poll", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
         title:"Provincial budget priority for 2027",
         body:["Where should the next provincial budget lead?",
@@ -1362,21 +1387,21 @@
       { type:"result", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
         title:"Result: Bill 12 community poll",
         body:["The non-binding community poll on Bill 12 has closed.",
-              "Counts shown are residency-verified electors only."], outcome:"Closed · 71% Oppose", agree:90, disagree:20, comments:27 },
+              "Counts shown are residency-verified electors only."], outcome:"Closed · 71% Oppose", up:90, down:20, comments:27 },
 
       // --- Alberta · residents (public / ID / residency) ---
       { type:"statement", jur:"Alberta", tier:0, districts:["edmonton-strathcona"], author:"Jordan Vance", handle:"jvance",
         title:"More bike lanes on Whyte Avenue",
         body:["Whyte gets dangerous at rush hour. Protected lanes would",
-              "help everyone share the road."], agree:51, disagree:28, comments:11 },
+              "help everyone share the road."], up:51, down:28, comments:11 },
       { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow"], author:"Priti Shah", handle:"pshah",
         title:"Save the Elbow Park outdoor rink",
         body:["The community rink needs a small grant to reopen this",
-              "winter. Let's fund it."], agree:73, disagree:6, comments:13 },
+              "winter. Let's fund it."], up:73, down:6, comments:13 },
       { type:"statement", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Hana Okafor", handle:"hanao",
         title:"Protect the Whitemud Creek ravine",
         body:["Proposed access roads cut through old-growth ravine.",
-              "Council should pause the rezoning pending review."], agree:132, disagree:7, comments:21 },
+              "Council should pause the rezoning pending review."], up:132, down:7, comments:21 },
       { type:"petition", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Sam Driver", handle:"samd",
         title:"Repave 109 Street before winter",
         body:["Potholes on 109 St have damaged dozens of vehicles.",
@@ -1394,7 +1419,7 @@
       { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow","calgary-mountain-view"], author:"Dale Friesen", handle:"dfriesen",
         title:"Coordinate snow clearing across Calgary core",
         body:["Neighbouring wards clear on different schedules. A shared",
-              "plan would cut complaints."], agree:88, disagree:19, comments:15 }
+              "plan would cut complaints."], up:88, down:19, comments:15 }
     ];
 
     // District view subject — the representative riding (production loads by slug).
@@ -1497,6 +1522,24 @@
       clickRect(g, avCx - r - 4, baselineY - 18, rightX - (avCx - r - 4), 26, onClick);
       parent.appendChild(g);
     }
+    // right-aligned scope tag — "<Jurisdiction> · <District>" with each word deep-linking to its
+    // page (jurisdiction → Jurisdiction view · district → District view). Either part may be empty
+    // when the page already names it. Renders the text exactly as before, then lays invisible hit
+    // targets over each word (widths estimated, right-anchored). Returns the <g> to layer on top.
+    function scopeTagLink(jurName, districtLabel, rightX, baselineY) {
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var size = 11.5, cw = size * 0.55, sep = (jurName && districtLabel) ? " · " : "";
+      var segs = [];
+      if (jurName) segs.push([jurName, true]);
+      if (sep) segs.push([sep, false]);
+      if (districtLabel) segs.push([districtLabel, true]);
+      var t = txtSeg(rightX, baselineY, size, "#999", segs);
+      t.setAttribute("text-anchor", "end"); g.appendChild(t);
+      var top = baselineY - 12, h = 17;
+      if (districtLabel) { var dw = districtLabel.length * cw; clickRect(g, rightX - dw, top, dw + 4, h, go("district")); }
+      if (jurName) { var off = (districtLabel.length + sep.length) * cw, jw = jurName.length * cw; clickRect(g, rightX - off - jw, top, jw + 2, h, goJur(jurName)); }
+      return g;
+    }
     // a collapsible section header — leading icon, label, chevron on the RIGHT. Returns y below it.
     function collHeader(parent, x, w, y, iconHref, label, open, countText, onToggle) {
       var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
@@ -1596,11 +1639,9 @@
         add(icon("#ic-shield", W - px - 88, 13, 14, "#666"));
         var tl = txt(W - px, 24, tierLabel(p.tier), 11.5, "#666"); tl.setAttribute("text-anchor", "end"); add(tl);
       }
-      var parts = [];
-      if (!opts.hideJur) parts.push(p.jur);
-      if (!opts.hideDistrict) { var dt = districtTag(p); if (dt) parts.push(dt); }
-      var tag = parts.join(" · ");
-      if (tag) { var tg = txt(W - px, 38, tag, 11.5, "#999"); tg.setAttribute("text-anchor", "end"); add(tg); }
+      var jurName = opts.hideJur ? "" : p.jur;
+      var distLabel = opts.hideDistrict ? "" : districtTag(p);
+      if (jurName || distLabel) hit(scopeTagLink(jurName, distLabel, W - px, 38));
 
       // title (tap → post)
       var ti = txt(px, 66, p.title, 15, "#222"); ti.setAttribute("font-weight", "bold"); add(ti);
@@ -1644,8 +1685,12 @@
       // footer: reactions (where applicable) + comments
       var fy = y + 14;
       if (hasReactions(p)) {
-        add(txt(px, fy, "✓ " + fmt(scaleSocial(p.agree)), 13, "#555"));
-        add(txt(px + 66, fy, "✗ " + fmt(scaleSocial(p.disagree)), 13, "#999"));
+        // same reactBtn the post page uses — clickable, login-gated, thinned by the Verified filter.
+        // collected in a hit group so the buttons sit above the card background (added below kids).
+        var rg = document.createElementNS(SVG_NS, "g");
+        reactBtn(rg, p, "up", px, fy, scaleSocial);
+        reactBtn(rg, p, "down", px + 66, fy, scaleSocial);
+        hit(rg);
       } else if (p.type === "poll") {
         var tv = p.options.reduce(function (a, o) { return a + scaleCivic(o.v); }, 0);
         add(txt(px, fy, fmt(tv) + " votes", 13, "#555"));
@@ -1774,7 +1819,9 @@
 
       // title bar: riding name + parent line (left) + leader profile link (right)
       var nm = txt(X, y + 24, d.name, 19, "#222"); nm.setAttribute("font-weight", "bold"); body.appendChild(nm);
-      body.appendChild(txt(X, y + 42, d.jur + " · riding · boundary " + d.boundaryYear, 11.5, "#999"));
+      body.appendChild(txtSeg(X, y + 42, 11.5, "#999", [[d.jur, true], [" · riding · boundary " + d.boundaryYear, false]]));
+      var djg = document.createElementNS(SVG_NS, "g"); // parent jurisdiction word → Jurisdiction view
+      clickRect(djg, X - 2, y + 30, d.jur.length * 11.5 * 0.55 + 4, 16, goJur(d.jur)); body.appendChild(djg);
       leaderLink(body, X + W - 2, y + 20, d.leader, 12.5, go("profile"));
       y += 56;
 
@@ -1836,7 +1883,17 @@
 
       var nm = txt(X + 90, y + 44, p.name, 19, "#222"); nm.setAttribute("font-weight", "bold"); body.appendChild(nm);
       body.appendChild(txt(X + 90, y + 64, "@" + p.handle, 12.5, "#999"));
-      body.appendChild(txt(X + 90, y + 84, p.role, 12.5, "#555"));
+      // role reads "<seat> · <riding>" — deep-link + underline the riding segment to the District view
+      var roleParts = p.role.split(" · "), distSeg = roleParts[roleParts.length - 1];
+      if (roleParts.length > 1 && DISTRICT.name === distSeg) {
+        var prefix = p.role.slice(0, p.role.length - distSeg.length);
+        body.appendChild(txtSeg(X + 90, y + 84, 12.5, "#555", [[prefix, false], [distSeg, true]]));
+        var preW = prefix.length * 12.5 * 0.54, segW = distSeg.length * 12.5 * 0.54;
+        var rdg = document.createElementNS(SVG_NS, "g"); rdg.style.cursor = "pointer";
+        clickRect(rdg, X + 90 + preW - 2, y + 72, segW + 4, 17, go("district")); body.appendChild(rdg);
+      } else {
+        body.appendChild(txt(X + 90, y + 84, p.role, 12.5, "#555"));
+      }
       // verification badge: Official (tier 3, MLA / gov) or Residency Verified (tier 2)
       if (p.tier >= 2) {
         var badge = p.tier === 3 ? "Official" : "Residency Verified";
@@ -1880,13 +1937,23 @@
       else { if (node._my) node[node._my]--; node[dir]++; node._my = dir; }
       render();
     }
-    function reactBtn(parent, node, dir, x, y) {
+    // a reaction click only counts for a signed-in member; logged-out → auth gateway
+    function reactClick(node, dir) {
+      if (!state.loggedIn) { state.authView = "choose"; render(); return; }
+      toggleReact(node, dir);
+    }
+    // one reaction pill (✓ agree / ✗ disagree). Shared by the post, comment threads, and
+    // feed/jurisdiction/district cards — every reaction in the app routes through here, so the
+    // login gate and toggle behave identically everywhere. `scale` maps the raw count to its
+    // shown value (cards thin by the Verified filter via scaleSocial; the post shows it raw).
+    function reactBtn(parent, node, dir, x, y, scale) {
+      scale = scale || function (n) { return n; };
       var sym = dir === "up" ? "✓ " : "✗ ";
       var active = node._my === dir;
       var col = active ? "#333" : (dir === "up" ? "#666" : "#999");
       var g = document.createElementNS(SVG_NS, "g");
-      var t = txt(x, y, sym + fmtN(node[dir]), 13, col); if (active) t.setAttribute("font-weight", "bold"); g.appendChild(t);
-      clickRect(g, x - 4, y - 14, 54, 20, function (e) { if (e) e.stopPropagation(); toggleReact(node, dir); });
+      var t = txt(x, y, sym + fmtN(scale(node[dir])), 13, col); if (active) t.setAttribute("font-weight", "bold"); g.appendChild(t);
+      clickRect(g, x - 4, y - 14, 54, 20, function (e) { if (e) e.stopPropagation(); reactClick(node, dir); });
       parent.appendChild(g);
     }
     function replyStub(parent, x, y, enabled) {
@@ -1937,7 +2004,7 @@
         body.appendChild(icon("#ic-shield", X + W - 92, y + 3, 14, "#666"));
         var tl = txt(X + W, y + 14, tierLabel(p.tier), 11.5, "#666"); tl.setAttribute("text-anchor", "end"); body.appendChild(tl);
       }
-      var tg = txt(X + W, y + 30, p.jur + (p.district ? " · " + p.district : ""), 11.5, "#999"); tg.setAttribute("text-anchor", "end"); body.appendChild(tg);
+      body.appendChild(scopeTagLink(p.jur, p.district || "", X + W, y + 30));
       y += 48;
 
       // title + full body
@@ -2105,6 +2172,9 @@
       show($("anno-dropdown"), state.labelsOn && state.dropdownOpen);
       show($("anno-dd-filter"), state.labelsOn && state.dropdownOpen && state.subs.length > 1);
       show($("anno-filter"), state.labelsOn && state.filterOpen);
+      // record-types callout only on feed views; refine callout slides up by the dropped section's height
+      show($("anno-filter-types"), viewHasFeed());
+      $("anno-filter-refine").setAttribute("transform", viewHasFeed() ? "translate(0,0)" : "translate(0," + (-(24 + 5 * FROW_H + 8)) + ")");
       show($("anno-modal"), state.labelsOn && state.modalOpen);
       show($("anno-auth"), state.labelsOn && !!state.authView && !state.loggedIn);
       show($("anno-profile"), state.labelsOn && state.profileOpen && state.loggedIn);

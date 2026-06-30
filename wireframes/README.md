@@ -53,15 +53,28 @@ factory the builders use:
 |---|---|---|
 | a feed/inline card's **title** or **"…more"** | **Post** | `go("post")` |
 | a card **author**, or a **leader / riding-leader** link | **Profile** | `go("profile")` |
-| a **riding row** on the Jurisdiction view | **District** | `go("district")` |
+| a card's **jurisdiction tag** (underlined word) | **Jurisdiction** (aims it at that jurisdiction) | `goJur(name)` |
+| a card's **district tag**, a **riding row**, or a profile's **riding** segment | **District** | `go("district")` |
 | the jurisdiction selector's **↗ external glyph** | **Jurisdiction** (sets `state.jur`) | in `buildDropdown` |
 | the **FAB** when not on the Feed, or Profile's **"View posts in Feed"** | **Feed** | `nav("feed")` |
 | the **P** key | next view in `VIEW_ORDER` (cycles all five) | keydown |
 
+The right-aligned scope tag on a card is built by `scopeTagLink(...)`: it **underlines only the
+linkable words** (`Jurisdiction · District`) and lays an invisible hit target over each, so the
+separator and any page-implied part stay plain. `goJur(name)` is `go("jurisdiction")` that first
+points `state.jur` at the named jurisdiction.
+
 These are **representative-target** flips: the wireframe always jumps to the one sample Post / Profile
 / District it ships, regardless of which card you tapped. **In production, route by the tapped
-record's id** — every `go(...)` / `nav(...)` is the place to call `route(entityId)`. Genuinely
-deferred actions (composing a reply, the account-settings rows) stay no-op stubs with a `NOTE(nav)`.
+record's id** — every `go(...)` / `goJur(...)` / `nav(...)` is the place to call `route(entityId)`.
+Genuinely deferred actions (composing a reply, the account-settings rows) stay no-op stubs with a
+`NOTE(nav)`.
+
+**Reactions are login-gated everywhere.** Every ✓/✗ on the Post, in a comment thread, **and on a
+feed/jurisdiction/district card** goes through one `reactBtn` → `reactClick`: logged-out taps open
+the auth chooser, signed-in taps toggle the reaction (mutually exclusive, like a `reaction` record).
+Cards pass `scaleSocial` so their shown counts still thin with the Verified filter; the Post shows
+its count raw.
 
 ---
 
@@ -81,7 +94,10 @@ matches(p, scope):
 ```
 
 **Record types** — Statements / Petitions / Polls / Results. Tap a checkbox to include/exclude (at
-least one always stays on — never None); tap a name to switch to **only** that type.
+least one always stays on — never None); tap a name to switch to **only** that type. This section is
+shown **only on the feed-bearing views** (`viewHasFeed()` → Feed, Jurisdiction, District). A single
+Post or Profile has no card list, so the filter there drops the record-type section and shows only
+**Refine** below (the Verified ladder + My Districts), which slides up to fill the gap.
 
 **Verified ladder** — `VERIFIED_LEVELS = ["None","ID","Residency","Official"]`, one shared array.
 The toggle cycles it; the filter is **inclusive upward** (`p.tier >= state.verified`): an **ID**
@@ -172,8 +188,9 @@ Read the script top-to-bottom in this order — it is organised to be traced:
 4. **the router** — `nav()` and `go()`, plus `onFabClick` / `onAuthClick`.
 5. **data** — `JUR_DATA`, `POSTS`, `DISTRICT`, `PROFILE`, `POST`, `COMMENTS`.
 6. **content helpers** — `tierLabel`, geography (`postDistricts/inMyDistricts/districtTag`), scaling
-   (`scaleSocial/scaleCivic`), and the shared bits (`initials/leaderLink/collHeader/drawMapVector/
-   drawDistrictMap`).
+   (`scaleSocial/scaleCivic`), the shared link/label bits (`initials/leaderLink/scopeTagLink/txtSeg/
+   collHeader/drawMapVector/drawDistrictMap`), and the **one** reaction pill `reactBtn` → `reactClick`
+   (the login gate + toggle every ✓/✗ in the app shares).
 7. **`matches(p, scope)`** and **`buildCard(p, opts)`** — the one matcher and the one card renderer
    every list view calls.
 8. **the five `build*` view functions**, then **`VIEWS` / `setViewScroll` / `render()`**, then the
