@@ -1857,8 +1857,9 @@
         var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
         p.options.forEach(function (o) {
           var ov = scaleCivic(o.v), bw = W - 2 * px, mine = p._vote === o.label;
-          add(rect(px, y, bw, 18, 4, "#f4f4f4", mine ? "#333" : "#e2e2e2"));
-          add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, mine ? "#cfcfcf" : "#e3e3e3"));
+          // every option always shows its result bar; the selected one is darker (plus bold + ✓ below)
+          add(rect(px, y, bw, 18, 4, "#f2f2f2", mine ? "#333" : "#ddd"));
+          add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, mine ? "#9a9a9a" : "#cfcfcf"));
           var lbl = txt(px + 8, y + 13, (mine ? "✓ " : "") + o.label, 11.5, mine ? "#222" : "#555"); if (mine) lbl.setAttribute("font-weight", "bold"); add(lbl);
           var pv = txt(W - px - 6, y + 13, fmt(ov), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); add(pv);
           var pg = document.createElementNS(SVG_NS, "g");
