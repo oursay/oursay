@@ -9,6 +9,10 @@ this guide.
 > Context: OurSay has no product UI yet (Phase D). This wireframe explores the mobile shell on top of
 > the journeys in [`../docs/11-USER-FLOWS.md`](../docs/11-USER-FLOWS.md).
 
+> **Why it looks the way it does:** this README is the *how it works / how to build it* guide.
+> The plain-language **design choices and their justifications** live in
+> [`DESIGN-DECISIONS.md`](DESIGN-DECISIONS.md) — read that before changing a deliberate trade-off.
+
 > **Why one file?** The mobile wireframe was previously six separate SVGs (an `app-frame` shell plus
 > five `content-*` forks). Each fork copied the entire ~1300-line chrome and swapped only its body,
 > and editing six copies of one chrome caused **drift** (the verification ladder reached "Official"
@@ -52,7 +56,7 @@ factory the builders use:
 | You click… | …it flips to | Handler |
 |---|---|---|
 | a feed/inline card's **title** or **"…more"** | **Post** | `go("post")` |
-| a card **author**, or a **leader / riding-leader** link | **Profile** | `go("profile")` |
+| a card **author**, a **comment author** (avatar + name) on the Post, or a **leader / riding-leader** link | **Profile** | `go("profile")` |
 | a card's **jurisdiction tag** (underlined word) | **Jurisdiction** (aims it at that jurisdiction) | `goJur(name)` |
 | a card's **district tag**, a **riding row**, or a profile's **riding** segment | **District** | `go("district")` |
 | the jurisdiction selector's **↗ external glyph** | **Jurisdiction** (sets `state.jur`) | in `buildDropdown` |
@@ -70,11 +74,24 @@ record's id** — every `go(...)` / `goJur(...)` / `nav(...)` is the place to ca
 Genuinely deferred actions (composing a reply, the account-settings rows) stay no-op stubs with a
 `NOTE(nav)`.
 
-**Reactions are login-gated everywhere.** Every ✓/✗ on the Post, in a comment thread, **and on a
-feed/jurisdiction/district card** goes through one `reactBtn` → `reactClick`: logged-out taps open
-the auth chooser, signed-in taps toggle the reaction (mutually exclusive, like a `reaction` record).
-Cards pass `scaleSocial` so their shown counts still thin with the Verified filter; the Post shows
-its count raw.
+**The Post page** shows full author identity: the post author **and every comment author** are
+linkable to their Profile (avatar + name), each carries a **verification pill** (`tierPill` — Identity
+/ Residency / Official), and each shows a **relative timestamp** via `relTime()` — `Nm/Nh/Nd ago`, and
+for anything **older than 6 days** an absolute `YYYY-MM-DD` date (the sample post itself is the >6d
+case, dated `2026-06-22`). Handles are dropped on the Post to make room (identity is carried by the
+linked name + pill). The post and any **revised** comment show an **"N edits"** link ("1 edit"
+singular). The same **"N edits"** link appears in the **footer of feed / jurisdiction / district
+cards** for any post that has been revised (`buildCard`).
+
+**Every participatory action is login-gated, through one `requireAuth(action)`.** Reacting (✓/✗ on
+the Post, in a comment thread, **and on a feed/jurisdiction/district card** via `reactClick`), signing
+a petition (`petitionSign`), voting in a poll (`pollVote`), replying/commenting (`startReply`), and
+creating a post (the FAB → `requireAuth(startCompose)`) all route through the same gate: logged-out
+taps open the auth chooser and the action is dropped; signed-in taps perform it. **Reads stay open**
+(browse / scope / filter work logged-out) — only writes need an account, mirroring the records they
+create (one `reaction`/`vote`/`signature` per author per target). The gate is on **entry**, so you
+can't even open the reply composer while logged out. Cards pass `scaleSocial` so their shown counts
+still thin with the Verified filter; the Post shows its count raw.
 
 ---
 
@@ -137,8 +154,10 @@ All sample data lives in one block near the top of the script and maps to real O
 | `agree` / `disagree` | counts; `_my` on the Post view | `reaction` (✓/✗, mutually exclusive per author per target) |
 | `sig` / `goal` | petition counts | `petition_signature` aggregate |
 | `options[].v` | per-option counts | poll `vote` aggregate |
-| `comments`, and `COMMENTS[]` tree | count + nested replies (depth ≤ `COMMENT_MAX_DEPTH = 3`) | `comment` |
+| `comments`, and `COMMENTS[]` tree | count + nested replies (depth ≤ `COMMENT_MAX_DEPTH = 3`); each node has `author/handle/tier/ts` and optional `edits` | `comment` |
 | `tier` (0–3) | author verification | KYC tier / Official role |
+| `ts` (ISO) + `relTime()` | created time → relative/absolute label (display-only; not the ordering source) | content record `createdAt` |
+| `edits` (count) | times revised → "N edits" link to the deferred edit-history timeline | content/comment revision count |
 | `districts[]` | `[]` = jurisdiction-wide · `[slug]` = one riding · `[slug,slug]` = several | `appliesToRegion` (district refs) |
 | `JUR_DATA` | per-jurisdiction leader + rules + ridings (Global has neither map nor ridings) | JurisdictionConfig |
 | `DISTRICT`, `PROFILE`, `POST` | the single representative riding / public profile / post detail | District / public profile / content record |
@@ -234,3 +253,15 @@ inlined once as `<symbol>`s and reused via `<use href="#ic-…">`.
 (`app-frame`, `content-feed`, `content-jurisdiction`, `content-district`, `content-profile`,
 `content-post`) **unchanged**, as a historical reference. They are superseded by
 `oursay-mobile.svg`; build from the monolith.
+
+---
+
+## 7. Deferred — edit-history timeline
+
+The **"N edits"** link on the Post (on the post itself and on revised comments) is wired to a stub
+(`openHistory()`, a `NOTE(nav)` no-op). It is meant to open an **edit-history timeline**: a single
+**chronological** view of a post's life — the original root post plus **every edit** made to it *and*
+to its comments, laid out in order as an audit trail (nothing is silently rewritten). This view is a
+**separate task** and is intentionally not built yet; the data model already carries the `edits`
+count so the affordance can be shown today. When built, route `openHistory(target)` to it by the
+tapped post/comment id.

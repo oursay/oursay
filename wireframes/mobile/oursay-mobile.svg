@@ -18,6 +18,13 @@
               card title/…more → Post · author/leader → Profile ·
               riding row → District · selector ↗ → Jurisdiction ·
               FAB (off Feed) / "View posts in Feed" → Feed.
+       Post page: linkable author + comment-author Profiles, verification pills,
+              relative timestamps (relTime: Nh/Nd ago, >6d → YYYY-MM-DD), and an
+              "N edit(s)" link on the post & revised comments. Feed/jurisdiction/
+              district cards show the same "N edit(s)" link in the footer.
+       DEFERRED (separate task): the "N edit(s)" link → an EDIT-HISTORY TIMELINE —
+              one chronological view of the root post plus every edit to it and its
+              comments (an audit trail). Stub today: openHistory() is a no-op.
        Icons: Feather (MIT, https://feathericons.com) + a custom building glyph.
        ========================================================================= -->
 
@@ -1232,9 +1239,8 @@
     // new-post FAB: off the Feed it goes home to the Feed; on the Feed it composes
     // (logged-out → register/login chooser; logged-in → where/type/compose).
     function onFabClick() {
-      if (state.view !== "feed") { nav("feed"); return; }
-      if (!state.loggedIn) { state.authView = "choose"; render(); return; }
-      startCompose();
+      if (state.view !== "feed") { nav("feed"); return; }   // off-feed: newspaper "go home"
+      requireAuth(startCompose);                              // on-feed: compose — same login gate as react/sign/vote/reply
     }
     function onAuthClick() {
       if (!state.loggedIn) { state.authView = state.authView ? null : "choose"; }
@@ -1385,7 +1391,7 @@
       { type:"petition", jur:"Global", tier:1, districts:[], author:"Priya Anand", handle:"priya",
         title:"Open-source the public election software",
         body:["Code that counts votes should be auditable by anyone.",
-              "Publish the source under an OSI licence."], sig:8300, goal:10000, comments:33 },
+              "Publish the source under an OSI licence."], sig:8300, goal:10000, comments:33, edits:1 },
       { type:"statement", jur:"Global", tier:1, districts:[], author:"Marcus Lee", handle:"mlee",
         title:"Lower the voting age to 16",
         body:["Sixteen-year-olds work, pay tax, and drive. They should have",
@@ -1403,7 +1409,7 @@
       { type:"statement", jur:"Alberta", tier:3, districts:[], author:"Hon. A. Premier", handle:"premier",
         title:"Budget 2027 consultation now open",
         body:["Residents can weigh in on provincial priorities through",
-              "the end of the month."], up:512, down:288, comments:96 },
+              "the end of the month."], up:512, down:288, comments:96, edits:2 },
       { type:"poll", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
         title:"Provincial budget priority for 2027",
         body:["Where should the next provincial budget lead?",
@@ -1426,7 +1432,7 @@
       { type:"statement", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Hana Okafor", handle:"hanao",
         title:"Protect the Whitemud Creek ravine",
         body:["Proposed access roads cut through old-growth ravine.",
-              "Council should pause the rezoning pending review."], up:132, down:7, comments:21 },
+              "Council should pause the rezoning pending review."], up:132, down:7, comments:21, edits:3 },
       { type:"petition", jur:"Alberta", tier:2, districts:["edmonton-strathcona"], author:"Sam Driver", handle:"samd",
         title:"Repave 109 Street before winter",
         body:["Potholes on 109 St have damaged dozens of vehicles.",
@@ -1486,17 +1492,23 @@
           body:["Drop in 10–12 at the Strathcona branch. Bring questions",
                 "on the budget, transit, or the ravine review."], up:96, down:4, comments:12 }
       ],
-      // Activity tab — every public action (kind drives the icon + the profile-type filter; reactions
-      // have no toggle, so they always show). Representative targets: each row taps through to a Post.
+      // Activity tab — every public action. `kind` drives the profile-type filter (statement/comment/
+      // petition/poll/reaction); `icon` optionally overrides the kind's default glyph (e.g. an EDIT
+      // uses the pencil but still filters under its content type). Edits and reaction changes/
+      // retractions are first-class actions here — nothing is silently rewritten. Each row → a Post.
       activity: [
-        { kind:"statement", text:"Posted “Constituency update: ravine”", meta:"2d · Alberta" },
-        { kind:"comment",   text:"Commented on “Whitemud ravine”",       meta:"3d" },
-        { kind:"petition",  text:"Signed “Repave 109 Street”",           meta:"5d" },
-        { kind:"poll",      text:"Voted in “Budget priority 2027”",      meta:"6d" },
-        { kind:"reaction",  text:"Agreed with “Bike lanes on Whyte”",    meta:"1w" },
-        { kind:"comment",   text:"Replied to Marcus Lee on the vote",    meta:"1w" },
-        { kind:"statement", text:"Posted “Town hall Saturday”",          meta:"2w" },
-        { kind:"reaction",  text:"Disagreed with “Voting age 16”",       meta:"3w" }
+        { kind:"statement", icon:"#ic-edit", text:"Edited “Constituency update: ravine”",        meta:"1d · Alberta" },
+        { kind:"statement", text:"Posted “Constituency update: ravine”",                          meta:"2d · Alberta" },
+        { kind:"comment",   text:"Commented on “Whitemud ravine”",                                meta:"3d" },
+        { kind:"comment",   icon:"#ic-edit", text:"Edited a comment on “Whitemud ravine”",        meta:"4d" },
+        { kind:"petition",  text:"Signed “Repave 109 Street”",                                    meta:"5d" },
+        { kind:"reaction",  text:"Changed to Disagree on “Budget 2027”",                          meta:"6d" },
+        { kind:"poll",      text:"Voted in “Budget priority 2027”",                               meta:"6d" },
+        { kind:"reaction",  text:"Agreed with “Bike lanes on Whyte”",                             meta:"1w" },
+        { kind:"comment",   text:"Replied to Marcus Lee on the vote",                             meta:"1w" },
+        { kind:"reaction",  text:"Retracted reaction on “Green Line LRT”",                        meta:"2w" },
+        { kind:"statement", text:"Posted “Town hall Saturday”",                                   meta:"2w" },
+        { kind:"reaction",  text:"Disagreed with “Voting age 16”",                                meta:"3w" }
       ],
       // Mentions tab — others referencing @raenguyen (not type-filtered; a different axis).
       mentions: [
@@ -1511,8 +1523,12 @@
     // NOTE(tech) thread nesting is capped at COMMENT_MAX_DEPTH = 3 (comment.md). Agree/disagree are
     // reaction records on the post or a comment (exclusive per author per target; modelled by _my).
     var COMMENT_MAX_DEPTH = 3;
+    // `tier` (0–3) = author verification → renders a pill next to the name on the post & in comments.
+    // `ts` = created time (ISO) → relTime(). `edits` = how many times it was revised → "N edit(s)"
+    // link to the (deferred) edit-history timeline. `ts` is display-only; see relTime()/NOW above.
     var POST = {
       author: "Hana Okafor", handle: "hanao", tier: 2, jur: "Alberta", district: "Edmonton-Strathcona",
+      ts: "2026-06-22T10:15:00", edits: 3,   // >6d old → shows the absolute date "2026-06-22"; revised 3×
       title: "Protect the Whitemud Creek ravine",
       body: [
         "The proposed access roads would cut directly through old-growth",
@@ -1523,23 +1539,61 @@
       up: 132, down: 7, _my: null
     };
     var COMMENTS = [
-      { author: "Sam Driver", handle: "samd", body: ["Agreed — the rookery alone should trigger a review."], up: 14, down: 1, _my: null,
+      { author: "Sam Driver", handle: "samd", tier: 2, ts: "2026-06-27T09:00:00", edits: 1,
+        body: ["Agreed — the rookery alone should trigger a review."], up: 14, down: 1, _my: null,
         replies: [
-          { author: "Rae Nguyen", handle: "raenguyen", body: ["I've asked Parks to share the 2023 survey data."], up: 9, down: 0, _my: null,
+          { author: "Rae Nguyen", handle: "raenguyen", tier: 3, ts: "2026-06-30T08:40:00",
+            body: ["I've asked Parks to share the 2023 survey data."], up: 9, down: 0, _my: null,
             replies: [
-              { author: "Hana Okafor", handle: "hanao", body: ["Thank you — please post it here when you can."], up: 4, down: 0, _my: null, replies: [] }
+              { author: "Hana Okafor", handle: "hanao", tier: 2, ts: "2026-06-25T14:00:00",
+                body: ["Thank you — please post it here when you can."], up: 4, down: 0, _my: null, replies: [] }
             ] }
         ] },
-      { author: "Marcus Lee", handle: "mlee", body: ["What's the timeline on the rezoning vote?"], up: 3, down: 0, _my: null,
+      { author: "Marcus Lee", handle: "mlee", tier: 1, ts: "2026-06-20T11:30:00",
+        body: ["What's the timeline on the rezoning vote?"], up: 3, down: 0, _my: null,
         replies: [
-          { author: "Priya Anand", handle: "priya", body: ["Next council session, per the agenda."], up: 5, down: 0, _my: null, replies: [] }
+          { author: "Priya Anand", handle: "priya", tier: 1, ts: "2026-06-24T16:20:00",
+            body: ["Next council session, per the agenda."], up: 5, down: 0, _my: null, replies: [] }
         ] },
-      { author: "Rosa Klein", handle: "rosak", body: ["Roads could be rerouted around the south edge instead."], up: 6, down: 2, _my: null, replies: [] }
+      { author: "Rosa Klein", handle: "rosak", tier: 2, ts: "2026-06-29T19:10:00", edits: 2,
+        body: ["Roads could be rerouted around the south edge instead."], up: 6, down: 2, _my: null, replies: [] }
     ];
 
     // ---- shared content helpers (one copy each) -------------------------------
     function fmt(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
     function fmtN(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
+
+    // Wireframe "now" — fixes the relative timestamps so this static file always reads
+    // consistently (matches the 9:41 status bar). Production reads the real clock —
+    // NOTE(tech): see [[decentralization-north-star]] — never trust a single device clock
+    // for civic ordering; timestamps shown here are display-only, not the ordering source.
+    var NOW = new Date("2026-06-30T09:41:00");
+    // relative timestamp: <1m "just now" · <60m "Nm ago" · <24h "Nh ago" · ≤6d "Nd ago" ·
+    // older than 6 days → an absolute "YYYY-MM-DD" date (recent stays human, the rest is dated).
+    function relTime(iso) {
+      var t = new Date(iso), mins = Math.floor((NOW - t) / 60000);
+      if (mins < 1)  return "just now";
+      if (mins < 60) return mins + "m ago";
+      var hrs = Math.floor(mins / 60);
+      if (hrs < 24)  return hrs + "h ago";
+      var days = Math.floor(hrs / 24);
+      if (days <= 6) return days + "d ago";
+      return iso.slice(0, 10); // YYYY-MM-DD
+    }
+    // "N edit(s)" affordance. Tapping it is meant to open the EDIT-HISTORY TIMELINE — a
+    // chronological view of the root post plus every edit made to it and to its comments
+    // (an audit trail; nothing is silently rewritten). That view is DEFERRED to a separate
+    // task; for now this is a no-op stub. See the SVG header note + README §"Deferred".
+    function openHistory(target) { /* NOTE(nav): route to the post/comment edit-history timeline — DEFERRED */ }
+    function editsLink(parent, x, y, n, target) {
+      if (!n) return 0;
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var label = n + (n === 1 ? " edit" : " edits"), w = Math.round(textW(label, 11.5));
+      var t = txt(x, y, label, 11.5, "#999"); t.setAttribute("text-decoration", "underline"); g.appendChild(t);
+      clickRect(g, x - 3, y - 12, w + 8, 18, function (e) { if (e) e.stopPropagation(); openHistory(target); });
+      parent.appendChild(g);
+      return w;
+    }
     function clickRect(g, x, y, w, h, onClick) {
       var r = rect(x, y, w, h, 4, "#ffffff"); r.setAttribute("opacity", "0"); r.style.cursor = "pointer";
       r.addEventListener("click", onClick); g.appendChild(r);
@@ -1558,6 +1612,9 @@
       }
       return w;
     }
+    // rendered width of the verification pill (0 for tier 0) — lets callers left-align it
+    // (pass rightX = leftX + tierPillWidth(t)) so a pill can sit inline after a name.
+    function tierPillWidth(tier) { return tier > 0 ? Math.round(6 + 12 + 3 + textW(tierLabel(tier), 10.5) + 6) : 0; }
     // tightly-bound verification pill, right-aligned so its right edge sits at rightX.
     // returns a <g>; empty when tier is 0 so callers can add() it unconditionally.
     function tierPill(rightX, y, tier) {
@@ -1799,6 +1856,8 @@
       } else {
         add(txt(px, fy, fmt(scaleCivic(p.sig)) + " signatures", 13, "#555"));
       }
+      // "N edits" link (only on revised posts) → the deferred edit-history timeline
+      if (p.edits) { var eg = document.createElementNS(SVG_NS, "g"); editsLink(eg, px + 120, fy, p.edits, { post: true }); hit(eg); }
       // comment pill opens the post
       var cg = commentPill(W - px, fy, scaleSocial(p.comments), go("post")); hit(cg);
 
@@ -2045,33 +2104,33 @@
 
       setViewScroll("profile", ly);
     }
-    // interlocking segmented control — Posts | Activity | Mentions (active = filled inset pill)
+    // minimal text tabs — Posts · Activity · Mentions. The active tab is bold + underlined;
+    // the rest are plain muted text. Each tab hugs its label width (textW) so the row stays
+    // compact and leaves more room for the list. A faint baseline rule separates it from below.
     function profileTabs(parent, X, W, y) {
       var tabs = [["posts", "Posts"], ["activity", "Activity"], ["mentions", "Mentions"]];
-      var H = 38, segW = W / 3;
+      var size = 14, gap = 26, ty = y + 16; // ty = text baseline
       var g = document.createElementNS(SVG_NS, "g");
-      g.appendChild(rect(X, y, W, H, 10, "#f1f1f1", "#ddd")); // shared track
-      tabs.forEach(function (t, i) {
-        var sx = X + i * segW, active = state.profileTab === t[0];
-        // divider only between two inactive segments (the active pill supplies its own edge)
-        if (i > 0 && !active && state.profileTab !== tabs[i - 1][0]) {
-          var ln = document.createElementNS(SVG_NS, "line");
-          ln.setAttribute("x1", sx); ln.setAttribute("y1", y + 9); ln.setAttribute("x2", sx); ln.setAttribute("y2", y + H - 9);
-          ln.setAttribute("stroke", "#d2d2d2"); g.appendChild(ln);
-        }
-        if (active) g.appendChild(rect(sx + 3, y + 3, segW - 6, H - 6, 8, "#333"));
-        var lbl = txt(sx + segW / 2, y + 24, t[1], 13.5, active ? "#fff" : "#555");
-        lbl.setAttribute("text-anchor", "middle"); if (active) lbl.setAttribute("font-weight", "bold");
+      var cx = X;
+      tabs.forEach(function (t) {
+        var active = state.profileTab === t[0], tw = Math.round(textW(t[1], size));
+        var lbl = txt(cx, ty, t[1], size, active ? "#222" : "#999");
+        if (active) lbl.setAttribute("font-weight", "bold");
         g.appendChild(lbl);
+        if (active) g.appendChild(rect(cx, ty + 7, tw, 2.5, 1, "#222")); // bold underline indicator
         var hit = document.createElementNS(SVG_NS, "g");
-        clickRect(hit, sx, y, segW, H, function (e) {
+        clickRect(hit, cx - 5, y, tw + 10, 28, function (e) {
           if (e) e.stopPropagation();
           if (state.profileTab !== t[0]) { state.profileTab = t[0]; state.scroll = 0; render(); }
         });
         g.appendChild(hit);
+        cx += tw + gap;
       });
+      var rule = document.createElementNS(SVG_NS, "line");
+      rule.setAttribute("x1", X); rule.setAttribute("y1", y + 28); rule.setAttribute("x2", X + W); rule.setAttribute("y2", y + 28);
+      rule.setAttribute("stroke", "#eee"); g.appendChild(rule);
       parent.appendChild(g);
-      return y + H;
+      return y + 28;
     }
     // a profile kind (statement/comment/petition/poll) maps to its profile-type toggle; kinds with
     // no toggle (reaction, result) always show. Governs the Posts and Activity lists.
@@ -2085,7 +2144,7 @@
     function activityRow(parent, X, W, y, a) {
       var H = 52, g = document.createElementNS(SVG_NS, "g");
       g.appendChild(rect(X, y, W, H, 10, "#ffffff", "#eee"));
-      g.appendChild(icon(ACT_ICON[a.kind] || "#ic-message", X + 14, y + 16, 18, "#666"));
+      g.appendChild(icon(a.icon || ACT_ICON[a.kind] || "#ic-message", X + 14, y + 16, 18, "#666"));
       g.appendChild(txt(X + 46, y + 24, a.text, 12.5, "#333"));
       g.appendChild(txt(X + 46, y + 41, a.meta, 11, "#999"));
       clickRect(g, X, y, W, H, go("post")); // representative target → the Post view
@@ -2201,18 +2260,28 @@
       var X0 = 30, W0 = 370;
       nodes.forEach(function (node) {
         var indent = (depth - 1) * 20, x = X0 + indent, w = W0 - indent;
+        // avatar + bold name → the author's Profile (one clickable group; handle dropped for space —
+        // a tier pill + relative timestamp take its place on the right). Production routes by author id.
+        var ag = document.createElementNS(SVG_NS, "g"); ag.style.cursor = "pointer";
         var av = document.createElementNS(SVG_NS, "circle");
         av.setAttribute("cx", x + 11); av.setAttribute("cy", y + 9); av.setAttribute("r", 11);
-        av.setAttribute("fill", "#eee"); av.setAttribute("stroke", "#ddd"); parent.appendChild(av);
+        av.setAttribute("fill", "#eee"); av.setAttribute("stroke", "#ddd"); ag.appendChild(av);
         var ini = (node.author.split(" ").map(function (s) { return s[0]; }).join("")).slice(0, 2).toUpperCase();
-        var it = txt(x + 11, y + 13, ini, 9, "#888"); it.setAttribute("text-anchor", "middle"); parent.appendChild(it);
-        var nm = txt(x + 28, y + 6, node.author, 12.5, "#333"); nm.setAttribute("font-weight", "bold"); parent.appendChild(nm);
-        var hd = txt(x + w, y + 6, "@" + node.handle, 10.5, "#aaa"); hd.setAttribute("text-anchor", "end"); parent.appendChild(hd);
+        var it = txt(x + 11, y + 13, ini, 9, "#888"); it.setAttribute("text-anchor", "middle"); ag.appendChild(it);
+        var nm = txt(x + 28, y + 6, node.author, 12.5, "#333"); nm.setAttribute("font-weight", "bold"); ag.appendChild(nm);
+        var nameW = Math.round(textW(node.author, 12.5));
+        clickRect(ag, x, y - 6, 28 + nameW + 4, 24, go("profile")); parent.appendChild(ag);
+        // verification pill inline after the name (omitted for tier 0)
+        if (node.tier > 0) parent.appendChild(tierPill(x + 28 + nameW + 8 + tierPillWidth(node.tier), y - 5, node.tier));
+        // relative timestamp, right-aligned where the handle used to sit
+        if (node.ts) { var ct = txt(x + w, y + 6, relTime(node.ts), 10.5, "#aaa"); ct.setAttribute("text-anchor", "end"); parent.appendChild(ct); }
         var yy = y + 24;
         node.body.forEach(function (line) { parent.appendChild(txt(x + 28, yy, line, 12, "#555")); yy += 16; });
         reactPill(parent, node, x + 28, yy + 8);
         var atMax = depth >= COMMENT_MAX_DEPTH;
         replyBtn(parent, x + 132, yy + 8, { node: node, atMax: atMax });
+        // "N edit(s)" → the (deferred) edit-history timeline; only on revised comments
+        editsLink(parent, x + 200, yy + 8, node.edits, { comment: node });
         yy += 24;
         // inline composer for this comment; max-depth replies seed the replyee's @mention
         if (replyTargetIs({ node: node })) yy = replyComposer(parent, x + 28, w - 28, yy, atMax ? "@" + node.handle : "");
@@ -2234,7 +2303,8 @@
       var ini = (p.author.split(" ").map(function (s) { return s[0]; }).join("")).slice(0, 2).toUpperCase();
       var it = txt(X + 14, y + 20, ini, 11, "#777"); it.setAttribute("text-anchor", "middle"); body.appendChild(it);
       var nm = txt(X + 38, y + 12, p.author, 14, "#333"); nm.setAttribute("font-weight", "bold"); body.appendChild(nm);
-      body.appendChild(txt(X + 38, y + 28, "@" + p.handle, 11.5, "#999"));
+      // posted timestamp under the name (handle dropped for space; the tier pill + scope tag carry identity)
+      if (p.ts) body.appendChild(txt(X + 38, y + 28, relTime(p.ts), 11.5, "#999"));
       var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, X, y, 190, 34, go("profile")); body.appendChild(aHit);
       if (p.tier > 0) body.appendChild(tierPill(X + W, y - 6, p.tier));
       body.appendChild(scopeTagLink(p.jur, p.district || "", X + W, y + 30));
@@ -2246,9 +2316,10 @@
       p.body.forEach(function (line) { body.appendChild(txt(X, y + 14, line, 13, "#555")); y += 18; });
       y += 22;
 
-      // post reaction bar (split pill) + reply (root comment) + comment count pill
+      // post reaction bar (split pill) + reply (root comment) + "N edit(s)" + comment count pill
       reactPill(body, p, X, y);
       replyBtn(body, X + 110, y, { post: true });
+      editsLink(body, X + 185, y, p.edits, { post: true });   // → deferred edit-history timeline
       var nC = countComments(COMMENTS);
       body.appendChild(commentPill(X + W, y, nC));
       y += 22;
@@ -2301,7 +2372,7 @@
       jurisdiction: ["Jurisdiction view (G flips Glob/AB)", "leader → Profile; riding → District"],
       district:     ["District view (one riding)", "leader → Profile; cards → Post"],
       profile:      ["Profile — Posts · Activity · Mentions", "tabs; type filter (F) gates kinds"],
-      post:         ["Post + comment thread (depth 3)", "✓/✗ react; ↳ Reply (stub)"]
+      post:         ["Post + thread — authors link, tiers,", "timestamps · N edits → history (deferred)"]
     };
 
     // ---- main render ----------------------------------------------------------
