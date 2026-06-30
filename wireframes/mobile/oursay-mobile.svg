@@ -88,6 +88,14 @@
     <symbol id="ic-shield" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </symbol>
+    <!-- verification-type icons: Identity = ID badge · Residency = ic-pin (above) · Official = gavel -->
+    <symbol id="ic-badge" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="8" cy="11.5" r="2"/><line x1="13" y1="10" x2="18" y2="10"/><line x1="13" y1="15" x2="18" y2="15"/>
+    </symbol>
+    <!-- ic-gavel: Lucide "gavel" (ISC) — same Feather-style 24/2px/round; 45° head -->
+    <symbol id="ic-gavel" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m14 13-8.381 8.38a1 1 0 0 1-3.001-3l8.384-8.381"/><path d="m16 16 6-6"/><path d="m21.5 10.5-8-8"/><path d="m8 8 6-6"/><path d="m8.5 7.5 8 8"/>
+    </symbol>
     <symbol id="ic-key" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
     </symbol>
@@ -156,7 +164,7 @@
 
   <!-- title (always visible; updated per active view in render) -->
   <text id="appTitle" x="460" y="40" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">OurSay · Mobile — Feed</text>
-  <text x="460" y="60" font-size="12" fill="#999" text-anchor="middle">Interactive wireframe — V toggles labels · P cycles views</text>
+  <text x="460" y="60" font-size="12" fill="#999" text-anchor="middle">Interactive wireframe — V toggles labels · P cycles views · S saves a PNG</text>
 
   <!-- ===================== THE PHONE (centred via translate) ===================== -->
   <g id="phone" transform="translate(245,55)">
@@ -390,6 +398,28 @@
         </g>
       </g>
 
+      <!-- ===================== RECOVER MODAL (account recovery: email only → verify → new passkey) ===================== -->
+      <g id="recoverModal" display="none">
+        <rect id="recoverBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect x="55" y="250" width="320" height="312" rx="16" fill="#ffffff" stroke="#333"/>
+        <text x="215" y="294" font-size="18" fill="#333" text-anchor="middle" font-weight="bold">Recover Account</text>
+        <text x="215" y="318" font-size="12" fill="#999" text-anchor="middle">Enter your account email and we'll send</text>
+        <text x="215" y="334" font-size="12" fill="#999" text-anchor="middle">a code to verify it's you</text>
+        <text x="79" y="368" font-size="11" fill="#999">Email</text>
+        <rect x="79" y="378" width="272" height="34" rx="8" fill="#f7f7f7" stroke="#ddd"/>
+        <text x="91" y="400" font-size="12" fill="#bbb">jane@example.ca</text>
+        <g id="recoverSubmitBtn" style="cursor:pointer">
+          <rect x="79" y="430" width="272" height="46" rx="10" fill="#333"/>
+          <text x="215" y="459" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="bold">Send Verification Code</text>
+        </g>
+        <text x="215" y="504" font-size="11.5" fill="#999" text-anchor="middle">Verify the code, then add a passkey to this device</text>
+        <text x="215" y="544" font-size="11" fill="#999" text-anchor="middle">Alt: Esc or tap outside to close</text>
+        <g id="recoverCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="250" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
       <!-- ===================== LOGIN MODAL (returning user) ===================== -->
       <g id="loginModal" display="none">
         <rect id="loginBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
@@ -559,7 +589,7 @@
 
   <!-- ===================== SHORTCUT LEGEND (margin, always visible) ===================== -->
   <g>
-    <rect x="30" y="686" width="200" height="208" rx="10" fill="#ffffff" stroke="#333"/>
+    <rect x="30" y="686" width="200" height="226" rx="10" fill="#ffffff" stroke="#333"/>
     <text x="46" y="710" font-size="13" fill="#333" font-weight="bold">Shortcuts</text>
     <g font-size="12" fill="#333">
       <text x="46" y="732">L &#160;&#8212; login / out</text>
@@ -570,6 +600,7 @@
       <text x="46" y="822">O &#160;&#8212; OTP login window</text>
       <text x="46" y="840">P &#160;&#8212; cycle views · G flip jur</text>
       <text x="46" y="858">Esc &#8212; close overlay</text>
+      <text x="46" y="876">S &#160;&#8212; save view as PNG</text>
     </g>
   </g>
 
@@ -709,7 +740,7 @@
       loggedIn: false,
       dropdownOpen: false,
       modalOpen: false,        // add-jurisdiction spotlight
-      authView: null,          // logged-out auth flow: null | "choose" | "register" | "verify" | "login"
+      authView: null,          // logged-out auth flow: null | "choose" | "register" | "recover" | "verify" | "login"
       otpAllowed: false,       // account's OTP-login-allow window open (toggle: O)
       loginVerified: false,    // login modal: email OTP verified → passkey button becomes "Register Passkey"
       profileOpen: false,      // profile modal (logged-in only)
@@ -1602,6 +1633,9 @@
     function tierLabel(t) { return ["", "Identity", "Residency", "Official"][t] || ""; }
     // shade of black per verification level — darkens as the tier climbs.
     function tierShade(t) { return t === 3 ? "#222" : t === 2 ? "#555" : "#8a8a8a"; }
+    // unique glyph per verification type: Identity = ID badge · Residency = map pin · Official = gavel.
+    // (the generic shield stays for the "Verified" filter category, which isn't a single type.)
+    function tierIcon(t) { return ["#ic-shield", "#ic-badge", "#ic-pin", "#ic-gavel"][t] || "#ic-shield"; }
     // rough rendered width of a label: narrow glyphs (i, l, f, t, I…) count for much less
     // than the flat per-char average, so pills hug words like "Official" / "Identity" tightly.
     function textW(s, size) {
@@ -1612,9 +1646,6 @@
       }
       return w;
     }
-    // rendered width of the verification pill (0 for tier 0) — lets callers left-align it
-    // (pass rightX = leftX + tierPillWidth(t)) so a pill can sit inline after a name.
-    function tierPillWidth(tier) { return tier > 0 ? Math.round(6 + 12 + 3 + textW(tierLabel(tier), 10.5) + 6) : 0; }
     // tightly-bound verification pill, right-aligned so its right edge sits at rightX.
     // returns a <g>; empty when tier is 0 so callers can add() it unconditionally.
     function tierPill(rightX, y, tier) {
@@ -1623,7 +1654,7 @@
         var label = tierLabel(tier), pad = 6, ico = 12, gap = 3, h = 18;
         var w = Math.round(pad + ico + gap + textW(label, 10.5) + pad), x = rightX - w;
         g.appendChild(rect(x, y, w, h, 9, tierShade(tier)));
-        g.appendChild(icon("#ic-shield", x + pad, y + (h - ico) / 2, ico, "#fff"));
+        g.appendChild(icon(tierIcon(tier), x + pad, y + (h - ico) / 2, ico, "#fff"));
         g.appendChild(txt(x + pad + ico + gap, y + 13, label, 10.5, "#fff"));
       }
       return g;
@@ -1633,7 +1664,7 @@
       var g = document.createElementNS(SVG_NS, "g");
       var label = fmtN(count), pad = 7, ico = 13, gap = 4, h = 20;
       var w = Math.round(pad + ico + gap + label.length * 7.2 + pad), top = yBase - 14, x = rightX - w;
-      g.appendChild(rect(x, top, w, h, 10, "#ffffff", "#ddd"));
+      g.appendChild(rect(x, top, w, h, 10, "#ffffff", "#bbb"));
       g.appendChild(icon("#ic-message", x + pad, top + (h - ico) / 2, ico, "#777"));
       g.appendChild(txt(x + pad + ico + gap, yBase, label, 12.5, "#777"));
       if (onClick) clickRect(g, x, top, w, h, onClick);
@@ -2062,7 +2093,7 @@
         var badge = p.tier === 3 ? "Official" : "Residency Verified";
         var bw = p.tier === 3 ? 75 : 132;
         fixed.appendChild(rect(X + 90, y + 94, bw, 22, 11, tierShade(p.tier)));
-        fixed.appendChild(icon("#ic-shield", X + 98, y + 97, 15, "#fff"));
+        fixed.appendChild(icon(tierIcon(p.tier), X + 98, y + 97, 15, "#fff"));
         fixed.appendChild(txt(X + 118, y + 109, badge, 11, "#fff"));
       }
       y += 140;
@@ -2105,26 +2136,26 @@
       setViewScroll("profile", ly);
     }
     // minimal text tabs — Posts · Activity · Mentions. The active tab is bold + underlined;
-    // the rest are plain muted text. Each tab hugs its label width (textW) so the row stays
-    // compact and leaves more room for the list. A faint baseline rule separates it from below.
+    // the rest are plain muted text. The three tabs are spread evenly across the full width
+    // (each centred within an equal third) so the row spans the page with natural edge padding,
+    // and the whole column is the tap target. A faint baseline rule separates it from below.
     function profileTabs(parent, X, W, y) {
       var tabs = [["posts", "Posts"], ["activity", "Activity"], ["mentions", "Mentions"]];
-      var size = 14, gap = 26, ty = y + 16; // ty = text baseline
+      var size = 14, ty = y + 16, segW = W / tabs.length; // ty = text baseline; segW = column width
       var g = document.createElementNS(SVG_NS, "g");
-      var cx = X;
-      tabs.forEach(function (t) {
+      tabs.forEach(function (t, i) {
         var active = state.profileTab === t[0], tw = Math.round(textW(t[1], size));
+        var cx = X + i * segW + (segW - tw) / 2; // label left edge, centred in its third
         var lbl = txt(cx, ty, t[1], size, active ? "#222" : "#999");
         if (active) lbl.setAttribute("font-weight", "bold");
         g.appendChild(lbl);
         if (active) g.appendChild(rect(cx, ty + 7, tw, 2.5, 1, "#222")); // bold underline indicator
         var hit = document.createElementNS(SVG_NS, "g");
-        clickRect(hit, cx - 5, y, tw + 10, 28, function (e) {
+        clickRect(hit, X + i * segW, y, segW, 28, function (e) { // full column is tappable
           if (e) e.stopPropagation();
           if (state.profileTab !== t[0]) { state.profileTab = t[0]; state.scroll = 0; render(); }
         });
         g.appendChild(hit);
-        cx += tw + gap;
       });
       var rule = document.createElementNS(SVG_NS, "line");
       rule.setAttribute("x1", X); rule.setAttribute("y1", y + 28); rule.setAttribute("x2", X + W); rule.setAttribute("y2", y + 28);
@@ -2202,12 +2233,12 @@
       scale = scale || function (n) { return n; };
       var half = 46, w = half * 2, h = 20, top = y - 14;
       var g = document.createElementNS(SVG_NS, "g");
-      g.appendChild(rect(x, top, w, h, 10, "#ffffff", "#ddd"));
+      g.appendChild(rect(x, top, w, h, 10, "#ffffff", "#bbb"));
       if (node._my === "up") g.appendChild(rect(x, top, half, h, 10, "#ececec"));
       else if (node._my === "down") g.appendChild(rect(x + half, top, half, h, 10, "#ececec"));
       var ln = document.createElementNS(SVG_NS, "line");
       ln.setAttribute("x1", x + half); ln.setAttribute("y1", top + 3); ln.setAttribute("x2", x + half); ln.setAttribute("y2", top + h - 3);
-      ln.setAttribute("stroke", "#e2e2e2"); g.appendChild(ln);
+      ln.setAttribute("stroke", "#ccc"); g.appendChild(ln);
       var upCol = node._my === "up" ? "#222" : "#666", dnCol = node._my === "down" ? "#222" : "#999";
       var ut = txt(x + half / 2, y, "✓ " + fmtN(scale(node.up)), 12.5, upCol); ut.setAttribute("text-anchor", "middle"); if (node._my === "up") ut.setAttribute("font-weight", "bold"); g.appendChild(ut);
       var dt = txt(x + half + half / 2, y, "✗ " + fmtN(scale(node.down)), 12.5, dnCol); dt.setAttribute("text-anchor", "middle"); if (node._my === "down") dt.setAttribute("font-weight", "bold"); g.appendChild(dt);
@@ -2261,7 +2292,7 @@
       nodes.forEach(function (node) {
         var indent = (depth - 1) * 20, x = X0 + indent, w = W0 - indent;
         // avatar + bold name → the author's Profile (one clickable group; handle dropped for space —
-        // a tier pill + relative timestamp take its place on the right). Production routes by author id.
+        // "Name · 3d ago" reads inline, with the tier pill right-justified). Production routes by author id.
         var ag = document.createElementNS(SVG_NS, "g"); ag.style.cursor = "pointer";
         var av = document.createElementNS(SVG_NS, "circle");
         av.setAttribute("cx", x + 11); av.setAttribute("cy", y + 9); av.setAttribute("r", 11);
@@ -2271,10 +2302,10 @@
         var nm = txt(x + 28, y + 6, node.author, 12.5, "#333"); nm.setAttribute("font-weight", "bold"); ag.appendChild(nm);
         var nameW = Math.round(textW(node.author, 12.5));
         clickRect(ag, x, y - 6, 28 + nameW + 4, 24, go("profile")); parent.appendChild(ag);
-        // verification pill inline after the name (omitted for tier 0)
-        if (node.tier > 0) parent.appendChild(tierPill(x + 28 + nameW + 8 + tierPillWidth(node.tier), y - 5, node.tier));
-        // relative timestamp, right-aligned where the handle used to sit
-        if (node.ts) { var ct = txt(x + w, y + 6, relTime(node.ts), 10.5, "#aaa"); ct.setAttribute("text-anchor", "end"); parent.appendChild(ct); }
+        // "Name · 3d ago" — relative timestamp inline after the name
+        if (node.ts) parent.appendChild(txt(x + 28 + nameW + 6, y + 6, "• " + relTime(node.ts), 11, "#999"));
+        // verification pill right-justified (matches feed cards + post author row; omitted for tier 0)
+        if (node.tier > 0) parent.appendChild(tierPill(x + w, y - 5, node.tier));
         var yy = y + 24;
         node.body.forEach(function (line) { parent.appendChild(txt(x + 28, yy, line, 12, "#555")); yy += 16; });
         reactPill(parent, node, x + 28, yy + 8);
@@ -2412,10 +2443,11 @@
       if (state.filterOpen) buildFilter();
       show($("filterDropdown"), state.filterOpen);
 
-      // logged-out auth flow: chooser → register form → verify (OTP + passkey) · or → login
+      // logged-out auth flow: chooser → register form → verify (OTP + passkey) · recover (email → verify) · or → login
       var inAuth = !state.loggedIn;
       show($("authModal"),     inAuth && state.authView === "choose");
       show($("registerModal"), inAuth && state.authView === "register");
+      show($("recoverModal"),  inAuth && state.authView === "recover");
       show($("verifyModal"),   inAuth && state.authView === "verify");
       show($("loginModal"),    inAuth && state.authView === "login");
       if (inAuth && state.authView === "login") buildLoginInner();
@@ -2432,6 +2464,9 @@
       $("kycBadge").querySelector("rect").setAttribute("fill", state.kyc === 0 ? "#f2f2f2" : "#333");
       $("kycBadgeText").setAttribute("fill", state.kyc === 0 ? "#555" : "#fff");
       $("kycShield").setAttribute("stroke", state.kyc === 0 ? "#666" : "#fff");
+      // the user's own badge shows its type glyph: Unverified → shield, Identity → badge, Residency → pin
+      $("kycShield").setAttribute("href", tierIcon(state.kyc));
+      $("kycShield").setAttribute("xlink:href", tierIcon(state.kyc));
       $("deviceLabel").textContent = "Devices & passkeys (" + state.deviceCount + ")";
       var more = state.deviceCount - 2;
       var moreEl = $("deviceMore");
@@ -2534,12 +2569,17 @@
       if (!state.otpAllowed) { signIn(); }
       else { state.authView = "login"; state.loginVerified = false; render(); }
     });
-    $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "register"; render(); });
+    $("recoverBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "recover"; render(); });
 
     // register form → verify page
     $("registerBackdrop").addEventListener("click", closeOverlays);
     $("registerCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
     $("regSubmitBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "verify"; render(); });
+
+    // recover form (email only) → verify page → register new passkey → in
+    $("recoverBackdrop").addEventListener("click", closeOverlays);
+    $("recoverCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+    $("recoverSubmitBtn").addEventListener("click", function (e) { e.stopPropagation(); state.authView = "verify"; render(); });
 
     // verify page → register passkey → in
     $("verifyBackdrop").addEventListener("click", closeOverlays);
@@ -2584,6 +2624,31 @@
       render();
     });
 
+    // Save the wireframe exactly as currently rendered (whatever view/modal is open) to a PNG.
+    // SVG → serialized markup → <img> → off-screen <canvas> → downloaded blob. 2× for a crisp grab.
+    // All shapes/text are self-contained (no external fonts/images), so the inline serialization is faithful.
+    function exportPNG() {
+      var svg = document.querySelector("svg");
+      var vb = svg.viewBox.baseVal, W = vb.width || svg.clientWidth, H = vb.height || svg.clientHeight, scale = 2;
+      var xml = new XMLSerializer().serializeToString(svg);
+      var img = new Image();
+      img.onload = function () {
+        var c = document.createElement("canvas");
+        c.width = W * scale; c.height = H * scale;
+        var ctx = c.getContext("2d");
+        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, c.width, c.height); // opaque bg, not transparent
+        ctx.drawImage(img, 0, 0, c.width, c.height);
+        c.toBlob(function (b) {
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(b);
+          a.download = "oursay-wireframe-" + state.view + ".png";
+          a.click();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+        });
+      };
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(xml)));
+    }
+
     document.addEventListener("keydown", function (e) {
       switch (e.key) {
         case "l": case "L":
@@ -2602,6 +2667,7 @@
         case "g": case "G": // flip which jurisdiction the Jurisdiction view shows (no-op elsewhere)
           if (state.view === "jurisdiction") { state.jur = (state.jur === "Alberta") ? "Global" : "Alberta"; state.scroll = 0; render(); }
           break;
+        case "s": case "S": exportPNG(); break; // download current view as a PNG
         case "Escape": closeOverlays(); break;
       }
     });

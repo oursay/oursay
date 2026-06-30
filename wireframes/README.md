@@ -238,7 +238,14 @@ the read-model contract (record-type include → jurisdiction/scope → verifica
 | **O** | Toggle the account's OTP-login window. |
 | **G** | On the **Jurisdiction** view, flip Global ↔ Alberta (no-op elsewhere). |
 | **P** | **Cycle the five views** (Feed → Jurisdiction → District → Profile → Post → Feed). |
+| **S** | **Save the current view as a PNG** (downloads `oursay-wireframe-<view>.png`). |
 | **Esc** | Close any open dropdown / modal. |
+
+**Snapshot (S)** — `exportPNG()` serializes the live `<svg>`, paints it onto an off-screen `<canvas>`
+at 2× over a white background, and downloads it as `oursay-wireframe-<view>.png`. It captures
+**exactly what's on screen**, including any open modal, so it's the quickest way to grab a frame for a
+doc or review. Everything is self-contained (no external fonts/images), so the export works even from
+`file://`; if you ever embed an external image, serve over `http://` so the canvas isn't tainted.
 
 **Layout** — the phone is centred on a wider canvas; all explanatory **red callouts live in the
 margins** with leader arrows. The left-margin **Shortcut legend** is always visible (it does not
@@ -246,8 +253,14 @@ toggle with V). The per-view caption in the left margin updates as you switch vi
 
 **Conventions** — pure-wireframe grayscale (`#333` strokes, `#e8e8e8`/`#efefef` fills, `#999`/`#bbb`
 muted text); the FAB is filled dark as the primary action; the red `#c0392b` / `#e74c3c` is reserved
-for callouts and the map highlight. Icons are [Feather](https://feathericons.com) (MIT) glyphs,
+for callouts and the map highlight. Icons are mostly [Feather](https://feathericons.com) (MIT) glyphs,
 inlined once as `<symbol>`s and reused via `<use href="#ic-…">`.
+
+> **Icon preference: [Lucide](https://lucide.dev).** When an icon is missing from Feather (it's a small
+> ~290-glyph set), source it from **Lucide** rather than another library. Lucide is Feather's actively
+> maintained successor with the *same* 24×24 / 2px / round-cap design language, so its glyphs drop in
+> without looking foreign. It's also the candidate for a future full swap. The **`ic-gavel`** symbol
+> (Official tier) is already Lucide's `gavel` — Feather has no gavel.
 
 **Legacy** — [`mobile/legacy/`](mobile/legacy/) holds the original six forks
 (`app-frame`, `content-feed`, `content-jurisdiction`, `content-district`, `content-profile`,

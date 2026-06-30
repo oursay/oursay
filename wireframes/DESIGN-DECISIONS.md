@@ -46,14 +46,31 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 - **Trade-off / rejected:** we don't model per-record detail pages; genuinely unbuilt actions
   (submitting a reply, account-settings rows) stay honest no-op stubs marked `NOTE(nav)`.
 
+### 1.4 Icons: Feather, with Lucide preferred for anything missing
+- **Decision:** icons are inlined `<symbol>`s, mostly from [Feather](https://feathericons.com) (MIT).
+  When a glyph isn't in Feather, take it from [Lucide](https://lucide.dev) rather than another set —
+  e.g. `ic-gavel` (Official tier) is Lucide's `gavel`, since Feather has none.
+- **Why:** Lucide is Feather's actively-maintained successor and shares the exact design language
+  (24×24 grid, 2px round-cap strokes), so a borrowed glyph sits beside the Feather ones without looking
+  foreign. Other libraries (Tabler, Phosphor, Material) carry a gavel too but with different stroke
+  weights/proportions that would read as inconsistent at pill size.
+- **Trade-off / rejected:** Lucide is the candidate for an eventual **full swap** (it's a near-superset
+  of Feather); for now we mix the two and keep Lucide as the default source for new icons.
+
 ---
 
 ## 2. Identity & trust signals
 
 ### 2.1 Verification pills shown everywhere an author appears
-- **Decision:** the author's verification tier renders as a small shield pill — **Identity /
-  Residency / Official** — on feed cards, on the Post, and now next to **every comment author**. Tier
-  0 (public) shows no pill. The pill darkens as the tier climbs (`tierShade`).
+- **Decision:** the author's verification tier renders as a small pill — **Identity / Residency /
+  Official** — on feed cards, on the Post, and on **every comment**, always **right-justified to the
+  row edge** (see §2.4). Each type has its **own glyph** (`tierIcon`): Identity = **ID badge**,
+  Residency = **map pin**, Official = **gavel**. Tier 0 (public) shows no pill. The pill also darkens
+  as the tier climbs (`tierShade`).
+- **Why glyphs, not one shield:** a distinct icon per type is recognisable at a glance before the label
+  is read, and the metaphors map to the thing verified — a badge for *who you are*, a pin for *where
+  you live*, a gavel for *holding office*. The generic **shield** is kept only where verification is
+  referenced as a *category* rather than a specific type — the "Verified" filter row.
 - **Why:** in a civic space, *who is speaking* and *how strongly they're verified* is first-class
   information; it should be visible at the point of reading, not buried in a profile. Darker = more
   verified gives an at-a-glance signal without reading the label.
@@ -73,6 +90,24 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   natural path to "who is this and what else have they posted".
 - **Trade-off / rejected:** see §5.1 — to make room for the pill and timestamp we dropped the
   `@handle` from these rows.
+
+### 2.4 Comment row anatomy: `Name • time` left, verification pill right
+- **Decision:** a comment header reads **avatar → bold Name → `•` → relative time** on the left (the
+  avatar+name are one tap target to the author's Profile; the time follows the name after a single-space
+  `•` bullet separator), and the **verification pill is right-justified** to the row's right edge.
+  Replies nest visually up to **`COMMENT_MAX_DEPTH` = 3**; a reply *beyond* that depth flattens to a
+  **sibling** at the deepest level and is seeded with the replyee's **`@handle`** as its first token.
+- **Why:** the **right-justified pill** matches the feed cards and the Post author row exactly, so the
+  eye finds "how verified is this person" in the *same* spot whether scanning a list or reading a
+  thread — consistency beats packing the pill inline next to the name. `Name • time` is the familiar
+  social-thread convention and reads as one glance. Capping nesting at 3 keeps deep threads legible on
+  a phone (runaway indentation eats the already-narrow column); once indentation can no longer show
+  "who replied to whom," the seeded **`@handle`** carries that relationship instead.
+- **Trade-off / rejected:** earlier the pill sat **inline after the name** with the timestamp pushed
+  to the far right — rejected because the pill's position then drifted with name length and didn't line
+  up with the rest of the app. The `@handle` reappears **only** in these flattened max-depth replies —
+  the single place §5.1's handle-drop is intentionally reversed, because at that point identity-by-handle
+  is exactly what disambiguates a reply that has lost its indentation.
 
 ---
 
@@ -176,11 +211,12 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 ## 5. Space-saving choices
 
 ### 5.1 Drop the `@handle` on the Post and in comments
-- **Decision:** the Post author row and comment rows no longer show `@handle`; a verification pill and
-  a relative timestamp take that space instead.
+- **Decision:** the Post author row and comment rows no longer show `@handle`; the relative timestamp
+  takes its inline spot next to the name and the verification pill sits right-justified (§2.4).
 - **Why:** on a phone, horizontal room is scarce. The linked **name + pill** already identify the
   author; the handle was the least information-dense thing on the line, and the timestamp/tier are
-  more useful there. (Handles still appear where identity-by-handle matters, e.g. mentions.)
+  more useful there. (Handles still appear where identity-by-handle matters — e.g. mentions and the
+  flattened max-depth replies in §2.4.)
 - **Trade-off / rejected:** the data keeps `handle`; this is purely a display choice and can be undone
   per surface.
 
