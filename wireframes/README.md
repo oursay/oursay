@@ -1,240 +1,219 @@
 # OurSay Wireframes
 
-Low-fidelity, **functional** wireframes built as standalone SVG files. Each SVG embeds a small
-script, so you can open it directly in a browser and drive its states with the keyboard and mouse —
-it doubles as a clickable prototype and as a template other views are forked from.
+A **single, functional** mobile wireframe — [`mobile/oursay-mobile.svg`](mobile/oursay-mobile.svg).
+It is one standalone SVG with an embedded script: open it in a browser and drive every screen with
+the keyboard and mouse. It doubles as a clickable prototype and as the **build spec** for the real
+app — a coder can implement OurSay mobile by tracing the well-commented logic inside it alongside
+this guide.
 
-> Context: OurSay has no product UI yet (Phase D). These wireframes explore the mobile shell on top
-> of the journeys mapped in [`../docs/11-USER-FLOWS.md`](../docs/11-USER-FLOWS.md).
+> Context: OurSay has no product UI yet (Phase D). This wireframe explores the mobile shell on top of
+> the journeys in [`../docs/11-USER-FLOWS.md`](../docs/11-USER-FLOWS.md).
+
+> **Why one file?** The mobile wireframe was previously six separate SVGs (an `app-frame` shell plus
+> five `content-*` forks). Each fork copied the entire ~1300-line chrome and swapped only its body,
+> and editing six copies of one chrome caused **drift** (the verification ladder reached "Official"
+> in one file but not the others; FAB-clearance padding went missing in two; a demo key behaved
+> differently per file). This monolith keeps the shell, the data, the card, the filter, and the
+> scaling logic **once**, and switches the five views with an in-file router — one source of truth,
+> no drift. The original six files are kept **unmodified** in [`mobile/legacy/`](mobile/legacy/) for
+> reference only; do not build from them.
 
 ## How to open
 
-Double-click the `.svg` file, or drag it into Chrome / Edge / Firefox. No build step, no
-dependencies. (Note: the GitHub/IDE inline SVG preview renders the picture but **does not run the
-script** — open it in a real browser to use the interactions.)
+Double-click `mobile/oursay-mobile.svg`, or drag it into Chrome / Edge / Firefox. No build step, no
+dependencies. (The GitHub/IDE inline SVG preview renders the picture but **does not run the script** —
+open it in a real browser to use the interactions.)
 
-## Files
+---
 
-| File | What it is |
-|------|------------|
-| [`mobile/app-frame.svg`](mobile/app-frame.svg) | The reusable mobile app-frame template: top bar (jurisdiction selector + login/profile), placeholder Feed, and the bottom-right new-post FAB. |
-| [`mobile/content-feed.svg`](mobile/content-feed.svg) | **Feed** — a filter-driven list of post-type cards (faked data). The filter matrix (record types × subscribed jurisdictions × Refine) decides which cards show; author tiers run **None → ID → Residency → Official** (MLA/government), and shown counts scale down as you filter to higher tiers. |
-| [`mobile/content-jurisdiction.svg`](mobile/content-jurisdiction.svg) | **Jurisdiction page** — title bar (name + leader link), collapsible **Map** (red-highlighted region, hidden for Global), collapsible **Rules**, collapsible **Districts** (hidden for Global, "Ridings" for Alberta), and an inline collapsible **Jurisdiction Feed** pre-filtered to the jurisdiction. The selector always names this page's jurisdiction. |
-| [`mobile/content-district.svg`](mobile/content-district.svg) | **District / riding page** — title bar (name + leader-initials link), collapsible red-vector **Map**, collapsible **About this riding**, and an inline collapsible **District Feed** pre-filtered to this riding (including multi-district posts). The selector names the parent jurisdiction. |
-| [`mobile/content-profile.svg`](mobile/content-profile.svg) | **Public profile** — a leader/member persona (identity header, activity stats, Posts link-out). Distinct from the account profile *modal* (settings) in the chrome. |
-| [`mobile/content-post.svg`](mobile/content-post.svg) | **Post detail** — the full post + a comment thread nested to depth 3, with tap-to-toggle agree/disagree on the post and every comment. |
+## 1. The view router & page-flip map
 
-### Content views (forks of `app-frame.svg`)
+The whole app is **one shell + five views**, switched by a router. The router is a registry plus a
+`nav()` function — read these two first:
 
-The five `content-*.svg` files are the first **forks** of the template (see the Fork contract
-below): each keeps the chrome + `<script>` and swaps the `#content` group, adding a little
-page-specific state and a builder hooked into `render()`. They inherit every chrome interaction
-(F / J / A / L / O / P / V / Esc, the filter + selector dropdowns, auth/compose modals, the FAB).
+```js
+var VIEWS = {
+  feed:         { el:"vFeed", body:"vFeedBody", title:"Feed",         build:buildFeed,         max:0 },
+  jurisdiction: { el:"vJur",  body:"vJurBody",  title:"Jurisdiction", build:buildJurisdiction, max:0 },
+  district:     { el:"vDist", body:"vDistBody", title:"District",     build:buildDistrict,     max:0 },
+  profile:      { el:"vProf", body:"vProfBody", title:"Profile",      build:buildProfile,      max:0 },
+  post:         { el:"vPost", body:"vPostBody", title:"Post",         build:buildPost,         max:0 }
+};
+function nav(view) { state.view = view; state.scroll = 0; render(); }
+```
 
-Page-specific keys / clicks:
+`state.view` is the current screen. `render()` builds `VIEWS[state.view]`, shows only that view's
+group (the rest are `display:none`), updates the header title and the left-margin caption, then runs
+the shared chrome. There is exactly **one** of everything (one wheel-scroll, one filter, one FAB).
 
-- **content-feed** — **F** (or the filter circle) opens the filter; toggling record types, cycling
-  **Verified**, toggling **My Districts**, or changing the jurisdiction selection re-filters the
-  cards live. The author tier shows as a tag (**Identity / Residency / Official**); cycling Verified
-  raises the **minimum** tier and **shrinks the shown reaction/comment counts** (petition signatures
-  and poll votes only shrink at **Official**, since Alberta participation already requires residency).
-  When a **single jurisdiction** is selected the card's jurisdiction tag is dropped (the selector
-  already names it). **Wheel** scrolls the list. On a card, the **title** and **"…more"** both open
-  the post (same target); the **author name** opens that profile.
-- **content-jurisdiction** — **G** flips the page between **Global** and **Alberta** (to show the
-  Map/Ridings-hidden-for-Global behaviour and the differing Rules). Every section is collapsible
-  with a leading icon and a chevron on the **right**: **Map** (a pretend map vector with a
-  red/translucent highlight), **Rules**, **Ridings**, and a collapsed-by-default **Jurisdiction
-  Feed** — an inline post list pre-filtered to this jurisdiction (record type & Refine still apply;
-  cards drop the redundant jurisdiction tag). Leader links are right-aligned **initials avatars**
-  (no arrow). The selector pill **always shows this page's jurisdiction**, whether or not you
-  subscribe to it. **Wheel** scrolls, and a footer whitespace pad keeps the FAB from ever covering a
-  heading at full scroll.
-- **content-district** — collapsible **Map** / **About this riding** / **District Feed** (icon +
-  right chevron), the last pre-filtered to this riding — including **multi-district** posts that list
-  it among several ridings — with both jurisdiction and district tags dropped (both are implied).
-  The selector shows the **parent jurisdiction** (Alberta). **Wheel** scrolls.
-- **content-post** — tap **✓ / ✗** on the post or any comment to toggle your agree/disagree
-  (mutually exclusive, like a `reaction`); the thread stops nesting at **depth 3**
-  (`COMMENT_MAX_DEPTH`); **wheel** scrolls.
+**Page-flip link map** — every clickable element and where it routes. `go("...")` is the click-handler
+factory the builders use:
 
-**Navigation is deferred in-file stubs.** Cross-page links (card title/"…more" → post, external
-glyph → jurisdiction, leader link → profile, riding name → district) are **no-op handlers**
-carrying a `NOTE(nav)` that names the target file — mirroring the app-frame external glyph. There
-are no real cross-file `<a href>` links; open each file directly to explore it. On a content page
-the **FAB is locked to the newspaper "go to Feed" (home) icon** — the feed/compose toggle (P) is
-disabled there, since the page is static. The **Jurisdiction** and **District** pages both embed an
-inline pre-filtered feed (still in-file); only the **profile** page keeps a lighter **link-out
-placeholder** (`→ View posts in Feed`). Where a page makes a product assumption (card metric
-sourcing; the leader/seated-official → public-profile link, which has no first-class entity today)
-there is an inline `NOTE(tech)` for the doc/API teams.
+| You click… | …it flips to | Handler |
+|---|---|---|
+| a feed/inline card's **title** or **"…more"** | **Post** | `go("post")` |
+| a card **author**, or a **leader / riding-leader** link | **Profile** | `go("profile")` |
+| a **riding row** on the Jurisdiction view | **District** | `go("district")` |
+| the jurisdiction selector's **↗ external glyph** | **Jurisdiction** (sets `state.jur`) | in `buildDropdown` |
+| the **FAB** when not on the Feed, or Profile's **"View posts in Feed"** | **Feed** | `nav("feed")` |
+| the **P** key | next view in `VIEW_ORDER` (cycles all five) | keydown |
 
-## Layout
+These are **representative-target** flips: the wireframe always jumps to the one sample Post / Profile
+/ District it ships, regardless of which card you tapped. **In production, route by the tapped
+record's id** — every `go(...)` / `nav(...)` is the place to call `route(entityId)`. Genuinely
+deferred actions (composing a reply, the account-settings rows) stay no-op stubs with a `NOTE(nav)`.
 
-The phone display is centred on a wider canvas. The screen itself stays a clean, pure-wireframe
-mock; all the explanatory **red callouts live in the margins** around the phone with leader arrows
-pointing back to each element. A grayscale **Shortcut legend** sits in the left margin and is
-**always visible** (it does not toggle with V). Icons are real [Feather](https://feathericons.com)
-(MIT) glyphs, inlined as `<symbol>`s and drawn with `<use>`.
+---
 
-## Keymap (legend is always shown in the margin)
+## 2. Filter & verification model
+
+One function decides what a list view shows — `matches(p, scope)` — replacing the three separate
+matchers the forks had drifted apart. It encodes the filter matrix once:
+
+```
+matches(p, scope):
+  record-type include  (all scopes)   → p.type's checkbox must be on
+  Verified ladder      (all scopes)   → p.tier >= state.verified
+  scope === "feed"         → p.jur is a subscribed+included jurisdiction
+                             + My Districts: keep all Global, else only your ridings
+  scope === "jurisdiction" → p.jur === state.jur (+ My Districts → your ridings)
+  scope === "district"     → p applies to DISTRICT.slug (incl. multi-district posts)
+```
+
+**Record types** — Statements / Petitions / Polls / Results. Tap a checkbox to include/exclude (at
+least one always stays on — never None); tap a name to switch to **only** that type.
+
+**Verified ladder** — `VERIFIED_LEVELS = ["None","ID","Residency","Official"]`, one shared array.
+The toggle cycles it; the filter is **inclusive upward** (`p.tier >= state.verified`): an **ID**
+filter still shows Residency and Official authors; an **Official** filter shows only officials — a
+resident does **not** appear. Author tiers: `0` public · `1` Identity · `2` Residency · `3` Official
+(MLA / government).
+
+**The count-scaling rule** (plain words): raising the Verified filter doesn't only drop cards — it
+also **thins the counts** on the cards that remain, because fewer qualifying voices are shown.
+- **Social counts** (comments + agree/disagree reactions) thin at **every** level — `SOCIAL_SCALE`.
+- **Civic counts** (petition signatures + poll votes) hold steady through ID and Residency and drop
+  **only at Official** — `CIVIC_SCALE` — because Alberta participation already requires residency, so
+  the lower filters don't thin them. *(Verified examples: a 204-agree post reads 204 → 126 → 69 → 16;
+  a 1,240-signature petition reads 1,240 → 1,240 → 1,240 → 149.)*
+
+**My Districts** — a geography filter, **independent** of Verified. Only available to
+residency-verified accounts (`state.kyc === 2`; otherwise greyed "Residency only"). It keeps **all
+Global** posts and limits jurisdiction content to **your own ridings** (the sample resident's riding
+is Edmonton-Strathcona). Toggle the account KYC tier from the profile modal's **Validate ID** button.
+
+The **jurisdiction selector** scopes the unified Feed: tap a name → only that jurisdiction (→ Feed);
+tap a checkbox (shown only with >1 jurisdiction) → include/exclude in the feed; tap ↗ → its
+Jurisdiction view. The subscribed list is **saved to a cookie** and works logged-out (Global is the
+default). On the Jurisdiction and District views the pill instead **names the view's jurisdiction**
+(it tracks the page, not the filter).
+
+---
+
+## 3. Data model
+
+All sample data lives in one block near the top of the script and maps to real OurSay entities (see
+[`../docs/entities/`](../docs/entities/)):
+
+| In the wireframe | Shape | Real entity |
+|---|---|---|
+| `POSTS[]` | `{ type, jur, tier, districts[], author, handle, title, body[], … metrics }` | a root content record — statement / petition / poll / result |
+| `agree` / `disagree` | counts; `_my` on the Post view | `reaction` (✓/✗, mutually exclusive per author per target) |
+| `sig` / `goal` | petition counts | `petition_signature` aggregate |
+| `options[].v` | per-option counts | poll `vote` aggregate |
+| `comments`, and `COMMENTS[]` tree | count + nested replies (depth ≤ `COMMENT_MAX_DEPTH = 3`) | `comment` |
+| `tier` (0–3) | author verification | KYC tier / Official role |
+| `districts[]` | `[]` = jurisdiction-wide · `[slug]` = one riding · `[slug,slug]` = several | `appliesToRegion` (district refs) |
+| `JUR_DATA` | per-jurisdiction leader + rules + ridings (Global has neither map nor ridings) | JurisdictionConfig |
+| `DISTRICT`, `PROFILE`, `POST` | the single representative riding / public profile / post detail | District / public profile / content record |
+
+Tiers and district lists are what the filter reads; the metrics are what the scaling thins.
+`NOTE(tech)` comments flag the product assumptions (per-jurisdiction `contentLimits` for the compose
+caps; the leader → public-profile link, which has no first-class entity yet).
+
+---
+
+## 4. Chrome flows (shared by every view)
+
+The top bar, FAB, and all modals come from the shell and behave the same on every view.
+
+- **Auth** — logged-out tap → register/login chooser. **Register** → a near-full-screen form
+  (public profile + private KYC details + Canadian address used only to derive districts; the age
+  gate is an **"I am 18 or older"** flag, no date of birth) → **verify** page (OTP boxes →
+  **Register Passkey** enrols this device's passkey and signs you in). The chooser's **Log In**
+  depends on the **OTP-login window** (toggle **O**): off → immediate passkey login; on → a modal
+  offering email-OTP **or** passkey. All logins are passkey.
+- **Profile modal** (logged-in, tap the avatar — distinct from the **Profile view**): KYC badge +
+  **Validate ID** (cycles the tier), **Devices & passkeys** (Add Device / Add by Email), account
+  settings rows (deferred no-ops except the live **Theme** toggle), Log out, legal links.
+- **Compose** (the FAB on the Feed) — **where** (pick a jurisdiction; skipped with one selected) →
+  **type** (the jurisdiction's allowed roots — Global: all; Alberta: Statement + Petition; skipped if
+  only one) → **compose** editor (type-specific: Statement = title+body; Petition adds a 60-char
+  support-statement CTA; Poll = question + 2–10 options that scroll past five). Off the Feed the FAB
+  is the **newspaper "go home"** icon → `nav("feed")`.
+
+Every modal has a circular **✕** plus Esc / tap-outside; "Alt:" hint lines mark the alternative
+dismissal.
+
+---
+
+## 5. Implementer's code-tracing guide
+
+Read the script top-to-bottom in this order — it is organised to be traced:
+
+1. **`state`** — the whole app's memory. Note `view` (router) and `scroll` (one unified offset);
+   the collapsible-section flags are namespaced per view (`jur*` / `dist*`) so the two pages can't
+   collide.
+2. **constants & helpers** — `VERIFIED_LEVELS`, `KYC_TIERS`, `ROOT_TYPES`/`JUR_ROOTS`, then the tiny
+   DOM helpers `$ / show / icon / txt / rect / clamp`.
+3. **chrome builders** — `buildDropdown`, `buildFilter` (record types + the Verified/My-Districts
+   refine), and the compose flow (`startCompose → enterType → enterCompose`, `buildWhere/buildType/
+   buildComposeEditor`), then the auth `buildLoginInner`.
+4. **the router** — `nav()` and `go()`, plus `onFabClick` / `onAuthClick`.
+5. **data** — `JUR_DATA`, `POSTS`, `DISTRICT`, `PROFILE`, `POST`, `COMMENTS`.
+6. **content helpers** — `tierLabel`, geography (`postDistricts/inMyDistricts/districtTag`), scaling
+   (`scaleSocial/scaleCivic`), and the shared bits (`initials/leaderLink/collHeader/drawMapVector/
+   drawDistrictMap`).
+7. **`matches(p, scope)`** and **`buildCard(p, opts)`** — the one matcher and the one card renderer
+   every list view calls.
+8. **the five `build*` view functions**, then **`VIEWS` / `setViewScroll` / `render()`**, then the
+   wiring and keydown.
+
+**Scrolling** is uniform: every builder lays out content top-down and ends with `setViewScroll(key,
+y)`, which sets `VIEWS[key].max = y + FOOTER_PAD - …` (so the FAB never covers the last line — `FOOTER_PAD
+= 80`, applied in one place) and translates the body. The single wheel listener on `#content` clamps
+`state.scroll` to the active view's `max`.
+
+To wire the real build: replace the sample `POSTS`/`DISTRICT`/`PROFILE`/`POST` with API data, swap
+each `go(view)` / `nav(view)` for `route(entityId)`, and keep `matches` + the scaling functions as
+the read-model contract (record-type include → jurisdiction/scope → verification ladder → geography).
+
+---
+
+## 6. Keymap, conventions, legacy
 
 | Key | Action |
 |-----|--------|
-| **L** | Toggle logged-in / logged-out (right button switches login ↔ profile; subscribed list reflects it). |
-| **V** | Toggle annotation labels + arrows + keymap legend. |
-| **F** | Toggle the feed filter dropdown (also: click the filter circle, top-left). |
-| **J** | Toggle the jurisdiction dropdown (also: click the centre selector pill). |
-| **A** | Open the Add-Jurisdiction spotlight modal (also: the "+ Add Jurisdiction" button). |
-| **O** | Toggle the account's **OTP-login-allow window** (changes what the Log In modal offers). |
-| **P** | Toggle current page (Feed ↔ other) to demonstrate the FAB icon swap. |
+| **L** | Toggle logged-in / logged-out. |
+| **V** | Toggle annotation labels + arrows (the legend stays). |
+| **F** | Toggle the feed filter dropdown (also: the filter circle). |
+| **J** | Toggle the jurisdiction dropdown (also: the centre pill). |
+| **A** | Open the Add-Jurisdiction spotlight modal. |
+| **O** | Toggle the account's OTP-login window. |
+| **G** | On the **Jurisdiction** view, flip Global ↔ Alberta (no-op elsewhere). |
+| **P** | **Cycle the five views** (Feed → Jurisdiction → District → Profile → Post → Feed). |
 | **Esc** | Close any open dropdown / modal. |
 
-Clicks mirror the keys: filter circle → filter dropdown, selector → jurisdiction dropdown,
-"+ Add Jurisdiction" → modal, backdrop → close, **Alberta** → add/remove, login button → auth modal.
+**Layout** — the phone is centred on a wider canvas; all explanatory **red callouts live in the
+margins** with leader arrows. The left-margin **Shortcut legend** is always visible (it does not
+toggle with V). The per-view caption in the left margin updates as you switch views.
 
-### What the states show
+**Conventions** — pure-wireframe grayscale (`#333` strokes, `#e8e8e8`/`#efefef` fills, `#999`/`#bbb`
+muted text); the FAB is filled dark as the primary action; the red `#c0392b` / `#e74c3c` is reserved
+for callouts and the map highlight. Icons are [Feather](https://feathericons.com) (MIT) glyphs,
+inlined once as `<symbol>`s and reused via `<use href="#ic-…">`.
 
-- **Top bar layout**: a **filter circle** (left), the **jurisdiction selector** pill (centre), and
-  the **login / profile** circle (right). The filter and jurisdiction dropdowns are mutually
-  exclusive — opening one closes the other.
-- **Feed filter** (left circle): a dropdown with two independent sections.
-  - **Record types** — **Statements, Petitions, Polls, Results**, using the same interlock as the
-    jurisdiction list: tap a **checkbox** to include/exclude a type in the feed (at least one always
-    stays selected — never None), or tap a **name** to switch to **only** that type. No external
-    links, no "add" button.
-  - **Refine** — a **Verified** value toggle cycling **None → ID → Residency → Official** (minimum
-    author tier; the row is **dimmed at None**). Raising it filters out lower-tier authors **and
-    shrinks the counts** shown on the remaining cards (fewer qualifying voices): reactions and
-    comments thin at every level, while petition signatures and poll votes hold steady until
-    **Official** (Alberta participation already requires residency, so ID/Residency don't thin them).
-    The ladder is inclusive upward — an **ID** filter still shows Residency and Official authors; an
-    **Official** filter shows only officials (a resident does **not** appear). Alongside it, a **My
-    Districts** visibility toggle shown as an **eye / closed-eye** (open eye = shown, struck-through =
-    hidden; defaults to **off**). **My Districts is only available to residency-verified accounts**
-    (otherwise the row is greyed with a "Residency only" note). It is a **geography filter only**,
-    independent of Verified: it **keeps all Global posts** and limits jurisdiction content to your own
-    ridings (the example resident's riding is Edmonton-Strathcona). (The account KYC tier is cycled
-    from the profile's **Validate ID** button.)
-- **Jurisdiction selector** (centre): opens the subscribed-jurisdiction list. Each row has two
-  distinct actions:
-  - **Tap the name** → switch to **only** that jurisdiction (deselects all others), open its
-    **Feed** (FAB becomes the compose/quill post button), and close the dropdown.
-  - **Tap the checkbox** (✓, shown only when the list has **more than one** jurisdiction) → toggle
-    whether that jurisdiction is **included in the unified feed** (multi-select filter). At least one
-    jurisdiction is always selected — you can't uncheck the last one, so the feed is never empty.
-
-  With a single jurisdiction the checkboxes are hidden entirely. The pill label reflects the filter
-  (a single name, or "N selected"). Each row also has an external-open glyph that **opens that
-  jurisdiction's page**: it selects **only** that jurisdiction and leaves the Feed (so the FAB swaps
-  to its "go to Feed" icon). Below the list: a full-width
-  **+ Add Jurisdiction** button. The subscribed list is **saved to a cookie for cross-session
-  memory** — it works for a logged-out public user, no account required (**Global** is the default
-  entry).
-- **Add Jurisdiction** (Spotlight modal): a search field plus a single fixed result, **Alberta**,
-  marked with a government-building icon (the only jurisdiction reachable at launch). Selecting it
-  appends Alberta to the subscribed list.
-- **Login / profile** (top-right): a **person** icon when logged out; when logged in it becomes the
-  **"AM" initials avatar** (matching the profile-modal header).
-  Flow: tap while logged out to open the **register / login chooser** (a centered card — not a
-  full-screen sheet — with **Register** and **Log in** buttons that span the card, plus a
-  **Recover account** link). The two buttons branch into the real auth flow:
-  - **Register** → a near-full-screen **registration form** mirroring what the API actually
-    collects: public profile (**display name**, **handle**), private KYC details (**first / last
-    name**, **email**), and a Canadian **address** (street, unit, city, province, postal code,
-    country — used only to derive your districts, never shown publicly). The age gate is an
-    **"I am 18 or older"** yes/no flag — there is **no date-of-birth field** (the stored DOB is
-    being deprecated in favour of an `over_18` boolean). The form ends with a note that a 6-digit
-    code will be emailed. Inputs are mock placeholders; **Send Verification Code** assumes valid
-    values and (mock-)emails the code.
-  - That opens the **verify page** (registration step 2, shown after the email arrives): six **OTP
-    code boxes** and a single **Register Passkey** button — tapping it enrolls this device's
-    account-login passkey and signs you in (all logins are passkey, so there is no separate
-    "log in with passkey" step here). A **Resend** link covers a lost code.
-  - The chooser's **Log In** path (returning user) depends on the **OTP-login-allow window** (toggle
-    with **O**). Since **all logins are passkey**:
-    - **O off** → **Log In logs you in immediately** (assumes a valid passkey on this device) — no
-      intermediate modal.
-    - **O on** → opens the **login modal** with **OTP code boxes**, a **Verify Email** button, an
-      **— or —** divider, and a **Log In With Passkey** button. **Log In With Passkey** signs you in
-      directly (skips OTP). **Verify Email** (assumed correct) turns the passkey button into **Register
-      Passkey**; tapping that enrols a passkey on this new device, after which the **Log In With
-      Passkey** button reappears and the **OTP window closes (O turns off)** — so you finish by logging
-      in with the freshly-registered passkey.
-    The **Recover account** link (here and on the chooser) routes into the **register/reset flow**
-    (reset reuses the register form).
-
-  In the demo, the passkey login resolves to a signed-in session. While logged in, tap the avatar to
-  open the **profile modal**, which holds:
-  - **Identity verification** widget — current KYC tier badge + a **Validate ID** button (tap to
-    cycle Unverified → Identity Verified → Residency Verified for the demo).
-  - **Devices & passkeys** widget — a truncated device list with the full count, plus **Add Device**
-    (a local passkey) and **Add by Email** (the cross-device OTP flow). Both bump the count here.
-  - **Account settings** — a full-width, listed set of items (no separate settings screen):
-    **Edit Profile**, **Change Address**, **Privacy Settings** (control which persona/details are
-    revealed per jurisdiction or app), **Jurisdictions** (manage the subscribed list), and a
-    **Theme** toggle (flips Light ↔ Dark in place — button state only, no page flip). The nav items
-    are deferred no-ops; only the Theme toggle is live.
-  - A full-width **Log out** button, then the **Terms of Service · Privacy Policy** hyperlinks, and a
-    **© copyright** line at the very bottom.
-
-  Every modal (spotlight, chooser, register, login, profile, and the compose-flow modals) has a small
-  circular **black ✕ close button** hanging off the card's top-right corner, in addition to Esc /
-  tap-outside; their secondary hint lines are prefixed **"Alt:"** to mark them as the alternative
-  dismissal.
-- **New-post FAB** (bottom-right): quill-on-paper compose icon on the Feed; swaps to a **newspaper**
-  ("go to Feed") icon on any other page — including a jurisdiction page opened from the selector's
-  external-open glyph — so it acts as "go home". On another page it just returns to the Feed; on the
-  Feed it starts a **compose flow** that mirrors the posting rules:
-  - **Logged out** → the register / login chooser (you must have an account to post).
-  - **Logged in, >1 jurisdiction selected** → a **"Where Do You Want to Post?"** modal to pick which
-    of the selected jurisdictions to post in. With exactly **one** selected, that step is skipped and
-    the jurisdiction is assumed.
-  - Then a **post-type** step listing the **allowed root types for that jurisdiction** (Global allows
-    all — Statement / Petition / Poll; Alberta allows Statement + Petition only). If a jurisdiction
-    allows just **one** root, this step is skipped too.
-  - Finally the **compose modal** (mock editor). At the top, a **Type** label + **Change** button
-    (back to the type step; hidden when the jurisdiction allows only one root), then **Posting in**
-    with a **jurisdiction dropdown** to change where it posts — but only to jurisdictions that
-    **support the current root type** (unsupported ones are **greyed out** with a "type N/A" note).
-    The editor body is **type-specific**:
-    - **Statement** — Title + Body.
-    - **Petition** — Title + Body + a **Support statement** field: the customizable signature-button
-      label, defaulting to **"Sign the Petition"**, **60-char** limit (with a live counter). This is a
-      *proposed new petition field* — flagged for the doc/API teams in
-      [`petition.md`](../docs/entities/civic-content/petition.md) (`[proposed-petition-support-label]`).
-    - **Poll** — Question + an **Options** list starting at **2** (Yes/No baseline) with an **Add
-      option** control up to the jurisdiction's max (default 10; options past the first two get a
-      remove ✕). The list **grows the card up to 5 options, then the 6th+ scroll** inside a fixed
-      5-row viewport (mouse wheel; a thumb shows position) — the modal never grows past five. The cap
-      is meant to come from per-jurisdiction `contentLimits`, not a hardcoded 10.
-
-    Same Esc / tap-outside / ✕ dismissal as every other modal; the card grows to fit the editor.
-
-### Callout behaviour
-
-Red margin callouts describe the **live state** — the login and FAB labels change wording as you
-press **L** / **P**. Callouts for an overlay (the dropdown's checkbox/cookie/external/add notes, the
-spotlight modal's notes, and the profile modal's widget notes) only appear **while that overlay is
-open**, so the margins stay quiet until the relevant component is visible. The chrome callouts hide
-while the full-screen profile sheet is up (it would cover the chrome they point at). **V** toggles
-all callouts; the grayscale Shortcut legend stays visible regardless.
-
-## Fork contract (using this as a template)
-
-`mobile/app-frame.svg` is the base every mobile view copies. To make a new view:
-
-1. Copy the file.
-2. Keep the `#chrome` group (top bar + FAB), the `#dropdown` / `#modal` groups, and the `<script>`.
-3. Replace the contents of the **`#content`** group with your screen's body. That group is the only
-   region a view is expected to change; the chrome and its interactions come along for free.
-
-## Conventions
-
-- **Pure wireframe**: grayscale only — `#333` strokes, `#e8e8e8`/`#efefef` placeholder fills,
-  `#999`/`#bbb` muted text, system sans font. The FAB is filled dark to read as the primary action.
-- **Icons**: Feather (MIT) line icons, inlined once as `<symbol>`s in `<defs>` and reused via
-  `<use href="#ic-…">`. JS-built rows (dropdown) reuse the same symbols.
-- **Annotations** are the one non-grayscale layer: red (`#c0392b`) callout text + leader arrows in
-  the canvas margins, grouped under `#annotations` and toggled by **V**. The shortcut legend is a
-  separate grayscale box that stays visible.
+**Legacy** — [`mobile/legacy/`](mobile/legacy/) holds the original six forks
+(`app-frame`, `content-feed`, `content-jurisdiction`, `content-district`, `content-profile`,
+`content-post`) **unchanged**, as a historical reference. They are superseded by
+`oursay-mobile.svg`; build from the monolith.
