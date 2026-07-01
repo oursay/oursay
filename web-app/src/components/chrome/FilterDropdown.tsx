@@ -1,0 +1,110 @@
+"use client";
+
+import { List, MapPin, Users, Shield } from "lucide-react";
+import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
+import { CheckboxRow } from "@/components/ui";
+import { VERIFIED_LEVELS } from "@/lib/types";
+import type { RecordKind, VerificationTier, ViewerContext } from "@/lib/types";
+
+const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
+
+interface FilterDropdownProps {
+  includedKinds: RecordKind[];
+  onToggleKind: (kind: RecordKind) => void;
+  onIsolateKind: (kind: RecordKind) => void;
+  onAllKinds: () => void;
+  /** Verified ladder index into VERIFIED_LEVELS (None -> ID -> Residency -> Official). */
+  verifiedLevel: VerificationTier;
+  onCycleVerified: () => void;
+  myDistricts: boolean;
+  onToggleMyDistricts: () => void;
+  /** Affected geography row only shows on a qualifying open post. */
+  showAffected?: boolean;
+  affected?: boolean;
+  onToggleAffected?: () => void;
+  viewer: ViewerContext;
+}
+
+/** Feed/list filter panel: record types + the Verified/geography refine section. */
+export function FilterDropdown({
+  includedKinds,
+  onToggleKind,
+  onIsolateKind,
+  onAllKinds,
+  verifiedLevel,
+  onCycleVerified,
+  myDistricts,
+  onToggleMyDistricts,
+  showAffected = false,
+  affected = false,
+  onToggleAffected,
+  viewer,
+}: FilterDropdownProps) {
+  // My Districts / Affected are only inferable for a residency-verified viewer
+  // once the Verified ladder is at Residency+ (§4.4).
+  const geographyDisabled = viewer.kycTier < 2 || verifiedLevel < 2;
+
+  return (
+    <div className="w-72 rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
+      <p className="px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
+        Record types
+      </p>
+      <CheckboxRow
+        label="All Records"
+        showCheckbox={false}
+        icon={<List size={16} aria-hidden />}
+        onSelect={onAllKinds}
+      />
+      {ALL_KINDS.map((kind) => {
+        const Icon = RECORD_TYPE_ICON[kind];
+        const included = includedKinds.includes(kind);
+        const isLast = includedKinds.length <= 1 && included;
+        return (
+          <CheckboxRow
+            key={kind}
+            label={RECORD_TYPE_LABEL[kind]}
+            checked={included}
+            icon={<Icon size={16} aria-hidden />}
+            onToggle={() => {
+              if (isLast) return; // keep >=1 selected (never None)
+              onToggleKind(kind);
+            }}
+            onSelect={() => onIsolateKind(kind)}
+          />
+        );
+      })}
+
+      <div className="my-2 border-t border-border" />
+      <p className="px-2 pb-1 text-xs font-bold uppercase tracking-wide text-muted">
+        Refine
+      </p>
+      <CheckboxRow
+        label="Verified"
+        showCheckbox={false}
+        icon={<Shield size={16} aria-hidden />}
+        onSelect={onCycleVerified}
+        trailing={
+          <span className="text-xs text-ink-soft">
+            {VERIFIED_LEVELS[verifiedLevel]}
+          </span>
+        }
+      />
+      <CheckboxRow
+        label="My Districts"
+        checked={myDistricts}
+        icon={<MapPin size={16} aria-hidden />}
+        disabled={geographyDisabled}
+        onToggle={onToggleMyDistricts}
+      />
+      {showAffected ? (
+        <CheckboxRow
+          label="Affected"
+          checked={affected}
+          icon={<Users size={16} aria-hidden />}
+          disabled={geographyDisabled}
+          onToggle={onToggleAffected}
+        />
+      ) : null}
+    </div>
+  );
+}
