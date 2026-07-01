@@ -12,6 +12,7 @@
   },
   "workspaces": [
     "site",
+    "web-app",
     "turnkey-test",
     "immudb-test",
     "public-record",
