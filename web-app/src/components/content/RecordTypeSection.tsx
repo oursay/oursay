@@ -4,8 +4,8 @@ import { useState } from "react";
 import {
   ArrowRight,
   BarChart3,
-  CheckCircle2,
   ClipboardList,
+  Vote,
 } from "lucide-react";
 import type { RecordDetail, RecordOption } from "@/lib/types";
 import { Button, CollapsibleSection } from "@/components/ui";
@@ -136,7 +136,7 @@ export function RecordTypeSection({
       {/* Poll -> published result */}
       {detail.kind === "poll" && detail.resultPublished && resultPreview ? (
         <CollapsibleSection
-          icon={CheckCircle2}
+          icon={Vote}
           label="Result"
           open={resultOpen}
           onToggle={() => setResultOpen((v) => !v)}

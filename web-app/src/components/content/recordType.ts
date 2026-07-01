@@ -1,8 +1,8 @@
 import {
   BarChart3,
-  CheckCircle2,
   ClipboardList,
   MessageSquare,
+  Vote,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { RecordKind } from "@/lib/types";
@@ -12,7 +12,7 @@ export const RECORD_TYPE_ICON: Record<RecordKind, LucideIcon> = {
   statement: MessageSquare,
   petition: ClipboardList,
   poll: BarChart3,
-  result: CheckCircle2,
+  result: Vote,
 };
 
 /** Product label per record kind. */
