@@ -34,10 +34,10 @@ export function PollOptions({
   const locked = frozen || (isFinalJurisdiction && !!selectedVote);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {options.map((o) => {
         const mine = selectedVote === o.label;
-        const pct = Math.round((o.v / total) * 100);
+        const pct = Math.max(4, Math.round((o.v / total) * 100));
         const extra = civicExtra(o.v, tierMin);
         return (
           <div key={o.label}>
@@ -45,25 +45,31 @@ export function PollOptions({
               type="button"
               disabled={locked || !onVote}
               onClick={() => onVote?.(o.label)}
-              className={`relative block w-full overflow-hidden rounded-lg border text-left ${mine ? "border-brand-500" : "border-border"} ${locked || !onVote ? "cursor-default" : "hover:border-brand-400"}`}
+              className={`relative block h-5 w-full overflow-hidden rounded border bg-surface-muted text-left ${
+                mine ? "border-ink/40" : "border-border-strong"
+              } ${locked || !onVote ? "cursor-default" : "hover:border-ink/30"}`}
             >
               <span
-                className={`absolute inset-y-0 left-0 ${mine ? "bg-brand-500" : "bg-brand-300"}`}
+                className={`absolute inset-y-0 left-0 ${mine ? "bg-neutral-500" : "bg-neutral-300"}`}
                 style={{ width: `${pct}%` }}
                 aria-hidden
               />
-              <span className="relative flex min-h-9 items-center justify-between gap-2 bg-brand-50 px-3 py-1.5 text-sm">
+              <span className="relative flex h-5 items-center justify-between gap-2 px-2 text-xs leading-none">
                 <span
-                  className={`flex items-center gap-1 ${mine ? "font-semibold text-ink" : "text-ink-soft"}`}
+                  className={`truncate ${mine ? "font-semibold text-ink" : "text-ink-soft"}`}
                 >
                   {mine ? (
-                    <span aria-hidden className="text-[13px] leading-none">
-                      ✓
-                    </span>
-                  ) : null}
-                  {o.label}
+                    <>
+                      <span aria-hidden>✓ </span>
+                      {o.label}
+                    </>
+                  ) : (
+                    o.label
+                  )}
                 </span>
-                <span className="text-ink-soft">{formatCount(o.v)}</span>
+                <span className="shrink-0 tabular-nums text-muted">
+                  {formatCount(o.v)}
+                </span>
               </span>
             </button>
             {extra > 0 ? (

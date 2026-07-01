@@ -42,7 +42,7 @@ export function FeedView() {
   }
 
   return (
-    <div className="space-y-3 p-4">
+    <div className="space-y-3 px-3 py-3">
       {items.map((item) => (
         // TODO(entityId): representative-target nav — route by record/profile id.
         <FeedCard

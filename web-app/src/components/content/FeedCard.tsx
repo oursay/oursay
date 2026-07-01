@@ -49,7 +49,7 @@ export function FeedCard({
   const hasReactions = item.kind === "statement" || item.kind === "result";
 
   return (
-    <article className="rounded-xl border border-border bg-surface p-4">
+    <article className="rounded-xl border border-border-strong bg-surface p-3 shadow-sm">
       <AuthorRow
         author={item.author}
         handle={item.handle}
@@ -114,7 +114,7 @@ export function FeedCard({
         <button
           type="button"
           onClick={onCommentsClick}
-          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-sm text-ink-soft hover:bg-surface-muted"
+          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 text-sm text-ink-soft shadow-sm hover:bg-surface-muted"
         >
           <MessageSquare size={14} aria-hidden />
           {formatCount(item.comments)}
