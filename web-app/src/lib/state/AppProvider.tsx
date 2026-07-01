@@ -155,6 +155,7 @@ export interface AppApi {
   voteFor: (id: string) => string | null;
   signPetition: (target: CivicTarget) => void;
   petitionSigFor: (target: CivicTarget) => number;
+  hasSignedPetition: (id: string) => boolean;
 
   // Compose flow.
   startCompose: () => void;
@@ -443,7 +444,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   // --- Auth flow -----------------------------------------------------------
-  const closeAuth = useCallback(() => set({ authOpen: false }), [set]);
+  const closeAuth = useCallback(
+    () =>
+      set({
+        authOpen: false,
+        registerOpen: false,
+        otpOpen: false,
+        loginOpen: false,
+      }),
+    [set],
+  );
   const goRegister = useCallback(
     () => set({ authOpen: false, registerOpen: true }),
     [set],
@@ -599,6 +609,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const petitionSigFor = useCallback(
     (target: CivicTarget) => state.petitionSig[target.id] ?? target.sig ?? 0,
+    [state.petitionSig],
+  );
+
+  const hasSignedPetition = useCallback(
+    (id: string) => id in state.petitionSig,
     [state.petitionSig],
   );
 
@@ -790,6 +805,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     voteFor,
     signPetition,
     petitionSigFor,
+    hasSignedPetition,
     startCompose,
     selectComposeJurisdiction,
     selectComposeType,

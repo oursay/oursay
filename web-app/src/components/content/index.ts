@@ -6,6 +6,7 @@ export * from "./ResultOutcome";
 export * from "./PetitionProgress";
 export * from "./EditCountLink";
 export * from "./CommentPill";
+export * from "./CivicPills";
 export * from "./ReplyLink";
 export * from "./RecordCard";
 export * from "./RecordCardHeader";

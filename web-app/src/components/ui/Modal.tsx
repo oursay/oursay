@@ -70,18 +70,19 @@ export function Modal({
 
   if (!open || !mounted) return null;
 
-  const panel =
-    variant === "sheet"
-      ? "mx-auto mt-4 mb-6 w-[calc(100%-2rem)] max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl"
-      : `mx-auto my-auto w-[calc(100%-2rem)] ${SIZES[size]}`;
+  const isSheet = variant === "sheet";
+
+  const panel = isSheet
+    ? "mx-auto mt-6 mb-6 w-[calc(100%-2rem)] max-w-md max-h-[calc(100dvh-3rem)]"
+    : `mx-auto my-auto w-[calc(100%-2rem)] ${SIZES[size]}`;
 
   const centered = headerAlign === "center";
 
   return createPortal(
     <div
       className={`fixed inset-0 z-50 flex overflow-y-auto bg-black/45 ${
-        variant === "sheet" ? "items-start" : "items-center"
-      } justify-center p-4`}
+        isSheet ? "items-start px-4 pb-4 pt-6" : "items-center p-4"
+      } justify-center`}
       onPointerUp={(e) => {
         if (e.target === e.currentTarget) {
           e.preventDefault();
@@ -95,17 +96,15 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={ariaLabel ?? title}
-        className={`pill-chrome relative flex flex-col overflow-visible bg-surface px-5 pb-4 pt-5 ${panel} ${
-          variant === "sheet" ? "rounded-3xl" : "rounded-2xl"
-        }`}
+        className={`pill-chrome relative flex flex-col overflow-visible rounded-2xl bg-surface px-5 pb-4 pt-5 ${panel}`}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
       >
         {header ? (
-          <div className="mb-4 w-full">{header}</div>
+          <div className="mb-4 w-full shrink-0">{header}</div>
         ) : title ? (
           <div
-            className={`mb-4 ${centered ? "px-6 pt-0.5 text-center" : "pr-4"}`}
+            className={`mb-4 shrink-0 ${centered ? "px-6 pt-0.5 text-center" : "pr-4"}`}
           >
             <h2 className="text-lg font-bold leading-snug text-ink">{title}</h2>
             {subtitle ? (
@@ -121,12 +120,14 @@ export function Modal({
         >
           <X size={14} aria-hidden />
         </button>
-        <div className="min-w-0 flex-1">{children}</div>
-        {showDismissHint ? (
-          <p className="mt-4 text-center text-xs text-muted">
-            Alt: Esc or tap outside to close
-          </p>
-        ) : null}
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+          {children}
+          {showDismissHint ? (
+            <p className="mt-4 text-center text-xs text-muted">
+              Alt: Esc or tap outside to close
+            </p>
+          ) : null}
+        </div>
       </div>
     </div>,
     document.body,

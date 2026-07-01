@@ -1,4 +1,4 @@
-import { CheckCircle2 } from "lucide-react";
+import { CircleCheckBig } from "lucide-react";
 import { resultOutcomeInfo } from "@/lib/read-model";
 import type { RecordOption } from "@/lib/types";
 
@@ -33,7 +33,7 @@ export function ResultOutcome({ options, outcome }: ResultOutcomeProps) {
         />
       ) : null}
       <div className="relative flex h-full items-center gap-2 px-2 text-xs font-medium text-ink">
-        <CheckCircle2 size={16} className="shrink-0" aria-hidden />
+        <CircleCheckBig size={16} className="shrink-0" aria-hidden />
         <span>{info.text}</span>
       </div>
       {fillPct > 0 ? (
@@ -48,7 +48,7 @@ export function ResultOutcome({ options, outcome }: ResultOutcomeProps) {
             }`}
             style={{ width: innerWidth }}
           >
-            <CheckCircle2 size={16} className="shrink-0" />
+            <CircleCheckBig size={16} className="shrink-0" />
             <span>{info.text}</span>
           </div>
         </div>

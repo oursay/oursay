@@ -116,6 +116,7 @@ export function DistrictView({ slug }: { slug: string }) {
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}
                 selectedVote={app.voteFor(item.id)}
+                signedPetition={app.hasSignedPetition(item.id)}
                 onVote={(label) => app.votePoll(item, label)}
                 onSignPetition={() => app.signPetition(item)}
                 onEditsClick={() =>

@@ -1,10 +1,10 @@
 "use client";
 
 import type { RecordKind, VerificationTier } from "@/lib/types";
-import { formatCount } from "@/components/utils";
 import { ReactionButtons } from "./ReactionButtons";
 import { EditCountLink } from "./EditCountLink";
 import { CommentPill } from "./CommentPill";
+import { SignaturePill, VotePill } from "./CivicPills";
 import { ReplyLink } from "./ReplyLink";
 
 interface RecordCardFooterProps {
@@ -15,6 +15,10 @@ interface RecordCardFooterProps {
   selectedReaction?: "up" | "down" | null;
   sig?: number;
   voteTotal?: number;
+  /** Viewer signed this petition (footer pill accent). */
+  signedPetition?: boolean;
+  /** Viewer cast a vote on this poll (footer pill accent). */
+  votedPoll?: boolean;
   comments?: number;
   edits?: number;
   tierMin?: VerificationTier;
@@ -22,6 +26,8 @@ interface RecordCardFooterProps {
   onReply?: () => void;
   onEditsClick?: () => void;
   onCommentsClick?: () => void;
+  /** Opens the full post (feed cards — same as title / …more). */
+  onOpenPost?: () => void;
 }
 
 /**
@@ -35,6 +41,8 @@ export function RecordCardFooter({
   selectedReaction = null,
   sig,
   voteTotal,
+  signedPetition = false,
+  votedPoll = false,
   comments,
   edits,
   tierMin = 0,
@@ -42,6 +50,7 @@ export function RecordCardFooter({
   onReply,
   onEditsClick,
   onCommentsClick,
+  onOpenPost,
 }: RecordCardFooterProps) {
   const hasReactions = kind === "statement" || kind === "result";
   const showComments = kind !== "comment" && comments !== undefined;
@@ -58,10 +67,18 @@ export function RecordCardFooter({
         />
       ) : null}
       {kind === "petition" && sig !== undefined ? (
-        <span className="text-xs text-ink-soft">{formatCount(sig)} signatures</span>
+        <SignaturePill
+          count={sig}
+          participated={signedPetition}
+          onClick={onOpenPost}
+        />
       ) : null}
       {kind === "poll" && voteTotal !== undefined ? (
-        <span className="text-xs text-ink-soft">{formatCount(voteTotal)} votes</span>
+        <VotePill
+          count={voteTotal}
+          participated={votedPoll}
+          onClick={onOpenPost}
+        />
       ) : null}
       {onReply ? <ReplyLink onClick={onReply} /> : null}
       <EditCountLink count={edits} onClick={onEditsClick} />

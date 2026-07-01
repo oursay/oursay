@@ -26,6 +26,7 @@ interface FeedCardProps {
   onReact?: (dir: "up" | "down") => void;
   selectedReaction?: "up" | "down" | null;
   selectedVote?: string | null;
+  signedPetition?: boolean;
   onVote?: (label: string) => void;
   onSignPetition?: () => void;
   onEditsClick?: () => void;
@@ -47,6 +48,7 @@ export function FeedCard({
   onReact,
   selectedReaction = null,
   selectedVote = null,
+  signedPetition = false,
   onVote,
   onSignPetition,
   onEditsClick,
@@ -155,6 +157,9 @@ export function FeedCard({
           onReact={onReact}
           onEditsClick={onEditsClick}
           onCommentsClick={onCommentsClick}
+          signedPetition={signedPetition}
+          votedPoll={selectedVote != null}
+          onOpenPost={onTitleClick}
         />
       }
     />

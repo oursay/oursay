@@ -195,6 +195,12 @@ export function PostView({ kind }: { kind: RecordKind }) {
                 ? detail.options.reduce((a, o) => a + o.v, 0)
                 : undefined
             }
+            signedPetition={
+              detail.kind === "petition" ? app.hasSignedPetition(detail.id) : false
+            }
+            votedPoll={
+              detail.kind === "poll" ? app.voteFor(detail.id) != null : false
+            }
             comments={trueTotal}
             edits={detail.edits}
             tierMin={tierMin}

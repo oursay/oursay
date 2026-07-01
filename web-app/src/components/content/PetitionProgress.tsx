@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CircleCheckBig } from "lucide-react";
 import { civicExtra } from "@/lib/read-model";
 import type { AttachedPoll, VerificationTier } from "@/lib/types";
 import { formatCount } from "@/components/utils";
@@ -46,7 +46,7 @@ export function PetitionProgress({
       <div className="flex flex-wrap items-center justify-between gap-2">
         {attachedPoll ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border-strong bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink-soft">
-            <CheckCircle2 size={13} aria-hidden />
+            <CircleCheckBig size={13} aria-hidden />
             {graduated ? "Poll Open" : `Poll @ ${formatCount(goal)}`}
           </span>
         ) : (
