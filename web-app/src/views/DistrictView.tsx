@@ -106,7 +106,9 @@ export function DistrictView({ slug }: { slug: string }) {
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(profilePath(item.handle))}
                 onTitleClick={() => router.push(postPath(item.kind))}
-                onCommentsClick={() => router.push(postPath(item.kind))}
+                onCommentsClick={() =>
+                  router.push(postPath(item.kind, { comments: true }))
+                }
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}
                 selectedVote={app.voteFor(item.id)}

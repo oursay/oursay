@@ -2,13 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CornerDownRight } from "lucide-react";
 import { getRecordDetail } from "@/lib/api";
 import type { CommentNode, RecordDetail, RecordKind } from "@/lib/types";
-import {
-  postQualifiesForAffected,
-  relTime,
-} from "@/lib/read-model";
+import { postQualifiesForAffected, relTime } from "@/lib/read-model";
 import {
   NOW,
   POST_PETITION,
@@ -17,18 +13,19 @@ import {
   districtName,
 } from "@/lib/mock";
 import {
-  AuthorRow,
   Button,
   CommentThread,
-  EditCountLink,
   PetitionProgress,
   PollOptions,
-  ReactionButtons,
+  RecordCard,
+  RecordCardFooter,
+  RecordCardHeader,
   RecordTypeSection,
   ScopeTag,
 } from "@/components";
-import { formatCount, isHomeAuthor } from "@/components/utils";
-import { postPath, profilePath, jurisdictionPath, districtPath } from "@/lib/routes";
+import { isHomeAuthor } from "@/components/utils";
+import { postPath, profilePath, districtPath } from "@/lib/routes";
+import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import { useApp } from "@/lib/state";
 
 function countNodes(nodes: CommentNode[]): number {
@@ -44,10 +41,9 @@ export function PostView({ kind }: { kind: RecordKind }) {
   const [shownComments, setShownComments] = useState<CommentNode[]>([]);
 
   useEffect(() => {
-    app.setPageJurisdiction(null);
-  }, [app]);
-
-  useEffect(() => {
+    setDetail(null);
+    setFullComments([]);
+    setShownComments([]);
     let active = true;
     Promise.all([
       getRecordDetail("", kind),
@@ -63,6 +59,18 @@ export function PostView({ kind }: { kind: RecordKind }) {
       active = false;
     };
   }, [kind, app.viewer, app.feedFilter]);
+
+  useEffect(() => {
+    if (!detail) return;
+    app.setPageJurisdiction(detail.jurisdiction);
+    return () => app.setPageJurisdiction(null);
+  }, [kind, detail?.jurisdiction]);
+
+  useEffect(() => {
+    if (!detail) return;
+    if (window.location.hash !== `#${COMMENTS_SECTION_ID}`) return;
+    requestAnimationFrame(() => scrollToCommentsSection());
+  }, [detail]);
 
   if (!detail) {
     return <p className="p-6 text-center text-sm text-muted">Record not found.</p>;
@@ -80,6 +88,7 @@ export function PostView({ kind }: { kind: RecordKind }) {
     detail.kind === "petition" ? { ...detail, sig } : detail;
   const home = isHomeAuthor(detail.districts, app.viewer.kycTier, app.viewer.viewerDistricts);
   const isFinal = detail.jurisdiction === "Alberta";
+  const tierMin = app.state.verified;
 
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);
@@ -99,114 +108,100 @@ export function PostView({ kind }: { kind: RecordKind }) {
 
   return (
     <div className="space-y-4 p-4">
-      <article className="space-y-3 rounded-xl border border-border bg-surface p-4">
-        <div className="flex items-start justify-between gap-2">
-          <AuthorRow
+      <RecordCard
+        variant="detail"
+        header={
+          <RecordCardHeader
             author={detail.author}
             handle={detail.handle}
             tier={detail.tier}
             isHomeAuthor={home}
-            layout="card"
-            // TODO(entityId): route to the author's real profile.
             onAuthorClick={() => router.push(profilePath(detail.handle))}
-          />
-        </div>
-
-        <div className="flex justify-end">
-          <ScopeTag
-            jurisdiction={detail.jurisdiction}
-            districtSlugs={detail.districts}
-            resolveDistrict={districtName}
-            onJurisdictionClick={() =>
-              router.push(jurisdictionPath(detail.jurisdiction))
+            scopeSlot={
+              detail.districts.length > 0 ? (
+                <ScopeTag
+                  jurisdiction={detail.jurisdiction}
+                  districtSlugs={detail.districts}
+                  hideJur
+                  resolveDistrict={districtName}
+                  onDistrictClick={(slug) => router.push(districtPath(slug))}
+                />
+              ) : undefined
             }
-            onDistrictClick={(slug) => router.push(districtPath(slug))}
           />
-        </div>
-
-        <div>
-          <h1 className="text-lg font-bold text-ink">{detail.title}</h1>
-          <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, NOW)}</p>
-        </div>
-
-        <div className="space-y-1 text-sm text-ink-soft">
-          {detail.body.map((line, i) => (
-            <p key={i}>{line}</p>
-          ))}
-        </div>
-
-        {detail.kind === "petition" ? (
-          <PetitionProgress
-            sig={sig}
-            goal={detail.goal ?? 1}
-            attachedPoll={detail.attachedPoll}
-            tierMin={app.state.verified}
-          >
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => app.signPetition(target)}
-            >
-              Sign the Petition
-            </Button>
-          </PetitionProgress>
-        ) : null}
-
-        {detail.kind === "poll" && detail.options ? (
-          <PollOptions
-            options={detail.options}
-            selectedVote={app.voteFor(detail.id)}
-            isFinalJurisdiction={isFinal}
-            tierMin={app.state.verified}
-            onVote={(label) => app.votePoll(target, label)}
+        }
+        body={
+          <>
+            <div>
+              <h1 className="text-lg font-bold text-ink">{detail.title}</h1>
+              <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, NOW)}</p>
+            </div>
+            <div className="mt-3 space-y-1 text-sm text-ink-soft">
+              {detail.body.map((line, i) => (
+                <p key={i}>{line}</p>
+              ))}
+            </div>
+            {detail.kind === "petition" ? (
+              <div className="mt-3">
+                <PetitionProgress
+                  sig={sig}
+                  goal={detail.goal ?? 1}
+                  attachedPoll={detail.attachedPoll}
+                  tierMin={tierMin}
+                >
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    fullWidth
+                    className="mt-1"
+                    onClick={() => app.signPetition(target)}
+                  >
+                    Sign the Petition
+                  </Button>
+                </PetitionProgress>
+              </div>
+            ) : null}
+            {detail.kind === "poll" && detail.options ? (
+              <div className="mt-3">
+                <PollOptions
+                  options={detail.options}
+                  selectedVote={app.voteFor(detail.id)}
+                  isFinalJurisdiction={isFinal}
+                  tierMin={tierMin}
+                  onVote={(label) => app.votePoll(target, label)}
+                />
+              </div>
+            ) : null}
+            {detail.kind === "result" && detail.options ? (
+              <div className="mt-3">
+                <PollOptions options={detail.options} frozen tierMin={tierMin} />
+              </div>
+            ) : null}
+          </>
+        }
+        footer={
+          <RecordCardFooter
+            kind={detail.kind}
+            up={detail.up ?? 0}
+            down={detail.down ?? 0}
+            selectedReaction={app.reactionFor(detail.id)}
+            sig={detail.kind === "petition" ? sig : undefined}
+            voteTotal={
+              detail.kind === "poll" && detail.options
+                ? detail.options.reduce((a, o) => a + o.v, 0)
+                : undefined
+            }
+            comments={trueTotal}
+            edits={detail.edits}
+            tierMin={tierMin}
+            onReact={(dir) => app.react(target, dir)}
+            onReply={app.startReply}
+            onEditsClick={() => app.notify("Edit history is not built in this demo.")}
+            onCommentsClick={scrollToCommentsSection}
           />
-        ) : null}
+        }
+      />
 
-        {detail.kind === "result" && detail.options ? (
-          <PollOptions options={detail.options} frozen tierMin={app.state.verified} />
-        ) : null}
-
-        {/* Unified bottom bar: reactions or civic count + reply + edits + comments. */}
-        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3">
-          {detail.kind === "statement" || detail.kind === "result" ? (
-            <ReactionButtons
-              up={detail.up ?? 0}
-              down={detail.down ?? 0}
-              selected={app.reactionFor(detail.id)}
-              scale="detail"
-              onReact={(dir) => app.react(target, dir)}
-            />
-          ) : null}
-          {detail.kind === "petition" ? (
-            <span className="text-sm text-ink-soft">
-              {formatCount(sig)} signatures
-            </span>
-          ) : null}
-          {detail.kind === "poll" && detail.options ? (
-            <span className="text-sm text-ink-soft">
-              {formatCount(detail.options.reduce((a, o) => a + o.v, 0))} votes
-            </span>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={app.startReply}
-            className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink-soft"
-          >
-            <CornerDownRight size={14} aria-hidden />
-            Reply
-          </button>
-          <EditCountLink
-            count={detail.edits}
-            onClick={() => app.notify("Edit history is not built in this demo.")}
-          />
-          <span className="ml-auto text-sm text-muted">
-            {formatCount(trueTotal)} comments
-          </span>
-        </div>
-      </article>
-
-      {/* TODO(entityId): interlink to the linked records by their real ids. */}
       <RecordTypeSection
         detail={displayDetail}
         petitionPreview={petitionPreview}
@@ -217,7 +212,7 @@ export function PostView({ kind }: { kind: RecordKind }) {
         onSeeFullResult={() => router.push(postPath("result"))}
       />
 
-      <section className="space-y-3">
+      <section id={COMMENTS_SECTION_ID} className="scroll-mt-3 space-y-3">
         <div className="flex items-baseline justify-between">
           <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
             Comments
@@ -260,9 +255,8 @@ export function PostView({ kind }: { kind: RecordKind }) {
             nodes={shownComments}
             viewer={app.viewer}
             now={NOW}
-            tierMin={app.state.verified}
+            tierMin={tierMin}
             onReply={app.startReply}
-            // TODO(entityId): route to the commenter's real profile.
             onAuthorClick={(node) => router.push(profilePath(node.handle))}
             onReact={() =>
               app.requireAuth(() => app.notify("Reaction recorded (demo)."))

@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquare } from "lucide-react";
 import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
-import { formatCount, isHomeAuthor } from "@/components/utils";
+import { isHomeAuthor } from "@/components/utils";
 import { Button } from "@/components/ui";
-import { AuthorRow } from "@/components/identity";
 import { ScopeTag } from "./ScopeTag";
-import { ReactionButtons } from "./ReactionButtons";
 import { PetitionProgress } from "./PetitionProgress";
 import { PollOptions } from "./PollOptions";
-import { EditCountLink } from "./EditCountLink";
+import { RecordCard } from "./RecordCard";
+import { RecordCardHeader } from "./RecordCardHeader";
+import { RecordCardFooter } from "./RecordCardFooter";
 
 interface FeedCardProps {
   item: FeedItem;
@@ -33,7 +32,7 @@ interface FeedCardProps {
   onDistrictClick?: (slug: string) => void;
 }
 
-/** One feed/list card. One shape renders every record kind (wireframe buildCard). */
+/** Feed/list record card — composes the shared RecordCard shell. */
 export function FeedCard({
   item,
   viewer,
@@ -55,111 +54,103 @@ export function FeedCard({
 }: FeedCardProps) {
   const [expanded, setExpanded] = useState(false);
   const home = isHomeAuthor(item.districts, viewer.kycTier, viewer.viewerDistricts);
-  const hasReactions = item.kind === "statement" || item.kind === "result";
 
   return (
-    <article className="rounded-xl border border-border-strong bg-surface p-3 shadow-sm">
-      <AuthorRow
-        author={item.author}
-        handle={item.handle}
-        tier={item.tier}
-        isHomeAuthor={home}
-        layout="card"
-        onAuthorClick={onAuthorClick}
-        scopeSlot={
-          <ScopeTag
-            jurisdiction={item.jurisdiction}
-            districtSlugs={item.districts}
-            hideJur={hideJur}
-            hideDistrict={hideDistrict}
-            resolveDistrict={resolveDistrict}
-            expanded={expanded}
-            onExpandToggle={() => setExpanded((v) => !v)}
-            onJurisdictionClick={onJurisdictionClick}
-            onDistrictClick={onDistrictClick}
-          />
-        }
-      />
-
-      <button
-        type="button"
-        onClick={onTitleClick}
-        className="mt-1 block w-full text-left"
-      >
-        <h3 className="text-[15px] font-bold text-ink">{item.title}</h3>
-        <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
-          {item.body.join(" ")}
-        </p>
-        <span className="mt-1 inline-block text-sm font-semibold text-ink">
-          …more
-        </span>
-      </button>
-
-      <div className="mt-3">
-        {item.kind === "petition" ? (
-          <PetitionProgress
-            sig={item.sig ?? 0}
-            goal={item.goal ?? 1}
-            attachedPoll={item.attachedPoll}
-            tierMin={tierMin}
+    <RecordCard
+      header={
+        <RecordCardHeader
+          author={item.author}
+          handle={item.handle}
+          tier={item.tier}
+          isHomeAuthor={home}
+          onAuthorClick={onAuthorClick}
+          scopeSlot={
+            <ScopeTag
+              jurisdiction={item.jurisdiction}
+              districtSlugs={item.districts}
+              hideJur={hideJur}
+              hideDistrict={hideDistrict}
+              resolveDistrict={resolveDistrict}
+              expanded={expanded}
+              onExpandToggle={() => setExpanded((v) => !v)}
+              onJurisdictionClick={onJurisdictionClick}
+              onDistrictClick={onDistrictClick}
+            />
+          }
+        />
+      }
+      body={
+        <>
+          <button
+            type="button"
+            onClick={onTitleClick}
+            className="block w-full text-left"
           >
-            <Button
-              type="button"
-              variant="primary"
-              size="sm"
-              fullWidth
-              className="mt-1"
-              onClick={(e) => {
-                e.stopPropagation();
-                onSignPetition?.();
-              }}
-            >
-              Sign the Petition
-            </Button>
-          </PetitionProgress>
-        ) : null}
-        {item.kind === "poll" && item.options ? (
-          <PollOptions
-            options={item.options}
-            selectedVote={selectedVote}
-            isFinalJurisdiction={item.jurisdiction === "Alberta"}
-            tierMin={tierMin}
-            onVote={onVote}
-          />
-        ) : null}
-      </div>
-
-      <div className="mt-2 flex items-center gap-2">
-        {hasReactions ? (
-          <ReactionButtons
-            up={item.up ?? 0}
-            down={item.down ?? 0}
-            selected={selectedReaction}
-            scale="card"
-            tierMin={tierMin}
-            onReact={onReact}
-          />
-        ) : null}
-        {item.kind === "petition" ? (
-          <span className="text-xs text-ink-soft">
-            {formatCount(item.sig ?? 0)} signatures
-          </span>
-        ) : null}
-        {item.kind === "poll" && item.options ? (
-          <span className="text-xs text-ink-soft">
-            {formatCount(item.options.reduce((a, o) => a + o.v, 0))} votes
-          </span>
-        ) : null}
-        <EditCountLink count={item.edits} onClick={onEditsClick} />
-        <button
-          type="button"
-          onClick={onCommentsClick}
-          className="pill-chrome ml-auto inline-flex h-5 items-center gap-1 rounded-full bg-surface px-2 text-xs text-ink-soft hover:bg-surface-muted"
-        >
-          <MessageSquare size={11} aria-hidden />
-          {formatCount(item.comments)}
-        </button>
-      </div>
-    </article>
+            <h3 className="text-[15px] font-bold text-ink">{item.title}</h3>
+            <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
+              {item.body.join(" ")}
+            </p>
+            <span className="mt-1 inline-block text-sm font-semibold text-ink">
+              …more
+            </span>
+          </button>
+          {item.kind === "petition" ? (
+            <div className="mt-3">
+              <PetitionProgress
+                sig={item.sig ?? 0}
+                goal={item.goal ?? 1}
+                attachedPoll={item.attachedPoll}
+                tierMin={tierMin}
+              >
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  fullWidth
+                  className="mt-1"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSignPetition?.();
+                  }}
+                >
+                  Sign the Petition
+                </Button>
+              </PetitionProgress>
+            </div>
+          ) : null}
+          {item.kind === "poll" && item.options ? (
+            <div className="mt-3">
+              <PollOptions
+                options={item.options}
+                selectedVote={selectedVote}
+                isFinalJurisdiction={item.jurisdiction === "Alberta"}
+                tierMin={tierMin}
+                onVote={onVote}
+              />
+            </div>
+          ) : null}
+        </>
+      }
+      footer={
+        <RecordCardFooter
+          kind={item.kind}
+          up={item.up ?? 0}
+          down={item.down ?? 0}
+          selectedReaction={selectedReaction}
+          sig={item.sig}
+          voteTotal={
+            item.kind === "poll" && item.options
+              ? item.options.reduce((a, o) => a + o.v, 0)
+              : undefined
+          }
+          comments={item.comments}
+          edits={item.edits}
+          tierMin={tierMin}
+          onReact={onReact}
+          onEditsClick={onEditsClick}
+          onCommentsClick={onCommentsClick}
+        />
+      }
+    />
   );
 }

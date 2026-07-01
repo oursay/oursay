@@ -483,10 +483,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setVote = useCallback(
     (target: CivicTarget, option: string | null) => {
-      setState((s) => ({
-        ...s,
-        votes: { ...s.votes, [target.id]: option },
-      }));
+      setState((s) => {
+        const votes = { ...s.votes };
+        if (option) votes[target.id] = option;
+        else delete votes[target.id];
+        return { ...s, votes };
+      });
       if (option) notify("Vote recorded.");
     },
     [notify],
@@ -661,8 +663,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const viewer = useMemo(() => viewerFromState(state), [state]);
-  const feedFilter = useMemo(() => feedFilterFromState(state), [state]);
+  const viewer = useMemo(
+    () => viewerFromState(state),
+    [state.loggedIn, state.kycTier, state.viewerDistricts],
+  );
+  const feedFilter = useMemo(
+    () => feedFilterFromState(state),
+    [
+      state.subscriptions,
+      state.includedKinds,
+      state.verified,
+      state.myDistricts,
+      state.affected,
+    ],
+  );
 
   const api: AppApi = {
     state,

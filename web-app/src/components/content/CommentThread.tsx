@@ -1,13 +1,10 @@
 "use client";
 
-import { CornerDownRight } from "lucide-react";
 import { COMMENT_MAX_DEPTH } from "@/lib/types";
 import type { CommentNode, ViewerContext, VerificationTier } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
 import { isHomeAuthor } from "@/components/utils";
-import { AuthorRow } from "@/components/identity";
-import { ReactionButtons } from "./ReactionButtons";
-import { EditCountLink } from "./EditCountLink";
+import { CommentCard } from "./CommentCard";
 
 interface CommentThreadProps {
   nodes: CommentNode[];
@@ -51,51 +48,37 @@ export function CommentThread({
         const prefix = i === 0 ? mentionPrefix : undefined;
         return (
           <li key={`${node.handle}-${i}`}>
-            <AuthorRow
+            <CommentCard
               author={node.author}
               tier={node.tier}
               isHomeAuthor={home}
               timestamp={relTime(node.ts, now)}
-              layout="comment"
+              body={
+                <>
+                  {node.body.map((line, li) => (
+                    <p key={li}>
+                      {li === 0 && prefix ? (
+                        <span className="font-semibold text-brand-700">{prefix} </span>
+                      ) : null}
+                      {line}
+                    </p>
+                  ))}
+                </>
+              }
+              up={node.up}
+              down={node.down}
+              selectedReaction={node._my ?? null}
+              edits={node.edits}
+              tierMin={tierMin}
               onAuthorClick={onAuthorClick ? () => onAuthorClick(node) : undefined}
+              onReact={onReact ? (dir) => onReact(node, dir) : undefined}
+              onReply={onReply ? () => onReply(node) : undefined}
+              onEditsClick={onEditsClick ? () => onEditsClick(node) : undefined}
             />
-            <div className="mt-1 space-y-0.5 pl-8 text-sm text-ink-soft">
-              {node.body.map((line, li) => (
-                <p key={li}>
-                  {li === 0 && prefix ? (
-                    <span className="font-semibold text-brand-700">{prefix} </span>
-                  ) : null}
-                  {line}
-                </p>
-              ))}
-            </div>
-            <div className="mt-2 flex items-center gap-3 pl-8">
-              <ReactionButtons
-                up={node.up}
-                down={node.down}
-                selected={node._my ?? null}
-                scale="card"
-                tierMin={tierMin}
-                onReact={onReact ? (dir) => onReact(node, dir) : undefined}
-              />
-              <button
-                type="button"
-                onClick={() => onReply?.(node)}
-                className="inline-flex items-center gap-1 text-xs text-muted hover:text-ink-soft"
-              >
-                <CornerDownRight size={13} aria-hidden />
-                Reply
-              </button>
-              <EditCountLink
-                count={node.edits}
-                onClick={onEditsClick ? () => onEditsClick(node) : undefined}
-              />
-            </div>
 
             {node.replies.length > 0 ? (
               <div className="mt-4 ml-5">
                 {atMax ? (
-                  // Beyond max depth: flatten replies to siblings, seeded with @handle.
                   <CommentThread
                     nodes={node.replies}
                     viewer={viewer}

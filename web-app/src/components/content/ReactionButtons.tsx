@@ -9,8 +9,6 @@ interface ReactionButtonsProps {
   down: number;
   /** The viewer's own exclusive reaction. */
   selected?: "up" | "down" | null;
-  /** card = feed footer (thinned by tierMin); detail = post page (raw). */
-  scale?: "card" | "detail";
   /** Active Verified filter — thins social counts on cards (§4.3). */
   tierMin?: VerificationTier;
   onReact?: (dir: "up" | "down") => void;
@@ -22,15 +20,11 @@ export function ReactionButtons({
   up,
   down,
   selected = null,
-  scale = "card",
   tierMin = 0,
   onReact,
   disabled = false,
 }: ReactionButtonsProps) {
-  const shown = (n: number) =>
-    scale === "card" ? scaleSocial(n, tierMin) : n;
-
-  const compact = scale === "card";
+  const shown = (n: number) => scaleSocial(n, tierMin);
 
   const half = (dir: "up" | "down", count: number) => {
     const active = selected === dir;
@@ -47,13 +41,11 @@ export function ReactionButtons({
         onClick={() => onReact?.(dir)}
         aria-pressed={active}
         aria-label={dir === "up" ? "Agree" : "Disagree"}
-        className={`inline-flex flex-1 items-center justify-center gap-0.5 transition-colors ${
-          compact ? "h-5 px-2 text-xs" : "min-h-9 px-3 text-sm"
-        } ${dir === "up" ? upStyles : downStyles} ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+        className={`inline-flex h-5 flex-1 items-center justify-center gap-0.5 px-2 text-xs transition-colors ${dir === "up" ? upStyles : downStyles} ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
       >
         <span
           aria-hidden
-          className={`leading-none ${compact ? "text-xs" : "text-[15px]"} ${active ? "font-bold" : ""}`}
+          className={`text-xs leading-none ${active ? "font-bold" : ""}`}
         >
           {dir === "up" ? "✓" : "✗"}
         </span>
@@ -64,11 +56,7 @@ export function ReactionButtons({
 
   return (
     <div className="pill-chrome inline-flex rounded-full">
-      <div
-        className={`inline-flex overflow-hidden rounded-full bg-surface ${
-          compact ? "h-5" : ""
-        }`}
-      >
+      <div className="inline-flex h-5 overflow-hidden rounded-full bg-surface">
         {half("up", up)}
         <span className="w-px shrink-0 self-stretch bg-ink" aria-hidden />
         {half("down", down)}

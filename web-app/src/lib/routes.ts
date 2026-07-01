@@ -1,4 +1,5 @@
 import type { RecordKind } from "@/lib/types";
+import { COMMENTS_SECTION_ID } from "./scroll";
 
 /** The five civic views, mirroring the wireframe's VIEW_ORDER. */
 export type AppView = "feed" | "jurisdiction" | "district" | "profile" | "post";
@@ -30,8 +31,12 @@ export function profilePath(handle: string): string {
 
 // TODO(entityId): these route by record kind to the one representative sample per
 // type. Production swaps `[kind]` for `[id]` so a card opens its own record.
-export function postPath(kind: RecordKind): string {
-  return `/post/${kind}`;
+export function postPath(
+  kind: RecordKind,
+  opts?: { comments?: boolean },
+): string {
+  const base = `/post/${kind}`;
+  return opts?.comments ? `${base}#${COMMENTS_SECTION_ID}` : base;
 }
 
 /** Derive the active view from the pathname (drives shared chrome in AppShell). */

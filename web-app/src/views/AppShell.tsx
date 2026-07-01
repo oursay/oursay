@@ -68,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     state.subscriptions.length,
   );
   if (
-    (view === "jurisdiction" || view === "district") &&
+    (view === "jurisdiction" || view === "district" || view === "post") &&
     state.pageJurisdiction
   ) {
     jurisdictionLabel = state.pageJurisdiction;
@@ -160,7 +160,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <JurisdictionSelector
                     subscriptions={state.subscriptions}
                     onToggleInclude={app.toggleSub}
-                    onAllJurisdictions={app.allSubs}
+                    onAllJurisdictions={() => {
+                      app.allSubs();
+                      app.toggleJurSelector();
+                      router.push("/feed");
+                    }}
                     onSelectOnly={(name) => {
                       app.selectOnlySub(name);
                       app.toggleJurSelector();

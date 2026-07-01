@@ -172,7 +172,6 @@ export default function ComponentGallery() {
               up={132}
               down={7}
               selected={reaction}
-              scale="detail"
               onReact={(d) => setReaction((r) => (r === d ? null : d))}
             />
           </Row>
