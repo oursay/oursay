@@ -5,5 +5,6 @@ export * from "./Modal";
 export * from "./ModalField";
 export * from "./ModalOptionRow";
 export * from "./NoticeBox";
+export * from "./CheckboxIndicator";
 export * from "./CheckboxRow";
 export * from "./CollapsibleSection";

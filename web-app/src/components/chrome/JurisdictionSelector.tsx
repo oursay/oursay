@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, ExternalLink, List, Plus } from "lucide-react";
+import { ExternalLink, List, Plus } from "lucide-react";
 import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import type { JurisdictionMembership } from "@/lib/types";
-import { CheckboxRow } from "@/components/ui";
+import { CheckboxIndicator, CheckboxRow } from "@/components/ui";
 
 interface JurisdictionSelectorProps {
   subscriptions: JurisdictionMembership[];
@@ -69,11 +69,7 @@ export function JurisdictionSelector({
                 }}
                 className={`${ROW_CELL} justify-center`}
               >
-                <span
-                  className={`inline-flex size-5 items-center justify-center rounded border ${sub.included ? "border-brand-600 bg-brand-600 text-white" : "border-border-strong bg-surface"}`}
-                >
-                  {sub.included ? <Check size={14} aria-hidden /> : null}
-                </span>
+                <CheckboxIndicator checked={sub.included} />
               </button>
             ) : null}
             <button
