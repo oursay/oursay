@@ -65,10 +65,17 @@ factory the builders use:
 | the **P** key | next view in `VIEW_ORDER` (cycles all five; always resets the Post view to Statement) | keydown |
 | a Petition/Poll/Result page's **"See full X →"** interlink button (inside a collapsible section) | the matching Post-type page | `goPost(type)` |
 
-The right-aligned scope tag on a card is built by `scopeTagLink(...)`: it **underlines only the
-linkable words** (`Jurisdiction · District`) and lays an invisible hit target over each, so the
-separator and any page-implied part stay plain. `goJur(name)` is `go("jurisdiction")` that first
-points `state.jur` at the named jurisdiction.
+The right-aligned scope tag on a card is built by `buildScopeTag(p, ...)`: for a single-district (or
+jurisdiction-wide) post it's the same underline-only-the-linkable-words tag as before
+(`scopeTagLink`) — `Jurisdiction · District`, invisible hit target over each word, separator/implied
+part left plain. For a **multi-district** post, the "+N" suffix (e.g. "Edmonton-Strathcona +1") is
+its **own** click target: tapping it expands the tag in place into one district per line plus a
+**"See Less"** link, instead of "+N" only ever meaning "there's more you can't see." Both `buildCard`
+and the Post page's `buildPostChrome` call `scopeTagExtra(p, opts)` first to learn how much extra
+height the expansion needs, then shift everything below it (title, body, the type-specific section)
+down by that amount — collapsed, `extra` is `0` and nothing shifts. `goJur(name)` is
+`go("jurisdiction")` that first points `state.jur` at the named jurisdiction. See
+DESIGN-DECISIONS.md §9.8.
 
 These are **representative-target** flips: the wireframe always jumps to the one sample Post / Profile
 / District it ships, regardless of which card you tapped — extended by `goPost(type)` to one
@@ -96,8 +103,9 @@ collapsibles; a Result shows the same option bars **frozen** (no vote clicks —
 immutable once published) plus "Poll" and "Petition" collapsibles. Each collapsible previews the
 linked record and links to it via a **"See full X →"** button (`seeFullBtn`) — see
 DESIGN-DECISIONS.md §9 for the reasoning, including the live petition→poll **graduation demo**
-(signing the sample multi-district petition past its threshold flips its "Proposed Poll" tag/section
-into a working "Poll" link, per `petitionGraduated()`).
+(signing the sample multi-district petition past its threshold flips its "Poll @ Y"-tagged section
+into a working "Poll Open" link, per `petitionGraduated()` — kept short so the "+N unverified
+signatures" note, §2, fits beside it on the same line).
 
 **Every participatory action is login-gated, through one `requireAuth(action)`.** Reacting (✓/✗ on
 the Post, in a comment thread, **and on a feed/jurisdiction/district card** via `reactClick`), signing
@@ -117,11 +125,16 @@ signing my official support for the petition: '{title}'"; polls include the chos
 FINAL/unrevokable notice, and a **"Sign with Passkey"** button (`confirmSign`) that performs the
 actual commit. Once signed/voted in Alberta, the button/option is a no-op and its click affordance
 is removed — replaced by a persistent "Final — cannot be revoked" note. If the account isn't
-residency-verified (`state.kyc < 2`), a second notice warns the action won't count officially, and
-`confirmSign` records it as the viewer's own without moving the official `sig`/`v` tally (mirrors
-`civicExtra`'s additive-not-subtractive honesty model, §2). The same modal (a third `kind:
-"compose"` variant, no FINAL notice) gates the compose "Post" button for Alberta Statement/Petition
-creation. See DESIGN-DECISIONS.md §9.6.
+residency-verified (`state.kyc < 2`), a notice box (`signResidencyLines`) warns the action won't
+count officially, and `confirmSign` records it as the viewer's own without moving the official
+`sig`/`v` tally (mirrors `civicExtra`'s additive-not-subtractive honesty model, §2). A **second**,
+independent notice (`signAffectedLines`) covers a residency-verified account signing/voting outside
+the districts the petition/poll actually names (`outsideMyDistricts` — the same predicate Affected
+uses, §2): OurSay still counts them, but a reviewing official could filter them out by district. The
+two are mutually exclusive (one requires `kyc < 2`, the other `kyc >= 2`), so at most one shows
+alongside the FINAL notice — all three notice boxes share one `noticeBox` helper, sized to however
+many lines each needs. The same modal (a third `kind: "compose"` variant, no FINAL notice) gates the
+compose "Post" button for Alberta Statement/Petition creation. See DESIGN-DECISIONS.md §9.6.
 
 **Petition creation is greyed out for non-residency-verified accounts in Alberta** — the compose
 type picker still shows "Petition" (`typeLocked`) but disables it with a "Residency-verified only"
@@ -160,11 +173,15 @@ resident does **not** appear. Author tiers: `0` public · `1` Identity · `2` Re
 (comments + agree/disagree reactions) at **every** level — `SOCIAL_SCALE`. **Civic counts**
 (petition signatures + poll votes) are **never thinned** — the bar/number is always the official
 residency-verified total. Instead, *lowering* Verified below Residency reveals an **additive**
-"+N unverified {signatures|votes}" note beside the bar — `CIVIC_UNVERIFIED_EXTRA = [.35, .12, 0, 0]`
+"+N unverified {signatures|votes}" note — `CIVIC_UNVERIFIED_EXTRA = [.35, .12, 0, 0]`
 (None · ID · Residency · Official) — surfacing participants who took part but aren't in the official
-count, without ever moving the bar itself. *(Verified examples: a 204-agree post reads 204 → 126 →
-69 → 16; a 7,999-signature petition's bar always reads 7,999, with "+2,800 unverified" at None,
-"+960" at ID, and no note at Residency/Official.)* See DESIGN-DECISIONS.md §4.3/§9.5.
+count, without ever moving the bar itself. Where there's room, the note sits **beside** the
+caption/tag on the same line (the "Poll @ Y" tag on a graduating petition, a poll's per-option vote
+bars); the plain "X / Y signatures" caption (no `attachedPoll`) puts it on its own line below
+instead, since that caption's width isn't budgeted to leave room beside it. *(Verified examples: a
+204-agree post reads 204 → 126 → 69 → 16; a 7,999-signature petition's bar always reads 7,999, with
+"+2,800 unverified" at None, "+960" at ID, and no note at Residency/Official.)* See
+DESIGN-DECISIONS.md §4.3/§9.5.
 
 **My Districts** — a geography filter, **independent** of Verified. Only available to
 residency-verified accounts (`state.kyc === 2`; otherwise greyed "Residency only"). It keeps **all
@@ -257,11 +274,11 @@ Read the script top-to-bottom in this order — it is organised to be traced:
 4. **the router** — `nav()` and `go()`, plus `onFabClick` / `onAuthClick`.
 5. **data** — `JUR_DATA`, `POSTS`, `DISTRICT`, `PROFILE`, `POST_TYPES` (the four `POST_*`/`COMMENTS_*`
    detail-page samples).
-6. **content helpers** — `tierLabel`, geography (`postDistricts/inMyDistricts/districtTag`), scaling
-   (`scaleSocial` for social counts, `civicExtra` for the civic-count additive note — §4.3), the
-   shared link/label bits (`initials/leaderLink/scopeTagLink/txtSeg/collHeader/seeFullBtn/
-   drawMapVector/drawDistrictMap`), and the **one** reaction pill `reactBtn` → `reactClick` (the
-   login gate + toggle every ✓/✗ in the app shares).
+6. **content helpers** — `tierLabel`, geography (`postDistricts/inMyDistricts/outsideMyDistricts`),
+   scaling (`scaleSocial` for social counts, `civicExtra` for the civic-count additive note — §4.3),
+   the shared link/label bits (`initials/leaderLink/scopeTagLink/buildScopeTag/scopeTagExtra/txtSeg/
+   collHeader/seeFullBtn/drawMapVector/drawDistrictMap`), and the **one** reaction pill `reactBtn` →
+   `reactClick` (the login gate + toggle every ✓/✗ in the app shares).
 7. **`matches(p, scope)`** and **`buildCard(p, opts)`** — the one matcher and the one card renderer
    every list view calls.
 8. **the five `build*` view functions**, then **`VIEWS` / `setViewScroll` / `render()`**, then the

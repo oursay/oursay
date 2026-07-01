@@ -1456,7 +1456,33 @@
     function signResidencyLines(m) {
       if (m.kind === "compose" || state.kyc >= 2) return null;
       var what = m.kind === "petition" ? "signature" : "vote";
-      return ["Not residency-verified — this " + what + " won't count", "in the official Alberta tally until you verify."];
+      return [
+        "OurSay official counts for Alberta",
+        "only include verified residents —",
+        "this " + what + " won't count until you verify."
+      ];
+    }
+    // even a residency-verified elector (kyc >= 2) can sign/vote outside the districts this
+    // petition/poll actually names — OurSay still counts them (residency, not geography, gates the
+    // official tally), but officials reviewing results can filter by district, so say so upfront.
+    function signAffectedLines(m) {
+      if (m.kind === "compose" || state.kyc < 2 || !outsideMyDistricts(m.target)) return null;
+      var thing = m.kind === "petition" ? "signatures" : "poll results";
+      return [
+        "Officials can filter " + thing + " to exclude",
+        "unaffected users, even though OurSay",
+        "includes you in the official count."
+      ];
+    }
+    // a bold-text notice card, height sized to however many lines it needs; returns the y below it.
+    function noticeBox(g, y, lines) {
+      var h = lines.length * 16 + 20;
+      g.appendChild(rect(79, y, 272, h, 8, "#f7f7f7", "#ddd"));
+      lines.forEach(function (line, i) {
+        var t = centerTxt(215, y + 18 + i * 16, line, 11, "#333");
+        t.setAttribute("font-weight", "bold"); g.appendChild(t);
+      });
+      return y + h + 10;
     }
     function buildSignInner() {
       var g = $("signInner");
@@ -1471,27 +1497,11 @@
       });
       y += 6;
       var resLines = signResidencyLines(m);
-      if (resLines) {
-        var rBoxY = y;
-        g.appendChild(rect(79, rBoxY, 272, 46, 8, "#f7f7f7", "#ddd"));
-        resLines.forEach(function (line, i) {
-          var rt = centerTxt(CX, rBoxY + 20 + i * 16, line, 11, "#333");
-          rt.setAttribute("font-weight", "bold"); g.appendChild(rt);
-        });
-        y = rBoxY + 46 + 10;
-      }
+      if (resLines) y = noticeBox(g, y, resLines);
+      var affLines = signAffectedLines(m);
+      if (affLines) y = noticeBox(g, y, affLines);
       var warn = signWarningLines(m);
-      if (warn) {
-        var boxY = y;
-        g.appendChild(rect(79, boxY, 272, 46, 8, "#f7f7f7", "#ddd"));
-        warn.forEach(function (line, i) {
-          var wt = centerTxt(CX, boxY + 20 + i * 16, line, 11, "#333");
-          wt.setAttribute("font-weight", "bold"); g.appendChild(wt);
-        });
-        y = boxY + 46 + 14;
-      } else {
-        y += 8;
-      }
+      if (warn) y = noticeBox(g, y, warn); else y += 8;
       g.appendChild(primaryBtn(79, y, 272, "Sign with Passkey", "#ic-key", confirmSign));
       y += 58;
       g.appendChild(centerTxt(CX, y, "Alt: Esc or tap outside to cancel", 11, "#999"));
@@ -2017,12 +2027,6 @@
       var keepAff = affOn && isAffectedNotMine(node, postDistrictsList);
       return keepMine || keepAff;
     }
-    function districtTag(p) {
-      var ds = postDistricts(p);
-      if (!ds.length) return "";
-      return ds.length === 1 ? districtName(ds[0]) : (districtName(ds[0]) + " +" + (ds.length - 1));
-    }
-
     // count scaling: raising the Verified filter thins SOCIAL counts (comments + agree/disagree
     // reactions) at every level — fewer qualifying voices are shown, so the tally reflects that.
     var SOCIAL_SCALE = [1, 0.62, 0.34, 0.08];
@@ -2073,6 +2077,61 @@
       var top = baselineY - 12, h = 17;
       if (districtLabel) { var dw = districtLabel.length * cw; clickRect(g, rightX - dw, top, dw + 4, h, go("district")); }
       if (jurName) { var off = (districtLabel.length + sep.length) * cw, jw = jurName.length * cw; clickRect(g, rightX - off - jw, top, jw + 2, h, goJur(jurName)); }
+      return g;
+    }
+    // multi-district posts show "<Jur> · <District1> +N" collapsed, with the "+N" its own click
+    // target (distinct from the District-page link on District1) that expands the tag in place into
+    // one district per line + a "See Less" link, instead of silently swallowing the other names.
+    // scopeTagExtra() reports the extra vertical space the expansion needs so callers laying out
+    // fixed offsets below the tag (buildCard's title, buildPostChrome's title) can push down by it.
+    function scopeTagExtra(p, opts) {
+      var ds = (opts && opts.hideDistrict) ? [] : postDistricts(p);
+      if (ds.length <= 1 || !p._distOpen) return 0;
+      var jurName = (opts && opts.hideJur) ? "" : p.jur;
+      var lines = (jurName ? 1 : 0) + ds.length + 1; // jurisdiction + one row per district + "See Less"
+      return lines * 16 + 8;
+    }
+    function buildScopeTag(p, rightX, baselineY, opts) {
+      opts = opts || {};
+      var ds = opts.hideDistrict ? [] : postDistricts(p);
+      var jurName = opts.hideJur ? "" : p.jur;
+      if (ds.length <= 1) {
+        var distLabel = ds.length === 1 ? districtName(ds[0]) : "";
+        return (jurName || distLabel) ? scopeTagLink(jurName, distLabel, rightX, baselineY) : null;
+      }
+      var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
+      var size = 11.5, cw = size * 0.55;
+      if (!p._distOpen) {
+        var first = districtName(ds[0]), more = "+" + (ds.length - 1), sep = jurName ? " · " : "";
+        var segs = []; if (jurName) segs.push([jurName, true]); if (sep) segs.push([sep, false]); segs.push([first, true]);
+        var moreW = more.length * cw + 6, moreX = rightX - moreW;
+        var t = txtSeg(moreX, baselineY, size, "#999", segs);
+        t.setAttribute("text-anchor", "end"); g.appendChild(t);
+        var mt = txt(rightX, baselineY, more, size, "#333"); mt.setAttribute("text-anchor", "end");
+        mt.setAttribute("font-weight", "bold"); g.appendChild(mt);
+        var top = baselineY - 12, h = 17, firstW = first.length * cw;
+        clickRect(g, moreX, top, moreW, h, function (e) { if (e) e.stopPropagation(); p._distOpen = true; render(); });
+        clickRect(g, moreX - firstW, top, firstW + 4, h, go("district"));
+        if (jurName) { var jw = jurName.length * cw; clickRect(g, moreX - firstW - sep.length * cw - jw, top, jw + 2, h, goJur(jurName)); }
+      } else {
+        var y0 = baselineY;
+        if (jurName) {
+          var jt = txt(rightX, y0, jurName, size, "#999"); jt.setAttribute("text-anchor", "end"); g.appendChild(jt);
+          clickRect(g, rightX - jurName.length * cw, y0 - 12, jurName.length * cw + 2, 17, goJur(jurName));
+          y0 += 16;
+        }
+        ds.forEach(function (slug) {
+          var name = districtName(slug), dw = name.length * cw;
+          var dt = txt(rightX, y0, name, size, "#999"); dt.setAttribute("text-anchor", "end"); g.appendChild(dt);
+          clickRect(g, rightX - dw, y0 - 12, dw + 4, 17, go("district"));
+          y0 += 16;
+        });
+        var lessW = "See Less".length * cw;
+        var lt = txt(rightX, y0, "See Less", size, "#333"); lt.setAttribute("text-anchor", "end");
+        lt.setAttribute("font-weight", "bold"); g.appendChild(lt);
+        clickRect(g, rightX - lessW, y0 - 12, lessW + 2, 17,
+          function (e) { if (e) e.stopPropagation(); p._distOpen = false; render(); });
+      }
       return g;
     }
     // a collapsible section header — leading icon, label, chevron on the RIGHT. Returns y below it.
@@ -2228,22 +2287,24 @@
       // right stack hugs the card edge (inset 4, not the body's 16) to match the Post/comment tags.
       var tagRight = W - 4;
       if (p.tier > 0) add(tierPill(tagRight, 4, p.tier, isHomeAuthor(p)));
-      var jurName = opts.hideJur ? "" : p.jur;
-      var distLabel = opts.hideDistrict ? "" : districtTag(p);
-      if (jurName || distLabel) hit(scopeTagLink(jurName, distLabel, tagRight, 38));
+      // a multi-district post's "+N" can expand in place (see buildScopeTag) — headerExtra is the
+      // extra vertical space that costs, so everything below (title onward) shifts down by it.
+      var headerExtra = scopeTagExtra(p, opts);
+      var tagNode = buildScopeTag(p, tagRight, 38, opts);
+      if (tagNode) hit(tagNode);
 
       // title (tap → post)
-      var ti = txt(px, 66, p.title, 15, "#222"); ti.setAttribute("font-weight", "bold"); add(ti);
-      add(txt(px, 90, p.body[0], 12.5, "#777"));
-      add(txt(px, 108, p.body[1] || "", 12.5, "#777"));
-      var more = txt(px, 130, "…more", 12.5, "#333"); more.setAttribute("font-weight", "bold"); add(more);
+      var ti = txt(px, 66 + headerExtra, p.title, 15, "#222"); ti.setAttribute("font-weight", "bold"); add(ti);
+      add(txt(px, 90 + headerExtra, p.body[0], 12.5, "#777"));
+      add(txt(px, 108 + headerExtra, p.body[1] || "", 12.5, "#777"));
+      var more = txt(px, 130 + headerExtra, "…more", 12.5, "#333"); more.setAttribute("font-weight", "bold"); add(more);
       var postHit = document.createElementNS(SVG_NS, "g");
-      clickRect(postHit, px - 4, 54, W - 2 * px + 8, 22, goPost(p.type)); // title row
-      clickRect(postHit, px - 4, 120, 80, 18, goPost(p.type));            // …more
+      clickRect(postHit, px - 4, 54 + headerExtra, W - 2 * px + 8, 22, goPost(p.type)); // title row
+      clickRect(postHit, px - 4, 120 + headerExtra, 80, 18, goPost(p.type));            // …more
       hit(postHit);
 
       // type-specific section
-      var y = 150;
+      var y = 150 + headerExtra;
       if (p.type === "petition") {
         // the bar/count is always the official (residency-verified) signature total — never
         // thinned by the Verified filter; civicExtra surfaces additional unverified signers
@@ -2252,11 +2313,13 @@
         add(rect(px, y + 2, W - 2 * px, 10, 5, "#f2f2f2", "#ccc"));
         add(rect(px, y + 2, Math.round((W - 2 * px) * frac), 10, 5, "#333"));
         // petitions with a pre-attached poll (§8.6 graduation) show a compact tag instead of the
-        // plain "X / Y signatures" caption — "Proposed Poll" pre-graduation, flips (and becomes a
-        // clickable link to the Poll page) once the signature threshold is reached.
+        // plain "X / Y signatures" caption — "Poll @ N" pre-graduation, flips to "Poll Open" (and
+        // becomes a clickable link to the Poll page) once the signature threshold is reached. Kept
+        // short so the unverified-signers note fits beside it on the same line, not below.
         var graduated = p.attachedPoll && petitionGraduated(p);
+        var btnY;
         if (p.attachedPoll) {
-          var tagLabel = graduated ? "Poll Open" : ("Proposed Poll · " + fmt(p.goal) + " signatures");
+          var tagLabel = graduated ? "Poll Open" : ("Poll @ " + fmt(p.goal));
           var tw = Math.round(textW(tagLabel, 11.5)) + 34;
           add(rect(px, y + 18, tw, 22, 11, "#f2f2f2", "#bbb"));
           add(icon("#ic-check-circle", px + 7, y + 22, 14, "#555"));
@@ -2265,16 +2328,20 @@
             var ptag = document.createElementNS(SVG_NS, "g");
             clickRect(ptag, px, y + 18, tw, 22, goPost("poll")); hit(ptag);
           }
+          if (sigExtra > 0) {
+            var sx = txt(W - px, y + 34, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+            sx.setAttribute("text-anchor", "end"); add(sx);
+          }
+          btnY = y + 44;
         } else {
           add(txt(px, y + 32, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
-        }
-        var btnY = y + 44;
-        if (sigExtra > 0) {
-          // a full row below the tag/caption (which ends ~y+40) — never crowds it regardless of
-          // tag width, since this sits on its own line rather than beside it.
-          var sx = txt(W - px, y + 54, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
-          sx.setAttribute("text-anchor", "end"); add(sx);
-          btnY = y + 64;
+          btnY = y + 44;
+          if (sigExtra > 0) {
+            // own line below — the plain caption's width isn't budgeted to leave room beside it.
+            var sx2 = txt(W - px, y + 54, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+            sx2.setAttribute("text-anchor", "end"); add(sx2);
+            btnY = y + 64;
+          }
         }
         var signed = !!p._signed, locked = signed && isFinalJur(p.jur);
         add(rect(px, btnY, 150, 26, 13, signed ? "#333" : "#ffffff", "#333"));
@@ -2855,8 +2922,9 @@
       if (p.ts) body.appendChild(txt(X + 38, y + 28, relTime(p.ts), 11.5, "#999"));
       var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, X, y, 190, 34, go("profile")); body.appendChild(aHit);
       if (p.tier > 0) body.appendChild(tierPill(X + W, y - 6, p.tier, isHomeAuthor(p)));
-      body.appendChild(scopeTagLink(p.jur, districtTag(p), X + W, y + 30));
-      y += 48;
+      var chromeTag = buildScopeTag(p, X + W, y + 30, {});
+      if (chromeTag) body.appendChild(chromeTag);
+      y += 48 + scopeTagExtra(p, {});
 
       var ti = txt(X, y + 16, p.title, 17, "#222"); ti.setAttribute("font-weight", "bold"); body.appendChild(ti);
       y += 30;
@@ -2894,22 +2962,26 @@
         y += 20;
         var graduated = p.attachedPoll && petitionGraduated(p);
         if (p.attachedPoll) {
-          var tagLabel = graduated ? "Poll Open" : ("Proposed Poll · " + fmt(p.goal) + " signatures");
+          // "Poll @ N" / "Poll Open" — kept short so the unverified-signers note fits beside it.
+          var tagLabel = graduated ? "Poll Open" : ("Poll @ " + fmt(p.goal));
           var tw = Math.round(textW(tagLabel, 12.5)) + 36;
           body.appendChild(rect(X, y, tw, 24, 12, "#f2f2f2", "#bbb"));
           body.appendChild(icon("#ic-check-circle", X + 8, y + 5, 14, "#555"));
           body.appendChild(txt(X + 28, y + 17, tagLabel, 12.5, "#444"));
           if (graduated) clickRect(body, X, y, tw, 24, function (e) { if (e) e.stopPropagation(); goPost("poll")(); });
+          if (sigExtra > 0) {
+            var sx = txt(X + W, y + 17, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+            sx.setAttribute("text-anchor", "end"); body.appendChild(sx);
+          }
+          y += 34;
         } else {
           body.appendChild(txt(X, y + 16, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 13, "#555"));
-        }
-        y += 34;
-        if (sigExtra > 0) {
-          // a full row below the tag/caption — never crowds it regardless of tag width, since
-          // this sits on its own line rather than beside it.
-          var sx = txt(X + W, y + 4, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
-          sx.setAttribute("text-anchor", "end"); body.appendChild(sx);
-          y += 20;
+          y += 34;
+          if (sigExtra > 0) {
+            var sx2 = txt(X + W, y + 4, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+            sx2.setAttribute("text-anchor", "end"); body.appendChild(sx2);
+            y += 20;
+          }
         }
         var signed = !!p._signed, locked = signed && isFinalJur(p.jur);
         body.appendChild(rect(X, y, 170, 30, 15, signed ? "#333" : "#ffffff", "#333"));

@@ -370,7 +370,12 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   wireframe flavour, so it's worth demonstrating as an actual interaction rather than static copy.
   Making the graduated tag itself clickable (not just a separate button on the detail page) means
   the *shortest* path to the poll — tapping the badge that announces it exists — actually works,
-  from the feed as well as the petition's own page.
+  from the feed as well as the petition's own page. The pre-graduation tag reads **"Poll @ Y"**
+  (not the longer "Proposed Poll · Y signatures") specifically so a "+N unverified signatures" note
+  (§4.3) fits **beside** it on the same line rather than needing a line of its own below — the
+  post-graduation "Poll Open" label was already short enough for this; the caption just needed to
+  match. The plain "X / Y signatures" caption (petitions with no `attachedPoll`) keeps its note on
+  its own line below, since that caption's width isn't budgeted to leave room beside it.
 - **Trade-off / rejected:** clicking "See full Poll" always opens the **one** representative Poll
   page (`POST_POLL`) — it does not synthesize a unique poll from this petition's data, and no new
   poll is added to the feed. That would require real cross-record linkage the wireframe doesn't
@@ -454,13 +459,25 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   §3.3) gates the compose "Post" button for Alberta Statement/Petition creation too. The modal only
   appears once logged in — `requireAuth` already runs first everywhere it's reachable.
 - **Officially counting only residency-verified accounts is enforced, not just stated:** if the
-  signed-in account is below Residency (`state.kyc < 2`), the modal adds a second notice — "Not
-  residency-verified — this {signature|vote} won't count in the official Alberta tally until you
-  verify" — and `confirmSign` still records the action as the viewer's own (`_signed`/`_vote`, so
-  their button/checkmark reflects what *they* did) but does **not** increment the official `sig`/
-  `v` tally. This mirrors `civicExtra`'s additive-not-subtractive honesty model (§4.3): an
-  unverified participant's action is real and shown to them, it just isn't part of the certified
-  count — never silently dropped, never silently double-counted.
+  signed-in account is below Residency (`state.kyc < 2`), the modal adds a notice box
+  (`signResidencyLines`) — "OurSay official counts for Alberta only include verified residents —
+  this {signature|vote} won't count until you verify" — and `confirmSign` still records the action
+  as the viewer's own (`_signed`/`_vote`, so their button/checkmark reflects what *they* did) but
+  does **not** increment the official `sig`/`v` tally. This mirrors `civicExtra`'s
+  additive-not-subtractive honesty model (§4.3): an unverified participant's action is real and
+  shown to them, it just isn't part of the certified count — never silently dropped, never silently
+  double-counted.
+- **A second, independent notice covers the residency-verified-but-wrong-district case:** even an
+  account *at* Residency can sign/vote on a petition/poll that doesn't name any of their own
+  districts (`outsideMyDistricts`, the same predicate the Affected filter uses, §9.4) — OurSay still
+  counts them (its official tally gates on residency, not geography), but a reviewing official could
+  reasonably filter results down to the named districts. `signAffectedLines` surfaces this — "Officials
+  can filter {signatures|poll results} to exclude unaffected users, even though OurSay includes you
+  in the official count" — whenever `state.kyc >= 2 && outsideMyDistricts(target)`. The two notices
+  are mutually exclusive by construction (one requires `kyc < 2`, the other `kyc >= 2`), so at most
+  one geography/residency notice ever shows at once, plus the separate FINAL warning above — both
+  boxes (and the FINAL box) are built through one shared `noticeBox` helper, sized to however many
+  lines each needs, so the card grows rather than clipping or fixing a height guess.
 - **Trade-off / rejected:** the WYSIWYS text and the "final" notice are fixed, short, hand-wrapped
   lines (like every other multi-line string in this file — see the width note above
   `buildPostChrome`) rather than dynamically word-wrapped, since every title in this wireframe is
@@ -477,6 +494,27 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 - **Why:** `petition.md`'s Alberta rule is "residency-verified authors only" (§8.6's partial-ladder
   model) — showing the option, disabled, teaches the ladder rule at the point someone would hit it,
   rather than silently omitting a root type an Alberta account might reasonably expect to see.
+
+### 9.8 A multi-district post's "+N" expands in place instead of only linking out
+- **Decision:** the scope tag's "+N" (e.g. "Alberta · Edmonton-Strathcona +1") is its own click
+  target, separate from the jurisdiction/district links beside it (`buildScopeTag`, replacing the
+  old `scopeTagLink`-only rendering). Tapping it expands the tag, in place, into one district name
+  per line plus a **"See Less"** link that collapses it back — instead of "+N" being dead weight
+  that only ever meant "there are more you can't see." Expansion/collapse state (`p._distOpen`)
+  lives on the post object itself, the same transient-UI-state convention already used for
+  `p._signed`/`p._vote`. Because this can add several lines' worth of height above content that
+  `buildCard`/`buildPostChrome` otherwise lay out at **fixed** offsets, both now compute a
+  `scopeTagExtra(p, opts)` up front and add it to every subsequent fixed y (title, body, "…more",
+  the type-specific section) — a card or post with nothing to expand gets `extra = 0` and is
+  laid out exactly as before.
+- **Why:** "+1"/"+2" as a plain, unclickable suffix silently hides real information (which other
+  ridings a multi-district record actually names) that a reader may specifically want — e.g. to
+  judge whether Affected (§9.4) would even apply to them. Expanding in place (not a separate
+  overlay/popover) keeps the same right-aligned, top-of-card real estate the collapsed tag already
+  used, so it reads as "more of the same control," not a new UI surface.
+- **Trade-off / rejected:** each district name still links to the **one** representative District
+  page (`go("district")`), same representative-target approximation used everywhere else (§1.3) —
+  expanding the list surfaces the *names*, it doesn't imply per-riding District pages exist yet.
 
 ---
 
