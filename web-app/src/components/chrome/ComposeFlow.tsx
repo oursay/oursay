@@ -1,7 +1,7 @@
 "use client";
 
 import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
-import { Button, Modal } from "@/components/ui";
+import { Button, Modal, ModalField, ModalOptionRow } from "@/components/ui";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import type { RecordKind } from "@/lib/types";
 
@@ -26,13 +26,19 @@ interface ComposeFlowProps {
   onPost?: () => void;
 }
 
-const TITLES: Record<ComposeStep, string> = {
+const PICKER_TITLES: Record<"where" | "type", string> = {
   where: "Where Do You Want to Post?",
   type: "What Do You Want to Post?",
-  compose: "New Post",
 };
 
-/** Compose flow: jurisdiction pick -> type pick -> type-specific editor. */
+/**
+ * Compose flow: jurisdiction pick -> type pick -> type-specific editor.
+ *
+ * Wireframe note: the compose editor used a generic "New Post" title plus a
+ * separate TYPE row (icon + label + Change). The web app supersedes that —
+ * the header is "New {Statement|Petition|Poll}" with the type icon and
+ * Change inline, so the body starts at POSTING IN / fields.
+ */
 export function ComposeFlow({
   open,
   onClose,
@@ -47,106 +53,140 @@ export function ComposeFlow({
   onChangeType,
   onPost,
 }: ComposeFlowProps) {
+  const picker = step === "where" || step === "type";
+  const JurIcon = selectedJurisdiction
+    ? jurisdictionIconForName(selectedJurisdiction)
+    : null;
+
+  const ComposeTypeIcon = selectedType ? RECORD_TYPE_ICON[selectedType] : null;
+
+  const composeHeader =
+    step === "compose" && selectedType && ComposeTypeIcon ? (
+      <div className="flex w-full items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <ComposeTypeIcon size={16} className="shrink-0 text-ink-soft" aria-hidden />
+          <h2 className="truncate text-base font-bold text-ink">
+            New {RECORD_TYPE_LABEL[selectedType]}
+          </h2>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-8 shrink-0 px-2.5 text-xs"
+          onClick={onChangeType}
+        >
+          Change
+        </Button>
+      </div>
+    ) : undefined;
+
+  const composeAriaLabel = selectedType
+    ? `New ${RECORD_TYPE_LABEL[selectedType]}`
+    : undefined;
+
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={TITLES[step]}
-      subtitle={step === "type" ? `In ${selectedJurisdiction}` : undefined}
+      title={picker ? PICKER_TITLES[step] : undefined}
+      header={composeHeader}
+      ariaLabel={composeAriaLabel}
+      subtitle={
+        step === "where"
+          ? "Pick a jurisdiction"
+          : step === "type"
+            ? `In ${selectedJurisdiction}`
+            : undefined
+      }
+      headerAlign={picker ? "center" : "left"}
+      size={step === "compose" ? "dialog" : "picker"}
+      showDismissHint={step === "compose"}
     >
       {step === "where" ? (
-        <div className="mt-2 space-y-2">
+        <div className="space-y-2">
           {jurisdictions.map((name) => {
             const Icon = jurisdictionIconForName(name);
             return (
-              <button
+              <ModalOptionRow
                 key={name}
-                type="button"
+                label={name}
+                icon={<Icon size={18} aria-hidden />}
                 onClick={() => onSelectJurisdiction(name)}
-                className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-border px-3 text-sm text-ink hover:bg-surface-muted"
-              >
-                <Icon size={16} aria-hidden />
-                {name}
-              </button>
+              />
             );
           })}
         </div>
       ) : null}
 
       {step === "type" ? (
-        <div className="mt-2 space-y-2">
+        <div className="space-y-2">
           {allowedTypes.map((kind) => {
             const Icon = RECORD_TYPE_ICON[kind];
             const locked = lockedTypes.includes(kind);
             return (
-              <button
+              <ModalOptionRow
                 key={kind}
-                type="button"
+                label={RECORD_TYPE_LABEL[kind]}
+                icon={<Icon size={18} aria-hidden />}
+                trailing={locked ? "Residency-verified only" : undefined}
                 disabled={locked}
                 onClick={() => onSelectType(kind)}
-                className={`flex min-h-11 w-full items-center gap-2 rounded-lg border border-border px-3 text-sm hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent ${locked ? "text-muted" : "text-ink"}`}
-              >
-                <Icon size={16} aria-hidden />
-                {RECORD_TYPE_LABEL[kind]}
-                {locked ? (
-                  <span className="ml-auto text-xs">Residency-verified only</span>
-                ) : null}
-              </button>
+              />
             );
           })}
         </div>
       ) : null}
 
       {step === "compose" && selectedType ? (
-        <div className="mt-2 space-y-3">
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-xs font-bold uppercase tracking-wide text-muted">
-              Type
-            </span>
-            <span className="font-medium text-ink">
-              {RECORD_TYPE_LABEL[selectedType]}
-            </span>
-            <span className="ml-auto">
-              <Button variant="outline" size="sm" onClick={onChangeType}>
-                Change
-              </Button>
-            </span>
-          </div>
+        <div className="space-y-4">
+          {selectedJurisdiction && JurIcon ? (
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
+                Posting in
+              </p>
+              <div className="mt-1 flex min-h-10 items-center gap-2 rounded-lg border border-border bg-surface-muted px-3 text-sm font-medium text-ink">
+                <JurIcon size={18} className="shrink-0 text-ink-soft" aria-hidden />
+                {selectedJurisdiction}
+              </div>
+            </div>
+          ) : null}
 
-          <input
-            type="text"
+          <ModalField
+            label={selectedType === "poll" ? "Question" : "Title"}
             placeholder={
-              selectedType === "poll" ? "Ask a question…" : "Title"
+              selectedType === "poll"
+                ? "Ask a yes/no or multiple-choice question…"
+                : selectedType === "petition"
+                  ? "What are you calling for?"
+                  : "A clear headline…"
             }
-            className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
           />
 
           {selectedType === "poll" ? (
             <div className="space-y-2">
-              {["Option 1", "Option 2"].map((ph) => (
-                <input
-                  key={ph}
-                  type="text"
-                  placeholder={ph}
-                  className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
-                />
-              ))}
+              <ModalField label="Options" placeholder="Option 1" />
+              <ModalField placeholder="Option 2" />
               <p className="text-xs text-muted">2–10 options.</p>
             </div>
           ) : (
-            <textarea
+            <ModalField
+              label="Body"
+              placeholder={
+                selectedType === "petition"
+                  ? "Write your petition…"
+                  : "Write your statement…"
+              }
+              multiline
               rows={4}
-              placeholder="Write your post…"
-              className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
             />
           )}
 
           {selectedType === "petition" ? (
-            <input
-              type="text"
-              maxLength={60}
-              placeholder="One-line support statement (max 60 chars)"
-              className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
+            <ModalField
+              label="Signature Button Text"
+              placeholder="Sign the Petition"
+              maxLength={30}
+              hint={'Defaults to "Sign the Petition" — editable, max 30'}
             />
           ) : null}
 

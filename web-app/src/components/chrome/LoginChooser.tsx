@@ -1,7 +1,7 @@
 "use client";
 
 import { KeyRound, Mail } from "lucide-react";
-import { Button, Modal } from "@/components/ui";
+import { Button, Modal, ModalField } from "@/components/ui";
 
 interface LoginChooserProps {
   open: boolean;
@@ -23,15 +23,11 @@ export function LoginChooser({
   onRecover,
 }: LoginChooserProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Log In">
-      <div className="mt-2 space-y-3">
+    <Modal open={open} onClose={onClose} title="Log In" headerAlign="center" showDismissHint>
+      <div className="space-y-3">
         {otpWindow ? (
           <>
-            <input
-              type="email"
-              placeholder="jane@example.ca"
-              className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
-            />
+            <ModalField label="Email" placeholder="jane@example.ca" />
             <Button fullWidth icon={Mail} onClick={onVerifyEmail}>
               Verify Email
             </Button>

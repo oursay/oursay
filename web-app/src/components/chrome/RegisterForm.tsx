@@ -1,7 +1,7 @@
 "use client";
 
 import { Mail } from "lucide-react";
-import { Button, Modal } from "@/components/ui";
+import { Button, Modal, ModalField } from "@/components/ui";
 
 interface RegisterFormProps {
   open: boolean;
@@ -10,22 +10,9 @@ interface RegisterFormProps {
   onSubmit?: () => void;
 }
 
-function Field({ label, placeholder }: { label: string; placeholder: string }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs text-muted">{label}</span>
-      <input
-        type="text"
-        placeholder={placeholder}
-        className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
-      />
-    </label>
-  );
-}
-
 function SectionLabel({ children }: { children: string }) {
   return (
-    <p className="pt-1 text-xs font-bold uppercase tracking-wide text-muted">
+    <p className="pt-1 text-[11px] font-bold uppercase tracking-wide text-muted">
       {children}
     </p>
   );
@@ -40,34 +27,35 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
       variant="sheet"
       title="Create Account"
       subtitle="Verify email · add a passkey — no date of birth needed"
+      showDismissHint
     >
       <div className="space-y-3">
         <SectionLabel>Public profile</SectionLabel>
-        <Field label="Display name" placeholder="Jane" />
-        <Field label="Handle" placeholder="@jane_alberta" />
+        <ModalField label="Display name" placeholder="Jane" />
+        <ModalField label="Handle" placeholder="@jane_alberta" />
 
         <SectionLabel>Your details — private (KYC)</SectionLabel>
         <div className="grid grid-cols-2 gap-2">
-          <Field label="First name" placeholder="Jane" />
-          <Field label="Last name" placeholder="Doe" />
+          <ModalField label="First name" placeholder="Jane" />
+          <ModalField label="Last name" placeholder="Doe" />
         </div>
-        <Field label="Email" placeholder="jane@example.ca" />
+        <ModalField label="Email" placeholder="jane@example.ca" />
 
         <SectionLabel>Address — sets your districts, never public</SectionLabel>
-        <Field label="Street address" placeholder="123 Main St" />
+        <ModalField label="Street address" placeholder="123 Main St" />
         <div className="grid grid-cols-2 gap-2">
-          <Field label="City" placeholder="Calgary" />
-          <Field label="Province" placeholder="AB" />
+          <ModalField label="City" placeholder="Calgary" />
+          <ModalField label="Province" placeholder="AB" />
         </div>
 
         <label className="flex items-center gap-2 pt-1 text-sm text-ink">
-          <input type="checkbox" defaultChecked className="size-4" />
+          <input type="checkbox" defaultChecked className="size-4 rounded border-border" />
           I am 18 or older
           <span className="text-xs text-muted">— stored as a yes/no flag</span>
         </label>
 
-        <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-muted p-3">
-          <Mail size={18} className="mt-0.5 shrink-0 text-ink" aria-hidden />
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-muted p-3">
+          <Mail size={18} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden />
           <div>
             <p className="text-sm font-semibold text-ink">
               We&apos;ll email you a 6-digit code

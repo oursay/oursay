@@ -2,6 +2,8 @@ export * from "./DismissBackdrop";
 export * from "./Button";
 export * from "./Avatar";
 export * from "./Modal";
+export * from "./ModalField";
+export * from "./ModalOptionRow";
 export * from "./NoticeBox";
 export * from "./CheckboxRow";
 export * from "./CollapsibleSection";

@@ -24,6 +24,8 @@ export function AuthChooser({
       onClose={onClose}
       title="Join OurSay"
       subtitle="Register or log in to take part"
+      headerAlign="center"
+      showDismissHint
     >
       <div className="mt-2 space-y-3">
         <Button fullWidth onClick={onRegister}>

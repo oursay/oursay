@@ -7,17 +7,34 @@ import { X } from "lucide-react";
 import { swallowNextPointerClick } from "@/components/utils";
 
 type Variant = "center" | "sheet";
+type Size = "picker" | "dialog" | "wide";
 
 interface ModalProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  /** Replaces the default title/subtitle block (compose editor header). */
+  header?: ReactNode;
+  /** Accessible name when `header` is used instead of `title`. */
+  ariaLabel?: string;
   /** center = small dialog card; sheet = tall near-full-height panel (register/profile). */
   variant?: Variant;
+  /** picker ≈ 320px wireframe cards; dialog ≈ 340px compose; wide for add-jurisdiction. */
+  size?: Size;
   children: ReactNode;
   /** Optional label rendered under the title (e.g. register subtitle). */
   subtitle?: string;
+  /** Picker modals center their header like the wireframe. */
+  headerAlign?: "left" | "center";
+  /** Footer hint — "Alt: Esc or tap outside to close". */
+  showDismissHint?: boolean;
 }
+
+const SIZES: Record<Size, string> = {
+  picker: "max-w-[20rem]",
+  dialog: "max-w-[21.25rem]",
+  wide: "max-w-[21.25rem]",
+};
 
 /**
  * Presentational modal shell: dimmed backdrop + panel, Escape / outside release
@@ -27,8 +44,13 @@ export function Modal({
   open,
   onClose,
   title,
+  header,
+  ariaLabel,
   variant = "center",
+  size = "picker",
   subtitle,
+  headerAlign = "left",
+  showDismissHint = false,
   children,
 }: ModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -50,13 +72,15 @@ export function Modal({
 
   const panel =
     variant === "sheet"
-      ? "mx-auto mt-6 mb-6 w-[calc(100%-2rem)] max-w-md"
-      : "mx-auto my-auto w-[calc(100%-3rem)] max-w-sm";
+      ? "mx-auto mt-4 mb-6 w-[calc(100%-2rem)] max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-3xl"
+      : `mx-auto my-auto w-[calc(100%-2rem)] ${SIZES[size]}`;
+
+  const centered = headerAlign === "center";
 
   return createPortal(
     <div
       className={`fixed inset-0 z-50 flex overflow-y-auto bg-black/45 ${
-        variant === "sheet" ? "items-start pt-6" : "items-center"
+        variant === "sheet" ? "items-start" : "items-center"
       } justify-center p-4`}
       onPointerUp={(e) => {
         if (e.target === e.currentTarget) {
@@ -70,16 +94,22 @@ export function Modal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
-        className={`pill-chrome relative flex flex-col overflow-visible rounded-2xl bg-surface p-5 ${panel}`}
+        aria-label={ariaLabel ?? title}
+        className={`pill-chrome relative flex flex-col overflow-visible bg-surface px-5 pb-4 pt-5 ${panel} ${
+          variant === "sheet" ? "rounded-3xl" : "rounded-2xl"
+        }`}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
       >
-        {title ? (
-          <div className="mb-3">
-            <h2 className="text-lg font-bold text-ink">{title}</h2>
+        {header ? (
+          <div className="mb-4 w-full">{header}</div>
+        ) : title ? (
+          <div
+            className={`mb-4 ${centered ? "px-6 pt-0.5 text-center" : "pr-4"}`}
+          >
+            <h2 className="text-lg font-bold leading-snug text-ink">{title}</h2>
             {subtitle ? (
-              <p className="mt-0.5 text-sm text-muted">{subtitle}</p>
+              <p className="mt-1 text-sm text-muted">{subtitle}</p>
             ) : null}
           </div>
         ) : null}
@@ -87,11 +117,16 @@ export function Modal({
           ref={closeRef}
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-0 top-0 z-10 inline-flex size-[26px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-ink text-white hover:bg-ink-soft"
+          className="absolute -right-3 -top-3 z-10 inline-flex size-[26px] items-center justify-center rounded-full bg-ink text-white shadow-sm hover:bg-ink-soft"
         >
           <X size={14} aria-hidden />
         </button>
-        {children}
+        <div className="min-w-0 flex-1">{children}</div>
+        {showDismissHint ? (
+          <p className="mt-4 text-center text-xs text-muted">
+            Alt: Esc or tap outside to close
+          </p>
+        ) : null}
       </div>
     </div>,
     document.body,
