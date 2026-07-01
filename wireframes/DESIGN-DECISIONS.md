@@ -374,8 +374,9 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   (not the longer "Proposed Poll · Y signatures") specifically so a "+N unverified signatures" note
   (§4.3) fits **beside** it on the same line rather than needing a line of its own below — the
   post-graduation "Poll Open" label was already short enough for this; the caption just needed to
-  match. The plain "X / Y signatures" caption (petitions with no `attachedPoll`) keeps its note on
-  its own line below, since that caption's width isn't budgeted to leave room beside it.
+  match. The plain "X / Y signatures" caption (petitions with no `attachedPoll`) also keeps its note
+  beside it on the same line — real character-width measurement (`getComputedTextLength`, not the
+  file's own overestimating `textW()`) confirmed a wide margin even for the widest sample caption.
 - **Trade-off / rejected:** clicking "See full Poll" always opens the **one** representative Poll
   page (`POST_POLL`) — it does not synthesize a unique poll from this petition's data, and no new
   poll is added to the feed. That would require real cross-record linkage the wireframe doesn't
@@ -495,26 +496,61 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   model) — showing the option, disabled, teaches the ladder rule at the point someone would hit it,
   rather than silently omitting a root type an Alberta account might reasonably expect to see.
 
-### 9.8 A multi-district post's "+N" expands in place instead of only linking out
+### 9.8 A multi-district post's "+N" expands with District1 fixed on line 1, the rest wrapped below
 - **Decision:** the scope tag's "+N" (e.g. "Alberta · Edmonton-Strathcona +1") is its own click
-  target, separate from the jurisdiction/district links beside it (`buildScopeTag`, replacing the
-  old `scopeTagLink`-only rendering). Tapping it expands the tag, in place, into one district name
-  per line plus a **"See Less"** link that collapses it back — instead of "+N" being dead weight
-  that only ever meant "there are more you can't see." Expansion/collapse state (`p._distOpen`)
-  lives on the post object itself, the same transient-UI-state convention already used for
-  `p._signed`/`p._vote`. Because this can add several lines' worth of height above content that
-  `buildCard`/`buildPostChrome` otherwise lay out at **fixed** offsets, both now compute a
-  `scopeTagExtra(p, opts)` up front and add it to every subsequent fixed y (title, body, "…more",
-  the type-specific section) — a card or post with nothing to expand gets `extra = 0` and is
-  laid out exactly as before.
+  target, separated from District1 by a plain (non-underlined) space rather than being fused into
+  one long underlined string, and styled exactly like every other link segment in the tag — muted
+  grey, **underlined, not bold** (`buildScopeTag`, replacing the old `scopeTagLink`-only rendering;
+  the whole collapsed label, including "+N", is one `txtSeg` call so every segment shares styling
+  consistently). Tapping "+N" expands the tag: **line 1 stays exactly what it was** — "Jurisdiction ·
+  District1" — with "+N" simply swapped for a trailing comma; every remaining district (comma-
+  separated) plus a **"See Less"** link (joined to the last name by " · ", matching the jurisdiction
+  separator's style) wraps onto the line(s) **below** it. So a "+1" post (2 districts total) always
+  gets a genuine second line ("District2 · See Less"), not District2 crammed beside District1 on
+  line 1. Each district name and "See Less" is individually underlined and clickable; ", "/" · "
+  separators never are. Expansion/collapse state (`p._distOpen`) lives on the post object itself,
+  the same transient-UI-state convention already used for `p._signed`/`p._vote`.
+- **Wrapping below line 1 is measured for real, not estimated:** unlike every other multi-line
+  string in this file (hand-wrapped against the `textW()` estimate, since that content is fixed,
+  authored copy — see the width note above `buildPostChrome`), a district list's length is
+  **data-driven** — it has to keep working whether a post names 2 districts or 80.
+  `computeScopeLines()` fixes line 1 to "Jurisdiction · District1," unconditionally, then packs the
+  remaining chunks (each "District, " / the last "District · ", "See Less") onto as few lines as
+  **actually** fit below it, checked with a hidden, real `<text>` node's `getComputedTextLength()`
+  (`measureTextWidth`) against the true available width (`rightX - 15`) — so anything past 2
+  districts wraps correctly at any N. Confirmed against a dedicated 3-district sample (Dale
+  Friesen's statement, "+2"): "Alberta · Calgary-Elbow," / "Calgary-Mountain View, Calgary-Forest
+  Lawn · See Less" — while the "+1" case (Wei Chen's petition, 2 districts) gets its expected two
+  lines too: "Alberta · Edmonton-Strathcona," / "Edmonton-City Centre · See Less".
+  `scopeTagExtra(p, opts, rightX)` runs the same computation to learn the line count, and
+  `buildCard`/`buildPostChrome` push their fixed-offset content (title, body, "…more", the
+  type-specific section) down by `(lines - 1) * 16 + 8` — 0 only when collapsed.
 - **Why:** "+1"/"+2" as a plain, unclickable suffix silently hides real information (which other
   ridings a multi-district record actually names) that a reader may specifically want — e.g. to
   judge whether Affected (§9.4) would even apply to them. Expanding in place (not a separate
   overlay/popover) keeps the same right-aligned, top-of-card real estate the collapsed tag already
-  used, so it reads as "more of the same control," not a new UI surface.
+  used, so it reads as "more of the same control," not a new UI surface. Real Alberta riding names
+  turned out long enough that even 2–3 of them can exceed a 370px card's width on one line, so an
+  estimate-based, single-line-only layout would have needed a shrunk font as a workaround (tried,
+  then rejected once measurement showed a proper multi-line wrap was both correct and unnecessary
+  to fake at a smaller size).
 - **Trade-off / rejected:** each district name still links to the **one** representative District
   page (`go("district")`), same representative-target approximation used everywhere else (§1.3) —
   expanding the list surfaces the *names*, it doesn't imply per-riding District pages exist yet.
+
+### 9.9 Poll/Result option bars now span the same width as every other Post-page element
+- **Bug:** `buildPollOptions(p, px, y, w, opts)` computed its bar width as `w - 2 * px`, treating its
+  third parameter as a margin to subtract — correct for `buildCard` (whose other elements really do
+  sit at a fixed `px` inset from a nominal card width `W`), but wrong for the Post page, which calls
+  it with `(X, y, W, opts)` where `X`/`W` are already the literal left-edge/width every other element
+  on that page uses directly (e.g. the petition progress bar: `rect(X, y, W, ...)`). The extra
+  subtraction left Poll/Result option bars ~60px short of the petition bar's width and the page's
+  other content, on both the live Poll page and the frozen Result page.
+- **Fix:** `buildPollOptions` now treats `w` as the literal bar width (`bw = w`, no subtraction);
+  `buildCard`'s one call site — the only one that relied on the old internal subtraction — now
+  passes the already-adjusted `W - 2 * px` instead. Both call sites (Post page and card) render
+  identically to before; only the Post page's Poll/Result bars actually changed, now spanning the
+  full width to match the petition bar and every other page element.
 
 ---
 

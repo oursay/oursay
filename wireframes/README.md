@@ -68,14 +68,24 @@ factory the builders use:
 The right-aligned scope tag on a card is built by `buildScopeTag(p, ...)`: for a single-district (or
 jurisdiction-wide) post it's the same underline-only-the-linkable-words tag as before
 (`scopeTagLink`) — `Jurisdiction · District`, invisible hit target over each word, separator/implied
-part left plain. For a **multi-district** post, the "+N" suffix (e.g. "Edmonton-Strathcona +1") is
-its **own** click target: tapping it expands the tag in place into one district per line plus a
-**"See Less"** link, instead of "+N" only ever meaning "there's more you can't see." Both `buildCard`
-and the Post page's `buildPostChrome` call `scopeTagExtra(p, opts)` first to learn how much extra
-height the expansion needs, then shift everything below it (title, body, the type-specific section)
-down by that amount — collapsed, `extra` is `0` and nothing shifts. `goJur(name)` is
-`go("jurisdiction")` that first points `state.jur` at the named jurisdiction. See
-DESIGN-DECISIONS.md §9.8.
+part left plain. For a **multi-district** post, the "+N" suffix is its **own** click target —
+separated from District1 by a plain space, styled identically to every other link segment (muted
+grey, underlined, not bold, not a fused underlined string). Tapping it expands the tag: **line 1
+stays exactly what it was** ("Jurisdiction · District1"), just with "+N" swapped for a trailing
+comma; every remaining district (comma-separated) plus **"See Less"** wraps onto the line(s) below
+it — so a "+1" post always gets a real second line ("District2 · See Less"), never District2
+crammed beside District1. Because the remaining-district list's length is data-driven (unlike this
+file's other, hand-wrapped fixed strings), `computeScopeLines()` wraps it for real below line 1 —
+greedily packing each "District, " / "See Less" onto as few lines as actually measure-fit
+(`measureTextWidth`, a hidden `<text>` node's `getComputedTextLength()`), so it's correct at any N,
+not just the samples on hand: the "+1" case (Wei Chen, 2 districts) wraps to "Alberta ·
+Edmonton-Strathcona," / "Edmonton-City Centre · See Less"; the "+2" case (Dale Friesen, 3 districts)
+wraps to "Alberta · Calgary-Elbow," / "Calgary-Mountain View, Calgary-Forest Lawn · See Less". Both
+`buildCard` and the Post page's `buildPostChrome`
+call `scopeTagExtra(p, opts, rightX)` first to learn how many lines the expansion needs, then shift
+everything below it (title, body, the type-specific section) down accordingly — collapsed or
+single-line, the shift is `0`/minimal and nothing else moves. `goJur(name)` is `go("jurisdiction")`
+that first points `state.jur` at the named jurisdiction. See DESIGN-DECISIONS.md §9.8.
 
 These are **representative-target** flips: the wireframe always jumps to the one sample Post / Profile
 / District it ships, regardless of which card you tapped — extended by `goPost(type)` to one
@@ -98,8 +108,9 @@ cards** for any post that has been revised (`buildCard`).
 title, full body) and comment thread, but each renders its own type-specific section — a Petition
 shows its signature progress bar and Sign button (`petitionSign`, plus a collapsible "Proposed
 Poll"/"Poll" section if it has an `attachedPoll`); a Poll shows its vote-option bars
-(`buildPollOptions`, live `pollVote`) plus, when applicable, "Source Petition" and "Result"
-collapsibles; a Result shows the same option bars **frozen** (no vote clicks — results are
+(`buildPollOptions`, live `pollVote`, spanning the full page width — same as the petition bar and
+every other element, see DESIGN-DECISIONS.md §9.9) plus, when applicable, "Source Petition" and
+"Result" collapsibles; a Result shows the same option bars **frozen** (no vote clicks — results are
 immutable once published) plus "Poll" and "Petition" collapsibles. Each collapsible previews the
 linked record and links to it via a **"See full X →"** button (`seeFullBtn`) — see
 DESIGN-DECISIONS.md §9 for the reasoning, including the live petition→poll **graduation demo**
@@ -175,12 +186,13 @@ resident does **not** appear. Author tiers: `0` public · `1` Identity · `2` Re
 residency-verified total. Instead, *lowering* Verified below Residency reveals an **additive**
 "+N unverified {signatures|votes}" note — `CIVIC_UNVERIFIED_EXTRA = [.35, .12, 0, 0]`
 (None · ID · Residency · Official) — surfacing participants who took part but aren't in the official
-count, without ever moving the bar itself. Where there's room, the note sits **beside** the
-caption/tag on the same line (the "Poll @ Y" tag on a graduating petition, a poll's per-option vote
-bars); the plain "X / Y signatures" caption (no `attachedPoll`) puts it on its own line below
-instead, since that caption's width isn't budgeted to leave room beside it. *(Verified examples: a
-204-agree post reads 204 → 126 → 69 → 16; a 7,999-signature petition's bar always reads 7,999, with
-"+2,800 unverified" at None, "+960" at ID, and no note at Residency/Official.)* See
+count, without ever moving the bar itself. The note always sits **beside** the caption/tag on the
+same line — the "Poll @ Y" tag on a graduating petition, the plain "X / Y signatures" caption (no
+`attachedPoll`), and a poll's per-option vote bars all measured with real character widths to
+confirm the note fits beside them without overlap, rather than needing a line of its own below.
+*(Verified examples: a 204-agree post reads 204 → 126 → 69 → 16; a 7,999-signature petition's bar
+always reads 7,999, with "+2,800 unverified" at None, "+960" at ID, and no note at
+Residency/Official.)* See
 DESIGN-DECISIONS.md §4.3/§9.5.
 
 **My Districts** — a geography filter, **independent** of Verified. Only available to

@@ -1591,7 +1591,8 @@
       "edmonton-strathcona": "Edmonton-Strathcona",
       "edmonton-city-centre": "Edmonton-City Centre",
       "calgary-elbow": "Calgary-Elbow",
-      "calgary-mountain-view": "Calgary-Mountain View"
+      "calgary-mountain-view": "Calgary-Mountain View",
+      "calgary-forest-lawn": "Calgary-Forest Lawn"
     };
     function districtName(slug) { return DISTRICT_NAMES[slug] || slug; }
 
@@ -1672,7 +1673,7 @@
           question:"Twin the river-valley path — fund it in 2027?",
           options:["Yes — fund it in 2027","No — defer to a later budget"]
         } },
-      { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow","calgary-mountain-view"], author:"Dale Friesen", handle:"dfriesen",
+      { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow","calgary-mountain-view","calgary-forest-lawn"], author:"Dale Friesen", handle:"dfriesen",
         title:"Coordinate snow clearing across Calgary core",
         body:["Neighbouring wards clear on different schedules. A shared",
               "plan would cut complaints."], up:88, down:19, comments:15 }
@@ -2079,17 +2080,67 @@
       if (jurName) { var off = (districtLabel.length + sep.length) * cw, jw = jurName.length * cw; clickRect(g, rightX - off - jw, top, jw + 2, h, goJur(jurName)); }
       return g;
     }
+    // real-width text measurement, for the one place in this file where content length is
+    // data-driven (a district list) rather than known, authored copy — everywhere else, line
+    // breaks are hand-chosen against the textW() estimate (see the width note above
+    // buildPostChrome), which is fine for fixed strings but not for an arbitrary N.
+    var scopeMeasureNode = null;
+    function measureTextWidth(str, size) {
+      if (!scopeMeasureNode) {
+        scopeMeasureNode = document.createElementNS(SVG_NS, "text");
+        scopeMeasureNode.setAttribute("visibility", "hidden");
+        document.querySelector("svg").appendChild(scopeMeasureNode);
+      }
+      scopeMeasureNode.setAttribute("font-size", size);
+      scopeMeasureNode.textContent = str;
+      return scopeMeasureNode.getComputedTextLength();
+    }
+    // line 1 always stays "<Jur> · <District1>," — the collapsed tag's own first line with "+N"
+    // swapped for a trailing comma, never reflowed — and every remaining district ("District2, ",
+    // ..., the last "DistrictN · " leading into "See Less") plus "See Less" itself greedily packs
+    // onto as few lines below it as actually fit, measured for real (not estimated), so this stays
+    // correct at any N, not just the samples on hand: 2 districts still get a real second line
+    // ("District2 · See Less"), 3+ wrap further only once they actually run out of room.
+    function computeScopeLines(ds, jurName, rightX, size) {
+      var budget = rightX - 15 - 4; // phone-screen left edge (x=15) plus a small safety margin
+      var line1 = [];
+      if (jurName) { line1.push([jurName, true]); line1.push([" · ", false]); }
+      line1.push([districtName(ds[0]), true]); line1.push([",", false]);
+      var lines = [line1];
+
+      var chunks = [];
+      ds.slice(1).forEach(function (slug, i, rest) {
+        var trailing = (i < rest.length - 1) ? ", " : " · ";
+        chunks.push([[districtName(slug), true], [trailing, false]]);
+      });
+      chunks.push([["See Less", true]]);
+      var cur = [], curText = "";
+      chunks.forEach(function (chunk) {
+        var chunkText = chunk.map(function (s) { return s[0]; }).join("");
+        if (curText && measureTextWidth(curText + chunkText, size) > budget) {
+          lines.push(cur); cur = []; curText = "";
+        }
+        chunk.forEach(function (s) { cur.push(s); });
+        curText += chunkText;
+      });
+      if (cur.length) lines.push(cur);
+      return lines;
+    }
     // multi-district posts show "<Jur> · <District1> +N" collapsed, with the "+N" its own click
-    // target (distinct from the District-page link on District1) that expands the tag in place into
-    // one district per line + a "See Less" link, instead of silently swallowing the other names.
-    // scopeTagExtra() reports the extra vertical space the expansion needs so callers laying out
-    // fixed offsets below the tag (buildCard's title, buildPostChrome's title) can push down by it.
-    function scopeTagExtra(p, opts) {
+    // target (distinct from the District-page link on District1, separated from it by a plain
+    // space, not one long underlined string) that expands the tag in place into a right-justified,
+    // comma-separated paragraph of every district name — wrapping onto as many lines as it actually
+    // needs (`computeScopeLines`) — ending inline with a "See Less" link. Every link segment shares
+    // the same style as the rest of the scope tag (muted grey, underlined, not bold); ", "/" · "
+    // separators are never underlined. scopeTagExtra() reports the extra vertical space the
+    // expansion needs so callers laying out fixed offsets below the tag (buildCard's title,
+    // buildPostChrome's title) can push down by it.
+    function scopeTagExtra(p, opts, rightX) {
       var ds = (opts && opts.hideDistrict) ? [] : postDistricts(p);
       if (ds.length <= 1 || !p._distOpen) return 0;
       var jurName = (opts && opts.hideJur) ? "" : p.jur;
-      var lines = (jurName ? 1 : 0) + ds.length + 1; // jurisdiction + one row per district + "See Less"
-      return lines * 16 + 8;
+      var lines = computeScopeLines(ds, jurName, rightX, 11.5);
+      return (lines.length - 1) * 16 + 8;
     }
     function buildScopeTag(p, rightX, baselineY, opts) {
       opts = opts || {};
@@ -2100,37 +2151,39 @@
         return (jurName || distLabel) ? scopeTagLink(jurName, distLabel, rightX, baselineY) : null;
       }
       var g = document.createElementNS(SVG_NS, "g"); g.style.cursor = "pointer";
-      var size = 11.5, cw = size * 0.55;
+      var size = 11.5, cw = size * 0.55, top = baselineY - 12, h = 17, sep = jurName ? " · " : "";
       if (!p._distOpen) {
-        var first = districtName(ds[0]), more = "+" + (ds.length - 1), sep = jurName ? " · " : "";
-        var segs = []; if (jurName) segs.push([jurName, true]); if (sep) segs.push([sep, false]); segs.push([first, true]);
-        var moreW = more.length * cw + 6, moreX = rightX - moreW;
-        var t = txtSeg(moreX, baselineY, size, "#999", segs);
+        var first = districtName(ds[0]), more = "+" + (ds.length - 1);
+        var segs = []; if (jurName) segs.push([jurName, true]); if (sep) segs.push([sep, false]);
+        segs.push([first, true]); segs.push([" ", false]); segs.push([more, true]);
+        var t = txtSeg(rightX, baselineY, size, "#999", segs);
         t.setAttribute("text-anchor", "end"); g.appendChild(t);
-        var mt = txt(rightX, baselineY, more, size, "#333"); mt.setAttribute("text-anchor", "end");
-        mt.setAttribute("font-weight", "bold"); g.appendChild(mt);
-        var top = baselineY - 12, h = 17, firstW = first.length * cw;
-        clickRect(g, moreX, top, moreW, h, function (e) { if (e) e.stopPropagation(); p._distOpen = true; render(); });
-        clickRect(g, moreX - firstW, top, firstW + 4, h, go("district"));
-        if (jurName) { var jw = jurName.length * cw; clickRect(g, moreX - firstW - sep.length * cw - jw, top, jw + 2, h, goJur(jurName)); }
-      } else {
-        var y0 = baselineY;
+        var moreW = more.length * cw;
+        clickRect(g, rightX - moreW, top, moreW + 2, h, function (e) { if (e) e.stopPropagation(); p._distOpen = true; render(); });
+        var afterFirst = moreW + cw, firstW = first.length * cw;
+        clickRect(g, rightX - afterFirst - firstW, top, firstW + 2, h, go("district"));
         if (jurName) {
-          var jt = txt(rightX, y0, jurName, size, "#999"); jt.setAttribute("text-anchor", "end"); g.appendChild(jt);
-          clickRect(g, rightX - jurName.length * cw, y0 - 12, jurName.length * cw + 2, 17, goJur(jurName));
-          y0 += 16;
+          var beforeFirst = afterFirst + firstW + sep.length * cw, jw = jurName.length * cw;
+          clickRect(g, rightX - beforeFirst - jw, top, jw + 2, h, goJur(jurName));
         }
-        ds.forEach(function (slug) {
-          var name = districtName(slug), dw = name.length * cw;
-          var dt = txt(rightX, y0, name, size, "#999"); dt.setAttribute("text-anchor", "end"); g.appendChild(dt);
-          clickRect(g, rightX - dw, y0 - 12, dw + 4, 17, go("district"));
-          y0 += 16;
+      } else {
+        var lines = computeScopeLines(ds, jurName, rightX, size);
+        lines.forEach(function (lineSegs, li) {
+          var y = baselineY + li * 16, lineTop = y - 12;
+          var lt = txtSeg(rightX, y, size, "#999", lineSegs);
+          lt.setAttribute("text-anchor", "end"); g.appendChild(lt);
+          var offset = 0;
+          for (var i = lineSegs.length - 1; i >= 0; i--) {
+            var segText = lineSegs[i][0], underline = lineSegs[i][1], segW = measureTextWidth(segText, size);
+            if (underline) {
+              var handler = segText === "See Less"
+                ? function (e) { if (e) e.stopPropagation(); p._distOpen = false; render(); }
+                : segText === jurName ? goJur(jurName) : go("district");
+              clickRect(g, rightX - offset - segW, lineTop, segW + 2, h, handler);
+            }
+            offset += segW;
+          }
         });
-        var lessW = "See Less".length * cw;
-        var lt = txt(rightX, y0, "See Less", size, "#333"); lt.setAttribute("text-anchor", "end");
-        lt.setAttribute("font-weight", "bold"); g.appendChild(lt);
-        clickRect(g, rightX - lessW, y0 - 12, lessW + 2, 17,
-          function (e) { if (e) e.stopPropagation(); p._distOpen = false; render(); });
       }
       return g;
     }
@@ -2222,12 +2275,16 @@
     // page (live voting), and the Result detail page (opts.frozen: true — immutable final tallies,
     // no pollVote wiring, per result.md "no edit/delete after publish"). Returns the next y plus
     // the visual nodes and (unless frozen) click-hit nodes for the caller to layer in z-order.
+    // `w` is the LITERAL bar width (matching how buildPost's petition bar uses its own X/W
+    // directly, with no further inset) — callers that want a margin subtracted (buildCard, whose
+    // other elements sit at a fixed `px` inset from a nominal card width) must pass the
+    // already-adjusted width (`W - 2 * px`), not rely on this function to subtract it.
     function buildPollOptions(p, px, y, w, opts) {
       opts = opts || {};
       var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
       var nodes = [], hits = [];
       p.options.forEach(function (o) {
-        var bw = w - 2 * px, mine = p._vote === o.label;
+        var bw = w, mine = p._vote === o.label;
         // the bar and its number are the official (residency-verified) count — never thinned by
         // the Verified filter (civicExtra handles the honesty note instead, below). every option
         // always shows its bar; the selected one is darker (plus bold + ✓ below).
@@ -2235,7 +2292,7 @@
         nodes.push(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, mine ? "#9a9a9a" : "#cfcfcf"));
         var lbl = txt(px + 8, y + 13, (mine ? "✓ " : "") + o.label, 11.5, mine ? "#222" : "#555");
         if (mine) lbl.setAttribute("font-weight", "bold"); nodes.push(lbl);
-        var pv = txt(w - px - 6, y + 13, fmt(o.v), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); nodes.push(pv);
+        var pv = txt(px + w - 6, y + 13, fmt(o.v), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); nodes.push(pv);
         // no click affordance once frozen (Result), or once an Alberta vote has locked in final —
         // a locked control shouldn't still look interactive (isFinalJur/§9.6).
         if (!opts.frozen && !(isFinalJur(p.jur) && p._vote)) {
@@ -2248,7 +2305,7 @@
         // Official, small at ID, larger at None; see the CIVIC_UNVERIFIED_EXTRA comment).
         var extra = civicExtra(o.v);
         if (extra > 0) {
-          var ex = txt(w - px - 6, y + 8, "+" + fmt(extra) + " unverified votes", 10.5, "#aaa");
+          var ex = txt(px + w - 6, y + 8, "+" + fmt(extra) + " unverified votes", 10.5, "#aaa");
           ex.setAttribute("text-anchor", "end"); nodes.push(ex);
           y += 18;
         } else {
@@ -2289,7 +2346,7 @@
       if (p.tier > 0) add(tierPill(tagRight, 4, p.tier, isHomeAuthor(p)));
       // a multi-district post's "+N" can expand in place (see buildScopeTag) — headerExtra is the
       // extra vertical space that costs, so everything below (title onward) shifts down by it.
-      var headerExtra = scopeTagExtra(p, opts);
+      var headerExtra = scopeTagExtra(p, opts, tagRight);
       var tagNode = buildScopeTag(p, tagRight, 38, opts);
       if (tagNode) hit(tagNode);
 
@@ -2308,7 +2365,7 @@
       if (p.type === "petition") {
         // the bar/count is always the official (residency-verified) signature total — never
         // thinned by the Verified filter; civicExtra surfaces additional unverified signers
-        // ADDITIVELY instead, on its own line below (see the CIVIC_UNVERIFIED_EXTRA comment).
+        // ADDITIVELY instead, beside the tag/caption (see the CIVIC_UNVERIFIED_EXTRA comment).
         var frac = clamp(p.sig / p.goal, 0, 1), sigExtra = civicExtra(p.sig);
         add(rect(px, y + 2, W - 2 * px, 10, 5, "#f2f2f2", "#ccc"));
         add(rect(px, y + 2, Math.round((W - 2 * px) * frac), 10, 5, "#333"));
@@ -2337,10 +2394,8 @@
           add(txt(px, y + 32, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
           btnY = y + 44;
           if (sigExtra > 0) {
-            // own line below — the plain caption's width isn't budgeted to leave room beside it.
-            var sx2 = txt(W - px, y + 54, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+            var sx2 = txt(W - px, y + 32, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
             sx2.setAttribute("text-anchor", "end"); add(sx2);
-            btnY = y + 64;
           }
         }
         var signed = !!p._signed, locked = signed && isFinalJur(p.jur);
@@ -2354,7 +2409,7 @@
         if (locked) add(txt(px + 160, btnY + 17, "Final — cannot be revoked", 10.5, "#999"));
         y = btnY + 40;
       } else if (p.type === "poll") {
-        var po = buildPollOptions(p, px, y, W);
+        var po = buildPollOptions(p, px, y, W - 2 * px);
         po.nodes.forEach(add); po.hits.forEach(hit);
         y = po.y;
       } else if (p.type === "result") {
@@ -2924,7 +2979,7 @@
       if (p.tier > 0) body.appendChild(tierPill(X + W, y - 6, p.tier, isHomeAuthor(p)));
       var chromeTag = buildScopeTag(p, X + W, y + 30, {});
       if (chromeTag) body.appendChild(chromeTag);
-      y += 48 + scopeTagExtra(p, {});
+      y += 48 + scopeTagExtra(p, {}, X + W);
 
       var ti = txt(X, y + 16, p.title, 17, "#222"); ti.setAttribute("font-weight", "bold"); body.appendChild(ti);
       y += 30;
@@ -2976,12 +3031,11 @@
           y += 34;
         } else {
           body.appendChild(txt(X, y + 16, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 13, "#555"));
-          y += 34;
           if (sigExtra > 0) {
-            var sx2 = txt(X + W, y + 4, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+            var sx2 = txt(X + W, y + 16, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
             sx2.setAttribute("text-anchor", "end"); body.appendChild(sx2);
-            y += 20;
           }
+          y += 34;
         }
         var signed = !!p._signed, locked = signed && isFinalJur(p.jur);
         body.appendChild(rect(X, y, 170, 30, 15, signed ? "#333" : "#ffffff", "#333"));
