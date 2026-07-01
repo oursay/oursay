@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, Check, ExternalLink, Globe, List, Plus } from "lucide-react";
+import { Check, ExternalLink, List, Plus } from "lucide-react";
+import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import type { JurisdictionMembership } from "@/lib/types";
 import { CheckboxRow } from "@/components/ui";
 
@@ -59,7 +60,7 @@ export function JurisdictionSelector({
       ) : null}
       {subscriptions.map((sub) => {
         const isLast = includedCount <= 1 && sub.included;
-        const Icon = sub.name === "Global" ? Globe : Building2;
+        const Icon = jurisdictionIconForName(sub.name);
         return (
           <div key={sub.name} className="contents">
             {multi ? (

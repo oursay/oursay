@@ -49,9 +49,10 @@
       <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
       <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
     </symbol>
-    <symbol id="ic-building" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2 2 8h20z"/><path d="M2 8h20"/>
-      <path d="M5 8v12M9 8v12M15 8v12M19 8v12"/><path d="M3 20h18"/>
+    <symbol id="ic-landmark" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M10 18v-7"/>
+      <path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/>
+      <path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/>
     </symbol>
     <symbol id="ic-chevron" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
       <polyline points="6 9 12 15 18 9"/>
@@ -213,7 +214,7 @@
         <!-- jurisdiction selector (centre) -->
         <g id="selectorBtn" style="cursor:pointer">
           <rect x="140" y="66" width="150" height="34" rx="17" fill="#ffffff" stroke="#333"/>
-          <use href="#ic-globe" xlink:href="#ic-globe" x="154" y="74" width="18" height="18" stroke="#333"/>
+          <use id="curJurIcon" href="#ic-globe" xlink:href="#ic-globe" x="154" y="74" width="18" height="18" stroke="#333"/>
           <text id="curJur" x="180" y="88" font-size="15" fill="#333">Global</text>
           <use href="#ic-chevron" xlink:href="#ic-chevron" x="262" y="75" width="16" height="16" stroke="#333"/>
         </g>
@@ -259,7 +260,7 @@
           <line x1="65" y1="226" x2="365" y2="226" stroke="#eee"/>
           <g id="resultAlberta" style="cursor:pointer">
             <rect x="65" y="236" width="300" height="44" rx="8" fill="#ffffff"/>
-            <use href="#ic-building" xlink:href="#ic-building" x="80" y="249" width="18" height="18" stroke="#333"/>
+            <use href="#ic-landmark" xlink:href="#ic-landmark" x="80" y="249" width="18" height="18" stroke="#333"/>
             <text x="108" y="263" font-size="15" fill="#333">Alberta</text>
             <text id="albertaAction" x="345" y="263" font-size="13" fill="#999" text-anchor="end">Join &#8250;</text>
           </g>
@@ -950,6 +951,11 @@
       if (inc.length === 0) return "None";
       if (inc.length === 1) return inc[0].name;
       return inc.length + " selected";
+    }
+    function pillIcon(label) {
+      if (label === "None" || / selected$/.test(label)) return "#ic-globe";
+      var sub = state.subs.find(function (s) { return s.name === label; });
+      return sub ? sub.icon : "#ic-globe";
     }
     // tap a jurisdiction name → show ONLY that one and go to its Feed (live page-flip)
     function selectOnly(item) {
@@ -3269,9 +3275,13 @@
 
       // selector pill: Jurisdiction/District views name their own jurisdiction (tracks the page,
       // not the feed filter); every other view uses the unified-feed label.
-      if (view === "jurisdiction") $("curJur").textContent = state.jur;
-      else if (view === "district") $("curJur").textContent = DISTRICT.jur;
-      else $("curJur").textContent = pillLabel();
+      var jurLabel;
+      if (view === "jurisdiction") jurLabel = state.jur;
+      else if (view === "district") jurLabel = DISTRICT.jur;
+      else jurLabel = pillLabel();
+      $("curJur").textContent = jurLabel;
+      $("curJurIcon").setAttribute("href", pillIcon(jurLabel));
+      $("curJurIcon").setAttributeNS(XLINK, "href", pillIcon(jurLabel));
 
       // dropdown
       if (state.dropdownOpen) buildDropdown();
@@ -3394,7 +3404,7 @@
     $("resultAlberta").addEventListener("click", function () {
       var i = state.subs.findIndex(function (s) { return s.name === "Alberta"; });
       if (i === -1) {
-        state.subs.push({ name: "Alberta", icon: "#ic-building", included: true });
+        state.subs.push({ name: "Alberta", icon: "#ic-landmark", included: true });
       } else {
         state.subs.splice(i, 1);
         if (!state.subs.some(function (s) { return s.included; })) state.subs[0].included = true;

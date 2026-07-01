@@ -123,7 +123,11 @@ export function ProfileView({ handle }: { handle: string }) {
               // TODO(entityId): representative-target nav — route by record/profile id.
               <FeedCard
                 key={item.id}
-                item={{ ...item, sig: app.petitionSigFor(item) }}
+                item={{
+                  ...item,
+                  sig: app.petitionSigFor(item),
+                  ...app.reactionCountsFor(item),
+                }}
                 viewer={app.viewer}
                 tierMin={verified}
                 resolveDistrict={districtName}

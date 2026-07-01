@@ -50,7 +50,11 @@ export function FeedView() {
         // TODO(entityId): representative-target nav — route by record/profile id.
         <FeedCard
           key={item.id}
-          item={{ ...item, sig: app.petitionSigFor(item) }}
+          item={{
+            ...item,
+            sig: app.petitionSigFor(item),
+            ...app.reactionCountsFor(item),
+          }}
           viewer={app.viewer}
           tierMin={app.state.verified}
           hideJur={hideJur}

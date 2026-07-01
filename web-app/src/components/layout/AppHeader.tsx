@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { ChevronDown, Filter, Globe } from "lucide-react";
+import { ChevronDown, Filter } from "lucide-react";
+import { jurisdictionPillIcon } from "@/lib/jurisdiction-icon";
 
 interface AppHeaderProps {
   /** Jurisdiction scope pill (feed) or the view's own jurisdiction name. */
@@ -21,6 +22,8 @@ export function AppHeader({
   filterActive = false,
   accountSlot,
 }: AppHeaderProps) {
+  const JurisdictionIcon = jurisdictionPillIcon(jurisdictionLabel);
+
   return (
     <header className="pointer-events-none grid grid-cols-[auto_1fr_auto] items-center gap-2 px-3 pb-3 pt-2">
       {onFilterClick ? (
@@ -42,7 +45,7 @@ export function AppHeader({
         onClick={onJurisdictionClick}
         className="pointer-events-auto mx-auto inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 text-sm font-medium text-ink shadow-sm hover:bg-surface-muted"
       >
-        <Globe size={16} className="shrink-0 text-ink-soft" aria-hidden />
+        <JurisdictionIcon size={16} className="shrink-0 text-ink-soft" aria-hidden />
         <span className="truncate">{jurisdictionLabel}</span>
         <ChevronDown size={14} className="shrink-0 text-ink-soft" aria-hidden />
       </button>

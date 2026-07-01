@@ -81,9 +81,12 @@ export function PostView({ kind }: { kind: RecordKind }) {
     jurisdiction: detail.jurisdiction,
     title: detail.title,
     sig: detail.sig,
+    up: detail.up,
+    down: detail.down,
     districts: detail.districts,
   };
   const sig = app.petitionSigFor(target);
+  const reactions = app.reactionCountsFor(target);
   const displayDetail: RecordDetail =
     detail.kind === "petition" ? { ...detail, sig } : detail;
   const home = isHomeAuthor(detail.districts, app.viewer.kycTier, app.viewer.viewerDistricts);
@@ -182,8 +185,8 @@ export function PostView({ kind }: { kind: RecordKind }) {
         footer={
           <RecordCardFooter
             kind={detail.kind}
-            up={detail.up ?? 0}
-            down={detail.down ?? 0}
+            up={reactions.up}
+            down={reactions.down}
             selectedReaction={app.reactionFor(detail.id)}
             sig={detail.kind === "petition" ? sig : undefined}
             voteTotal={

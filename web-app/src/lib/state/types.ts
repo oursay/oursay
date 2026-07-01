@@ -71,6 +71,8 @@ export interface AppState {
 
   // Stubbed civic write state (keyed by record id).
   reactions: Record<string, "up" | "down" | null>;
+  /** Overridden agree/disagree totals after the viewer reacts. */
+  reactionCounts: Record<string, { up: number; down: number }>;
   votes: Record<string, string>;
   /** Overridden signature totals (petition graduation demo). */
   petitionSig: Record<string, number>;

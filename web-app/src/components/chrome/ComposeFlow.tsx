@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Globe } from "lucide-react";
+import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import { Button, Modal } from "@/components/ui";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import type { RecordKind } from "@/lib/types";
@@ -57,7 +57,7 @@ export function ComposeFlow({
       {step === "where" ? (
         <div className="mt-2 space-y-2">
           {jurisdictions.map((name) => {
-            const Icon = name === "Global" ? Globe : Building2;
+            const Icon = jurisdictionIconForName(name);
             return (
               <button
                 key={name}

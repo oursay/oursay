@@ -1,6 +1,7 @@
 "use client";
 
-import { Building2, Search } from "lucide-react";
+import { Search } from "lucide-react";
+import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import { Modal } from "@/components/ui";
 
 interface AddJurisdictionModalProps {
@@ -16,6 +17,8 @@ export function AddJurisdictionModal({
   onClose,
   onJoin,
 }: AddJurisdictionModalProps) {
+  const AlbertaIcon = jurisdictionIconForName("Alberta");
+
   return (
     <Modal open={open} onClose={onClose} title="Add Jurisdiction">
       <div className="mt-2 space-y-3">
@@ -32,7 +35,7 @@ export function AddJurisdictionModal({
           onClick={() => onJoin?.("Alberta")}
           className="flex min-h-11 w-full items-center gap-2 rounded-lg border border-border px-3 text-sm text-ink hover:bg-surface-muted"
         >
-          <Building2 size={16} aria-hidden />
+          <AlbertaIcon size={16} aria-hidden />
           Alberta
           <span className="ml-auto text-xs text-muted">Join ›</span>
         </button>

@@ -98,7 +98,11 @@ export function DistrictView({ slug }: { slug: string }) {
             items.map((item) => (
               <FeedCard
                 key={item.id}
-                item={{ ...item, sig: app.petitionSigFor(item) }}
+                item={{
+                  ...item,
+                  sig: app.petitionSigFor(item),
+                  ...app.reactionCountsFor(item),
+                }}
                 viewer={app.viewer}
                 tierMin={app.state.verified}
                 hideJur

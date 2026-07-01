@@ -44,6 +44,8 @@ interface CivicTarget {
   jurisdiction: string;
   title: string;
   sig?: number;
+  up?: number;
+  down?: number;
   districts: string[];
 }
 
@@ -80,6 +82,7 @@ const INITIAL: AppState = {
   sign: null,
 
   reactions: {},
+  reactionCounts: {},
   votes: {},
   petitionSig: {},
 
@@ -146,6 +149,7 @@ export interface AppApi {
   // Civic interactions (stubbed writes).
   react: (target: CivicTarget, dir: "up" | "down") => void;
   reactionFor: (id: string) => "up" | "down" | null;
+  reactionCountsFor: (target: CivicTarget) => { up: number; down: number };
   votePoll: (target: CivicTarget, option: string) => void;
   voteFor: (id: string) => string | null;
   signPetition: (target: CivicTarget) => void;
@@ -464,13 +468,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const react = useCallback(
     (target: CivicTarget, dir: "up" | "down") => {
       requireAuth(() => {
-        setState((s) => ({
-          ...s,
-          reactions: {
-            ...s.reactions,
-            [target.id]: s.reactions[target.id] === dir ? null : dir,
-          },
-        }));
+        setState((s) => {
+          const prev = s.reactions[target.id] ?? null;
+          const base = s.reactionCounts[target.id] ?? {
+            up: target.up ?? 0,
+            down: target.down ?? 0,
+          };
+          let { up, down } = base;
+          let nextReaction: "up" | "down" | null;
+
+          if (prev === dir) {
+            if (dir === "up") up--;
+            else down--;
+            nextReaction = null;
+          } else {
+            if (prev === "up") up--;
+            else if (prev === "down") down--;
+            if (dir === "up") up++;
+            else down++;
+            nextReaction = dir;
+          }
+
+          return {
+            ...s,
+            reactions: { ...s.reactions, [target.id]: nextReaction },
+            reactionCounts: {
+              ...s.reactionCounts,
+              [target.id]: { up, down },
+            },
+          };
+        });
       });
     },
     [requireAuth],
@@ -479,6 +506,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const reactionFor = useCallback(
     (id: string) => state.reactions[id] ?? null,
     [state.reactions],
+  );
+
+  const reactionCountsFor = useCallback(
+    (target: CivicTarget) =>
+      state.reactionCounts[target.id] ?? {
+        up: target.up ?? 0,
+        down: target.down ?? 0,
+      },
+    [state.reactionCounts],
   );
 
   const setVote = useCallback(
@@ -716,6 +752,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     closeProfile,
     react,
     reactionFor,
+    reactionCountsFor,
     votePoll,
     voteFor,
     signPetition,
