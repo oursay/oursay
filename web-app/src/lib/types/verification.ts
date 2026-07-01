@@ -14,6 +14,12 @@
  */
 export type VerificationTier = 0 | 1 | 2 | 3;
 
+/**
+ * Identity-pill display mode. `full` = tight rounded pill with icon + label;
+ * `icon` = equal-sided circle with icon only (accessible aria-label).
+ */
+export type PillDisplayMode = "full" | "icon";
+
 /** Wireframe-facing label per tier (VERIFIED_LEVELS drops "None" to ""). */
 export const TIER_LABEL: Record<VerificationTier, string> = {
   0: "None",

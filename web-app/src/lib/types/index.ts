@@ -1,3 +1,4 @@
+export * from "./sign-tier";
 export * from "./verification";
 export * from "./records";
 export * from "./comments";

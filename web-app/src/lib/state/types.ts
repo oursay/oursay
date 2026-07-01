@@ -2,9 +2,20 @@ import type {
   ActivityKind,
   JurisdictionMembership,
   RecordKind,
+  SignTier,
+  SignedFilterLevel,
   VerificationTier,
 } from "@/lib/types";
 import type { ComposeStep, SignKind } from "@/components";
+
+/**
+ * A viewer's own reaction on a record/comment. `signTier` records the action
+ * signing tier when persisted (future surfaces; no badge UI yet).
+ */
+export interface ViewerReaction {
+  dir: "up" | "down";
+  signTier?: SignTier;
+}
 
 /**
  * A pending Alberta WYSIWYS confirmation. The commit itself is held in a ref (a
@@ -39,6 +50,8 @@ export interface AppState {
   verified: VerificationTier;
   myDistricts: boolean;
   affected: boolean;
+  /** Signed Refine ladder: 0 Any · 1 Passkey · 2 Biometric (Biometric dev-only). */
+  signedFilter: SignedFilterLevel;
 
   // Profile Activity-type filter (a distinct taxonomy from record kinds).
   profileTypes: ActivityKind[];
@@ -70,7 +83,7 @@ export interface AppState {
   sign: SignRequest | null;
 
   // Stubbed civic write state (keyed by record id).
-  reactions: Record<string, "up" | "down" | null>;
+  reactions: Record<string, ViewerReaction | null>;
   /** Overridden agree/disagree totals after the viewer reacts. */
   reactionCounts: Record<string, { up: number; down: number }>;
   votes: Record<string, string>;

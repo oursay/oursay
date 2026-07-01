@@ -131,6 +131,7 @@ export function PostView({ kind }: { kind: RecordKind }) {
             author={detail.author}
             handle={detail.handle}
             tier={detail.tier}
+            signTier={detail.signTier}
             isHomeAuthor={home}
             onAuthorClick={() => router.push(profilePath(detail.handle))}
             scopeSlot={

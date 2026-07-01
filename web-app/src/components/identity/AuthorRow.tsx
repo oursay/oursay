@@ -2,14 +2,17 @@
 
 import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui";
-import type { VerificationTier } from "@/lib/types";
-import { VerificationPill } from "./VerificationPill";
+import type { PillDisplayMode, SignTier, VerificationTier } from "@/lib/types";
+import { AuthorBadgeGroup } from "./AuthorBadgeGroup";
 
 interface AuthorRowProps {
   author: string;
   handle?: string;
   tier: VerificationTier;
+  signTier?: SignTier;
   isHomeAuthor?: boolean;
+  signedMode?: PillDisplayMode;
+  kycMode?: PillDisplayMode;
   /** Relative time label (comment layout renders it inline after the name). */
   timestamp?: string;
   /** card = feed/post author block; comment = "Name • time" with right-aligned pill. */
@@ -22,15 +25,16 @@ interface AuthorRowProps {
 }
 
 /**
- * Author identity row. The verification pill is always right-justified to the
- * row edge (§2.4). Card layout shows the @handle under the name; comment layout
- * drops the handle and reads "Name • time" inline.
+ * Author identity row. Badge group [Signed][KYC] is right-justified (§2.4).
  */
 export function AuthorRow({
   author,
   handle,
   tier,
+  signTier,
   isHomeAuthor = false,
+  signedMode = "icon",
+  kycMode = "full",
   timestamp,
   layout = "card",
   scopeSlot,
@@ -38,6 +42,16 @@ export function AuthorRow({
   onAuthorClick,
 }: AuthorRowProps) {
   const isComment = layout === "comment";
+  const badges = (
+    <AuthorBadgeGroup
+      signTier={signTier}
+      tier={tier}
+      isHomeAuthor={isHomeAuthor}
+      signedMode={signedMode}
+      kycMode={kycMode}
+      align="right"
+    />
+  );
 
   if (!isComment) {
     return (
@@ -61,7 +75,7 @@ export function AuthorRow({
               >
                 {author}
               </button>
-              <VerificationPill tier={tier} isHomeAuthor={isHomeAuthor} align="right" />
+              {badges}
             </div>
             <div className="-mt-px flex items-baseline justify-between gap-2">
               {handle ? (
@@ -97,38 +111,17 @@ export function AuthorRow({
         disabled={!onAuthorClick}
         className="flex min-w-0 items-center gap-2 text-left disabled:cursor-default"
       >
-        <Avatar name={author} size={isComment ? "sm" : "md"} />
+        <Avatar name={author} size="sm" />
         <span className="min-w-0">
-          {isComment ? (
-            <span className="flex items-baseline gap-1.5">
-              <span className="truncate text-sm font-semibold text-ink">
-                {author}
-              </span>
-              {timestamp ? (
-                <span className="shrink-0 text-xs text-muted">
-                  • {timestamp}
-                </span>
-              ) : null}
-            </span>
-          ) : (
-            <span className="block">
-              <span className="block truncate text-sm font-semibold text-ink">
-                {author}
-              </span>
-              {handle ? (
-                <span className="block truncate text-xs text-muted">
-                  @{handle}
-                </span>
-              ) : timestamp ? (
-                <span className="block truncate text-xs text-muted">
-                  {timestamp}
-                </span>
-              ) : null}
-            </span>
-          )}
+          <span className="flex items-baseline gap-1.5">
+            <span className="truncate text-sm font-semibold text-ink">{author}</span>
+            {timestamp ? (
+              <span className="shrink-0 text-xs text-muted">• {timestamp}</span>
+            ) : null}
+          </span>
         </span>
       </button>
-      <VerificationPill tier={tier} isHomeAuthor={isHomeAuthor} align="right" />
+      {badges}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type {
   FeedScope,
   ViewerContext,
 } from "@/lib/types";
+import { passesSignedFilter } from "@/lib/types/sign-tier";
 import { effectiveMyDistricts, inMyDistricts } from "./geography";
 
 /**
@@ -12,11 +13,13 @@ import { effectiveMyDistricts, inMyDistricts } from "./geography";
  *
  *   record-type include  (all scopes)   -> kind must be in filter.types
  *   Verified ladder      (all scopes)   -> tier >= filter.tierMin (inclusive-upward)
+ *   Signed ladder          (all scopes)   -> signTier >= signedFilter (inclusive-upward)
  *   feed                 -> a subscribed + included jurisdiction (+ My Districts)
  *   jurisdiction         -> item.jurisdiction === filter.jurisdiction (+ My Districts)
  *   district             -> item applies to filter.districtSlug (incl. multi-district)
  *
- * Affected is NOT applied here — it is a Post-page comment filter only.
+ * Signed is independent of the Verified ladder and geography. Affected is NOT
+ * applied here — it is a Post-page comment filter only.
  */
 export function matches(
   item: FeedItem,
@@ -30,6 +33,9 @@ export function matches(
   // min author verification, inclusive-upward
   const tierMin = filter.tierMin ?? 0;
   if (item.tier < tierMin) return false;
+
+  const signMin = filter.signedFilter ?? 0;
+  if (signMin > 0 && !passesSignedFilter(item.signTier, signMin)) return false;
 
   if (scope === "feed") {
     if (filter.jurisdictions) {

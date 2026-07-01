@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import type { RecordKind, VerificationTier, ViewerContext } from "@/lib/types";
+import type { RecordKind, SignedFilterLevel, VerificationTier, ViewerContext } from "@/lib/types";
+import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import {
   COMMENTS_STATEMENT,
   MY_DISTRICTS,
@@ -38,6 +39,8 @@ import {
   ScopeTag,
   SignModal,
   VerificationPill,
+  SignedPill,
+  AuthorBadgeGroup,
 } from "@/components";
 import type { ComposeStep } from "@/components";
 
@@ -99,6 +102,7 @@ export default function ComponentGallery() {
   ]);
   const [verified, setVerified] = useState<VerificationTier>(0);
   const [myDistricts, setMyDistricts] = useState(false);
+  const [signedFilter, setSignedFilter] = useState<SignedFilterLevel>(0);
 
   // Content interaction demo state.
   const [reaction, setReaction] = useState<"up" | "down" | null>("up");
@@ -151,8 +155,63 @@ export default function ComponentGallery() {
             <VerificationPill tier={2} />
             <VerificationPill tier={2} isHomeAuthor />
             <VerificationPill tier={3} />
+            <VerificationPill tier={2} mode="icon" />
+            <VerificationPill tier={3} mode="icon" />
             <span className="text-xs text-muted">(tier 0 renders nothing)</span>
           </Row>
+        </Section>
+
+        <Section title="Signed pill (signTier >= 1)">
+          <Row>
+            <SignedPill signTier={1} mode="full" />
+            <SignedPill signTier={1} mode="icon" />
+            <span className="text-xs text-muted">(signTier 0 renders nothing)</span>
+          </Row>
+        </Section>
+
+        <Section title="Author badge group">
+          <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-ink">Post card row</span>
+              <AuthorBadgeGroup
+                signTier={1}
+                tier={2}
+                signedMode="icon"
+                kycMode="full"
+                align="right"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-ink">Root comment</span>
+              <AuthorBadgeGroup
+                signTier={1}
+                tier={2}
+                signedMode="full"
+                kycMode="icon"
+                align="right"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-ink">Nested comment</span>
+              <AuthorBadgeGroup
+                signTier={1}
+                tier={3}
+                signedMode="icon"
+                kycMode="icon"
+                align="right"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-ink">Tier 0 KYC + passkey</span>
+              <AuthorBadgeGroup
+                signTier={1}
+                tier={0}
+                signedMode="full"
+                kycMode="full"
+                align="right"
+              />
+            </div>
+          </div>
         </Section>
 
         <Section title="Scope tag (multi-district expansion)">
@@ -283,6 +342,10 @@ export default function ComponentGallery() {
                 }
                 myDistricts={myDistricts}
                 onToggleMyDistricts={() => setMyDistricts((v) => !v)}
+                signedFilter={signedFilter}
+                onCycleSignedFilter={() =>
+                  setSignedFilter((v) => nextSignedFilterLevel(v))
+                }
                 showAffected
                 viewer={VIEWER}
               />

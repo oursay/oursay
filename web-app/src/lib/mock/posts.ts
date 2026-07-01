@@ -30,6 +30,8 @@ export const POSTS: FeedItem[] = [
     up: 48,
     down: 12,
     comments: 9,
+    // Passkey signTier despite tier-0 KYC author: signTier is orthogonal to KYC.
+    signTier: 1,
   },
   {
     id: "poll-oursay-rcv",
@@ -125,6 +127,7 @@ export const POSTS: FeedItem[] = [
     up: 204,
     down: 46,
     comments: 38,
+    signTier: 1,
   },
   {
     id: "stmt-premier-budget",
@@ -163,6 +166,7 @@ export const POSTS: FeedItem[] = [
       { label: "Roads", v: 110 },
     ],
     comments: 19,
+    signTier: 2,
   },
   {
     id: "res-ableg-bill12",
@@ -220,6 +224,7 @@ export const POSTS: FeedItem[] = [
     up: 73,
     down: 6,
     comments: 13,
+    signTier: 1,
   },
   {
     id: "stmt-hana-ravine",
@@ -238,6 +243,7 @@ export const POSTS: FeedItem[] = [
     down: 7,
     comments: 21,
     edits: 3,
+    signTier: 1,
   },
   {
     id: "pet-sam-109st",
@@ -272,6 +278,7 @@ export const POSTS: FeedItem[] = [
     sig: 4520,
     goal: 8000,
     comments: 22,
+    signTier: 1,
   },
 
   // --- Alberta · multi-district (a list of ridings, not the whole province) ---
@@ -291,6 +298,7 @@ export const POSTS: FeedItem[] = [
     sig: 7999,
     goal: 8000,
     comments: 17,
+    signTier: 1,
     // one signature from the threshold — sign it to graduate (petitionSign bumps sig live).
     attachedPoll: {
       question: "Twin the river-valley path — fund it in 2027?",

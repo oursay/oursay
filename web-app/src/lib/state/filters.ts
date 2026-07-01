@@ -1,4 +1,5 @@
-import type { FeedFilterParams, ViewerContext } from "@/lib/types";
+import type { FeedFilterParams, SignedFilterLevel, ViewerContext } from "@/lib/types";
+import { clampSignedFilterLevel } from "@/lib/types/sign-tier";
 import type { AppState } from "./types";
 
 /** The read-model viewer derived from session state (logged-out reads as anon). */
@@ -20,5 +21,6 @@ export function feedFilterFromState(state: AppState): FeedFilterParams {
     types: state.includedKinds,
     tierMin: state.verified,
     geography: { myDistricts: state.myDistricts, affected: state.affected },
+    signedFilter: clampSignedFilterLevel(state.signedFilter),
   };
 }

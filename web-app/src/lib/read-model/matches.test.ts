@@ -54,6 +54,37 @@ describe("matches — jurisdiction filter", () => {
   });
 });
 
+describe("matches — Signed filter ladder (inclusive-upward)", () => {
+  it("Passkey keeps signTier >= 1", () => {
+    const passkeyUp = feed({ jurisdictions: ALL_SUBS, signedFilter: 1 });
+    expect(passkeyUp.length).toBeGreaterThan(0);
+    expect(passkeyUp.every((p) => (p.signTier ?? 0) >= 1)).toBe(true);
+  });
+
+  it("Biometric keeps signTier >= 2 only", () => {
+    const biometricUp = feed({ jurisdictions: ALL_SUBS, signedFilter: 2 });
+    expect(biometricUp.every((p) => (p.signTier ?? 0) >= 2)).toBe(true);
+    expect(biometricUp.some((p) => p.id === "poll-ableg-budget")).toBe(true);
+    expect(biometricUp.some((p) => p.signTier === 1)).toBe(false);
+  });
+
+  it("Any keeps all items when signedFilter is 0 or omitted", () => {
+    expect(feed({ jurisdictions: ALL_SUBS, signedFilter: 0 })).toHaveLength(
+      POSTS.length,
+    );
+    expect(feed({ jurisdictions: ALL_SUBS })).toHaveLength(POSTS.length);
+  });
+
+  it("combines signedFilter with tierMin (AND)", () => {
+    const both = feed({
+      jurisdictions: ALL_SUBS,
+      signedFilter: 1,
+      tierMin: 2,
+    });
+    expect(both.every((p) => p.tier >= 2 && (p.signTier ?? 0) >= 1)).toBe(true);
+  });
+});
+
 describe("matches — district scope", () => {
   it("keeps posts that apply to the district (incl. multi-district)", () => {
     const inStrathcona = POSTS.filter((p) =>

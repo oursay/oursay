@@ -1,3 +1,4 @@
+import type { SignTier } from "./sign-tier";
 import type { VerificationTier } from "./verification";
 
 /**
@@ -63,6 +64,11 @@ export interface FeedItem {
   comments: number;
   /** Revision count -> "N edits" affordance; absent/0 means never revised. */
   edits?: number;
+  /**
+   * Action signing tier (parallel to author `tier` / KYC). ≥1 ⇒ Signed pill.
+   * Independent of KYC tier. Absent ⇒ 0 (derived-key / no pill).
+   */
+  signTier?: SignTier;
   /** Petition's pre-attached poll, if any. */
   attachedPoll?: AttachedPoll;
 }
@@ -85,6 +91,8 @@ export interface RecordDetail {
   /** ISO created time; rendered via relTime(). Display-only, not the ordering source. */
   ts: string;
   edits: number;
+  /** Action signing tier — see FeedItem.signTier. */
+  signTier?: SignTier;
 
   up?: number;
   down?: number;

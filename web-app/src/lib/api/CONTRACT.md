@@ -144,8 +144,25 @@ extends an existing resource or is net-new, and a priority note.
 - **Extend / new:** Extend the petition detail response (field addition).
 - **Priority:** Blocks D3 petition view.
 
+### 13. Action signTier on read surfaces
+- **Function(s):** `listFeedItems`, `getRecordDetail`, comment sub-resources
+- **UI surface:** "Signed" badge beside KYC pills; Signed Refine filter (Any /
+  Passkey / Biometric ladder, inclusive-upward on `signTier`) on feed/
+  jurisdiction/district lists and Post comment threads. Biometric step is
+  development-only in the filter UI until biometric tiers ship.
+- **Proposed:** Project `signTier: 0 | 1 | 2 | 3` onto feed items, record detail,
+  and `CommentNode` (absent ⇒ `0`). UI projection parallel to KYC `tier`:
+  `0` = derived-key (`p256` envelope path, no pill); `1` = passkey (Key icon,
+  current app); `2` = fingerprint; `3` = face scan (planned). Backend derives
+  `signTier` from envelope `signScheme` plus authenticator metadata — the
+  cryptographic scheme (`p256` | `webauthn-es256`) stays on the envelope layer.
+  Pill label is always "Signed" (passkey-signed class). Orthogonal to KYC tier
+  and viewer petition participation state.
+- **Extend / new:** Field addition on existing list/detail/comment responses.
+- **Priority:** Blocks Signed badge + filter (mock fills today).
+
 ---
 
 Mocks fill all of the above today. Each entry is a concrete proposal the API team
-can implement; field-addition gaps (7, 11, 12) are the cheapest and unblock the
+can implement; field-addition gaps (7, 11, 12, 13) are the cheapest and unblock the
 most UI.

@@ -1,5 +1,5 @@
 import { POST_TYPES, type PostTypeEntry } from "@/lib/mock";
-import { geographyKeep } from "@/lib/read-model";
+import { commentKeep } from "@/lib/read-model";
 import {
   ANON_VIEWER,
   type CommentNode,
@@ -27,9 +27,7 @@ const DETAIL_BY_ID: Record<string, PostTypeEntry> = Object.fromEntries(
 );
 
 /**
- * Keep a comment subtree that passes the Verified ladder AND geography. Affected
- * evaluates against the open post's districts (passed as `openPost`); on list
- * paths geographyKeep never engages Affected.
+ * Keep a comment subtree that passes commentKeep at each node.
  */
 function filterComments(
   nodes: CommentNode[],
@@ -37,11 +35,9 @@ function filterComments(
   viewer: ViewerContext,
   filter: FeedFilterParams,
 ): CommentNode[] {
-  const tierMin = filter.tierMin ?? 0;
   const kept: CommentNode[] = [];
   for (const node of nodes) {
-    if (node.tier < tierMin) continue;
-    if (!geographyKeep(node, detail.districts, viewer, filter, detail)) continue;
+    if (!commentKeep(node, detail, viewer, filter)) continue;
     kept.push({
       ...node,
       replies: filterComments(node.replies, detail, viewer, filter),
@@ -56,7 +52,7 @@ function filterComments(
  * wireframe's representative-target navigation).
  *
  * When `opts.filter` / `opts.viewer` are supplied, comments are filtered by the
- * Verified ladder and geography (My Districts / Affected) against the open post.
+ * Verified ladder, geography (My Districts / Affected), and passkey-signed-only.
  */
 export async function getRecordDetail(
   id: string,

@@ -1,3 +1,4 @@
+import type { SignTier } from "./sign-tier";
 import type { VerificationTier } from "./verification";
 
 /** Comment thread nesting is capped at depth 3 (docs/entities/civic-content/comment.md). */
@@ -18,6 +19,8 @@ export interface CommentNode {
   ts: string;
   /** Revision count -> "N edits" affordance; absent/0 means never revised. */
   edits?: number;
+  /** Action signing tier for this comment — see FeedItem.signTier. */
+  signTier?: SignTier;
   body: string[];
   up: number;
   down: number;

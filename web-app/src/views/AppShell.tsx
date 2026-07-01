@@ -79,6 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     state.verified > 0 ||
     state.myDistricts ||
     state.affected ||
+    state.signedFilter > 0 ||
     (hasCardList && state.includedKinds.length < 4);
 
   const composeJur = state.composeJur ?? "Global";
@@ -142,6 +143,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onCycleVerified={app.cycleVerified}
                   myDistricts={state.myDistricts}
                   onToggleMyDistricts={app.toggleMyDistricts}
+                  signedFilter={state.signedFilter}
+                  onCycleSignedFilter={app.cycleSignedFilter}
                   showAffected={view === "post" && state.postAffectedEligible}
                   affected={state.affected}
                   onToggleAffected={app.toggleAffected}

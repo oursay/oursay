@@ -51,8 +51,10 @@ export function CommentThread({
             <CommentCard
               author={node.author}
               tier={node.tier}
+              signTier={node.signTier}
               isHomeAuthor={home}
               timestamp={relTime(node.ts, now)}
+              depth={depth}
               body={
                 <>
                   {node.body.map((line, li) => (

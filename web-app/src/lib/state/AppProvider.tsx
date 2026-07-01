@@ -21,6 +21,7 @@ import { MY_DISTRICTS, MY_NAME } from "@/lib/mock";
 import { outsideMyDistricts } from "@/lib/read-model";
 import { RECORD_TYPE_LABEL } from "@/components/content";
 import type { SignKind } from "@/components";
+import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import type { AppState, SignRequest } from "./types";
 import { feedFilterFromState, viewerFromState } from "./filters";
 import {
@@ -58,6 +59,7 @@ const INITIAL: AppState = {
   verified: 0,
   myDistricts: false,
   affected: false,
+  signedFilter: 0,
 
   profileTypes: [...ALL_ACTIVITY],
 
@@ -119,6 +121,7 @@ export interface AppApi {
   cycleVerified: () => void;
   toggleMyDistricts: () => void;
   toggleAffected: () => void;
+  cycleSignedFilter: () => void;
 
   // Profile Activity-type filter.
   toggleProfileType: (kind: ActivityKind) => void;
@@ -343,6 +346,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const cycleSignedFilter = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      signedFilter: nextSignedFilterLevel(s.signedFilter),
+    }));
+  }, []);
+
   const toggleProfileType = useCallback((kind: ActivityKind) => {
     setState((s) => {
       const has = s.profileTypes.includes(kind);
@@ -508,7 +518,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (target: CivicTarget, dir: "up" | "down") => {
       requireAuth(() => {
         setState((s) => {
-          const prev = s.reactions[target.id] ?? null;
+          const prev = s.reactions[target.id]?.dir ?? null;
           const base = s.reactionCounts[target.id] ?? {
             up: target.up ?? 0,
             down: target.down ?? 0,
@@ -530,7 +540,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
           return {
             ...s,
-            reactions: { ...s.reactions, [target.id]: nextReaction },
+            reactions: {
+              ...s.reactions,
+              [target.id]: nextReaction ? { dir: nextReaction } : null,
+            },
             reactionCounts: {
               ...s.reactionCounts,
               [target.id]: { up, down },
@@ -543,7 +556,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const reactionFor = useCallback(
-    (id: string) => state.reactions[id] ?? null,
+    (id: string) => state.reactions[id]?.dir ?? null,
     [state.reactions],
   );
 
@@ -758,6 +771,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       state.verified,
       state.myDistricts,
       state.affected,
+      state.signedFilter,
     ],
   );
 
@@ -777,6 +791,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cycleVerified,
     toggleMyDistricts,
     toggleAffected,
+    cycleSignedFilter,
     toggleProfileType,
     toggleJurSelector,
     toggleSub,

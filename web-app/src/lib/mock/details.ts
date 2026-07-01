@@ -31,6 +31,7 @@ export const POST_STATEMENT: RecordDetail = {
   up: 132,
   down: 7,
   _my: null,
+  signTier: 1,
 };
 
 export const COMMENTS_STATEMENT: CommentNode[] = [
@@ -45,12 +46,14 @@ export const COMMENTS_STATEMENT: CommentNode[] = [
     up: 14,
     down: 1,
     _my: null,
+    signTier: 1,
     replies: [
       {
         author: "Rae Nguyen",
         handle: "raenguyen",
         tier: 3,
         ts: "2026-06-30T08:40:00",
+        signTier: 2,
         body: ["I've asked Parks to share the 2023 survey data."],
         up: 9,
         down: 0,
@@ -66,6 +69,7 @@ export const COMMENTS_STATEMENT: CommentNode[] = [
             up: 4,
             down: 0,
             _my: null,
+            signTier: 1,
             replies: [],
           },
         ],
@@ -91,6 +95,7 @@ export const COMMENTS_STATEMENT: CommentNode[] = [
         up: 5,
         down: 0,
         _my: null,
+        signTier: 1,
         replies: [],
       },
     ],
@@ -106,6 +111,7 @@ export const COMMENTS_STATEMENT: CommentNode[] = [
     up: 6,
     down: 2,
     _my: null,
+    signTier: 1,
     replies: [],
   },
 ];
@@ -135,6 +141,7 @@ export const POST_PETITION: RecordDetail = {
   ],
   sig: 7999,
   goal: 8000,
+  signTier: 1,
   attachedPoll: {
     question: RIVER_PATH_QUESTION,
     options: ["Yes — fund it in 2027", "No — defer to a later budget"],
@@ -152,6 +159,7 @@ export const COMMENTS_PETITION: CommentNode[] = [
     up: 22,
     down: 1,
     _my: null,
+    signTier: 1,
     replies: [
       {
         author: "Wei Chen",
@@ -177,6 +185,7 @@ export const COMMENTS_PETITION: CommentNode[] = [
     up: 18,
     down: 0,
     _my: null,
+    signTier: 1,
     replies: [],
   },
   {
@@ -213,6 +222,7 @@ export const POST_POLL: RecordDetail = {
     { label: "No — defer to a later budget", v: 1206 },
   ],
   _vote: null,
+  signTier: 1,
   sourcePetition: true, // -> "Source Petition" collapsible, links back to POST_PETITION
   resultPublished: true, // -> "Result" collapsible + frames this poll as closed
 };
@@ -240,6 +250,7 @@ export const COMMENTS_POLL: CommentNode[] = [
     up: 9,
     down: 0,
     _my: null,
+    signTier: 1,
     replies: [],
   },
   {
@@ -293,6 +304,7 @@ export const COMMENTS_RESULT: CommentNode[] = [
     up: 26,
     down: 0,
     _my: null,
+    signTier: 1,
     replies: [],
   },
   {

@@ -77,6 +77,7 @@ export function FeedCard({
           author={item.author}
           handle={item.handle}
           tier={item.tier}
+          signTier={item.signTier}
           isHomeAuthor={home}
           onAuthorClick={onAuthorClick}
           scopeSlot={

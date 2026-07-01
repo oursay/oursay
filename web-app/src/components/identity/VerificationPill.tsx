@@ -1,7 +1,7 @@
 import { Gavel, IdCard, MapPin, MapPinHouse } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { TIER_LABEL } from "@/lib/types";
-import type { VerificationTier } from "@/lib/types";
+import type { PillDisplayMode, VerificationTier } from "@/lib/types";
 
 /**
  * Glyph per verification type: Identity = ID badge · Residency = map pin ·
@@ -24,17 +24,31 @@ interface VerificationPillProps {
   tier: VerificationTier;
   /** Residency author in the viewer's district -> map-pin-house glyph. */
   isHomeAuthor?: boolean;
+  mode?: PillDisplayMode;
   align?: "left" | "right";
 }
 
-/** Tight verification pill: glyph + label. Tier 0 (public) renders nothing. */
+/** Verification pill: glyph + label (full) or icon-only circle. Tier 0 renders nothing. */
 export function VerificationPill({
   tier,
   isHomeAuthor = false,
+  mode = "full",
   align = "left",
 }: VerificationPillProps) {
   if (tier === 0) return null;
   const Icon = tierIcon(tier, isHomeAuthor);
+
+  if (mode === "icon") {
+    return (
+      <span
+        className={`inline-flex size-4 shrink-0 items-center justify-center rounded-full text-white ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""}`}
+        aria-label={TIER_LABEL[tier]}
+      >
+        <Icon size={10} aria-hidden />
+      </span>
+    );
+  }
+
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight text-white ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""}`}

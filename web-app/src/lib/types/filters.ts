@@ -1,4 +1,5 @@
 import type { RecordKind } from "./records";
+import type { SignedFilterLevel } from "./sign-tier";
 import type { VerificationTier } from "./verification";
 
 /** List scope a matcher runs in (the wireframe's feed-bearing views). */
@@ -39,6 +40,11 @@ export interface FeedFilterParams {
   tierMin?: VerificationTier;
   /** Geography filters. */
   geography?: Geography;
+  /**
+   * Signed Refine ladder: 0 Any · 1 Passkey · 2 Biometric (inclusive-upward on
+   * signTier). Independent of tierMin and geography.
+   */
+  signedFilter?: SignedFilterLevel;
   /** For jurisdiction scope: the jurisdiction name the view is pinned to. */
   jurisdiction?: string;
   /** For district scope: the district slug the view is pinned to. */

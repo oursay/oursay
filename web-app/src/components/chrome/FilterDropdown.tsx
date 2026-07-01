@@ -1,10 +1,10 @@
 "use client";
 
-import { BadgeCheck, Eye, EyeOff, List } from "lucide-react";
+import { BadgeCheck, Eye, EyeOff, Key, List } from "lucide-react";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import { CheckboxRow } from "@/components/ui";
-import { VERIFIED_LEVELS } from "@/lib/types";
-import type { RecordKind, VerificationTier, ViewerContext } from "@/lib/types";
+import { VERIFIED_LEVELS, SIGNED_FILTER_LEVELS } from "@/lib/types";
+import type { RecordKind, SignedFilterLevel, VerificationTier, ViewerContext } from "@/lib/types";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 
@@ -18,6 +18,9 @@ interface FilterDropdownProps {
   onCycleVerified: () => void;
   myDistricts: boolean;
   onToggleMyDistricts: () => void;
+  /** Signed ladder: 0 Any · 1 Passkey · 2 Biometric (Biometric dev-only in cycle). */
+  signedFilter?: SignedFilterLevel;
+  onCycleSignedFilter?: () => void;
   /** Affected geography row only shows on a qualifying open post. */
   showAffected?: boolean;
   affected?: boolean;
@@ -37,6 +40,8 @@ export function FilterDropdown({
   onCycleVerified,
   myDistricts,
   onToggleMyDistricts,
+  signedFilter = 0,
+  onCycleSignedFilter,
   showAffected = false,
   affected = false,
   onToggleAffected,
@@ -94,6 +99,17 @@ export function FilterDropdown({
         trailing={
           <span className="text-xs text-ink-soft">
             {VERIFIED_LEVELS[verifiedLevel]}
+          </span>
+        }
+      />
+      <CheckboxRow
+        label="Signed"
+        showCheckbox={false}
+        icon={<Key size={16} aria-hidden />}
+        onSelect={onCycleSignedFilter}
+        trailing={
+          <span className="text-xs text-ink-soft">
+            {SIGNED_FILTER_LEVELS[signedFilter]}
           </span>
         }
       />
