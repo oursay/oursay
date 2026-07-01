@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { Edit3, MessageSquare, ThumbsUp } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { getProfile } from "@/lib/api";
-import type { ActivityKind, PublicProfile, RecordKind } from "@/lib/types";
+import type { ActivityKind, PublicProfile } from "@/lib/types";
 import { Avatar, FeedCard, VerificationPill } from "@/components";
 import { RECORD_TYPE_ICON } from "@/components/content";
 import { districtName } from "@/lib/mock";
-import { districtPath, postPath, profilePath } from "@/lib/routes";
+import { districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
 type Tab = "posts" | "activity" | "mentions";
@@ -22,21 +22,23 @@ const ACTIVITY_META: Record<ActivityKind, { icon: LucideIcon; label: string }> =
   reaction: { icon: ThumbsUp, label: "Reactions" },
 };
 
-/** Activity kind -> a record kind to open (comment/reaction fall back to statement, §9.1). */
-function activityToRecord(kind: ActivityKind): RecordKind {
-  if (kind === "petition" || kind === "poll") return kind;
-  return "statement";
+/** Activity kind -> fallback record id when recordId is absent. */
+function activityToRecordId(kind: ActivityKind): string {
+  if (kind === "petition") return "pet-wei-path";
+  if (kind === "poll") return "poll-ableg-budget";
+  return "stmt-hana-ravine";
 }
 
 export function ProfileView({ handle }: { handle: string }) {
   const app = useApp();
+  const { setPageJurisdiction } = app;
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [tab, setTab] = useState<Tab>("posts");
 
   useEffect(() => {
-    app.setPageJurisdiction(null);
-  }, [app]);
+    setPageJurisdiction(null);
+  }, [setPageJurisdiction]);
 
   useEffect(() => {
     getProfile(handle).then(setProfile);
@@ -132,9 +134,9 @@ export function ProfileView({ handle }: { handle: string }) {
                 tierMin={verified}
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(profilePath(item.handle))}
-                onTitleClick={() => router.push(postPath(item.kind))}
+                onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
-                  router.push(postPath(item.kind, { comments: true }))
+                  router.push(postPath(item.kind, item.id, { comments: true }))
                 }
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}
@@ -162,7 +164,11 @@ export function ProfileView({ handle }: { handle: string }) {
                 <button
                   type="button"
                   // TODO(entityId): route to the acted-on record by id.
-                  onClick={() => router.push(postPath(activityToRecord(a.kind)))}
+                  onClick={() =>
+                    router.push(
+                      postPathForId(a.recordId ?? activityToRecordId(a.kind)),
+                    )
+                  }
                   className="flex w-full items-start gap-3 rounded-lg border border-border bg-surface p-3 text-left hover:bg-surface-muted"
                 >
                   <Glyph size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden />
@@ -196,7 +202,9 @@ export function ProfileView({ handle }: { handle: string }) {
               <button
                 type="button"
                 // TODO(entityId): route to the mentioned record by id.
-                onClick={() => router.push(postPath("statement"))}
+                onClick={() =>
+                  router.push(postPathForId(m.recordId ?? "stmt-hana-ravine"))
+                }
                 className="block w-full px-3 pb-3 pt-0.5 text-left hover:bg-surface-muted"
               >
                 <span className="block text-sm text-ink-soft">{m.text}</span>

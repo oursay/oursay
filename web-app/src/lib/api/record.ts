@@ -1,13 +1,13 @@
-import { POST_TYPES, type PostTypeEntry } from "@/lib/mock";
+import { DETAIL_BY_ID } from "@/lib/mock";
 import { commentKeep } from "@/lib/read-model";
 import {
   ANON_VIEWER,
   type CommentNode,
   type FeedFilterParams,
   type RecordDetail,
-  type RecordKind,
   type ViewerContext,
 } from "@/lib/types";
+import type { PostTypeEntry } from "@/lib/mock";
 
 /** getRecordDetail return shape: the record plus its (filtered) comment thread. */
 export interface RecordDetailResult {
@@ -21,14 +21,6 @@ export interface GetRecordDetailOptions {
   filter?: FeedFilterParams;
 }
 
-/** id -> representative detail sample, built once from POST_TYPES. */
-const DETAIL_BY_ID: Record<string, PostTypeEntry> = Object.fromEntries(
-  Object.values(POST_TYPES).map((entry) => [entry.post.id, entry]),
-);
-
-/**
- * Keep a comment subtree that passes commentKeep at each node.
- */
 function filterComments(
   nodes: CommentNode[],
   detail: RecordDetail,
@@ -47,24 +39,24 @@ function filterComments(
 }
 
 /**
- * A record's detail page + comment thread. Resolves `id` to a POST_TYPES sample
- * when possible, else falls back to the representative sample for `kind` (the
- * wireframe's representative-target navigation).
- *
- * When `opts.filter` / `opts.viewer` are supplied, comments are filtered by the
- * Verified ladder, geography (My Districts / Affected), and passkey-signed-only.
+ * A record's detail page + comment thread, resolved by stable mock record id.
  */
 export async function getRecordDetail(
   id: string,
-  kind: RecordKind,
   opts: GetRecordDetailOptions = {},
-): Promise<RecordDetailResult> {
-  const entry = DETAIL_BY_ID[id] ?? POST_TYPES[kind];
-  const viewer = opts.viewer ?? ANON_VIEWER;
+): Promise<RecordDetailResult | null> {
+  const entry: PostTypeEntry | undefined = DETAIL_BY_ID[id];
+  if (!entry) return null;
 
+  const viewer = opts.viewer ?? ANON_VIEWER;
   const comments = opts.filter
     ? filterComments(entry.comments, entry.post, viewer, opts.filter)
     : entry.comments;
 
   return { detail: entry.post, comments };
+}
+
+/** All mock record ids (feed + profile-only + graduation chain). */
+export async function listRecordIds(): Promise<string[]> {
+  return Object.keys(DETAIL_BY_ID);
 }

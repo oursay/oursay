@@ -1,13 +1,19 @@
 /** A jurisdiction's leader (name only; the seat/role is inferred from the jurisdiction). */
 export interface JurisdictionLeader {
   name: string;
+  /** Mock profile handle for the jurisdiction leader. */
+  handle: string;
 }
 
 /** A district (riding) within a jurisdiction, as listed on the Jurisdiction view. */
 export interface DistrictSummary {
   name: string;
+  /** Year-less riding slug — matches district page routes. */
+  slug: string;
   /** Riding leader display name (e.g. the MLA). */
   leader: string;
+  /** Mock profile handle for the riding leader. */
+  leaderHandle: string;
 }
 
 /**
@@ -33,6 +39,8 @@ export interface DistrictDetail {
   /** Parent jurisdiction name. */
   jur: string;
   leader: string;
+  /** Mock profile handle for the riding leader (MLA). */
+  leaderHandle: string;
   boundaryYear: number;
   source: string;
   about: string[];

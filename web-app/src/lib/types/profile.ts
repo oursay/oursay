@@ -27,6 +27,8 @@ export interface ActivityItem {
   icon?: string;
   text: string;
   meta: string;
+  /** Mock navigation target — the record this activity refers to. */
+  recordId?: string;
 }
 
 /** A row in the profile Mentions tab (others referencing @handle). */
@@ -35,6 +37,8 @@ export interface MentionItem {
   handle: string;
   text: string;
   meta: string;
+  /** Mock navigation target — the record this mention appears on. */
+  recordId?: string;
 }
 
 /**

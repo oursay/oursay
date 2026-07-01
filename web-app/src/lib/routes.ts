@@ -1,8 +1,18 @@
 import type { RecordKind } from "@/lib/types";
+import { DETAIL_BY_ID } from "@/lib/mock";
 import { COMMENTS_SECTION_ID } from "./scroll";
 
 /** The five civic views, mirroring the wireframe's VIEW_ORDER. */
 export type AppView = "feed" | "jurisdiction" | "district" | "profile" | "post";
+
+export const RECORD_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
+
+const RECORD_KIND_LABEL: Record<RecordKind, string> = {
+  statement: "Statement",
+  petition: "Petition",
+  poll: "Poll",
+  result: "Result",
+};
 
 /** "Alberta" -> "alberta"; the inverse of jurisdictionNameFromSlug for our set. */
 export function jurisdictionSlug(name: string): string {
@@ -29,14 +39,23 @@ export function profilePath(handle: string): string {
   return `/profile/${handle}`;
 }
 
-// TODO(entityId): these route by record kind to the one representative sample per
-// type. Production swaps `[kind]` for `[id]` so a card opens its own record.
+/** Route to a record detail page: /{kind}/{id}. */
 export function postPath(
   kind: RecordKind,
+  id: string,
   opts?: { comments?: boolean },
 ): string {
-  const base = `/post/${kind}`;
+  const base = `/${kind}/${id}`;
   return opts?.comments ? `${base}#${COMMENTS_SECTION_ID}` : base;
+}
+
+/** Route when only the record id is known (resolves kind from mock corpus). */
+export function postPathForId(
+  id: string,
+  opts?: { comments?: boolean },
+): string {
+  const kind = DETAIL_BY_ID[id]?.post.kind ?? "statement";
+  return postPath(kind, id, opts);
 }
 
 /** Derive the active view from the pathname (drives shared chrome in AppShell). */
@@ -44,8 +63,16 @@ export function viewFromPathname(pathname: string): AppView {
   if (pathname.startsWith("/jurisdiction")) return "jurisdiction";
   if (pathname.startsWith("/district")) return "district";
   if (pathname.startsWith("/profile")) return "profile";
-  if (pathname.startsWith("/post")) return "post";
+  if (RECORD_KINDS.some((kind) => pathname.startsWith(`/${kind}/`))) return "post";
   return "feed";
+}
+
+/** Browser tab title — kind-specific on record routes. */
+export function pageTitle(pathname: string): string {
+  for (const kind of RECORD_KINDS) {
+    if (pathname.startsWith(`/${kind}/`)) return RECORD_KIND_LABEL[kind];
+  }
+  return VIEW_TITLE[viewFromPathname(pathname)];
 }
 
 /** Fixed header title per view (browser tab only — not shown in app chrome). */

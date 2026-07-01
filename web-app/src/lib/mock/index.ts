@@ -1,6 +1,5 @@
 export * from "./constants";
-export * from "./jurisdictions";
-export * from "./posts";
-export * from "./districts";
-export * from "./profile";
-export * from "./details";
+export * from "./build-corpus";
+export type { PostTypeEntry } from "./details";
+export { ALBERTA_RIDINGS } from "./alberta-ridings";
+export { districtSlug } from "./slug";

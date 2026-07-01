@@ -15,12 +15,9 @@ import {
 } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "-");
-}
-
 export function JurisdictionView({ slug }: { slug: string }) {
   const app = useApp();
+  const { setPageJurisdiction, feedFilter, viewer } = app;
   const router = useRouter();
   const name = jurisdictionNameFromSlug(slug);
 
@@ -31,8 +28,8 @@ export function JurisdictionView({ slug }: { slug: string }) {
   const [feedOpen, setFeedOpen] = useState(true);
 
   useEffect(() => {
-    app.setPageJurisdiction(name);
-  }, [app, name]);
+    setPageJurisdiction(name);
+  }, [name, setPageJurisdiction]);
 
   useEffect(() => {
     getJurisdiction(name).then(setSummary);
@@ -42,15 +39,15 @@ export function JurisdictionView({ slug }: { slug: string }) {
     let active = true;
     listFeedItems({
       scope: "jurisdiction",
-      filter: { ...app.feedFilter, jurisdiction: name },
-      viewer: app.viewer,
+      filter: { ...feedFilter, jurisdiction: name },
+      viewer,
     }).then((rows) => {
       if (active) setItems(rows);
     });
     return () => {
       active = false;
     };
-  }, [app.feedFilter, app.viewer, name]);
+  }, [feedFilter, viewer, name]);
 
   if (!summary) {
     return <p className="p-6 text-center text-sm text-muted">Jurisdiction not found.</p>;
@@ -65,7 +62,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
         <button
           type="button"
           // TODO(entityId): route to the jurisdiction leader's real profile.
-          onClick={() => router.push(profilePath("raenguyen"))}
+          onClick={() => router.push(profilePath(summary.leader.handle))}
           className="mt-0.5 text-sm text-brand-700 underline underline-offset-2"
         >
           {summary.leader.name}
@@ -106,7 +103,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 <button
                   type="button"
                   // TODO(entityId): route to the riding by its real district id.
-                  onClick={() => router.push(districtPath(slugify(d.name)))}
+                  onClick={() => router.push(districtPath(d.slug))}
                   className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border px-3 text-left text-sm hover:bg-surface-muted"
                 >
                   <span className="font-medium text-ink">{d.name}</span>
@@ -146,9 +143,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 hideJur
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(profilePath(item.handle))}
-                onTitleClick={() => router.push(postPath(item.kind))}
+                onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
-                  router.push(postPath(item.kind, { comments: true }))
+                  router.push(postPath(item.kind, item.id, { comments: true }))
                 }
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}

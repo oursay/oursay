@@ -11,16 +11,17 @@ import { useApp } from "@/lib/state";
 
 export function FeedView() {
   const app = useApp();
+  const { setPageJurisdiction, feedFilter, viewer } = app;
   const router = useRouter();
   const [items, setItems] = useState<FeedItem[] | null>(null);
 
   useEffect(() => {
-    app.setPageJurisdiction(null);
-  }, [app]);
+    setPageJurisdiction(null);
+  }, [setPageJurisdiction]);
 
   useEffect(() => {
     let active = true;
-    listFeedItems({ scope: "feed", filter: app.feedFilter, viewer: app.viewer }).then(
+    listFeedItems({ scope: "feed", filter: feedFilter, viewer }).then(
       (rows) => {
         if (active) setItems(rows);
       },
@@ -28,7 +29,7 @@ export function FeedView() {
     return () => {
       active = false;
     };
-  }, [app.feedFilter, app.viewer]);
+  }, [feedFilter, viewer]);
 
   if (items === null) {
     return <p className="p-6 text-center text-sm text-muted">Loading feed…</p>;
@@ -60,8 +61,10 @@ export function FeedView() {
           hideJur={hideJur}
           resolveDistrict={districtName}
           onAuthorClick={() => router.push(profilePath(item.handle))}
-          onTitleClick={() => router.push(postPath(item.kind))}
-          onCommentsClick={() => router.push(postPath(item.kind, { comments: true }))}
+          onTitleClick={() => router.push(postPath(item.kind, item.id))}
+          onCommentsClick={() =>
+            router.push(postPath(item.kind, item.id, { comments: true }))
+          }
           onReact={(dir) => app.react(item, dir)}
           selectedReaction={app.reactionFor(item.id)}
           selectedVote={app.voteFor(item.id)}

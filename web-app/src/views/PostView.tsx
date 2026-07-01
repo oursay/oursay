@@ -5,13 +5,7 @@ import { useRouter } from "next/navigation";
 import { getRecordDetail } from "@/lib/api";
 import type { CommentNode, RecordDetail, RecordKind } from "@/lib/types";
 import { postQualifiesForAffected, relTime } from "@/lib/read-model";
-import {
-  NOW,
-  POST_PETITION,
-  POST_POLL,
-  POST_RESULT,
-  districtName,
-} from "@/lib/mock";
+import { GRADUATION_CHAIN, NOW, districtName } from "@/lib/mock";
 import {
   Button,
   CommentThread,
@@ -33,9 +27,10 @@ function countNodes(nodes: CommentNode[]): number {
   return nodes.reduce((n, node) => n + 1 + countNodes(node.replies), 0);
 }
 
-export function PostView({ kind }: { kind: RecordKind }) {
+export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const app = useApp();
   const router = useRouter();
+  const { setPageJurisdiction, setPostAffectedEligible, viewer, feedFilter } = app;
 
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
@@ -48,25 +43,25 @@ export function PostView({ kind }: { kind: RecordKind }) {
     setShownComments([]);
     let active = true;
     Promise.all([
-      getRecordDetail("", kind),
-      getRecordDetail("", kind, { viewer: app.viewer, filter: app.feedFilter }),
+      getRecordDetail(id),
+      getRecordDetail(id, { viewer, filter: feedFilter }),
     ]).then(([full, filtered]) => {
-      if (!active) return;
+      if (!active || !full) return;
       setDetail(full.detail);
       setFullComments(full.comments);
-      setShownComments(filtered.comments);
-      app.setPostAffectedEligible(postQualifiesForAffected(full.detail));
+      setShownComments(filtered?.comments ?? []);
+      setPostAffectedEligible(postQualifiesForAffected(full.detail));
     });
     return () => {
       active = false;
     };
-  }, [kind, app.viewer, app.feedFilter]);
+  }, [id, viewer, feedFilter, setPostAffectedEligible]);
 
   useEffect(() => {
     if (!detail) return;
-    app.setPageJurisdiction(detail.jurisdiction);
-    return () => app.setPageJurisdiction(null);
-  }, [kind, detail?.jurisdiction]);
+    setPageJurisdiction(detail.jurisdiction);
+    return () => setPageJurisdiction(null);
+  }, [detail?.jurisdiction, setPageJurisdiction]);
 
   useEffect(() => {
     if (!detail) return;
@@ -98,17 +93,20 @@ export function PostView({ kind }: { kind: RecordKind }) {
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);
 
+  const chainPetition = GRADUATION_CHAIN.petition;
+  const chainPoll = GRADUATION_CHAIN.poll;
+  const chainResult = GRADUATION_CHAIN.result;
   const petitionTarget = {
-    id: POST_PETITION.id,
-    jurisdiction: POST_PETITION.jurisdiction,
-    title: POST_PETITION.title,
-    sig: POST_PETITION.sig,
-    districts: POST_PETITION.districts,
+    id: chainPetition.id,
+    jurisdiction: chainPetition.jurisdiction,
+    title: chainPetition.title,
+    sig: chainPetition.sig,
+    districts: chainPetition.districts,
   };
   const petitionPreview = {
-    title: POST_PETITION.title,
+    title: chainPetition.title,
     sig: app.petitionSigFor(petitionTarget),
-    goal: POST_PETITION.goal ?? 1,
+    goal: chainPetition.goal ?? 1,
   };
 
   const multiDistrict = detail.districts.length > 1;
@@ -121,6 +119,11 @@ export function PostView({ kind }: { kind: RecordKind }) {
     onExpandToggle: () => setScopeExpanded((v) => !v),
     onDistrictClick: (slug: string) => router.push(districtPath(slug)),
   };
+
+  const showChainLinks =
+    detail.id === chainPetition.id ||
+    detail.id === chainPoll.id ||
+    detail.id === chainResult.id;
 
   return (
     <div className="space-y-4 p-4">
@@ -227,15 +230,19 @@ export function PostView({ kind }: { kind: RecordKind }) {
         }
       />
 
-      <RecordTypeSection
-        detail={displayDetail}
-        petitionPreview={petitionPreview}
-        pollPreview={{ title: POST_POLL.title, options: POST_POLL.options ?? [] }}
-        resultPreview={{ options: POST_RESULT.options ?? [] }}
-        onSeeFullPetition={() => router.push(postPath("petition"))}
-        onSeeFullPoll={() => router.push(postPath("poll"))}
-        onSeeFullResult={() => router.push(postPath("result"))}
-      />
+      {showChainLinks ? (
+        <RecordTypeSection
+          detail={displayDetail}
+          petitionPreview={petitionPreview}
+          pollPreview={{ title: chainPoll.title, options: chainPoll.options ?? [] }}
+          resultPreview={{ options: chainResult.options ?? [] }}
+          onSeeFullPetition={() =>
+            router.push(postPath("petition", chainPetition.id))
+          }
+          onSeeFullPoll={() => router.push(postPath("poll", chainPoll.id))}
+          onSeeFullResult={() => router.push(postPath("result", chainResult.id))}
+        />
+      ) : null}
 
       <section id={COMMENTS_SECTION_ID} className="scroll-mt-3 space-y-3">
         <div className="flex items-baseline justify-between">

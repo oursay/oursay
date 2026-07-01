@@ -12,6 +12,7 @@ import { useApp } from "@/lib/state";
 
 export function DistrictView({ slug }: { slug: string }) {
   const app = useApp();
+  const { setPageJurisdiction, feedFilter, viewer } = app;
   const router = useRouter();
 
   const [detail, setDetail] = useState<DistrictDetail | null>(null);
@@ -24,22 +25,22 @@ export function DistrictView({ slug }: { slug: string }) {
   }, [slug]);
 
   useEffect(() => {
-    if (detail) app.setPageJurisdiction(detail.jur);
-  }, [app, detail]);
+    if (detail) setPageJurisdiction(detail.jur);
+  }, [detail?.jur, setPageJurisdiction]);
 
   useEffect(() => {
     let active = true;
     listFeedItems({
       scope: "district",
-      filter: { ...app.feedFilter, districtSlug: slug },
-      viewer: app.viewer,
+      filter: { ...feedFilter, districtSlug: slug },
+      viewer,
     }).then((rows) => {
       if (active) setItems(rows);
     });
     return () => {
       active = false;
     };
-  }, [app.feedFilter, app.viewer, slug]);
+  }, [feedFilter, viewer, slug]);
 
   if (!detail) {
     return <p className="p-6 text-center text-sm text-muted">District not found.</p>;
@@ -54,7 +55,7 @@ export function DistrictView({ slug }: { slug: string }) {
           <button
             type="button"
             // TODO(entityId): route to the riding representative's real profile.
-            onClick={() => router.push(profilePath("raenguyen"))}
+            onClick={() => router.push(profilePath(detail.leaderHandle))}
             className="text-brand-700 underline underline-offset-2"
           >
             {detail.leader}
@@ -109,9 +110,9 @@ export function DistrictView({ slug }: { slug: string }) {
                 hideDistrict
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(profilePath(item.handle))}
-                onTitleClick={() => router.push(postPath(item.kind))}
+                onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
-                  router.push(postPath(item.kind, { comments: true }))
+                  router.push(postPath(item.kind, item.id, { comments: true }))
                 }
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}

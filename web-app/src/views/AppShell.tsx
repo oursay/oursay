@@ -26,9 +26,9 @@ import { MY_NAME } from "@/lib/mock";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import type { RecordKind } from "@/lib/types";
 import {
-  VIEW_TITLE,
   jurisdictionPath,
   jurisdictionPillLabel,
+  pageTitle,
   viewFromPathname,
 } from "@/lib/routes";
 import { useApp } from "@/lib/state";
@@ -40,7 +40,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const view = viewFromPathname(pathname);
 
-  const title = VIEW_TITLE[view];
+  const title = pageTitle(pathname);
   const hasCardList =
     view === "feed" || view === "jurisdiction" || view === "district";
 
