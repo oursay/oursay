@@ -1,3 +1,4 @@
+export * from "./DismissBackdrop";
 export * from "./Button";
 export * from "./Avatar";
 export * from "./Modal";

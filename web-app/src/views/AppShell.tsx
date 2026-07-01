@@ -88,7 +88,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       type="button"
       aria-label="Account"
       onClick={app.openProfile}
-      className="inline-flex size-10 items-center justify-center rounded-full bg-ink"
+      className="inline-flex size-10 items-center justify-center rounded-full bg-brand-600 shadow-sm shadow-brand-600/25 hover:bg-brand-700"
     >
       <Avatar
         name={MY_NAME}
@@ -101,15 +101,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       type="button"
       aria-label="Log in"
       onClick={app.openAuth}
-      className="inline-flex size-10 items-center justify-center rounded-full border border-border-strong bg-surface text-ink hover:bg-surface-muted"
+      className="inline-flex size-10 items-center justify-center rounded-full border border-border-strong bg-surface text-ink shadow-sm hover:bg-surface-muted"
     >
       <User size={20} aria-hidden />
     </button>
   );
 
+  const popoverOpen = state.filterOpen || state.jurSelectorOpen;
+
   return (
     <>
       <AppFrame
+        captureActive={popoverOpen}
+        onCaptureDismiss={app.closePopovers}
         header={
           <div className="relative">
             <AppHeader

@@ -43,11 +43,10 @@
   --color-verify-600: #059669;
   --color-verify-700: #047857;
 
-  /* Verification pill backgrounds — the wireframe's tierShade() darkens as the
-     tier climbs; here it climbs the verify scale (Identity → Residency → Official). */
-  --color-verify-tier-1: #10b981; /* Identity  */
-  --color-verify-tier-2: #059669; /* Residency */
-  --color-verify-tier-3: #047857; /* Official  */
+  /* Verification pill backgrounds — distinct hue per tier (not just shades). */
+  --color-verify-tier-1: #059669; /* Identity — green */
+  --color-verify-tier-2: #2563eb; /* Residency — blue-check vibe */
+  --color-verify-tier-3: #111827; /* Official — black */
 
   /* Notice / danger surfaces — sign-modal FINAL warning, residency/affected boxes. */
   --color-notice-50: #fffbeb;

@@ -13,11 +13,11 @@ function tierIcon(tier: VerificationTier, home: boolean): LucideIcon {
   return [BadgeCheck, BadgeCheck, MapPin, Gavel][tier] ?? BadgeCheck;
 }
 
-/** Background darkens as the tier climbs the verify scale (wireframe tierShade). */
+/** Background per verification type — distinct hues, not just shades. */
 const TIER_BG: Record<Exclude<VerificationTier, 0>, string> = {
-  1: "bg-verify-tier-1",
-  2: "bg-verify-tier-2",
-  3: "bg-verify-tier-3",
+  1: "bg-verify-tier-1", // Identity — green
+  2: "bg-verify-tier-2", // Residency — blue
+  3: "bg-verify-tier-3", // Official — black
 };
 
 interface VerificationPillProps {

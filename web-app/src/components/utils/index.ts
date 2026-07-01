@@ -31,3 +31,21 @@ export function formatCount(n: number): string {
   const k = n / 1000;
   return `${k % 1 === 0 ? k : k.toFixed(1)}k`;
 }
+
+/**
+ * After an outside-dismiss pointer release, the browser may still synthesize a
+ * `click` on whatever now sits under the cursor once the overlay unmounts.
+ * Eat only that one stray click — not pointerup/mouseup, which would otherwise
+ * survive until the user's next tap and steal it.
+ */
+export function swallowNextPointerClick() {
+  document.addEventListener(
+    "click",
+    (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+    },
+    { capture: true, once: true },
+  );
+}

@@ -8,7 +8,7 @@ interface FabProps {
   onClick?: () => void;
 }
 
-/** Primary floating action button — fixed to the app frame, wireframe-dark fill. */
+/** Primary floating action — brand-filled to match the account affordance. */
 export function Fab({ variant, onClick }: FabProps) {
   const isCompose = variant === "compose";
   const Icon = isCompose ? Feather : Newspaper;
@@ -17,7 +17,7 @@ export function Fab({ variant, onClick }: FabProps) {
       type="button"
       onClick={onClick}
       aria-label={isCompose ? "New post" : "Go to feed"}
-      className="absolute bottom-5 right-5 z-40 inline-flex size-14 items-center justify-center rounded-full bg-ink text-white shadow-lg hover:bg-ink-soft"
+      className="absolute bottom-5 right-5 z-40 inline-flex size-14 items-center justify-center rounded-full bg-brand-600 text-white shadow-lg shadow-brand-600/30 hover:bg-brand-700"
     >
       <Icon size={26} strokeWidth={2} aria-hidden />
     </button>

@@ -1,4 +1,4 @@
-/** Bottom spacer that keeps content clear of the floating action button (~80px). */
+/** Bottom spacer so the last line of scroll content clears the FAB. */
 export function SafeFooter() {
-  return <div className="h-20" aria-hidden />;
+  return <div className="h-24" aria-hidden />;
 }

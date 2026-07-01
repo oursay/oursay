@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { swallowNextPointerClick } from "@/components/utils";
 
 type Variant = "center" | "sheet";
 
@@ -18,9 +20,8 @@ interface ModalProps {
 }
 
 /**
- * Presentational modal shell: dimmed backdrop + panel, Escape / backdrop-click
- * to close, focus moved to the close button on open. Open state is controlled
- * by the parent (the wireframe drives every modal from a single state object).
+ * Presentational modal shell: dimmed backdrop + panel, Escape / outside release
+ * to close. Portaled to document.body so dismiss never leaks clicks to the page.
  */
 export function Modal({
   open,
@@ -31,6 +32,9 @@ export function Modal({
   children,
 }: ModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -42,24 +46,34 @@ export function Modal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
   const panel =
     variant === "sheet"
       ? "mx-auto mt-6 mb-6 w-[calc(100%-2rem)] max-w-md"
       : "mx-auto my-auto w-[calc(100%-3rem)] max-w-sm";
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex overflow-y-auto bg-black/45"
-      onClick={onClose}
+      className={`fixed inset-0 z-50 flex overflow-y-auto bg-black/45 ${
+        variant === "sheet" ? "items-start pt-6" : "items-center"
+      } justify-center p-4`}
+      onPointerUp={(e) => {
+        if (e.target === e.currentTarget) {
+          e.preventDefault();
+          e.stopPropagation();
+          swallowNextPointerClick();
+          onClose();
+        }
+      }}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className={`relative flex flex-col rounded-2xl border border-border-strong bg-surface p-5 shadow-xl ${panel}`}
-        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
       >
         {title ? (
           <div className="mb-3 pr-10">
@@ -79,6 +93,7 @@ export function Modal({
         </button>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
