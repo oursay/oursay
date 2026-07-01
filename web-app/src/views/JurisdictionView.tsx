@@ -145,6 +145,8 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 onTitleClick={() => router.push(postPath(item.kind))}
                 onCommentsClick={() => router.push(postPath(item.kind))}
                 onReact={(dir) => app.react(item, dir)}
+                selectedVote={app.voteFor(item.id)}
+                onVote={(label) => app.votePoll(item, label)}
                 onEditsClick={() =>
                   app.notify("Edit history is not built in this demo.")
                 }

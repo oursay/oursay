@@ -41,6 +41,9 @@ export function FeedView() {
     );
   }
 
+  const hideJur =
+    app.state.subscriptions.filter((s) => s.included).length <= 1;
+
   return (
     <div className="space-y-3 px-3 py-3">
       {items.map((item) => (
@@ -50,11 +53,14 @@ export function FeedView() {
           item={{ ...item, sig: app.petitionSigFor(item) }}
           viewer={app.viewer}
           tierMin={app.state.verified}
+          hideJur={hideJur}
           resolveDistrict={districtName}
           onAuthorClick={() => router.push(profilePath(item.handle))}
           onTitleClick={() => router.push(postPath(item.kind))}
           onCommentsClick={() => router.push(postPath(item.kind))}
           onReact={(dir) => app.react(item, dir)}
+          selectedVote={app.voteFor(item.id)}
+          onVote={(label) => app.votePoll(item, label)}
           onEditsClick={() => app.notify("Edit history is not built in this demo.")}
           onJurisdictionClick={() =>
             router.push(jurisdictionPath(item.jurisdiction))

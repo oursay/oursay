@@ -47,7 +47,7 @@ export function PollOptions({
               onClick={() => onVote?.(o.label)}
               className={`relative block h-5 w-full overflow-hidden rounded border bg-surface-muted text-left ${
                 mine ? "border-ink/40" : "border-border-strong"
-              } ${locked || !onVote ? "cursor-default" : "hover:border-ink/30"}`}
+              } ${locked || !onVote ? "cursor-default" : "cursor-pointer hover:border-ink/30"}`}
             >
               <span
                 className={`absolute inset-y-0 left-0 ${mine ? "bg-neutral-500" : "bg-neutral-300"}`}

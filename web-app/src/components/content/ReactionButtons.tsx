@@ -50,9 +50,9 @@ export function ReactionButtons({
   };
 
   return (
-    <div className="inline-flex overflow-hidden rounded-full border border-border-strong bg-surface shadow-sm">
+    <div className="inline-flex overflow-hidden rounded-full border-2 border-border-strong bg-surface shadow-sm">
       {half("up", up)}
-      <span className="w-px self-stretch bg-border" aria-hidden />
+      <span className="w-0.5 self-stretch bg-border-strong" aria-hidden />
       {half("down", down)}
     </div>
   );

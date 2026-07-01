@@ -23,6 +23,8 @@ interface FeedCardProps {
   onTitleClick?: () => void;
   onCommentsClick?: () => void;
   onReact?: (dir: "up" | "down") => void;
+  selectedVote?: string | null;
+  onVote?: (label: string) => void;
   onEditsClick?: () => void;
   onJurisdictionClick?: () => void;
   onDistrictClick?: (slug: string) => void;
@@ -40,6 +42,8 @@ export function FeedCard({
   onTitleClick,
   onCommentsClick,
   onReact,
+  selectedVote = null,
+  onVote,
   onEditsClick,
   onJurisdictionClick,
   onDistrictClick,
@@ -96,7 +100,13 @@ export function FeedCard({
           />
         ) : null}
         {item.kind === "poll" && item.options ? (
-          <PollOptions options={item.options} tierMin={tierMin} />
+          <PollOptions
+            options={item.options}
+            selectedVote={selectedVote}
+            isFinalJurisdiction={item.jurisdiction === "Alberta"}
+            tierMin={tierMin}
+            onVote={onVote}
+          />
         ) : null}
       </div>
 
@@ -114,7 +124,7 @@ export function FeedCard({
         <button
           type="button"
           onClick={onCommentsClick}
-          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border-strong bg-surface px-3 text-sm text-ink-soft shadow-sm hover:bg-surface-muted"
+          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border-2 border-border-strong bg-surface px-3 text-sm text-ink-soft shadow-sm hover:bg-surface-muted"
         >
           <MessageSquare size={14} aria-hidden />
           {formatCount(item.comments)}

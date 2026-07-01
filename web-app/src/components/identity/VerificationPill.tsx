@@ -37,9 +37,9 @@ export function VerificationPill({
   const Icon = tierIcon(tier, isHomeAuthor);
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-white ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""}`}
+      className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight text-white ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""}`}
     >
-      <Icon size={12} aria-hidden />
+      <Icon size={10} aria-hidden />
       {TIER_LABEL[tier]}
     </span>
   );

@@ -48,18 +48,18 @@ export function AuthorRow({
           <Avatar name={author} size="md" />
         </button>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-1.5">
             <button
               type="button"
               onClick={onAuthorClick}
               disabled={!onAuthorClick}
-              className="min-w-0 truncate text-left text-sm font-semibold text-ink disabled:cursor-default"
+              className="min-w-0 truncate text-left text-sm font-semibold leading-tight text-ink disabled:cursor-default"
             >
               {author}
             </button>
             <VerificationPill tier={tier} isHomeAuthor={isHomeAuthor} align="right" />
           </div>
-          <div className="mt-0.5 flex items-baseline justify-between gap-2">
+          <div className="-mt-px flex items-baseline justify-between gap-2">
             {handle ? (
               <button
                 type="button"
