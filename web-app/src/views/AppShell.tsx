@@ -23,6 +23,7 @@ import {
 } from "@/components";
 import { DismissBackdrop } from "@/components/ui";
 import { MY_NAME } from "@/lib/mock";
+import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import type { RecordKind } from "@/lib/types";
 import {
   VIEW_TITLE,
@@ -80,12 +81,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     state.affected ||
     (hasCardList && state.includedKinds.length < 4);
 
-  const alberta = state.composeJur === "Alberta";
-  const allowedComposeTypes: RecordKind[] = alberta
-    ? ["statement", "petition"]
-    : ["statement", "petition", "poll"];
-  const lockedComposeTypes: RecordKind[] =
-    alberta && state.kycTier < 2 ? ["petition"] : [];
+  const composeJur = state.composeJur ?? "Global";
+  const allowedComposeTypes = rootTypesForJurisdiction(composeJur);
 
   const accountSlot = state.loggedIn ? (
     <button
@@ -234,10 +231,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={app.closeCompose}
         step={state.composeStep}
         jurisdictions={state.subscriptions.map((s) => s.name)}
+        kycTier={state.kycTier}
         selectedJurisdiction={state.composeJur}
         onSelectJurisdiction={app.selectComposeJurisdiction}
         allowedTypes={allowedComposeTypes}
-        lockedTypes={lockedComposeTypes}
         selectedType={state.composeType}
         onSelectType={app.selectComposeType}
         onChangeType={app.changeComposeType}
@@ -258,7 +255,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <AddJurisdictionModal
         open={state.addJurOpen}
         onClose={app.closeAddJur}
+        subscriptions={state.subscriptions}
         onJoin={app.addJurisdiction}
+        onDelete={app.removeJurisdiction}
       />
 
       {state.toast ? (

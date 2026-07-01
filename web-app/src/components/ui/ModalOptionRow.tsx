@@ -6,6 +6,7 @@ interface ModalOptionRowProps {
   icon?: ReactNode;
   /** Right-side note (e.g. "Residency-verified only") — hides the chevron. */
   trailing?: string;
+  trailingTone?: "default" | "destructive";
   disabled?: boolean;
   onClick?: () => void;
 }
@@ -15,6 +16,7 @@ export function ModalOptionRow({
   label,
   icon,
   trailing,
+  trailingTone = "default",
   disabled = false,
   onClick,
 }: ModalOptionRowProps) {
@@ -34,7 +36,13 @@ export function ModalOptionRow({
         {label}
       </span>
       {trailing ? (
-        <span className="shrink-0 text-[10px] text-muted">{trailing}</span>
+        <span
+          className={`shrink-0 text-[10px] ${
+            trailingTone === "destructive" ? "text-danger-700" : "text-muted"
+          }`}
+        >
+          {trailing}
+        </span>
       ) : (
         <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden />
       )}

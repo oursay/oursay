@@ -48,3 +48,6 @@ export const DISTRICT_NAMES: Record<string, string> = {
 export function districtName(slug: string): string {
   return DISTRICT_NAMES[slug] ?? slug;
 }
+
+/** All jurisdictions available in the add-jurisdiction spotlight. */
+export const ALL_JURISDICTIONS = Object.keys(JUR_DATA);

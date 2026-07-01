@@ -131,6 +131,7 @@ export interface AppApi {
   openAddJur: () => void;
   closeAddJur: () => void;
   addJurisdiction: (name: string) => void;
+  removeJurisdiction: (name: string) => void;
 
   // Auth flow.
   openAuth: () => void;
@@ -394,21 +395,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const openAddJur = useCallback(() => set({ addJurOpen: true }), [set]);
+  const openAddJur = useCallback(
+    () => set({ addJurOpen: true, jurSelectorOpen: false }),
+    [set],
+  );
   const closeAddJur = useCallback(() => set({ addJurOpen: false }), [set]);
 
   const addJurisdiction = useCallback(
     (name: string) => {
-      setState((s) =>
-        s.subscriptions.some((sub) => sub.name === name)
-          ? { ...s, addJurOpen: false }
-          : {
-              ...s,
-              subscriptions: [...s.subscriptions, { name, included: true }],
-              addJurOpen: false,
-            },
-      );
+      setState((s) => {
+        if (s.subscriptions.some((sub) => sub.name === name)) {
+          return { ...s, addJurOpen: false };
+        }
+        return {
+          ...s,
+          subscriptions: [
+            ...s.subscriptions.map((sub) => ({ ...sub, included: false })),
+            { name, included: true },
+          ],
+          addJurOpen: false,
+        };
+      });
       notify(`Joined ${name}.`);
+    },
+    [notify],
+  );
+
+  const removeJurisdiction = useCallback(
+    (name: string) => {
+      setState((s) => {
+        if (s.subscriptions.length <= 1) {
+          return { ...s, addJurOpen: false };
+        }
+        const next = s.subscriptions.filter((sub) => sub.name !== name);
+        if (!next.some((sub) => sub.included)) {
+          return {
+            ...s,
+            subscriptions: next.map((sub, i) => ({ ...sub, included: i === 0 })),
+            addJurOpen: false,
+          };
+        }
+        return { ...s, subscriptions: next, addJurOpen: false };
+      });
+      notify(`Left ${name}.`);
     },
     [notify],
   );
@@ -628,10 +657,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [requireAuth]);
 
-  const selectComposeJurisdiction = useCallback(
-    (name: string) => set({ composeJur: name, composeStep: "type" }),
-    [set],
-  );
+  const selectComposeJurisdiction = useCallback((name: string) => {
+    setState((s) => ({
+      ...s,
+      composeJur: name,
+      composeStep: s.composeStep === "compose" ? "compose" : "type",
+    }));
+  }, []);
   const selectComposeType = useCallback(
     (kind: RecordKind) => set({ composeType: kind, composeStep: "compose" }),
     [set],
@@ -738,6 +770,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     openAddJur,
     closeAddJur,
     addJurisdiction,
+    removeJurisdiction,
     openAuth,
     closeAuth,
     goRegister,

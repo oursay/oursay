@@ -13,6 +13,7 @@ import {
   POST_RESULT,
   POSTS,
 } from "@/lib/mock";
+import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import {
   AddJurisdictionModal,
   AppHeader,
@@ -390,19 +391,13 @@ export default function ComponentGallery() {
         onClose={() => setComposeOpen(false)}
         step={composeStep}
         jurisdictions={["Global", "Alberta"]}
+        kycTier={VIEWER.kycTier}
         selectedJurisdiction={composeJur}
         onSelectJurisdiction={(name) => {
           setComposeJur(name);
-          setComposeStep("type");
+          setComposeStep(composeStep === "compose" ? "compose" : "type");
         }}
-        allowedTypes={
-          composeJur === "Alberta"
-            ? ["statement", "petition"]
-            : ["statement", "petition", "poll"]
-        }
-        lockedTypes={
-          composeJur === "Alberta" && VIEWER.kycTier < 2 ? ["petition"] : []
-        }
+        allowedTypes={rootTypesForJurisdiction(composeJur ?? "Global")}
         selectedType={composeType}
         onSelectType={(k) => {
           setComposeType(k);
@@ -422,6 +417,7 @@ export default function ComponentGallery() {
       <AddJurisdictionModal
         open={addJurOpen}
         onClose={() => setAddJurOpen(false)}
+        subscriptions={[{ name: "Global", included: true }]}
       />
     </main>
   );

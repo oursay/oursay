@@ -41,13 +41,7 @@ export function JurisdictionSelector({
   const includedCount = subscriptions.filter((s) => s.included).length;
 
   return (
-    <div
-      className={`inline-grid w-max max-w-[calc(100vw-1.5rem)] gap-x-1.5 rounded-xl border border-border-strong bg-surface p-2 shadow-lg ${
-        multi
-          ? "grid-cols-[1.25rem_minmax(max-content,1fr)_max-content]"
-          : "grid-cols-[minmax(max-content,1fr)_max-content]"
-      }`}
-    >
+    <div className="inline-grid w-max max-w-[calc(100vw-1.5rem)] grid-cols-[1.25rem_minmax(max-content,1fr)_max-content] gap-x-1.5 rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
       {multi ? (
         <div className="col-span-3">
           <CheckboxRow
@@ -85,7 +79,9 @@ export function JurisdictionSelector({
             <button
               type="button"
               onClick={() => onSelectOnly(sub.name)}
-              className={`${ROW_CELL} justify-center gap-1.5 whitespace-nowrap px-1`}
+              className={`${ROW_CELL} gap-1.5 whitespace-nowrap px-1 ${
+                multi ? "justify-center" : "col-span-2 justify-start"
+              }`}
             >
               <Icon size={16} className="shrink-0 text-ink-soft" aria-hidden />
               <span className="text-sm text-ink">{sub.name}</span>
@@ -104,7 +100,7 @@ export function JurisdictionSelector({
       <button
         type="button"
         onClick={onAddJurisdiction}
-        className={`${multi ? "col-span-3" : "col-span-2"} mt-1 flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-dashed border-border-strong px-3 text-sm font-medium text-ink-soft hover:bg-surface-muted`}
+        className="col-span-3 mt-1 flex min-h-11 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-dashed border-border-strong px-3 text-sm font-medium text-ink-soft hover:bg-surface-muted"
       >
         <Plus size={16} aria-hidden />
         Add Jurisdiction
