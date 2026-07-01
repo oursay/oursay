@@ -1620,7 +1620,8 @@
       { type:"result", jur:"Global", tier:3, districts:[], author:"OurSay Stewards", handle:"oursay",
         title:"Result: Platform name vote",
         body:["The community vote on the platform name has closed.",
-              "Turnout exceeded the k-anonymity floor."], outcome:"Passed · “OurSay” 58%", up:33, down:9, comments:5 },
+              "Turnout exceeded the k-anonymity floor."],
+        options:[{label:"OurSay",v:58},{label:"Other",v:42}], up:33, down:9, comments:5 },
 
       // --- Alberta · officials (MLA / government → "Official" tag, tier 3) ---
       { type:"statement", jur:"Alberta", tier:3, districts:["edmonton-strathcona"], author:"Rae Nguyen", handle:"raenguyen",
@@ -1639,7 +1640,8 @@
       { type:"result", jur:"Alberta", tier:3, districts:[], author:"Alberta Assembly", handle:"ableg",
         title:"Result: Bill 12 community poll",
         body:["The non-binding community poll on Bill 12 has closed.",
-              "Counts shown are residency-verified electors only."], outcome:"Closed · 71% Oppose", up:90, down:20, comments:27 },
+              "Counts shown are residency-verified electors only."],
+        options:[{label:"Support",v:29},{label:"Oppose",v:71}], up:90, down:20, comments:27 },
 
       // --- Alberta · residents (public / ID / residency) ---
       { type:"statement", jur:"Alberta", tier:0, districts:["edmonton-strathcona"], author:"Jordan Vance", handle:"jvance",
@@ -1862,7 +1864,6 @@
         "residency-verified electors only, anchored on the",
         "public ledger — past the k-anonymity floor."
       ],
-      outcome: "Passed · Yes 81.8%",
       options: [ { label: "Yes — fund it in 2027", v: 5413 }, { label: "No — defer to a later budget", v: 1206 } ],
       up: 47, down: 6, _my: null,
       sourcePoll: true, sourcePetition: true // transitive petition link, per result.md
@@ -1889,6 +1890,48 @@
     // ---- shared content helpers (one copy each) -------------------------------
     function fmt(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
     function fmtN(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
+    function fmtResultPct(n) {
+      var r = Math.round(n * 10) / 10;
+      return (r % 1 === 0) ? String(Math.round(r)) : r.toFixed(1);
+    }
+    // binary Result copy: "Closed · N% Support|Oppose" — N is the winning share (≥50%); ties → Support
+    function resultOutcomeInfo(p) {
+      if (p.options && p.options.length >= 2) {
+        var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
+        var sup = p.options.find(function (o) { return o.label === "Support"; }) || p.options[0];
+        var opp = p.options.find(function (o) { return o.label === "Oppose"; }) || p.options[1];
+        var supPct = (sup.v / total) * 100;
+        var oppPct = (opp.v / total) * 100;
+        var supportWins = supPct >= oppPct;
+        var winner = supportWins ? "Support" : "Oppose";
+        var winPct = supportWins ? supPct : oppPct;
+        return {
+          text: "Closed · " + fmtResultPct(winPct) + "% " + winner,
+          winner: winner,
+          pct: winPct / 100
+        };
+      }
+      var fallback = p.outcome || "";
+      return {
+        text: fallback,
+        winner: fallback.indexOf("Oppose") >= 0 ? "Oppose" : "Support",
+        pct: (parseFloat((fallback.match(/(\d+(?:\.\d+)?)\s*%/) || [])[1]) || 0) / 100
+      };
+    }
+    // compact Result summary strip — track + fill shaded to the winning share
+    function outcomeStripNodes(px, y, w, p) {
+      var info = resultOutcomeInfo(p);
+      var nodes = [rect(px, y, w, 28, 6, "#ececec", "#ccc")];
+      if (info.pct > 0) {
+        var fill = info.winner === "Oppose" ? "#666" : "#ddd";
+        nodes.push(rect(px, y, Math.round(w * info.pct), 28, 6, fill));
+      }
+      var iconColor = info.winner === "Oppose" ? "#fff" : "#333";
+      var textColor = info.winner === "Oppose" ? "#fff" : "#222";
+      nodes.push(icon("#ic-check-circle", px + 8, y + 6, 16, iconColor));
+      nodes.push(txt(px + 32, y + 19, info.text, 12.5, textColor));
+      return nodes;
+    }
 
     // Wireframe "now" — fixes the relative timestamps so this static file always reads
     // consistently (matches the 9:41 status bar). Production reads the real clock —
@@ -2413,9 +2456,7 @@
         po.nodes.forEach(add); po.hits.forEach(hit);
         y = po.y;
       } else if (p.type === "result") {
-        add(rect(px, y, W - 2 * px, 28, 6, "#f7f7f7", "#ddd"));
-        add(icon("#ic-check-circle", px + 8, y + 6, 16, "#555"));
-        add(txt(px + 32, y + 19, p.outcome, 12.5, "#444"));
+        outcomeStripNodes(px, y, W - 2 * px, p).forEach(add);
         y += 38;
       }
 
@@ -3051,13 +3092,8 @@
         po.hits.forEach(function (n) { body.appendChild(n); });
         y = po.y + 12;
       } else if (type === "result") {
-        var pr = buildPollOptions(p, X, y, W, { frozen: true }); // immutable final tallies — no vote clicks
-        pr.nodes.forEach(function (n) { body.appendChild(n); });
-        y = pr.y + 4;
-        body.appendChild(rect(X, y, W, 28, 6, "#f7f7f7", "#ddd"));
-        body.appendChild(icon("#ic-check-circle", X + 8, y + 6, 16, "#555"));
-        body.appendChild(txt(X + 32, y + 19, p.outcome, 12.5, "#444"));
-        y += 38;
+        outcomeStripNodes(X, y, W, p).forEach(function (n) { body.appendChild(n); });
+        y += 46; // outcome badge + extra clearance before the reaction/reply/comments bar
       }
 
       // common bottom bar: reactions (statement/result) OR the civic count (petition/poll,
@@ -3105,31 +3141,56 @@
         if (p.sourcePetition) {
           y = collHeader(body, X, W, y, "#ic-clipboard", "Source Petition", state.pollSourceOpen, null,
             function () { state.pollSourceOpen = !state.pollSourceOpen; render(); });
-          y = state.pollSourceOpen
-            ? interlinkPreview(body, X, W, y + 8, POST_PETITION.title, "See full Petition →", "petition")
-            : y + 12;
+          if (state.pollSourceOpen) {
+            y += 8;
+            body.appendChild(txt(X + 14, y + 14, POST_PETITION.title, 12.5, "#333"));
+            y += 26;
+            body.appendChild(txt(X + 14, y + 16,
+              fmt(POST_PETITION.sig) + " / " + fmt(POST_PETITION.goal) + " signatures", 12, "#555"));
+            y += 28;
+            seeFullBtn(body, X + 14, y, "See full Petition →", goPost("petition"));
+            y += 38;
+          } else y += 12;
         }
         if (p.resultPublished) {
           y = collHeader(body, X, W, y, "#ic-check-circle", "Result", state.pollResultOpen, null,
             function () { state.pollResultOpen = !state.pollResultOpen; render(); });
-          y = state.pollResultOpen
-            ? interlinkPreview(body, X, W, y + 8, POST_RESULT.outcome, "See full Result →", "result")
-            : y + 12;
+          if (state.pollResultOpen) {
+            y += 8;
+            outcomeStripNodes(X + 14, y, W - 28, POST_RESULT).forEach(function (n) { body.appendChild(n); });
+            y += 38;
+            seeFullBtn(body, X + 14, y, "See full Result →", goPost("result"));
+            y += 38;
+          } else y += 12;
         }
       } else if (type === "result") {
         if (p.sourcePoll) {
           y = collHeader(body, X, W, y, "#ic-bar", "Poll", state.resPollOpen, null,
             function () { state.resPollOpen = !state.resPollOpen; render(); });
-          y = state.resPollOpen
-            ? interlinkPreview(body, X, W, y + 8, POST_POLL.title, "See full Poll →", "poll")
-            : y + 12;
+          if (state.resPollOpen) {
+            y += 8;
+            body.appendChild(txt(X + 14, y + 14, POST_POLL.title, 12.5, "#333"));
+            y += 26;
+            var pr = buildPollOptions(POST_POLL, X + 14, y, W - 28, { frozen: true });
+            pr.nodes.forEach(function (n) { body.appendChild(n); });
+            y = pr.y + 4;
+            seeFullBtn(body, X + 14, y, "See full Poll →", goPost("poll"));
+            y += 38;
+          } else y += 12;
         }
         if (p.sourcePetition) {
           y = collHeader(body, X, W, y, "#ic-clipboard", "Petition", state.resPetitionOpen, null,
             function () { state.resPetitionOpen = !state.resPetitionOpen; render(); });
-          y = state.resPetitionOpen
-            ? interlinkPreview(body, X, W, y + 8, POST_PETITION.title, "See full Petition →", "petition")
-            : y + 12;
+          if (state.resPetitionOpen) {
+            y += 8;
+            body.appendChild(txt(X + 14, y + 14, POST_PETITION.title, 12.5, "#333"));
+            y += 26;
+            body.appendChild(txt(X + 14, y + 16,
+              fmt(POST_PETITION.sig) + " / " + fmt(POST_PETITION.goal) + " signatures", 12, "#555"));
+            y += 28;
+            seeFullBtn(body, X + 14, y, "See full Petition →", goPost("petition"));
+            y += 38;
+          } else y += 12;
         }
       }
 
