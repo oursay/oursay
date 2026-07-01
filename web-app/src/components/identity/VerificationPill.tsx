@@ -1,4 +1,4 @@
-import { BadgeCheck, Gavel, MapPin, MapPinHouse } from "lucide-react";
+import { Gavel, IdCard, MapPin, MapPinHouse } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { TIER_LABEL } from "@/lib/types";
 import type { VerificationTier } from "@/lib/types";
@@ -10,7 +10,7 @@ import type { VerificationTier } from "@/lib/types";
  */
 function tierIcon(tier: VerificationTier, home: boolean): LucideIcon {
   if (tier === 2 && home) return MapPinHouse;
-  return [BadgeCheck, BadgeCheck, MapPin, Gavel][tier] ?? BadgeCheck;
+  return [IdCard, IdCard, MapPin, Gavel][tier] ?? IdCard;
 }
 
 /** Background per verification type — distinct hues, not just shades. */

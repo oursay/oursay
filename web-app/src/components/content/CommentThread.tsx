@@ -44,7 +44,7 @@ export function CommentThread({
   onEditsClick,
 }: CommentThreadProps) {
   return (
-    <ul className={depth > 1 ? "space-y-4 border-l border-border pl-4" : "space-y-4"}>
+    <ul className={depth > 1 ? "space-y-4 border-l border-border pl-2" : "space-y-4"}>
       {nodes.map((node, i) => {
         const home = isHomeAuthor(node.districts, viewer.kycTier, viewer.viewerDistricts);
         const atMax = depth >= maxDepth;
@@ -93,7 +93,7 @@ export function CommentThread({
             </div>
 
             {node.replies.length > 0 ? (
-              <div className="mt-4 pl-8">
+              <div className="mt-4 ml-5">
                 {atMax ? (
                   // Beyond max depth: flatten replies to siblings, seeded with @handle.
                   <CommentThread

@@ -30,7 +30,7 @@ export function JurisdictionSelector({
   const includedCount = subscriptions.filter((s) => s.included).length;
 
   return (
-    <div className="w-72 rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
+    <div className="w-max max-w-[calc(100vw-1.5rem)] rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
       {subscriptions.map((sub) => {
         const isLast = includedCount <= 1 && sub.included;
         const Icon = sub.name === "Global" ? Globe : Building2;
@@ -40,6 +40,7 @@ export function JurisdictionSelector({
             label={sub.name}
             checked={sub.included}
             showCheckbox={multi}
+            fill={false}
             icon={<Icon size={16} aria-hidden />}
             onToggle={() => {
               if (isLast) return;
@@ -62,7 +63,7 @@ export function JurisdictionSelector({
       <button
         type="button"
         onClick={onAddJurisdiction}
-        className="mt-1 flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong text-sm font-medium text-ink-soft hover:bg-surface-muted"
+        className="mt-1 flex min-h-11 items-center justify-center gap-2 rounded-lg border border-dashed border-border-strong px-4 text-sm font-medium text-ink-soft hover:bg-surface-muted"
       >
         <Plus size={16} aria-hidden />
         Add Jurisdiction

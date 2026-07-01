@@ -16,6 +16,8 @@ interface CheckboxRowProps {
   /** Trailing content: a value label (Verified ladder) or an action affordance. */
   trailing?: ReactNode;
   disabled?: boolean;
+  /** When false, the label row hugs its content (jurisdiction dropdown). */
+  fill?: boolean;
 }
 
 /** A filter / selector row: optional checkbox + icon + label + trailing slot. */
@@ -28,6 +30,7 @@ export function CheckboxRow({
   icon,
   trailing,
   disabled = false,
+  fill = true,
 }: CheckboxRowProps) {
   return (
     <div
@@ -50,7 +53,7 @@ export function CheckboxRow({
         type="button"
         disabled={disabled || !onSelect}
         onClick={onSelect}
-        className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
+        className={`flex min-w-0 items-center gap-2 text-left disabled:cursor-default ${fill ? "flex-1" : ""}`}
       >
         {icon ? <span className="shrink-0 text-ink-soft">{icon}</span> : null}
         <span className="truncate text-sm text-ink">{label}</span>

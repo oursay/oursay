@@ -149,7 +149,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <JurisdictionSelector
                   subscriptions={state.subscriptions}
                   onToggleInclude={app.toggleSub}
-                  onSelectOnly={app.selectOnlySub}
+                  onSelectOnly={(name) => {
+                    app.selectOnlySub(name);
+                    app.toggleJurSelector();
+                    router.push("/feed");
+                  }}
                   onOpenJurisdiction={(name) => {
                     app.toggleJurSelector();
                     router.push(jurisdictionPath(name));

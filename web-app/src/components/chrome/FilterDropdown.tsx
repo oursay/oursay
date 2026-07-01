@@ -1,6 +1,6 @@
 "use client";
 
-import { List, MapPin, Users, Shield } from "lucide-react";
+import { BadgeCheck, Eye, EyeOff, List } from "lucide-react";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import { CheckboxRow } from "@/components/ui";
 import { VERIFIED_LEVELS } from "@/lib/types";
@@ -45,7 +45,8 @@ export function FilterDropdown({
 }: FilterDropdownProps) {
   // My Districts / Affected are only inferable for a residency-verified viewer
   // once the Verified ladder is at Residency+ (§4.4).
-  const geographyDisabled = viewer.kycTier < 2 || verifiedLevel < 2;
+  const canGeography = viewer.kycTier >= 2;
+  const geographyInferable = verifiedLevel >= 2;
 
   return (
     <div className="w-72 rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
@@ -88,7 +89,7 @@ export function FilterDropdown({
       <CheckboxRow
         label="Verified"
         showCheckbox={false}
-        icon={<Shield size={16} aria-hidden />}
+        icon={<BadgeCheck size={16} aria-hidden />}
         onSelect={onCycleVerified}
         trailing={
           <span className="text-xs text-ink-soft">
@@ -98,18 +99,44 @@ export function FilterDropdown({
       />
       <CheckboxRow
         label="My Districts"
-        checked={myDistricts}
-        icon={<MapPin size={16} aria-hidden />}
-        disabled={geographyDisabled}
-        onToggle={onToggleMyDistricts}
+        showCheckbox={false}
+        icon={
+          myDistricts && geographyInferable ? (
+            <Eye size={16} aria-hidden />
+          ) : (
+            <EyeOff size={16} aria-hidden />
+          )
+        }
+        disabled={!canGeography}
+        onSelect={canGeography ? onToggleMyDistricts : undefined}
+        trailing={
+          !canGeography ? (
+            <span className="text-xs text-muted">Residency only</span>
+          ) : !geographyInferable ? (
+            <span className="text-xs text-muted">Residency+</span>
+          ) : null
+        }
       />
       {showAffected ? (
         <CheckboxRow
           label="Affected"
-          checked={affected}
-          icon={<Users size={16} aria-hidden />}
-          disabled={geographyDisabled}
-          onToggle={onToggleAffected}
+          showCheckbox={false}
+          icon={
+            affected && geographyInferable ? (
+              <Eye size={16} aria-hidden />
+            ) : (
+              <EyeOff size={16} aria-hidden />
+            )
+          }
+          disabled={!canGeography}
+          onSelect={canGeography ? onToggleAffected : undefined}
+          trailing={
+            !canGeography ? (
+              <span className="text-xs text-muted">Residency only</span>
+            ) : !geographyInferable ? (
+              <span className="text-xs text-muted">Residency+</span>
+            ) : null
+          }
         />
       ) : null}
     </div>
