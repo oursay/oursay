@@ -33,6 +33,7 @@ import {
   ReactionButtons,
   RecordTypeSection,
   RegisterForm,
+  ResultOutcome,
   ScopeTag,
   SignModal,
   VerificationPill,
@@ -192,7 +193,7 @@ export default function ComponentGallery() {
           </div>
         </Section>
 
-        <Section title="Poll options — live vs frozen">
+        <Section title="Poll options — live vs result outcome">
           <div className="space-y-3 rounded-xl border border-border bg-surface p-4">
             {POST_POLL.options ? (
               <PollOptions
@@ -201,7 +202,9 @@ export default function ComponentGallery() {
                 onVote={(l) => setVote((v) => (v === l ? null : l))}
               />
             ) : null}
-            {POST_RESULT.options ? <PollOptions options={POST_RESULT.options} frozen /> : null}
+            {POST_RESULT.options ? (
+              <ResultOutcome options={POST_RESULT.options} />
+            ) : null}
           </div>
         </Section>
 

@@ -10,6 +10,7 @@ import {
 import type { RecordDetail, RecordOption } from "@/lib/types";
 import { Button, CollapsibleSection } from "@/components/ui";
 import { PollOptions } from "./PollOptions";
+import { ResultOutcome } from "./ResultOutcome";
 import { formatCount } from "@/components/utils";
 
 /** A previewed linked record (the wireframe references the representative sample). */
@@ -140,7 +141,7 @@ export function RecordTypeSection({
           open={resultOpen}
           onToggle={() => setResultOpen((v) => !v)}
         >
-          <PollOptions options={resultPreview.options} frozen />
+          <ResultOutcome options={resultPreview.options} />
           <Button
             variant="outline"
             size="sm"

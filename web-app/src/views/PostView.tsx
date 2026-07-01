@@ -21,6 +21,7 @@ import {
   RecordCardFooter,
   RecordCardHeader,
   RecordTypeSection,
+  ResultOutcome,
   ScopeTag,
 } from "@/components";
 import { isHomeAuthor } from "@/components/utils";
@@ -177,7 +178,7 @@ export function PostView({ kind }: { kind: RecordKind }) {
             ) : null}
             {detail.kind === "result" && detail.options ? (
               <div className="mt-3">
-                <PollOptions options={detail.options} frozen tierMin={tierMin} />
+                <ResultOutcome options={detail.options} />
               </div>
             ) : null}
           </>

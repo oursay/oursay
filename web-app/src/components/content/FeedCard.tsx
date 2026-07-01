@@ -7,6 +7,7 @@ import { Button } from "@/components/ui";
 import { ScopeTag } from "./ScopeTag";
 import { PetitionProgress } from "./PetitionProgress";
 import { PollOptions } from "./PollOptions";
+import { ResultOutcome } from "./ResultOutcome";
 import { RecordCard } from "./RecordCard";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
@@ -127,6 +128,11 @@ export function FeedCard({
                 tierMin={tierMin}
                 onVote={onVote}
               />
+            </div>
+          ) : null}
+          {item.kind === "result" && item.options ? (
+            <div className="mt-3">
+              <ResultOutcome options={item.options} />
             </div>
           ) : null}
         </>

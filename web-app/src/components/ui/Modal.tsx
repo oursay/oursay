@@ -71,12 +71,12 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`relative flex flex-col rounded-2xl border border-border-strong bg-surface p-5 shadow-xl ${panel}`}
+        className={`pill-chrome relative flex flex-col overflow-visible rounded-2xl bg-surface p-5 ${panel}`}
         onPointerDown={(e) => e.stopPropagation()}
         onPointerUp={(e) => e.stopPropagation()}
       >
         {title ? (
-          <div className="mb-3 pr-10">
+          <div className="mb-3">
             <h2 className="text-lg font-bold text-ink">{title}</h2>
             {subtitle ? (
               <p className="mt-0.5 text-sm text-muted">{subtitle}</p>
@@ -87,9 +87,9 @@ export function Modal({
           ref={closeRef}
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-3 top-3 inline-flex size-8 items-center justify-center rounded-full bg-ink text-white hover:bg-ink-soft"
+          className="absolute right-0 top-0 z-10 inline-flex size-[26px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-ink text-white hover:bg-ink-soft"
         >
-          <X size={16} aria-hidden />
+          <X size={14} aria-hidden />
         </button>
         {children}
       </div>

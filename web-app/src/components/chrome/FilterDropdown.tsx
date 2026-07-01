@@ -49,7 +49,7 @@ export function FilterDropdown({
   const geographyInferable = verifiedLevel >= 2;
 
   return (
-    <div className="w-72 rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
+    <div className="w-[250px] rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
       {showRecordTypes ? (
         <>
           <p className="px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
