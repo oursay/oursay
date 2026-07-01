@@ -11,6 +11,8 @@ interface DismissBackdropProps {
   zIndex?: number;
   /** Optional dimming; popovers use a transparent capture layer. */
   dimmed?: boolean;
+  /** Portal to document.body (modals). Inline for in-shell popover capture. */
+  portaled?: boolean;
 }
 
 /**
@@ -22,6 +24,7 @@ export function DismissBackdrop({
   onDismiss,
   zIndex = 35,
   dimmed = false,
+  portaled = true,
 }: DismissBackdropProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -29,9 +32,9 @@ export function DismissBackdrop({
 
   if (!open || !mounted) return null;
 
-  return createPortal(
+  const layer = (
     <div
-      className={dimmed ? "fixed inset-0 bg-black/45" : "fixed inset-0"}
+      className={`${portaled ? "fixed" : "absolute"} inset-0 ${dimmed ? "bg-black/45" : ""}`}
       style={{ zIndex }}
       aria-hidden
       onPointerUp={(e) => {
@@ -42,7 +45,8 @@ export function DismissBackdrop({
           onDismiss();
         }
       }}
-    />,
-    document.body,
+    />
   );
+
+  return portaled ? createPortal(layer, document.body) : layer;
 }

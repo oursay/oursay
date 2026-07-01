@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { Avatar } from "@/components/ui";
 import type { VerificationTier } from "@/lib/types";
 import { VerificationPill } from "./VerificationPill";
@@ -13,6 +14,8 @@ interface AuthorRowProps {
   timestamp?: string;
   /** card = feed/post author block; comment = "Name • time" with right-aligned pill. */
   layout?: "card" | "comment";
+  /** Row-2 right slot for card layout (jurisdiction / district scope tag). */
+  scopeSlot?: ReactNode;
   onAuthorClick?: () => void;
 }
 
@@ -28,9 +31,56 @@ export function AuthorRow({
   isHomeAuthor = false,
   timestamp,
   layout = "card",
+  scopeSlot,
   onAuthorClick,
 }: AuthorRowProps) {
   const isComment = layout === "comment";
+
+  if (!isComment) {
+    return (
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onAuthorClick}
+          disabled={!onAuthorClick}
+          className="shrink-0 self-start disabled:cursor-default"
+        >
+          <Avatar name={author} size="md" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={onAuthorClick}
+              disabled={!onAuthorClick}
+              className="min-w-0 truncate text-left text-sm font-semibold text-ink disabled:cursor-default"
+            >
+              {author}
+            </button>
+            <VerificationPill tier={tier} isHomeAuthor={isHomeAuthor} align="right" />
+          </div>
+          <div className="mt-0.5 flex items-baseline justify-between gap-2">
+            {handle ? (
+              <button
+                type="button"
+                onClick={onAuthorClick}
+                disabled={!onAuthorClick}
+                className="min-w-0 truncate text-left text-xs text-muted disabled:cursor-default"
+              >
+                @{handle}
+              </button>
+            ) : timestamp ? (
+              <span className="min-w-0 truncate text-xs text-muted">{timestamp}</span>
+            ) : (
+              <span aria-hidden />
+            )}
+            {scopeSlot ? <div className="shrink-0">{scopeSlot}</div> : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-2">
       <button

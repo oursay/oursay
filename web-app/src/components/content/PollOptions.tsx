@@ -1,6 +1,5 @@
 "use client";
 
-import { Check } from "lucide-react";
 import { civicExtra } from "@/lib/read-model";
 import type { RecordOption, VerificationTier } from "@/lib/types";
 import { formatCount } from "@/components/utils";
@@ -46,18 +45,22 @@ export function PollOptions({
               type="button"
               disabled={locked || !onVote}
               onClick={() => onVote?.(o.label)}
-              className={`relative block w-full overflow-hidden rounded-lg border text-left ${mine ? "border-brand-400" : "border-border"} ${locked || !onVote ? "cursor-default" : "hover:border-brand-300"}`}
+              className={`relative block w-full overflow-hidden rounded-lg border text-left ${mine ? "border-brand-500" : "border-border"} ${locked || !onVote ? "cursor-default" : "hover:border-brand-400"}`}
             >
               <span
-                className={`absolute inset-y-0 left-0 ${mine ? "bg-brand-200" : "bg-surface-muted"}`}
+                className={`absolute inset-y-0 left-0 ${mine ? "bg-brand-500" : "bg-brand-300"}`}
                 style={{ width: `${pct}%` }}
                 aria-hidden
               />
-              <span className="relative flex min-h-9 items-center justify-between gap-2 px-3 py-1.5 text-sm">
+              <span className="relative flex min-h-9 items-center justify-between gap-2 bg-brand-50 px-3 py-1.5 text-sm">
                 <span
                   className={`flex items-center gap-1 ${mine ? "font-semibold text-ink" : "text-ink-soft"}`}
                 >
-                  {mine ? <Check size={14} aria-hidden /> : null}
+                  {mine ? (
+                    <span aria-hidden className="text-[13px] leading-none">
+                      ✓
+                    </span>
+                  ) : null}
                   {o.label}
                 </span>
                 <span className="text-ink-soft">{formatCount(o.v)}</span>

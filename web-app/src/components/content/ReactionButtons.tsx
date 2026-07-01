@@ -1,6 +1,5 @@
 "use client";
 
-import { Check, X } from "lucide-react";
 import { scaleSocial } from "@/lib/read-model";
 import type { VerificationTier } from "@/lib/types";
 import { formatCount } from "@/components/utils";
@@ -42,7 +41,9 @@ export function ReactionButtons({
         aria-label={dir === "up" ? "Agree" : "Disagree"}
         className={`inline-flex min-h-9 flex-1 items-center justify-center gap-1 px-3 text-sm ${active ? "bg-surface-muted font-semibold text-ink" : "text-ink-soft"} ${disabled ? "cursor-not-allowed opacity-60" : "hover:bg-surface-muted"}`}
       >
-        {dir === "up" ? <Check size={14} aria-hidden /> : <X size={14} aria-hidden />}
+        <span aria-hidden className="text-[15px] leading-none">
+          {dir === "up" ? "✓" : "✗"}
+        </span>
         {formatCount(shown(count))}
       </button>
     );

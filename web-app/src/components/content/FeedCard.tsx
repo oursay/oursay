@@ -10,7 +10,6 @@ import { ReactionButtons } from "./ReactionButtons";
 import { PetitionProgress } from "./PetitionProgress";
 import { PollOptions } from "./PollOptions";
 import { EditCountLink } from "./EditCountLink";
-import { RECORD_TYPE_ICON } from "./recordType";
 
 interface FeedCardProps {
   item: FeedItem;
@@ -46,39 +45,32 @@ export function FeedCard({
   onDistrictClick,
 }: FeedCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const TypeIcon = RECORD_TYPE_ICON[item.kind];
   const home = isHomeAuthor(item.districts, viewer.kycTier, viewer.viewerDistricts);
   const hasReactions = item.kind === "statement" || item.kind === "result";
 
   return (
     <article className="rounded-xl border border-border bg-surface p-4">
-      <div className="flex items-start gap-2">
-        <TypeIcon size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <AuthorRow
-            author={item.author}
-            handle={item.handle}
-            tier={item.tier}
-            isHomeAuthor={home}
-            layout="card"
-            onAuthorClick={onAuthorClick}
+      <AuthorRow
+        author={item.author}
+        handle={item.handle}
+        tier={item.tier}
+        isHomeAuthor={home}
+        layout="card"
+        onAuthorClick={onAuthorClick}
+        scopeSlot={
+          <ScopeTag
+            jurisdiction={item.jurisdiction}
+            districtSlugs={item.districts}
+            hideJur={hideJur}
+            hideDistrict={hideDistrict}
+            resolveDistrict={resolveDistrict}
+            expanded={expanded}
+            onExpandToggle={() => setExpanded((v) => !v)}
+            onJurisdictionClick={onJurisdictionClick}
+            onDistrictClick={onDistrictClick}
           />
-        </div>
-      </div>
-
-      <div className="mt-2 flex justify-end">
-        <ScopeTag
-          jurisdiction={item.jurisdiction}
-          districtSlugs={item.districts}
-          hideJur={hideJur}
-          hideDistrict={hideDistrict}
-          resolveDistrict={resolveDistrict}
-          expanded={expanded}
-          onExpandToggle={() => setExpanded((v) => !v)}
-          onJurisdictionClick={onJurisdictionClick}
-          onDistrictClick={onDistrictClick}
-        />
-      </div>
+        }
+      />
 
       <button
         type="button"

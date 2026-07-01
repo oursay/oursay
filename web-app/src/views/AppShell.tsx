@@ -21,6 +21,7 @@ import {
   SafeFooter,
   SignModal,
 } from "@/components";
+import { DismissBackdrop } from "@/components/ui";
 import { MY_NAME } from "@/lib/mock";
 import type { RecordKind } from "@/lib/types";
 import {
@@ -112,8 +113,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <>
       <AppFrame
-        captureActive={popoverOpen}
-        onCaptureDismiss={app.closePopovers}
+        dismissCapture={
+          <DismissBackdrop
+            open={popoverOpen}
+            onDismiss={app.closePopovers}
+            zIndex={35}
+            portaled={false}
+          />
+        }
         header={
           <div className="relative">
             <AppHeader
@@ -125,7 +132,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
 
             {state.filterOpen ? (
-              <div className="absolute left-3 top-full z-40 mt-1">
+              <div className="pointer-events-auto absolute left-3 top-full z-40 mt-1">
                 <FilterDropdown
                   includedKinds={state.includedKinds}
                   onToggleKind={app.toggleKind}
@@ -145,21 +152,23 @@ export function AppShell({ children }: { children: ReactNode }) {
             ) : null}
 
             {state.jurSelectorOpen ? (
-              <div className="absolute inset-x-0 top-full z-40 mt-1 flex justify-center px-3">
-                <JurisdictionSelector
-                  subscriptions={state.subscriptions}
-                  onToggleInclude={app.toggleSub}
-                  onSelectOnly={(name) => {
-                    app.selectOnlySub(name);
-                    app.toggleJurSelector();
-                    router.push("/feed");
-                  }}
-                  onOpenJurisdiction={(name) => {
-                    app.toggleJurSelector();
-                    router.push(jurisdictionPath(name));
-                  }}
-                  onAddJurisdiction={app.openAddJur}
-                />
+              <div className="pointer-events-none absolute inset-x-0 top-full z-40 mt-1 flex justify-center px-3">
+                <div className="pointer-events-auto">
+                  <JurisdictionSelector
+                    subscriptions={state.subscriptions}
+                    onToggleInclude={app.toggleSub}
+                    onSelectOnly={(name) => {
+                      app.selectOnlySub(name);
+                      app.toggleJurSelector();
+                      router.push("/feed");
+                    }}
+                    onOpenJurisdiction={(name) => {
+                      app.toggleJurSelector();
+                      router.push(jurisdictionPath(name));
+                    }}
+                    onAddJurisdiction={app.openAddJur}
+                  />
+                </div>
               </div>
             ) : null}
           </div>

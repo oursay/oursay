@@ -34,7 +34,7 @@ export function CheckboxRow({
 }: CheckboxRowProps) {
   return (
     <div
-      className={`flex min-h-11 items-center gap-3 rounded-lg px-2 ${disabled ? "opacity-50" : "hover:bg-surface-muted"}`}
+      className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-2 ${disabled ? "opacity-50" : "hover:bg-surface-muted"}`}
     >
       {showCheckbox ? (
         <button
@@ -53,12 +53,12 @@ export function CheckboxRow({
         type="button"
         disabled={disabled || !onSelect}
         onClick={onSelect}
-        className={`flex min-w-0 items-center gap-2 text-left disabled:cursor-default ${fill ? "flex-1" : ""}`}
+        className={`flex min-w-0 items-center gap-2 text-left disabled:cursor-default ${fill || trailing ? "flex-1" : ""}`}
       >
         {icon ? <span className="shrink-0 text-ink-soft">{icon}</span> : null}
         <span className="truncate text-sm text-ink">{label}</span>
       </button>
-      {trailing ? <div className="shrink-0">{trailing}</div> : null}
+      {trailing ? <div className="ml-auto shrink-0">{trailing}</div> : null}
     </div>
   );
 }
