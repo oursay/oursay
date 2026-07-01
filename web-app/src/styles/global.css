@@ -91,3 +91,11 @@ body {
     scroll-behavior: auto;
   }
 }
+
+/* Feed/footer pills — thin ink stroke + hard bottom-right offset (no blur). */
+@layer components {
+  .pill-chrome {
+    border: 1px solid var(--color-ink);
+    box-shadow: 2px 2px 0 0 var(--color-ink);
+  }
+}

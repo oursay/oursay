@@ -467,10 +467,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.reactions],
   );
 
-  const commitVote = useCallback(
-    (target: CivicTarget, option: string) => {
-      setState((s) => ({ ...s, votes: { ...s.votes, [target.id]: option } }));
-      notify("Vote recorded.");
+  const setVote = useCallback(
+    (target: CivicTarget, option: string | null) => {
+      setState((s) => ({
+        ...s,
+        votes: { ...s.votes, [target.id]: option },
+      }));
+      if (option) notify("Vote recorded.");
     },
     [notify],
   );
@@ -478,7 +481,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const votePoll = useCallback(
     (target: CivicTarget, option: string) => {
       requireAuth(() => {
+        const current = state.votes[target.id] ?? null;
         if (isFinalJurisdiction(target.jurisdiction)) {
+          if (current) return;
           openSign(
             {
               kind: "poll",
@@ -489,14 +494,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 state.kycTier >= 2 &&
                 outsideMyDistricts(target, state.viewerDistricts),
             },
-            () => commitVote(target, option),
+            () => setVote(target, option),
           );
         } else {
-          commitVote(target, option);
+          setVote(target, current === option ? null : option);
         }
       });
     },
-    [requireAuth, openSign, commitVote, state.kycTier, state.viewerDistricts],
+    [
+      requireAuth,
+      openSign,
+      setVote,
+      state.votes,
+      state.kycTier,
+      state.viewerDistricts,
+    ],
   );
 
   const voteFor = useCallback(

@@ -4,6 +4,46 @@ import { civicExtra } from "@/lib/read-model";
 import type { RecordOption, VerificationTier } from "@/lib/types";
 import { formatCount } from "@/components/utils";
 
+/** White/dark text split at the fill boundary — overlay clipped to the bar fill width. */
+function PollBarText({
+  label,
+  count,
+  pct,
+  voted,
+}: {
+  label: string;
+  count: string;
+  pct: number;
+  voted: boolean;
+}) {
+  const display = voted ? `✓ ${label}` : label;
+  const innerWidth = `${10000 / pct}%`;
+
+  return (
+    <div className="relative h-5 w-full">
+      <div className="flex h-5 w-full items-center justify-between gap-2 px-2 text-xs leading-none text-ink">
+        <span className="truncate">{display}</span>
+        <span className="shrink-0 tabular-nums">{count}</span>
+      </div>
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden"
+        aria-hidden
+        style={{ width: `${pct}%` }}
+      >
+        <div
+          className={`flex h-5 items-center justify-between gap-2 px-2 text-xs leading-none ${
+            voted ? "font-semibold text-white" : "text-ink"
+          }`}
+          style={{ width: innerWidth }}
+        >
+          <span className="truncate">{display}</span>
+          <span className="shrink-0 tabular-nums">{count}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PollOptionsProps {
   options: RecordOption[];
   /** The viewer's own ballot (option label). */
@@ -45,32 +85,23 @@ export function PollOptions({
               type="button"
               disabled={locked || !onVote}
               onClick={() => onVote?.(o.label)}
-              className={`relative block h-5 w-full overflow-hidden rounded border bg-surface-muted text-left ${
-                mine ? "border-ink/40" : "border-border-strong"
-              } ${locked || !onVote ? "cursor-default" : "cursor-pointer hover:border-ink/30"}`}
+              className={`relative block h-5 w-full overflow-hidden rounded border text-left ${
+                mine
+                  ? "border-brand-600 bg-brand-100"
+                  : "border-brand-200 bg-brand-100"
+              } ${locked || !onVote ? "cursor-default" : "cursor-pointer hover:border-brand-400"}`}
             >
               <span
-                className={`absolute inset-y-0 left-0 ${mine ? "bg-neutral-500" : "bg-neutral-300"}`}
+                className={`absolute inset-y-0 left-0 ${mine ? "bg-brand-700" : "bg-brand-300"}`}
                 style={{ width: `${pct}%` }}
                 aria-hidden
               />
-              <span className="relative flex h-5 items-center justify-between gap-2 px-2 text-xs leading-none">
-                <span
-                  className={`truncate ${mine ? "font-semibold text-ink" : "text-ink-soft"}`}
-                >
-                  {mine ? (
-                    <>
-                      <span aria-hidden>✓ </span>
-                      {o.label}
-                    </>
-                  ) : (
-                    o.label
-                  )}
-                </span>
-                <span className="shrink-0 tabular-nums text-muted">
-                  {formatCount(o.v)}
-                </span>
-              </span>
+              <PollBarText
+                label={o.label}
+                count={formatCount(o.v)}
+                pct={pct}
+                voted={mine}
+              />
             </button>
             {extra > 0 ? (
               <p className="mt-0.5 text-right text-[11px] text-muted">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MessageSquare } from "lucide-react";
 import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
 import { formatCount, isHomeAuthor } from "@/components/utils";
+import { Button } from "@/components/ui";
 import { AuthorRow } from "@/components/identity";
 import { ScopeTag } from "./ScopeTag";
 import { ReactionButtons } from "./ReactionButtons";
@@ -23,8 +24,10 @@ interface FeedCardProps {
   onTitleClick?: () => void;
   onCommentsClick?: () => void;
   onReact?: (dir: "up" | "down") => void;
+  selectedReaction?: "up" | "down" | null;
   selectedVote?: string | null;
   onVote?: (label: string) => void;
+  onSignPetition?: () => void;
   onEditsClick?: () => void;
   onJurisdictionClick?: () => void;
   onDistrictClick?: (slug: string) => void;
@@ -42,8 +45,10 @@ export function FeedCard({
   onTitleClick,
   onCommentsClick,
   onReact,
+  selectedReaction = null,
   selectedVote = null,
   onVote,
+  onSignPetition,
   onEditsClick,
   onJurisdictionClick,
   onDistrictClick,
@@ -97,7 +102,21 @@ export function FeedCard({
             goal={item.goal ?? 1}
             attachedPoll={item.attachedPoll}
             tierMin={tierMin}
-          />
+          >
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              fullWidth
+              className="mt-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSignPetition?.();
+              }}
+            >
+              Sign the Petition
+            </Button>
+          </PetitionProgress>
         ) : null}
         {item.kind === "poll" && item.options ? (
           <PollOptions
@@ -110,23 +129,34 @@ export function FeedCard({
         ) : null}
       </div>
 
-      <div className="mt-3 flex items-center gap-3">
+      <div className="mt-2 flex items-center gap-2">
         {hasReactions ? (
           <ReactionButtons
             up={item.up ?? 0}
             down={item.down ?? 0}
+            selected={selectedReaction}
             scale="card"
             tierMin={tierMin}
             onReact={onReact}
           />
         ) : null}
+        {item.kind === "petition" ? (
+          <span className="text-xs text-ink-soft">
+            {formatCount(item.sig ?? 0)} signatures
+          </span>
+        ) : null}
+        {item.kind === "poll" && item.options ? (
+          <span className="text-xs text-ink-soft">
+            {formatCount(item.options.reduce((a, o) => a + o.v, 0))} votes
+          </span>
+        ) : null}
         <EditCountLink count={item.edits} onClick={onEditsClick} />
         <button
           type="button"
           onClick={onCommentsClick}
-          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border-2 border-border-strong bg-surface px-3 text-sm text-ink-soft shadow-sm hover:bg-surface-muted"
+          className="pill-chrome ml-auto inline-flex h-5 items-center gap-1 rounded-full bg-surface px-2 text-xs text-ink-soft hover:bg-surface-muted"
         >
-          <MessageSquare size={14} aria-hidden />
+          <MessageSquare size={11} aria-hidden />
           {formatCount(item.comments)}
         </button>
       </div>

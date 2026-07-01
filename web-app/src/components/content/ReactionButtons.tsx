@@ -30,8 +30,16 @@ export function ReactionButtons({
   const shown = (n: number) =>
     scale === "card" ? scaleSocial(n, tierMin) : n;
 
+  const compact = scale === "card";
+
   const half = (dir: "up" | "down", count: number) => {
     const active = selected === dir;
+    const upStyles = active
+      ? "bg-verify-100 font-bold text-verify-700"
+      : "text-ink-soft hover:bg-verify-100/60";
+    const downStyles = active
+      ? "bg-danger-200 font-bold text-danger-700"
+      : "text-ink-soft hover:bg-danger-200/60";
     return (
       <button
         type="button"
@@ -39,9 +47,14 @@ export function ReactionButtons({
         onClick={() => onReact?.(dir)}
         aria-pressed={active}
         aria-label={dir === "up" ? "Agree" : "Disagree"}
-        className={`inline-flex min-h-9 flex-1 items-center justify-center gap-1 px-3 text-sm ${active ? "bg-surface-muted font-semibold text-ink" : "text-ink-soft"} ${disabled ? "cursor-not-allowed opacity-60" : "hover:bg-surface-muted"}`}
+        className={`inline-flex flex-1 items-center justify-center gap-0.5 transition-colors ${
+          compact ? "h-5 px-2 text-xs" : "min-h-9 px-3 text-sm"
+        } ${dir === "up" ? upStyles : downStyles} ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
       >
-        <span aria-hidden className="text-[15px] leading-none">
+        <span
+          aria-hidden
+          className={`leading-none ${compact ? "text-xs" : "text-[15px]"} ${active ? "font-bold" : ""}`}
+        >
           {dir === "up" ? "✓" : "✗"}
         </span>
         {formatCount(shown(count))}
@@ -50,10 +63,16 @@ export function ReactionButtons({
   };
 
   return (
-    <div className="inline-flex overflow-hidden rounded-full border-2 border-border-strong bg-surface shadow-sm">
-      {half("up", up)}
-      <span className="w-0.5 self-stretch bg-border-strong" aria-hidden />
-      {half("down", down)}
+    <div className="pill-chrome inline-flex rounded-full">
+      <div
+        className={`inline-flex overflow-hidden rounded-full bg-surface ${
+          compact ? "h-5" : ""
+        }`}
+      >
+        {half("up", up)}
+        <span className="w-px shrink-0 self-stretch bg-ink" aria-hidden />
+        {half("down", down)}
+      </div>
     </div>
   );
 }
