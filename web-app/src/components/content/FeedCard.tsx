@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { MessageSquare } from "lucide-react";
 import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
-import { scaleSocial } from "@/lib/read-model";
 import { formatCount, isHomeAuthor } from "@/components/utils";
 import { AuthorRow } from "@/components/identity";
 import { ScopeTag } from "./ScopeTag";
@@ -26,6 +25,8 @@ interface FeedCardProps {
   onCommentsClick?: () => void;
   onReact?: (dir: "up" | "down") => void;
   onEditsClick?: () => void;
+  onJurisdictionClick?: () => void;
+  onDistrictClick?: (slug: string) => void;
 }
 
 /** One feed/list card. One shape renders every record kind (wireframe buildCard). */
@@ -41,6 +42,8 @@ export function FeedCard({
   onCommentsClick,
   onReact,
   onEditsClick,
+  onJurisdictionClick,
+  onDistrictClick,
 }: FeedCardProps) {
   const [expanded, setExpanded] = useState(false);
   const TypeIcon = RECORD_TYPE_ICON[item.kind];
@@ -72,6 +75,8 @@ export function FeedCard({
           resolveDistrict={resolveDistrict}
           expanded={expanded}
           onExpandToggle={() => setExpanded((v) => !v)}
+          onJurisdictionClick={onJurisdictionClick}
+          onDistrictClick={onDistrictClick}
         />
       </div>
 
@@ -120,7 +125,7 @@ export function FeedCard({
           className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-surface px-3 text-sm text-ink-soft hover:bg-surface-muted"
         >
           <MessageSquare size={14} aria-hidden />
-          {formatCount(scaleSocial(item.comments, tierMin))}
+          {formatCount(item.comments)}
         </button>
       </div>
     </article>

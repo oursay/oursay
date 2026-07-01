@@ -9,18 +9,19 @@ describe("listFeedItems", () => {
     expect(items).toHaveLength(POSTS.length);
   });
 
-  it("leaves social counts unscaled at tier None", async () => {
+  it("returns raw social counts (scaling is a display concern, not the API's)", async () => {
     const items = await listFeedItems({});
     const rae = items.find((p) => p.id === "stmt-rae-ravine");
     expect(rae?.up).toBe(204);
   });
 
-  it("thins social counts and hides lower tiers as the ladder rises", async () => {
+  it("hides lower tiers as the Verified ladder rises but leaves counts raw", async () => {
     const items = await listFeedItems({ filter: { tierMin: 1 } });
     expect(items.every((p) => p.tier >= 1)).toBe(true);
-    // Rae Nguyen is Official (tier 3) so she survives; her 204 agrees thin to 126.
+    // Rae Nguyen is Official (tier 3) so she survives; her counts stay raw —
+    // the card layer thins the displayed reaction counts via scaleSocial (§4.3).
     const rae = items.find((p) => p.id === "stmt-rae-ravine");
-    expect(rae?.up).toBe(126);
+    expect(rae?.up).toBe(204);
   });
 });
 

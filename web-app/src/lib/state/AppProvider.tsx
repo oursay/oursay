@@ -1,0 +1,705 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import type { ReactNode } from "react";
+import type {
+  ActivityKind,
+  FeedFilterParams,
+  RecordKind,
+  VerificationTier,
+  ViewerContext,
+} from "@/lib/types";
+import { MY_DISTRICTS, MY_NAME } from "@/lib/mock";
+import { outsideMyDistricts } from "@/lib/read-model";
+import { RECORD_TYPE_LABEL } from "@/components/content";
+import type { SignKind } from "@/components";
+import type { AppState, SignRequest } from "./types";
+import { feedFilterFromState, viewerFromState } from "./filters";
+import {
+  DEFAULT_SUBSCRIPTIONS,
+  readSubscriptions,
+  writeSubscriptions,
+} from "./cookies";
+
+const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
+const ALL_ACTIVITY: ActivityKind[] = [
+  "statement",
+  "comment",
+  "petition",
+  "poll",
+  "reaction",
+];
+
+/** A record shape the civic-write actions need (FeedItem or RecordDetail both fit). */
+interface CivicTarget {
+  id: string;
+  jurisdiction: string;
+  title: string;
+  sig?: number;
+  districts: string[];
+}
+
+const INITIAL: AppState = {
+  loggedIn: false,
+  kycTier: 0,
+  viewerDistricts: [],
+
+  includedKinds: [...ALL_KINDS],
+  verified: 0,
+  myDistricts: false,
+  affected: false,
+
+  profileTypes: [...ALL_ACTIVITY],
+
+  subscriptions: DEFAULT_SUBSCRIPTIONS,
+
+  filterOpen: false,
+  jurSelectorOpen: false,
+
+  authOpen: false,
+  registerOpen: false,
+  otpOpen: false,
+  loginOpen: false,
+  loginOtpWindow: false,
+  profileOpen: false,
+  addJurOpen: false,
+
+  composeOpen: false,
+  composeStep: "where",
+  composeJur: undefined,
+  composeType: undefined,
+
+  sign: null,
+
+  reactions: {},
+  votes: {},
+  petitionSig: {},
+
+  replyOpen: false,
+
+  pageJurisdiction: null,
+  postAffectedEligible: false,
+
+  toast: null,
+};
+
+/** Alberta gates civic writes behind the WYSIWYS passkey modal; Global acts now. */
+function isFinalJurisdiction(jurisdiction: string): boolean {
+  return jurisdiction === "Alberta";
+}
+
+export interface AppApi {
+  state: AppState;
+  viewer: ViewerContext;
+  feedFilter: FeedFilterParams;
+
+  // Session (demo — no real auth).
+  demoLogin: () => void;
+  logout: () => void;
+  cycleKyc: () => void;
+  requireAuth: (action: () => void) => void;
+
+  // Filter — record types + Verified/geography ladder.
+  toggleFilter: () => void;
+  closePopovers: () => void;
+  toggleKind: (kind: RecordKind) => void;
+  isolateKind: (kind: RecordKind) => void;
+  allKinds: () => void;
+  cycleVerified: () => void;
+  toggleMyDistricts: () => void;
+  toggleAffected: () => void;
+
+  // Profile Activity-type filter.
+  toggleProfileType: (kind: ActivityKind) => void;
+
+  // Jurisdiction selector + subscriptions.
+  toggleJurSelector: () => void;
+  toggleSub: (name: string) => void;
+  selectOnlySub: (name: string) => void;
+  openAddJur: () => void;
+  closeAddJur: () => void;
+  addJurisdiction: (name: string) => void;
+
+  // Auth flow.
+  openAuth: () => void;
+  closeAuth: () => void;
+  goRegister: () => void;
+  submitRegister: () => void;
+  completeOtp: () => void;
+  goLogin: () => void;
+  loginPasskey: () => void;
+  loginVerifyEmail: () => void;
+  toggleLoginOtpWindow: () => void;
+  recover: () => void;
+  openProfile: () => void;
+  closeProfile: () => void;
+
+  // Civic interactions (stubbed writes).
+  react: (target: CivicTarget, dir: "up" | "down") => void;
+  reactionFor: (id: string) => "up" | "down" | null;
+  votePoll: (target: CivicTarget, option: string) => void;
+  voteFor: (id: string) => string | null;
+  signPetition: (target: CivicTarget) => void;
+  petitionSigFor: (target: CivicTarget) => number;
+
+  // Compose flow.
+  startCompose: () => void;
+  selectComposeJurisdiction: (name: string) => void;
+  selectComposeType: (kind: RecordKind) => void;
+  changeComposeType: () => void;
+  submitCompose: () => void;
+  closeCompose: () => void;
+
+  // Alberta sign confirmation.
+  confirmSign: () => void;
+  closeSign: () => void;
+
+  // Post reply composer.
+  startReply: () => void;
+  closeReply: () => void;
+
+  // Shared-chrome coordination (set by the active view).
+  setPageJurisdiction: (name: string | null) => void;
+  setPostAffectedEligible: (value: boolean) => void;
+
+  // "Not built" affordances (edit history, account settings, recovery, …).
+  notify: (message: string) => void;
+}
+
+const AppContext = createContext<AppApi | null>(null);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<AppState>(INITIAL);
+  const pendingCommit = useRef<(() => void) | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const set = useCallback((patch: Partial<AppState>) => {
+    setState((s) => ({ ...s, ...patch }));
+  }, []);
+
+  // Load persisted subscriptions on mount; persist on every change.
+  useEffect(() => {
+    setState((s) => ({ ...s, subscriptions: readSubscriptions() }));
+  }, []);
+  useEffect(() => {
+    writeSubscriptions(state.subscriptions);
+  }, [state.subscriptions]);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
+  );
+
+  const notify = useCallback((message: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setState((s) => ({ ...s, toast: message }));
+    toastTimer.current = setTimeout(() => {
+      setState((s) => ({ ...s, toast: null }));
+    }, 2600);
+  }, []);
+
+  const closeAllModals = useCallback(() => {
+    set({
+      authOpen: false,
+      registerOpen: false,
+      otpOpen: false,
+      loginOpen: false,
+      profileOpen: false,
+      addJurOpen: false,
+    });
+  }, [set]);
+
+  // --- Session -------------------------------------------------------------
+  const demoLogin = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      loggedIn: true,
+      kycTier: 2,
+      viewerDistricts: MY_DISTRICTS,
+      authOpen: false,
+      registerOpen: false,
+      otpOpen: false,
+      loginOpen: false,
+    }));
+    notify("Signed in as a residency-verified demo account.");
+  }, [notify]);
+
+  const logout = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      loggedIn: false,
+      kycTier: 0,
+      viewerDistricts: [],
+      profileOpen: false,
+    }));
+    notify("Signed out.");
+  }, [notify]);
+
+  const cycleKyc = useCallback(() => {
+    setState((s) => {
+      const next = ((s.kycTier + 1) % 3) as VerificationTier;
+      return {
+        ...s,
+        kycTier: next,
+        viewerDistricts: next >= 2 ? MY_DISTRICTS : [],
+      };
+    });
+  }, []);
+
+  const openAuth = useCallback(() => {
+    set({
+      authOpen: true,
+      registerOpen: false,
+      otpOpen: false,
+      loginOpen: false,
+    });
+  }, [set]);
+
+  const requireAuth = useCallback(
+    (action: () => void) => {
+      if (!state.loggedIn) {
+        openAuth();
+        return;
+      }
+      action();
+    },
+    [state.loggedIn, openAuth],
+  );
+
+  // --- Filter --------------------------------------------------------------
+  const toggleFilter = useCallback(() => {
+    setState((s) => ({ ...s, filterOpen: !s.filterOpen, jurSelectorOpen: false }));
+  }, []);
+
+  const closePopovers = useCallback(() => {
+    set({ filterOpen: false, jurSelectorOpen: false });
+  }, [set]);
+
+  const toggleKind = useCallback((kind: RecordKind) => {
+    setState((s) => {
+      const has = s.includedKinds.includes(kind);
+      if (has && s.includedKinds.length <= 1) return s; // keep >= 1
+      return {
+        ...s,
+        includedKinds: has
+          ? s.includedKinds.filter((k) => k !== kind)
+          : [...s.includedKinds, kind],
+      };
+    });
+  }, []);
+
+  const isolateKind = useCallback((kind: RecordKind) => {
+    set({ includedKinds: [kind] });
+  }, [set]);
+
+  const allKinds = useCallback(() => {
+    set({ includedKinds: [...ALL_KINDS] });
+  }, [set]);
+
+  const cycleVerified = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      verified: ((s.verified + 1) % 4) as VerificationTier,
+    }));
+  }, []);
+
+  const toggleMyDistricts = useCallback(() => {
+    setState((s) => {
+      const next = !s.myDistricts;
+      // Turning it on bumps Verified up to Residency (§4.4).
+      const verified = next && s.verified < 2 ? (2 as VerificationTier) : s.verified;
+      return { ...s, myDistricts: next, verified };
+    });
+  }, []);
+
+  const toggleAffected = useCallback(() => {
+    setState((s) => {
+      const next = !s.affected;
+      const verified = next && s.verified < 2 ? (2 as VerificationTier) : s.verified;
+      return { ...s, affected: next, verified };
+    });
+  }, []);
+
+  const toggleProfileType = useCallback((kind: ActivityKind) => {
+    setState((s) => {
+      const has = s.profileTypes.includes(kind);
+      if (has && s.profileTypes.length <= 1) return s;
+      return {
+        ...s,
+        profileTypes: has
+          ? s.profileTypes.filter((k) => k !== kind)
+          : [...s.profileTypes, kind],
+      };
+    });
+  }, []);
+
+  // --- Jurisdiction selector ----------------------------------------------
+  const toggleJurSelector = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      jurSelectorOpen: !s.jurSelectorOpen,
+      filterOpen: false,
+    }));
+  }, []);
+
+  const toggleSub = useCallback((name: string) => {
+    setState((s) => {
+      const includedCount = s.subscriptions.filter((x) => x.included).length;
+      return {
+        ...s,
+        subscriptions: s.subscriptions.map((sub) => {
+          if (sub.name !== name) return sub;
+          if (sub.included && includedCount <= 1) return sub; // keep >= 1
+          return { ...sub, included: !sub.included };
+        }),
+      };
+    });
+  }, []);
+
+  const selectOnlySub = useCallback((name: string) => {
+    setState((s) => ({
+      ...s,
+      subscriptions: s.subscriptions.map((sub) => ({
+        ...sub,
+        included: sub.name === name,
+      })),
+    }));
+  }, []);
+
+  const openAddJur = useCallback(() => set({ addJurOpen: true }), [set]);
+  const closeAddJur = useCallback(() => set({ addJurOpen: false }), [set]);
+
+  const addJurisdiction = useCallback(
+    (name: string) => {
+      setState((s) =>
+        s.subscriptions.some((sub) => sub.name === name)
+          ? { ...s, addJurOpen: false }
+          : {
+              ...s,
+              subscriptions: [...s.subscriptions, { name, included: true }],
+              addJurOpen: false,
+            },
+      );
+      notify(`Joined ${name}.`);
+    },
+    [notify],
+  );
+
+  // --- Auth flow -----------------------------------------------------------
+  const closeAuth = useCallback(() => set({ authOpen: false }), [set]);
+  const goRegister = useCallback(
+    () => set({ authOpen: false, registerOpen: true }),
+    [set],
+  );
+  const submitRegister = useCallback(
+    () => set({ registerOpen: false, otpOpen: true }),
+    [set],
+  );
+  const completeOtp = useCallback(() => demoLogin(), [demoLogin]);
+  const goLogin = useCallback(
+    () => set({ authOpen: false, loginOpen: true }),
+    [set],
+  );
+  const loginPasskey = useCallback(() => demoLogin(), [demoLogin]);
+  const loginVerifyEmail = useCallback(
+    () => set({ loginOpen: false, otpOpen: true }),
+    [set],
+  );
+  const toggleLoginOtpWindow = useCallback(() => {
+    setState((s) => ({ ...s, loginOtpWindow: !s.loginOtpWindow }));
+  }, []);
+  const recover = useCallback(
+    () => notify("Account recovery is not built in this demo."),
+    [notify],
+  );
+  const openProfile = useCallback(() => set({ profileOpen: true }), [set]);
+  const closeProfile = useCallback(() => set({ profileOpen: false }), [set]);
+
+  // --- Sign modal ----------------------------------------------------------
+  const openSign = useCallback(
+    (req: SignRequest, commit: () => void) => {
+      pendingCommit.current = commit;
+      set({ sign: req });
+    },
+    [set],
+  );
+
+  const confirmSign = useCallback(() => {
+    const commit = pendingCommit.current;
+    pendingCommit.current = null;
+    set({ sign: null });
+    commit?.();
+  }, [set]);
+
+  const closeSign = useCallback(() => {
+    pendingCommit.current = null;
+    set({ sign: null });
+  }, [set]);
+
+  // --- Civic interactions --------------------------------------------------
+  const react = useCallback(
+    (target: CivicTarget, dir: "up" | "down") => {
+      requireAuth(() => {
+        setState((s) => ({
+          ...s,
+          reactions: {
+            ...s.reactions,
+            [target.id]: s.reactions[target.id] === dir ? null : dir,
+          },
+        }));
+      });
+    },
+    [requireAuth],
+  );
+
+  const reactionFor = useCallback(
+    (id: string) => state.reactions[id] ?? null,
+    [state.reactions],
+  );
+
+  const commitVote = useCallback(
+    (target: CivicTarget, option: string) => {
+      setState((s) => ({ ...s, votes: { ...s.votes, [target.id]: option } }));
+      notify("Vote recorded.");
+    },
+    [notify],
+  );
+
+  const votePoll = useCallback(
+    (target: CivicTarget, option: string) => {
+      requireAuth(() => {
+        if (isFinalJurisdiction(target.jurisdiction)) {
+          openSign(
+            {
+              kind: "poll",
+              targetTitle: target.title,
+              option,
+              showResidencyNotice: state.kycTier < 2,
+              showAffectedNotice:
+                state.kycTier >= 2 &&
+                outsideMyDistricts(target, state.viewerDistricts),
+            },
+            () => commitVote(target, option),
+          );
+        } else {
+          commitVote(target, option);
+        }
+      });
+    },
+    [requireAuth, openSign, commitVote, state.kycTier, state.viewerDistricts],
+  );
+
+  const voteFor = useCallback(
+    (id: string) => state.votes[id] ?? null,
+    [state.votes],
+  );
+
+  const petitionSigFor = useCallback(
+    (target: CivicTarget) => state.petitionSig[target.id] ?? target.sig ?? 0,
+    [state.petitionSig],
+  );
+
+  const commitSign = useCallback(
+    (target: CivicTarget) => {
+      setState((s) => ({
+        ...s,
+        petitionSig: {
+          ...s.petitionSig,
+          [target.id]: (s.petitionSig[target.id] ?? target.sig ?? 0) + 1,
+        },
+      }));
+      notify("Signature recorded.");
+    },
+    [notify],
+  );
+
+  const signPetition = useCallback(
+    (target: CivicTarget) => {
+      requireAuth(() => {
+        if (isFinalJurisdiction(target.jurisdiction)) {
+          openSign(
+            {
+              kind: "petition",
+              targetTitle: target.title,
+              showResidencyNotice: state.kycTier < 2,
+              showAffectedNotice:
+                state.kycTier >= 2 &&
+                outsideMyDistricts(target, state.viewerDistricts),
+            },
+            () => commitSign(target),
+          );
+        } else {
+          commitSign(target);
+        }
+      });
+    },
+    [requireAuth, openSign, commitSign, state.kycTier, state.viewerDistricts],
+  );
+
+  // --- Compose flow --------------------------------------------------------
+  const startCompose = useCallback(() => {
+    requireAuth(() => {
+      setState((s) => {
+        const many = s.subscriptions.length > 1;
+        return {
+          ...s,
+          composeOpen: true,
+          composeStep: many ? "where" : "type",
+          composeJur: many ? undefined : s.subscriptions[0]?.name,
+          composeType: undefined,
+          filterOpen: false,
+          jurSelectorOpen: false,
+        };
+      });
+    });
+  }, [requireAuth]);
+
+  const selectComposeJurisdiction = useCallback(
+    (name: string) => set({ composeJur: name, composeStep: "type" }),
+    [set],
+  );
+  const selectComposeType = useCallback(
+    (kind: RecordKind) => set({ composeType: kind, composeStep: "compose" }),
+    [set],
+  );
+  const changeComposeType = useCallback(
+    () => set({ composeStep: "type", composeType: undefined }),
+    [set],
+  );
+  const closeCompose = useCallback(
+    () =>
+      set({
+        composeOpen: false,
+        composeStep: "where",
+        composeJur: undefined,
+        composeType: undefined,
+      }),
+    [set],
+  );
+
+  const submitCompose = useCallback(() => {
+    const jur = state.composeJur ?? "Global";
+    const label = state.composeType
+      ? RECORD_TYPE_LABEL[state.composeType]
+      : "post";
+    const finish = () => {
+      closeCompose();
+      notify(`${label} published (demo).`);
+    };
+    if (isFinalJurisdiction(jur)) {
+      openSign(
+        {
+          kind: "compose" as SignKind,
+          targetTitle: label,
+          composeTypeLabel: label,
+          showResidencyNotice: state.kycTier < 2,
+          showAffectedNotice: false,
+        },
+        finish,
+      );
+    } else {
+      finish();
+    }
+  }, [
+    state.composeJur,
+    state.composeType,
+    state.kycTier,
+    openSign,
+    closeCompose,
+    notify,
+  ]);
+
+  // --- Reply ---------------------------------------------------------------
+  const startReply = useCallback(() => {
+    requireAuth(() => set({ replyOpen: true }));
+  }, [requireAuth, set]);
+  const closeReply = useCallback(() => set({ replyOpen: false }), [set]);
+
+  // --- View coordination ---------------------------------------------------
+  const setPageJurisdiction = useCallback((name: string | null) => {
+    setState((s) => (s.pageJurisdiction === name ? s : { ...s, pageJurisdiction: name }));
+  }, []);
+  const setPostAffectedEligible = useCallback((value: boolean) => {
+    setState((s) =>
+      s.postAffectedEligible === value ? s : { ...s, postAffectedEligible: value },
+    );
+  }, []);
+
+  const viewer = useMemo(() => viewerFromState(state), [state]);
+  const feedFilter = useMemo(() => feedFilterFromState(state), [state]);
+
+  const api: AppApi = {
+    state,
+    viewer,
+    feedFilter,
+    demoLogin,
+    logout,
+    cycleKyc,
+    requireAuth,
+    toggleFilter,
+    closePopovers,
+    toggleKind,
+    isolateKind,
+    allKinds,
+    cycleVerified,
+    toggleMyDistricts,
+    toggleAffected,
+    toggleProfileType,
+    toggleJurSelector,
+    toggleSub,
+    selectOnlySub,
+    openAddJur,
+    closeAddJur,
+    addJurisdiction,
+    openAuth,
+    closeAuth,
+    goRegister,
+    submitRegister,
+    completeOtp,
+    goLogin,
+    loginPasskey,
+    loginVerifyEmail,
+    toggleLoginOtpWindow,
+    recover,
+    openProfile,
+    closeProfile,
+    react,
+    reactionFor,
+    votePoll,
+    voteFor,
+    signPetition,
+    petitionSigFor,
+    startCompose,
+    selectComposeJurisdiction,
+    selectComposeType,
+    changeComposeType,
+    submitCompose,
+    closeCompose,
+    confirmSign,
+    closeSign,
+    startReply,
+    closeReply,
+    setPageJurisdiction,
+    setPostAffectedEligible,
+    notify,
+  };
+
+  return <AppContext.Provider value={api}>{children}</AppContext.Provider>;
+}
+
+/** Access the app state + actions. Must be used under <AppProvider>. */
+export function useApp(): AppApi {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error("useApp must be used within an AppProvider");
+  return ctx;
+}

@@ -22,6 +22,8 @@ interface FilterDropdownProps {
   showAffected?: boolean;
   affected?: boolean;
   onToggleAffected?: () => void;
+  /** Hide the record-type section (Post / Profile show the Refine ladder only). */
+  showRecordTypes?: boolean;
   viewer: ViewerContext;
 }
 
@@ -38,6 +40,7 @@ export function FilterDropdown({
   showAffected = false,
   affected = false,
   onToggleAffected,
+  showRecordTypes = true,
   viewer,
 }: FilterDropdownProps) {
   // My Districts / Affected are only inferable for a residency-verified viewer
@@ -46,36 +49,40 @@ export function FilterDropdown({
 
   return (
     <div className="w-72 rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
-      <p className="px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
-        Record types
-      </p>
-      <CheckboxRow
-        label="All Records"
-        showCheckbox={false}
-        icon={<List size={16} aria-hidden />}
-        onSelect={onAllKinds}
-      />
-      {ALL_KINDS.map((kind) => {
-        const Icon = RECORD_TYPE_ICON[kind];
-        const included = includedKinds.includes(kind);
-        const isLast = includedKinds.length <= 1 && included;
-        return (
+      {showRecordTypes ? (
+        <>
+          <p className="px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
+            Record types
+          </p>
           <CheckboxRow
-            key={kind}
-            label={RECORD_TYPE_LABEL[kind]}
-            checked={included}
-            icon={<Icon size={16} aria-hidden />}
-            onToggle={() => {
-              if (isLast) return; // keep >=1 selected (never None)
-              onToggleKind(kind);
-            }}
-            onSelect={() => onIsolateKind(kind)}
+            label="All Records"
+            showCheckbox={false}
+            icon={<List size={16} aria-hidden />}
+            onSelect={onAllKinds}
           />
-        );
-      })}
+          {ALL_KINDS.map((kind) => {
+            const Icon = RECORD_TYPE_ICON[kind];
+            const included = includedKinds.includes(kind);
+            const isLast = includedKinds.length <= 1 && included;
+            return (
+              <CheckboxRow
+                key={kind}
+                label={RECORD_TYPE_LABEL[kind]}
+                checked={included}
+                icon={<Icon size={16} aria-hidden />}
+                onToggle={() => {
+                  if (isLast) return; // keep >=1 selected (never None)
+                  onToggleKind(kind);
+                }}
+                onSelect={() => onIsolateKind(kind)}
+              />
+            );
+          })}
 
-      <div className="my-2 border-t border-border" />
-      <p className="px-2 pb-1 text-xs font-bold uppercase tracking-wide text-muted">
+          <div className="my-2 border-t border-border" />
+        </>
+      ) : null}
+      <p className="px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
         Refine
       </p>
       <CheckboxRow

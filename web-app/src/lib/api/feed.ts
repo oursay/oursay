@@ -1,14 +1,10 @@
 import { POSTS } from "@/lib/mock";
-import {
-  matches,
-  scaleSocial,
-} from "@/lib/read-model";
+import { matches } from "@/lib/read-model";
 import {
   ANON_VIEWER,
   type FeedFilterParams,
   type FeedItem,
   type FeedScope,
-  type VerificationTier,
   type ViewerContext,
 } from "@/lib/types";
 import { getJurisdictionMembership } from "./membership";
@@ -23,23 +19,16 @@ export interface ListFeedParams {
   viewer?: ViewerContext;
 }
 
-/** Thin a feed item's social counts (reactions + comments) for the Verified tier. */
-function withScaledSocial(item: FeedItem, tierMin: VerificationTier): FeedItem {
-  return {
-    ...item,
-    up: item.up === undefined ? undefined : scaleSocial(item.up, tierMin),
-    down: item.down === undefined ? undefined : scaleSocial(item.down, tierMin),
-    comments: scaleSocial(item.comments, tierMin),
-  };
-}
-
 /**
  * The unified feed / jurisdiction / district list. Applies the read-model
- * `matches` filter, then thins social counts via `scaleSocial` (civic counts —
- * sig/goal/options — are left as the official total, per the read-model).
+ * `matches` filter and returns the raw record counts.
  *
- * Mock-backed today (reads the ported POSTS[]). The future HTTP shape and
- * per-type-vs-unified-feed decision are documented in CONTRACT.md.
+ * Count scaling is a single display-layer concern (wireframe §4.3): the card
+ * components thin social reactions via `scaleSocial` and surface the additive
+ * unverified-civic note via `civicExtra`, both keyed off the active Verified
+ * tier. The comment-count pill always shows the record's true total. Keeping
+ * scaling out of the API means raw server counts flow through unchanged once
+ * this swaps to `fetch('/v1/public/...')` (see CONTRACT.md).
  */
 export async function listFeedItems(
   params: ListFeedParams = {},
@@ -53,8 +42,5 @@ export async function listFeedItems(
     filter.jurisdictions = await getJurisdictionMembership();
   }
 
-  const tierMin = filter.tierMin ?? 0;
-  return POSTS.filter((item) => matches(item, scope, viewer, filter)).map(
-    (item) => withScaledSocial(item, tierMin),
-  );
+  return POSTS.filter((item) => matches(item, scope, viewer, filter));
 }
