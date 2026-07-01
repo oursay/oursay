@@ -42,7 +42,7 @@ re-exports everything.
   district shows `map-pin-house` instead of `map-pin`, but only when the viewer is
   themselves residency-verified (`isHomeAuthor`).
 - **Inclusive Verified filter** — `FilterDropdown` cycles the ladder
-  None → ID → Residency → Official (`tier >= selected`). My Districts / Affected
+  Any → Identity → Residency → Official (`tier >= selected`). My Districts / Affected
   are disabled unless the viewer is residency-verified and the ladder is at
   Residency+.
 - **Social vs civic counts** — social counts (comments, reactions) thin as the

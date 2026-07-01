@@ -7,7 +7,7 @@
  * docs/entities/account/verification.md); the numeric tier here is a UI-facing
  * projection that preserves the wireframe's ordering for the filter ladder.
  *
- *   0 None       - public / unverified
+ *   0 Any        - no verification constraint (public + all tiers)
  *   1 Identity   - identity-verified
  *   2 Residency  - residency-verified
  *   3 Official   - MLA / government
@@ -20,7 +20,7 @@ export type VerificationTier = 0 | 1 | 2 | 3;
  */
 export type PillDisplayMode = "full" | "icon";
 
-/** Wireframe-facing label per tier (VERIFIED_LEVELS drops "None" to ""). */
+/** Wireframe-facing label per tier (KYC pills; filter ladder uses VERIFIED_LEVELS). */
 export const TIER_LABEL: Record<VerificationTier, string> = {
   0: "None",
   1: "Identity",
@@ -28,8 +28,8 @@ export const TIER_LABEL: Record<VerificationTier, string> = {
   3: "Official",
 };
 
-/** The Verified filter ladder, matching the wireframe's VERIFIED_LEVELS. */
-export const VERIFIED_LEVELS = ["None", "ID", "Residency", "Official"] as const;
+/** Verified Refine filter ladder (inclusive-upward on author tier). */
+export const VERIFIED_LEVELS = ["Any", "Identity", "Residency", "Official"] as const;
 export type VerifiedLevel = (typeof VERIFIED_LEVELS)[number];
 
 /** Canonical KYC tier token used by the API (api/openapi.yaml `tier` enum). */

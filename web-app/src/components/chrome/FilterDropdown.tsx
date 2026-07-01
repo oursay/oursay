@@ -1,6 +1,18 @@
 "use client";
 
-import { BadgeCheck, Eye, EyeOff, Key, List } from "lucide-react";
+import {
+  BadgeCheck,
+  Eye,
+  EyeOff,
+  Fingerprint,
+  Gavel,
+  IdCard,
+  Key,
+  List,
+  MapPin,
+  PenTool,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import { CheckboxRow } from "@/components/ui";
 import { VERIFIED_LEVELS, SIGNED_FILTER_LEVELS } from "@/lib/types";
@@ -8,12 +20,37 @@ import type { RecordKind, SignedFilterLevel, VerificationTier, ViewerContext } f
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 
+/** Trailing glyph for Verified ladder steps (Any has no icon). */
+function verifiedLevelIcon(level: VerificationTier): LucideIcon | null {
+  return [null, IdCard, MapPin, Gavel][level] ?? null;
+}
+
+/** Trailing glyph for Signed ladder steps (Any has no icon). */
+function signedLevelIcon(level: SignedFilterLevel): LucideIcon | null {
+  return [null, Key, Fingerprint][level] ?? null;
+}
+
+function FilterLevelBadge({
+  label,
+  icon: Icon,
+}: {
+  label: string;
+  icon: LucideIcon | null;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1 text-xs text-ink-soft">
+      {Icon ? <Icon size={14} className="shrink-0" aria-hidden /> : null}
+      <span>{label}</span>
+    </span>
+  );
+}
+
 interface FilterDropdownProps {
   includedKinds: RecordKind[];
   onToggleKind: (kind: RecordKind) => void;
   onIsolateKind: (kind: RecordKind) => void;
   onAllKinds: () => void;
-  /** Verified ladder index into VERIFIED_LEVELS (None -> ID -> Residency -> Official). */
+  /** Verified ladder index into VERIFIED_LEVELS (Any -> Identity -> Residency -> Official). */
   verifiedLevel: VerificationTier;
   onCycleVerified: () => void;
   myDistricts: boolean;
@@ -97,20 +134,22 @@ export function FilterDropdown({
         icon={<BadgeCheck size={16} aria-hidden />}
         onSelect={onCycleVerified}
         trailing={
-          <span className="text-xs text-ink-soft">
-            {VERIFIED_LEVELS[verifiedLevel]}
-          </span>
+          <FilterLevelBadge
+            label={VERIFIED_LEVELS[verifiedLevel]}
+            icon={verifiedLevelIcon(verifiedLevel)}
+          />
         }
       />
       <CheckboxRow
         label="Signed"
         showCheckbox={false}
-        icon={<Key size={16} aria-hidden />}
+        icon={<PenTool size={16} aria-hidden />}
         onSelect={onCycleSignedFilter}
         trailing={
-          <span className="text-xs text-ink-soft">
-            {SIGNED_FILTER_LEVELS[signedFilter]}
-          </span>
+          <FilterLevelBadge
+            label={SIGNED_FILTER_LEVELS[signedFilter]}
+            icon={signedLevelIcon(signedFilter)}
+          />
         }
       />
       <CheckboxRow
