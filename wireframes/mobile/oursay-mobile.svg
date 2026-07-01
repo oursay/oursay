@@ -736,10 +736,13 @@
       view: "feed",            // ROUTER: "feed" | "jurisdiction" | "district" | "profile" | "post"
       scroll: 0,               // active view's vertical scroll offset (px); reset by nav()
       jur: "Alberta",          // which jurisdiction the Jurisdiction view shows (G flips Global/Alberta)
+      postType: "statement",   // which POST_TYPES sample the Post view shows: statement|petition|poll|result
       // collapsible sections — Jurisdiction view
       jurMapOpen: true, jurRulesOpen: true, jurDistrictsOpen: false, jurFeedOpen: true,
       // collapsible sections — District view
       distMapOpen: true, distAboutOpen: false, distFeedOpen: true,
+      // collapsible sections — Post view (interlinks between petition/poll/result)
+      petPollOpen: true, pollSourceOpen: true, pollResultOpen: true, resPollOpen: true, resPetitionOpen: true,
 
       loggedIn: false,
       dropdownOpen: false,
@@ -772,6 +775,9 @@
       ],
       verified: 0,             // min author verification: 0 None · 1 ID · 2 Residency · 3 Official
       myDistricts: false,      // geography filter — independent of Verified (off by default)
+      affected: false,         // geography filter — Post-page comment thread ONLY, parallels myDistricts
+                                // (multi-district/jurisdiction-wide posts: residents of the post's OTHER
+                                // named districts, not mine — see viewHasAffected/effectiveAffected)
       composeStep: null,       // null | "where" | "type" | "compose"
       composeJur: null,        // chosen jurisdiction name
       composeType: null,       // chosen root key: "statement" | "petition" | "poll"
@@ -961,6 +967,10 @@
     // views that carry a record/activity-type filter: the feeds (recordTypes) + the Profile
     // (profileTypes). Only a single Post has neither. Drives both buildFilter and its callout.
     function viewHasTypeFilter() { return viewHasFeed() || state.view === "profile"; }
+    // the Affected geography filter (§ "Affected", parallels My Districts) is scoped to a single
+    // open Post's comment thread — it only ever shows when that post is multi-district or
+    // jurisdiction-wide (postQualifiesForAffected, defined near the other geography helpers below).
+    function viewHasAffected() { return state.view === "post" && postQualifiesForAffected(currentPostEntry().post); }
     // pixel height of a type section with n toggles: header + "All" row + n rows + separator.
     function typeSectionHeight(n) { return 24 + (n + 1) * FROW_H + 8; }
     // one record/activity-type section (All + per-type checkboxes; min-1 multi-include + tap-to-isolate).
@@ -1063,6 +1073,43 @@
       }
       inner.appendChild(dRow);
       y += FROW_H;
+
+      // Affected — a SECOND geography filter, shown only on a multi-district/jurisdiction-wide
+      // Post (viewHasAffected). Mirrors My Districts' coupling to Verified/residency exactly, but
+      // keeps commenters who are residency-verified residents of the post's OTHER named districts
+      // (or, jurisdiction-wide, any district) rather than my own — see geographyKeep/isAffectedNotMine.
+      if (viewHasAffected()) {
+        var aRowY = y, aRow = filterRow(aRowY);
+        var canAffected = state.kyc >= 2;
+        var aInferable = districtsInferable();
+        var aEngaged = state.affected && canAffected && aInferable;
+        var aCol = !canAffected ? "#ccc" : (!aInferable ? "#bbb" : (aEngaged ? "#333" : "#999"));
+        var aIntentOn = canAffected && state.affected;
+        var aEye = icon((aIntentOn && aInferable) ? "#ic-eye" : "#ic-eye-off", FD_X + 11, aRowY + 10, 20, aCol);
+        aRow.appendChild(aEye);
+        aRow.appendChild(txt(FD_X + 42, aRowY + 25, "Affected", 14, aCol));
+        if (canAffected) {
+          var toggleAffected = function () {
+            state.affected = !state.affected;
+            if (state.affected && state.verified < 2) state.verified = 2; // the Verified jump
+            render();
+          };
+          aEye.style.cursor = "pointer";
+          aEye.addEventListener("click", function (e) { e.stopPropagation(); toggleAffected(); });
+          aRow.addEventListener("click", toggleAffected);
+          if (!aInferable) {
+            var aHint = txt(FD_X + FD_W - 16, aRowY + 25, "Residency+", 11, "#bbb");
+            aHint.setAttribute("text-anchor", "end"); aRow.appendChild(aHint);
+          }
+        } else {
+          var aNote = txt(FD_X + FD_W - 16, aRowY + 25, "Residency only", 11, "#bbb");
+          aNote.setAttribute("text-anchor", "end");
+          aRow.appendChild(aNote);
+          aRow.style.cursor = "default";
+        }
+        inner.appendChild(aRow);
+        y += FROW_H;
+      }
       $("fdBg").setAttribute("height", (y + FPAD) - FD_TOP);
     }
     function selectTypeOnly(types, item) {
@@ -1285,6 +1332,10 @@
     function go(view) { return function (e) { if (e) e.stopPropagation(); nav(view); }; }
     // like go("jurisdiction"), but first aims the Jurisdiction view at a named jurisdiction
     function goJur(name) { return function (e) { if (e) e.stopPropagation(); if (JUR_DATA[name]) state.jur = name; nav("jurisdiction"); }; }
+    // like go("post"), but first aims the Post view at the representative sample for that record
+    // TYPE (statement/petition/poll/result — see POST_TYPES/currentPostEntry). Every card/row that
+    // opens "the record" should use this instead of go("post"), so it lands on the matching page.
+    function goPost(type) { return function (e) { if (e) e.stopPropagation(); state.postType = type; nav("post"); }; }
 
     // new-post FAB: off the Feed it goes home to the Feed; on the Feed it composes
     // (logged-out → register/login chooser; logged-in → where/type/compose).
@@ -1496,7 +1547,12 @@
       { type:"petition", jur:"Alberta", tier:2, districts:["edmonton-strathcona","edmonton-city-centre"], author:"Wei Chen", handle:"weichen",
         title:"Twin the river-valley commuter path",
         body:["A continuous path would link the two ridings end to end.",
-              "Commit the capital in this cycle."], sig:3120, goal:6000, comments:17 },
+              "Commit the capital in this cycle."], sig:7999, goal:8000, comments:17,
+        // one signature from the threshold — sign it to graduate (petitionSign bumps sig live).
+        attachedPoll: {
+          question:"Twin the river-valley path — fund it in 2027?",
+          options:["Yes — fund it in 2027","No — defer to a later budget"]
+        } },
       { type:"statement", jur:"Alberta", tier:1, districts:["calgary-elbow","calgary-mountain-view"], author:"Dale Friesen", handle:"dfriesen",
         title:"Coordinate snow clearing across Calgary core",
         body:["Neighbouring wards clear on different schedules. A shared",
@@ -1577,8 +1633,8 @@
     // `districts` = author's riding slug(s) → a Residency author in my district gets the map-pin-house
     // (isHomeAuthor). `ts` = created time (ISO) → relTime(). `edits` = how many times it was revised →
     // "N edit(s)" link to the (deferred) edit-history timeline. `ts` is display-only; see relTime()/NOW.
-    var POST = {
-      author: "Hana Okafor", handle: "hanao", tier: 2, jur: "Alberta", district: "Edmonton-Strathcona",
+    var POST_STATEMENT = {
+      author: "Hana Okafor", handle: "hanao", tier: 2, jur: "Alberta", districts: ["edmonton-strathcona"],
       ts: "2026-06-22T10:15:00", edits: 3,   // >6d old → shows the absolute date "2026-06-22"; revised 3×
       title: "Protect the Whitemud Creek ravine",
       body: [
@@ -1589,7 +1645,7 @@
       ],
       up: 132, down: 7, _my: null
     };
-    var COMMENTS = [
+    var COMMENTS_STATEMENT = [
       { author: "Sam Driver", handle: "samd", tier: 2, districts:["edmonton-strathcona"], ts: "2026-06-27T09:00:00", edits: 1,
         body: ["Agreed — the rookery alone should trigger a review."], up: 14, down: 1, _my: null,
         replies: [
@@ -1609,6 +1665,106 @@
       { author: "Rosa Klein", handle: "rosak", tier: 2, districts:["calgary-elbow"], ts: "2026-06-29T19:10:00", edits: 2,
         body: ["Roads could be rerouted around the south edge instead."], up: 6, down: 2, _my: null, replies: [] }
     ];
+
+    // Petition / Poll / Result view subjects — a connected graduation chain (wireframe-only
+    // narrative): the petition is 2-riding (edmonton-strathcona + edmonton-city-centre); once
+    // signed past its threshold it graduates into a jurisdiction-wide poll (a capital-budget
+    // commitment reasonably broadens scope), which — once closed — publishes a jurisdiction-wide
+    // result. Mirrors POSTS[]'s Wei Chen entry so the feed card and this detail page read as the
+    // same record (see POST_STATEMENT/POSTS' Hana Okafor entry for the existing precedent).
+    // shared short question — reused verbatim as the petition's attachedPoll.question, the poll's
+    // own title, and every interlink preview, so it never needs re-wrapping per surface (kept to a
+    // single line at every font size used across the app; see the width note above buildPostChrome).
+    var RIVER_PATH_QUESTION = "Twin the river-valley path — fund it in 2027?";
+    var POST_PETITION = {
+      author: "Wei Chen", handle: "weichen", tier: 2, jur: "Alberta",
+      districts: ["edmonton-strathcona", "edmonton-city-centre"],
+      ts: "2026-06-18T08:00:00", edits: 0,
+      title: "Twin the river-valley commuter path",
+      body: [
+        "The river-valley path narrows to one lane right where the",
+        "ridings meet, backing up commuters every morning. Twinning",
+        "it end to end lets both ridings share one continuous route",
+        "— and it's shovel-ready this budget cycle."
+      ],
+      sig: 7999, goal: 8000,
+      // PROPOSED (petition.md gap [proposed-petition-support-label]): a pre-attached poll that
+      // graduates automatically once `sig` reaches `goal` (01-CONTRIBUTOR-SPEC.md §8.6). No poll
+      // record is created for real here — "See full Poll" always opens the one representative
+      // POST_POLL below, per the wireframe's representative-target navigation (README §1).
+      attachedPoll: {
+        question: RIVER_PATH_QUESTION,
+        options: ["Yes — fund it in 2027", "No — defer to a later budget"]
+      }
+    };
+    var COMMENTS_PETITION = [
+      { author: "Lena Park", handle: "lenapark", tier: 3, districts: ["edmonton-city-centre"], ts: "2026-06-28T09:00:00",
+        body: ["City Centre residents feel this every commute — fully behind it."], up: 22, down: 1, _my: null,
+        replies: [
+          { author: "Wei Chen", handle: "weichen", tier: 2, districts: ["edmonton-strathcona"], ts: "2026-06-28T15:00:00",
+            body: ["Thanks Lena — appreciate support from both sides of the path."], up: 6, down: 0, _my: null, replies: [] }
+        ] },
+      { author: "Sam Driver", handle: "samd", tier: 2, districts: ["edmonton-strathcona"], ts: "2026-06-29T11:00:00",
+        body: ["One signature away from the threshold — let's push it over."], up: 18, down: 0, _my: null, replies: [] },
+      { author: "Marcus Lee", handle: "mlee", tier: 1, ts: "2026-06-25T10:00:00",
+        body: ["Would love ranked funding-split options, not just yes/no."], up: 4, down: 2, _my: null, replies: [] }
+    ];
+
+    var POST_POLL = {
+      author: "Alberta Assembly", handle: "ableg", tier: 3, jur: "Alberta", districts: [],
+      ts: "2026-06-15T09:00:00", edits: 0,
+      title: RIVER_PATH_QUESTION,
+      body: [
+        "Graduated from Wei Chen's petition after it passed the",
+        "signature threshold. Open to residency-verified electors",
+        "province-wide, since this draws on the general budget."
+      ],
+      options: [ { label: "Yes — fund it in 2027", v: 5413 }, { label: "No — defer to a later budget", v: 1206 } ],
+      _vote: null,
+      sourcePetition: true, // → "Source Petition" collapsible, links back to POST_PETITION
+      resultPublished: true // → "Result" collapsible + frames this poll as closed
+    };
+    var COMMENTS_POLL = [
+      { author: "Rosa Klein", handle: "rosak", tier: 2, districts: ["calgary-elbow"], ts: "2026-06-29T08:00:00",
+        body: ["Glad to see this funded province-wide, not just the two ridings."], up: 14, down: 2, _my: null, replies: [] },
+      { author: "Sam Driver", handle: "samd", tier: 2, districts: ["edmonton-strathcona"], ts: "2026-06-29T12:00:00",
+        body: ["Voted yes — this was a long time coming."], up: 9, down: 0, _my: null, replies: [] },
+      { author: "Hon. A. Premier", handle: "premier", tier: 3, ts: "2026-06-29T18:00:00",
+        body: ["Committing to this in the fall budget update."], up: 31, down: 4, _my: null, replies: [] }
+    ];
+
+    var POST_RESULT = {
+      author: "Alberta Assembly", handle: "ableg", tier: 3, jur: "Alberta", districts: [],
+      ts: "2026-06-30T07:00:00", edits: 0,
+      title: "Result: River-valley path twinning vote",
+      body: [
+        "The province-wide poll has closed. Counts shown are",
+        "residency-verified electors only, anchored on the",
+        "public ledger — past the k-anonymity floor."
+      ],
+      outcome: "Passed · Yes 81.8%",
+      options: [ { label: "Yes — fund it in 2027", v: 5413 }, { label: "No — defer to a later budget", v: 1206 } ],
+      up: 47, down: 6, _my: null,
+      sourcePoll: true, sourcePetition: true // transitive petition link, per result.md
+    };
+    var COMMENTS_RESULT = [
+      { author: "Wei Chen", handle: "weichen", tier: 2, districts: ["edmonton-strathcona"], ts: "2026-06-30T08:00:00",
+        body: ["Thank you to everyone who signed and voted for this."], up: 26, down: 0, _my: null, replies: [] },
+      { author: "Tom Berg", handle: "tomberg", tier: 3, districts: ["calgary-elbow"], ts: "2026-06-30T08:30:00",
+        body: ["Calgary-Elbow wants the same treatment for our pathways."], up: 11, down: 1, _my: null, replies: [] }
+    ];
+
+    // one representative detail-page sample per type — the per-type extension of the
+    // representative-target navigation in README §1 (previously only the Post view had one
+    // fixed sample; now each type does, chosen by state.postType via goPost()).
+    var POST_TYPES = {
+      statement: { post: POST_STATEMENT, comments: COMMENTS_STATEMENT },
+      petition:  { post: POST_PETITION,  comments: COMMENTS_PETITION },
+      poll:      { post: POST_POLL,      comments: COMMENTS_POLL },
+      result:    { post: POST_RESULT,    comments: COMMENTS_RESULT }
+    };
+    function currentPostType()  { return state.postType || "statement"; }
+    function currentPostEntry() { return POST_TYPES[currentPostType()] || POST_TYPES.statement; }
 
     // ---- shared content helpers (one copy each) -------------------------------
     function fmt(n) { try { return n.toLocaleString(); } catch (e) { return "" + n; } }
@@ -1721,20 +1877,54 @@
     function effectiveMyDistricts() { return state.myDistricts && state.kyc >= 2 && districtsInferable(); }
     // a record/comment names a district that isn't mine (district-less ones — e.g. officials — are kept)
     function outsideMyDistricts(p) { return (p.districts || []).length > 0 && !inMyDistricts(p); }
+    // Affected filter — a post qualifies when it names more than one district (multi-district) or
+    // none at all (jurisdiction-wide); a single-district post has no "other district" to show.
+    function postQualifiesForAffected(p) { var ds = postDistricts(p); return ds.length === 0 || ds.length > 1; }
+    // same remembered-intent/disengage-without-forgetting coupling as effectiveMyDistricts, PLUS
+    // viewHasAffected(): Affected only ever applies to the ONE open post it was engaged on, so a
+    // remembered intent must not leak into filtering a different (e.g. single-district) post whose
+    // filter row isn't even shown.
+    function effectiveAffected() { return state.affected && state.kyc >= 2 && districtsInferable() && viewHasAffected(); }
+    // a residency-verified resident of one of the post's OTHER named districts (or, for a
+    // jurisdiction-wide post, any district at all) — but never my own. District-less authors
+    // (e.g. officials) are kept, mirroring outsideMyDistricts.
+    function isAffectedNotMine(node, postDistrictsList) {
+      var ds = node.districts || [];
+      if (!ds.length) return true;
+      if (ds.some(function (s) { return MY_DISTRICTS.indexOf(s) >= 0; })) return false;
+      if (!postDistrictsList.length) return true; // jurisdiction-wide post: any other district qualifies
+      return ds.some(function (s) { return postDistrictsList.indexOf(s) >= 0; });
+    }
+    // composes My Districts and Affected as an OR — they're mutually-exclusive predicates ("mine"
+    // vs "not mine"), so when both are engaged the only coherent reading is "keep either"; with
+    // neither engaged, every comment is kept (subject to the Verified ladder), unchanged from today.
+    function geographyKeep(node, postDistrictsList) {
+      var myOn = effectiveMyDistricts(), affOn = effectiveAffected();
+      if (!myOn && !affOn) return true;
+      var keepMine = myOn && !outsideMyDistricts(node);
+      var keepAff = affOn && isAffectedNotMine(node, postDistrictsList);
+      return keepMine || keepAff;
+    }
     function districtTag(p) {
       var ds = postDistricts(p);
       if (!ds.length) return "";
       return ds.length === 1 ? districtName(ds[0]) : (districtName(ds[0]) + " +" + (ds.length - 1));
     }
 
-    // count scaling: shown counts shrink as the Verified filter rises (fewer qualifying voices).
-    // social = comments + agree/disagree reactions (drop at every level).
-    // civic  = petition signatures + poll votes — only drop at Official, since Alberta participation
-    //          already requires residency verification (ID/Residency filters don't thin them).
+    // count scaling: raising the Verified filter thins SOCIAL counts (comments + agree/disagree
+    // reactions) at every level — fewer qualifying voices are shown, so the tally reflects that.
     var SOCIAL_SCALE = [1, 0.62, 0.34, 0.08];
-    var CIVIC_SCALE  = [1, 1, 1, 0.12];
     function scaleSocial(n) { return Math.max(0, Math.round(n * SOCIAL_SCALE[state.verified])); }
-    function scaleCivic(n)  { return Math.max(0, Math.round(n * CIVIC_SCALE[state.verified])); }
+    // CIVIC counts (petition signatures, poll votes) are never thinned by the Verified filter — a
+    // petition/poll's bar and total are always the official, residency-verified count (Alberta
+    // civic participation already requires residency; "Official" verification only ever gates
+    // comments/reactions, never these tallies — see DESIGN-DECISIONS.md §9.5). Lowering Verified
+    // below Residency doesn't shrink anything; it ADDS a "+N unverified" note alongside the bar,
+    // surfacing how many additional (non-residency-verified) participants took part but aren't
+    // counted in the official total. None shows the largest addition, ID a smaller one, and
+    // Residency/Official show none (nothing left to add — everyone shown already qualifies).
+    var CIVIC_UNVERIFIED_EXTRA = [0.35, 0.12, 0, 0];
+    function civicExtra(n) { return Math.round(n * CIVIC_UNVERIFIED_EXTRA[state.verified]); }
 
     // initials from a name: first word + last word, with any ", MLA"-style suffix stripped
     function initials(name) {
@@ -1784,6 +1974,16 @@
       g.addEventListener("click", onToggle);
       parent.appendChild(g);
       return y + 38;
+    }
+    // the "See full {Petition|Poll|Result} →" button used inside a collapsible interlink section
+    // (petition ↔ poll ↔ result, see buildPost) — styled like the existing outline Sign button.
+    // Appended directly into `parent` (a live DOM node, e.g. the Post body) at (x, y); returns width.
+    function seeFullBtn(parent, x, y, label, onClick) {
+      var w = Math.round(textW(label, 12.5)) + 16;
+      parent.appendChild(rect(x, y, w, 28, 8, "#ffffff", "#333"));
+      var t = txt(x + w / 2, y + 18, label, 12.5, "#333"); t.setAttribute("text-anchor", "middle"); parent.appendChild(t);
+      clickRect(parent, x, y, w, 28, function (e) { if (e) e.stopPropagation(); onClick(e); });
+      return w;
     }
     // pretend map vector: light landmass with a red translucent region (jurisdiction or riding)
     function poly(pts, x, y) { return "M" + pts.map(function (p) { return (x + p[0]) + "," + (y + p[1]); }).join(" L ") + " Z"; }
@@ -1847,6 +2047,44 @@
       return false;
     }
 
+    // poll option bars — shared by buildCard (feed/jurisdiction/district cards), the Poll detail
+    // page (live voting), and the Result detail page (opts.frozen: true — immutable final tallies,
+    // no pollVote wiring, per result.md "no edit/delete after publish"). Returns the next y plus
+    // the visual nodes and (unless frozen) click-hit nodes for the caller to layer in z-order.
+    function buildPollOptions(p, px, y, w, opts) {
+      opts = opts || {};
+      var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
+      var nodes = [], hits = [];
+      p.options.forEach(function (o) {
+        var bw = w - 2 * px, mine = p._vote === o.label;
+        // the bar and its number are the official (residency-verified) count — never thinned by
+        // the Verified filter (civicExtra handles the honesty note instead, below). every option
+        // always shows its bar; the selected one is darker (plus bold + ✓ below).
+        nodes.push(rect(px, y, bw, 18, 4, "#f2f2f2", mine ? "#333" : "#ddd"));
+        nodes.push(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, mine ? "#9a9a9a" : "#cfcfcf"));
+        var lbl = txt(px + 8, y + 13, (mine ? "✓ " : "") + o.label, 11.5, mine ? "#222" : "#555");
+        if (mine) lbl.setAttribute("font-weight", "bold"); nodes.push(lbl);
+        var pv = txt(w - px - 6, y + 13, fmt(o.v), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); nodes.push(pv);
+        if (!opts.frozen) {
+          var pg = document.createElementNS(SVG_NS, "g");
+          clickRect(pg, px, y, bw, 18, function (e) { if (e) e.stopPropagation(); pollVote(p, o.label); }); hits.push(pg);
+        }
+        y += 20;
+        // additive-only honesty note, outside the bar: people who took part but aren't
+        // residency-verified — never subtracts from the bar above (civicExtra: 0 at Residency/
+        // Official, small at ID, larger at None; see the CIVIC_UNVERIFIED_EXTRA comment).
+        var extra = civicExtra(o.v);
+        if (extra > 0) {
+          var ex = txt(w - px - 6, y + 8, "+" + fmt(extra) + " unverified votes", 10.5, "#aaa");
+          ex.setAttribute("text-anchor", "end"); nodes.push(ex);
+          y += 18;
+        } else {
+          y += 4;
+        }
+      });
+      return { y: y + 4, nodes: nodes, hits: hits };
+    }
+
     // build one card; returns a <g> with a ._h height property the caller stacks by.
     // opts.hideJur / opts.hideDistrict drop the redundant tag parts the page already implies.
     // Click targets are LIVE page-flips: author → Profile, title/…more → Post.
@@ -1881,38 +2119,54 @@
       add(txt(px, 108, p.body[1] || "", 12.5, "#777"));
       var more = txt(px, 130, "…more", 12.5, "#333"); more.setAttribute("font-weight", "bold"); add(more);
       var postHit = document.createElementNS(SVG_NS, "g");
-      clickRect(postHit, px - 4, 54, W - 2 * px + 8, 22, go("post")); // title row
-      clickRect(postHit, px - 4, 120, 80, 18, go("post"));            // …more
+      clickRect(postHit, px - 4, 54, W - 2 * px + 8, 22, goPost(p.type)); // title row
+      clickRect(postHit, px - 4, 120, 80, 18, goPost(p.type));            // …more
       hit(postHit);
 
       // type-specific section
       var y = 150;
       if (p.type === "petition") {
-        var sig = scaleCivic(p.sig);
-        var frac = clamp(sig / p.goal, 0, 1);
+        // the bar/count is always the official (residency-verified) signature total — never
+        // thinned by the Verified filter; civicExtra surfaces additional unverified signers
+        // ADDITIVELY instead, on its own line below (see the CIVIC_UNVERIFIED_EXTRA comment).
+        var frac = clamp(p.sig / p.goal, 0, 1), sigExtra = civicExtra(p.sig);
         add(rect(px, y + 2, W - 2 * px, 10, 5, "#f2f2f2", "#ccc"));
         add(rect(px, y + 2, Math.round((W - 2 * px) * frac), 10, 5, "#333"));
-        add(txt(px, y + 32, fmt(sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
+        // petitions with a pre-attached poll (§8.6 graduation) show a compact tag instead of the
+        // plain "X / Y signatures" caption — "Proposed Poll" pre-graduation, flips (and becomes a
+        // clickable link to the Poll page) once the signature threshold is reached.
+        var graduated = p.attachedPoll && petitionGraduated(p);
+        if (p.attachedPoll) {
+          var tagLabel = graduated ? "Poll Open" : ("Proposed Poll · " + fmt(p.goal) + " signatures");
+          var tw = Math.round(textW(tagLabel, 11.5)) + 34;
+          add(rect(px, y + 18, tw, 22, 11, "#f2f2f2", "#bbb"));
+          add(icon("#ic-check-circle", px + 7, y + 22, 14, "#555"));
+          add(txt(px + 26, y + 34, tagLabel, 11.5, "#444"));
+          if (graduated) {
+            var ptag = document.createElementNS(SVG_NS, "g");
+            clickRect(ptag, px, y + 18, tw, 22, goPost("poll")); hit(ptag);
+          }
+        } else {
+          add(txt(px, y + 32, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 12, "#555"));
+        }
+        var btnY = y + 44;
+        if (sigExtra > 0) {
+          // a full row below the tag/caption (which ends ~y+40) — never crowds it regardless of
+          // tag width, since this sits on its own line rather than beside it.
+          var sx = txt(W - px, y + 54, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+          sx.setAttribute("text-anchor", "end"); add(sx);
+          btnY = y + 64;
+        }
         var signed = !!p._signed;
-        add(rect(px, y + 44, 150, 26, 13, signed ? "#333" : "#ffffff", "#333"));
-        var ct = txt(px + 75, y + 61, signed ? "Signed ✓" : "Sign the Petition", 12.5, signed ? "#fff" : "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
+        add(rect(px, btnY, 150, 26, 13, signed ? "#333" : "#ffffff", "#333"));
+        var ct = txt(px + 75, btnY + 17, signed ? "Signed ✓" : "Sign the Petition", 12.5, signed ? "#fff" : "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
         var psign = document.createElementNS(SVG_NS, "g");
-        clickRect(psign, px, y + 44, 150, 26, function (e) { if (e) e.stopPropagation(); petitionSign(p); }); hit(psign);
-        y += 84;
+        clickRect(psign, px, btnY, 150, 26, function (e) { if (e) e.stopPropagation(); petitionSign(p); }); hit(psign);
+        y = btnY + 40;
       } else if (p.type === "poll") {
-        var total = p.options.reduce(function (a, o) { return a + o.v; }, 0) || 1;
-        p.options.forEach(function (o) {
-          var ov = scaleCivic(o.v), bw = W - 2 * px, mine = p._vote === o.label;
-          // every option always shows its result bar; the selected one is darker (plus bold + ✓ below)
-          add(rect(px, y, bw, 18, 4, "#f2f2f2", mine ? "#333" : "#ddd"));
-          add(rect(px, y, Math.round(bw * (o.v / total)), 18, 4, mine ? "#9a9a9a" : "#cfcfcf"));
-          var lbl = txt(px + 8, y + 13, (mine ? "✓ " : "") + o.label, 11.5, mine ? "#222" : "#555"); if (mine) lbl.setAttribute("font-weight", "bold"); add(lbl);
-          var pv = txt(W - px - 6, y + 13, fmt(ov), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); add(pv);
-          var pg = document.createElementNS(SVG_NS, "g");
-          clickRect(pg, px, y, bw, 18, function (e) { if (e) e.stopPropagation(); pollVote(p, o.label); }); hit(pg);
-          y += 24;
-        });
-        y += 4;
+        var po = buildPollOptions(p, px, y, W);
+        po.nodes.forEach(add); po.hits.forEach(hit);
+        y = po.y;
       } else if (p.type === "result") {
         add(rect(px, y, W - 2 * px, 28, 6, "#f7f7f7", "#ddd"));
         add(icon("#ic-check-circle", px + 8, y + 6, 16, "#555"));
@@ -1929,15 +2183,15 @@
         reactPill(rg, p, px, fy, scaleSocial);
         hit(rg);
       } else if (p.type === "poll") {
-        var tv = p.options.reduce(function (a, o) { return a + scaleCivic(o.v); }, 0);
+        var tv = p.options.reduce(function (a, o) { return a + o.v; }, 0);
         add(txt(px, fy, fmt(tv) + " votes", 13, "#555"));
       } else {
-        add(txt(px, fy, fmt(scaleCivic(p.sig)) + " signatures", 13, "#555"));
+        add(txt(px, fy, fmt(p.sig) + " signatures", 13, "#555"));
       }
       // "N edits" link (only on revised posts) → the deferred edit-history timeline
       if (p.edits) { var eg = document.createElementNS(SVG_NS, "g"); editsLink(eg, px + 120, fy, p.edits, { post: true }); hit(eg); }
       // comment pill opens the post
-      var cg = commentPill(W - px, fy, scaleSocial(p.comments), go("post")); hit(cg);
+      var cg = commentPill(W - px, fy, scaleSocial(p.comments), goPost(p.type)); hit(cg);
 
       var cardH = fy + 16;
       g.appendChild(rect(0, 0, W, cardH, 12, "#ffffff", "#ccc"));
@@ -2219,13 +2473,16 @@
       return !t || t.included;
     }
     var ACT_ICON = { statement: "#ic-feather", comment: "#ic-message", petition: "#ic-clipboard", poll: "#ic-bar", reaction: "#ic-check-circle" };
+    // an Activity kind that isn't itself a post type (comment, reaction) has no detail page of its
+    // own — falls back to the Statement, a representative-target approximation (README §1).
+    function kindToPostType(kind) { return (kind === "petition" || kind === "poll") ? kind : "statement"; }
     function activityRow(parent, X, W, y, a) {
       var H = 52, g = document.createElementNS(SVG_NS, "g");
       g.appendChild(rect(X, y, W, H, 10, "#ffffff", "#eee"));
       g.appendChild(icon(a.icon || ACT_ICON[a.kind] || "#ic-message", X + 14, y + 16, 18, "#666"));
       g.appendChild(txt(X + 46, y + 24, a.text, 12.5, "#333"));
       g.appendChild(txt(X + 46, y + 41, a.meta, 11, "#999"));
-      clickRect(g, X, y, W, H, go("post")); // representative target → the Post view
+      clickRect(g, X, y, W, H, goPost(kindToPostType(a.kind))); // representative target → the matching Post-type view
       parent.appendChild(g);
       return y + H + 10;
     }
@@ -2240,7 +2497,7 @@
       g.appendChild(txt(X + 46 + Math.round(m.author.length * 12.5 * 0.55) + 6, y + 20, "@" + m.handle, 10.5, "#aaa"));
       g.appendChild(txt(X + 46, y + 38, m.text, 12, "#555"));
       g.appendChild(txt(X + 46, y + 51, m.meta, 10.5, "#bbb"));
-      clickRect(g, X, y, W, H, go("post"));
+      clickRect(g, X, y, W, H, goPost("statement")); // mentions carry no kind — representative-target fallback
       parent.appendChild(g);
       return y + H + 10;
     }
@@ -2253,11 +2510,11 @@
     function countComments(nodes) {
       return nodes.reduce(function (a, n) { return a + 1 + countComments(n.replies || []); }, 0);
     }
-    // comments that survive the Verified + My Districts filters (at any depth)
-    function countVisibleComments(nodes) {
+    // comments that survive the Verified + My Districts/Affected filters (at any depth)
+    function countVisibleComments(nodes, postDistrictsList) {
       return nodes.reduce(function (a, n) {
-        var kept = (n.tier || 0) >= state.verified && !(effectiveMyDistricts() && outsideMyDistricts(n));
-        return a + (kept ? 1 : 0) + countVisibleComments(n.replies || []);
+        var kept = (n.tier || 0) >= state.verified && geographyKeep(n, postDistrictsList);
+        return a + (kept ? 1 : 0) + countVisibleComments(n.replies || [], postDistrictsList);
       }, 0);
     }
     // toggle the viewer's agree/disagree on a target (post or comment); mutually exclusive
@@ -2275,8 +2532,17 @@
     function reactClick(node, dir) { requireAuth(function () { toggleReact(node, dir); }); }
     // cast / retract a poll vote (one per member); the chosen option highlights
     function pollVote(p, label) { requireAuth(function () { p._vote = (p._vote === label ? null : label); render(); }); }
-    // add / remove the member's signature; the CTA reflects the signed state
-    function petitionSign(p) { requireAuth(function () { p._signed = !p._signed; render(); }); }
+    // add / remove the member's signature; the CTA reflects the signed state. Also nudges the
+    // live sig count so a petition can visibly approach (and, for one with an attachedPoll,
+    // graduate past) its goal — see petitionGraduated(). Safe for every sample: none start ≥ goal.
+    function petitionSign(p) {
+      requireAuth(function () { p._signed = !p._signed; p.sig += p._signed ? 1 : -1; render(); });
+    }
+    // a petition with a pre-attached poll (§8.6 graduation) that has reached its signature
+    // threshold — flips its card tag and Post-page collapsible from "Proposed Poll" (no link) to
+    // "Poll" (working "See full Poll" link). No real poll is synthesized; the link always opens
+    // the one representative POST_POLL (representative-target navigation, README §1).
+    function petitionGraduated(p) { return !!(p.attachedPoll && p.sig >= p.goal); }
     // split reaction pill: ✓ agree | ✗ disagree joined in one capsule with a centre divider.
     // Shared by the post, comment threads, and feed/jurisdiction/district cards — every reaction
     // routes through here, so the login gate and toggle behave identically everywhere. Each half
@@ -2341,15 +2607,15 @@
       parent.appendChild(cg);
       return by + 24 + 10;
     }
-    function buildThread(parent, nodes, depth, y) {
+    function buildThread(parent, nodes, depth, y, postDistrictsList) {
       var X0 = 30, W0 = 370;
       nodes.forEach(function (node) {
-        // Verified + My Districts filters (same rules as the feed): a comment whose author is below the
-        // active tier, or (under an engaged My Districts) names a district that isn't mine, is hidden —
-        // but its qualifying replies are promoted to this level so a surviving voice under a filtered
-        // parent isn't lost. District-less comments (e.g. officials) are kept by My Districts.
-        if ((node.tier || 0) < state.verified || (effectiveMyDistricts() && outsideMyDistricts(node))) {
-          if (node.replies && node.replies.length) y = buildThread(parent, node.replies, depth, y);
+        // Verified + My Districts/Affected filters (same rules as the feed): a comment whose author
+        // is below the active tier, or fails the engaged geography filter(s), is hidden — but its
+        // qualifying replies are promoted to this level so a surviving voice under a filtered parent
+        // isn't lost. District-less comments (e.g. officials) are kept by both geography filters.
+        if ((node.tier || 0) < state.verified || !geographyKeep(node, postDistrictsList)) {
+          if (node.replies && node.replies.length) y = buildThread(parent, node.replies, depth, y, postDistrictsList);
           return;
         }
         var indent = (depth - 1) * 20, x = X0 + indent, w = W0 - indent;
@@ -2380,17 +2646,15 @@
         // inline composer for this comment; max-depth replies seed the replyee's @mention
         if (replyTargetIs({ node: node })) yy = replyComposer(parent, x + 28, w - 28, yy, atMax ? "@" + node.handle : "");
         var ny = yy;
-        if (node.replies && node.replies.length && depth < COMMENT_MAX_DEPTH) ny = buildThread(parent, node.replies, depth + 1, yy);
+        if (node.replies && node.replies.length && depth < COMMENT_MAX_DEPTH) ny = buildThread(parent, node.replies, depth + 1, yy, postDistrictsList);
         y = ny + 10;
       });
       return y;
     }
-    function buildPost() {
-      var body = $("vPostBody");
-      while (body.firstChild) body.removeChild(body.firstChild);
-      var X = 30, W = 370, p = POST, y = 118;
-
-      // author row
+    // shared chrome across every post type: author row (avatar, name, timestamp, tier pill, scope
+    // tag) + title + full body. Parameterized on `p` so buildPost can load whichever POST_TYPES
+    // sample is current. Returns the y below the body text.
+    function buildPostChrome(body, p, X, W, y) {
       var av = document.createElementNS(SVG_NS, "circle");
       av.setAttribute("cx", X + 14); av.setAttribute("cy", y + 16); av.setAttribute("r", 14);
       av.setAttribute("fill", "#e8e8e8"); av.setAttribute("stroke", "#ccc"); body.appendChild(av);
@@ -2401,37 +2665,168 @@
       if (p.ts) body.appendChild(txt(X + 38, y + 28, relTime(p.ts), 11.5, "#999"));
       var aHit = document.createElementNS(SVG_NS, "g"); clickRect(aHit, X, y, 190, 34, go("profile")); body.appendChild(aHit);
       if (p.tier > 0) body.appendChild(tierPill(X + W, y - 6, p.tier, isHomeAuthor(p)));
-      body.appendChild(scopeTagLink(p.jur, p.district || "", X + W, y + 30));
+      body.appendChild(scopeTagLink(p.jur, districtTag(p), X + W, y + 30));
       y += 48;
 
-      // title + full body
       var ti = txt(X, y + 16, p.title, 17, "#222"); ti.setAttribute("font-weight", "bold"); body.appendChild(ti);
       y += 30;
       p.body.forEach(function (line) { body.appendChild(txt(X, y + 14, line, 13, "#555")); y += 18; });
       y += 22;
+      return y;
+    }
+    // renders a title + "See full X →" link for a collapsible interlink section (petition ↔ poll
+    // ↔ result). `target` is the linked representative sample (e.g. POST_POLL) purely for its
+    // title/outcome text — the button always opens the ONE representative page of that type via
+    // goPost (representative-target navigation), never a record synthesized from `target`.
+    function interlinkPreview(body, X, W, y, previewText, btnLabel, type) {
+      body.appendChild(txt(X + 14, y + 14, previewText, 12.5, "#555"));
+      y += 30;
+      seeFullBtn(body, X + 14, y, btnLabel, goPost(type));
+      return y + 38;
+    }
+    function buildPost() {
+      var body = $("vPostBody");
+      while (body.firstChild) body.removeChild(body.firstChild);
+      var entry = currentPostEntry(), p = entry.post, comments = entry.comments;
+      var type = currentPostType(), postDs = postDistricts(p);
+      var nC = countComments(comments), nVis = countVisibleComments(comments, postDs);
+      var X = 30, W = 370, y = 118;
 
-      // post reaction bar (split pill) + reply (root comment) + "N edit(s)" + comment count pill
-      reactPill(body, p, X, y, scaleSocial);   // tallies thinned by the Verified filter (like the feed / comments)
+      y = buildPostChrome(body, p, X, W, y);
+
+      // type-specific primary content (mirrors buildCard's per-type section)
+      if (type === "petition") {
+        // bar + count are the official (residency-verified) total — never thinned by Verified;
+        // civicExtra adds an honesty note instead of shrinking anything (see its definition).
+        var frac = clamp(p.sig / p.goal, 0, 1), sigExtra = civicExtra(p.sig);
+        body.appendChild(rect(X, y, W, 10, 5, "#f2f2f2", "#ccc"));
+        body.appendChild(rect(X, y, Math.round(W * frac), 10, 5, "#333"));
+        y += 20;
+        var graduated = p.attachedPoll && petitionGraduated(p);
+        if (p.attachedPoll) {
+          var tagLabel = graduated ? "Poll Open" : ("Proposed Poll · " + fmt(p.goal) + " signatures");
+          var tw = Math.round(textW(tagLabel, 12.5)) + 36;
+          body.appendChild(rect(X, y, tw, 24, 12, "#f2f2f2", "#bbb"));
+          body.appendChild(icon("#ic-check-circle", X + 8, y + 5, 14, "#555"));
+          body.appendChild(txt(X + 28, y + 17, tagLabel, 12.5, "#444"));
+          if (graduated) clickRect(body, X, y, tw, 24, function (e) { if (e) e.stopPropagation(); goPost("poll")(); });
+        } else {
+          body.appendChild(txt(X, y + 16, fmt(p.sig) + " / " + fmt(p.goal) + " signatures", 13, "#555"));
+        }
+        y += 34;
+        if (sigExtra > 0) {
+          // a full row below the tag/caption — never crowds it regardless of tag width, since
+          // this sits on its own line rather than beside it.
+          var sx = txt(X + W, y + 4, "+" + fmt(sigExtra) + " unverified signatures", 10.5, "#aaa");
+          sx.setAttribute("text-anchor", "end"); body.appendChild(sx);
+          y += 20;
+        }
+        var signed = !!p._signed;
+        body.appendChild(rect(X, y, 170, 30, 15, signed ? "#333" : "#ffffff", "#333"));
+        var ct = txt(X + 85, y + 20, signed ? "Signed ✓" : "Sign the Petition", 13, signed ? "#fff" : "#333");
+        ct.setAttribute("text-anchor", "middle"); body.appendChild(ct);
+        clickRect(body, X, y, 170, 30, function (e) { if (e) e.stopPropagation(); petitionSign(p); });
+        y += 54; // extra clearance below the Sign button before the bottom bar (count/reply/comments)
+      } else if (type === "poll") {
+        var po = buildPollOptions(p, X, y, W, { frozen: false });
+        po.nodes.forEach(function (n) { body.appendChild(n); });
+        po.hits.forEach(function (n) { body.appendChild(n); });
+        y = po.y + 12;
+      } else if (type === "result") {
+        var pr = buildPollOptions(p, X, y, W, { frozen: true }); // immutable final tallies — no vote clicks
+        pr.nodes.forEach(function (n) { body.appendChild(n); });
+        y = pr.y + 4;
+        body.appendChild(rect(X, y, W, 28, 6, "#f7f7f7", "#ddd"));
+        body.appendChild(icon("#ic-check-circle", X + 8, y + 6, 16, "#555"));
+        body.appendChild(txt(X + 32, y + 19, p.outcome, 12.5, "#444"));
+        y += 38;
+      }
+
+      // common bottom bar: reactions (statement/result) OR the civic count (petition/poll,
+      // official/unscaled — matches buildCard's footer) + reply + "N edit(s)" + comment count.
+      // Every type gets a Comments thread (petition.md/poll.md/result.md all list Comment 1:N).
+      if (type === "statement" || type === "result") {
+        reactPill(body, p, X, y, scaleSocial);
+      } else if (type === "petition") {
+        body.appendChild(txt(X, y, fmt(p.sig) + " signatures", 13, "#555"));
+      } else if (type === "poll") {
+        var totalV = p.options.reduce(function (a, o) { return a + o.v; }, 0);
+        body.appendChild(txt(X, y, fmt(totalV) + " votes", 13, "#555"));
+      }
       replyBtn(body, X + 110, y, { post: true });
       editsLink(body, X + 185, y, p.edits, { post: true });   // → deferred edit-history timeline
-      var nC = countComments(COMMENTS), nVis = countVisibleComments(COMMENTS);
       body.appendChild(commentPill(X + W, y, nC));
       y += 22;
       // root-comment composer (no prefill — replies to the post sit at the top level)
       if (replyTargetIs({ post: true })) y = replyComposer(body, X, W, y, "") + 2;
+      y += 4;
 
-      // divider + comments header
+      // type-specific interlinks — petition → poll, poll → petition/result, result → poll/petition
+      if (type === "petition") {
+        var petGraduated = petitionGraduated(p);
+        y = collHeader(body, X, W, y, "#ic-bar", petGraduated ? "Poll" : "Proposed Poll", state.petPollOpen, null,
+          function () { state.petPollOpen = !state.petPollOpen; render(); });
+        if (state.petPollOpen && p.attachedPoll) {
+          y += 8;
+          body.appendChild(txt(X + 14, y + 14, p.attachedPoll.question, 12.5, "#333"));
+          y += 26;
+          p.attachedPoll.options.forEach(function (label) {
+            body.appendChild(rect(X + 14, y, W - 28, 22, 6, "#f7f7f7", "#e2e2e2"));
+            body.appendChild(txt(X + 22, y + 15, label, 11.5, petGraduated ? "#555" : "#aaa"));
+            y += 26;
+          });
+          y += 6;
+          if (petGraduated) { seeFullBtn(body, X + 14, y, "See full Poll →", goPost("poll")); y += 38; }
+          else {
+            body.appendChild(txt(X + 14, y + 10,
+              "Graduates automatically once this petition reaches " + fmt(p.goal) + " signatures.", 11, "#999"));
+            y += 24;
+          }
+        } else y += 12;
+      } else if (type === "poll") {
+        if (p.sourcePetition) {
+          y = collHeader(body, X, W, y, "#ic-clipboard", "Source Petition", state.pollSourceOpen, null,
+            function () { state.pollSourceOpen = !state.pollSourceOpen; render(); });
+          y = state.pollSourceOpen
+            ? interlinkPreview(body, X, W, y + 8, POST_PETITION.title, "See full Petition →", "petition")
+            : y + 12;
+        }
+        if (p.resultPublished) {
+          y = collHeader(body, X, W, y, "#ic-check-circle", "Result", state.pollResultOpen, null,
+            function () { state.pollResultOpen = !state.pollResultOpen; render(); });
+          y = state.pollResultOpen
+            ? interlinkPreview(body, X, W, y + 8, POST_RESULT.outcome, "See full Result →", "result")
+            : y + 12;
+        }
+      } else if (type === "result") {
+        if (p.sourcePoll) {
+          y = collHeader(body, X, W, y, "#ic-bar", "Poll", state.resPollOpen, null,
+            function () { state.resPollOpen = !state.resPollOpen; render(); });
+          y = state.resPollOpen
+            ? interlinkPreview(body, X, W, y + 8, POST_POLL.title, "See full Poll →", "poll")
+            : y + 12;
+        }
+        if (p.sourcePetition) {
+          y = collHeader(body, X, W, y, "#ic-clipboard", "Petition", state.resPetitionOpen, null,
+            function () { state.resPetitionOpen = !state.resPetitionOpen; render(); });
+          y = state.resPetitionOpen
+            ? interlinkPreview(body, X, W, y + 8, POST_PETITION.title, "See full Petition →", "petition")
+            : y + 12;
+        }
+      }
+
+      // divider + comments header (shared across all four types)
       var ln = document.createElementNS(SVG_NS, "line");
       ln.setAttribute("x1", X); ln.setAttribute("y1", y); ln.setAttribute("x2", X + W); ln.setAttribute("y2", y);
       ln.setAttribute("stroke", "#eee"); body.appendChild(ln);
       y += 24;
       var ch = txt(X, y, "Comments (" + nC + ")", 13.5, "#333"); ch.setAttribute("font-weight", "bold"); body.appendChild(ch);
-      // honesty note: when the Verified / My Districts filters hide comments, say how many
+      // honesty note: when the Verified / My Districts / Affected filters hide comments, say how many
       if (nVis < nC) { var hid = txt(X + W, y, (nC - nVis) + " hidden by filters", 11, "#999"); hid.setAttribute("text-anchor", "end"); body.appendChild(hid); }
       y += 18;
 
       // thread
-      y = buildThread(body, COMMENTS, 1, y);
+      y = buildThread(body, comments, 1, y, postDs);
       y += 16;
 
       setViewScroll("post", y);
@@ -2727,7 +3122,9 @@
         case "a": case "A": openModal(); break;
         case "o": case "O": state.otpAllowed = !state.otpAllowed; state.loginVerified = false; render(); break;
         case "p": case "P": // demo shortcut: cycle the router through the five views
-          nav(VIEW_ORDER[(VIEW_ORDER.indexOf(state.view) + 1) % VIEW_ORDER.length]);
+          var nextView = VIEW_ORDER[(VIEW_ORDER.indexOf(state.view) + 1) % VIEW_ORDER.length];
+          if (nextView === "post") state.postType = "statement"; // P always demos the Statement page
+          nav(nextView);
           break;
         case "g": case "G": // flip which jurisdiction the Jurisdiction view shows (no-op elsewhere)
           if (state.view === "jurisdiction") { state.jur = (state.jur === "Alberta") ? "Global" : "Alberta"; state.scroll = 0; render(); }

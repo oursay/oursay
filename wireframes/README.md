@@ -55,13 +55,15 @@ factory the builders use:
 
 | You click… | …it flips to | Handler |
 |---|---|---|
-| a feed/inline card's **title** or **"…more"** | **Post** | `go("post")` |
+| a feed/inline card's **title**, **"…more"**, or its comment-count pill | **Post**, on the page matching that card's **record type** | `goPost(p.type)` |
+| a Profile **Activity** row / **Mentions** row | **Post** (Statement/Petition/Poll page — non-root kinds fall back to Statement) | `goPost(kindToPostType(a.kind))` |
 | a card **author**, a **comment author** (avatar + name) on the Post, or a **leader / riding-leader** link | **Profile** | `go("profile")` |
 | a card's **jurisdiction tag** (underlined word) | **Jurisdiction** (aims it at that jurisdiction) | `goJur(name)` |
 | a card's **district tag**, a **riding row**, or a profile's **riding** segment | **District** | `go("district")` |
 | the jurisdiction selector's **↗ external glyph** | **Jurisdiction** (sets `state.jur`) | in `buildDropdown` |
 | the **FAB** when not on the Feed, or Profile's **"View posts in Feed"** | **Feed** | `nav("feed")` |
-| the **P** key | next view in `VIEW_ORDER` (cycles all five) | keydown |
+| the **P** key | next view in `VIEW_ORDER` (cycles all five; always resets the Post view to Statement) | keydown |
+| a Petition/Poll/Result page's **"See full X →"** interlink button (inside a collapsible section) | the matching Post-type page | `goPost(type)` |
 
 The right-aligned scope tag on a card is built by `scopeTagLink(...)`: it **underlines only the
 linkable words** (`Jurisdiction · District`) and lays an invisible hit target over each, so the
@@ -69,10 +71,12 @@ separator and any page-implied part stay plain. `goJur(name)` is `go("jurisdicti
 points `state.jur` at the named jurisdiction.
 
 These are **representative-target** flips: the wireframe always jumps to the one sample Post / Profile
-/ District it ships, regardless of which card you tapped. **In production, route by the tapped
-record's id** — every `go(...)` / `goJur(...)` / `nav(...)` is the place to call `route(entityId)`.
-Genuinely deferred actions (composing a reply, the account-settings rows) stay no-op stubs with a
-`NOTE(nav)`.
+/ District it ships, regardless of which card you tapped — extended by `goPost(type)` to one
+representative sample **per record type** (Statement/Petition/Poll/Result, `POST_TYPES`), so a
+tapped card always lands on the Post page matching its own type, not always the Statement. **In
+production, route by the tapped record's id** — every `go(...)` / `goJur(...)` / `goPost(...)` /
+`nav(...)` is the place to call `route(entityId)`. Genuinely deferred actions (composing a reply,
+the account-settings rows) stay no-op stubs with a `NOTE(nav)`.
 
 **The Post page** shows full author identity: the post author **and every comment author** are
 linkable to their Profile (avatar + name), each carries a **verification pill** (`tierPill` — Identity
@@ -82,6 +86,18 @@ case, dated `2026-06-22`). Handles are dropped on the Post to make room (identit
 linked name + pill). The post and any **revised** comment show an **"N edits"** link ("1 edit"
 singular). The same **"N edits"** link appears in the **footer of feed / jurisdiction / district
 cards** for any post that has been revised (`buildCard`).
+
+**Petition / Poll / Result pages** share the Post view's chrome (`buildPostChrome`: author row,
+title, full body) and comment thread, but each renders its own type-specific section — a Petition
+shows its signature progress bar and Sign button (`petitionSign`, plus a collapsible "Proposed
+Poll"/"Poll" section if it has an `attachedPoll`); a Poll shows its vote-option bars
+(`buildPollOptions`, live `pollVote`) plus, when applicable, "Source Petition" and "Result"
+collapsibles; a Result shows the same option bars **frozen** (no vote clicks — results are
+immutable once published) plus "Poll" and "Petition" collapsibles. Each collapsible previews the
+linked record and links to it via a **"See full X →"** button (`seeFullBtn`) — see
+DESIGN-DECISIONS.md §9 for the reasoning, including the live petition→poll **graduation demo**
+(signing the sample multi-district petition past its threshold flips its "Proposed Poll" tag/section
+into a working "Poll" link, per `petitionGraduated()`).
 
 **Every participatory action is login-gated, through one `requireAuth(action)`.** Reacting (✓/✗ on
 the Post, in a comment thread, **and on a feed/jurisdiction/district card** via `reactClick`), signing
@@ -122,18 +138,28 @@ filter still shows Residency and Official authors; an **Official** filter shows 
 resident does **not** appear. Author tiers: `0` public · `1` Identity · `2` Residency · `3` Official
 (MLA / government).
 
-**The count-scaling rule** (plain words): raising the Verified filter doesn't only drop cards — it
-also **thins the counts** on the cards that remain, because fewer qualifying voices are shown.
-- **Social counts** (comments + agree/disagree reactions) thin at **every** level — `SOCIAL_SCALE`.
-- **Civic counts** (petition signatures + poll votes) hold steady through ID and Residency and drop
-  **only at Official** — `CIVIC_SCALE` — because Alberta participation already requires residency, so
-  the lower filters don't thin them. *(Verified examples: a 204-agree post reads 204 → 126 → 69 → 16;
-  a 1,240-signature petition reads 1,240 → 1,240 → 1,240 → 149.)*
+**The count-scaling rule** (plain words): raising the Verified filter thins **social counts**
+(comments + agree/disagree reactions) at **every** level — `SOCIAL_SCALE`. **Civic counts**
+(petition signatures + poll votes) are **never thinned** — the bar/number is always the official
+residency-verified total. Instead, *lowering* Verified below Residency reveals an **additive**
+"+N unverified {signatures|votes}" note beside the bar — `CIVIC_UNVERIFIED_EXTRA = [.35, .12, 0, 0]`
+(None · ID · Residency · Official) — surfacing participants who took part but aren't in the official
+count, without ever moving the bar itself. *(Verified examples: a 204-agree post reads 204 → 126 →
+69 → 16; a 7,999-signature petition's bar always reads 7,999, with "+2,800 unverified" at None,
+"+960" at ID, and no note at Residency/Official.)* See DESIGN-DECISIONS.md §4.3/§9.5.
 
 **My Districts** — a geography filter, **independent** of Verified. Only available to
 residency-verified accounts (`state.kyc === 2`; otherwise greyed "Residency only"). It keeps **all
 Global** posts and limits jurisdiction content to **your own ridings** (the sample resident's riding
 is Edmonton-Strathcona). Toggle the account KYC tier from the profile modal's **Validate ID** button.
+
+**Affected** — a second geography filter, shown in Refine **only on the Post page**, and only when
+the open post is multi-district or jurisdiction-wide (`viewHasAffected`) — a single-district post
+has no "other district" for it to mean anything, so the row doesn't appear there. It follows My
+Districts' exact coupling to Verified/residency (§4.4 in DESIGN-DECISIONS.md), but keeps commenters
+who are residency-verified residents of the post's **other** named districts (or, jurisdiction-wide,
+any district) rather than my own; My Districts and Affected compose as an **OR** (`geographyKeep`).
+See DESIGN-DECISIONS.md §9.4.
 
 The **jurisdiction selector** scopes the unified Feed: tap a name → only that jurisdiction (→ Feed);
 tap a checkbox (shown only with >1 jurisdiction) → include/exclude in the feed; tap ↗ → its
@@ -160,7 +186,10 @@ All sample data lives in one block near the top of the script and maps to real O
 | `edits` (count) | times revised → "N edits" link to the deferred edit-history timeline | content/comment revision count |
 | `districts[]` | `[]` = jurisdiction-wide · `[slug]` = one riding · `[slug,slug]` = several | `appliesToRegion` (district refs) |
 | `JUR_DATA` | per-jurisdiction leader + rules + ridings (Global has neither map nor ridings) | JurisdictionConfig |
-| `DISTRICT`, `PROFILE`, `POST` | the single representative riding / public profile / post detail | District / public profile / content record |
+| `DISTRICT`, `PROFILE` | the single representative riding / public profile | District / public profile |
+| `POST_TYPES` = `{ statement, petition, poll, result }`, each `{ post, comments }` | one representative Post-page sample **per record type** (`POST_STATEMENT`/`POST_PETITION`/`POST_POLL`/`POST_RESULT` + matching `COMMENTS_*`), selected by `state.postType` via `currentPostEntry()` | content record detail + its comment thread |
+| `attachedPoll: { question, options[] }` on a petition | a pre-attached poll that graduates when `sig >= goal` (`petitionGraduated`) | the petition→poll graduation threshold (§8.6) |
+| `sourcePetition` / `resultPublished` on a poll; `sourcePoll` / `sourcePetition` on a result | flags driving which "See full X" interlink collapsibles a Poll/Result page shows | poll↔petition / result↔poll,petition linkage |
 
 Tiers and district lists are what the filter reads; the metrics are what the scaling thins.
 `NOTE(tech)` comments flag the product assumptions (per-jurisdiction `contentLimits` for the compose
@@ -205,11 +234,13 @@ Read the script top-to-bottom in this order — it is organised to be traced:
    refine), and the compose flow (`startCompose → enterType → enterCompose`, `buildWhere/buildType/
    buildComposeEditor`), then the auth `buildLoginInner`.
 4. **the router** — `nav()` and `go()`, plus `onFabClick` / `onAuthClick`.
-5. **data** — `JUR_DATA`, `POSTS`, `DISTRICT`, `PROFILE`, `POST`, `COMMENTS`.
+5. **data** — `JUR_DATA`, `POSTS`, `DISTRICT`, `PROFILE`, `POST_TYPES` (the four `POST_*`/`COMMENTS_*`
+   detail-page samples).
 6. **content helpers** — `tierLabel`, geography (`postDistricts/inMyDistricts/districtTag`), scaling
-   (`scaleSocial/scaleCivic`), the shared link/label bits (`initials/leaderLink/scopeTagLink/txtSeg/
-   collHeader/drawMapVector/drawDistrictMap`), and the **one** reaction pill `reactBtn` → `reactClick`
-   (the login gate + toggle every ✓/✗ in the app shares).
+   (`scaleSocial` for social counts, `civicExtra` for the civic-count additive note — §4.3), the
+   shared link/label bits (`initials/leaderLink/scopeTagLink/txtSeg/collHeader/seeFullBtn/
+   drawMapVector/drawDistrictMap`), and the **one** reaction pill `reactBtn` → `reactClick` (the
+   login gate + toggle every ✓/✗ in the app shares).
 7. **`matches(p, scope)`** and **`buildCard(p, opts)`** — the one matcher and the one card renderer
    every list view calls.
 8. **the five `build*` view functions**, then **`VIEWS` / `setViewScroll` / `render()`**, then the

@@ -176,19 +176,33 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 - **Why:** two real intents with one control — "hide this kind" (checkbox) and "show me just this
   kind" (tap the name) — without a separate mode switch.
 
-### 4.3 Raising the Verified filter also thins the counts
-- **Decision:** with a higher Verified filter, the counts on the cards that remain shrink too.
-  **Social** counts (comments + reactions) thin at every level (`SOCIAL_SCALE = [1, .62, .34, .08]`);
-  **civic** counts (signatures + votes) hold through ID and Residency and only drop at Official
-  (`CIVIC_SCALE = [1, 1, 1, .12]`).
-- **Why:** a verified-only view is showing *fewer voices*, so the tallies should reflect that, not
-  imply the full crowd agreed. Civic counts don't thin at the lower tiers because Alberta civic
-  participation already requires residency — the lower filters wouldn't actually remove those voices.
-- **Where it reaches:** reaction tallies are thinned by the filter everywhere they appear — feed cards,
-  the **Post**, and **its comments** — so the discussion you're reading reflects the same verified-only
-  view as the list you came from (consistent with comment filtering, §4.6). The one count left **raw**
-  is the comment-count **pill**, which reports the record's true total (the "N hidden by filters" note,
-  §4.6, already explains the gap between that total and what's shown).
+### 4.3 Raising the Verified filter thins SOCIAL counts; CIVIC counts are always additive, never thinned
+- **Decision:** with a higher Verified filter, **social** counts (comments + reactions) thin at
+  every level (`SOCIAL_SCALE = [1, .62, .34, .08]`). **Civic** counts (petition signatures, poll
+  votes) are **never thinned** — the bar and its number are always the official, residency-verified
+  total. Instead, lowering Verified **below Residency** reveals an **additive** "+N unverified
+  {signatures|votes}" note beside the bar: `CIVIC_UNVERIFIED_EXTRA = [.35, .12, 0, 0]` (None · ID ·
+  Residency · Official) — None surfaces the largest addition, ID a smaller one, Residency/Official
+  show nothing (there's nothing left to add — everyone shown already qualifies).
+- **Why:** a verified-only view is showing *fewer voices*, so social tallies should reflect that —
+  but a petition/poll's bar is a **formal count against a threshold or a ballot**, not a casual
+  tally; silently shrinking it as Verified rises would misrepresent progress toward a real goal.
+  "Official" verification is a comment/reaction-author distinction (MLA / government) — it was never
+  a meaningful tier for *who gets counted* on a civic bar, so it shouldn't gate the bar either. The
+  additive note instead answers the honest question "how many more people took part, beyond the
+  count that's officially certified?" without ever moving the bar itself.
+- **Trade-off / rejected:** an earlier version (`CIVIC_SCALE = [1,1,1,.12]`) *dropped* civic counts
+  at Official — rejected once petitions/polls got detail pages, since a bar that shrinks against its
+  own stated goal (e.g. "X / 8,000 signatures" reading a smaller X at a higher filter) reads as the
+  goalposts moving, not as "fewer voices are shown."
+- **Where it reaches:** the additive note appears wherever a civic bar does — feed/jurisdiction/
+  district cards, the Petition page's progress bar, and beside **each** Poll/Result option bar
+  (`buildPollOptions`). It always sits on its **own line**, clear of the bar/tag, so it never crowds
+  a variable-width caption. Reaction tallies are still thinned by the filter everywhere they appear —
+  feed cards, the **Post**, and **its comments** — so the discussion you're reading reflects the same
+  verified-only view as the list you came from (consistent with comment filtering, §4.6). The one
+  count left **raw** is the comment-count **pill**, which reports the record's true total (the "N
+  hidden by filters" note, §4.6, already explains the gap between that total and what's shown).
 
 ### 4.4 "My Districts" is coupled to the Verified filter (inferable only at Residency+)
 - **Decision:** My Districts is a geography filter, off by default, available to residency-verified
@@ -320,7 +334,102 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 
 ---
 
-## 9. Open / deferred decisions
+## 9. Representative detail pages & the graduation demo
+
+### 9.1 Every record type gets its own representative Post page
+- **Decision:** the Post view previously always showed the one sample Statement, regardless of
+  which card was tapped. It now holds **one representative sample per type** — Statement, Petition,
+  Poll, Result (`POST_TYPES`) — and a tap routes to the matching one via `goPost(type)` (a second
+  representative-target factory alongside `go()`/`goJur()`, §1.3). `p.type` already names a
+  `POST_TYPES` key, so `buildCard`'s title/"…more"/comment-pill hits need no extra mapping; the
+  Profile page's Activity rows (whose `kind` values include non-root kinds like `comment`/
+  `reaction`) and Mentions rows (no `kind` at all) fall back to the Statement page via
+  `kindToPostType()` — the same representative-target approximation already used everywhere else.
+- **Why:** a wireframe that only ever proves "the Post route exists" for one type can't show what's
+  actually *different* about a Petition, Poll, or Result page — the whole point of this round of
+  work. Keeping one fixed sample per type (not per record id) stays faithful to §1.3's reasoning:
+  the wireframe only needs to prove each route/layout exists, not carry a full database.
+- **Trade-off / rejected:** the **P** keyboard shortcut still always lands the Post view on the
+  Statement (it resets `state.postType` before navigating) — it's documented as cycling *views*,
+  or a per-type cycle would silently change that contract. Only tapping an actual card demos the
+  new pages.
+
+### 9.2 The petition → poll graduation demo is live, not narrated
+- **Decision:** one sample petition (multi-district: Edmonton-Strathcona + Edmonton-City Centre)
+  carries an `attachedPoll` one signature below its `goal`. Signing it (from its feed card *or*
+  its Post page — both call the same `petitionSign`) increments `p.sig` live; once `p.sig >= p.goal`,
+  `petitionGraduated(p)` flips both the card's caption and the Post page's collapsible from
+  **"Proposed Poll"** (question + options preview, no link) to **"Poll Open"** / **"Poll"** (same
+  preview, plus a working **"See full Poll →"** link). The card tag itself replaces the plain
+  "X / Y signatures" line with a compact "✓ Proposed Poll · Y signatures" tag (icon: the existing
+  `ic-check-circle`) — the progress bar and Sign button underneath are unchanged. Once graduated,
+  the tag **itself becomes clickable** (feed card *and* Post page) and opens the Poll page directly,
+  in addition to the Post page's dedicated "See full Poll →" button.
+- **Why:** per `01-CONTRIBUTOR-SPEC.md` §8.6, Alberta's poll level exists *only* by a linked
+  petition crossing a verified-signature threshold — this is a real, documented mechanic, not
+  wireframe flavour, so it's worth demonstrating as an actual interaction rather than static copy.
+  Making the graduated tag itself clickable (not just a separate button on the detail page) means
+  the *shortest* path to the poll — tapping the badge that announces it exists — actually works,
+  from the feed as well as the petition's own page.
+- **Trade-off / rejected:** clicking "See full Poll" always opens the **one** representative Poll
+  page (`POST_POLL`) — it does not synthesize a unique poll from this petition's data, and no new
+  poll is added to the feed. That would require real cross-record linkage the wireframe doesn't
+  model; representative-target navigation (§1.3) already accepts this kind of approximation (every
+  comment author already links to the same one Profile, regardless of which comment you tapped).
+  `petitionSign` incrementing `p.sig` on *every* petition (not just this one) is harmless: no other
+  sample starts at or above its goal, so no other card's progress bar or caption changes behaviour.
+
+### 9.3 Interlinks between Petition, Poll, and Result
+- **Decision:** each of the three graduated-content pages carries collapsible sections
+  (`collHeader`, as already used on Jurisdiction/District) linking to the others: Petition → Poll
+  (§9.2); Poll → Source Petition and → Result; Result → Poll and → Petition (transitive, per
+  `result.md`'s "Petition / Post — transitive — via poll links upstream"). Each section previews
+  the linked record's title/outcome text and a "See full X →" button (`seeFullBtn`).
+- **Why:** a reader following a civic decision from petition to poll to result should be able to
+  move in either direction without leaving the thread they're reading, mirroring how the platform's
+  own content hierarchy (Statement → Petition → Poll → Result) is meant to read as one escalating
+  story, not four disconnected record types.
+
+### 9.4 The Affected filter — Post-page-only, parallel to My Districts
+- **Decision:** a second geography filter, `state.affected`, appears in the filter modal's Refine
+  section **only** when the open Post is multi-district or jurisdiction-wide
+  (`postQualifiesForAffected` / `viewHasAffected`) — never on a single-district post, and never as
+  a feed/jurisdiction/district-level filter. It follows My Districts' exact coupling mechanics
+  (§4.4: residency-verified only, inferable only at Verified ≥ Residency, remembered intent that
+  disengages without forgetting, turning it on jumps Verified to Residency). Where My Districts
+  keeps commenters who **are** in my home district, Affected keeps residency-verified commenters
+  from the post's **other** named districts (or, for a jurisdiction-wide post, any district) —
+  **not** my own. The two compose as an **OR**: since "mine" and "not mine" are mutually exclusive,
+  a comment survives if it qualifies for either engaged filter.
+- **Why:** on a post naming several ridings (or the whole jurisdiction), "My Districts" alone only
+  shows a resident their own neighbours — it can't answer "what is everyone this actually affects
+  thinking," which is exactly the audience a multi-district or jurisdiction-wide record has. A
+  single-district post has no "other district" for this to mean anything, so the control doesn't
+  appear there at all.
+- **Trade-off / rejected:** Affected's remembered intent is guarded by `viewHasAffected()` inside
+  `effectiveAffected()` itself (not just at the point the row is drawn) — without that, toggling it
+  on for one multi-district post and then navigating to a different, single-district post would
+  silently keep filtering that post's comments even though the control isn't shown there anymore.
+
+### 9.5 One bottom bar shape across all four Post-page types
+- **Decision:** the Post page's action row — reactions-or-civic-count, Reply, "N edit(s)", comment
+  count — is now built **once**, branching only on what goes in the left slot: `reactPill` for
+  Statement/Result, a plain "X signatures"/"X votes" count (unscaled — §4.3) for Petition/Poll. All
+  four types get **Reply** and a **comment-count pill**, since Comment is 1:N on every content type
+  (`petition.md`/`poll.md`/`result.md` all list it), not just Statement/Result.
+- **Why:** the Petition and Poll pages previously had no visible signature/vote count at all next to
+  Reply/comments (only the caption above the Sign/vote controls carried a number), unlike the feed
+  card, which already showed one in its footer — an inconsistency between the card and its own
+  detail page. Building this row once, branching only the left slot, is the same anti-drift
+  reasoning as `buildCard`'s single footer branch.
+- **Trade-off / rejected:** the Petition page adds extra vertical clearance below the Sign button
+  (and again below the "+N unverified" note, when shown) before this row starts, so the row never
+  reads as crowding the button above it; the Poll page's total-votes figure moved from its own line
+  above the row into the row itself, matching the Petition treatment instead of standing apart.
+
+---
+
+## 10. Open / deferred decisions
 
 | Topic | State | Pointer |
 |---|---|---|
@@ -329,6 +438,8 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 | Account-settings rows (Edit Profile, Address, Privacy) | Stubs except live Theme toggle | README §4 |
 | Per-jurisdiction labels & content limits | Hardcoded sample; wire to `JurisdictionConfig` | `NOTE(tech)` in SVG |
 | Visual design / theming beyond Light-Dark stub | Out of scope for the wireframe | §1.2 |
+| Automated graduation engine (real, off-wireframe) | `[code-jurisdiction-graduation]` gap — the wireframe's live petitionSign demo is illustrative only | petition.md, poll.md, jurisdiction.md |
+| Non-residency-verified warning modal (Alberta petitions/polls) | Deferred — a popup should tell a signer/voter who isn't residency-verified that their signature/vote won't count toward the official (Alberta) tally until they verify, before `petitionSign`/`pollVote` commits | §9.2, §4.3, next task |
 
 ---
 
