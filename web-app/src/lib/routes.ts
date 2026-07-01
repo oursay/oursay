@@ -53,8 +53,12 @@ export const VIEW_TITLE: Record<AppView, string> = {
 };
 
 /** Label for the header jurisdiction pill on feed-like views (wireframe pillLabel). */
-export function jurisdictionPillLabel(included: string[]): string {
+export function jurisdictionPillLabel(
+  included: string[],
+  total: number,
+): string {
   if (included.length === 0) return "None";
   if (included.length === 1) return included[0];
-  return `${included.length} selected`;
+  if (included.length === total) return "All Jurisdictions";
+  return `${included.length} Jurisdictions`;
 }

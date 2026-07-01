@@ -1,11 +1,14 @@
 "use client";
 
-import { Building2, Check, ExternalLink, Globe, Plus } from "lucide-react";
+import { Building2, Check, ExternalLink, Globe, List, Plus } from "lucide-react";
 import type { JurisdictionMembership } from "@/lib/types";
+import { CheckboxRow } from "@/components/ui";
 
 interface JurisdictionSelectorProps {
   subscriptions: JurisdictionMembership[];
   onToggleInclude: (name: string) => void;
+  /** Include every subscribed jurisdiction (wireframe "all subs" row). */
+  onAllJurisdictions: () => void;
   /** Tap a name -> show only that jurisdiction's feed. */
   onSelectOnly: (name: string) => void;
   /** Tap the external-link glyph -> open that jurisdiction's view. */
@@ -28,6 +31,7 @@ const ROW_CELL =
 export function JurisdictionSelector({
   subscriptions,
   onToggleInclude,
+  onAllJurisdictions,
   onSelectOnly,
   onOpenJurisdiction,
   onAddJurisdiction,
@@ -43,6 +47,16 @@ export function JurisdictionSelector({
           : "grid-cols-[minmax(max-content,1fr)_max-content]"
       }`}
     >
+      {multi ? (
+        <div className="col-span-3">
+          <CheckboxRow
+            label="All Jurisdictions"
+            showCheckbox={false}
+            icon={<List size={16} aria-hidden />}
+            onSelect={onAllJurisdictions}
+          />
+        </div>
+      ) : null}
       {subscriptions.map((sub) => {
         const isLast = includedCount <= 1 && sub.included;
         const Icon = sub.name === "Global" ? Globe : Building2;
@@ -61,7 +75,7 @@ export function JurisdictionSelector({
                 className={`${ROW_CELL} justify-center`}
               >
                 <span
-                  className={`inline-flex size-5 items-center justify-center rounded border ${sub.included ? "border-ink bg-ink text-white" : "border-border-strong bg-surface"}`}
+                  className={`inline-flex size-5 items-center justify-center rounded border ${sub.included ? "border-brand-600 bg-brand-600 text-white" : "border-border-strong bg-surface"}`}
                 >
                   {sub.included ? <Check size={14} aria-hidden /> : null}
                 </span>

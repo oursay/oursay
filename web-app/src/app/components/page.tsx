@@ -274,11 +274,9 @@ export default function ComponentGallery() {
             ) : null}
             {jurOpen ? (
               <JurisdictionSelector
-                subscriptions={[
-                  { name: "Global", included: true },
-                  { name: "Alberta", included: true },
-                ]}
+                subscriptions={[{ name: "Global", included: true }]}
                 onToggleInclude={() => {}}
+                onAllJurisdictions={() => {}}
                 onSelectOnly={() => {}}
                 onOpenJurisdiction={() => {}}
                 onAddJurisdiction={() => setAddJurOpen(true)}

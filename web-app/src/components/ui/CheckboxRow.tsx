@@ -44,7 +44,7 @@ export function CheckboxRow({
           aria-label={label}
           disabled={disabled}
           onClick={onToggle}
-          className={`inline-flex size-5 shrink-0 items-center justify-center rounded border ${checked ? "border-ink bg-ink text-white" : "border-border-strong bg-surface"}`}
+          className={`inline-flex size-5 shrink-0 items-center justify-center rounded border ${checked ? "border-brand-600 bg-brand-600 text-white" : "border-border-strong bg-surface"}`}
         >
           {checked ? <Check size={14} aria-hidden /> : null}
         </button>

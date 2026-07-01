@@ -3,13 +3,12 @@ import type { JurisdictionMembership } from "@/lib/types";
 const COOKIE = "oursay-subs";
 const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
-/** Global is always the default subscription (works logged-out, like the wireframe). */
+/** Logged-out default — Global only (works without an account, like the wireframe). */
 export const DEFAULT_SUBSCRIPTIONS: JurisdictionMembership[] = [
   { name: "Global", included: true },
-  { name: "Alberta", included: true },
 ];
 
-/** Read the persisted jurisdiction subscriptions, falling back to the default set. */
+/** Read persisted subscriptions, or Global-only when no cookie is set. */
 export function readSubscriptions(): JurisdictionMembership[] {
   if (typeof document === "undefined") return DEFAULT_SUBSCRIPTIONS;
   const match = document.cookie

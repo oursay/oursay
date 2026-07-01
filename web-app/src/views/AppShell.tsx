@@ -63,7 +63,10 @@ export function AppShell({ children }: { children: ReactNode }) {
     .filter((s) => s.included)
     .map((s) => s.name);
 
-  let jurisdictionLabel = jurisdictionPillLabel(includedSubs);
+  let jurisdictionLabel = jurisdictionPillLabel(
+    includedSubs,
+    state.subscriptions.length,
+  );
   if (
     (view === "jurisdiction" || view === "district") &&
     state.pageJurisdiction
@@ -157,6 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <JurisdictionSelector
                     subscriptions={state.subscriptions}
                     onToggleInclude={app.toggleSub}
+                    onAllJurisdictions={app.allSubs}
                     onSelectOnly={(name) => {
                       app.selectOnlySub(name);
                       app.toggleJurSelector();

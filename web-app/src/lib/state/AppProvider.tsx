@@ -124,6 +124,7 @@ export interface AppApi {
   toggleJurSelector: () => void;
   toggleSub: (name: string) => void;
   selectOnlySub: (name: string) => void;
+  allSubs: () => void;
   openAddJur: () => void;
   closeAddJur: () => void;
   addJurisdiction: (name: string) => void;
@@ -221,16 +222,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Session -------------------------------------------------------------
   const demoLogin = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      loggedIn: true,
-      kycTier: 2,
-      viewerDistricts: MY_DISTRICTS,
-      authOpen: false,
-      registerOpen: false,
-      otpOpen: false,
-      loginOpen: false,
-    }));
+    setState((s) => {
+      const hasAlberta = s.subscriptions.some((sub) => sub.name === "Alberta");
+      return {
+        ...s,
+        loggedIn: true,
+        kycTier: 2,
+        viewerDistricts: MY_DISTRICTS,
+        authOpen: false,
+        registerOpen: false,
+        otpOpen: false,
+        loginOpen: false,
+        subscriptions: hasAlberta
+          ? s.subscriptions
+          : [...s.subscriptions, { name: "Alberta", included: true }],
+      };
+    });
     notify("Signed in as a residency-verified demo account.");
   }, [notify]);
 
@@ -373,6 +380,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...sub,
         included: sub.name === name,
       })),
+    }));
+  }, []);
+
+  const allSubs = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      subscriptions: s.subscriptions.map((sub) => ({ ...sub, included: true })),
     }));
   }, []);
 
@@ -670,6 +684,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toggleJurSelector,
     toggleSub,
     selectOnlySub,
+    allSubs,
     openAddJur,
     closeAddJur,
     addJurisdiction,
