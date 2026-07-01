@@ -48,3 +48,4 @@ Thumbs.db
 
 # Local agent prompts and session notes (not for the repo)
 .agents/
+.screenshots/

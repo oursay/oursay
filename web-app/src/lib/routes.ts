@@ -43,7 +43,7 @@ export function viewFromPathname(pathname: string): AppView {
   return "feed";
 }
 
-/** Fixed header title per view (the jurisdiction/district name shows in the pill). */
+/** Fixed header title per view (browser tab only — not shown in app chrome). */
 export const VIEW_TITLE: Record<AppView, string> = {
   feed: "Feed",
   jurisdiction: "Jurisdiction",
@@ -51,3 +51,10 @@ export const VIEW_TITLE: Record<AppView, string> = {
   profile: "Profile",
   post: "Post",
 };
+
+/** Label for the header jurisdiction pill on feed-like views (wireframe pillLabel). */
+export function jurisdictionPillLabel(included: string[]): string {
+  if (included.length === 0) return "None";
+  if (included.length === 1) return included[0];
+  return `${included.length} selected`;
+}

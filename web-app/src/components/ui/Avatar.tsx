@@ -11,13 +11,14 @@ const SIZES: Record<Size, string> = {
 interface AvatarProps {
   name: string;
   size?: Size;
+  className?: string;
 }
 
 /** Initials-in-a-circle avatar (the wireframe has no real avatar images). */
-export function Avatar({ name, size = "md" }: AvatarProps) {
+export function Avatar({ name, size = "md", className = "" }: AvatarProps) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-700 ${SIZES[size]}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full bg-brand-100 font-semibold text-brand-700 ${SIZES[size]} ${className}`}
       aria-hidden
     >
       {initials(name)}

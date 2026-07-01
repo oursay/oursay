@@ -133,11 +133,10 @@ export default function ComponentGallery() {
         <Section title="Layout — AppHeader + Fab">
           <div className="relative h-40 overflow-hidden rounded-xl border border-border bg-paper">
             <AppHeader
-              title="Feed"
               jurisdictionLabel="Global"
               onJurisdictionClick={() => {}}
               onFilterClick={() => {}}
-              avatarSlot={<Avatar name="Alex Morgan" size="sm" />}
+              accountSlot={<Avatar name="Alex Morgan" size="sm" />}
             />
             <p className="p-4 text-sm text-muted">Scrollable body region…</p>
             <Fab variant="compose" onClick={() => {}} />

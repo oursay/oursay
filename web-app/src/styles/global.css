@@ -59,6 +59,14 @@
   --color-danger-700: #b91c1c;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
 body {
   font-family: var(--font-sans);
   background-color: var(--color-paper);
