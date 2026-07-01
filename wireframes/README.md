@@ -109,6 +109,24 @@ create (one `reaction`/`vote`/`signature` per author per target). The gate is on
 can't even open the reply composer while logged out. Cards pass `scaleSocial` so their shown counts
 still thin with the Verified filter; the Post shows its count raw.
 
+**Alberta petitions/polls require a passkey WYSIWYS confirmation and are final; Global doesn't.**
+Past the `requireAuth` gate, `petitionSign`/`pollVote` branch on `isFinalJur(p.jur)`: Global toggles
+immediately (any signing-key type, changeable, revocable, exactly as before). Alberta instead opens
+`signModal` — a "what you see is what you sign" restatement of the exact action ("I, {name}, am
+signing my official support for the petition: '{title}'"; polls include the chosen option), a bold
+FINAL/unrevokable notice, and a **"Sign with Passkey"** button (`confirmSign`) that performs the
+actual commit. Once signed/voted in Alberta, the button/option is a no-op and its click affordance
+is removed — replaced by a persistent "Final — cannot be revoked" note. If the account isn't
+residency-verified (`state.kyc < 2`), a second notice warns the action won't count officially, and
+`confirmSign` records it as the viewer's own without moving the official `sig`/`v` tally (mirrors
+`civicExtra`'s additive-not-subtractive honesty model, §2). The same modal (a third `kind:
+"compose"` variant, no FINAL notice) gates the compose "Post" button for Alberta Statement/Petition
+creation. See DESIGN-DECISIONS.md §9.6.
+
+**Petition creation is greyed out for non-residency-verified accounts in Alberta** — the compose
+type picker still shows "Petition" (`typeLocked`) but disables it with a "Residency-verified only"
+label, per `petition.md`'s Alberta rule. See DESIGN-DECISIONS.md §9.7.
+
 ---
 
 ## 2. Filter & verification model
@@ -211,10 +229,13 @@ The top bar, FAB, and all modals come from the shell and behave the same on ever
   **Validate ID** (cycles the tier), **Devices & passkeys** (Add Device / Add by Email), account
   settings rows (deferred no-ops except the live **Theme** toggle), Log out, legal links.
 - **Compose** (the FAB on the Feed) — **where** (pick a jurisdiction; skipped with one selected) →
-  **type** (the jurisdiction's allowed roots — Global: all; Alberta: Statement + Petition; skipped if
-  only one) → **compose** editor (type-specific: Statement = title+body; Petition adds a 60-char
-  support-statement CTA; Poll = question + 2–10 options that scroll past five). Off the Feed the FAB
-  is the **newspaper "go home"** icon → `nav("feed")`.
+  **type** (the jurisdiction's allowed roots — Global: all; Alberta: Statement + Petition, with
+  Petition greyed out ("Residency-verified only") for non-residency-verified accounts, `typeLocked`
+  — skipped if only one available) → **compose** editor (type-specific: Statement = title+body;
+  Petition adds a 60-char support-statement CTA; Poll = question + 2–10 options that scroll past
+  five). "Post" submits immediately on Global; on Alberta it opens the same passkey WYSIWYS
+  confirmation as signing/voting (§1, §9.6). Off the Feed the FAB is the **newspaper "go home"**
+  icon → `nav("feed")`.
 
 Every modal has a circular **✕** plus Esc / tap-outside; "Alt:" hint lines mark the alternative
 dismissal.

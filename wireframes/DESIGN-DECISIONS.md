@@ -427,6 +427,57 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
   reads as crowding the button above it; the Poll page's total-votes figure moved from its own line
   above the row into the row itself, matching the Petition treatment instead of standing apart.
 
+### 9.6 Alberta requires a passkey WYSIWYS confirmation; Global doesn't
+- **Decision:** Alberta petitions and polls require a WebAuthn (passkey) signature and only count
+  residency-verified accounts officially, and — unlike Global — a cast Alberta signature/vote is
+  **final**: it can never be changed or retracted. `petitionSign`/`pollVote` branch on
+  `isFinalJur(p.jur)`: **Global** keeps the original immediate toggle (any signing-key type,
+  changeable, revocable — `p._signed`/`p._vote` flip straight away, exactly as before). **Alberta**
+  instead opens a **"what you see is what you sign" (WYSIWYS)** confirmation modal (`signModal`) —
+  a plain-language restatement of the exact action ("I, {name}, am signing my official support for
+  the petition: '{title}'", or for a poll, "…am casting my official vote — '{option}' — on:
+  '{title}'"), a bold **"Alberta {signatures|votes} are FINAL — they cannot be changed or revoked"**
+  notice, and a **"Sign with Passkey"** button (`confirmSign`) that performs the actual commit —
+  incrementing the petition's `sig` or the poll option's `v` — only once confirmed. Tapping
+  Sign/Vote a second time after that is a no-op (`if (p._signed) return` / `if (p._vote) return`),
+  and the click affordance itself is removed once locked (no phantom "still looks clickable"
+  control) — replaced by a persistent "Final — cannot be revoked" / "Your vote is final" note, so
+  the finality reads as a lasting fact about the record, not just a one-time popup warning.
+- **Why:** this mirrors a real, documented platform distinction (Alberta's ladder jurisdiction vs.
+  Global's open one) rather than inventing wireframe-only friction — Alberta civic actions are
+  formal, on-ledger, residency-gated commitments; Global's aren't. A WYSIWYS statement — showing
+  the literal record being signed, in the signer's own words, before the passkey ceremony — is the
+  honest way to present an action that can't be undone, especially paired with a hard "final"
+  notice rather than an easy-to-miss disclaimer.
+- **Where it reaches:** the same modal (with a third `kind: "compose"` variant, no "final" notice
+  since publishing isn't unrevokable the way a sign/vote is — edits stay visible, never silent,
+  §3.3) gates the compose "Post" button for Alberta Statement/Petition creation too. The modal only
+  appears once logged in — `requireAuth` already runs first everywhere it's reachable.
+- **Officially counting only residency-verified accounts is enforced, not just stated:** if the
+  signed-in account is below Residency (`state.kyc < 2`), the modal adds a second notice — "Not
+  residency-verified — this {signature|vote} won't count in the official Alberta tally until you
+  verify" — and `confirmSign` still records the action as the viewer's own (`_signed`/`_vote`, so
+  their button/checkmark reflects what *they* did) but does **not** increment the official `sig`/
+  `v` tally. This mirrors `civicExtra`'s additive-not-subtractive honesty model (§4.3): an
+  unverified participant's action is real and shown to them, it just isn't part of the certified
+  count — never silently dropped, never silently double-counted.
+- **Trade-off / rejected:** the WYSIWYS text and the "final" notice are fixed, short, hand-wrapped
+  lines (like every other multi-line string in this file — see the width note above
+  `buildPostChrome`) rather than dynamically word-wrapped, since every title in this wireframe is
+  already kept to one line by convention. `MY_NAME` ("Alex Morgan") is a new dedicated constant for
+  "the signed-in account's own name," distinct from any sample post author, so the confirmation
+  reads as *your* signature, not a stand-in author's.
+
+### 9.7 Petition creation is greyed out for non-residency-verified accounts in Alberta
+- **Decision:** the compose "What Do You Want to Post?" type picker still **shows** Petition as an
+  option in Alberta even when the account isn't residency-verified (`state.kyc < 2`) — it doesn't
+  disappear — but it's rendered greyed out, inert (no tap handler, no chevron), and labelled
+  "Residency-verified only" (`typeLocked`), the same treatment as the disabled "My Districts"/
+  "Affected" filter rows elsewhere in this file.
+- **Why:** `petition.md`'s Alberta rule is "residency-verified authors only" (§8.6's partial-ladder
+  model) — showing the option, disabled, teaches the ladder rule at the point someone would hit it,
+  rather than silently omitting a root type an Alberta account might reasonably expect to see.
+
 ---
 
 ## 10. Open / deferred decisions
@@ -439,7 +490,8 @@ How to read each entry: **Decision** → what we did · **Why** → the reason �
 | Per-jurisdiction labels & content limits | Hardcoded sample; wire to `JurisdictionConfig` | `NOTE(tech)` in SVG |
 | Visual design / theming beyond Light-Dark stub | Out of scope for the wireframe | §1.2 |
 | Automated graduation engine (real, off-wireframe) | `[code-jurisdiction-graduation]` gap — the wireframe's live petitionSign demo is illustrative only | petition.md, poll.md, jurisdiction.md |
-| Non-residency-verified warning modal (Alberta petitions/polls) | Deferred — a popup should tell a signer/voter who isn't residency-verified that their signature/vote won't count toward the official (Alberta) tally until they verify, before `petitionSign`/`pollVote` commits | §9.2, §4.3, next task |
+| Real WebAuthn ceremony behind "Sign with Passkey" | Button commits immediately in the wireframe (no actual browser passkey prompt) — the WYSIWYS confirmation is the point being demoed | §9.6 |
+| Compose fields (Title/Body/Question) are placeholder-only | Not wired to live state, so the Alberta compose WYSIWYS can't quote the actual typed title | §9.6, README §1 |
 
 ---
 

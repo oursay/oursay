@@ -588,6 +588,18 @@
         </g>
       </g>
 
+      <!-- ===================== SIGN MODAL (Alberta passkey WYSIWYS confirmation) ===================== -->
+      <g id="signModal" display="none">
+        <rect id="signBackdrop" x="0" y="0" width="430" height="900" fill="#000" opacity="0.45" style="cursor:pointer"/>
+        <rect id="signCard" x="55" y="250" width="320" height="260" rx="16" fill="#ffffff" stroke="#333"/>
+        <text id="signTitle" x="215" y="288" font-size="17" fill="#333" text-anchor="middle" font-weight="bold">Confirm your signature</text>
+        <g id="signInner"></g>
+        <g id="signCloseBtn" style="cursor:pointer">
+          <circle cx="375" cy="250" r="13" fill="#333"/>
+          <use href="#ic-x" xlink:href="#ic-x" x="368" y="243" width="14" height="14" stroke="#fff"/>
+        </g>
+      </g>
+
     </g><!-- /screenClip -->
   </g><!-- /phone -->
 
@@ -752,6 +764,9 @@
       loginVerified: false,    // login modal: email OTP verified → passkey button becomes "Register Passkey"
       profileOpen: false,      // profile modal (logged-in only)
       replyTo: null,           // open inline reply composer: null | { post:true } | { node, atMax }
+      // Alberta WYSIWYS passkey confirmation (petitionSign/pollVote/compose submit gate this open
+      // instead of acting immediately): null | { kind:"petition"|"poll"|"compose", target, option?, composeKind? }
+      signModal: null,
       labelsOn: true,
       kyc: 0,                  // 0 unverified · 1 identity · 2 residency
       deviceCount: 3,          // passkeys/devices on the account
@@ -1160,6 +1175,11 @@
       });
       $("whereCard").setAttribute("height", (y + 16) - 210);
     }
+    // Alberta gates Petition creation to residency-verified accounts (petition.md: "residency-
+    // verified authors only" — §8.6's partial-ladder model). A non-resident still sees the option
+    // (so the ladder rule is visible, not hidden) but it's greyed out and inert, like the disabled
+    // "My Districts"/"Affected" filter rows elsewhere in this file.
+    function typeLocked(key) { return key === "petition" && state.composeJur === "Alberta" && state.kyc < 2; }
     function buildType() {
       var inner = $("typeInner");
       while (inner.firstChild) inner.removeChild(inner.firstChild);
@@ -1167,12 +1187,19 @@
       var X = 55, W = 320, TOP = 316, RH = 52, y = TOP;
       rootsFor(state.composeJur).forEach(function (key) {
         var rm = rootMeta(key), rowY = y, row = document.createElementNS(SVG_NS, "g");
-        row.style.cursor = "pointer";
-        row.appendChild(rect(X + 12, rowY, W - 24, RH - 8, 8, "#ffffff", "#ddd"));
-        row.appendChild(icon(rm.icon, X + 28, rowY + 11, 22, "#333"));
-        row.appendChild(txt(X + 62, rowY + 28, rm.label, 15, "#333"));
-        row.appendChild(icon("#ic-chevron-right", X + W - 40, rowY + 12, 20, "#999"));
-        row.addEventListener("click", function () { enterCompose(key); });
+        var locked = typeLocked(key), col = locked ? "#ccc" : "#333";
+        row.appendChild(rect(X + 12, rowY, W - 24, RH - 8, 8, "#ffffff", locked ? "#eee" : "#ddd"));
+        row.appendChild(icon(rm.icon, X + 28, rowY + 11, 22, col));
+        row.appendChild(txt(X + 62, rowY + 28, rm.label, 15, col));
+        if (locked) {
+          var note = txt(X + W - 24, rowY + 28, "Residency-verified only", 10, "#bbb");
+          note.setAttribute("text-anchor", "end");
+          row.appendChild(note);
+        } else {
+          row.style.cursor = "pointer";
+          row.appendChild(icon("#ic-chevron-right", X + W - 40, rowY + 12, 20, "#999"));
+          row.addEventListener("click", function () { enterCompose(key); });
+        }
         inner.appendChild(row);
         y += RH;
       });
@@ -1302,7 +1329,13 @@
       var pt = txt(X + W / 2, y + 34, "Post", 15, "#ffffff");
       pt.setAttribute("text-anchor", "middle"); pt.setAttribute("font-weight", "bold");
       post.appendChild(pt);
-      post.addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
+      // Alberta requires the same passkey WYSIWYS confirmation to publish (§8.2) — Global publishes
+      // immediately (any signing-key type; the compose submit itself is otherwise a deferred stub).
+      post.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (state.composeJur === "Alberta") { state.signModal = { kind: "compose", composeType: type }; render(); }
+        else { closeOverlays(); }
+      });
       g.appendChild(post);
       y += 58;
       var hint = txt(X + W / 2, y + 8, "Alt: Esc or tap outside to close", 11, "#999");
@@ -1318,6 +1351,7 @@
       state.modalOpen = false; state.dropdownOpen = false; state.filterOpen = false;
       state.profileOpen = false; state.authView = null; state.loginVerified = false;
       state.composeStep = null; state.composeJurOpen = false; state.replyTo = null;
+      state.signModal = null;
       render();
     }
 
@@ -1387,6 +1421,81 @@
       y += 18;
       g.appendChild(centerTxt(CX, y, "Alt: Esc or tap outside to close", 11, "#999"));
       $("loginCard").setAttribute("height", (y + 14) - 250);
+    }
+    // Alberta WYSIWYS ("what you see is what you sign") passkey confirmation — the plain-language
+    // statement shown before a petition signature, poll vote, or Alberta Statement/Petition publish
+    // actually commits (petitionSign/pollVote/the compose "Post" button open this instead of acting
+    // immediately — see isFinalJur). Titles are kept to one short line everywhere in this file (see
+    // the width note above buildPostChrome), so they read cleanly centered here too.
+    function signTitleText(m) {
+      return m.kind === "petition" ? "Confirm your signature"
+           : m.kind === "poll" ? "Confirm your vote"
+           : "Confirm your submission";
+    }
+    function signStatementLines(m) {
+      if (m.kind === "petition") {
+        return ["I, " + MY_NAME + ", am signing my official", "support for the petition:", "“" + m.target.title + "”"];
+      }
+      if (m.kind === "poll") {
+        return ["I, " + MY_NAME + ", am casting my official", "vote — “" + m.option + "” — on:", "“" + m.target.title + "”"];
+      }
+      // compose: publishing a new Statement/Petition in Alberta
+      return ["I, " + MY_NAME + ", am publishing this", rootMeta(m.composeType).label + " in Alberta,", "signed and written to the public ledger."];
+    }
+    // publishing isn't "final" the way a sign/vote is — edits stay visible, never silent (§3.3) —
+    // so only petition/poll confirmations carry the unrevokable warning.
+    function signWarningLines(m) {
+      if (m.kind === "compose") return null;
+      var what = m.kind === "petition" ? "signatures" : "votes";
+      return ["Alberta " + what + " are FINAL —", "they cannot be changed or revoked."];
+    }
+    // Alberta only counts residency-verified electors OFFICIALLY (JUR_DATA.Alberta rules) — a
+    // signed-in account below Residency can still sign/vote (the passkey ceremony itself doesn't
+    // require it), but confirmSign won't move the official tally for them (mirrors civicExtra's
+    // "additive, not subtractive" honesty model, §4.3), so the modal says so upfront.
+    function signResidencyLines(m) {
+      if (m.kind === "compose" || state.kyc >= 2) return null;
+      var what = m.kind === "petition" ? "signature" : "vote";
+      return ["Not residency-verified — this " + what + " won't count", "in the official Alberta tally until you verify."];
+    }
+    function buildSignInner() {
+      var g = $("signInner");
+      while (g.firstChild) g.removeChild(g.firstChild);
+      var m = state.signModal;
+      if (!m) return;
+      $("signTitle").textContent = signTitleText(m);
+      var CX = 215, y = 322;
+      signStatementLines(m).forEach(function (line) {
+        g.appendChild(centerTxt(CX, y, line, 13.5, "#333"));
+        y += 22;
+      });
+      y += 6;
+      var resLines = signResidencyLines(m);
+      if (resLines) {
+        var rBoxY = y;
+        g.appendChild(rect(79, rBoxY, 272, 46, 8, "#f7f7f7", "#ddd"));
+        resLines.forEach(function (line, i) {
+          var rt = centerTxt(CX, rBoxY + 20 + i * 16, line, 11, "#333");
+          rt.setAttribute("font-weight", "bold"); g.appendChild(rt);
+        });
+        y = rBoxY + 46 + 10;
+      }
+      var warn = signWarningLines(m);
+      if (warn) {
+        var boxY = y;
+        g.appendChild(rect(79, boxY, 272, 46, 8, "#f7f7f7", "#ddd"));
+        warn.forEach(function (line, i) {
+          var wt = centerTxt(CX, boxY + 20 + i * 16, line, 11, "#333");
+          wt.setAttribute("font-weight", "bold"); g.appendChild(wt);
+        });
+        y = boxY + 46 + 14;
+      } else {
+        y += 8;
+      }
+      g.appendChild(primaryBtn(79, y, 272, "Sign with Passkey", "#ic-key", confirmSign));
+      y += 58;
+      g.appendChild(centerTxt(CX, y, "Alt: Esc or tap outside to cancel", 11, "#999"));
+      $("signCard").setAttribute("height", (y + 14) - 250);
     }
     function orDivider(cx, y) {
       var g = document.createElementNS(SVG_NS, "g");
@@ -1853,6 +1962,9 @@
     function hasReactions(p) { return p.type === "statement" || p.type === "result"; }
     var FEED_TYPE_NAME = { statement: "Statements", petition: "Petitions", poll: "Polls", result: "Results" };
 
+    // the example signed-in account's own display name — used in the Alberta WYSIWYS passkey
+    // confirmation ("I, {MY_NAME}, am signing…", see buildSignInner/signModal).
+    var MY_NAME = "Alex Morgan";
     // geography (districts is a list: [] jurisdiction-wide · [slug…] specific ridings)
     var MY_DISTRICTS = ["edmonton-strathcona"]; // the example signed-in resident's home riding(s)
     function postDistricts(p) { return p.districts || []; }
@@ -2065,7 +2177,9 @@
         var lbl = txt(px + 8, y + 13, (mine ? "✓ " : "") + o.label, 11.5, mine ? "#222" : "#555");
         if (mine) lbl.setAttribute("font-weight", "bold"); nodes.push(lbl);
         var pv = txt(w - px - 6, y + 13, fmt(o.v), 11.5, "#777"); pv.setAttribute("text-anchor", "end"); nodes.push(pv);
-        if (!opts.frozen) {
+        // no click affordance once frozen (Result), or once an Alberta vote has locked in final —
+        // a locked control shouldn't still look interactive (isFinalJur/§9.6).
+        if (!opts.frozen && !(isFinalJur(p.jur) && p._vote)) {
           var pg = document.createElementNS(SVG_NS, "g");
           clickRect(pg, px, y, bw, 18, function (e) { if (e) e.stopPropagation(); pollVote(p, o.label); }); hits.push(pg);
         }
@@ -2082,6 +2196,11 @@
           y += 4;
         }
       });
+      // Alberta votes are final — make that persistent once cast, not just a one-time modal warning
+      if (p._vote && isFinalJur(p.jur)) {
+        nodes.push(txt(px, y + 10, "Your vote is final — it cannot be changed.", 10.5, "#999"));
+        y += 20;
+      }
       return { y: y + 4, nodes: nodes, hits: hits };
     }
 
@@ -2157,11 +2276,15 @@
           sx.setAttribute("text-anchor", "end"); add(sx);
           btnY = y + 64;
         }
-        var signed = !!p._signed;
+        var signed = !!p._signed, locked = signed && isFinalJur(p.jur);
         add(rect(px, btnY, 150, 26, 13, signed ? "#333" : "#ffffff", "#333"));
         var ct = txt(px + 75, btnY + 17, signed ? "Signed ✓" : "Sign the Petition", 12.5, signed ? "#fff" : "#333"); ct.setAttribute("text-anchor", "middle"); add(ct);
-        var psign = document.createElementNS(SVG_NS, "g");
-        clickRect(psign, px, btnY, 150, 26, function (e) { if (e) e.stopPropagation(); petitionSign(p); }); hit(psign);
+        if (!locked) {
+          var psign = document.createElementNS(SVG_NS, "g");
+          clickRect(psign, px, btnY, 150, 26, function (e) { if (e) e.stopPropagation(); petitionSign(p); }); hit(psign);
+        }
+        // Alberta signatures are final — make that persistent, not just a one-time modal warning
+        if (locked) add(txt(px + 160, btnY + 17, "Final — cannot be revoked", 10.5, "#999"));
         y = btnY + 40;
       } else if (p.type === "poll") {
         var po = buildPollOptions(p, px, y, W);
@@ -2530,14 +2653,81 @@
     }
     // a reaction click only counts for a signed-in member; logged-out → auth gateway
     function reactClick(node, dir) { requireAuth(function () { toggleReact(node, dir); }); }
-    // cast / retract a poll vote (one per member); the chosen option highlights
-    function pollVote(p, label) { requireAuth(function () { p._vote = (p._vote === label ? null : label); render(); }); }
+    // Alberta requires a WebAuthn (passkey) signature for petitions/polls, and only counts
+    // residency-verified accounts officially — so an Alberta sign/vote is FINAL: once cast it can
+    // never be changed or retracted (§8.2/§9.3, and see the JUR_DATA.Alberta rules copy). Global
+    // has no such requirement — any signing-key type, changeable, revocable — so it keeps the
+    // original immediate toggle. `requireAuth` still gates BOTH: the confirmation popup only ever
+    // appears once logged in.
+    function isFinalJur(jur) { return jur === "Alberta"; }
+    // move a viewer's ballot from their old pick (if any) to a new one, keeping each option's `v`
+    // tally in sync with `_vote` — one ballot per member, same invariant reaction/petition counts
+    // already keep. `newLabel` of null retracts without casting a new one (Global only).
+    function setVote(p, newLabel) {
+      if (p._vote) {
+        var old = p.options.filter(function (o) { return o.label === p._vote; })[0];
+        if (old) old.v--;
+      }
+      if (newLabel) {
+        var next = p.options.filter(function (o) { return o.label === newLabel; })[0];
+        if (next) next.v++;
+      }
+      p._vote = newLabel;
+    }
+    // cast / retract a poll vote (one per member). Global: immediate, changeable, revocable.
+    // Alberta: first tap opens the passkey WYSIWYS confirmation (signModal); once voted, further
+    // taps are no-ops — the vote is final (confirmSign() performs the actual cast).
+    function pollVote(p, label) {
+      requireAuth(function () {
+        if (isFinalJur(p.jur)) {
+          if (p._vote) return; // final — already voted, no changing or retracting
+          state.signModal = { kind: "poll", target: p, option: label };
+        } else {
+          setVote(p, p._vote === label ? null : label);
+        }
+        render();
+      });
+    }
     // add / remove the member's signature; the CTA reflects the signed state. Also nudges the
     // live sig count so a petition can visibly approach (and, for one with an attachedPoll,
     // graduate past) its goal — see petitionGraduated(). Safe for every sample: none start ≥ goal.
+    // Alberta: first tap opens the passkey WYSIWYS confirmation; once signed, final (no un-signing).
     function petitionSign(p) {
-      requireAuth(function () { p._signed = !p._signed; p.sig += p._signed ? 1 : -1; render(); });
+      requireAuth(function () {
+        if (isFinalJur(p.jur)) {
+          if (p._signed) return; // final — already signed, no retraction
+          state.signModal = { kind: "petition", target: p };
+        } else {
+          p._signed = !p._signed; p.sig += p._signed ? 1 : -1;
+        }
+        render();
+      });
     }
+    // "Sign with Passkey" — the WYSIWYS modal's confirm button. Performs the actual commit that
+    // petitionSign/pollVote deferred while the modal was open, then closes it (or, for a compose
+    // submission, closes the whole compose flow — see closeOverlays). The ballot/signature is
+    // always recorded as the viewer's own (_signed/_vote — so their button/checkmark reflects what
+    // THEY did), but the official tally only moves for residency-verified accounts (signResidencyLines).
+    function confirmSign() {
+      var m = state.signModal;
+      if (!m) return;
+      var counts = state.kyc >= 2;
+      if (m.kind === "petition") {
+        m.target._signed = true;
+        if (counts) m.target.sig += 1;
+      } else if (m.kind === "poll") {
+        m.target._vote = m.option;
+        if (counts) {
+          var opt = m.target.options.filter(function (o) { return o.label === m.option; })[0];
+          if (opt) opt.v++;
+        }
+      }
+      state.signModal = null;
+      if (m.kind === "compose") closeOverlays(); else render();
+    }
+    // dismiss the confirmation without acting — returns to whatever was open behind it (the
+    // compose editor, or the petition/poll card/page), exactly like cancelling any other modal.
+    function cancelSign() { state.signModal = null; render(); }
     // a petition with a pre-attached poll (§8.6 graduation) that has reached its signature
     // threshold — flips its card tag and Post-page collapsible from "Proposed Poll" (no link) to
     // "Poll" (working "See full Poll" link). No real poll is synthesized; the link always opens
@@ -2721,11 +2911,13 @@
           sx.setAttribute("text-anchor", "end"); body.appendChild(sx);
           y += 20;
         }
-        var signed = !!p._signed;
+        var signed = !!p._signed, locked = signed && isFinalJur(p.jur);
         body.appendChild(rect(X, y, 170, 30, 15, signed ? "#333" : "#ffffff", "#333"));
         var ct = txt(X + 85, y + 20, signed ? "Signed ✓" : "Sign the Petition", 13, signed ? "#fff" : "#333");
         ct.setAttribute("text-anchor", "middle"); body.appendChild(ct);
-        clickRect(body, X, y, 170, 30, function (e) { if (e) e.stopPropagation(); petitionSign(p); });
+        if (!locked) clickRect(body, X, y, 170, 30, function (e) { if (e) e.stopPropagation(); petitionSign(p); });
+        // Alberta signatures are final — make that persistent, not just a one-time modal warning
+        if (locked) body.appendChild(txt(X + 182, y + 20, "Final — cannot be revoked", 11, "#999"));
         y += 54; // extra clearance below the Sign button before the bottom bar (count/reply/comments)
       } else if (type === "poll") {
         var po = buildPollOptions(p, X, y, W, { frozen: false });
@@ -2959,6 +3151,10 @@
         show($("composeJurMenu"), state.composeJurOpen);
       }
 
+      // Alberta passkey WYSIWYS confirmation (petitionSign/pollVote/compose "Post" — see isFinalJur)
+      show($("signModal"), !!state.signModal);
+      if (state.signModal) buildSignInner();
+
       // FAB icon + callout depend on the active view (compose on Feed, "go home" elsewhere)
       var onFeed = view === "feed";
       show($("fabCompose"), onFeed);
@@ -2993,7 +3189,7 @@
     // ONE wheel listener for every view — scrolls the active view's body, clamped to its max.
     // (No scroll while an overlay is open.)
     $("content").addEventListener("wheel", function (e) {
-      if (state.filterOpen || state.dropdownOpen || state.modalOpen || state.composeStep || state.profileOpen || state.authView) return;
+      if (state.filterOpen || state.dropdownOpen || state.modalOpen || state.composeStep || state.profileOpen || state.authView || state.signModal) return;
       e.preventDefault();
       var v = VIEWS[state.view];
       state.scroll = clamp(state.scroll + e.deltaY, 0, v.max);
@@ -3060,6 +3256,11 @@
     $("composeCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); closeOverlays(); });
     $("composeJurBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeJurOpen = !state.composeJurOpen; render(); });
     $("composeChangeBtn").addEventListener("click", function (e) { e.stopPropagation(); state.composeStep = "type"; state.composeJurOpen = false; render(); });
+
+    // Alberta passkey WYSIWYS confirmation — cancelling returns to whatever was open behind it
+    // (the compose editor, or the petition/poll card/page), not a full closeOverlays().
+    $("signBackdrop").addEventListener("click", cancelSign);
+    $("signCloseBtn").addEventListener("click", function (e) { e.stopPropagation(); cancelSign(); });
 
     // profile modal actions
     $("profileBackdrop").addEventListener("click", closeOverlays);
