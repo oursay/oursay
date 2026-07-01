@@ -16,6 +16,8 @@ interface AuthorRowProps {
   layout?: "card" | "comment";
   /** Row-2 right slot for card layout (jurisdiction / district scope tag). */
   scopeSlot?: ReactNode;
+  /** Full-width continuation when a multi-district scope tag is expanded. */
+  scopeContinuationSlot?: ReactNode;
   onAuthorClick?: () => void;
 }
 
@@ -32,51 +34,57 @@ export function AuthorRow({
   timestamp,
   layout = "card",
   scopeSlot,
+  scopeContinuationSlot,
   onAuthorClick,
 }: AuthorRowProps) {
   const isComment = layout === "comment";
 
   if (!isComment) {
     return (
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={onAuthorClick}
-          disabled={!onAuthorClick}
-          className="shrink-0 self-start disabled:cursor-default"
-        >
-          <Avatar name={author} size="md" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-1.5">
-            <button
-              type="button"
-              onClick={onAuthorClick}
-              disabled={!onAuthorClick}
-              className="min-w-0 truncate text-left text-sm font-semibold leading-tight text-ink disabled:cursor-default"
-            >
-              {author}
-            </button>
-            <VerificationPill tier={tier} isHomeAuthor={isHomeAuthor} align="right" />
-          </div>
-          <div className="-mt-px flex items-baseline justify-between gap-2">
-            {handle ? (
+      <div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={onAuthorClick}
+            disabled={!onAuthorClick}
+            className="shrink-0 self-start disabled:cursor-default"
+          >
+            <Avatar name={author} size="md" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-1.5">
               <button
                 type="button"
                 onClick={onAuthorClick}
                 disabled={!onAuthorClick}
-                className="min-w-0 truncate text-left text-xs text-muted disabled:cursor-default"
+                className="min-w-0 truncate text-left text-sm font-semibold leading-tight text-ink disabled:cursor-default"
               >
-                @{handle}
+                {author}
               </button>
-            ) : timestamp ? (
-              <span className="min-w-0 truncate text-xs text-muted">{timestamp}</span>
-            ) : (
-              <span aria-hidden />
-            )}
-            {scopeSlot ? <div className="shrink-0">{scopeSlot}</div> : null}
+              <VerificationPill tier={tier} isHomeAuthor={isHomeAuthor} align="right" />
+            </div>
+            <div className="-mt-px flex items-baseline justify-between gap-2">
+              {handle ? (
+                <button
+                  type="button"
+                  onClick={onAuthorClick}
+                  disabled={!onAuthorClick}
+                  className="min-w-0 truncate text-left text-xs text-muted disabled:cursor-default"
+                >
+                  @{handle}
+                </button>
+              ) : timestamp ? (
+                <span className="min-w-0 truncate text-xs text-muted">{timestamp}</span>
+              ) : (
+                <span aria-hidden />
+              )}
+              {scopeSlot ? <div className="shrink-0">{scopeSlot}</div> : null}
+            </div>
           </div>
         </div>
+        {scopeContinuationSlot ? (
+          <div className="w-full">{scopeContinuationSlot}</div>
+        ) : null}
       </div>
     );
   }

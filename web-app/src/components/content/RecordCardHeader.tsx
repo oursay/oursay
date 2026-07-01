@@ -13,6 +13,7 @@ interface RecordCardHeaderProps {
   timestamp?: string;
   variant?: "record" | "comment";
   scopeSlot?: ReactNode;
+  scopeContinuationSlot?: ReactNode;
   onAuthorClick?: () => void;
 }
 
@@ -25,6 +26,7 @@ export function RecordCardHeader({
   timestamp,
   variant = "record",
   scopeSlot,
+  scopeContinuationSlot,
   onAuthorClick,
 }: RecordCardHeaderProps) {
   return (
@@ -36,6 +38,7 @@ export function RecordCardHeader({
       timestamp={variant === "comment" ? timestamp : undefined}
       layout={variant === "comment" ? "comment" : "card"}
       scopeSlot={variant === "record" ? scopeSlot : undefined}
+      scopeContinuationSlot={variant === "record" ? scopeContinuationSlot : undefined}
       onAuthorClick={onAuthorClick}
     />
   );

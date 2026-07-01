@@ -40,6 +40,7 @@ export function PostView({ kind }: { kind: RecordKind }) {
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
   const [shownComments, setShownComments] = useState<CommentNode[]>([]);
+  const [scopeExpanded, setScopeExpanded] = useState(false);
 
   useEffect(() => {
     setDetail(null);
@@ -110,6 +111,17 @@ export function PostView({ kind }: { kind: RecordKind }) {
     goal: POST_PETITION.goal ?? 1,
   };
 
+  const multiDistrict = detail.districts.length > 1;
+  const scopeProps = {
+    jurisdiction: detail.jurisdiction,
+    districtSlugs: detail.districts,
+    hideJur: true as const,
+    resolveDistrict: districtName,
+    expanded: scopeExpanded,
+    onExpandToggle: () => setScopeExpanded((v) => !v),
+    onDistrictClick: (slug: string) => router.push(districtPath(slug)),
+  };
+
   return (
     <div className="space-y-4 p-4">
       <RecordCard
@@ -124,12 +136,14 @@ export function PostView({ kind }: { kind: RecordKind }) {
             scopeSlot={
               detail.districts.length > 0 ? (
                 <ScopeTag
-                  jurisdiction={detail.jurisdiction}
-                  districtSlugs={detail.districts}
-                  hideJur
-                  resolveDistrict={districtName}
-                  onDistrictClick={(slug) => router.push(districtPath(slug))}
+                  {...scopeProps}
+                  part={scopeExpanded && multiDistrict ? "head" : "all"}
                 />
+              ) : undefined
+            }
+            scopeContinuationSlot={
+              scopeExpanded && multiDistrict ? (
+                <ScopeTag {...scopeProps} part="tail" />
               ) : undefined
             }
           />

@@ -157,13 +157,25 @@ export default function ComponentGallery() {
 
         <Section title="Scope tag (multi-district expansion)">
           {multiDistrict ? (
-            <div className="flex justify-end rounded-lg border border-border bg-surface p-3">
-              <ScopeTag
-                jurisdiction={multiDistrict.jurisdiction}
-                districtSlugs={multiDistrict.districts}
-                expanded={scopeExpanded}
-                onExpandToggle={() => setScopeExpanded((v) => !v)}
-              />
+            <div className="rounded-lg border border-border bg-surface p-3">
+              <div className="flex justify-end">
+                <ScopeTag
+                  jurisdiction={multiDistrict.jurisdiction}
+                  districtSlugs={multiDistrict.districts}
+                  expanded={scopeExpanded}
+                  onExpandToggle={() => setScopeExpanded((v) => !v)}
+                  part={scopeExpanded ? "head" : "all"}
+                />
+              </div>
+              {scopeExpanded ? (
+                <ScopeTag
+                  jurisdiction={multiDistrict.jurisdiction}
+                  districtSlugs={multiDistrict.districts}
+                  expanded={scopeExpanded}
+                  onExpandToggle={() => setScopeExpanded((v) => !v)}
+                  part="tail"
+                />
+              ) : null}
             </div>
           ) : null}
         </Section>

@@ -57,6 +57,18 @@ export function FeedCard({
 }: FeedCardProps) {
   const [expanded, setExpanded] = useState(false);
   const home = isHomeAuthor(item.districts, viewer.kycTier, viewer.viewerDistricts);
+  const multiDistrict = item.districts.length > 1;
+  const scopeProps = {
+    jurisdiction: item.jurisdiction,
+    districtSlugs: item.districts,
+    hideJur,
+    hideDistrict,
+    resolveDistrict,
+    expanded,
+    onExpandToggle: () => setExpanded((v) => !v),
+    onJurisdictionClick,
+    onDistrictClick,
+  };
 
   return (
     <RecordCard
@@ -69,16 +81,14 @@ export function FeedCard({
           onAuthorClick={onAuthorClick}
           scopeSlot={
             <ScopeTag
-              jurisdiction={item.jurisdiction}
-              districtSlugs={item.districts}
-              hideJur={hideJur}
-              hideDistrict={hideDistrict}
-              resolveDistrict={resolveDistrict}
-              expanded={expanded}
-              onExpandToggle={() => setExpanded((v) => !v)}
-              onJurisdictionClick={onJurisdictionClick}
-              onDistrictClick={onDistrictClick}
+              {...scopeProps}
+              part={expanded && multiDistrict ? "head" : "all"}
             />
+          }
+          scopeContinuationSlot={
+            expanded && multiDistrict ? (
+              <ScopeTag {...scopeProps} part="tail" />
+            ) : undefined
           }
         />
       }
