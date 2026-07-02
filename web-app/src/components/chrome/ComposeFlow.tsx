@@ -1,13 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { BarChart3, Check, ChevronDown } from "lucide-react";
 import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import {
   composeTypeLockReason,
   rootTypesForJurisdiction,
 } from "@/lib/compose-eligibility";
-import { Button, Modal, ModalField, ModalOptionRow } from "@/components/ui";
+import {
+  Button,
+  CollapsibleSection,
+  Modal,
+  ModalField,
+  ModalOptionRow,
+  PollComposeBody,
+} from "@/components/ui";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import type { RecordKind, VerificationTier } from "@/lib/types";
 
@@ -59,9 +66,17 @@ export function ComposeFlow({
   onPost,
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
+  // Wireframe state.pollOptions — starts at the 2-option minimum.
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  // Alberta petition: optional attached poll (Alberta has no poll root type).
+  const [petitionPollOpen, setPetitionPollOpen] = useState(false);
 
   useEffect(() => {
-    if (!open) setJurMenuOpen(false);
+    if (!open) {
+      setJurMenuOpen(false);
+      setPollOptions(["", ""]);
+      setPetitionPollOpen(false);
+    }
   }, [open]);
 
   const picker = step === "where" || step === "type";
@@ -84,17 +99,16 @@ export function ComposeFlow({
           ? rootTypesForJurisdiction(selectedJurisdiction)
           : allowedTypes
         ).length > 1 ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="min-h-8 shrink-0 px-2.5 text-xs"
+          <button
+            type="button"
+            className="shrink-0 text-xs text-ink-soft underline underline-offset-2 hover:text-ink"
             onClick={() => {
               setJurMenuOpen(false);
               onChangeType?.();
             }}
           >
             Change
-          </Button>
+          </button>
         ) : null}
       </div>
     ) : undefined;
@@ -233,43 +247,56 @@ export function ComposeFlow({
             </div>
           ) : null}
 
-          <ModalField
-            label={selectedType === "poll" ? "Question" : "Title"}
-            placeholder={
-              selectedType === "poll"
-                ? "Ask a yes/no or multiple-choice question…"
-                : selectedType === "petition"
-                  ? "What are you calling for?"
-                  : "A clear headline…"
-            }
-          />
-
           {selectedType === "poll" ? (
-            <div className="space-y-2">
-              <ModalField label="Options" placeholder="Option 1" />
-              <ModalField placeholder="Option 2" />
-              <p className="text-xs text-muted">2–10 options.</p>
-            </div>
+            <PollComposeBody options={pollOptions} onChange={setPollOptions} />
           ) : (
-            <ModalField
-              label="Body"
-              placeholder={
-                selectedType === "petition"
-                  ? "Write your petition…"
-                  : "Write your statement…"
-              }
-              multiline
-              rows={4}
-            />
+            <>
+              <ModalField
+                label="Title"
+                placeholder={
+                  selectedType === "petition"
+                    ? "What are you calling for?"
+                    : "A clear headline…"
+                }
+              />
+              <ModalField
+                label="Body"
+                placeholder={
+                  selectedType === "petition"
+                    ? "Write your petition…"
+                    : "Write your statement…"
+                }
+                multiline
+                rows={4}
+              />
+            </>
           )}
 
           {selectedType === "petition" ? (
             <ModalField
-              label="Signature Button Text"
-              placeholder="Sign the Petition"
-              maxLength={30}
-              hint={'Defaults to "Sign the Petition" — editable, max 30'}
+              label="Support statement (signature button)"
+              defaultValue="Sign the Petition"
+              maxLength={60}
+              showCount
+              hint={'Defaults to "Sign the Petition" · editable, max 60'}
             />
+          ) : null}
+
+          {selectedType === "petition" && selectedJurisdiction === "Alberta" ? (
+            <CollapsibleSection
+              icon={BarChart3}
+              label="Add a Poll (optional)"
+              open={petitionPollOpen}
+              onToggle={() => setPetitionPollOpen((o) => !o)}
+              count={petitionPollOpen ? undefined : "off"}
+            >
+              <PollComposeBody
+                options={pollOptions}
+                onChange={setPollOptions}
+                questionLabel="Poll question"
+                questionPlaceholder="Ask signers a follow-up question…"
+              />
+            </CollapsibleSection>
           ) : null}
 
           <Button fullWidth onClick={onPost}>

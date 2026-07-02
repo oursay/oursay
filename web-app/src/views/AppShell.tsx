@@ -251,6 +251,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         kycTier={state.kycTier}
         onValidateId={app.cycleKyc}
         onLogout={app.logout}
+        devices={state.devices}
+        onAddDevice={app.addDevice}
+        onAddDeviceByEmail={app.addDeviceByEmail}
+        theme={state.theme}
+        onToggleTheme={app.toggleTheme}
+        onOpenSetting={(label) => app.notify(`${label} is not built in this demo.`)}
       />
       <ComposeFlow
         open={state.composeOpen}

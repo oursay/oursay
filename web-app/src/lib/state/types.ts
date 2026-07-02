@@ -45,6 +45,10 @@ export interface AppState {
   loggedIn: boolean;
   kycTier: VerificationTier;
   viewerDistricts: string[];
+  /** Registered passkey/device labels (wireframe deviceCount). */
+  devices: string[];
+  /** UI preference only — no dark stylesheet yet (wireframe state.theme). */
+  theme: "light" | "dark";
 
   // Feed / list filters.
   includedKinds: RecordKind[];

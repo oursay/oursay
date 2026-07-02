@@ -60,6 +60,8 @@ const INITIAL: AppState = {
   loggedIn: false,
   kycTier: 0,
   viewerDistricts: [],
+  devices: ["iPhone 15 — this device", "MacBook Pro", "Pixel 8"],
+  theme: "light",
 
   includedKinds: [...ALL_KINDS],
   verified: 0,
@@ -182,6 +184,11 @@ export interface AppApi {
   openProfile: () => void;
   closeProfile: () => void;
 
+  // Profile modal account management.
+  addDevice: () => void;
+  addDeviceByEmail: () => void;
+  toggleTheme: () => void;
+
   // Civic interactions (stubbed writes).
   react: (target: CivicTarget, dir: "up" | "down") => void;
   reactionFor: (id: string) => "up" | "down" | null;
@@ -301,6 +308,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
     notify("Signed out.");
   }, [notify]);
+
+  // Wireframe addDeviceBtn: registers a passkey on this device (count grows).
+  const addDevice = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      devices: [...s.devices, `New device (passkey ${s.devices.length + 1})`],
+    }));
+    notify("Passkey added to this device (demo).");
+  }, [notify]);
+
+  // Wireframe addDeviceEmailBtn: opens the account's OTP-login window so a
+  // new device can sign in by email and register its own passkey.
+  const addDeviceByEmail = useCallback(() => {
+    set({ loginOtpWindow: true });
+    notify("OTP window opened — log in by email on the new device.");
+  }, [set, notify]);
+
+  const toggleTheme = useCallback(() => {
+    setState((s) => ({ ...s, theme: s.theme === "light" ? "dark" : "light" }));
+  }, []);
 
   const cycleKyc = useCallback(() => {
     setState((s) => {
@@ -892,6 +919,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     recover,
     openProfile,
     closeProfile,
+    addDevice,
+    addDeviceByEmail,
+    toggleTheme,
     react,
     reactionFor,
     reactionCountsFor,

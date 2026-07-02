@@ -19,7 +19,7 @@ interface ModalProps {
   ariaLabel?: string;
   /** center = small dialog card; sheet = tall near-full-height panel (register/profile). */
   variant?: Variant;
-  /** picker ≈ 320px wireframe cards; dialog ≈ 340px compose; wide for add-jurisdiction. */
+  /** picker ≈ 320px wireframe cards; dialog = full-width compose editor; wide for add-jurisdiction. */
   size?: Size;
   children: ReactNode;
   /** Optional label rendered under the title (e.g. register subtitle). */
@@ -32,7 +32,7 @@ interface ModalProps {
 
 const SIZES: Record<Size, string> = {
   picker: "max-w-[20rem]",
-  dialog: "max-w-[21.25rem]",
+  dialog: "max-w-md",
   wide: "max-w-[21.25rem]",
 };
 

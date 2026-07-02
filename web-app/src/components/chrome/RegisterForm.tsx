@@ -43,9 +43,14 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
 
         <SectionLabel>Address — sets your districts, never public</SectionLabel>
         <ModalField label="Street address" placeholder="123 Main St" />
+        <ModalField label="Apt / unit (optional)" placeholder="Unit 4" />
         <div className="grid grid-cols-2 gap-2">
           <ModalField label="City" placeholder="Calgary" />
           <ModalField label="Province" placeholder="AB" />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <ModalField label="Postal code" placeholder="T2P 1A1" />
+          <ModalField label="Country" placeholder="Canada (CA)" />
         </div>
 
         <label className="flex items-center gap-2 pt-1 text-sm text-ink">

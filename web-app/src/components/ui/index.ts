@@ -4,6 +4,7 @@ export * from "./Avatar";
 export * from "./Modal";
 export * from "./ModalField";
 export * from "./ModalOptionRow";
+export * from "./PollComposeBody";
 export * from "./NoticeBox";
 export * from "./CheckboxIndicator";
 export * from "./CheckboxRow";
