@@ -43,6 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const title = pageTitle(pathname);
   const hasCardList =
     view === "feed" || view === "jurisdiction" || view === "district";
+  const isProfile = view === "profile";
 
   useEffect(() => {
     document.title = `OurSay — ${title}`;
@@ -80,7 +81,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     state.myDistricts ||
     state.affected ||
     state.signedFilter > 0 ||
-    (hasCardList && state.includedKinds.length < 4);
+    (hasCardList && state.includedKinds.length < 4) ||
+    (isProfile && state.profileTypes.length < 5);
 
   const composeJur = state.composeJur ?? "Global";
   const allowedComposeTypes = rootTypesForJurisdiction(composeJur);
@@ -149,6 +151,12 @@ export function AppShell({ children }: { children: ReactNode }) {
                   affected={state.affected}
                   onToggleAffected={app.toggleAffected}
                   showRecordTypes={hasCardList}
+                  showActivityTypes={isProfile}
+                  profileTypes={state.profileTypes}
+                  onToggleProfileType={app.toggleProfileType}
+                  onIsolateProfileType={app.isolateProfileType}
+                  onAllProfileTypes={app.allProfileTypes}
+                  showSigned={!isProfile}
                   viewer={app.viewer}
                 />
               </div>

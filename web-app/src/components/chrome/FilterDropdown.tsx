@@ -13,10 +13,21 @@ import {
   PenTool,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
+import {
+  ACTIVITY_TYPE_META,
+  ALL_ACTIVITY_KINDS,
+  RECORD_TYPE_ICON,
+  RECORD_TYPE_LABEL,
+} from "@/components/content";
 import { CheckboxRow } from "@/components/ui";
 import { VERIFIED_LEVELS, SIGNED_FILTER_LEVELS } from "@/lib/types";
-import type { RecordKind, SignedFilterLevel, VerificationTier, ViewerContext } from "@/lib/types";
+import type {
+  ActivityKind,
+  RecordKind,
+  SignedFilterLevel,
+  VerificationTier,
+  ViewerContext,
+} from "@/lib/types";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 
@@ -62,8 +73,16 @@ interface FilterDropdownProps {
   showAffected?: boolean;
   affected?: boolean;
   onToggleAffected?: () => void;
-  /** Hide the record-type section (Post / Profile show the Refine ladder only). */
+  /** Feed/jurisdiction/district record-type section. */
   showRecordTypes?: boolean;
+  /** Profile activity-type section (Statements … Reactions). */
+  showActivityTypes?: boolean;
+  profileTypes?: ActivityKind[];
+  onToggleProfileType?: (kind: ActivityKind) => void;
+  onIsolateProfileType?: (kind: ActivityKind) => void;
+  onAllProfileTypes?: () => void;
+  /** Signed Refine row (hidden on profile per wireframe). */
+  showSigned?: boolean;
   viewer: ViewerContext;
 }
 
@@ -83,6 +102,12 @@ export function FilterDropdown({
   affected = false,
   onToggleAffected,
   showRecordTypes = true,
+  showActivityTypes = false,
+  profileTypes = ALL_ACTIVITY_KINDS,
+  onToggleProfileType,
+  onIsolateProfileType,
+  onAllProfileTypes,
+  showSigned = true,
   viewer,
 }: FilterDropdownProps) {
   // My Districts / Affected are only inferable for a residency-verified viewer
@@ -125,6 +150,50 @@ export function FilterDropdown({
           <div className="my-2 border-t border-border" />
         </>
       ) : null}
+      {showActivityTypes ? (
+        <>
+          <p className="px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
+            Activity types
+          </p>
+          <CheckboxRow
+            label="All Activity"
+            showCheckbox={false}
+            icon={<List size={16} aria-hidden />}
+            onSelect={onAllProfileTypes}
+          />
+          {ALL_ACTIVITY_KINDS.map((kind) => {
+            const { icon: Icon, label } = ACTIVITY_TYPE_META[kind];
+            const included = profileTypes.includes(kind);
+            const isLast = profileTypes.length <= 1 && included;
+            const rowIcon =
+              kind === "reaction" ? (
+                <span
+                  aria-hidden
+                  className="inline-flex size-4 items-center justify-center text-sm font-bold leading-none"
+                >
+                  ✓
+                </span>
+              ) : (
+                <Icon size={16} aria-hidden />
+              );
+            return (
+              <CheckboxRow
+                key={kind}
+                label={label}
+                checked={included}
+                icon={rowIcon}
+                onToggle={() => {
+                  if (isLast) return;
+                  onToggleProfileType?.(kind);
+                }}
+                onSelect={() => onIsolateProfileType?.(kind)}
+              />
+            );
+          })}
+
+          <div className="my-2 border-t border-border" />
+        </>
+      ) : null}
       <p className="px-2 pb-1 pt-2 text-xs font-bold uppercase tracking-wide text-muted">
         Refine
       </p>
@@ -140,18 +209,20 @@ export function FilterDropdown({
           />
         }
       />
-      <CheckboxRow
-        label="Signed"
-        showCheckbox={false}
-        icon={<PenTool size={16} aria-hidden />}
-        onSelect={onCycleSignedFilter}
-        trailing={
-          <FilterLevelBadge
-            label={SIGNED_FILTER_LEVELS[signedFilter]}
-            icon={signedLevelIcon(signedFilter)}
-          />
-        }
-      />
+      {showSigned ? (
+        <CheckboxRow
+          label="Signed"
+          showCheckbox={false}
+          icon={<PenTool size={16} aria-hidden />}
+          onSelect={onCycleSignedFilter}
+          trailing={
+            <FilterLevelBadge
+              label={SIGNED_FILTER_LEVELS[signedFilter]}
+              icon={signedLevelIcon(signedFilter)}
+            />
+          }
+        />
+      ) : null}
       <CheckboxRow
         label="My Districts"
         showCheckbox={false}

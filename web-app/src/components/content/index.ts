@@ -1,4 +1,5 @@
 export * from "./recordType";
+export * from "./activityType";
 export * from "./ScopeTag";
 export * from "./ReactionButtons";
 export * from "./PollOptions";

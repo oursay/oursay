@@ -2,25 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Edit3, MessageSquare, ThumbsUp } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { getProfile } from "@/lib/api";
 import type { ActivityKind, PublicProfile } from "@/lib/types";
 import { Avatar, FeedCard, VerificationPill } from "@/components";
-import { RECORD_TYPE_ICON } from "@/components/content";
+import { activityRowGlyph, ACTIVITY_REACTION_TONE, REACTION_GLYPH } from "@/components/content";
 import { districtName } from "@/lib/mock";
 import { districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
 type Tab = "posts" | "activity" | "mentions";
-
-const ACTIVITY_META: Record<ActivityKind, { icon: LucideIcon; label: string }> = {
-  statement: { icon: RECORD_TYPE_ICON.statement, label: "Statements" },
-  comment: { icon: MessageSquare, label: "Comments" },
-  petition: { icon: RECORD_TYPE_ICON.petition, label: "Petitions" },
-  poll: { icon: RECORD_TYPE_ICON.poll, label: "Polls" },
-  reaction: { icon: ThumbsUp, label: "Reactions" },
-};
 
 /** Activity kind -> fallback record id when recordId is absent. */
 function activityToRecordId(kind: ActivityKind): string {
@@ -43,6 +33,12 @@ export function ProfileView({ handle }: { handle: string }) {
   useEffect(() => {
     getProfile(handle).then(setProfile);
   }, [handle]);
+
+  useEffect(() => {
+    if (profile && handle !== profile.handle) {
+      router.replace(profilePath(profile.handle));
+    }
+  }, [profile, handle, router]);
 
   if (!profile) {
     return <p className="p-6 text-center text-sm text-muted">Profile not found.</p>;
@@ -91,31 +87,6 @@ export function ProfileView({ handle }: { handle: string }) {
         ))}
       </div>
 
-      {tab !== "mentions" ? (
-        <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(ACTIVITY_META) as ActivityKind[]).map((kind) => {
-            const { icon: Icon } = ACTIVITY_META[kind];
-            const on = profileTypes.includes(kind);
-            return (
-              <button
-                key={kind}
-                type="button"
-                onClick={() => app.toggleProfileType(kind)}
-                aria-pressed={on}
-                className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium ${
-                  on
-                    ? "border-brand-300 bg-brand-100 text-brand-700"
-                    : "border-border bg-surface text-muted"
-                }`}
-              >
-                <Icon size={13} aria-hidden />
-                {ACTIVITY_META[kind].label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
       {tab === "posts" ? (
         <div className="space-y-3">
           {posts.length === 0 ? (
@@ -156,9 +127,11 @@ export function ProfileView({ handle }: { handle: string }) {
 
       {tab === "activity" ? (
         <ul className="space-y-2">
-          {activity.map((a, i) => {
-            const Icon = ACTIVITY_META[a.kind].icon;
-            const Glyph = a.icon === "#ic-edit" ? Edit3 : Icon;
+          {activity.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">No activity matches the filters.</p>
+          ) : (
+            activity.map((a, i) => {
+            const glyph = activityRowGlyph(a);
             return (
               <li key={i}>
                 <button
@@ -171,7 +144,24 @@ export function ProfileView({ handle }: { handle: string }) {
                   }
                   className="flex w-full items-start gap-3 rounded-lg border border-border bg-surface p-3 text-left hover:bg-surface-muted"
                 >
-                  <Glyph size={16} className="mt-0.5 shrink-0 text-brand-600" aria-hidden />
+                  {glyph.type === "reaction" ? (
+                    <span
+                      aria-hidden
+                      className={`mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-sm font-bold leading-none ${
+                        glyph.alt
+                          ? ACTIVITY_REACTION_TONE.alt
+                          : ACTIVITY_REACTION_TONE.default
+                      }`}
+                    >
+                      {REACTION_GLYPH[glyph.dir]}
+                    </span>
+                  ) : (
+                    <glyph.icon
+                      size={16}
+                      className="mt-0.5 shrink-0 text-brand-600"
+                      aria-hidden
+                    />
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm text-ink">{a.text}</span>
                     <span className="block text-xs text-muted">{a.meta}</span>
@@ -179,13 +169,17 @@ export function ProfileView({ handle }: { handle: string }) {
                 </button>
               </li>
             );
-          })}
+          })
+          )}
         </ul>
       ) : null}
 
       {tab === "mentions" ? (
         <ul className="space-y-2">
-          {profile.mentions.map((m, i) => (
+          {profile.mentions.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">No mentions yet.</p>
+          ) : (
+            profile.mentions.map((m, i) => (
             <li key={i} className="rounded-lg border border-border bg-surface">
               {/* Author links to the profile; the row body opens the mentioned
                   record (wireframe §1 link map: mentionRow -> goPost). */}
@@ -211,7 +205,8 @@ export function ProfileView({ handle }: { handle: string }) {
                 <span className="mt-0.5 block text-xs text-muted">{m.meta}</span>
               </button>
             </li>
-          ))}
+          ))
+          )}
         </ul>
       ) : null}
     </div>

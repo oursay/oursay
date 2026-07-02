@@ -125,6 +125,8 @@ export interface AppApi {
 
   // Profile Activity-type filter.
   toggleProfileType: (kind: ActivityKind) => void;
+  isolateProfileType: (kind: ActivityKind) => void;
+  allProfileTypes: () => void;
 
   // Jurisdiction selector + subscriptions.
   toggleJurSelector: () => void;
@@ -365,6 +367,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
     });
   }, []);
+
+  const isolateProfileType = useCallback((kind: ActivityKind) => {
+    set({ profileTypes: [kind] });
+  }, [set]);
+
+  const allProfileTypes = useCallback(() => {
+    set({ profileTypes: [...ALL_ACTIVITY] });
+  }, [set]);
 
   // --- Jurisdiction selector ----------------------------------------------
   const toggleJurSelector = useCallback(() => {
@@ -793,6 +803,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     toggleAffected,
     cycleSignedFilter,
     toggleProfileType,
+    isolateProfileType,
+    allProfileTypes,
     toggleJurSelector,
     toggleSub,
     selectOnlySub,

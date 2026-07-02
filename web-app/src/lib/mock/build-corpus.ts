@@ -1,11 +1,14 @@
 import type {
+  ActivityItem,
   CommentNode,
   DistrictDetail,
   FeedItem,
   JurisdictionSummary,
+  MentionItem,
   PublicProfile,
   RecordDetail,
   RecordKind,
+  ActivityKind,
 } from "@/lib/types";
 import { ALBERTA_RIDINGS } from "./alberta-ridings";
 import { countCommentNodes, hashSeed } from "./comment-utils";
@@ -297,6 +300,120 @@ function syncCommentCounts(
   }));
 }
 
+function truncateTitle(title: string, max = 42): string {
+  if (title.length <= max) return title;
+  return `${title.slice(0, max)}…`;
+}
+
+const REL_TIME_LABELS = ["1d", "2d", "3d", "4d", "5d", "6d", "1w", "2w", "3w"];
+
+function relMeta(days: number, jurisdiction?: string): string {
+  const label = REL_TIME_LABELS[days % REL_TIME_LABELS.length];
+  return jurisdiction ? `${label} · ${jurisdiction}` : label;
+}
+
+function activityKindForPost(kind: FeedItem["kind"]): ActivityKind | null {
+  if (kind === "result") return "statement";
+  return kind;
+}
+
+function generateProfileActivity(
+  handle: string,
+  posts: FeedItem[],
+  feedItems: FeedItem[],
+): ActivityItem[] {
+  const seed = hashSeed(`${handle}:activity`);
+  const items: ActivityItem[] = [];
+  const pool = feedItems.filter((p) => p.handle !== handle);
+
+  for (let i = 0; i < Math.min(posts.length, 2); i++) {
+    const p = posts[i];
+    const kind = activityKindForPost(p.kind);
+    if (!kind) continue;
+    items.push({
+      kind,
+      text: `Posted “${truncateTitle(p.title)}”`,
+      meta: relMeta(i + 1, p.jurisdiction),
+      recordId: p.id,
+    });
+  }
+
+  const templates: {
+    kind: ActivityKind;
+    text: (p: FeedItem) => string;
+    icon?: string;
+  }[] = [
+    { kind: "comment", text: (p) => `Commented on “${truncateTitle(p.title)}”` },
+    { kind: "comment", text: (p) => `Replied on “${truncateTitle(p.title)}”` },
+    {
+      kind: "comment",
+      icon: "#ic-edit",
+      text: (p) => `Edited a comment on “${truncateTitle(p.title)}”`,
+    },
+    { kind: "petition", text: (p) => `Signed “${truncateTitle(p.title)}”` },
+    { kind: "poll", text: (p) => `Voted in “${truncateTitle(p.title)}”` },
+    { kind: "reaction", icon: "#ic-check", text: (p) => `Agreed with “${truncateTitle(p.title)}”` },
+    { kind: "reaction", icon: "#ic-x", text: (p) => `Disagreed with “${truncateTitle(p.title)}”` },
+    {
+      kind: "reaction",
+      text: (p) => `Changed reaction on “${truncateTitle(p.title)}”`,
+    },
+    {
+      kind: "statement",
+      icon: "#ic-edit",
+      text: (p) => `Edited “${truncateTitle(p.title)}”`,
+    },
+  ];
+
+  const extraCount = 3 + (seed % 5);
+  for (let i = 0; i < extraCount && pool.length > 0; i++) {
+    const p = pool[(seed + i * 7) % pool.length];
+    const t = templates[(seed + i * 3) % templates.length];
+    items.push({
+      kind: t.kind,
+      icon: t.icon,
+      text: t.text(p),
+      meta: relMeta((seed + i) % REL_TIME_LABELS.length, p.jurisdiction),
+      recordId: p.id,
+    });
+  }
+
+  return items.slice(0, 12);
+}
+
+function generateProfileMentions(
+  handle: string,
+  feedItems: FeedItem[],
+): MentionItem[] {
+  const seed = hashSeed(`${handle}:mentions`);
+  const count = 1 + (seed % 4);
+  const authors = COMMENT_POOL.filter((h) => h !== handle);
+  if (authors.length === 0 || feedItems.length === 0) return [];
+
+  const mentionTexts = [
+    `@${handle} can you weigh in on this?`,
+    `Thanks @${handle} for raising this`,
+    `@${handle} what's the timeline here?`,
+    `Grateful for @${handle}'s work on this`,
+    `@${handle} — any update from your office?`,
+  ];
+
+  const items: MentionItem[] = [];
+  for (let i = 0; i < count; i++) {
+    const authorHandle = authors[(seed + i * 2) % authors.length];
+    const p = person(authorHandle);
+    const post = feedItems[(seed + i * 5) % feedItems.length];
+    items.push({
+      author: p.name,
+      handle: authorHandle,
+      text: mentionTexts[(seed + i) % mentionTexts.length],
+      meta: `on “${truncateTitle(post.title)}” · ${relMeta(i + 1)}`,
+      recordId: post.id,
+    });
+  }
+  return items;
+}
+
 function buildDistrictMap(): Record<string, DistrictDetail> {
   const map: Record<string, DistrictDetail> = {};
   for (const riding of ALBERTA_RIDINGS) {
@@ -388,13 +505,8 @@ function buildProfiles(
         { n: hashSeed(handle + "poll") % 5, label: "Polls" },
       ],
       posts,
-      activity: posts.slice(0, 3).map((p, i) => ({
-        kind: p.kind === "result" ? "statement" : (p.kind as "statement" | "petition" | "poll"),
-        text: `Posted “${p.title.slice(0, 40)}${p.title.length > 40 ? "…" : ""}”`,
-        meta: `${i + 1}d · Alberta`,
-        recordId: p.id,
-      })),
-      mentions: [],
+      activity: generateProfileActivity(handle, posts, feedItems),
+      mentions: generateProfileMentions(handle, feedItems),
     };
   }
 
@@ -413,8 +525,8 @@ function buildProfiles(
         { n: hashSeed(handle + "p") % 4, label: "Polls" },
       ],
       posts,
-      activity: [],
-      mentions: [],
+      activity: generateProfileActivity(handle, posts, feedItems),
+      mentions: generateProfileMentions(handle, feedItems),
     };
   }
 
@@ -435,6 +547,13 @@ export const PROFILES_BY_HANDLE = (() => {
   };
   return profiles;
 })();
+
+const PROFILES_BY_HANDLE_LOWER = Object.fromEntries(
+  Object.entries(PROFILES_BY_HANDLE).map(([key, profile]) => [
+    key.toLowerCase(),
+    profile,
+  ]),
+);
 
 export const DISTRICT_BY_SLUG = buildDistrictMap();
 export const JUR_DATA = buildJurData();
@@ -479,7 +598,9 @@ export function getRecordEntry(id: string): PostTypeEntry | undefined {
 }
 
 export function getProfileByHandle(handle: string): PublicProfile | undefined {
-  return PROFILES_BY_HANDLE[handle];
+  return (
+    PROFILES_BY_HANDLE[handle] ?? PROFILES_BY_HANDLE_LOWER[handle.toLowerCase()]
+  );
 }
 
 export function getDistrictBySlug(slug: string): DistrictDetail | undefined {

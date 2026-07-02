@@ -23,7 +23,7 @@ export type ActivityKind =
  */
 export interface ActivityItem {
   kind: ActivityKind;
-  /** Optional glyph id override (e.g. "#ic-edit"). */
+  /** Optional glyph id override (e.g. "#ic-edit", "#ic-check", "#ic-x", "#ic-check-alt"). */
   icon?: string;
   text: string;
   meta: string;
