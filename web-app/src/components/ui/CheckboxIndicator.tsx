@@ -16,7 +16,7 @@ export function CheckboxIndicator({
     <CircleCheckBig
       size={size}
       aria-hidden
-      className={`shrink-0 ${
+      className={`shrink-0 [&>path:nth-child(2)]:[stroke-width:3] ${
         checked
           ? "text-ink [&>path:nth-child(2)]:stroke-brand-600"
           : "text-muted [&>path:nth-child(2)]:stroke-transparent"

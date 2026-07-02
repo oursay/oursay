@@ -12,11 +12,13 @@ const FEATHER_PATHS = [
   "M17.5 15 9 15",
 ] as const;
 
+const FEATHER_SCALE = 0.84;
+
 const FRAME_PATH =
   "M10.5 2.5H4.5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3";
 
 /** Extra headroom so the feather tip isn't clipped by the viewBox. */
-const VIEW_BOX = "0 -2 24 26";
+const VIEW_BOX = "0 -2 26 26";
 
 /** Compose glyph — feather in a rounded frame with the top-right corner open. */
 export const SquareFeather = forwardRef<SVGSVGElement, SquareFeatherProps>(
@@ -35,9 +37,11 @@ export const SquareFeather = forwardRef<SVGSVGElement, SquareFeatherProps>(
       {...props}
     >
       <path d={FRAME_PATH} />
-      <g transform="translate(15 10.5) scale(0.84) translate(-11 -14)">
+      <g
+        transform={`translate(15 10.5) scale(${FEATHER_SCALE}) translate(-11 -14)`}
+      >
         {FEATHER_PATHS.map((d) => (
-          <path key={d} d={d} vectorEffect="nonScalingStroke" />
+          <path key={d} d={d} strokeWidth={strokeWidth / FEATHER_SCALE} />
         ))}
       </g>
     </svg>
