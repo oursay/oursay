@@ -139,7 +139,11 @@ export function Modal({
         >
           <X size={14} aria-hidden />
         </button>
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
+        {/* -mx-5 + px-5 lets the scroll gutter sit in the panel's padding at the
+            edge, while the content keeps the same inset as the header. */}
+        <div className="-mx-5 min-h-0 min-w-0 flex-1 overflow-y-auto px-5">
+          {children}
+        </div>
       </div>
     </div>,
     document.body,

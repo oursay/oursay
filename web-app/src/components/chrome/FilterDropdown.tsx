@@ -97,6 +97,8 @@ interface FilterDropdownProps {
   /** Geography cycle: Off -> Include (broaden) -> Only (narrow) -> Off. */
   myDistricts: GeoFilterMode;
   onCycleMyDistricts: () => void;
+  /** Single-jurisdiction context -> "My District" (singular); multi-jur feeds -> plural. */
+  singleJurisdiction?: boolean;
   /** Signed ladder: 0 Any · 1 Passkey · 2 Biometric (Biometric dev-only in cycle). */
   signedFilter?: SignedFilterLevel;
   onCycleSignedFilter?: () => void;
@@ -132,6 +134,7 @@ export function FilterDropdown({
   onCycleVerified,
   myDistricts,
   onCycleMyDistricts,
+  singleJurisdiction = false,
   signedFilter = 0,
   onCycleSignedFilter,
   showAffected = false,
@@ -147,9 +150,12 @@ export function FilterDropdown({
   showSigned = true,
   viewer,
 }: FilterDropdownProps) {
-  // My Districts / Affected are only available to a residency-verified viewer;
-  // engaging an exclusive pins the (effective) Verified ladder to Residency+.
-  const canGeography = viewer.kycTier >= 2;
+  // My Districts is only available to a residency-verified viewer (it reads the
+  // viewer's own home districts). Affected is viewer-independent — it matches
+  // against the open post's affected districts — so it needs no residency.
+  // Engaging an exclusive still pins the (effective) Verified ladder to
+  // Residency+ (only Residency+ authors have inferable districts).
+  const canMyDistricts = viewer.kycTier >= 2;
 
   return (
     <div className="w-[250px] rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
@@ -259,24 +265,6 @@ export function FilterDropdown({
           }
         />
       ) : null}
-      <CheckboxRow
-        label="My Districts"
-        showCheckbox={false}
-        icon={
-          geoEngaged(myDistricts, geoAutoDisabled === "myDistricts") ? (
-            <Eye size={16} aria-hidden />
-          ) : (
-            <EyeOff size={16} aria-hidden />
-          )
-        }
-        disabled={!canGeography}
-        onSelect={canGeography ? onCycleMyDistricts : undefined}
-        trailing={geoTrailing(
-          myDistricts,
-          canGeography,
-          geoAutoDisabled === "myDistricts",
-        )}
-      />
       {showAffected ? (
         <CheckboxRow
           label="Affected"
@@ -288,15 +276,32 @@ export function FilterDropdown({
               <EyeOff size={16} aria-hidden />
             )
           }
-          disabled={!canGeography}
-          onSelect={canGeography ? onCycleAffected : undefined}
+          onSelect={onCycleAffected}
           trailing={geoTrailing(
             affected,
-            canGeography,
+            true,
             geoAutoDisabled === "affected",
           )}
         />
       ) : null}
+      <CheckboxRow
+        label={singleJurisdiction ? "My District" : "My Districts"}
+        showCheckbox={false}
+        icon={
+          geoEngaged(myDistricts, geoAutoDisabled === "myDistricts") ? (
+            <Eye size={16} aria-hidden />
+          ) : (
+            <EyeOff size={16} aria-hidden />
+          )
+        }
+        disabled={!canMyDistricts}
+        onSelect={canMyDistricts ? onCycleMyDistricts : undefined}
+        trailing={geoTrailing(
+          myDistricts,
+          canMyDistricts,
+          geoAutoDisabled === "myDistricts",
+        )}
+      />
     </div>
   );
 }

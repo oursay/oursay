@@ -1,12 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import {
   ChevronRight,
   Eye,
   Gavel,
   Globe,
   IdCard,
-  KeyRound,
+  Key,
   LogOut,
   Mail,
   MapPin,
@@ -54,6 +55,13 @@ const KYC_ICON: Record<VerificationTier, LucideIcon> = {
   1: IdCard,
   2: MapPin,
   3: Gavel,
+};
+
+/** Latest per-tier verification colours (mirrors VerificationPill's TIER_BG). */
+const KYC_TIER_BG: Record<Exclude<VerificationTier, 0>, string> = {
+  1: "bg-verify-tier-1", // Identity — green
+  2: "bg-verify-tier-2", // Residency — blue
+  3: "bg-verify-tier-3", // Official — black
 };
 
 /** Only the first two devices are listed; the rest collapse to "+N more". */
@@ -107,7 +115,9 @@ export function ProfileModal({
   onOpenSetting,
 }: ProfileModalProps) {
   const KycIcon = KYC_ICON[kycTier];
+  const [devicesExpanded, setDevicesExpanded] = useState(false);
   const hidden = devices.length - DEVICES_SHOWN;
+  const shownDevices = devicesExpanded ? devices : devices.slice(0, DEVICES_SHOWN);
 
   return (
     <Modal open={open} onClose={onClose} variant="sheet" title="Profile" mobileFull>
@@ -116,52 +126,59 @@ export function ProfileModal({
           <Avatar name={name} size="lg" />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-ink">{name}</p>
-            <p className="truncate text-sm text-muted">
-              @{handle} · private to you
-            </p>
+            <p className="truncate text-sm text-muted">@{handle}</p>
           </div>
         </div>
 
         <div>
           <p className="mb-2 text-sm font-semibold text-ink">
-            Identity verification
+            Identity Verification
           </p>
           <div className="flex items-center gap-2">
             <span
-              className={`inline-flex min-h-10 flex-1 items-center gap-2 rounded-full px-4 text-sm font-medium ${
+              className={`inline-flex min-h-9 flex-1 items-center gap-2 rounded-full px-4 text-sm font-medium ${
                 kycTier > 0
-                  ? "bg-ink text-white"
-                  : "border border-border bg-surface-muted text-muted"
+                  ? `${KYC_TIER_BG[kycTier as Exclude<VerificationTier, 0>]} text-white`
+                  : "bg-ink-soft text-white"
               }`}
             >
               <KycIcon size={15} aria-hidden />
               {KYC_LABEL[kycTier]}
             </span>
-            <Button className="rounded-full" onClick={onValidateId}>
+            <Button size="sm" className="rounded-full!" onClick={onValidateId}>
               Validate ID
             </Button>
           </div>
           <p className="mt-1.5 text-xs text-muted">
-            Alt: KYC tier — at-cost, no PII on the public record
+            KYC tier — no PII on the public record
           </p>
         </div>
 
         <div>
           <p className="mb-2 text-sm font-semibold text-ink">
-            Devices &amp; passkeys ({devices.length})
+            Devices &amp; Passkeys ({devices.length})
           </p>
           <ul className="space-y-1.5">
-            {devices.slice(0, DEVICES_SHOWN).map((d) => (
+            {shownDevices.map((d) => (
               <li
                 key={d}
                 className="flex min-h-9 items-center gap-2 text-sm text-ink-soft"
               >
-                <KeyRound size={15} className="shrink-0" aria-hidden />
+                <Key size={15} className="shrink-0" aria-hidden />
                 {d}
               </li>
             ))}
             {hidden > 0 ? (
-              <li className="pl-6 text-sm text-muted">+{hidden} more</li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setDevicesExpanded((v) => !v)}
+                  aria-expanded={devicesExpanded}
+                  className="pl-6 text-sm text-muted underline underline-offset-2 hover:text-ink"
+                >
+                  {devicesExpanded ? "Show less" : `+${hidden} more`}
+                </button>
+              </li>
             ) : null}
           </ul>
           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -177,14 +194,10 @@ export function ProfileModal({
               Add by Email
             </Button>
           </div>
-          <p className="mt-1.5 text-xs text-muted">
-            Alt: Add Device = passkey on this device · by Email = OTP to a new
-            one
-          </p>
         </div>
 
         <div>
-          <p className="mb-2 text-sm font-semibold text-ink">Account settings</p>
+          <p className="mb-2 text-sm font-semibold text-ink">Account Settings</p>
           <div className="space-y-1.5">
             <SettingsRow
               icon={Pencil}

@@ -48,15 +48,18 @@ export function effectiveMyDistricts(
 /**
  * Affected, actually engaged. Requires post-detail context (`openPost`) — it
  * only ever applies to the ONE open post it was engaged on. NOT a feed/list-wide
- * filter. Same gating (and exclusive Verified pin) as effectiveMyDistricts.
+ * filter. Unlike My Districts it does NOT require a residency-verified viewer:
+ * it matches authors against the OPEN POST's affected districts, which are
+ * always known, so it is viewer-independent. An engaged EXCLUSIVE still pins the
+ * effective Verified floor to Residency (pinnedTierMin) because only Residency+
+ * AUTHORS have inferable districts.
  */
 export function effectiveAffected(
   filter: FeedFilterParams,
-  ctx: ViewerContext,
   openPost: DistrictBearing | null | undefined,
 ): GeoFilterMode {
   const mode = filter.geography?.affected ?? "off";
-  if (mode === "off" || ctx.kycTier < 2) return "off";
+  if (mode === "off") return "off";
   return openPost == null ? "off" : mode;
 }
 
@@ -140,7 +143,7 @@ export function resolveGeography(
   openPost?: DistrictBearing | null,
 ): ResolvedGeography {
   let myDistricts = effectiveMyDistricts(filter, ctx);
-  let affected = effectiveAffected(filter, ctx, openPost);
+  let affected = effectiveAffected(filter, openPost);
   let autoDisabled: ResolvedGeography["autoDisabled"] = null;
   let interlocked = false;
   let myDistrictsImplied = false;

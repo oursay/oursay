@@ -1,6 +1,7 @@
-import type { JurisdictionMembership } from "@/lib/types";
+import type { JurisdictionMembership, VerificationTier } from "@/lib/types";
 
 const COOKIE = "oursay-subs";
+const SESSION_COOKIE = "oursay-session";
 const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
 /** Logged-out default — Global only (works without an account, like the wireframe). */
@@ -31,4 +32,44 @@ export function writeSubscriptions(subs: JurisdictionMembership[]): void {
   if (typeof document === "undefined") return;
   const value = encodeURIComponent(JSON.stringify(subs));
   document.cookie = `${COOKIE}=${value}; path=/; max-age=${MAX_AGE}; samesite=lax`;
+}
+
+/** Remembered session — whether signed in, and the KYC tier reached. */
+export interface PersistedSession {
+  loggedIn: boolean;
+  kycTier: VerificationTier;
+}
+
+/** New accounts start signed out and unverified (no registry status). */
+export const DEFAULT_SESSION: PersistedSession = { loggedIn: false, kycTier: 0 };
+
+/** Read the persisted session, or the signed-out/unverified default. */
+export function readSession(): PersistedSession {
+  if (typeof document === "undefined") return DEFAULT_SESSION;
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${SESSION_COOKIE}=`));
+  if (!match) return DEFAULT_SESSION;
+  try {
+    const parsed = JSON.parse(
+      decodeURIComponent(match.slice(SESSION_COOKIE.length + 1)),
+    );
+    if (
+      parsed &&
+      typeof parsed.loggedIn === "boolean" &&
+      [0, 1, 2, 3].includes(parsed.kycTier)
+    ) {
+      return { loggedIn: parsed.loggedIn, kycTier: parsed.kycTier };
+    }
+  } catch {
+    // Malformed cookie — fall back to the default session.
+  }
+  return DEFAULT_SESSION;
+}
+
+/** Persist the session (login + KYC tier) to the cookie (client-only). */
+export function writeSession(session: PersistedSession): void {
+  if (typeof document === "undefined") return;
+  const value = encodeURIComponent(JSON.stringify(session));
+  document.cookie = `${SESSION_COOKIE}=${value}; path=/; max-age=${MAX_AGE}; samesite=lax`;
 }

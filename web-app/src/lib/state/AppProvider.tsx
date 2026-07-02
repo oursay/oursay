@@ -32,7 +32,9 @@ import type { AppState, SignRequest } from "./types";
 import { feedFilterFromState, viewerFromState } from "./filters";
 import {
   DEFAULT_SUBSCRIPTIONS,
+  readSession,
   readSubscriptions,
+  writeSession,
   writeSubscriptions,
 } from "./cookies";
 
@@ -231,18 +233,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(INITIAL);
   const pendingCommit = useRef<(() => void) | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Skip the mount-time session write so it can't clobber the cookie before
+  // the persisted values are hydrated in.
+  const sessionHydrated = useRef(false);
 
   const set = useCallback((patch: Partial<AppState>) => {
     setState((s) => ({ ...s, ...patch }));
   }, []);
 
-  // Load persisted subscriptions on mount; persist on every change.
+  // Load persisted subscriptions + session (login/KYC) on mount; persist on
+  // every change. viewerDistricts is derived from the restored KYC tier.
   useEffect(() => {
-    setState((s) => ({ ...s, subscriptions: readSubscriptions() }));
+    const session = readSession();
+    setState((s) => ({
+      ...s,
+      subscriptions: readSubscriptions(),
+      loggedIn: session.loggedIn,
+      kycTier: session.kycTier,
+      viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
+    }));
   }, []);
   useEffect(() => {
     writeSubscriptions(state.subscriptions);
   }, [state.subscriptions]);
+  useEffect(() => {
+    if (!sessionHydrated.current) {
+      sessionHydrated.current = true;
+      return;
+    }
+    writeSession({ loggedIn: state.loggedIn, kycTier: state.kycTier });
+  }, [state.loggedIn, state.kycTier]);
 
   useEffect(
     () => () => {
@@ -282,11 +302,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const demoLogin = useCallback(() => {
     setState((s) => {
       const hasAlberta = s.subscriptions.some((sub) => sub.name === "Alberta");
+      // Accounts start with no registry status (Unverified); the remembered
+      // KYC tier is kept if one was already reached this session.
       return {
         ...s,
         loggedIn: true,
-        kycTier: 2,
-        viewerDistricts: MY_DISTRICTS,
+        viewerDistricts: s.kycTier >= 2 ? MY_DISTRICTS : [],
         authOpen: false,
         registerOpen: false,
         otpOpen: false,
@@ -296,7 +317,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           : [...s.subscriptions, { name: "Alberta", included: true }],
       };
     });
-    notify("Signed in as a residency-verified demo account.");
+    notify("Signed in (demo). Validate your ID to build up verification.");
   }, [notify]);
 
   const logout = useCallback(() => {
@@ -331,8 +352,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cycleKyc = useCallback(() => {
+    // Cycle the full ladder incl. Official (tier 3) so the demo can exercise
+    // official-authored data: Unverified → Identity → Residency → Official.
     setState((s) => {
-      const next = ((s.kycTier + 1) % 3) as VerificationTier;
+      const next = ((s.kycTier + 1) % 4) as VerificationTier;
       return {
         ...s,
         kycTier: next,

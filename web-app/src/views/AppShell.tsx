@@ -174,6 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     geo.myDistrictsImplied ? "inclusive" : state.myDistricts
                   }
                   onCycleMyDistricts={app.cycleMyDistricts}
+                  singleJurisdiction={inferredComposeJurisdiction !== undefined}
                   signedFilter={state.signedFilter}
                   onCycleSignedFilter={app.cycleSignedFilter}
                   showAffected={showAffected}
