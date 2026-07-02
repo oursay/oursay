@@ -57,7 +57,7 @@ export function FeedView() {
             ...app.reactionCountsFor(item),
           }}
           viewer={app.viewer}
-          tierMin={app.state.verified}
+          tierMin={app.effectiveVerified}
           hideJur={hideJur}
           resolveDistrict={districtName}
           onAuthorClick={() => router.push(profilePath(item.handle))}

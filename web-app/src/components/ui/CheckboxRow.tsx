@@ -13,7 +13,11 @@ interface CheckboxRowProps {
   /** Tap the row/name — the wireframe's "isolate to only this" action. */
   onSelect?: () => void;
   icon?: ReactNode;
-  /** Trailing content: a value label (Verified ladder) or an action affordance. */
+  /**
+   * Trailing content: a value label (Verified ladder / geography mode). Lives
+   * inside the row button so the whole row triggers onSelect — must be
+   * non-interactive.
+   */
   trailing?: ReactNode;
   disabled?: boolean;
   /** When false, the label row hugs its content (jurisdiction dropdown). */
@@ -53,12 +57,16 @@ export function CheckboxRow({
         type="button"
         disabled={disabled || !onSelect}
         onClick={onSelect}
-        className={`flex min-w-0 items-center gap-2 text-left disabled:cursor-default ${fill || trailing ? "flex-1" : ""}`}
+        className={`flex min-w-0 items-center gap-2 self-stretch text-left disabled:cursor-default ${fill || trailing ? "flex-1" : ""}`}
       >
         {icon ? <span className="shrink-0 text-ink-soft">{icon}</span> : null}
         <span className="truncate text-sm text-ink">{label}</span>
+        {trailing ? (
+          <span className="ml-auto flex shrink-0 items-center pl-2">
+            {trailing}
+          </span>
+        ) : null}
       </button>
-      {trailing ? <div className="ml-auto shrink-0">{trailing}</div> : null}
     </div>
   );
 }

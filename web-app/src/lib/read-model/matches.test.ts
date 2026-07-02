@@ -4,8 +4,15 @@ import {
   ANON_VIEWER,
   type FeedFilterParams,
   type JurisdictionMembership,
+  type ViewerContext,
 } from "@/lib/types";
 import { matches } from "./matches";
+
+const RESIDENT: ViewerContext = {
+  loggedIn: true,
+  kycTier: 2,
+  viewerDistricts: ["edmonton-strathcona"],
+};
 
 const ALL_SUBS: JurisdictionMembership[] = [
   { name: "Global", included: true },
@@ -82,6 +89,72 @@ describe("matches — Signed filter ladder (inclusive-upward)", () => {
       tierMin: 2,
     });
     expect(both.every((p) => p.tier >= 2 && (p.signTier ?? 0) >= 1)).toBe(true);
+  });
+});
+
+describe("matches — My Districts modes (feed)", () => {
+  it("exclusive narrows: Global + my-district items only, refinements AND'd", () => {
+    const results = POSTS.filter((p) =>
+      matches(p, "feed", RESIDENT, {
+        jurisdictions: ALL_SUBS,
+        tierMin: 2,
+        geography: { myDistricts: "exclusive", affected: "off" },
+      }),
+    );
+    expect(results.length).toBeGreaterThan(0);
+    expect(
+      results.every(
+        (p) =>
+          p.jurisdiction === "Global" ||
+          p.districts.includes("edmonton-strathcona"),
+      ),
+    ).toBe(true);
+    // the Verified refinement still applies on top (tier-0 my-district post out)
+    expect(results.every((p) => p.tier >= 2)).toBe(true);
+    expect(results.some((p) => p.id === "stmt-jordan-bikelanes")).toBe(false);
+  });
+
+  it("inclusive broadens: my-district items are added past the refinements", () => {
+    const tightened = POSTS.filter((p) =>
+      matches(p, "feed", RESIDENT, { jurisdictions: ALL_SUBS, tierMin: 3 }),
+    );
+    expect(tightened.some((p) => p.id === "stmt-jordan-bikelanes")).toBe(false);
+
+    const broadened = POSTS.filter((p) =>
+      matches(p, "feed", RESIDENT, {
+        jurisdictions: ALL_SUBS,
+        tierMin: 3,
+        geography: { myDistricts: "inclusive", affected: "off" },
+      }),
+    );
+    // everything from the tightened set survives…
+    expect(tightened.every((p) => broadened.includes(p))).toBe(true);
+    // …plus my-district items that fail the Verified refinement (tier 0)
+    expect(broadened.some((p) => p.id === "stmt-jordan-bikelanes")).toBe(true);
+    expect(broadened.length).toBeGreaterThan(tightened.length);
+  });
+
+  it("exclusive pins the effective Verified floor to Residency (tierMin untouched)", () => {
+    const results = POSTS.filter((p) =>
+      matches(p, "feed", RESIDENT, {
+        jurisdictions: ALL_SUBS,
+        tierMin: 0, // remembered "Any" — the engaged exclusive pins it
+        geography: { myDistricts: "exclusive", affected: "off" },
+      }),
+    );
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((p) => p.tier >= 2)).toBe(true);
+  });
+
+  it("inclusive never engages for a viewer without residency", () => {
+    const results = POSTS.filter((p) =>
+      matches(p, "feed", ANON_VIEWER, {
+        jurisdictions: ALL_SUBS,
+        tierMin: 3,
+        geography: { myDistricts: "inclusive", affected: "off" },
+      }),
+    );
+    expect(results.every((p) => p.tier >= 3)).toBe(true);
   });
 });
 

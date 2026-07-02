@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRecordDetail } from "@/lib/api";
 import type { CommentNode, RecordDetail, RecordKind } from "@/lib/types";
-import { postQualifiesForAffected, relTime } from "@/lib/read-model";
+import { relTime } from "@/lib/read-model";
 import { GRADUATION_CHAIN, NOW, districtName } from "@/lib/mock";
 import {
   Button,
@@ -30,7 +30,7 @@ function countNodes(nodes: CommentNode[]): number {
 export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const app = useApp();
   const router = useRouter();
-  const { setPageJurisdiction, setPostAffectedEligible, viewer, feedFilter } = app;
+  const { setPageJurisdiction, setPostDistricts, viewer, feedFilter } = app;
 
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
@@ -50,18 +50,22 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
       setDetail(full.detail);
       setFullComments(full.comments);
       setShownComments(filtered?.comments ?? []);
-      setPostAffectedEligible(postQualifiesForAffected(full.detail));
+      setPostDistricts(full.detail.districts);
     });
     return () => {
       active = false;
     };
-  }, [id, viewer, feedFilter, setPostAffectedEligible]);
+  }, [id, viewer, feedFilter, setPostDistricts]);
 
   useEffect(() => {
     if (!detail) return;
     setPageJurisdiction(detail.jurisdiction);
     return () => setPageJurisdiction(null);
   }, [detail?.jurisdiction, setPageJurisdiction]);
+
+  // Clear the geography post context when leaving the post (the conflict
+  // auto-disable must not act on a stale post from list views).
+  useEffect(() => () => setPostDistricts(null), [setPostDistricts]);
 
   useEffect(() => {
     if (!detail) return;
@@ -88,7 +92,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     detail.kind === "petition" ? { ...detail, sig } : detail;
   const home = isHomeAuthor(detail.districts, app.viewer.kycTier, app.viewer.viewerDistricts);
   const isFinal = detail.jurisdiction === "Alberta";
-  const tierMin = app.state.verified;
+  const tierMin = app.effectiveVerified;
 
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);

@@ -2,7 +2,14 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import type { RecordKind, SignedFilterLevel, VerificationTier, ViewerContext } from "@/lib/types";
+import type {
+  GeoFilterMode,
+  RecordKind,
+  SignedFilterLevel,
+  VerificationTier,
+  ViewerContext,
+} from "@/lib/types";
+import { nextGeoFilterMode } from "@/lib/types";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import {
   COMMENTS_STATEMENT,
@@ -101,7 +108,8 @@ export default function ComponentGallery() {
     "result",
   ]);
   const [verified, setVerified] = useState<VerificationTier>(0);
-  const [myDistricts, setMyDistricts] = useState(false);
+  const [myDistricts, setMyDistricts] = useState<GeoFilterMode>("off");
+  const [affected, setAffected] = useState<GeoFilterMode>("off");
   const [signedFilter, setSignedFilter] = useState<SignedFilterLevel>(0);
 
   // Content interaction demo state.
@@ -341,12 +349,14 @@ export default function ComponentGallery() {
                   setVerified((v) => ((v + 1) % 4) as VerificationTier)
                 }
                 myDistricts={myDistricts}
-                onToggleMyDistricts={() => setMyDistricts((v) => !v)}
+                onCycleMyDistricts={() => setMyDistricts(nextGeoFilterMode)}
                 signedFilter={signedFilter}
                 onCycleSignedFilter={() =>
                   setSignedFilter((v) => nextSignedFilterLevel(v))
                 }
                 showAffected
+                affected={affected}
+                onCycleAffected={() => setAffected(nextGeoFilterMode)}
                 viewer={VIEWER}
               />
             ) : null}

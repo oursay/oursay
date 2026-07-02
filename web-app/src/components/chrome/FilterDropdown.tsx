@@ -23,6 +23,7 @@ import { CheckboxRow } from "@/components/ui";
 import { VERIFIED_LEVELS, SIGNED_FILTER_LEVELS } from "@/lib/types";
 import type {
   ActivityKind,
+  GeoFilterMode,
   RecordKind,
   SignedFilterLevel,
   VerificationTier,
@@ -56,6 +57,35 @@ function FilterLevelBadge({
   );
 }
 
+/** Cycle labels for the geography rows: Off shows nothing (EyeOff carries it). */
+const GEO_MODE_LABEL: Record<Exclude<GeoFilterMode, "off">, string> = {
+  inclusive: "Include",
+  exclusive: "Only",
+};
+
+/**
+ * Trailing slot for a geography row: gating notes win over the mode badge, and
+ * a conflict-auto-disabled row reads "Auto off" while keeping its remembered
+ * mode in state.
+ */
+function geoTrailing(mode: GeoFilterMode, canGeography: boolean, autoOff: boolean) {
+  if (!canGeography) {
+    return <span className="text-xs text-muted">Residency only</span>;
+  }
+  if (autoOff) {
+    return <span className="text-xs text-muted">Auto off</span>;
+  }
+  if (mode !== "off") {
+    return <FilterLevelBadge label={GEO_MODE_LABEL[mode]} icon={null} />;
+  }
+  return null;
+}
+
+/** Eye when the mode is actually in force; EyeOff when off or auto-disabled. */
+function geoEngaged(mode: GeoFilterMode, autoOff: boolean): boolean {
+  return mode !== "off" && !autoOff;
+}
+
 interface FilterDropdownProps {
   includedKinds: RecordKind[];
   onToggleKind: (kind: RecordKind) => void;
@@ -64,15 +94,21 @@ interface FilterDropdownProps {
   /** Verified ladder index into VERIFIED_LEVELS (Any -> Identity -> Residency -> Official). */
   verifiedLevel: VerificationTier;
   onCycleVerified: () => void;
-  myDistricts: boolean;
-  onToggleMyDistricts: () => void;
+  /** Geography cycle: Off -> Include (broaden) -> Only (narrow) -> Off. */
+  myDistricts: GeoFilterMode;
+  onCycleMyDistricts: () => void;
   /** Signed ladder: 0 Any · 1 Passkey · 2 Biometric (Biometric dev-only in cycle). */
   signedFilter?: SignedFilterLevel;
   onCycleSignedFilter?: () => void;
-  /** Affected geography row only shows on a qualifying open post. */
+  /**
+   * Affected geography row shows on any open post EXCEPT one relating only to
+   * the viewer's districts (there it's the same filter as My Districts).
+   */
   showAffected?: boolean;
-  affected?: boolean;
-  onToggleAffected?: () => void;
+  affected?: GeoFilterMode;
+  onCycleAffected?: () => void;
+  /** Exclusive-conflict loser (see read-model resolveGeography) — shown "Auto off". */
+  geoAutoDisabled?: "myDistricts" | "affected" | null;
   /** Feed/jurisdiction/district record-type section. */
   showRecordTypes?: boolean;
   /** Profile activity-type section (Statements … Reactions). */
@@ -95,12 +131,13 @@ export function FilterDropdown({
   verifiedLevel,
   onCycleVerified,
   myDistricts,
-  onToggleMyDistricts,
+  onCycleMyDistricts,
   signedFilter = 0,
   onCycleSignedFilter,
   showAffected = false,
-  affected = false,
-  onToggleAffected,
+  affected = "off",
+  onCycleAffected,
+  geoAutoDisabled = null,
   showRecordTypes = true,
   showActivityTypes = false,
   profileTypes = ALL_ACTIVITY_KINDS,
@@ -110,10 +147,9 @@ export function FilterDropdown({
   showSigned = true,
   viewer,
 }: FilterDropdownProps) {
-  // My Districts / Affected are only inferable for a residency-verified viewer
-  // once the Verified ladder is at Residency+ (§4.4).
+  // My Districts / Affected are only available to a residency-verified viewer;
+  // engaging an exclusive pins the (effective) Verified ladder to Residency+.
   const canGeography = viewer.kycTier >= 2;
-  const geographyInferable = verifiedLevel >= 2;
 
   return (
     <div className="w-[250px] rounded-xl border border-border-strong bg-surface p-2 shadow-lg">
@@ -227,42 +263,38 @@ export function FilterDropdown({
         label="My Districts"
         showCheckbox={false}
         icon={
-          myDistricts && geographyInferable ? (
+          geoEngaged(myDistricts, geoAutoDisabled === "myDistricts") ? (
             <Eye size={16} aria-hidden />
           ) : (
             <EyeOff size={16} aria-hidden />
           )
         }
         disabled={!canGeography}
-        onSelect={canGeography ? onToggleMyDistricts : undefined}
-        trailing={
-          !canGeography ? (
-            <span className="text-xs text-muted">Residency only</span>
-          ) : !geographyInferable ? (
-            <span className="text-xs text-muted">Residency+</span>
-          ) : null
-        }
+        onSelect={canGeography ? onCycleMyDistricts : undefined}
+        trailing={geoTrailing(
+          myDistricts,
+          canGeography,
+          geoAutoDisabled === "myDistricts",
+        )}
       />
       {showAffected ? (
         <CheckboxRow
           label="Affected"
           showCheckbox={false}
           icon={
-            affected && geographyInferable ? (
+            geoEngaged(affected, geoAutoDisabled === "affected") ? (
               <Eye size={16} aria-hidden />
             ) : (
               <EyeOff size={16} aria-hidden />
             )
           }
           disabled={!canGeography}
-          onSelect={canGeography ? onToggleAffected : undefined}
-          trailing={
-            !canGeography ? (
-              <span className="text-xs text-muted">Residency only</span>
-            ) : !geographyInferable ? (
-              <span className="text-xs text-muted">Residency+</span>
-            ) : null
-          }
+          onSelect={canGeography ? onCycleAffected : undefined}
+          trailing={geoTrailing(
+            affected,
+            canGeography,
+            geoAutoDisabled === "affected",
+          )}
         />
       ) : null}
     </div>

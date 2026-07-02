@@ -15,13 +15,33 @@ export interface JurisdictionMembership {
 }
 
 /**
- * The two geography filters, independent of the Verified ladder.
- * - myDistricts keeps all Global posts + limits jurisdiction content to my ridings.
+ * How a geography refinement composes with the other refine filters:
+ * - "inclusive" broadens — district matches are OR'd into the results, kept
+ *   even when they fail the Verified/Signed refinements.
+ * - "exclusive" narrows — only district matches, AND'd with the refinements.
+ */
+export type GeoFilterMode = "off" | "inclusive" | "exclusive";
+
+/** Row-tap cycle for a geography refinement: Off -> Include -> Only -> Off. */
+export function nextGeoFilterMode(mode: GeoFilterMode): GeoFilterMode {
+  return mode === "off" ? "inclusive" : mode === "inclusive" ? "exclusive" : "off";
+}
+
+/**
+ * The two geography filters.
+ * - myDistricts keeps all Global posts + broadens/narrows jurisdiction content
+ *   to my ridings depending on its mode.
  * - affected is a Post-page comment filter only (see read-model/geography).
  */
 export interface Geography {
-  myDistricts: boolean;
-  affected: boolean;
+  myDistricts: GeoFilterMode;
+  affected: GeoFilterMode;
+  /**
+   * Which filter last entered exclusive — the tie-break when both are
+   * exclusive on a post outside my districts (the loser is temporarily
+   * auto-disabled; see read-model resolveGeography).
+   */
+  priority?: "myDistricts" | "affected";
 }
 
 /**

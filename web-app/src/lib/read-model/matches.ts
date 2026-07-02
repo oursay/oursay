@@ -5,7 +5,7 @@ import type {
   ViewerContext,
 } from "@/lib/types";
 import { passesSignedFilter } from "@/lib/types/sign-tier";
-import { effectiveMyDistricts, inMyDistricts } from "./geography";
+import { inMyDistricts, pinnedTierMin, resolveGeography } from "./geography";
 
 /**
  * The one list matcher (wireframe matches(p, scope)), parameterized on the
@@ -13,13 +13,15 @@ import { effectiveMyDistricts, inMyDistricts } from "./geography";
  *
  *   record-type include  (all scopes)   -> kind must be in filter.types
  *   Verified ladder      (all scopes)   -> tier >= filter.tierMin (inclusive-upward)
- *   Signed ladder          (all scopes)   -> signTier >= signedFilter (inclusive-upward)
+ *   Signed ladder        (all scopes)   -> signTier >= signedFilter (inclusive-upward)
  *   feed                 -> a subscribed + included jurisdiction (+ My Districts)
  *   jurisdiction         -> item.jurisdiction === filter.jurisdiction (+ My Districts)
  *   district             -> item applies to filter.districtSlug (incl. multi-district)
  *
- * Signed is independent of the Verified ladder and geography. Affected is NOT
- * applied here — it is a Post-page comment filter only.
+ * My Districts composes by mode: inclusive ADDS district matches past the
+ * Verified/Signed refinements (broaden); exclusive ANDs on top of them
+ * (narrow). Signed is independent of the Verified ladder and geography.
+ * Affected is NOT applied here — it is a Post-page comment filter only.
  */
 export function matches(
   item: FeedItem,
@@ -30,20 +32,29 @@ export function matches(
   // record-type include (undefined types => all kinds included)
   if (filter.types && !filter.types.includes(item.kind)) return false;
 
-  // min author verification, inclusive-upward
-  const tierMin = filter.tierMin ?? 0;
-  if (item.tier < tierMin) return false;
-
+  // The tightening refinements: min author verification (pinned to Residency
+  // while a geography exclusive is engaged) + min signing tier, both
+  // inclusive-upward. Inclusive geography may keep an item past these.
+  const geo = resolveGeography(filter, ctx);
+  const tierMin = pinnedTierMin(filter.tierMin ?? 0, geo);
   const signMin = filter.signedFilter ?? 0;
-  if (signMin > 0 && !passesSignedFilter(item.signTier, signMin)) return false;
+  const passesRefine =
+    item.tier >= tierMin &&
+    (signMin === 0 || passesSignedFilter(item.signTier, signMin));
+
+  const myMode = geo.myDistricts;
 
   if (scope === "feed") {
     if (filter.jurisdictions) {
       const sub = filter.jurisdictions.find((s) => s.name === item.jurisdiction);
       if (!sub || !sub.included) return false;
     }
+    if (myMode === "inclusive" && inMyDistricts(item, ctx.viewerDistricts)) {
+      return true;
+    }
+    if (!passesRefine) return false;
     if (
-      effectiveMyDistricts(filter, ctx, tierMin) &&
+      myMode === "exclusive" &&
       item.jurisdiction !== "Global" &&
       !inMyDistricts(item, ctx.viewerDistricts)
     ) {
@@ -54,17 +65,21 @@ export function matches(
 
   if (scope === "jurisdiction") {
     if (item.jurisdiction !== filter.jurisdiction) return false;
-    if (
-      effectiveMyDistricts(filter, ctx, tierMin) &&
-      !inMyDistricts(item, ctx.viewerDistricts)
-    ) {
+    if (myMode === "inclusive" && inMyDistricts(item, ctx.viewerDistricts)) {
+      return true;
+    }
+    if (!passesRefine) return false;
+    if (myMode === "exclusive" && !inMyDistricts(item, ctx.viewerDistricts)) {
       return false;
     }
     return true;
   }
 
   if (scope === "district") {
-    return !!filter.districtSlug && item.districts.includes(filter.districtSlug);
+    if (!filter.districtSlug || !item.districts.includes(filter.districtSlug)) {
+      return false;
+    }
+    return passesRefine;
   }
 
   return false;

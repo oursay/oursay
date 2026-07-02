@@ -44,7 +44,8 @@ export function ProfileView({ handle }: { handle: string }) {
     return <p className="p-6 text-center text-sm text-muted">Profile not found.</p>;
   }
 
-  const { verified, profileTypes } = app.state;
+  const { profileTypes } = app.state;
+  const verified = app.effectiveVerified;
   const posts = profile.posts.filter(
     (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
   );

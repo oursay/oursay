@@ -1,5 +1,6 @@
 import type {
   ActivityKind,
+  GeoFilterMode,
   JurisdictionMembership,
   RecordKind,
   SignTier,
@@ -48,8 +49,10 @@ export interface AppState {
   // Feed / list filters.
   includedKinds: RecordKind[];
   verified: VerificationTier;
-  myDistricts: boolean;
-  affected: boolean;
+  myDistricts: GeoFilterMode;
+  affected: GeoFilterMode;
+  /** Which geography filter last entered exclusive (conflict tie-break). */
+  geoPriority: "myDistricts" | "affected";
   /** Signed Refine ladder: 0 Any · 1 Passkey · 2 Biometric (Biometric dev-only). */
   signedFilter: SignedFilterLevel;
 
@@ -95,7 +98,8 @@ export interface AppState {
 
   // View coordination (set by the active view for the shared chrome).
   pageJurisdiction: string | null;
-  postAffectedEligible: boolean;
+  /** The open detail post's district slugs (null off the Post view). */
+  postDistricts: string[] | null;
 
   // Transient "not built" toast.
   toast: string | null;

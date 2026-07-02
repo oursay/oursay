@@ -18,10 +18,16 @@ import type {
   ViewerContext,
 } from "@/lib/types";
 import { MY_DISTRICTS, MY_NAME } from "@/lib/mock";
-import { outsideMyDistricts } from "@/lib/read-model";
+import {
+  outsideMyDistricts,
+  pinnedTierMin,
+  resolveGeography,
+} from "@/lib/read-model";
+import type { ResolvedGeography } from "@/lib/read-model";
 import { RECORD_TYPE_LABEL } from "@/components/content";
 import type { SignKind } from "@/components";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
+import { nextGeoFilterMode } from "@/lib/types";
 import type { AppState, SignRequest } from "./types";
 import { feedFilterFromState, viewerFromState } from "./filters";
 import {
@@ -57,8 +63,9 @@ const INITIAL: AppState = {
 
   includedKinds: [...ALL_KINDS],
   verified: 0,
-  myDistricts: false,
-  affected: false,
+  myDistricts: "off",
+  affected: "off",
+  geoPriority: "myDistricts",
   signedFilter: 0,
 
   profileTypes: [...ALL_ACTIVITY],
@@ -91,7 +98,7 @@ const INITIAL: AppState = {
   replyOpen: false,
 
   pageJurisdiction: null,
-  postAffectedEligible: false,
+  postDistricts: null,
 
   toast: null,
 };
@@ -101,10 +108,33 @@ function isFinalJurisdiction(jurisdiction: string): boolean {
   return jurisdiction === "Alberta";
 }
 
+/** Geography resolution against the state's post context (see resolveGeography). */
+function resolveGeoFromState(s: AppState): ResolvedGeography {
+  return resolveGeography(
+    feedFilterFromState(s),
+    viewerFromState(s),
+    s.postDistricts ? { districts: s.postDistricts } : null,
+  );
+}
+
+/**
+ * The Verified level display + inference use: pinned to Residency while a
+ * geography exclusive is engaged, without touching the remembered selection.
+ */
+function effectiveVerifiedFor(s: AppState): VerificationTier {
+  return pinnedTierMin(s.verified, resolveGeoFromState(s));
+}
+
 export interface AppApi {
   state: AppState;
   viewer: ViewerContext;
   feedFilter: FeedFilterParams;
+  /**
+   * The Verified ladder level in force — state.verified, pinned to Residency
+   * while a geography exclusive is engaged. Use this for display and any
+   * tierMin-driven rendering; state.verified is only the remembered selection.
+   */
+  effectiveVerified: VerificationTier;
 
   // Session (demo — no real auth).
   demoLogin: () => void;
@@ -119,8 +149,8 @@ export interface AppApi {
   isolateKind: (kind: RecordKind) => void;
   allKinds: () => void;
   cycleVerified: () => void;
-  toggleMyDistricts: () => void;
-  toggleAffected: () => void;
+  cycleMyDistricts: () => void;
+  cycleAffected: () => void;
   cycleSignedFilter: () => void;
 
   // Profile Activity-type filter.
@@ -180,7 +210,7 @@ export interface AppApi {
 
   // Shared-chrome coordination (set by the active view).
   setPageJurisdiction: (name: string | null) => void;
-  setPostAffectedEligible: (value: boolean) => void;
+  setPostDistricts: (districts: string[] | null) => void;
 
   // "Not built" affordances (edit history, account settings, recovery, …).
   notify: (message: string) => void;
@@ -334,26 +364,43 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [set]);
 
   const cycleVerified = useCallback(() => {
+    // Cycle from the EFFECTIVE level: while a geography exclusive pins the
+    // ladder to Residency, the visible cycle is Residency <-> Official.
     setState((s) => ({
       ...s,
-      verified: ((s.verified + 1) % 4) as VerificationTier,
+      verified: ((effectiveVerifiedFor(s) + 1) % 4) as VerificationTier,
     }));
   }, []);
 
-  const toggleMyDistricts = useCallback(() => {
+  const cycleMyDistricts = useCallback(() => {
     setState((s) => {
-      const next = !s.myDistricts;
-      // Turning it on bumps Verified up to Residency (§4.4).
-      const verified = next && s.verified < 2 ? (2 as VerificationTier) : s.verified;
-      return { ...s, myDistricts: next, verified };
+      // Auto-disabled by the other exclusive: a click restores the remembered
+      // mode by retaking priority (which flips the auto-disable over).
+      if (resolveGeoFromState(s).autoDisabled === "myDistricts") {
+        return { ...s, geoPriority: "myDistricts" };
+      }
+      const next = nextGeoFilterMode(s.myDistricts);
+      // Entering exclusive takes conflict priority. The Residency Verified
+      // floor is derived (pinnedTierMin) — remembered Verified stays untouched.
+      return {
+        ...s,
+        myDistricts: next,
+        geoPriority: next === "exclusive" ? "myDistricts" : s.geoPriority,
+      };
     });
   }, []);
 
-  const toggleAffected = useCallback(() => {
+  const cycleAffected = useCallback(() => {
     setState((s) => {
-      const next = !s.affected;
-      const verified = next && s.verified < 2 ? (2 as VerificationTier) : s.verified;
-      return { ...s, affected: next, verified };
+      if (resolveGeoFromState(s).autoDisabled === "affected") {
+        return { ...s, geoPriority: "affected" };
+      }
+      const next = nextGeoFilterMode(s.affected);
+      return {
+        ...s,
+        affected: next,
+        geoPriority: next === "exclusive" ? "affected" : s.geoPriority,
+      };
     });
   }, []);
 
@@ -772,10 +819,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setPageJurisdiction = useCallback((name: string | null) => {
     setState((s) => (s.pageJurisdiction === name ? s : { ...s, pageJurisdiction: name }));
   }, []);
-  const setPostAffectedEligible = useCallback((value: boolean) => {
-    setState((s) =>
-      s.postAffectedEligible === value ? s : { ...s, postAffectedEligible: value },
-    );
+  const setPostDistricts = useCallback((districts: string[] | null) => {
+    setState((s) => {
+      const same =
+        s.postDistricts === districts ||
+        (s.postDistricts != null &&
+          districts != null &&
+          s.postDistricts.join("|") === districts.join("|"));
+      return same ? s : { ...s, postDistricts: districts };
+    });
   }, []);
 
   const viewer = useMemo(
@@ -790,6 +842,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       state.verified,
       state.myDistricts,
       state.affected,
+      state.geoPriority,
       state.signedFilter,
     ],
   );
@@ -798,6 +851,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state,
     viewer,
     feedFilter,
+    effectiveVerified: effectiveVerifiedFor(state),
     demoLogin,
     logout,
     cycleKyc,
@@ -808,8 +862,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     isolateKind,
     allKinds,
     cycleVerified,
-    toggleMyDistricts,
-    toggleAffected,
+    cycleMyDistricts,
+    cycleAffected,
     cycleSignedFilter,
     toggleProfileType,
     isolateProfileType,
@@ -853,7 +907,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     startReply,
     closeReply,
     setPageJurisdiction,
-    setPostAffectedEligible,
+    setPostDistricts,
     notify,
     dismissToast,
   };

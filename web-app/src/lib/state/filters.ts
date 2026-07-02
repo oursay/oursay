@@ -20,7 +20,11 @@ export function feedFilterFromState(state: AppState): FeedFilterParams {
     jurisdictions: state.subscriptions,
     types: state.includedKinds,
     tierMin: state.verified,
-    geography: { myDistricts: state.myDistricts, affected: state.affected },
+    geography: {
+      myDistricts: state.myDistricts,
+      affected: state.affected,
+      priority: state.geoPriority,
+    },
     signedFilter: clampSignedFilterLevel(state.signedFilter),
   };
 }

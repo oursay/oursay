@@ -24,6 +24,7 @@ import {
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
 import { MY_NAME } from "@/lib/mock";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
+import { resolveGeography } from "@/lib/read-model";
 import type { RecordKind } from "@/lib/types";
 import {
   jurisdictionPath,
@@ -78,11 +79,22 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const filterActive =
     state.verified > 0 ||
-    state.myDistricts ||
-    state.affected ||
+    state.myDistricts !== "off" ||
+    state.affected !== "off" ||
     state.signedFilter > 0 ||
     (hasCardList && state.includedKinds.length < 4) ||
     (isProfile && state.profileTypes.length < 5);
+
+  // Post-page geography context: the Affected row shows on any open post
+  // EXCEPT one that only relates to my own districts (interlocked — it would
+  // be the same filter as My Districts). The exclusive-conflict auto-disable
+  // is resolved against the same context.
+  const openPostBearing =
+    view === "post" && state.postDistricts
+      ? { districts: state.postDistricts }
+      : null;
+  const geo = resolveGeography(app.feedFilter, app.viewer, openPostBearing);
+  const showAffected = openPostBearing != null && !geo.interlocked;
 
   const composeJur = state.composeJur ?? "Global";
   const allowedComposeTypes = rootTypesForJurisdiction(composeJur);
@@ -141,15 +153,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onToggleKind={app.toggleKind}
                   onIsolateKind={app.isolateKind}
                   onAllKinds={app.allKinds}
-                  verifiedLevel={state.verified}
+                  verifiedLevel={app.effectiveVerified}
                   onCycleVerified={app.cycleVerified}
                   myDistricts={state.myDistricts}
-                  onToggleMyDistricts={app.toggleMyDistricts}
+                  onCycleMyDistricts={app.cycleMyDistricts}
                   signedFilter={state.signedFilter}
                   onCycleSignedFilter={app.cycleSignedFilter}
-                  showAffected={view === "post" && state.postAffectedEligible}
+                  showAffected={showAffected}
                   affected={state.affected}
-                  onToggleAffected={app.toggleAffected}
+                  onCycleAffected={app.cycleAffected}
+                  geoAutoDisabled={geo.autoDisabled}
                   showRecordTypes={hasCardList}
                   showActivityTypes={isProfile}
                   profileTypes={state.profileTypes}

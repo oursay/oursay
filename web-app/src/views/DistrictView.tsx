@@ -113,7 +113,7 @@ export function DistrictView({ slug }: { slug: string }) {
                   ...app.reactionCountsFor(item),
                 }}
                 viewer={app.viewer}
-                tierMin={app.state.verified}
+                tierMin={app.effectiveVerified}
                 hideJur
                 hideDistrict
                 resolveDistrict={districtName}

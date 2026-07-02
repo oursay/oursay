@@ -5,12 +5,13 @@ import type {
   ViewerContext,
 } from "@/lib/types";
 import { passesSignedFilter } from "@/lib/types/sign-tier";
-import { geographyKeep } from "./geography";
+import { geographyKeep, pinnedTierMin, resolveGeography } from "./geography";
 
 /**
  * Whether a comment node survives the Post-page filter stack (Verified ladder,
- * geography, and passkey-signed-only). Same subtree-pruning as filterComments —
- * no reply-promotion.
+ * geography, and passkey-signed-only). The refinements are computed here and
+ * handed to geographyKeep so inclusive geography modes can broaden past them.
+ * Same subtree-pruning as filterComments — no reply-promotion.
  */
 export function commentKeep(
   node: CommentNode,
@@ -18,15 +19,18 @@ export function commentKeep(
   viewer: ViewerContext,
   filter: FeedFilterParams,
 ): boolean {
-  const tierMin = filter.tierMin ?? 0;
-  if (node.tier < tierMin) return false;
+  const geo = resolveGeography(filter, viewer, openPost);
+  const tierMin = pinnedTierMin(filter.tierMin ?? 0, geo);
   const signMin = filter.signedFilter ?? 0;
-  if (signMin > 0 && !passesSignedFilter(node.signTier, signMin)) return false;
+  const passesRefine =
+    node.tier >= tierMin &&
+    (signMin === 0 || passesSignedFilter(node.signTier, signMin));
   return geographyKeep(
     node,
     openPost.districts,
     viewer,
     filter,
+    passesRefine,
     openPost,
   );
 }

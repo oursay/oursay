@@ -147,7 +147,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
                   ...app.reactionCountsFor(item),
                 }}
                 viewer={app.viewer}
-                tierMin={app.state.verified}
+                tierMin={app.effectiveVerified}
                 hideJur
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(profilePath(item.handle))}
