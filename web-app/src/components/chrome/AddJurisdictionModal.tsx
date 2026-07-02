@@ -43,7 +43,7 @@ export function AddJurisdictionModal({
   }, [query]);
 
   return (
-    <Modal open={open} onClose={onClose} size="wide" showDismissHint>
+    <Modal open={open} onClose={onClose} size="wide">
       <div className="space-y-0">
         <div className="relative w-full">
           <div className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-muted px-3">

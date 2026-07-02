@@ -27,7 +27,7 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
       variant="sheet"
       title="Create Account"
       subtitle="Verify email · add a passkey — no date of birth needed"
-      showDismissHint
+      mobileFull
     >
       <div className="space-y-3">
         <SectionLabel>Public profile</SectionLabel>

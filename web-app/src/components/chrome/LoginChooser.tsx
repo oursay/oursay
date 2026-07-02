@@ -23,7 +23,7 @@ export function LoginChooser({
   onRecover,
 }: LoginChooserProps) {
   return (
-    <Modal open={open} onClose={onClose} title="Log In" headerAlign="center" showDismissHint>
+    <Modal open={open} onClose={onClose} title="Log In" headerAlign="center">
       <div className="space-y-3">
         {otpWindow ? (
           <>

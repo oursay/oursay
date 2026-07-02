@@ -79,7 +79,7 @@ export function SignModal({
   const what = kind === "petition" ? "signatures" : "votes";
 
   return (
-    <Modal open={open} onClose={onClose} title={title(kind)} headerAlign="center" showDismissHint>
+    <Modal open={open} onClose={onClose} title={title(kind)} headerAlign="center">
       <div className="space-y-3">
         <div className="rounded-lg border border-border bg-surface-muted p-4 text-center text-sm leading-relaxed text-ink">
           {statementLines(kind, signerName, targetTitle, option, composeTypeLabel).map(

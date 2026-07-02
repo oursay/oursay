@@ -110,7 +110,7 @@ export function ProfileModal({
   const hidden = devices.length - DEVICES_SHOWN;
 
   return (
-    <Modal open={open} onClose={onClose} variant="sheet" title="Profile" showDismissHint>
+    <Modal open={open} onClose={onClose} variant="sheet" title="Profile" mobileFull>
       <div className="space-y-5">
         <div className="flex items-center gap-3 border-b border-border pb-4">
           <Avatar name={name} size="lg" />

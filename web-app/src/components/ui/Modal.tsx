@@ -7,7 +7,7 @@ import { X } from "lucide-react";
 import { swallowNextPointerClick } from "@/components/utils";
 
 type Variant = "center" | "sheet";
-type Size = "picker" | "dialog" | "wide";
+type Size = "picker" | "compact" | "dialog" | "wide";
 
 interface ModalProps {
   open: boolean;
@@ -26,14 +26,22 @@ interface ModalProps {
   subtitle?: ReactNode;
   /** Picker modals center their header like the wireframe. */
   headerAlign?: "left" | "center";
-  /** Footer hint — "Alt: Esc or tap outside to close". */
-  showDismissHint?: boolean;
+  /** Full-bleed on mobile: pinned left with a small right gap for the close button; reverts to centered on ≥sm. */
+  mobileFull?: boolean;
 }
 
 const SIZES: Record<Size, string> = {
   picker: "max-w-[20rem]",
+  compact: "max-w-[17.5rem]",
   dialog: "max-w-md",
   wide: "max-w-[21.25rem]",
+};
+
+const SIZES_SM: Record<Size, string> = {
+  picker: "sm:max-w-[20rem]",
+  compact: "sm:max-w-[17.5rem]",
+  dialog: "sm:max-w-md",
+  wide: "sm:max-w-[21.25rem]",
 };
 
 /**
@@ -50,7 +58,7 @@ export function Modal({
   size = "picker",
   subtitle,
   headerAlign = "left",
-  showDismissHint = false,
+  mobileFull = false,
   children,
 }: ModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -73,16 +81,27 @@ export function Modal({
   const isSheet = variant === "sheet";
 
   const panel = isSheet
-    ? "mx-auto mt-6 mb-6 w-[calc(100%-2rem)] max-w-md max-h-[calc(100dvh-3rem)]"
-    : `mx-auto my-auto w-[calc(100%-2rem)] ${SIZES[size]}`;
+    ? `mt-6 mb-6 max-h-[calc(100dvh-3rem)] ${
+        mobileFull
+          ? "w-full sm:mx-auto sm:w-[calc(100%-2rem)] sm:max-w-md"
+          : "mx-auto w-[calc(100%-2rem)] max-w-md"
+      }`
+    : `my-auto ${
+        mobileFull
+          ? `w-full sm:mx-auto sm:w-[calc(100%-2rem)] ${SIZES_SM[size]}`
+          : `mx-auto w-[calc(100%-2rem)] ${SIZES[size]}`
+      }`;
+
+  const vertical = isSheet ? "items-start pt-6 pb-4" : "items-center py-4";
+  const horizontal = mobileFull
+    ? "justify-start pl-0 pr-3.5 sm:justify-center sm:px-4"
+    : "justify-center px-4";
 
   const centered = headerAlign === "center";
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-50 flex overflow-y-auto bg-black/45 ${
-        isSheet ? "items-start px-4 pb-4 pt-6" : "items-center p-4"
-      } justify-center`}
+      className={`fixed inset-0 z-50 flex overflow-y-auto bg-black/45 ${vertical} ${horizontal}`}
       onPointerUp={(e) => {
         if (e.target === e.currentTarget) {
           e.preventDefault();
@@ -120,14 +139,7 @@ export function Modal({
         >
           <X size={14} aria-hidden />
         </button>
-        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          {children}
-          {showDismissHint ? (
-            <p className="mt-4 text-center text-xs text-muted">
-              Alt: Esc or tap outside to close
-            </p>
-          ) : null}
-        </div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</div>
       </div>
     </div>,
     document.body,

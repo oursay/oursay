@@ -27,7 +27,6 @@ export function OtpVerify({
       title="Verify Your Email"
       subtitle={`Enter the 6-digit code sent to ${email}`}
       headerAlign="center"
-      showDismissHint
     >
       <div className="space-y-4">
         <div className="flex justify-between gap-1.5">

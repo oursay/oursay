@@ -41,8 +41,8 @@ interface ComposeFlowProps {
 }
 
 const PICKER_TITLES: Record<"where" | "type", string> = {
-  where: "Where Do You Want to Post?",
-  type: "What Do You Want to Post?",
+  where: "Where do you want to post?",
+  type: "What do you want to post?",
 };
 
 /**
@@ -150,8 +150,8 @@ export function ComposeFlow({
         ) : undefined
       }
       headerAlign={picker ? "center" : "left"}
-      size={step === "compose" ? "dialog" : "picker"}
-      showDismissHint={step === "compose"}
+      size={step === "compose" ? "dialog" : "compact"}
+      mobileFull={step === "compose"}
     >
       {step === "where" ? (
         <div className="space-y-2">
@@ -292,11 +292,10 @@ export function ComposeFlow({
 
           {selectedType === "petition" ? (
             <ModalField
-              label="Support statement (signature button)"
-              defaultValue="Sign the Petition"
-              maxLength={60}
+              label="Sign Button Text"
+              placeholder="Sign the Petition"
+              maxLength={40}
               showCount
-              hint={'Defaults to "Sign the Petition" · editable, max 60'}
             />
           ) : null}
 
