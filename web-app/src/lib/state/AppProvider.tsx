@@ -374,12 +374,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const cycleMyDistricts = useCallback(() => {
     setState((s) => {
+      const geo = resolveGeoFromState(s);
       // Auto-disabled by the other exclusive: a click restores the remembered
       // mode by retaking priority (which flips the auto-disable over).
-      if (resolveGeoFromState(s).autoDisabled === "myDistricts") {
+      if (geo.autoDisabled === "myDistricts") {
         return { ...s, geoPriority: "myDistricts" };
       }
-      const next = nextGeoFilterMode(s.myDistricts);
+      // Cycle from the DISPLAYED mode: when the engaged Affected already
+      // implies Include, the next step is Only (not a dead click).
+      const shown = geo.myDistrictsImplied ? "inclusive" : s.myDistricts;
+      const next = nextGeoFilterMode(shown);
       // Entering exclusive takes conflict priority. The Residency Verified
       // floor is derived (pinnedTierMin) — remembered Verified stays untouched.
       return {

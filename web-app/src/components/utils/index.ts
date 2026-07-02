@@ -35,17 +35,24 @@ export function formatCount(n: number): string {
 /**
  * After an outside-dismiss pointer release, the browser may still synthesize a
  * `click` on whatever now sits under the cursor once the overlay unmounts.
- * Eat only that one stray click — not pointerup/mouseup, which would otherwise
- * survive until the user's next tap and steal it.
+ * Eat only that one stray click. The browser does NOT always synthesize it —
+ * desktop Chrome skips the click when the pressed element left the DOM — so
+ * the trap disarms as soon as a new gesture starts (pointerdown/keydown):
+ * a same-gesture stray click always precedes those, a real click follows them.
  */
 export function swallowNextPointerClick() {
-  document.addEventListener(
-    "click",
-    (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      ev.stopImmediatePropagation();
-    },
-    { capture: true, once: true },
-  );
+  const eat = (ev: MouseEvent) => {
+    disarm();
+    ev.preventDefault();
+    ev.stopPropagation();
+    ev.stopImmediatePropagation();
+  };
+  const disarm = () => {
+    document.removeEventListener("click", eat, true);
+    document.removeEventListener("pointerdown", disarm, true);
+    document.removeEventListener("keydown", disarm, true);
+  };
+  document.addEventListener("click", eat, true);
+  document.addEventListener("pointerdown", disarm, true);
+  document.addEventListener("keydown", disarm, true);
 }

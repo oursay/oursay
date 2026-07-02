@@ -205,6 +205,47 @@ describe("geographyKeep — both exclusive on a post including my riding", () =>
   });
 });
 
+describe("resolveGeography — implied My Districts (post affects mine among others)", () => {
+  const filter: FeedFilterParams = {
+    tierMin: 2,
+    geography: { myDistricts: "off", affected: "exclusive" },
+  };
+
+  it("displays Include on an off My Districts, without inferring it", () => {
+    const geo = resolveGeography(filter, RESIDENT, openMultiPost);
+    expect(geo.myDistrictsImplied).toBe(true);
+    expect(geo.myDistricts).toBe("off"); // Affected alone carries the inference
+    // my-district nodes face the same refinements as other affected districts
+    const postDs = openMultiPost.districts;
+    expect(
+      geographyKeep(mine, postDs, RESIDENT, filter, true, openMultiPost),
+    ).toBe(true);
+    expect(
+      geographyKeep(mine, postDs, RESIDENT, filter, false, openMultiPost),
+    ).toBe(false); // no inclusive refinement bypass
+  });
+
+  it("not implied when the post doesn't affect mine, Affected is off, or My Districts is set", () => {
+    expect(
+      resolveGeography(filter, RESIDENT, openOutsidePost).myDistrictsImplied,
+    ).toBe(false);
+    expect(
+      resolveGeography(
+        { tierMin: 2, geography: { myDistricts: "off", affected: "off" } },
+        RESIDENT,
+        openMultiPost,
+      ).myDistrictsImplied,
+    ).toBe(false);
+    expect(
+      resolveGeography(
+        { tierMin: 2, geography: { myDistricts: "inclusive", affected: "exclusive" } },
+        RESIDENT,
+        openMultiPost,
+      ).myDistrictsImplied,
+    ).toBe(false);
+  });
+});
+
 describe("resolveGeography — interlock (post only relates to my districts)", () => {
   it("Affected mirrors My Districts and My Districts alone carries inference", () => {
     const filter: FeedFilterParams = {

@@ -107,6 +107,14 @@ export interface ResolvedGeography {
    * carries the inference.
    */
   interlocked: boolean;
+  /**
+   * Display-only: the post affects my district among others and Affected is
+   * engaged, so my district is already covered — the My Districts row (state
+   * off) shows Include, but Affected alone carries the inference (my
+   * district's residents face the same refinements as the other affected
+   * districts).
+   */
+  myDistrictsImplied: boolean;
 }
 
 /**
@@ -118,9 +126,13 @@ export interface ResolvedGeography {
  *   sets don't intersect): the side that last entered exclusive
  *   (`geography.priority`) wins and the other is temporarily auto-disabled.
  *   Inclusive modes always survive — they only ever add.
- * - Overlap / jurisdiction-wide -> both apply as-is; exclusives narrow
+ * - Overlap (post affects mine among others) -> both apply; exclusives narrow
  *   independently (AND), so "Affected: Only" alongside "My Districts: Only"
  *   simply has no additional effect when My Districts is already narrower.
+ *   And since an engaged Affected covers my district too, an OFF My Districts
+ *   DISPLAYS Include (myDistrictsImplied) while Affected alone carries the
+ *   inference.
+ * - Jurisdiction-wide -> both apply as-is.
  */
 export function resolveGeography(
   filter: FeedFilterParams,
@@ -131,6 +143,7 @@ export function resolveGeography(
   let affected = effectiveAffected(filter, ctx, openPost);
   let autoDisabled: ResolvedGeography["autoDisabled"] = null;
   let interlocked = false;
+  let myDistrictsImplied = false;
 
   const ds = openPost ? postDistricts(openPost) : null;
   if (ds && ds.length > 0) {
@@ -149,10 +162,16 @@ export function resolveGeography(
         myDistricts = "off";
         autoDisabled = "myDistricts";
       }
+    } else if (
+      inMyDistricts(openPost as DistrictBearing, ctx.viewerDistricts) &&
+      affected !== "off" &&
+      myDistricts === "off"
+    ) {
+      myDistrictsImplied = true;
     }
   }
 
-  return { myDistricts, affected, autoDisabled, interlocked };
+  return { myDistricts, affected, autoDisabled, interlocked, myDistrictsImplied };
 }
 
 /**

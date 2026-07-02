@@ -155,7 +155,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   onAllKinds={app.allKinds}
                   verifiedLevel={app.effectiveVerified}
                   onCycleVerified={app.cycleVerified}
-                  myDistricts={state.myDistricts}
+                  myDistricts={
+                    geo.myDistrictsImplied ? "inclusive" : state.myDistricts
+                  }
                   onCycleMyDistricts={app.cycleMyDistricts}
                   signedFilter={state.signedFilter}
                   onCycleSignedFilter={app.cycleSignedFilter}
