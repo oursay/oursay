@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { Gavel, IdCard, MapPin, MapPinHouse } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { TIER_LABEL } from "@/lib/types";
@@ -39,14 +42,7 @@ export function VerificationPill({
   const Icon = tierIcon(tier, isHomeAuthor);
 
   if (mode === "icon") {
-    return (
-      <span
-        className={`inline-flex size-4 shrink-0 items-center justify-center rounded-full text-white ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""}`}
-        aria-label={TIER_LABEL[tier]}
-      >
-        <Icon size={10} aria-hidden />
-      </span>
-    );
+    return <ExpandableVerificationPill tier={tier} Icon={Icon} align={align} />;
   }
 
   return (
@@ -56,5 +52,41 @@ export function VerificationPill({
       <Icon size={10} aria-hidden />
       {TIER_LABEL[tier]}
     </span>
+  );
+}
+
+interface ExpandableVerificationPillProps {
+  tier: Exclude<VerificationTier, 0>;
+  Icon: LucideIcon;
+  align: "left" | "right";
+}
+
+/**
+ * Icon-only verification pill that reveals its full label on hover (pointer)
+ * or tap (touch). Full-form pills are static; only the icon variant expands.
+ */
+function ExpandableVerificationPill({ tier, Icon, align }: ExpandableVerificationPillProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <button
+      type="button"
+      aria-label={TIER_LABEL[tier]}
+      aria-expanded={expanded}
+      data-expanded={expanded || undefined}
+      onClick={(e) => {
+        // Keep the pill self-contained inside clickable cards.
+        e.stopPropagation();
+        setExpanded((v) => !v);
+      }}
+      onMouseLeave={() => setExpanded(false)}
+      onBlur={() => setExpanded(false)}
+      className={`group inline-flex h-4 min-w-4 shrink-0 items-center justify-center gap-0.5 rounded-full px-0 text-[10px] font-medium leading-tight text-white transition-[padding] ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""} hover:px-1.5 data-[expanded]:px-1.5`}
+    >
+      <Icon size={10} aria-hidden className="shrink-0" />
+      <span className="hidden whitespace-nowrap group-hover:inline group-data-[expanded]:inline">
+        {TIER_LABEL[tier]}
+      </span>
+    </button>
   );
 }
