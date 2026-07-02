@@ -1,7 +1,7 @@
 import {
   BarChart3,
   ClipboardList,
-  MessageSquare,
+  Feather,
   Vote,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -9,7 +9,7 @@ import type { RecordKind } from "@/lib/types";
 
 /** Record-kind glyph (statement/petition/poll/result), mirroring the wireframe icons. */
 export const RECORD_TYPE_ICON: Record<RecordKind, LucideIcon> = {
-  statement: MessageSquare,
+  statement: Feather,
   petition: ClipboardList,
   poll: BarChart3,
   result: Vote,

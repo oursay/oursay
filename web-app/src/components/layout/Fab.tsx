@@ -1,9 +1,10 @@
 "use client";
 
-import { Feather, Newspaper } from "lucide-react";
+import { Newspaper } from "lucide-react";
+import { SquareFeather } from "@/components/ui/SquareFeather";
 
 interface FabProps {
-  /** compose = Feed's new-post (quill); home = go to Feed (newspaper) elsewhere. */
+  /** compose = Feed's new-post (square + quill); home = go to Feed (newspaper) elsewhere. */
   variant: "compose" | "home";
   onClick?: () => void;
 }
@@ -11,7 +12,7 @@ interface FabProps {
 /** Primary floating action — brand-filled to match the account affordance. */
 export function Fab({ variant, onClick }: FabProps) {
   const isCompose = variant === "compose";
-  const Icon = isCompose ? Feather : Newspaper;
+  const Icon = isCompose ? SquareFeather : Newspaper;
   return (
     <button
       type="button"

@@ -8,3 +8,4 @@ export * from "./NoticeBox";
 export * from "./CheckboxIndicator";
 export * from "./CheckboxRow";
 export * from "./CollapsibleSection";
+export * from "./NotificationToast";

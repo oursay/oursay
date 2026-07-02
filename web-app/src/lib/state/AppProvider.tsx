@@ -184,6 +184,7 @@ export interface AppApi {
 
   // "Not built" affordances (edit history, account settings, recovery, …).
   notify: (message: string) => void;
+  dismissToast: () => void;
 }
 
 const AppContext = createContext<AppApi | null>(null);
@@ -212,13 +213,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const notify = useCallback((message: string) => {
+  const dismissToast = useCallback(() => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    setState((s) => ({ ...s, toast: message }));
-    toastTimer.current = setTimeout(() => {
-      setState((s) => ({ ...s, toast: null }));
-    }, 2600);
+    setState((s) => ({ ...s, toast: null }));
   }, []);
+
+  const notify = useCallback(
+    (message: string) => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      setState((s) => ({ ...s, toast: message }));
+      toastTimer.current = setTimeout(() => {
+        setState((s) => ({ ...s, toast: null }));
+      }, 2600);
+    },
+    [],
+  );
 
   const closeAllModals = useCallback(() => {
     set({
@@ -846,6 +855,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPageJurisdiction,
     setPostAffectedEligible,
     notify,
+    dismissToast,
   };
 
   return <AppContext.Provider value={api}>{children}</AppContext.Provider>;

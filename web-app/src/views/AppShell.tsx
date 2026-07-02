@@ -21,7 +21,7 @@ import {
   SafeFooter,
   SignModal,
 } from "@/components";
-import { DismissBackdrop } from "@/components/ui";
+import { DismissBackdrop, NotificationToast } from "@/components/ui";
 import { MY_NAME } from "@/lib/mock";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import type { RecordKind } from "@/lib/types";
@@ -272,10 +272,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       />
 
       {state.toast ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-50 flex justify-center px-4">
-          <div className="pointer-events-auto max-w-md rounded-full bg-ink px-4 py-2 text-center text-sm font-medium text-white shadow-lg">
-            {state.toast}
-          </div>
+        <div className="pointer-events-none fixed inset-x-0 top-14 z-50 flex justify-center px-3">
+          <NotificationToast message={state.toast} onDismiss={app.dismissToast} />
         </div>
       ) : null}
     </>

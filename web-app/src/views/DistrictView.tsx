@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Info, Map, MessagesSquare } from "lucide-react";
+import { Info, Map, Newspaper } from "lucide-react";
 import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
-import { Button, CollapsibleSection, FeedCard } from "@/components";
+import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
 import { districtName } from "@/lib/mock";
-import { postPath, profilePath } from "@/lib/routes";
+import { postPath, profilePath, jurisdictionPath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
 export function DistrictView({ slug }: { slug: string }) {
@@ -17,6 +17,7 @@ export function DistrictView({ slug }: { slug: string }) {
 
   const [detail, setDetail] = useState<DistrictDetail | null>(null);
   const [items, setItems] = useState<FeedItem[] | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(true);
 
@@ -48,25 +49,32 @@ export function DistrictView({ slug }: { slug: string }) {
 
   return (
     <div className="space-y-4 p-4">
-      <header className="rounded-xl border border-border bg-surface p-4">
-        <h2 className="text-lg font-bold text-ink">{detail.name}</h2>
-        <p className="mt-0.5 text-sm text-muted">
-          {detail.jur} ·{" "}
+      <PlaceHeader
+        title={detail.name}
+        subtitle={
           <button
             type="button"
-            // TODO(entityId): route to the riding representative's real profile.
-            onClick={() => router.push(profilePath(detail.leaderHandle))}
-            className="text-brand-700 underline underline-offset-2"
+            onClick={() => router.push(jurisdictionPath(detail.jur))}
+            className="underline underline-offset-2 hover:text-ink-soft"
           >
-            {detail.leader}
+            {detail.jur}
           </button>
-        </p>
-      </header>
+        }
+        leaderName={detail.leader}
+        onLeaderClick={() => router.push(profilePath(detail.leaderHandle))}
+      />
 
-      <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface-muted text-sm text-muted">
-        <Map size={18} className="mr-2" aria-hidden />
-        Riding boundary ({detail.boundaryYear} · {detail.source})
-      </div>
+      <CollapsibleSection
+        icon={Map}
+        label="Map"
+        open={mapOpen}
+        onToggle={() => setMapOpen((v) => !v)}
+      >
+        <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface-muted text-sm text-muted">
+          <Map size={18} className="mr-2" aria-hidden />
+          Riding boundary ({detail.boundaryYear} · {detail.source})
+        </div>
+      </CollapsibleSection>
 
       <CollapsibleSection
         icon={Info}
@@ -82,8 +90,8 @@ export function DistrictView({ slug }: { slug: string }) {
       </CollapsibleSection>
 
       <CollapsibleSection
-        icon={MessagesSquare}
-        label="Posts"
+        icon={Newspaper}
+        label="Feed"
         count={items ? String(items.length) : undefined}
         open={feedOpen}
         onToggle={() => setFeedOpen((v) => !v)}

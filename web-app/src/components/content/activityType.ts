@@ -3,7 +3,7 @@ import {
   CheckCircle,
   CircleCheckBig,
   ClipboardPenLine,
-  MessagesSquare,
+  MessageSquare,
   SquarePen,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -27,7 +27,7 @@ export const ALL_ACTIVITY_KINDS: ActivityKind[] = [
 /** Profile Activity-tab filter labels and icons (distinct from feed record kinds). */
 export const ACTIVITY_TYPE_META: Record<ActivityKind, { icon: LucideIcon; label: string }> = {
   statement: { icon: RECORD_TYPE_ICON.statement, label: "Statements" },
-  comment: { icon: MessagesSquare, label: "Comments" },
+  comment: { icon: MessageSquare, label: "Comments" },
   petition: { icon: ClipboardPenLine, label: "Petitions" },
   poll: { icon: ACTIVITY_POLL_ICON, label: "Votes" },
   reaction: { icon: CheckCircle, label: "Reactions" },
@@ -77,7 +77,7 @@ export function activityRowGlyph(item: ActivityItem): ActivityRowGlyph {
 
   switch (item.kind) {
     case "comment":
-      return { type: "icon", icon: MessagesSquare };
+      return { type: "icon", icon: MessageSquare };
     case "petition":
       return { type: "icon", icon: ClipboardPenLine };
     case "poll":

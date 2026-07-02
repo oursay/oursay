@@ -2,10 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Building2, Map, MessagesSquare, ScrollText } from "lucide-react";
+import { Building2, Map, Newspaper, ScrollText } from "lucide-react";
 import { getJurisdiction, listFeedItems } from "@/lib/api";
 import type { FeedItem, JurisdictionSummary } from "@/lib/types";
-import { Button, CollapsibleSection, FeedCard } from "@/components";
+import {
+  Button,
+  CollapsibleSection,
+  FeedCard,
+  PlaceHeader,
+  TitleLeaderRow,
+} from "@/components";
 import { districtName } from "@/lib/mock";
 import {
   districtPath,
@@ -23,8 +29,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
 
   const [summary, setSummary] = useState<JurisdictionSummary | null>(null);
   const [items, setItems] = useState<FeedItem[] | null>(null);
+  const [mapOpen, setMapOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
-  const [ridingsOpen, setRidingsOpen] = useState(true);
+  const [ridingsOpen, setRidingsOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(true);
 
   useEffect(() => {
@@ -57,23 +64,24 @@ export function JurisdictionView({ slug }: { slug: string }) {
 
   return (
     <div className="space-y-4 p-4">
-      <header className="rounded-xl border border-border bg-surface p-4">
-        <h2 className="text-lg font-bold text-ink">{summary.name}</h2>
-        <button
-          type="button"
-          // TODO(entityId): route to the jurisdiction leader's real profile.
-          onClick={() => router.push(profilePath(summary.leader.handle))}
-          className="mt-0.5 text-sm text-brand-700 underline underline-offset-2"
-        >
-          {summary.leader.name}
-        </button>
-      </header>
+      <PlaceHeader
+        title={summary.name}
+        leaderName={summary.leader.name}
+        onLeaderClick={() => router.push(profilePath(summary.leader.handle))}
+      />
 
       {hasRidings ? (
-        <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface-muted text-sm text-muted">
-          <Map size={18} className="mr-2" aria-hidden />
-          District map
-        </div>
+        <CollapsibleSection
+          icon={Map}
+          label="Map"
+          open={mapOpen}
+          onToggle={() => setMapOpen((v) => !v)}
+        >
+          <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-border-strong bg-surface-muted text-sm text-muted">
+            <Map size={18} className="mr-2" aria-hidden />
+            District map
+          </div>
+        </CollapsibleSection>
       ) : null}
 
       <CollapsibleSection
@@ -100,15 +108,15 @@ export function JurisdictionView({ slug }: { slug: string }) {
           <ul className="space-y-1.5">
             {summary.districts.map((d) => (
               <li key={d.name}>
-                <button
-                  type="button"
-                  // TODO(entityId): route to the riding by its real district id.
-                  onClick={() => router.push(districtPath(d.slug))}
-                  className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border px-3 text-left text-sm hover:bg-surface-muted"
-                >
-                  <span className="font-medium text-ink">{d.name}</span>
-                  <span className="text-xs text-muted">{d.leader}</span>
-                </button>
+                <div className="flex min-h-11 w-full items-center rounded-lg border border-border px-3 hover:bg-surface-muted">
+                  <TitleLeaderRow
+                    title={d.name}
+                    leaderName={d.leader}
+                    variant="row"
+                    onTitleClick={() => router.push(districtPath(d.slug))}
+                    onLeaderClick={() => router.push(profilePath(d.leaderHandle))}
+                  />
+                </div>
               </li>
             ))}
           </ul>
@@ -116,8 +124,8 @@ export function JurisdictionView({ slug }: { slug: string }) {
       ) : null}
 
       <CollapsibleSection
-        icon={MessagesSquare}
-        label="Posts"
+        icon={Newspaper}
+        label="Feed"
         count={items ? String(items.length) : undefined}
         open={feedOpen}
         onToggle={() => setFeedOpen((v) => !v)}
