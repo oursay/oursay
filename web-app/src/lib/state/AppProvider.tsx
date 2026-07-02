@@ -200,10 +200,11 @@ export interface AppApi {
   hasSignedPetition: (id: string) => boolean;
 
   // Compose flow.
-  startCompose: () => void;
+  startCompose: (inferredJurisdiction?: string) => void;
   selectComposeJurisdiction: (name: string) => void;
   selectComposeType: (kind: RecordKind) => void;
   changeComposeType: () => void;
+  changeComposeJurisdiction: () => void;
   submitCompose: () => void;
   closeCompose: () => void;
 
@@ -765,22 +766,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   // --- Compose flow --------------------------------------------------------
-  const startCompose = useCallback(() => {
-    requireAuth(() => {
-      setState((s) => {
-        const many = s.subscriptions.length > 1;
-        return {
-          ...s,
-          composeOpen: true,
-          composeStep: many ? "where" : "type",
-          composeJur: many ? undefined : s.subscriptions[0]?.name,
-          composeType: undefined,
-          filterOpen: false,
-          jurSelectorOpen: false,
-        };
+  // The FAB is available on every view now, so a single top-bar jurisdiction
+  // (a scoped feed, or an open jurisdiction/district/post) is inferred and the
+  // "where" step is skipped straight to type selection. Only infer a
+  // jurisdiction the viewer actually subscribes to (posting requires it).
+  const startCompose = useCallback(
+    (inferredJurisdiction?: string) => {
+      requireAuth(() => {
+        setState((s) => {
+          const canInfer =
+            inferredJurisdiction !== undefined &&
+            s.subscriptions.some((sub) => sub.name === inferredJurisdiction);
+          const many = s.subscriptions.length > 1;
+          return {
+            ...s,
+            composeOpen: true,
+            composeStep: canInfer || !many ? "type" : "where",
+            composeJur: canInfer
+              ? inferredJurisdiction
+              : many
+                ? undefined
+                : s.subscriptions[0]?.name,
+            composeType: undefined,
+            filterOpen: false,
+            jurSelectorOpen: false,
+          };
+        });
       });
-    });
-  }, [requireAuth]);
+    },
+    [requireAuth],
+  );
 
   const selectComposeJurisdiction = useCallback((name: string) => {
     setState((s) => ({
@@ -795,6 +810,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const changeComposeType = useCallback(
     () => set({ composeStep: "type", composeType: undefined }),
+    [set],
+  );
+  // Return to the jurisdiction picker to correct an inferred/specified scope.
+  const changeComposeJurisdiction = useCallback(
+    () => set({ composeStep: "where", composeJur: undefined, composeType: undefined }),
     [set],
   );
   const closeCompose = useCallback(
@@ -934,6 +954,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     selectComposeJurisdiction,
     selectComposeType,
     changeComposeType,
+    changeComposeJurisdiction,
     submitCompose,
     closeCompose,
     confirmSign,

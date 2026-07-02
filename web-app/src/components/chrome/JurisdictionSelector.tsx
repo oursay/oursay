@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, List, Plus } from "lucide-react";
+import { ExternalLink, Newspaper, Plus } from "lucide-react";
 import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import type { JurisdictionMembership } from "@/lib/types";
 import { CheckboxIndicator, CheckboxRow } from "@/components/ui";
@@ -47,7 +47,7 @@ export function JurisdictionSelector({
           <CheckboxRow
             label="All Jurisdictions"
             showCheckbox={false}
-            icon={<List size={16} aria-hidden />}
+            icon={<Newspaper size={16} aria-hidden />}
             onSelect={onAllJurisdictions}
           />
         </div>

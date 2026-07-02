@@ -23,7 +23,7 @@ interface ModalProps {
   size?: Size;
   children: ReactNode;
   /** Optional label rendered under the title (e.g. register subtitle). */
-  subtitle?: string;
+  subtitle?: ReactNode;
   /** Picker modals center their header like the wireframe. */
   headerAlign?: "left" | "center";
   /** Footer hint — "Alt: Esc or tap outside to close". */

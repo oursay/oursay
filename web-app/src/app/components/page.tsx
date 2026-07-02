@@ -148,12 +148,13 @@ export default function ComponentGallery() {
           <div className="relative h-40 overflow-hidden rounded-xl border border-border bg-paper">
             <AppHeader
               jurisdictionLabel="Global"
-              onJurisdictionClick={() => {}}
+              onJurisdictionLabelClick={() => {}}
+              onJurisdictionCaretClick={() => {}}
               onFilterClick={() => {}}
               accountSlot={<Avatar name="Alex Morgan" size="sm" />}
             />
             <p className="p-4 text-sm text-muted">Scrollable body region…</p>
-            <Fab variant="compose" onClick={() => {}} />
+            <Fab onClick={() => {}} />
           </div>
         </Section>
 

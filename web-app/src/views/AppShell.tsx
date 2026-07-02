@@ -99,6 +99,17 @@ export function AppShell({ children }: { children: ReactNode }) {
   const composeJur = state.composeJur ?? "Global";
   const allowedComposeTypes = rootTypesForJurisdiction(composeJur);
 
+  // The single jurisdiction the top bar currently displays, if any: an open
+  // jurisdiction/district/post carries its own scope; a feed shows one only
+  // when a single subscription is included. Used to skip the compose "where".
+  const inferredComposeJurisdiction =
+    (view === "jurisdiction" || view === "district" || view === "post") &&
+    state.pageJurisdiction
+      ? state.pageJurisdiction
+      : includedSubs.length === 1
+        ? includedSubs[0]
+        : undefined;
+
   const accountSlot = state.loggedIn ? (
     <button
       type="button"
@@ -140,7 +151,11 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="relative">
             <AppHeader
               jurisdictionLabel={jurisdictionLabel}
-              onJurisdictionClick={app.toggleJurSelector}
+              onJurisdictionLabelClick={() => {
+                if (state.jurSelectorOpen) app.toggleJurSelector();
+                if (view !== "feed") router.push("/feed");
+              }}
+              onJurisdictionCaretClick={app.toggleJurSelector}
               onFilterClick={app.toggleFilter}
               filterActive={filterActive}
               accountSlot={accountSlot}
@@ -206,12 +221,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         }
         footer={<SafeFooter />}
         fab={
-          <Fab
-            variant={view === "feed" ? "compose" : "home"}
-            onClick={
-              view === "feed" ? app.startCompose : () => router.push("/feed")
-            }
-          />
+          <Fab onClick={() => app.startCompose(inferredComposeJurisdiction)} />
         }
       >
         {children}
@@ -270,6 +280,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         selectedType={state.composeType}
         onSelectType={app.selectComposeType}
         onChangeType={app.changeComposeType}
+        onChangeJurisdiction={app.changeComposeJurisdiction}
         onPost={app.submitCompose}
       />
       <SignModal

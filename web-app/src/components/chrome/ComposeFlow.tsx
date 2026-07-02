@@ -34,6 +34,8 @@ interface ComposeFlowProps {
   selectedType?: RecordKind;
   onSelectType: (kind: RecordKind) => void;
   onChangeType?: () => void;
+  /** Return to the jurisdiction picker to correct an inferred/specified scope. */
+  onChangeJurisdiction?: () => void;
   /** Submits (Global) or opens the passkey confirmation (Alberta). */
   onPost?: () => void;
 }
@@ -63,6 +65,7 @@ export function ComposeFlow({
   selectedType,
   onSelectType,
   onChangeType,
+  onChangeJurisdiction,
   onPost,
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
@@ -125,11 +128,26 @@ export function ComposeFlow({
       header={composeHeader}
       ariaLabel={composeAriaLabel}
       subtitle={
-        step === "where"
-          ? "Pick a jurisdiction"
-          : step === "type"
-            ? `In ${selectedJurisdiction}`
-            : undefined
+        step === "where" ? (
+          "Pick a jurisdiction"
+        ) : step === "type" ? (
+          <span>
+            In {selectedJurisdiction}
+            {jurisdictions.length > 1 && onChangeJurisdiction ? (
+              <button
+                type="button"
+                onClick={onChangeJurisdiction}
+                className="ml-2 text-[10px] font-medium text-muted"
+              >
+                (
+                <span className="text-brand-600 underline underline-offset-2 hover:text-brand-700">
+                  Change
+                </span>
+                )
+              </button>
+            ) : null}
+          </span>
+        ) : undefined
       }
       headerAlign={picker ? "center" : "left"}
       size={step === "compose" ? "dialog" : "picker"}
