@@ -10,6 +10,7 @@ import {
   AppHeader,
   AuthChooser,
   Avatar,
+  ChooseSignModal,
   ComposeFlow,
   Fab,
   FilterDropdown,
@@ -271,6 +272,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         onAddDeviceByEmail={app.addDeviceByEmail}
         theme={state.theme}
         onToggleTheme={app.toggleTheme}
+        signing={state.signing}
+        onSetSigning={app.setSigning}
+        onSetPostSigning={app.setPostSigning}
         onOpenSetting={(label) => app.notify(`${label} is not built in this demo.`)}
       />
       <ComposeFlow
@@ -299,9 +303,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         targetTitle={state.sign?.targetTitle ?? ""}
         option={state.sign?.option}
         composeTypeLabel={state.sign?.composeTypeLabel}
+        isFinal={state.sign?.isFinal ?? false}
+        jurisdiction={state.sign?.jurisdiction}
         showResidencyNotice={state.sign?.showResidencyNotice ?? false}
         showAffectedNotice={state.sign?.showAffectedNotice ?? false}
         onConfirm={app.confirmSign}
+      />
+      <ChooseSignModal
+        open={state.choose !== null}
+        onClose={app.closeChoose}
+        title={state.choose?.title ?? ""}
+        lines={state.choose?.lines ?? []}
+        onQuickSign={app.confirmChoose}
+        onPasskeySign={app.confirmChoose}
       />
       <AddJurisdictionModal
         open={state.addJurOpen}

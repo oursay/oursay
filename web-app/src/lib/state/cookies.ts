@@ -1,14 +1,23 @@
 import type {
   AuthorVisibility,
   JurisdictionMembership,
+  SignAction,
+  SignMethod,
+  SigningPrefs,
   VerificationTier,
 } from "@/lib/types";
-import { VISIBILITY_VALUES } from "@/lib/types";
+import {
+  DEFAULT_SIGNING,
+  SIGN_ACTIONS,
+  SIGN_METHODS,
+  VISIBILITY_VALUES,
+} from "@/lib/types";
 
 const COOKIE = "oursay-subs";
 const SESSION_COOKIE = "oursay-session";
 /** Theme preference — persisted independently of auth so it survives logout. */
 export const THEME_COOKIE = "oursay-theme";
+const SIGNING_COOKIE = "oursay-signing";
 const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
 /** Logged-out default — Global only (works without an account, like the wireframe). */
@@ -108,4 +117,36 @@ export function readTheme(): Theme {
 export function writeTheme(theme: Theme): void {
   if (typeof document === "undefined") return;
   document.cookie = `${THEME_COOKIE}=${theme}; path=/; max-age=${MAX_AGE}; samesite=lax`;
+}
+
+/** Read persisted per-action signing methods, merged over the defaults. */
+export function readSigning(): SigningPrefs {
+  if (typeof document === "undefined") return DEFAULT_SIGNING;
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${SIGNING_COOKIE}=`));
+  if (!match) return DEFAULT_SIGNING;
+  try {
+    const parsed = JSON.parse(
+      decodeURIComponent(match.slice(SIGNING_COOKIE.length + 1)),
+    );
+    const next: SigningPrefs = { ...DEFAULT_SIGNING };
+    for (const action of SIGN_ACTIONS) {
+      const value = parsed?.[action];
+      if (SIGN_METHODS.includes(value as SignMethod)) {
+        next[action as SignAction] = value as SignMethod;
+      }
+    }
+    return next;
+  } catch {
+    // Malformed cookie — fall back to the defaults.
+  }
+  return DEFAULT_SIGNING;
+}
+
+/** Persist the signing preferences to the cookie (client-only). */
+export function writeSigning(signing: SigningPrefs): void {
+  if (typeof document === "undefined") return;
+  const value = encodeURIComponent(JSON.stringify(signing));
+  document.cookie = `${SIGNING_COOKIE}=${value}; path=/; max-age=${MAX_AGE}; samesite=lax`;
 }

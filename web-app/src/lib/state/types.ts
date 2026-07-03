@@ -4,6 +4,7 @@ import type {
   GeoFilterMode,
   JurisdictionMembership,
   RecordKind,
+  SigningPrefs,
   SignTier,
   SignedFilterLevel,
   VerificationTier,
@@ -17,6 +18,18 @@ import type { ComposeStep, SignKind } from "@/components";
 export interface ViewerReaction {
   dir: "up" | "down";
   signTier?: SignTier;
+}
+
+/**
+ * A pending "Ask" signing choice (Quick Sign vs Sign with Passkey). Raised when
+ * the effective method for an action is `ask` and the jurisdiction doesn't
+ * mandate passkey. The commit is held in a ref; this only carries the copy.
+ */
+export interface ChooseSignRequest {
+  /** Bold summary line, e.g. "Cast your vote". */
+  title: string;
+  /** Supporting lines naming the target/option. */
+  lines: string[];
 }
 
 /**
@@ -34,6 +47,10 @@ export interface SignRequest {
   showResidencyNotice: boolean;
   /** Residency-verified but outside the record's districts. */
   showAffectedNotice: boolean;
+  /** Ledger-final (jurisdiction-mandated passkey) vs a standing passkey pref. */
+  isFinal?: boolean;
+  /** Jurisdiction name for the modal copy. */
+  jurisdiction?: string;
 }
 
 /**
@@ -52,6 +69,8 @@ export interface AppState {
   devices: string[];
   /** Light/dark preference — drives the `dark` class on <html> (see global.css). */
   theme: "light" | "dark";
+  /** Per-action signing method (Ask/Quick/Passkey); jurisdiction may raise it. */
+  signing: SigningPrefs;
 
   // Feed / list filters.
   includedKinds: RecordKind[];
@@ -93,6 +112,8 @@ export interface AppState {
 
   // Alberta sign confirmation (null when closed).
   sign: SignRequest | null;
+  // Quick-vs-Passkey chooser for "Ask" actions (null when closed).
+  choose: ChooseSignRequest | null;
 
   // Stubbed civic write state (keyed by record id).
   reactions: Record<string, ViewerReaction | null>;

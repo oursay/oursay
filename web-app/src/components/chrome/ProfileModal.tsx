@@ -13,6 +13,7 @@ import {
   MapPin,
   Moon,
   Pencil,
+  PenTool,
   Plus,
   ShieldCheck,
   Sun,
@@ -20,8 +21,19 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { Avatar, Button, Modal } from "@/components/ui";
 import { VisibilityPicker } from "@/components/identity";
-import type { AuthorVisibility, VerificationTier } from "@/lib/types";
-import { VISIBILITY_LABEL } from "@/lib/types";
+import type {
+  AuthorVisibility,
+  SignAction,
+  SignMethod,
+  SigningPrefs,
+  VerificationTier,
+} from "@/lib/types";
+import {
+  POST_SUB_ACTIONS,
+  SIGN_METHOD_LABEL,
+  SIGN_METHODS,
+  VISIBILITY_LABEL,
+} from "@/lib/types";
 
 interface ProfileModalProps {
   open: boolean;
@@ -38,6 +50,10 @@ interface ProfileModalProps {
   onValidateId?: () => void;
   theme?: "light" | "dark";
   onToggleTheme?: () => void;
+  /** Per-action signing methods; when omitted the Signing Options row is hidden. */
+  signing?: SigningPrefs;
+  onSetSigning?: (action: SignAction, method: SignMethod) => void;
+  onSetPostSigning?: (method: SignMethod) => void;
   onLogout?: () => void;
   /** Registered device / passkey labels. */
   devices?: string[];
@@ -101,6 +117,116 @@ function SettingsRow({
   );
 }
 
+/** Ask · Quick · Passkey segmented control for one signing action. */
+function SigningMethodRow({
+  label,
+  value,
+  onChange,
+  sub = false,
+}: {
+  label: string;
+  /** null = "mixed" (the Post parent when sub-actions differ) — no active tab. */
+  value: SignMethod | null;
+  onChange: (method: SignMethod) => void;
+  sub?: boolean;
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${sub ? "pl-3" : ""}`}>
+      <span
+        className={`truncate text-sm ${sub ? "text-ink-soft" : "font-medium text-ink"}`}
+      >
+        {label}
+      </span>
+      <div className="ml-auto inline-flex shrink-0 rounded-full border border-border bg-surface p-0.5">
+        {SIGN_METHODS.map((method) => {
+          const active = value === method;
+          return (
+            <button
+              key={method}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(method)}
+              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                active
+                  ? "bg-brand-600 text-white"
+                  : "text-ink-soft hover:text-ink"
+              }`}
+            >
+              {SIGN_METHOD_LABEL[method]}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Per-action signing preferences; Post is a multi-switch for its sub-actions. */
+function SigningOptionsPanel({
+  signing,
+  onSetSigning,
+  onSetPostSigning,
+}: {
+  signing: SigningPrefs;
+  onSetSigning: (action: SignAction, method: SignMethod) => void;
+  onSetPostSigning: (method: SignMethod) => void;
+}) {
+  const postMethods = POST_SUB_ACTIONS.map((a) => signing[a]);
+  const postCommon = postMethods.every((m) => m === postMethods[0])
+    ? postMethods[0]
+    : null;
+
+  return (
+    <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-2">
+      <p className="px-1 text-xs text-muted">
+        How each action is signed. A jurisdiction may require a stronger method —
+        e.g. Alberta always requires a passkey.
+      </p>
+      <SigningMethodRow label="Post" value={postCommon} onChange={onSetPostSigning} />
+      <div className="space-y-1.5 border-l border-border pl-1.5">
+        <SigningMethodRow
+          label="Statement"
+          value={signing["post.statement"]}
+          onChange={(m) => onSetSigning("post.statement", m)}
+          sub
+        />
+        <SigningMethodRow
+          label="Petition"
+          value={signing["post.petition"]}
+          onChange={(m) => onSetSigning("post.petition", m)}
+          sub
+        />
+        <SigningMethodRow
+          label="Poll"
+          value={signing["post.poll"]}
+          onChange={(m) => onSetSigning("post.poll", m)}
+          sub
+        />
+      </div>
+      <SigningMethodRow
+        label="Signature"
+        value={signing.signature}
+        onChange={(m) => onSetSigning("signature", m)}
+      />
+      <SigningMethodRow
+        label="Vote"
+        value={signing.vote}
+        onChange={(m) => onSetSigning("vote", m)}
+      />
+      <SigningMethodRow
+        label="Comment"
+        value={signing.comment}
+        onChange={(m) => onSetSigning("comment", m)}
+      />
+      <SigningMethodRow
+        label="Reaction"
+        value={signing.reaction}
+        onChange={(m) => onSetSigning("reaction", m)}
+      />
+    </div>
+  );
+}
+
 /**
  * Logged-in account modal (private; ≠ the public Profile view). Wireframe
  * sections: identity verification (KYC badge + Validate ID), devices &
@@ -118,6 +244,9 @@ export function ProfileModal({
   onValidateId,
   theme = "light",
   onToggleTheme,
+  signing,
+  onSetSigning,
+  onSetPostSigning,
   onLogout,
   devices = ["This device (passkey)"],
   onAddDevice,
@@ -127,6 +256,7 @@ export function ProfileModal({
   const KycIcon = KYC_ICON[kycTier];
   const [devicesExpanded, setDevicesExpanded] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [signingOpen, setSigningOpen] = useState(false);
   const hidden = devices.length - DEVICES_SHOWN;
   const shownDevices = devicesExpanded ? devices : devices.slice(0, DEVICES_SHOWN);
 
@@ -247,6 +377,22 @@ export function ProfileModal({
                   onChange={(v) => onChangeVisibility?.(v)}
                 />
               </div>
+            ) : null}
+            {signing && onSetSigning && onSetPostSigning ? (
+              <>
+                <SettingsRow
+                  icon={PenTool}
+                  label="Signing Options"
+                  onClick={() => setSigningOpen((v) => !v)}
+                />
+                {signingOpen ? (
+                  <SigningOptionsPanel
+                    signing={signing}
+                    onSetSigning={onSetSigning}
+                    onSetPostSigning={onSetPostSigning}
+                  />
+                ) : null}
+              </>
             ) : null}
             <SettingsRow
               icon={Globe}

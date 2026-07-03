@@ -311,13 +311,15 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 className="rounded-full!"
                 onClick={() => {
                   const vis = replyVisibility ?? app.state.accountVisibility;
-                  setReplyVisibility(undefined);
-                  app.closeReply();
-                  app.notify(
-                    vis === "public"
-                      ? "Reply posted (demo)."
-                      : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
-                  );
+                  app.postComment(detail.jurisdiction, detail.title, () => {
+                    setReplyVisibility(undefined);
+                    app.closeReply();
+                    app.notify(
+                      vis === "public"
+                        ? "Reply posted (demo)."
+                        : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
+                    );
+                  });
                 }}
               >
                 Reply
@@ -354,21 +356,21 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                     autoFocus
                     onCancel={() => toggleCommentReply(nodePath)}
                     onSubmit={(_text, vis) => {
-                      toggleCommentReply(nodePath);
-                      app.notify(
-                        vis === "public"
-                          ? "Reply posted (demo)."
-                          : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
-                      );
+                      app.postComment(detail.jurisdiction, detail.title, () => {
+                        toggleCommentReply(nodePath);
+                        app.notify(
+                          vis === "public"
+                            ? "Reply posted (demo)."
+                            : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
+                        );
+                      });
                     }}
                   />
                 </div>
               ) : null
             }
             onAuthorClick={(node) => router.push(authorPath(node.identity, node.handle))}
-            onReact={() =>
-              app.requireAuth(() => app.notify("Reaction recorded (demo)."))
-            }
+            onReact={() => app.reactComment(detail.jurisdiction, detail.title)}
             onEditsClick={() =>
               app.notify("Edit history is not built in this demo.")
             }

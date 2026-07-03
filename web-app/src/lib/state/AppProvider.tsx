@@ -15,8 +15,17 @@ import type {
   AuthorVisibility,
   FeedFilterParams,
   RecordKind,
+  SignAction,
+  SignMethod,
   VerificationTier,
   ViewerContext,
+} from "@/lib/types";
+import {
+  DEFAULT_SIGNING,
+  POST_SUB_ACTIONS,
+  effectiveSignMethod,
+  jurisdictionSignRequirement,
+  postActionForKind,
 } from "@/lib/types";
 import { MY_DISTRICTS, MY_HANDLE, MY_NAME } from "@/lib/mock";
 import {
@@ -31,14 +40,16 @@ import { RECORD_TYPE_LABEL } from "@/components/content";
 import type { SignKind } from "@/components";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import { nextGeoFilterMode } from "@/lib/types";
-import type { AppState, SignRequest } from "./types";
+import type { AppState, ChooseSignRequest, SignRequest } from "./types";
 import { feedFilterFromState, viewerFromState } from "./filters";
 import {
   DEFAULT_SUBSCRIPTIONS,
   readSession,
+  readSigning,
   readSubscriptions,
   readTheme,
   writeSession,
+  writeSigning,
   writeSubscriptions,
   writeTheme,
 } from "./cookies";
@@ -70,6 +81,7 @@ const INITIAL: AppState = {
   accountVisibility: "anonymous",
   devices: ["iPhone 15 — this device", "MacBook Pro", "Pixel 8"],
   theme: "light",
+  signing: DEFAULT_SIGNING,
 
   includedKinds: [...ALL_KINDS],
   verified: 0,
@@ -100,6 +112,7 @@ const INITIAL: AppState = {
   composeVisibility: undefined,
 
   sign: null,
+  choose: null,
 
   reactions: {},
   reactionCounts: {},
@@ -113,11 +126,6 @@ const INITIAL: AppState = {
 
   toast: null,
 };
-
-/** Alberta gates civic writes behind the WYSIWYS passkey modal; Global acts now. */
-function isFinalJurisdiction(jurisdiction: string): boolean {
-  return jurisdiction === "Alberta";
-}
 
 /** Geography resolution against the state's post context (see resolveGeography). */
 function resolveGeoFromState(s: AppState): ResolvedGeography {
@@ -197,6 +205,10 @@ export interface AppApi {
   addDevice: () => void;
   addDeviceByEmail: () => void;
   toggleTheme: () => void;
+  /** Set the signing method for one action. */
+  setSigning: (action: SignAction, method: SignMethod) => void;
+  /** Set the signing method for all three "Post" sub-actions at once. */
+  setPostSigning: (method: SignMethod) => void;
   /** Account-default profile visibility (docs/09 cascade base; persisted). */
   setAccountVisibility: (v: AuthorVisibility) => void;
 
@@ -209,6 +221,10 @@ export interface AppApi {
   signPetition: (target: CivicTarget) => void;
   petitionSigFor: (target: CivicTarget) => number;
   hasSignedPetition: (id: string) => boolean;
+  /** Gate a comment/reply post behind the account's comment signing method. */
+  postComment: (jurisdiction: string, targetTitle: string, done: () => void) => void;
+  /** Gate a comment reaction behind the account's reaction signing method. */
+  reactComment: (jurisdiction: string, targetTitle: string) => void;
 
   // Compose flow.
   startCompose: (inferredJurisdiction?: string) => void;
@@ -224,6 +240,10 @@ export interface AppApi {
   // Alberta sign confirmation.
   confirmSign: () => void;
   closeSign: () => void;
+
+  // "Ask" Quick-vs-Passkey chooser.
+  confirmChoose: () => void;
+  closeChoose: () => void;
 
   // Post reply composer.
   startReply: () => void;
@@ -264,6 +284,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
       accountVisibility: session.accountVisibility,
       theme: readTheme(),
+      signing: readSigning(),
     }));
   }, []);
 
@@ -275,6 +296,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     document.documentElement.classList.toggle("dark", state.theme === "dark");
     writeTheme(state.theme);
   }, [state.theme]);
+
+  // Persist signing methods (skip the mount value; the effect above hydrates it).
+  const signingHydrated = useRef(false);
+  useEffect(() => {
+    if (!signingHydrated.current) {
+      signingHydrated.current = true;
+      return;
+    }
+    writeSigning(state.signing);
+  }, [state.signing]);
   useEffect(() => {
     writeSubscriptions(state.subscriptions);
   }, [state.subscriptions]);
@@ -375,6 +406,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const toggleTheme = useCallback(() => {
     setState((s) => ({ ...s, theme: s.theme === "light" ? "dark" : "light" }));
+  }, []);
+
+  const setSigning = useCallback((action: SignAction, method: SignMethod) => {
+    setState((s) => ({
+      ...s,
+      signing: { ...s.signing, [action]: method },
+    }));
+  }, []);
+
+  // The "Post" parent switch drives all three compose sub-actions at once.
+  const setPostSigning = useCallback((method: SignMethod) => {
+    setState((s) => {
+      const signing = { ...s.signing };
+      for (const action of POST_SUB_ACTIONS) signing[action] = method;
+      return { ...s, signing };
+    });
   }, []);
 
   const setAccountVisibility = useCallback((v: AuthorVisibility) => {
@@ -664,46 +711,117 @@ export function AppProvider({ children }: { children: ReactNode }) {
     set({ sign: null });
   }, [set]);
 
+  const openChoose = useCallback(
+    (req: ChooseSignRequest, commit: () => void) => {
+      pendingCommit.current = commit;
+      set({ choose: req });
+    },
+    [set],
+  );
+
+  // Both chooser buttons (Quick Sign / Sign with Passkey) complete the action;
+  // the cryptographic tier differs, but the demo write is the same.
+  const confirmChoose = useCallback(() => {
+    const commit = pendingCommit.current;
+    pendingCommit.current = null;
+    set({ choose: null });
+    commit?.();
+  }, [set]);
+
+  const closeChoose = useCallback(() => {
+    pendingCommit.current = null;
+    set({ choose: null });
+  }, [set]);
+
+  /**
+   * Gate a civic action behind its effective signing method:
+   *   ask     → Quick-vs-Passkey chooser (only when passkey isn't mandated)
+   *   passkey → Alberta WYSIWYS modal when the jurisdiction mandates it, else
+   *             a standing preference that completes immediately
+   *   quick   → completes immediately
+   * `passkeyReq` is the WYSIWYS payload for the mandated case (null for actions
+   * a jurisdiction never makes ledger-final, e.g. comments/reactions).
+   */
+  const runSigned = useCallback(
+    (
+      action: SignAction,
+      jurisdiction: string,
+      choose: ChooseSignRequest,
+      passkeyReq: SignRequest | null,
+      commit: () => void,
+    ) => {
+      const jurReq = jurisdictionSignRequirement(jurisdiction, action);
+      const method = effectiveSignMethod(state.signing[action], jurReq);
+      if (method === "ask") {
+        openChoose(choose, commit);
+        return;
+      }
+      if (method === "passkey" && passkeyReq) {
+        // "Final" is derived: the jurisdiction is what demanded passkey (Alberta
+        // ledger act), so it carries the FINAL/residency/affected notices. A
+        // standing passkey preference shows the same confirmation without them.
+        const isFinal = jurReq === "passkey";
+        openSign({ ...passkeyReq, isFinal, jurisdiction }, commit);
+        return;
+      }
+      commit();
+    },
+    [state.signing, openChoose, openSign],
+  );
+
   // --- Civic interactions --------------------------------------------------
   const react = useCallback(
     (target: CivicTarget, dir: "up" | "down") => {
       requireAuth(() => {
-        setState((s) => {
-          const prev = s.reactions[target.id]?.dir ?? null;
-          const base = s.reactionCounts[target.id] ?? {
-            up: target.up ?? 0,
-            down: target.down ?? 0,
-          };
-          let { up, down } = base;
-          let nextReaction: "up" | "down" | null;
+        const commit = () =>
+          setState((s) => {
+            const prev = s.reactions[target.id]?.dir ?? null;
+            const base = s.reactionCounts[target.id] ?? {
+              up: target.up ?? 0,
+              down: target.down ?? 0,
+            };
+            let { up, down } = base;
+            let nextReaction: "up" | "down" | null;
 
-          if (prev === dir) {
-            if (dir === "up") up--;
-            else down--;
-            nextReaction = null;
-          } else {
-            if (prev === "up") up--;
-            else if (prev === "down") down--;
-            if (dir === "up") up++;
-            else down++;
-            nextReaction = dir;
-          }
+            if (prev === dir) {
+              if (dir === "up") up--;
+              else down--;
+              nextReaction = null;
+            } else {
+              if (prev === "up") up--;
+              else if (prev === "down") down--;
+              if (dir === "up") up++;
+              else down++;
+              nextReaction = dir;
+            }
 
-          return {
-            ...s,
-            reactions: {
-              ...s.reactions,
-              [target.id]: nextReaction ? { dir: nextReaction } : null,
-            },
-            reactionCounts: {
-              ...s.reactionCounts,
-              [target.id]: { up, down },
-            },
-          };
-        });
+            return {
+              ...s,
+              reactions: {
+                ...s.reactions,
+                [target.id]: nextReaction ? { dir: nextReaction } : null,
+              },
+              reactionCounts: {
+                ...s.reactionCounts,
+                [target.id]: { up, down },
+              },
+            };
+          });
+        runSigned(
+          "reaction",
+          target.jurisdiction,
+          { title: "Post your reaction", lines: [`on “${target.title}”`] },
+          {
+            kind: "reaction",
+            targetTitle: target.title,
+            showResidencyNotice: false,
+            showAffectedNotice: false,
+          },
+          commit,
+        );
       });
     },
-    [requireAuth],
+    [requireAuth, runSigned],
   );
 
   const reactionFor = useCallback(
@@ -737,28 +855,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (target: CivicTarget, option: string) => {
       requireAuth(() => {
         const current = state.votes[target.id] ?? null;
-        if (isFinalJurisdiction(target.jurisdiction)) {
-          if (current) return;
-          openSign(
-            {
-              kind: "poll",
-              targetTitle: target.title,
-              option,
-              showResidencyNotice: state.kycTier < 2,
-              showAffectedNotice:
-                state.kycTier >= 2 &&
-                outsideMyDistricts(target, state.viewerDistricts),
-            },
-            () => setVote(target, option),
-          );
-        } else {
-          setVote(target, current === option ? null : option);
+        // Alberta mandates passkey for votes → ledger-final: no changing once cast.
+        const isFinal =
+          jurisdictionSignRequirement(target.jurisdiction, "vote") === "passkey";
+        if (isFinal && current) return;
+        const next = current === option ? null : option;
+        // Clearing a vote isn't a signed civic act — just drop it.
+        if (next === null) {
+          setVote(target, null);
+          return;
         }
+        runSigned(
+          "vote",
+          target.jurisdiction,
+          {
+            title: "Cast your vote",
+            lines: [`“${option}” on`, `“${target.title}”`],
+          },
+          {
+            kind: "poll",
+            targetTitle: target.title,
+            option,
+            showResidencyNotice: state.kycTier < 2,
+            showAffectedNotice:
+              state.kycTier >= 2 &&
+              outsideMyDistricts(target, state.viewerDistricts),
+          },
+          () => setVote(target, option),
+        );
       });
     },
     [
       requireAuth,
-      openSign,
+      runSigned,
       setVote,
       state.votes,
       state.kycTier,
@@ -798,24 +927,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const signPetition = useCallback(
     (target: CivicTarget) => {
       requireAuth(() => {
-        if (isFinalJurisdiction(target.jurisdiction)) {
-          openSign(
-            {
-              kind: "petition",
-              targetTitle: target.title,
-              showResidencyNotice: state.kycTier < 2,
-              showAffectedNotice:
-                state.kycTier >= 2 &&
-                outsideMyDistricts(target, state.viewerDistricts),
-            },
-            () => commitSign(target),
-          );
-        } else {
-          commitSign(target);
-        }
+        runSigned(
+          "signature",
+          target.jurisdiction,
+          { title: "Sign the petition", lines: [`“${target.title}”`] },
+          {
+            kind: "petition",
+            targetTitle: target.title,
+            showResidencyNotice: state.kycTier < 2,
+            showAffectedNotice:
+              state.kycTier >= 2 &&
+              outsideMyDistricts(target, state.viewerDistricts),
+          },
+          () => commitSign(target),
+        );
       });
     },
-    [requireAuth, openSign, commitSign, state.kycTier, state.viewerDistricts],
+    [requireAuth, runSigned, commitSign, state.kycTier, state.viewerDistricts],
   );
 
   // --- Compose flow --------------------------------------------------------
@@ -888,6 +1016,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const submitCompose = useCallback(() => {
     const jur = state.composeJur ?? "Global";
+    const kind = state.composeType ?? "statement";
     const label = state.composeType
       ? RECORD_TYPE_LABEL[state.composeType]
       : "post";
@@ -909,27 +1038,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
             )}.`,
       );
     };
-    if (isFinalJurisdiction(jur)) {
-      openSign(
-        {
-          kind: "compose" as SignKind,
-          targetTitle: label,
-          composeTypeLabel: label,
-          showResidencyNotice: state.kycTier < 2,
-          showAffectedNotice: false,
-        },
-        finish,
-      );
-    } else {
-      finish();
-    }
+    runSigned(
+      postActionForKind(kind),
+      jur,
+      { title: `Publish your ${label}`, lines: [`in ${jur}`] },
+      {
+        kind: "compose" as SignKind,
+        targetTitle: label,
+        composeTypeLabel: label,
+        showResidencyNotice: state.kycTier < 2,
+        showAffectedNotice: false,
+      },
+      finish,
+    );
   }, [
     state.composeJur,
     state.composeType,
     state.kycTier,
     state.accountVisibility,
     state.composeVisibility,
-    openSign,
+    runSigned,
     closeCompose,
     notify,
   ]);
@@ -939,6 +1067,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     requireAuth(() => set({ replyOpen: true }));
   }, [requireAuth, set]);
   const closeReply = useCallback(() => set({ replyOpen: false }), [set]);
+
+  // Comments/reactions are never ledger-final, so a jurisdiction never forces
+  // passkey here — the account default decides. `done` runs the actual write
+  // (composer close + toast) after the signing method resolves.
+  const postComment = useCallback(
+    (jurisdiction: string, targetTitle: string, done: () => void) => {
+      requireAuth(() => {
+        runSigned(
+          "comment",
+          jurisdiction,
+          { title: "Post your comment", lines: [`on “${targetTitle}”`] },
+          {
+            kind: "comment",
+            targetTitle,
+            showResidencyNotice: false,
+            showAffectedNotice: false,
+          },
+          done,
+        );
+      });
+    },
+    [requireAuth, runSigned],
+  );
+
+  const reactComment = useCallback(
+    (jurisdiction: string, targetTitle: string) => {
+      requireAuth(() => {
+        runSigned(
+          "reaction",
+          jurisdiction,
+          { title: "Post your reaction", lines: [`on “${targetTitle}”`] },
+          {
+            kind: "reaction",
+            targetTitle,
+            showResidencyNotice: false,
+            showAffectedNotice: false,
+          },
+          () => notify("Reaction recorded (demo)."),
+        );
+      });
+    },
+    [requireAuth, runSigned, notify],
+  );
 
   // --- View coordination ---------------------------------------------------
   const setPageJurisdiction = useCallback((name: string | null) => {
@@ -1016,6 +1187,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addDevice,
     addDeviceByEmail,
     toggleTheme,
+    setSigning,
+    setPostSigning,
     setAccountVisibility,
     react,
     reactionFor,
@@ -1025,6 +1198,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     signPetition,
     petitionSigFor,
     hasSignedPetition,
+    postComment,
+    reactComment,
     startCompose,
     selectComposeJurisdiction,
     selectComposeType,
@@ -1035,6 +1210,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     closeCompose,
     confirmSign,
     closeSign,
+    confirmChoose,
+    closeChoose,
     startReply,
     closeReply,
     setPageJurisdiction,
