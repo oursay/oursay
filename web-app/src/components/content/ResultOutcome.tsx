@@ -32,7 +32,7 @@ export function ResultOutcome({ options, outcome }: ResultOutcomeProps) {
           aria-hidden
         />
       ) : null}
-      <div className="relative flex h-full items-center gap-2 px-2 text-xs font-medium text-ink">
+      <div className="relative flex h-full items-center gap-2 px-2 text-xs font-medium text-brand-900">
         <CircleCheckBig size={16} className="shrink-0" aria-hidden />
         <span>{info.text}</span>
       </div>
@@ -44,7 +44,7 @@ export function ResultOutcome({ options, outcome }: ResultOutcomeProps) {
         >
           <div
             className={`flex h-full items-center gap-2 px-2 text-xs font-medium ${
-              supportWins ? "text-white" : "text-ink"
+              supportWins ? "text-white" : "text-brand-900"
             }`}
             style={{ width: innerWidth }}
           >

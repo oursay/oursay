@@ -58,6 +58,47 @@
   --color-danger-700: #b91c1c;
 }
 
+/*
+  Dark theme. All UI colour is driven through the semantic tokens above
+  (paper/surface/ink/border/…), and every Tailwind utility resolves them via
+  var(--color-*) — so redefining the tokens here is enough to repaint the whole
+  app. We shift the neutral scale to a warm-slate dark and lift the brand/verify
+  accents a step so they read on dark surfaces. The activated class lives on
+  <html> (set from state.theme; seeded server-side from the oursay-theme cookie).
+*/
+html.dark {
+  color-scheme: dark;
+
+  --color-paper: #0f1115; /* app background */
+  --color-surface: #181b22; /* card / panel */
+  --color-surface-muted: #21252e;
+  --color-border: #2b303a;
+  --color-border-strong: #3c434f;
+
+  --color-ink: #f1f5f9; /* slate-100 — primary text */
+  --color-ink-soft: #cbd5e1; /* slate-300 — secondary text */
+  --color-muted: #8b94a3; /* meta, placeholders */
+
+  /* Lift brand/verify one step so mid-tones sit correctly on dark. */
+  --color-brand-600: #8b5cf6;
+  --color-brand-700: #7c3aed;
+  --color-verify-500: #34d399;
+  --color-verify-600: #10b981;
+  --color-verify-700: #059669;
+
+  /* Tier-3 "Official" is black in light mode; invert to a near-white chip. */
+  --color-verify-tier-3: #e5e7eb;
+
+  /* Notice / danger sit on dark now: deepen the fills, brighten the text. */
+  --color-notice-50: #2a2109;
+  --color-notice-200: #b4830c;
+  --color-notice-700: #fcd34d;
+  --color-danger-50: #2a1414;
+  --color-danger-200: #b03a3a;
+  --color-danger-600: #f87171;
+  --color-danger-700: #fca5a5;
+}
+
 html,
 body {
   height: 100%;
@@ -72,6 +113,8 @@ body {
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* Repaint the neutral chrome smoothly when the theme toggles. */
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 ::selection {

@@ -20,7 +20,18 @@ function tierIcon(tier: VerificationTier, home: boolean): LucideIcon {
 const TIER_BG: Record<Exclude<VerificationTier, 0>, string> = {
   1: "bg-verify-tier-1", // Identity — green
   2: "bg-verify-tier-2", // Residency — blue
-  3: "bg-verify-tier-3", // Official — black
+  3: "bg-verify-tier-3", // Official — black (light) / near-white (dark)
+};
+
+/**
+ * Foreground per tier. Identity/Residency keep white text on their saturated
+ * fills in both themes; Official's fill inverts (black↔near-white), so it uses
+ * `paper` — the exact inverse of `ink` — to stay legible on either.
+ */
+const TIER_FG: Record<Exclude<VerificationTier, 0>, string> = {
+  1: "text-white",
+  2: "text-white",
+  3: "text-paper",
 };
 
 interface VerificationPillProps {
@@ -47,7 +58,7 @@ export function VerificationPill({
 
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight text-white ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""}`}
+      className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight ${TIER_FG[tier]} ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""}`}
     >
       <Icon size={10} aria-hidden />
       {TIER_LABEL[tier]}
@@ -81,7 +92,7 @@ function ExpandableVerificationPill({ tier, Icon, align }: ExpandableVerificatio
       }}
       onMouseLeave={() => setExpanded(false)}
       onBlur={() => setExpanded(false)}
-      className={`group inline-flex h-4 min-w-4 shrink-0 items-center justify-center gap-0.5 rounded-full px-0 text-[10px] font-medium leading-tight text-white transition-[padding] ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""} hover:px-1.5 data-[expanded]:px-1.5`}
+      className={`group inline-flex h-4 min-w-4 shrink-0 items-center justify-center gap-0.5 rounded-full px-0 text-[10px] font-medium leading-tight transition-[padding] ${TIER_FG[tier]} ${TIER_BG[tier]} ${align === "right" ? "ml-auto" : ""} hover:px-1.5 data-[expanded]:px-1.5`}
     >
       <Icon size={10} aria-hidden className="shrink-0" />
       <span className="hidden whitespace-nowrap group-hover:inline group-data-[expanded]:inline">

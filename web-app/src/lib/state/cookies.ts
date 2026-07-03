@@ -7,6 +7,8 @@ import { VISIBILITY_VALUES } from "@/lib/types";
 
 const COOKIE = "oursay-subs";
 const SESSION_COOKIE = "oursay-session";
+/** Theme preference — persisted independently of auth so it survives logout. */
+export const THEME_COOKIE = "oursay-theme";
 const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
 /** Logged-out default — Global only (works without an account, like the wireframe). */
@@ -89,4 +91,21 @@ export function writeSession(session: PersistedSession): void {
   if (typeof document === "undefined") return;
   const value = encodeURIComponent(JSON.stringify(session));
   document.cookie = `${SESSION_COOKIE}=${value}; path=/; max-age=${MAX_AGE}; samesite=lax`;
+}
+
+export type Theme = "light" | "dark";
+
+/** Read the persisted theme, defaulting to light (client-only). */
+export function readTheme(): Theme {
+  if (typeof document === "undefined") return "light";
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${THEME_COOKIE}=`));
+  return match?.slice(THEME_COOKIE.length + 1) === "dark" ? "dark" : "light";
+}
+
+/** Persist the theme preference to the cookie (client-only). */
+export function writeTheme(theme: Theme): void {
+  if (typeof document === "undefined") return;
+  document.cookie = `${THEME_COOKIE}=${theme}; path=/; max-age=${MAX_AGE}; samesite=lax`;
 }

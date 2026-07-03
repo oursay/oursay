@@ -19,9 +19,12 @@ function PollBarText({
   const display = voted ? `✓ ${label}` : label;
   const innerWidth = `${10000 / pct}%`;
 
+  // The track is light violet in both themes, so the base label layer is always
+  // dark (ink flips to near-white in dark mode). The clipped overlay switches to
+  // white only over a selected bar's dark brand-700 fill — the "split" text.
   return (
     <div className="relative h-5 w-full">
-      <div className="flex h-5 w-full items-center justify-between gap-2 px-2 text-xs leading-none text-ink">
+      <div className="flex h-5 w-full items-center justify-between gap-2 px-2 text-xs leading-none text-brand-900">
         <span className="truncate">{display}</span>
         <span className="shrink-0 tabular-nums">{count}</span>
       </div>
@@ -32,7 +35,7 @@ function PollBarText({
       >
         <div
           className={`flex h-5 items-center justify-between gap-2 px-2 text-xs leading-none ${
-            voted ? "font-semibold text-white" : "text-ink"
+            voted ? "font-semibold text-white" : "text-brand-900"
           }`}
           style={{ width: innerWidth }}
         >

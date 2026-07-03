@@ -157,8 +157,10 @@ export function ProfileModal({
             <span
               className={`inline-flex min-h-9 flex-1 items-center gap-2 rounded-full px-4 text-sm font-medium ${
                 kycTier > 0
-                  ? `${KYC_TIER_BG[kycTier as Exclude<VerificationTier, 0>]} text-white`
-                  : "bg-ink-soft text-white"
+                  ? `${KYC_TIER_BG[kycTier as Exclude<VerificationTier, 0>]} ${
+                      kycTier === 3 ? "text-paper" : "text-white"
+                    }`
+                  : "bg-ink-soft text-paper"
               }`}
             >
               <KycIcon size={15} aria-hidden />

@@ -37,8 +37,10 @@ import {
   DEFAULT_SUBSCRIPTIONS,
   readSession,
   readSubscriptions,
+  readTheme,
   writeSession,
   writeSubscriptions,
+  writeTheme,
 } from "./cookies";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
@@ -261,8 +263,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       kycTier: session.kycTier,
       viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
       accountVisibility: session.accountVisibility,
+      theme: readTheme(),
     }));
   }, []);
+
+  // Drive the dark stylesheet: the `dark` class on <html> flips every semantic
+  // token (see global.css). Root layout seeds the class server-side from the
+  // cookie to avoid a flash, so this only re-syncs on toggle. Persist the
+  // choice independently of auth so it survives logout.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", state.theme === "dark");
+    writeTheme(state.theme);
+  }, [state.theme]);
   useEffect(() => {
     writeSubscriptions(state.subscriptions);
   }, [state.subscriptions]);

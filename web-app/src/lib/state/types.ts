@@ -50,7 +50,7 @@ export interface AppState {
   accountVisibility: AuthorVisibility;
   /** Registered passkey/device labels (wireframe deviceCount). */
   devices: string[];
-  /** UI preference only — no dark stylesheet yet (wireframe state.theme). */
+  /** Light/dark preference — drives the `dark` class on <html> (see global.css). */
   theme: "light" | "dark";
 
   // Feed / list filters.

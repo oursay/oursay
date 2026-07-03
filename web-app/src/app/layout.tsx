@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
+import { cookies } from "next/headers";
+import { THEME_COOKIE } from "@/lib/state/cookies";
 import "@/styles/global.css";
 
 const inter = Inter({
@@ -23,11 +25,19 @@ export const viewport: Viewport = {
   interactiveWidget: "overlays-content",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // Seed the theme class server-side from the cookie so the first paint already
+  // matches the saved preference (no light→dark flash). AppProvider re-syncs it.
+  const dark = (await cookies()).get(THEME_COOKIE)?.value === "dark";
+
   return (
-    <html lang="en" className={inter.variable}>
+    <html
+      lang="en"
+      className={`${inter.variable}${dark ? " dark" : ""}`}
+      suppressHydrationWarning
+    >
       <body>{children}</body>
     </html>
   );
