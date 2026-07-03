@@ -1,3 +1,4 @@
+import type { AuthorIdentity } from "./identity";
 import type { SignTier } from "./sign-tier";
 import type { VerificationTier } from "./verification";
 
@@ -71,6 +72,8 @@ export interface FeedItem {
   signTier?: SignTier;
   /** Petition's pre-attached poll, if any. */
   attachedPoll?: AttachedPoll;
+  /** Viewer-resolved author identity; present on API-served copies only. */
+  identity?: AuthorIdentity;
 }
 
 /**
@@ -113,4 +116,6 @@ export interface RecordDetail {
   sourcePoll?: boolean;
   /** Poll: a result has been published -> "Result" collapsible. */
   resultPublished?: boolean;
+  /** Viewer-resolved author identity; present on API-served copies only. */
+  identity?: AuthorIdentity;
 }

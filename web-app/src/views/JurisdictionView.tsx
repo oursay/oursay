@@ -14,6 +14,7 @@ import {
 } from "@/components";
 import { districtName } from "@/lib/mock";
 import {
+  authorPath,
   districtPath,
   jurisdictionNameFromSlug,
   postPath,
@@ -67,6 +68,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
       <PlaceHeader
         title={summary.name}
         leaderName={summary.leader.name}
+        leaderHandle={summary.leader.handle}
         onLeaderClick={() => router.push(profilePath(summary.leader.handle))}
       />
 
@@ -112,6 +114,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
                   <TitleLeaderRow
                     title={d.name}
                     leaderName={d.leader}
+                    leaderHandle={d.leaderHandle}
                     variant="row"
                     onTitleClick={() => router.push(districtPath(d.slug))}
                     onLeaderClick={() => router.push(profilePath(d.leaderHandle))}
@@ -150,7 +153,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 tierMin={app.effectiveVerified}
                 hideJur
                 resolveDistrict={districtName}
-                onAuthorClick={() => router.push(profilePath(item.handle))}
+                onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))

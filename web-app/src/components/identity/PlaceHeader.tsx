@@ -5,6 +5,8 @@ interface PlaceHeaderProps {
   title: string;
   subtitle?: ReactNode;
   leaderName: string;
+  /** Leader's handle — avatar seed. */
+  leaderHandle?: string;
   onLeaderClick: () => void;
 }
 
@@ -13,6 +15,7 @@ export function PlaceHeader({
   title,
   subtitle,
   leaderName,
+  leaderHandle,
   onLeaderClick,
 }: PlaceHeaderProps) {
   return (
@@ -20,6 +23,7 @@ export function PlaceHeader({
       <TitleLeaderRow
         title={title}
         leaderName={leaderName}
+        leaderHandle={leaderHandle}
         onLeaderClick={onLeaderClick}
         variant="header"
       />

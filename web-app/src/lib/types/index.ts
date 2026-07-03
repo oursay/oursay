@@ -5,4 +5,6 @@ export * from "./comments";
 export * from "./jurisdiction";
 export * from "./profile";
 export * from "./viewer";
+export * from "./visibility";
+export * from "./identity";
 export * from "./filters";

@@ -1,3 +1,4 @@
+import { MY_HANDLE } from "@/lib/mock/constants";
 import type { FeedFilterParams, SignedFilterLevel, ViewerContext } from "@/lib/types";
 import { clampSignedFilterLevel } from "@/lib/types/sign-tier";
 import type { AppState } from "./types";
@@ -8,6 +9,8 @@ export function viewerFromState(state: AppState): ViewerContext {
     loggedIn: state.loggedIn,
     kycTier: state.kycTier,
     viewerDistricts: state.viewerDistricts,
+    selfHandle: state.loggedIn ? MY_HANDLE : undefined,
+    selfVisibility: state.accountVisibility,
   };
 }
 

@@ -1,5 +1,6 @@
 import type {
   ActivityKind,
+  AuthorVisibility,
   GeoFilterMode,
   JurisdictionMembership,
   RecordKind,
@@ -45,6 +46,8 @@ export interface AppState {
   loggedIn: boolean;
   kycTier: VerificationTier;
   viewerDistricts: string[];
+  /** Account-default profile visibility (persisted; docs/09 cascade base). */
+  accountVisibility: AuthorVisibility;
   /** Registered passkey/device labels (wireframe deviceCount). */
   devices: string[];
   /** UI preference only — no dark stylesheet yet (wireframe state.theme). */
@@ -85,6 +88,8 @@ export interface AppState {
   composeStep: ComposeStep;
   composeJur?: string;
   composeType?: RecordKind;
+  /** Per-post visibility override (narrow-only vs accountVisibility); cleared on close. */
+  composeVisibility?: AuthorVisibility;
 
   // Alberta sign confirmation (null when closed).
   sign: SignRequest | null;

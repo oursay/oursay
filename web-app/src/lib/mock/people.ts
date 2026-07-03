@@ -2,29 +2,64 @@ import { ALBERTA_RIDINGS } from "./alberta-ridings";
 import { MY_HANDLE, MY_NAME } from "./constants";
 import type { MockPerson } from "./types";
 
-/** Wireframe corpus authors and a few out-of-province residents. */
+/**
+ * Wireframe corpus authors and a few out-of-province residents.
+ *
+ * `visibility` spreads the demo's anonymity story (absent = public): as the
+ * viewer cycles KYC 0→1→2→3 with home district edmonton-strathcona, authors
+ * de-anonymize in waves — id_verified at tier 1; my_jurisdiction and the
+ * in-district my_district authors at tier 2 (pshah stays a persona: wrong
+ * district); all_officials at tier 3 (rosak stays: not the viewer's district).
+ * Story anchors (oursay, premier, weichen, hanao, MLAs) stay public so the
+ * existing demo flows don't regress.
+ */
 const EXTRA_PEOPLE: MockPerson[] = [
-  { name: "Dana Whitecloud", handle: "dwhitecloud", tier: 0 },
+  { name: "Dana Whitecloud", handle: "dwhitecloud", tier: 0, visibility: "anonymous" },
   { name: "OurSay Stewards", handle: "oursay", tier: 3, role: "Platform stewards" },
-  { name: "Priya Anand", handle: "priya", tier: 1 },
-  { name: "Marcus Lee", handle: "mlee", tier: 1 },
+  { name: "Priya Anand", handle: "priya", tier: 1, visibility: "id_verified" },
+  { name: "Marcus Lee", handle: "mlee", tier: 1, visibility: "my_jurisdiction" },
   { name: "Hon. A. Premier", handle: "premier", tier: 3, role: "Premier · Alberta" },
   { name: "Alberta Assembly", handle: "ableg", tier: 3, role: "Alberta Assembly" },
-  { name: "Jordan Vance", handle: "jvance", tier: 0, districts: ["edmonton-strathcona"] },
-  { name: "Priti Shah", handle: "pshah", tier: 1, districts: ["calgary-elbow"] },
+  {
+    name: "Jordan Vance",
+    handle: "jvance",
+    tier: 0,
+    districts: ["edmonton-strathcona"],
+    visibility: "my_district",
+  },
+  {
+    name: "Priti Shah",
+    handle: "pshah",
+    tier: 1,
+    districts: ["calgary-elbow"],
+    visibility: "my_district",
+  },
   { name: "Hana Okafor", handle: "hanao", tier: 2, districts: ["edmonton-strathcona"] },
-  { name: "Sam Driver", handle: "samd", tier: 2, districts: ["edmonton-strathcona"] },
-  { name: "Rosa Klein", handle: "rosak", tier: 2, districts: ["calgary-elbow"] },
+  {
+    name: "Sam Driver",
+    handle: "samd",
+    tier: 2,
+    districts: ["edmonton-strathcona"],
+    visibility: "all_officials",
+  },
+  {
+    name: "Rosa Klein",
+    handle: "rosak",
+    tier: 2,
+    districts: ["calgary-elbow"],
+    visibility: "my_officials",
+  },
   { name: "Wei Chen", handle: "weichen", tier: 2, districts: ["edmonton-strathcona"] },
   {
     name: "Dale Friesen",
     handle: "dfriesen",
     tier: 1,
     districts: ["calgary-elbow", "calgary-mountain-view", "calgary-forest-lawn"],
+    visibility: "my_jurisdiction",
   },
-  { name: "Kevin O'Brien", handle: "kevinTO", tier: 1, role: "Toronto, ON" },
-  { name: "Sarah Okamoto", handle: "sarahbc", tier: 2, role: "Vancouver, BC" },
-  { name: "Marie Dubois", handle: "marieqc", tier: 1, role: "Montreal, QC" },
+  { name: "Kevin O'Brien", handle: "kevinTO", tier: 1, role: "Toronto, ON", visibility: "anonymous" },
+  { name: "Sarah Okamoto", handle: "sarahbc", tier: 2, role: "Vancouver, BC", visibility: "id_verified" },
+  { name: "Marie Dubois", handle: "marieqc", tier: 1, role: "Montreal, QC", visibility: "all_officials" },
   { name: MY_NAME, handle: MY_HANDLE, tier: 2, districts: ["edmonton-strathcona"], role: "Edmonton-Strathcona" },
 ];
 
@@ -46,11 +81,15 @@ export const PEOPLE_BY_HANDLE: Record<string, MockPerson> = Object.fromEntries(
 );
 
 export function person(handle: string): MockPerson {
+  // Unregistered handles fall back to a synthetic anonymous person: any mock
+  // author not listed above is a permanent per-thread persona (and has no
+  // profile page), matching the doc's anonymous floor.
   return (
     PEOPLE_BY_HANDLE[handle] ?? {
       name: handle,
       handle,
       tier: 0,
+      visibility: "anonymous",
     }
   );
 }

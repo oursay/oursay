@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { SignTier, VerificationTier } from "@/lib/types";
+import type { AuthorIdentity, SignTier, VerificationTier } from "@/lib/types";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
 
@@ -10,6 +10,8 @@ interface CommentCardProps {
   tier: VerificationTier;
   signTier?: SignTier;
   isHomeAuthor?: boolean;
+  /** Viewer-resolved author identity (persona / self affordances). */
+  identity?: AuthorIdentity;
   timestamp: string;
   depth?: number;
   body: ReactNode;
@@ -30,6 +32,7 @@ export function CommentCard({
   tier,
   signTier,
   isHomeAuthor = false,
+  identity,
   timestamp,
   depth = 1,
   body,
@@ -50,6 +53,7 @@ export function CommentCard({
         tier={tier}
         signTier={signTier}
         isHomeAuthor={isHomeAuthor}
+        identity={identity}
         timestamp={timestamp}
         depth={depth}
         variant="comment"

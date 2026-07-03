@@ -243,6 +243,8 @@ function buildExtraPosts(): FeedItem[] {
         tier: 2,
         districts: [riding.slug],
         role: riding.name,
+        // District pages de-anonymize in a wave when the viewer verifies residency.
+        visibility: "my_jurisdiction",
       };
     }
     const p = PEOPLE_BY_HANDLE[handle];

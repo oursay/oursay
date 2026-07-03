@@ -4,14 +4,17 @@ import { Avatar } from "@/components/ui";
 
 interface LeaderProfileLinkProps {
   name: string;
+  /** Leader's handle — the identity-stable avatar seed. */
+  handle?: string;
   onClick: () => void;
   /** Header title bar vs compact riding row. */
   size?: "md" | "sm";
 }
 
-/** Initials avatar + full name, right-aligned — wireframe leaderLink(). */
+/** Avatar + full name, right-aligned — wireframe leaderLink(). */
 export function LeaderProfileLink({
   name,
+  handle,
   onClick,
   size = "md",
 }: LeaderProfileLinkProps) {
@@ -24,7 +27,7 @@ export function LeaderProfileLink({
       onClick={onClick}
       className="flex shrink-0 items-center gap-1.5 hover:opacity-80"
     >
-      <Avatar name={name} size="sm" />
+      <Avatar name={name} seed={handle} size="sm" />
       <span className={`whitespace-nowrap ${textClass}`}>{name}</span>
     </button>
   );

@@ -1,3 +1,4 @@
+import type { AuthorIdentity } from "./identity";
 import type { FeedItem } from "./records";
 import type { VerificationTier } from "./verification";
 
@@ -49,6 +50,8 @@ export interface MentionItem {
   meta: string;
   /** Mock navigation target — the record this mention appears on. */
   recordId?: string;
+  /** Viewer-resolved mention-author identity; present on API-served copies. */
+  identity?: AuthorIdentity;
 }
 
 /**

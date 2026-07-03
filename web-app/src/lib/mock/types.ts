@@ -8,6 +8,8 @@ export interface AlbertaRiding {
   };
 }
 
+import type { AuthorVisibility } from "@/lib/types/visibility";
+
 /** A mock persona referenced by posts, comments, and profiles. */
 export interface MockPerson {
   name: string;
@@ -18,4 +20,10 @@ export interface MockPerson {
   districts?: string[];
   /** Profile role line, e.g. "MLA · Edmonton-Strathcona". */
   role?: string;
+  /**
+   * Account-default profile visibility. Absent means `public` in the mock
+   * corpus (the doc-faithful `anonymous` floor lives in resolveVisibility);
+   * out-of-scope viewers see a per-thread persona instead of this identity.
+   */
+  visibility?: AuthorVisibility;
 }

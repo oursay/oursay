@@ -19,7 +19,7 @@ import {
   ScopeTag,
 } from "@/components";
 import { isHomeAuthor } from "@/components/utils";
-import { postPath, profilePath, districtPath } from "@/lib/routes";
+import { authorPath, postPath, districtPath } from "@/lib/routes";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import { useApp } from "@/lib/state";
 
@@ -43,7 +43,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     setShownComments([]);
     let active = true;
     Promise.all([
-      getRecordDetail(id),
+      // The unfiltered fetch still carries the viewer — identity anonymization
+      // applies to every read, only the comment refinements are skipped.
+      getRecordDetail(id, { viewer }),
       getRecordDetail(id, { viewer, filter: feedFilter }),
     ]).then(([full, filtered]) => {
       if (!active || !full) return;
@@ -137,10 +139,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           <RecordCardHeader
             author={detail.author}
             handle={detail.handle}
+            identity={detail.identity}
             tier={detail.tier}
             signTier={detail.signTier}
             isHomeAuthor={home}
-            onAuthorClick={() => router.push(profilePath(detail.handle))}
+            onAuthorClick={() => router.push(authorPath(detail.identity, detail.handle))}
             scopeSlot={
               detail.districts.length > 0 ? (
                 <ScopeTag
@@ -293,7 +296,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             now={NOW}
             tierMin={tierMin}
             onReply={app.startReply}
-            onAuthorClick={(node) => router.push(profilePath(node.handle))}
+            onAuthorClick={(node) => router.push(authorPath(node.identity, node.handle))}
             onReact={() =>
               app.requireAuth(() => app.notify("Reaction recorded (demo)."))
             }

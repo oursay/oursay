@@ -8,6 +8,7 @@ import {
   type ViewerContext,
 } from "@/lib/types";
 import type { PostTypeEntry } from "@/lib/mock";
+import { anonymizeRecordEntry } from "./identity";
 
 /** getRecordDetail return shape: the record plus its (filtered) comment thread. */
 export interface RecordDetailResult {
@@ -53,7 +54,9 @@ export async function getRecordDetail(
     ? filterComments(entry.comments, entry.post, viewer, opts.filter)
     : entry.comments;
 
-  return { detail: entry.post, comments };
+  // Author-identity enforcement: real handles never leave the API layer for
+  // authors whose visibility excludes this viewer (docs/09).
+  return anonymizeRecordEntry(entry.post, comments, viewer);
 }
 
 /** All mock record ids (feed + profile-only + graduation chain). */

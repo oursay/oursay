@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Avatar, Button, Modal } from "@/components/ui";
-import type { VerificationTier } from "@/lib/types";
+import { VisibilityPicker } from "@/components/identity";
+import type { AuthorVisibility, VerificationTier } from "@/lib/types";
+import { VISIBILITY_LABEL } from "@/lib/types";
 
 interface ProfileModalProps {
   open: boolean;
@@ -27,6 +29,9 @@ interface ProfileModalProps {
   name: string;
   handle: string;
   kycTier: VerificationTier;
+  /** Account-default profile visibility (docs/09 cascade base). */
+  accountVisibility?: AuthorVisibility;
+  onChangeVisibility?: (v: AuthorVisibility) => void;
   /** Opens the account's own public profile (/profile/self). */
   onViewProfile?: () => void;
   /** Cycles the KYC tier in the wireframe (dev affordance). */
@@ -107,6 +112,8 @@ export function ProfileModal({
   name,
   handle,
   kycTier,
+  accountVisibility = "public",
+  onChangeVisibility,
   onViewProfile,
   onValidateId,
   theme = "light",
@@ -119,6 +126,7 @@ export function ProfileModal({
 }: ProfileModalProps) {
   const KycIcon = KYC_ICON[kycTier];
   const [devicesExpanded, setDevicesExpanded] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
   const hidden = devices.length - DEVICES_SHOWN;
   const shownDevices = devicesExpanded ? devices : devices.slice(0, DEVICES_SHOWN);
 
@@ -132,7 +140,7 @@ export function ProfileModal({
             onClick={onViewProfile}
             className="flex w-full items-center gap-3 rounded-lg p-1 text-left hover:bg-surface-muted"
           >
-            <Avatar name={name} size="lg" />
+            <Avatar name={name} seed={handle} size="lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-ink">{name}</p>
               <p className="truncate text-sm text-muted">@{handle}</p>
@@ -223,8 +231,21 @@ export function ProfileModal({
             <SettingsRow
               icon={Eye}
               label="Privacy Settings"
-              onClick={() => onOpenSetting?.("Privacy Settings")}
+              trailing={VISIBILITY_LABEL[accountVisibility]}
+              onClick={() => setPrivacyOpen((v) => !v)}
             />
+            {privacyOpen ? (
+              <div className="space-y-1.5 rounded-lg border border-border bg-surface-muted p-2">
+                <p className="px-1 text-xs text-muted">
+                  Who can see your profile behind your posts. Everyone else sees
+                  a per-thread persona.
+                </p>
+                <VisibilityPicker
+                  value={accountVisibility}
+                  onChange={(v) => onChangeVisibility?.(v)}
+                />
+              </div>
+            ) : null}
             <SettingsRow
               icon={Globe}
               label="Jurisdictions"

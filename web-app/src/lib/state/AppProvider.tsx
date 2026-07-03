@@ -12,16 +12,19 @@ import {
 import type { ReactNode } from "react";
 import type {
   ActivityKind,
+  AuthorVisibility,
   FeedFilterParams,
   RecordKind,
   VerificationTier,
   ViewerContext,
 } from "@/lib/types";
-import { MY_DISTRICTS, MY_NAME } from "@/lib/mock";
+import { MY_DISTRICTS, MY_HANDLE, MY_NAME } from "@/lib/mock";
 import {
   outsideMyDistricts,
+  personaNameFor,
   pinnedTierMin,
   resolveGeography,
+  resolveVisibility,
 } from "@/lib/read-model";
 import type { ResolvedGeography } from "@/lib/read-model";
 import { RECORD_TYPE_LABEL } from "@/components/content";
@@ -62,6 +65,7 @@ const INITIAL: AppState = {
   loggedIn: false,
   kycTier: 0,
   viewerDistricts: [],
+  accountVisibility: "public",
   devices: ["iPhone 15 — this device", "MacBook Pro", "Pixel 8"],
   theme: "light",
 
@@ -91,6 +95,7 @@ const INITIAL: AppState = {
   composeStep: "where",
   composeJur: undefined,
   composeType: undefined,
+  composeVisibility: undefined,
 
   sign: null,
 
@@ -190,6 +195,8 @@ export interface AppApi {
   addDevice: () => void;
   addDeviceByEmail: () => void;
   toggleTheme: () => void;
+  /** Account-default profile visibility (docs/09 cascade base; persisted). */
+  setAccountVisibility: (v: AuthorVisibility) => void;
 
   // Civic interactions (stubbed writes).
   react: (target: CivicTarget, dir: "up" | "down") => void;
@@ -207,6 +214,8 @@ export interface AppApi {
   selectComposeType: (kind: RecordKind) => void;
   changeComposeType: () => void;
   changeComposeJurisdiction: () => void;
+  /** Per-post visibility override (narrow-only vs the account default). */
+  setComposeVisibility: (v: AuthorVisibility) => void;
   submitCompose: () => void;
   closeCompose: () => void;
 
@@ -251,6 +260,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loggedIn: session.loggedIn,
       kycTier: session.kycTier,
       viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
+      accountVisibility: session.accountVisibility,
     }));
   }, []);
   useEffect(() => {
@@ -261,8 +271,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sessionHydrated.current = true;
       return;
     }
-    writeSession({ loggedIn: state.loggedIn, kycTier: state.kycTier });
-  }, [state.loggedIn, state.kycTier]);
+    writeSession({
+      loggedIn: state.loggedIn,
+      kycTier: state.kycTier,
+      accountVisibility: state.accountVisibility,
+    });
+  }, [state.loggedIn, state.kycTier, state.accountVisibility]);
 
   useEffect(
     () => () => {
@@ -349,6 +363,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const toggleTheme = useCallback(() => {
     setState((s) => ({ ...s, theme: s.theme === "light" ? "dark" : "light" }));
+  }, []);
+
+  const setAccountVisibility = useCallback((v: AuthorVisibility) => {
+    setState((s) => ({ ...s, accountVisibility: v }));
   }, []);
 
   const cycleKyc = useCallback(() => {
@@ -840,6 +858,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => set({ composeStep: "where", composeJur: undefined, composeType: undefined }),
     [set],
   );
+  const setComposeVisibility = useCallback((v: AuthorVisibility) => {
+    setState((s) => ({ ...s, composeVisibility: v }));
+  }, []);
+
   const closeCompose = useCallback(
     () =>
       set({
@@ -847,6 +869,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         composeStep: "where",
         composeJur: undefined,
         composeType: undefined,
+        composeVisibility: undefined,
       }),
     [set],
   );
@@ -856,9 +879,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const label = state.composeType
       ? RECORD_TYPE_LABEL[state.composeType]
       : "post";
+    // Nothing persists (writes are stubbed), but the toast tells the anonymity
+    // story: when the effective visibility isn't public, name the per-thread
+    // persona out-of-scope viewers would see on the new thread.
+    const effectiveVis = resolveVisibility(
+      state.accountVisibility,
+      state.composeVisibility,
+    );
     const finish = () => {
       closeCompose();
-      notify(`${label} published (demo).`);
+      notify(
+        effectiveVis === "public"
+          ? `${label} published (demo).`
+          : `${label} published (demo) — out-of-scope viewers see you as ${personaNameFor(
+              MY_HANDLE,
+              `compose-${Date.now()}`,
+            )}.`,
+      );
     };
     if (isFinalJurisdiction(jur)) {
       openSign(
@@ -878,6 +915,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state.composeJur,
     state.composeType,
     state.kycTier,
+    state.accountVisibility,
+    state.composeVisibility,
     openSign,
     closeCompose,
     notify,
@@ -906,7 +945,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const viewer = useMemo(
     () => viewerFromState(state),
-    [state.loggedIn, state.kycTier, state.viewerDistricts],
+    [state.loggedIn, state.kycTier, state.viewerDistricts, state.accountVisibility],
   );
   const feedFilter = useMemo(
     () => feedFilterFromState(state),
@@ -965,6 +1004,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addDevice,
     addDeviceByEmail,
     toggleTheme,
+    setAccountVisibility,
     react,
     reactionFor,
     reactionCountsFor,
@@ -978,6 +1018,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     selectComposeType,
     changeComposeType,
     changeComposeJurisdiction,
+    setComposeVisibility,
     submitCompose,
     closeCompose,
     confirmSign,

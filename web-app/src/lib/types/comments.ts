@@ -1,3 +1,4 @@
+import type { AuthorIdentity } from "./identity";
 import type { SignTier } from "./sign-tier";
 import type { VerificationTier } from "./verification";
 
@@ -26,5 +27,7 @@ export interface CommentNode {
   down: number;
   /** Viewer's own reaction on this comment. */
   _my?: "up" | "down" | null;
+  /** Viewer-resolved author identity; present on API-served copies only. */
+  identity?: AuthorIdentity;
   replies: CommentNode[];
 }

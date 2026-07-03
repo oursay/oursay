@@ -6,7 +6,7 @@ import { listFeedItems } from "@/lib/api";
 import type { FeedItem } from "@/lib/types";
 import { FeedCard } from "@/components";
 import { districtName } from "@/lib/mock";
-import { districtPath, jurisdictionPath, postPath, profilePath } from "@/lib/routes";
+import { authorPath, districtPath, jurisdictionPath, postPath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
 export function FeedView() {
@@ -60,7 +60,7 @@ export function FeedView() {
           tierMin={app.effectiveVerified}
           hideJur={hideJur}
           resolveDistrict={districtName}
-          onAuthorClick={() => router.push(profilePath(item.handle))}
+          onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
           onTitleClick={() => router.push(postPath(item.kind, item.id))}
           onCommentsClick={() =>
             router.push(postPath(item.kind, item.id, { comments: true }))

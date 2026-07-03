@@ -1,9 +1,15 @@
-import type { RecordKind } from "@/lib/types";
+import type { AuthorIdentity, RecordKind } from "@/lib/types";
 import { DETAIL_BY_ID } from "@/lib/mock";
 import { COMMENTS_SECTION_ID } from "./scroll";
 
-/** The five civic views, mirroring the wireframe's VIEW_ORDER. */
-export type AppView = "feed" | "jurisdiction" | "district" | "profile" | "post";
+/** The civic views (five wireframe views + the per-thread persona surface). */
+export type AppView =
+  | "feed"
+  | "jurisdiction"
+  | "district"
+  | "profile"
+  | "post"
+  | "persona";
 
 export const RECORD_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 
@@ -39,6 +45,25 @@ export function profilePath(handle: string): string {
   return `/profile/${handle}`;
 }
 
+/** Per-thread persona surface (anonymous author within one thread). */
+export function personaPath(threadId: string, personaName: string): string {
+  return `/persona/${encodeURIComponent(threadId)}/${encodeURIComponent(personaName)}`;
+}
+
+/**
+ * Where an author tap lands: personas go to their per-thread persona page
+ * (never the real profile); revealed authors go to their profile.
+ */
+export function authorPath(
+  identity: AuthorIdentity | undefined,
+  fallbackHandle: string,
+): string {
+  if (identity?.isPersona) {
+    return personaPath(identity.threadId, identity.display);
+  }
+  return profilePath(identity?.handle ?? fallbackHandle);
+}
+
 /** The signed-in account's own public profile (static segment beats [handle]). */
 export const SELF_PROFILE_PATH = "/profile/self";
 
@@ -66,6 +91,7 @@ export function viewFromPathname(pathname: string): AppView {
   if (pathname.startsWith("/jurisdiction")) return "jurisdiction";
   if (pathname.startsWith("/district")) return "district";
   if (pathname.startsWith("/profile")) return "profile";
+  if (pathname.startsWith("/persona")) return "persona";
   if (RECORD_KINDS.some((kind) => pathname.startsWith(`/${kind}/`))) return "post";
   return "feed";
 }
@@ -85,6 +111,7 @@ export const VIEW_TITLE: Record<AppView, string> = {
   district: "District",
   profile: "Profile",
   post: "Post",
+  persona: "Anonymous",
 };
 
 /** Label for the header jurisdiction pill on feed-like views (wireframe pillLabel). */

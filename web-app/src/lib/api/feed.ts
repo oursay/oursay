@@ -7,6 +7,7 @@ import {
   type FeedScope,
   type ViewerContext,
 } from "@/lib/types";
+import { anonymizeFeedItem } from "./identity";
 import { getJurisdictionMembership } from "./membership";
 
 /** Inputs for a list query. All optional so callers can start from defaults. */
@@ -42,5 +43,7 @@ export async function listFeedItems(
     filter.jurisdictions = await getJurisdictionMembership();
   }
 
-  return POSTS.filter((item) => matches(item, scope, viewer, filter));
+  return POSTS.filter((item) => matches(item, scope, viewer, filter)).map(
+    (item) => anonymizeFeedItem(item, viewer),
+  );
 }

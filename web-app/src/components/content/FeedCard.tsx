@@ -76,6 +76,7 @@ export function FeedCard({
         <RecordCardHeader
           author={item.author}
           handle={item.handle}
+          identity={item.identity}
           tier={item.tier}
           signTier={item.signTier}
           isHomeAuthor={home}

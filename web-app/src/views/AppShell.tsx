@@ -118,11 +118,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       onClick={app.openProfile}
       className="inline-flex size-10 items-center justify-center rounded-full bg-brand-600 shadow-sm shadow-brand-600/25 hover:bg-brand-700"
     >
-      <Avatar
-        name={MY_NAME}
-        size="sm"
-        className="size-7 bg-transparent text-[11px] text-white"
-      />
+      <Avatar name={MY_NAME} seed={MY_HANDLE} size="sm" className="size-7" />
     </button>
   ) : (
     <button
@@ -261,6 +257,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         name={MY_NAME}
         handle={MY_HANDLE}
         kycTier={state.kycTier}
+        accountVisibility={state.accountVisibility}
+        onChangeVisibility={app.setAccountVisibility}
         onViewProfile={() => {
           app.closeProfile();
           router.push(SELF_PROFILE_PATH);
@@ -287,6 +285,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         onSelectType={app.selectComposeType}
         onChangeType={app.changeComposeType}
         onChangeJurisdiction={app.changeComposeJurisdiction}
+        accountVisibility={state.accountVisibility}
+        composeVisibility={state.composeVisibility}
+        onSelectVisibility={app.setComposeVisibility}
         onPost={app.submitCompose}
       />
       <SignModal

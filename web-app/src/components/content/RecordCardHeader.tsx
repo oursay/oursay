@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { SignTier, VerificationTier } from "@/lib/types";
+import type { AuthorIdentity, SignTier, VerificationTier } from "@/lib/types";
 import { AuthorRow, authorBadgeModes } from "@/components/identity";
 
 interface RecordCardHeaderProps {
@@ -17,6 +17,8 @@ interface RecordCardHeaderProps {
   depth?: number;
   scopeSlot?: ReactNode;
   scopeContinuationSlot?: ReactNode;
+  /** Viewer-resolved author identity (persona / self affordances). */
+  identity?: AuthorIdentity;
   onAuthorClick?: () => void;
 }
 
@@ -32,6 +34,7 @@ export function RecordCardHeader({
   depth = 1,
   scopeSlot,
   scopeContinuationSlot,
+  identity,
   onAuthorClick,
 }: RecordCardHeaderProps) {
   const surface = variant === "comment" ? "comment" : "post";
@@ -41,6 +44,7 @@ export function RecordCardHeader({
     <AuthorRow
       author={author}
       handle={variant === "record" ? handle : undefined}
+      identity={identity}
       tier={tier}
       signTier={signTier}
       isHomeAuthor={isHomeAuthor}

@@ -7,7 +7,7 @@ import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
 import { districtName } from "@/lib/mock";
-import { postPath, profilePath, jurisdictionPath } from "@/lib/routes";
+import { authorPath, postPath, profilePath, jurisdictionPath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
 export function DistrictView({ slug }: { slug: string }) {
@@ -61,6 +61,7 @@ export function DistrictView({ slug }: { slug: string }) {
           </button>
         }
         leaderName={detail.leader}
+        leaderHandle={detail.leaderHandle}
         onLeaderClick={() => router.push(profilePath(detail.leaderHandle))}
       />
 
@@ -117,7 +118,7 @@ export function DistrictView({ slug }: { slug: string }) {
                 hideJur
                 hideDistrict
                 resolveDistrict={districtName}
-                onAuthorClick={() => router.push(profilePath(item.handle))}
+                onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))

@@ -14,7 +14,7 @@ import {
   REACTION_GLYPH,
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
-import { districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
+import { authorPath, districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
 type Tab = "posts" | "activity" | "mentions";
@@ -45,8 +45,10 @@ export function ProfileView({
   }, [setPageJurisdiction]);
 
   useEffect(() => {
-    getProfile(handle).then(setProfile);
-  }, [handle]);
+    // Viewer-scoped: out-of-visibility profiles resolve null (hide existence),
+    // and the reveal set updates live as the demo KYC tier cycles.
+    getProfile(handle, { viewer: app.viewer }).then(setProfile);
+  }, [handle, app.viewer]);
 
   useEffect(() => {
     if (!self && profile && handle !== profile.handle) {
@@ -78,7 +80,7 @@ export function ProfileView({
     <div className="space-y-1 p-3">
       <header className="rounded-xl border border-border bg-surface px-3 pt-3 pb-1">
         <div className="flex items-center gap-3">
-          <Avatar name={profile.name} size="lg" />
+          <Avatar name={profile.name} seed={profile.handle} size="lg" />
           <div className="min-w-0 flex-1">
             {/* Pill shares the name row (right-justified, like posts) so the
                 role line below keeps the full width for long district names. */}
@@ -93,7 +95,7 @@ export function ProfileView({
           </div>
         </div>
         {profile.bio ? (
-          <p className="mt-3 text-sm text-ink-soft">{profile.bio}</p>
+          <p className="mt-3 text-center text-sm text-ink-soft">{profile.bio}</p>
         ) : null}
         <div className="mt-3">
           <ProfileSupportBar
@@ -153,7 +155,7 @@ export function ProfileView({
                 viewer={app.viewer}
                 tierMin={verified}
                 resolveDistrict={districtName}
-                onAuthorClick={() => router.push(profilePath(item.handle))}
+                onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
@@ -236,7 +238,7 @@ export function ProfileView({
                 <button
                   type="button"
                   // TODO(entityId): route to the mentioner's real profile.
-                  onClick={() => router.push(profilePath(m.handle))}
+                  onClick={() => router.push(authorPath(m.identity, m.handle))}
                   className="text-sm font-semibold text-ink hover:underline"
                 >
                   {m.author}

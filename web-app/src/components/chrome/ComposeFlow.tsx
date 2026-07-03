@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Check, ChevronDown } from "lucide-react";
+import { BarChart3, Check, ChevronDown, VenetianMask } from "lucide-react";
 import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import {
   composeTypeLockReason,
@@ -15,8 +15,10 @@ import {
   ModalOptionRow,
   PollComposeBody,
 } from "@/components/ui";
+import { VisibilityPicker } from "@/components/identity";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
-import type { RecordKind, VerificationTier } from "@/lib/types";
+import type { AuthorVisibility, RecordKind, VerificationTier } from "@/lib/types";
+import { VISIBILITY_LABEL } from "@/lib/types";
 
 export type ComposeStep = "where" | "type" | "compose";
 
@@ -36,6 +38,11 @@ interface ComposeFlowProps {
   onChangeType?: () => void;
   /** Return to the jurisdiction picker to correct an inferred/specified scope. */
   onChangeJurisdiction?: () => void;
+  /** Account-default profile visibility — the widest this post may allow. */
+  accountVisibility?: AuthorVisibility;
+  /** Per-post narrow-only override (unset = account default). */
+  composeVisibility?: AuthorVisibility;
+  onSelectVisibility?: (v: AuthorVisibility) => void;
   /** Submits (Global) or opens the passkey confirmation (Alberta). */
   onPost?: () => void;
 }
@@ -66,6 +73,9 @@ export function ComposeFlow({
   onSelectType,
   onChangeType,
   onChangeJurisdiction,
+  accountVisibility = "public",
+  composeVisibility,
+  onSelectVisibility,
   onPost,
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
@@ -73,12 +83,15 @@ export function ComposeFlow({
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   // Alberta petition: optional attached poll (Alberta has no poll root type).
   const [petitionPollOpen, setPetitionPollOpen] = useState(false);
+  const [visibilityOpen, setVisibilityOpen] = useState(false);
+  const effectiveVisibility = composeVisibility ?? accountVisibility;
 
   useEffect(() => {
     if (!open) {
       setJurMenuOpen(false);
       setPollOptions(["", ""]);
       setPetitionPollOpen(false);
+      setVisibilityOpen(false);
     }
   }, [open]);
 
@@ -315,6 +328,26 @@ export function ComposeFlow({
               />
             </CollapsibleSection>
           ) : null}
+
+          <CollapsibleSection
+            icon={VenetianMask}
+            label="Who can see it's you"
+            open={visibilityOpen}
+            onToggle={() => setVisibilityOpen((o) => !o)}
+            count={visibilityOpen ? undefined : VISIBILITY_LABEL[effectiveVisibility]}
+          >
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted">
+                This post can only narrow your account default — never widen it.
+                Out-of-scope viewers see a per-thread persona.
+              </p>
+              <VisibilityPicker
+                value={effectiveVisibility}
+                onChange={(v) => onSelectVisibility?.(v)}
+                minVisibility={accountVisibility}
+              />
+            </div>
+          </CollapsibleSection>
 
           <Button fullWidth onClick={onPost}>
             Post

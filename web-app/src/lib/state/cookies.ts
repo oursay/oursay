@@ -1,4 +1,9 @@
-import type { JurisdictionMembership, VerificationTier } from "@/lib/types";
+import type {
+  AuthorVisibility,
+  JurisdictionMembership,
+  VerificationTier,
+} from "@/lib/types";
+import { VISIBILITY_VALUES } from "@/lib/types";
 
 const COOKIE = "oursay-subs";
 const SESSION_COOKIE = "oursay-session";
@@ -34,14 +39,20 @@ export function writeSubscriptions(subs: JurisdictionMembership[]): void {
   document.cookie = `${COOKIE}=${value}; path=/; max-age=${MAX_AGE}; samesite=lax`;
 }
 
-/** Remembered session — whether signed in, and the KYC tier reached. */
+/** Remembered session — signed in, KYC tier reached, and profile visibility. */
 export interface PersistedSession {
   loggedIn: boolean;
   kycTier: VerificationTier;
+  /** Account-default profile visibility (docs/09 cascade base). */
+  accountVisibility: AuthorVisibility;
 }
 
-/** New accounts start signed out and unverified (no registry status). */
-export const DEFAULT_SESSION: PersistedSession = { loggedIn: false, kycTier: 0 };
+/** New accounts start signed out, unverified, and publicly visible (demo default). */
+export const DEFAULT_SESSION: PersistedSession = {
+  loggedIn: false,
+  kycTier: 0,
+  accountVisibility: "public",
+};
 
 /** Read the persisted session, or the signed-out/unverified default. */
 export function readSession(): PersistedSession {
@@ -59,7 +70,13 @@ export function readSession(): PersistedSession {
       typeof parsed.loggedIn === "boolean" &&
       [0, 1, 2, 3].includes(parsed.kycTier)
     ) {
-      return { loggedIn: parsed.loggedIn, kycTier: parsed.kycTier };
+      return {
+        loggedIn: parsed.loggedIn,
+        kycTier: parsed.kycTier,
+        accountVisibility: VISIBILITY_VALUES.includes(parsed.accountVisibility)
+          ? parsed.accountVisibility
+          : DEFAULT_SESSION.accountVisibility,
+      };
     }
   } catch {
     // Malformed cookie — fall back to the default session.

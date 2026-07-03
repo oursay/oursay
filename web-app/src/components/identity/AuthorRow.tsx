@@ -1,8 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { VenetianMask } from "lucide-react";
 import { Avatar } from "@/components/ui";
-import type { PillDisplayMode, SignTier, VerificationTier } from "@/lib/types";
+import type {
+  AuthorIdentity,
+  PillDisplayMode,
+  SignTier,
+  VerificationTier,
+} from "@/lib/types";
 import { AuthorBadgeGroup } from "./AuthorBadgeGroup";
 
 interface AuthorRowProps {
@@ -21,7 +27,23 @@ interface AuthorRowProps {
   scopeSlot?: ReactNode;
   /** Full-width continuation when a multi-district scope tag is expanded. */
   scopeContinuationSlot?: ReactNode;
+  /**
+   * Viewer-resolved identity (API-served DTOs). Personas render the mask
+   * glyph + "anonymous in this thread"; self rows hint the persona others see.
+   */
+  identity?: AuthorIdentity;
   onAuthorClick?: () => void;
+}
+
+/** Small mask glyph marking a per-thread persona. */
+function PersonaMark({ size = 12 }: { size?: number }) {
+  return (
+    <VenetianMask
+      size={size}
+      className="shrink-0 text-muted"
+      aria-label="Anonymous persona"
+    />
+  );
 }
 
 /**
@@ -39,9 +61,12 @@ export function AuthorRow({
   layout = "card",
   scopeSlot,
   scopeContinuationSlot,
+  identity,
   onAuthorClick,
 }: AuthorRowProps) {
   const isComment = layout === "comment";
+  const isPersona = identity?.isPersona ?? false;
+  const avatarSeed = identity?.seed ?? handle ?? author;
   const badges = (
     <AuthorBadgeGroup
       signTier={signTier}
@@ -54,6 +79,30 @@ export function AuthorRow({
   );
 
   if (!isComment) {
+    // Secondary line: personas explain themselves; self rows hint how others
+    // see them; revealed rows keep the @handle.
+    const secondary = isPersona ? (
+      <span className="min-w-0 truncate text-xs italic text-muted">
+        anonymous in this thread
+      </span>
+    ) : handle ? (
+      <button
+        type="button"
+        onClick={onAuthorClick}
+        disabled={!onAuthorClick}
+        className="min-w-0 truncate text-left text-xs text-muted disabled:cursor-default"
+      >
+        @{handle}
+        {identity?.seenByOthersAs ? (
+          <span className="italic"> · seen as {identity.seenByOthersAs}</span>
+        ) : null}
+      </button>
+    ) : timestamp ? (
+      <span className="min-w-0 truncate text-xs text-muted">{timestamp}</span>
+    ) : (
+      <span aria-hidden />
+    );
+
     return (
       <div>
         <div className="flex gap-2">
@@ -63,7 +112,7 @@ export function AuthorRow({
             disabled={!onAuthorClick}
             className="shrink-0 self-start disabled:cursor-default"
           >
-            <Avatar name={author} size="md" />
+            <Avatar name={author} seed={avatarSeed} size="md" />
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-1.5">
@@ -71,27 +120,17 @@ export function AuthorRow({
                 type="button"
                 onClick={onAuthorClick}
                 disabled={!onAuthorClick}
-                className="min-w-0 truncate text-left text-sm font-semibold leading-tight text-ink disabled:cursor-default"
+                className="flex min-w-0 items-center gap-1 text-left disabled:cursor-default"
               >
-                {author}
+                <span className="min-w-0 truncate text-sm font-semibold leading-tight text-ink">
+                  {author}
+                </span>
+                {isPersona ? <PersonaMark /> : null}
               </button>
               {badges}
             </div>
             <div className="-mt-px flex items-baseline justify-between gap-2">
-              {handle ? (
-                <button
-                  type="button"
-                  onClick={onAuthorClick}
-                  disabled={!onAuthorClick}
-                  className="min-w-0 truncate text-left text-xs text-muted disabled:cursor-default"
-                >
-                  @{handle}
-                </button>
-              ) : timestamp ? (
-                <span className="min-w-0 truncate text-xs text-muted">{timestamp}</span>
-              ) : (
-                <span aria-hidden />
-              )}
+              {secondary}
               {scopeSlot ? <div className="shrink-0">{scopeSlot}</div> : null}
             </div>
           </div>
@@ -111,10 +150,15 @@ export function AuthorRow({
         disabled={!onAuthorClick}
         className="flex min-w-0 items-center gap-2 text-left disabled:cursor-default"
       >
-        <Avatar name={author} size="sm" />
+        <Avatar name={author} seed={avatarSeed} size="sm" />
         <span className="min-w-0">
           <span className="flex items-baseline gap-1.5">
             <span className="truncate text-sm font-semibold text-ink">{author}</span>
+            {isPersona ? (
+              <span className="self-center">
+                <PersonaMark size={11} />
+              </span>
+            ) : null}
             {timestamp ? (
               <span className="shrink-0 text-xs text-muted">• {timestamp}</span>
             ) : null}

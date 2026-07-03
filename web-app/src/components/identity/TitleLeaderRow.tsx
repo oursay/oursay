@@ -5,6 +5,8 @@ import { LeaderProfileLink } from "./LeaderProfileLink";
 interface TitleLeaderRowProps {
   title: string;
   leaderName: string;
+  /** Leader's handle — avatar seed. */
+  leaderHandle?: string;
   onLeaderClick: () => void;
   onTitleClick?: () => void;
   variant?: "header" | "row";
@@ -14,6 +16,7 @@ interface TitleLeaderRowProps {
 export function TitleLeaderRow({
   title,
   leaderName,
+  leaderHandle,
   onLeaderClick,
   onTitleClick,
   variant = "row",
@@ -44,6 +47,7 @@ export function TitleLeaderRow({
       {titleNode}
       <LeaderProfileLink
         name={leaderName}
+        handle={leaderHandle}
         size={variant === "row" ? "sm" : "md"}
         onClick={onLeaderClick}
       />

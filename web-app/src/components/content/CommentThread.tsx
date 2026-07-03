@@ -53,6 +53,7 @@ export function CommentThread({
               tier={node.tier}
               signTier={node.signTier}
               isHomeAuthor={home}
+              identity={node.identity}
               timestamp={relTime(node.ts, now)}
               depth={depth}
               body={
