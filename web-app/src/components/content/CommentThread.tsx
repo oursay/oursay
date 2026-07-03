@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { COMMENT_MAX_DEPTH } from "@/lib/types";
 import type { CommentNode, ViewerContext, VerificationTier } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
@@ -16,7 +17,11 @@ interface CommentThreadProps {
   maxDepth?: number;
   /** Leading @handle for a flattened max-depth reply (internal). */
   mentionPrefix?: string;
-  onReply?: (node: CommentNode) => void;
+  /** Position path for this list within the tree (internal, unique per node). */
+  path?: string;
+  onReply?: (node: CommentNode, path: string, depth: number) => void;
+  /** Renders an inline reply composer directly under a node (when open). */
+  renderReply?: (node: CommentNode, path: string, depth: number) => ReactNode;
   onAuthorClick?: (node: CommentNode) => void;
   onReact?: (node: CommentNode, dir: "up" | "down") => void;
   onEditsClick?: (node: CommentNode) => void;
@@ -35,7 +40,9 @@ export function CommentThread({
   depth = 1,
   maxDepth = COMMENT_MAX_DEPTH,
   mentionPrefix,
+  path = "",
   onReply,
+  renderReply,
   onAuthorClick,
   onReact,
   onEditsClick,
@@ -46,6 +53,7 @@ export function CommentThread({
         const home = isHomeAuthor(node.districts, viewer.kycTier, viewer.viewerDistricts);
         const atMax = depth >= maxDepth;
         const prefix = i === 0 ? mentionPrefix : undefined;
+        const nodePath = path ? `${path}.${i}` : `${i}`;
         return (
           <li key={`${node.handle}-${i}`}>
             <CommentCard
@@ -75,9 +83,11 @@ export function CommentThread({
               tierMin={tierMin}
               onAuthorClick={onAuthorClick ? () => onAuthorClick(node) : undefined}
               onReact={onReact ? (dir) => onReact(node, dir) : undefined}
-              onReply={onReply ? () => onReply(node) : undefined}
+              onReply={onReply ? () => onReply(node, nodePath, depth) : undefined}
               onEditsClick={onEditsClick ? () => onEditsClick(node) : undefined}
             />
+
+            {renderReply?.(node, nodePath, depth)}
 
             {node.replies.length > 0 ? (
               <div className="mt-4 ml-5">
@@ -90,7 +100,9 @@ export function CommentThread({
                     depth={depth}
                     maxDepth={maxDepth}
                     mentionPrefix={`@${node.handle}`}
+                    path={nodePath}
                     onReply={onReply}
+                    renderReply={renderReply}
                     onAuthorClick={onAuthorClick}
                     onReact={onReact}
                     onEditsClick={onEditsClick}
@@ -103,7 +115,9 @@ export function CommentThread({
                     tierMin={tierMin}
                     depth={depth + 1}
                     maxDepth={maxDepth}
+                    path={nodePath}
                     onReply={onReply}
+                    renderReply={renderReply}
                     onAuthorClick={onAuthorClick}
                     onReact={onReact}
                     onEditsClick={onEditsClick}

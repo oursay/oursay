@@ -10,6 +10,7 @@ export * from "./EditCountLink";
 export * from "./CommentPill";
 export * from "./CivicPills";
 export * from "./ReplyLink";
+export * from "./ReplyComposer";
 export * from "./RecordCard";
 export * from "./RecordCardHeader";
 export * from "./RecordCardFooter";

@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRecordDetail, personaFor } from "@/lib/api";
-import type {
-  AuthorVisibility,
-  CommentNode,
-  RecordDetail,
-  RecordKind,
+import {
+  COMMENT_MAX_DEPTH,
+  type AuthorVisibility,
+  type CommentNode,
+  type RecordDetail,
+  type RecordKind,
 } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
 import { GRADUATION_CHAIN, MY_HANDLE, NOW, districtName } from "@/lib/mock";
@@ -21,6 +22,7 @@ import {
   RecordCardFooter,
   RecordCardHeader,
   RecordTypeSection,
+  ReplyComposer,
   ResultOutcome,
   ScopeTag,
 } from "@/components";
@@ -44,6 +46,17 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const [scopeExpanded, setScopeExpanded] = useState(false);
   // Per-reply anonymity override (defaults to the account level; may widen or narrow).
   const [replyVisibility, setReplyVisibility] = useState<AuthorVisibility | undefined>();
+  // Inline comment reply composers, keyed by node path — several open at once.
+  const [openReplies, setOpenReplies] = useState<Set<string>>(new Set());
+
+  const toggleCommentReply = (nodePath: string) => {
+    setOpenReplies((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodePath)) next.delete(nodePath);
+      else next.add(nodePath);
+      return next;
+    });
+  };
 
   useEffect(() => {
     setDetail(null);
@@ -323,7 +336,35 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             viewer={app.viewer}
             now={NOW}
             tierMin={tierMin}
-            onReply={app.startReply}
+            onReply={(_node, nodePath) => {
+              if (openReplies.has(nodePath)) {
+                toggleCommentReply(nodePath);
+              } else {
+                app.requireAuth(() => toggleCommentReply(nodePath));
+              }
+            }}
+            renderReply={(node, nodePath, depth) =>
+              openReplies.has(nodePath) ? (
+                <div className="mt-2 pl-8">
+                  <ReplyComposer
+                    accountVisibility={app.state.accountVisibility}
+                    initialText={
+                      depth >= COMMENT_MAX_DEPTH ? `@${node.handle} ` : ""
+                    }
+                    autoFocus
+                    onCancel={() => toggleCommentReply(nodePath)}
+                    onSubmit={(_text, vis) => {
+                      toggleCommentReply(nodePath);
+                      app.notify(
+                        vis === "public"
+                          ? "Reply posted (demo)."
+                          : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
+                      );
+                    }}
+                  />
+                </div>
+              ) : null
+            }
             onAuthorClick={(node) => router.push(authorPath(node.identity, node.handle))}
             onReact={() =>
               app.requireAuth(() => app.notify("Reaction recorded (demo)."))
