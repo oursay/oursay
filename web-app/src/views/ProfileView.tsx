@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { BadgeCheck, Pencil } from "lucide-react";
 import { getProfile } from "@/lib/api";
 import type { ActivityKind, PublicProfile } from "@/lib/types";
 import { Avatar, FeedCard, VerificationPill } from "@/components";
+import { Button } from "@/components/ui";
 import { activityRowGlyph, ACTIVITY_REACTION_TONE, REACTION_GLYPH } from "@/components/content";
-import { districtName } from "@/lib/mock";
+import { districtName, MY_DISTRICTS } from "@/lib/mock";
 import { districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
 
@@ -19,7 +21,14 @@ function activityToRecordId(kind: ActivityKind): string {
   return "stmt-hana-ravine";
 }
 
-export function ProfileView({ handle }: { handle: string }) {
+/** Public profile view; `self` adds the account's own controls (edit, Validate ID). */
+export function ProfileView({
+  handle,
+  self = false,
+}: {
+  handle: string;
+  self?: boolean;
+}) {
   const app = useApp();
   const { setPageJurisdiction } = app;
   const router = useRouter();
@@ -35,10 +44,10 @@ export function ProfileView({ handle }: { handle: string }) {
   }, [handle]);
 
   useEffect(() => {
-    if (profile && handle !== profile.handle) {
+    if (!self && profile && handle !== profile.handle) {
       router.replace(profilePath(profile.handle));
     }
-  }, [profile, handle, router]);
+  }, [profile, handle, router, self]);
 
   if (!profile) {
     return <p className="p-6 text-center text-sm text-muted">Profile not found.</p>;
@@ -46,6 +55,15 @@ export function ProfileView({ handle }: { handle: string }) {
 
   const { profileTypes } = app.state;
   const verified = app.effectiveVerified;
+  // Self mode reflects the live session tier so Validate ID updates the pill.
+  const displayTier = self ? app.state.kycTier : profile.tier;
+  // The role line is an official title, shown only on Official accounts. The
+  // self account's seeded role says "Member", so derive its title from the
+  // home riding when the demo tier reaches Official.
+  const displayRole =
+    self && displayTier === 3
+      ? `MLA · ${districtName(MY_DISTRICTS[0])}`
+      : profile.role;
   const posts = profile.posts.filter(
     (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
   );
@@ -57,11 +75,17 @@ export function ProfileView({ handle }: { handle: string }) {
         <div className="flex items-center gap-3">
           <Avatar name={profile.name} size="lg" />
           <div className="min-w-0 flex-1">
-            <p className="truncate font-bold text-ink">{profile.name}</p>
+            {/* Pill shares the name row (right-justified, like posts) so the
+                role line below keeps the full width for long district names. */}
+            <div className="flex items-center gap-2">
+              <p className="truncate font-bold text-ink">{profile.name}</p>
+              <VerificationPill tier={displayTier} align="right" />
+            </div>
             <p className="truncate text-sm text-muted">@{profile.handle}</p>
-            <p className="mt-0.5 truncate text-xs text-ink-soft">{profile.role}</p>
+            {displayTier === 3 ? (
+              <p className="mt-0.5 truncate text-xs text-ink-soft">{displayRole}</p>
+            ) : null}
           </div>
-          <VerificationPill tier={profile.tier} />
         </div>
         <div className="mt-3 flex gap-4">
           {profile.stats.map((s) => (
@@ -71,6 +95,21 @@ export function ProfileView({ handle }: { handle: string }) {
             </div>
           ))}
         </div>
+        {self ? (
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              icon={Pencil}
+              onClick={() => app.notify("Edit Profile is not built in this demo.")}
+            >
+              Edit Profile
+            </Button>
+            <Button size="sm" icon={BadgeCheck} onClick={app.cycleKyc}>
+              Validate ID
+            </Button>
+          </div>
+        ) : null}
       </header>
 
       <div className="flex gap-1 rounded-lg border border-border bg-surface-muted p-1">

@@ -1,4 +1,5 @@
 import type { PublicProfile } from "@/lib/types";
+import { MY_HANDLE, MY_NAME } from "./constants";
 
 /** Hand-crafted profile for the wireframe MLA (Rae Nguyen). */
 export const RAE_NGUYEN_PROFILE: PublicProfile = {
@@ -103,6 +104,71 @@ export const RAE_NGUYEN_PROFILE: PublicProfile = {
     { author: "Priya Anand", handle: "priya", text: "Thanks @raenguyen for the budget update", meta: "2d", recordId: "stmt-premier-budget" },
     { author: "Marcus Lee", handle: "mlee", text: "@raenguyen what's the timeline on the vote?", meta: "4d", recordId: "stmt-hana-ravine" },
     { author: "Hana Okafor", handle: "hanao", text: "Grateful for @raenguyen's ravine review", meta: "1w", recordId: "stmt-rae-ravine" },
+  ],
+};
+
+/**
+ * Hand-crafted profile for the example signed-in account (wireframe MY_NAME).
+ * The static `tier` is what the public /profile/alex_morgan route shows; the
+ * /profile/self view overrides it with the live session kycTier.
+ */
+export const ALEX_MORGAN_PROFILE: PublicProfile = {
+  name: MY_NAME,
+  handle: MY_HANDLE,
+  role: "Member · Edmonton-Strathcona",
+  tier: 2,
+  stats: [
+    { n: 2, label: "Statements" },
+    { n: 5, label: "Petitions signed" },
+    { n: 3, label: "Polls" },
+  ],
+  posts: [
+    {
+      id: "prof-alex-crosswalk",
+      kind: "statement",
+      jurisdiction: "Alberta",
+      tier: 2,
+      districts: ["edmonton-strathcona"],
+      author: MY_NAME,
+      handle: MY_HANDLE,
+      title: "Add a crosswalk at 99 Street and Whyte",
+      body: [
+        "Pedestrians cut across four lanes here every morning. A",
+        "marked crossing would make the school route safer.",
+      ],
+      up: 34,
+      down: 6,
+      comments: 0,
+    },
+    {
+      id: "prof-alex-library",
+      kind: "statement",
+      jurisdiction: "Alberta",
+      tier: 2,
+      districts: ["edmonton-strathcona"],
+      author: MY_NAME,
+      handle: MY_HANDLE,
+      title: "Extend weekend hours at the Strathcona library",
+      body: [
+        "The branch closes at 5 on Saturdays. Evening hours would",
+        "give students and shift workers a place to study.",
+      ],
+      up: 21,
+      down: 3,
+      comments: 0,
+    },
+  ],
+  activity: [
+    { kind: "statement", text: "Posted “Add a crosswalk at 99 Street and Whyte”", meta: "1d · Alberta", recordId: "prof-alex-crosswalk" },
+    { kind: "petition", text: "Signed “Twin the river-valley commuter path”", meta: "2d", recordId: "pet-wei-path" },
+    { kind: "poll", text: "Voted in “Budget priority 2027”", meta: "3d", recordId: "poll-ableg-budget" },
+    { kind: "comment", text: "Commented on “Whitemud ravine”", meta: "5d", recordId: "stmt-hana-ravine" },
+    { kind: "reaction", icon: "#ic-check", text: "Agreed with “Bike lanes on Whyte”", meta: "1w", recordId: "stmt-jordan-bikelanes" },
+    { kind: "statement", text: "Posted “Extend weekend hours at the Strathcona library”", meta: "1w · Alberta", recordId: "prof-alex-library" },
+  ],
+  mentions: [
+    { author: "Hana Okafor", handle: "hanao", text: "@alex_morgan thanks for flagging the crossing", meta: "on “Whitemud ravine” · 2d", recordId: "stmt-hana-ravine" },
+    { author: "Sam Driver", handle: "samd", text: "@alex_morgan will you sign the 109 Street petition?", meta: "4d", recordId: "pet-sam-109st" },
   ],
 };
 

@@ -24,8 +24,13 @@ import {
   RIVER_PATH_QUESTION,
   type PostTypeEntry,
 } from "./details";
+import { MY_HANDLE } from "./constants";
 import { PEOPLE_BY_HANDLE, person, personDistricts } from "./people";
-import { PREMIER_PROFILE, RAE_NGUYEN_PROFILE } from "./profiles-seed";
+import {
+  ALEX_MORGAN_PROFILE,
+  PREMIER_PROFILE,
+  RAE_NGUYEN_PROFILE,
+} from "./profiles-seed";
 import { WIREFRAME_POSTS } from "./wireframe-posts";
 
 /** Hand-crafted record id -> comment thread (wireframe samples). */
@@ -481,6 +486,7 @@ function buildProfiles(
   const byHandle: Record<string, PublicProfile> = {
     raenguyen: RAE_NGUYEN_PROFILE,
     premier: PREMIER_PROFILE,
+    [MY_HANDLE]: ALEX_MORGAN_PROFILE,
   };
 
   const postsByHandle = new Map<string, FeedItem[]>();
@@ -534,7 +540,10 @@ function buildProfiles(
   return byHandle;
 }
 
-const PROFILE_ONLY_POSTS: FeedItem[] = RAE_NGUYEN_PROFILE.posts;
+const PROFILE_ONLY_POSTS: FeedItem[] = [
+  ...RAE_NGUYEN_PROFILE.posts,
+  ...ALEX_MORGAN_PROFILE.posts,
+];
 const RAW_FEED = buildAllFeedItems();
 const RECORD_BY_ID = buildRecordEntries(RAW_FEED, PROFILE_ONLY_POSTS);
 export const POSTS = syncCommentCounts(RAW_FEED, RECORD_BY_ID);
@@ -544,6 +553,10 @@ export const PROFILES_BY_HANDLE = (() => {
   profiles.raenguyen = {
     ...profiles.raenguyen,
     posts: syncCommentCounts(RAE_NGUYEN_PROFILE.posts, RECORD_BY_ID),
+  };
+  profiles[MY_HANDLE] = {
+    ...profiles[MY_HANDLE],
+    posts: syncCommentCounts(ALEX_MORGAN_PROFILE.posts, RECORD_BY_ID),
   };
   return profiles;
 })();

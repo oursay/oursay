@@ -22,7 +22,7 @@ import {
   SignModal,
 } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
-import { MY_NAME } from "@/lib/mock";
+import { MY_HANDLE, MY_NAME } from "@/lib/mock";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import { resolveGeography } from "@/lib/read-model";
 import type { RecordKind } from "@/lib/types";
@@ -30,6 +30,7 @@ import {
   jurisdictionPath,
   jurisdictionPillLabel,
   pageTitle,
+  SELF_PROFILE_PATH,
   viewFromPathname,
 } from "@/lib/routes";
 import { useApp } from "@/lib/state";
@@ -258,8 +259,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         open={state.profileOpen}
         onClose={app.closeProfile}
         name={MY_NAME}
-        handle="alex_morgan"
+        handle={MY_HANDLE}
         kycTier={state.kycTier}
+        onViewProfile={() => {
+          app.closeProfile();
+          router.push(SELF_PROFILE_PATH);
+        }}
         onValidateId={app.cycleKyc}
         onLogout={app.logout}
         devices={state.devices}

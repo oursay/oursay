@@ -1,4 +1,5 @@
 import { ALBERTA_RIDINGS } from "./alberta-ridings";
+import { MY_HANDLE, MY_NAME } from "./constants";
 import type { MockPerson } from "./types";
 
 /** Wireframe corpus authors and a few out-of-province residents. */
@@ -24,7 +25,7 @@ const EXTRA_PEOPLE: MockPerson[] = [
   { name: "Kevin O'Brien", handle: "kevinTO", tier: 1, role: "Toronto, ON" },
   { name: "Sarah Okamoto", handle: "sarahbc", tier: 2, role: "Vancouver, BC" },
   { name: "Marie Dubois", handle: "marieqc", tier: 1, role: "Montreal, QC" },
-  { name: "Alex Morgan", handle: "alexm", tier: 2, districts: ["edmonton-strathcona"], role: "Edmonton-Strathcona" },
+  { name: MY_NAME, handle: MY_HANDLE, tier: 2, districts: ["edmonton-strathcona"], role: "Edmonton-Strathcona" },
 ];
 
 function mlaPerson(riding: (typeof ALBERTA_RIDINGS)[number]): MockPerson {

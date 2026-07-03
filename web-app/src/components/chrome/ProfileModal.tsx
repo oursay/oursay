@@ -27,6 +27,8 @@ interface ProfileModalProps {
   name: string;
   handle: string;
   kycTier: VerificationTier;
+  /** Opens the account's own public profile (/profile/self). */
+  onViewProfile?: () => void;
   /** Cycles the KYC tier in the wireframe (dev affordance). */
   onValidateId?: () => void;
   theme?: "light" | "dark";
@@ -105,6 +107,7 @@ export function ProfileModal({
   name,
   handle,
   kycTier,
+  onViewProfile,
   onValidateId,
   theme = "light",
   onToggleTheme,
@@ -122,12 +125,20 @@ export function ProfileModal({
   return (
     <Modal open={open} onClose={onClose} variant="sheet" title="Profile" mobileFull>
       <div className="space-y-5">
-        <div className="flex items-center gap-3 border-b border-border pb-4">
-          <Avatar name={name} size="lg" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-ink">{name}</p>
-            <p className="truncate text-sm text-muted">@{handle}</p>
-          </div>
+        <div className="border-b border-border pb-4">
+          <button
+            type="button"
+            aria-label="View public profile"
+            onClick={onViewProfile}
+            className="flex w-full items-center gap-3 rounded-lg p-1 text-left hover:bg-surface-muted"
+          >
+            <Avatar name={name} size="lg" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-ink">{name}</p>
+              <p className="truncate text-sm text-muted">@{handle}</p>
+            </div>
+            <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden />
+          </button>
         </div>
 
         <div>

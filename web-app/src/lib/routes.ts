@@ -39,6 +39,9 @@ export function profilePath(handle: string): string {
   return `/profile/${handle}`;
 }
 
+/** The signed-in account's own public profile (static segment beats [handle]). */
+export const SELF_PROFILE_PATH = "/profile/self";
+
 /** Route to a record detail page: /{kind}/{id}. */
 export function postPath(
   kind: RecordKind,
