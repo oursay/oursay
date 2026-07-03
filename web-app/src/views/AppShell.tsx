@@ -25,7 +25,8 @@ import {
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
 import { MY_HANDLE, MY_NAME } from "@/lib/mock";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
-import { resolveGeography } from "@/lib/read-model";
+import { jurisdictionWidePost, resolveGeography } from "@/lib/read-model";
+import { scopedFeedFilterFromState } from "@/lib/state";
 import type { RecordKind } from "@/lib/types";
 import {
   jurisdictionPath,
@@ -83,6 +84,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     state.verified > 0 ||
     state.myDistricts !== "off" ||
     state.affected !== "off" ||
+    state.myJurisdiction !== "off" ||
     state.signedFilter > 0 ||
     (hasCardList && state.includedKinds.length < 4) ||
     (isProfile && state.profileTypes.length < 5);
@@ -95,8 +97,24 @@ export function AppShell({ children }: { children: ReactNode }) {
     view === "post" && state.postDistricts
       ? { districts: state.postDistricts }
       : null;
-  const geo = resolveGeography(app.feedFilter, app.viewer, openPostBearing);
+  // Chrome-only scoped filter: carries the active view's district universe
+  // (pageJurisdiction-aware) — never used for fetching (see lib/state/filters).
+  const scopedFilter = scopedFeedFilterFromState(state);
+  const geo = resolveGeography(scopedFilter, app.viewer, openPostBearing);
   const showAffected = openPostBearing != null && !geo.interlocked;
+
+  // My Jurisdiction row: needs a district-bearing jurisdiction scope (the
+  // resolved universe is empty when e.g. Global is in the feed — there the
+  // filter mirrors Verified: Residency) and, on a post, a post that is NOT
+  // jurisdiction-wide (there it mirrors Affected; affected > jurisdiction).
+  const jurisdictionDistricts =
+    scopedFilter.geography?.jurisdictionDistricts ?? [];
+  const showMyJurisdiction =
+    jurisdictionDistricts.length > 0 &&
+    (view === "post"
+      ? openPostBearing != null &&
+        !jurisdictionWidePost(openPostBearing.districts, jurisdictionDistricts)
+      : hasCardList);
 
   const composeJur = state.composeJur ?? "Global";
   const allowedComposeTypes = rootTypesForJurisdiction(composeJur);
@@ -177,8 +195,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                   signedFilter={state.signedFilter}
                   onCycleSignedFilter={app.cycleSignedFilter}
                   showAffected={showAffected}
-                  affected={state.affected}
+                  affected={geo.affectedImplied ? "inclusive" : state.affected}
                   onCycleAffected={app.cycleAffected}
+                  showMyJurisdiction={showMyJurisdiction}
+                  myJurisdiction={
+                    geo.jurisdictionImplied ? "exclusive" : state.myJurisdiction
+                  }
+                  onCycleMyJurisdiction={app.cycleMyJurisdiction}
                   geoAutoDisabled={geo.autoDisabled}
                   showRecordTypes={hasCardList}
                   showActivityTypes={isProfile}

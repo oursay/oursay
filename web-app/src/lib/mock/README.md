@@ -28,6 +28,7 @@ matching the wireframe so `relTime()` resolves identically in tests and render.
 | `POSTS[].jur` | `FeedItem.jurisdiction` | `JurisdictionConfig` name | |
 | `POSTS[].tier` (0–3) | `FeedItem.tier` | author KYC tier / Official role | 0 None · 1 Identity · 2 Residency · 3 Official |
 | `POSTS[].districts[]` | `FeedItem.districts` | `appliesToRegion` (district refs) | `[]` jurisdiction-wide · `[slug]` one riding · `[slug,…]` several |
+| — (people registry) | `FeedItem.authorDistricts` / `CommentNode.districts` | author residence districts | **Server-internal**: stamped from `personDistricts()`, used by read-model filters, stripped by the API — served DTOs carry the `authorGeo` relation instead |
 | `up` / `down` | `FeedItem.up` / `.down` | `reaction` aggregate (✓/✗) | Social counts; thinned by `scaleSocial` |
 | `sig` / `goal` | `FeedItem.sig` / `.goal` | `petition_signature` aggregate | Civic count; never thinned |
 | `options[].v` | `FeedItem.options[].v` | poll `vote` aggregate | Civic count; never thinned |

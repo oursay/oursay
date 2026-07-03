@@ -1,18 +1,44 @@
 "use client";
 
 import { useState } from "react";
-import { Gavel, IdCard, MapPin, MapPinHouse } from "lucide-react";
+import { Gavel, IdCard, MapPin, MapPinCheck, MapPinHouse, MapPinned } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { TIER_LABEL } from "@/lib/types";
-import type { PillDisplayMode, VerificationTier } from "@/lib/types";
+import type {
+  AuthorGeoRelation,
+  PillDisplayMode,
+  VerificationTier,
+} from "@/lib/types";
+
+/**
+ * Only Residency (tier 2) has a spatial relationship to show; every other tier
+ * ignores authorGeo. The relation is server-resolved (see AuthorGeoRelation in
+ * lib/types — raw author districts never reach the client):
+ *
+ * - "none"         residency-verified, no contextual relation  -> map-pin
+ * - "home"         in one of the VIEWER's home districts        -> map-pin-house
+ * - "affected"     resident of the OPEN POST's affected area    -> map-pin-check
+ * - "jurisdiction" in the post's jurisdiction but OUTSIDE its   -> map-pinned
+ *                  affected area (drops off on jurisdiction-wide
+ *                  posts, where everyone is "affected")
+ */
+export type { AuthorGeoRelation };
+
+/** Residency glyph refined by the author's spatial relation to the context. */
+const RESIDENCY_GEO_ICON: Record<AuthorGeoRelation, LucideIcon> = {
+  none: MapPin,
+  home: MapPinHouse,
+  affected: MapPinCheck,
+  jurisdiction: MapPinned,
+};
 
 /**
  * Glyph per verification type: Identity = ID badge · Residency = map pin ·
- * Official = gavel. A residency author in the viewer's own district upgrades to
- * the map-pin-house (see isHomeAuthor). Mirrors the wireframe's tierIcon().
+ * Official = gavel. Residency refines by the author's spatial relation to the
+ * context (see AuthorGeoRelation). Mirrors the wireframe's tierIcon().
  */
-function tierIcon(tier: VerificationTier, home: boolean): LucideIcon {
-  if (tier === 2 && home) return MapPinHouse;
+function tierIcon(tier: VerificationTier, geo: AuthorGeoRelation): LucideIcon {
+  if (tier === 2) return RESIDENCY_GEO_ICON[geo];
   return [IdCard, IdCard, MapPin, Gavel][tier] ?? IdCard;
 }
 
@@ -36,8 +62,8 @@ const TIER_FG: Record<Exclude<VerificationTier, 0>, string> = {
 
 interface VerificationPillProps {
   tier: VerificationTier;
-  /** Residency author in the viewer's district -> map-pin-house glyph. */
-  isHomeAuthor?: boolean;
+  /** A Residency author's spatial relation to the context, refining the tier-2 glyph. */
+  authorGeo?: AuthorGeoRelation;
   mode?: PillDisplayMode;
   align?: "left" | "right";
 }
@@ -45,12 +71,12 @@ interface VerificationPillProps {
 /** Verification pill: glyph + label (full) or icon-only circle. Tier 0 renders nothing. */
 export function VerificationPill({
   tier,
-  isHomeAuthor = false,
+  authorGeo = "none",
   mode = "full",
   align = "left",
 }: VerificationPillProps) {
   if (tier === 0) return null;
-  const Icon = tierIcon(tier, isHomeAuthor);
+  const Icon = tierIcon(tier, authorGeo);
 
   if (mode === "icon") {
     return <ExpandableVerificationPill tier={tier} Icon={Icon} align={align} />;

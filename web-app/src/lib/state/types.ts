@@ -77,6 +77,8 @@ export interface AppState {
   verified: VerificationTier;
   myDistricts: GeoFilterMode;
   affected: GeoFilterMode;
+  /** Author-residence filter — see Geography.myJurisdiction. */
+  myJurisdiction: GeoFilterMode;
   /** Which geography filter last entered exclusive (conflict tie-break). */
   geoPriority: "myDistricts" | "affected";
   /** Signed Refine ladder: 0 Any · 1 Passkey · 2 Biometric (Biometric dev-only). */

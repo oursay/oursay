@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { FeedFilterParams, ViewerContext } from "@/lib/types";
-import { geographyKeep, pinnedTierMin, resolveGeography } from "./geography";
+import {
+  authorGeoRelation,
+  effectiveMyJurisdiction,
+  geographyKeep,
+  isJurisdictionKeep,
+  jurisdictionWidePost,
+  pinnedTierMin,
+  resolveGeography,
+} from "./geography";
 
 const RESIDENT: ViewerContext = {
   loggedIn: true,
@@ -321,5 +329,214 @@ describe("resolveGeography — exclusive conflict on a post outside my districts
     );
     expect(geo.myDistricts).toBe("exclusive");
     expect(geo.autoDisabled).toBeNull();
+  });
+});
+
+// --- My Jurisdiction (author-residence filter) ------------------------------
+
+/** A small jurisdiction universe for the pure-function tests. */
+const JUR = [
+  "edmonton-strathcona",
+  "edmonton-city-centre",
+  "calgary-elbow",
+  "calgary-mountain-view",
+];
+
+const inJurAuthor = { districts: ["calgary-elbow"], tier: 2 as const };
+const officialNoDistrict = { districts: [] as string[], tier: 3 as const };
+const outOfProvince = { districts: [] as string[], tier: 2 as const };
+
+describe("authorGeoRelation — residency glyph ladder", () => {
+  const ctx = {
+    postDistricts: openMultiPost.districts,
+    jurisdictionDistricts: JUR,
+    viewerDistricts: ["edmonton-strathcona"],
+    viewerKycTier: 2 as const,
+  };
+
+  it("resolves home > affected > jurisdiction > none, most specific first", () => {
+    expect(authorGeoRelation(["edmonton-strathcona"], ctx)).toBe("home");
+    expect(authorGeoRelation(["edmonton-city-centre"], ctx)).toBe("affected");
+    expect(authorGeoRelation(["calgary-elbow"], ctx)).toBe("jurisdiction");
+    expect(authorGeoRelation([], ctx)).toBe("none");
+    expect(authorGeoRelation(undefined, ctx)).toBe("none");
+  });
+
+  it("home needs a residency-verified viewer (falls to affected otherwise)", () => {
+    const anonCtx = { ...ctx, viewerDistricts: [], viewerKycTier: 0 as const };
+    expect(authorGeoRelation(["edmonton-strathcona"], anonCtx)).toBe("affected");
+  });
+
+  it("jurisdiction-wide post: in-jurisdiction residents are affected, the jurisdiction rung drops", () => {
+    const wideCtx = { ...ctx, postDistricts: [] as string[] };
+    expect(authorGeoRelation(["calgary-elbow"], wideCtx)).toBe("affected");
+    expect(authorGeoRelation(["edmonton-strathcona"], wideCtx)).toBe("home");
+    expect(authorGeoRelation([], wideCtx)).toBe("none");
+    // naming every jurisdiction district is jurisdiction-wide too
+    const allNamedCtx = { ...ctx, postDistricts: [...JUR] };
+    expect(authorGeoRelation(["calgary-elbow"], allNamedCtx)).toBe("affected");
+  });
+});
+
+describe("jurisdictionWidePost / isJurisdictionKeep", () => {
+  it("wide when no districts named or every district named", () => {
+    expect(jurisdictionWidePost([], JUR)).toBe(true);
+    expect(jurisdictionWidePost([...JUR], JUR)).toBe(true);
+    expect(jurisdictionWidePost(["calgary-elbow"], JUR)).toBe(false);
+  });
+
+  it("keeps in-jurisdiction residents and district-less officials, drops district-less non-officials", () => {
+    expect(isJurisdictionKeep(inJurAuthor, JUR)).toBe(true);
+    expect(isJurisdictionKeep(officialNoDistrict, JUR)).toBe(true);
+    expect(isJurisdictionKeep(outOfProvince, JUR)).toBe(false);
+    expect(isJurisdictionKeep({ districts: ["yukon-riding"], tier: 2 }, JUR)).toBe(false);
+  });
+});
+
+describe("effectiveMyJurisdiction — gating", () => {
+  it("off without a district-bearing jurisdiction scope (e.g. Global in the feed)", () => {
+    expect(
+      effectiveMyJurisdiction({
+        geography: { myDistricts: "off", affected: "off", myJurisdiction: "exclusive" },
+      }),
+    ).toBe("off");
+  });
+
+  it("off on a jurisdiction-wide post (mirrors Affected; affected > jurisdiction)", () => {
+    const filter: FeedFilterParams = {
+      geography: {
+        myDistricts: "off",
+        affected: "off",
+        myJurisdiction: "exclusive",
+        jurisdictionDistricts: JUR,
+      },
+    };
+    expect(effectiveMyJurisdiction(filter, { districts: [] })).toBe("off");
+    expect(effectiveMyJurisdiction(filter, { districts: [...JUR] })).toBe("off");
+    // engaged on a normal post and on list paths (no openPost)
+    expect(effectiveMyJurisdiction(filter, openMultiPost)).toBe("exclusive");
+    expect(effectiveMyJurisdiction(filter)).toBe("exclusive");
+  });
+});
+
+describe("geographyKeep — My Jurisdiction modes", () => {
+  const exclusive: FeedFilterParams = {
+    tierMin: 0,
+    geography: {
+      myDistricts: "off",
+      affected: "off",
+      myJurisdiction: "exclusive",
+      jurisdictionDistricts: JUR,
+    },
+  };
+
+  it("Only keeps in-jurisdiction residents + officials, drops out-of-jurisdiction tier-2", () => {
+    const postDs = openMultiPost.districts;
+    expect(
+      geographyKeep(inJurAuthor, postDs, RESIDENT, exclusive, true, openMultiPost),
+    ).toBe(true);
+    expect(
+      geographyKeep(officialNoDistrict, postDs, RESIDENT, exclusive, true, openMultiPost),
+    ).toBe(true);
+    expect(
+      geographyKeep(outOfProvince, postDs, RESIDENT, exclusive, true, openMultiPost),
+    ).toBe(false);
+  });
+
+  it("Only still drops nodes failing the refinements (AND), and pins Verified to Residency", () => {
+    expect(
+      geographyKeep(inJurAuthor, openMultiPost.districts, RESIDENT, exclusive, false, openMultiPost),
+    ).toBe(false);
+    const geo = resolveGeography(exclusive, RESIDENT, openMultiPost);
+    expect(pinnedTierMin(0, geo)).toBe(2);
+  });
+
+  it("Include adds in-jurisdiction residents past the refinements; district-less never a positive match", () => {
+    const inclusive: FeedFilterParams = {
+      tierMin: 3,
+      geography: {
+        myDistricts: "off",
+        affected: "off",
+        myJurisdiction: "inclusive",
+        jurisdictionDistricts: JUR,
+      },
+    };
+    const postDs = openMultiPost.districts;
+    expect(
+      geographyKeep(inJurAuthor, postDs, RESIDENT, inclusive, false, openMultiPost),
+    ).toBe(true);
+    expect(
+      geographyKeep(officialNoDistrict, postDs, RESIDENT, inclusive, false, openMultiPost),
+    ).toBe(false);
+    const geo = resolveGeography(inclusive, RESIDENT, openMultiPost);
+    expect(pinnedTierMin(0, geo)).toBe(0); // inclusive doesn't pin
+  });
+});
+
+describe("resolveGeography — jurisdiction inference lattice (display-only)", () => {
+  const jurGeo = {
+    myDistricts: "off",
+    affected: "off",
+    jurisdictionDistricts: JUR,
+  } as const;
+
+  it("a narrower exclusive implies the Jurisdiction row shows Only", () => {
+    for (const narrower of ["affected", "myDistricts"] as const) {
+      const geo = resolveGeography(
+        {
+          tierMin: 2,
+          geography: { ...jurGeo, [narrower]: "exclusive", myJurisdiction: "off" },
+        },
+        RESIDENT,
+        openMultiPost,
+      );
+      expect(geo.jurisdictionImplied).toBe(true);
+      expect(geo.myJurisdiction).toBe("off"); // the narrower filter carries the inference
+    }
+  });
+
+  it("not implied on a jurisdiction-wide post (row is dropped there)", () => {
+    const geo = resolveGeography(
+      {
+        tierMin: 2,
+        geography: { ...jurGeo, affected: "exclusive", myJurisdiction: "off" },
+      },
+      RESIDENT,
+      { districts: [...JUR] },
+    );
+    expect(geo.jurisdictionImplied).toBe(false);
+  });
+
+  it("an engaged Jurisdiction implies Affected and My Districts show Include", () => {
+    const geo = resolveGeography(
+      {
+        tierMin: 2,
+        geography: { ...jurGeo, myJurisdiction: "inclusive" },
+      },
+      RESIDENT,
+      openMultiPost,
+    );
+    expect(geo.affectedImplied).toBe(true);
+    expect(geo.myDistrictsImplied).toBe(true);
+    expect(geo.affected).toBe("off");
+    expect(geo.myDistricts).toBe("off");
+  });
+
+  it("no Include implication for a viewer whose districts are outside the scope", () => {
+    const outsideViewer: ViewerContext = {
+      loggedIn: true,
+      kycTier: 2,
+      viewerDistricts: ["yukon-riding"],
+    };
+    const geo = resolveGeography(
+      {
+        tierMin: 2,
+        geography: { ...jurGeo, myJurisdiction: "inclusive" },
+      },
+      outsideViewer,
+      openOutsidePost,
+    );
+    expect(geo.myDistrictsImplied).toBe(false);
+    expect(geo.affectedImplied).toBe(true); // affected is still a subset of jurisdiction
   });
 });

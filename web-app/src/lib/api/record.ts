@@ -8,6 +8,7 @@ import {
   type ViewerContext,
 } from "@/lib/types";
 import type { PostTypeEntry } from "@/lib/mock";
+import { withPostJurisdictionDistricts } from "./geo-scope";
 import { anonymizeRecordEntry } from "./identity";
 
 /** getRecordDetail return shape: the record plus its (filtered) comment thread. */
@@ -50,8 +51,15 @@ export async function getRecordDetail(
   if (!entry) return null;
 
   const viewer = opts.viewer ?? ANON_VIEWER;
+  // The My Jurisdiction universe for comment filtering is the POST's own
+  // jurisdiction, resolved server-side (the client never sends it).
   const comments = opts.filter
-    ? filterComments(entry.comments, entry.post, viewer, opts.filter)
+    ? filterComments(
+        entry.comments,
+        entry.post,
+        viewer,
+        withPostJurisdictionDistricts(opts.filter, entry.post.jurisdiction),
+      )
     : entry.comments;
 
   // Author-identity enforcement: real handles never leave the API layer for

@@ -3,12 +3,14 @@
 import type { ReactNode } from "react";
 import type { AuthorIdentity, SignTier, VerificationTier } from "@/lib/types";
 import { AuthorRow, authorBadgeModes } from "@/components/identity";
+import type { AuthorGeoRelation } from "@/components/identity";
 
 interface RecordCardHeaderProps {
   author: string;
   tier: VerificationTier;
   signTier?: SignTier;
-  isHomeAuthor?: boolean;
+  /** Residency author's spatial relation to the context. */
+  authorGeo?: AuthorGeoRelation;
   /** Record rows: stacked @handle. Comment rows: inline relative time. */
   handle?: string;
   timestamp?: string;
@@ -27,7 +29,7 @@ export function RecordCardHeader({
   author,
   tier,
   signTier,
-  isHomeAuthor = false,
+  authorGeo,
   handle,
   timestamp,
   variant = "record",
@@ -47,7 +49,7 @@ export function RecordCardHeader({
       identity={identity}
       tier={tier}
       signTier={signTier}
-      isHomeAuthor={isHomeAuthor}
+      authorGeo={authorGeo}
       signedMode={signedMode}
       kycMode={kycMode}
       timestamp={variant === "comment" ? timestamp : undefined}

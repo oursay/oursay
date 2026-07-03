@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
-import { isHomeAuthor } from "@/components/utils";
 import { Button } from "@/components/ui";
 import { ScopeTag } from "./ScopeTag";
 import { PetitionProgress } from "./PetitionProgress";
@@ -56,7 +55,6 @@ export function FeedCard({
   onDistrictClick,
 }: FeedCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const home = isHomeAuthor(item.districts, viewer.kycTier, viewer.viewerDistricts);
   const multiDistrict = item.districts.length > 1;
   const scopeProps = {
     jurisdiction: item.jurisdiction,
@@ -79,7 +77,7 @@ export function FeedCard({
           identity={item.identity}
           tier={item.tier}
           signTier={item.signTier}
-          isHomeAuthor={home}
+          authorGeo={item.authorGeo}
           onAuthorClick={onAuthorClick}
           scopeSlot={
             <ScopeTag

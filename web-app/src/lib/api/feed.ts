@@ -7,6 +7,7 @@ import {
   type FeedScope,
   type ViewerContext,
 } from "@/lib/types";
+import { withScopeJurisdictionDistricts } from "./geo-scope";
 import { anonymizeFeedItem } from "./identity";
 import { getJurisdictionMembership } from "./membership";
 
@@ -36,12 +37,16 @@ export async function listFeedItems(
 ): Promise<FeedItem[]> {
   const scope = params.scope ?? "feed";
   const viewer = params.viewer ?? ANON_VIEWER;
-  const filter: FeedFilterParams = { ...params.filter };
+  let filter: FeedFilterParams = { ...params.filter };
 
   // Feed scope filters by subscribed + included jurisdictions (cookie-shaped).
   if (scope === "feed" && !filter.jurisdictions) {
     filter.jurisdictions = await getJurisdictionMembership();
   }
+
+  // The My Jurisdiction district universe is resolved HERE, per scope — the
+  // client never sends it (see geo-scope.ts).
+  filter = withScopeJurisdictionDistricts(filter, scope);
 
   return POSTS.filter((item) => matches(item, scope, viewer, filter)).map(
     (item) => anonymizeFeedItem(item, viewer),

@@ -188,6 +188,49 @@ export const COMMENTS_PETITION: CommentNode[] = [
     signTier: 1,
     replies: [],
   },
+  // Residency-glyph ladder demo (viewer home = edmonton-strathcona):
+  //   samd / weichen -> home (map-pin-house, once residency-verified)
+  //   owenf          -> affected: the petition's other affected riding (map-pin-check)
+  //   beanowak       -> in-jurisdiction: Alberta, but outside the corridor (map-pinned)
+  //   sarahbc        -> residency-verified, no local tie (plain map-pin)
+  {
+    author: "Owen Fletcher",
+    handle: "owenf",
+    tier: 2,
+    districts: ["edmonton-city-centre"],
+    ts: "2026-06-28T13:30:00",
+    body: ["City Centre side backs this too — the pinch point is on our end of the path."],
+    up: 15,
+    down: 0,
+    _my: null,
+    signTier: 1,
+    replies: [],
+  },
+  {
+    author: "Bea Nowak",
+    handle: "beanowak",
+    tier: 2,
+    districts: ["calgary-elbow"],
+    ts: "2026-06-27T17:45:00",
+    body: [
+      "Calgary elector here — happy to see it, though it's really an Edmonton corridor fix.",
+    ],
+    up: 7,
+    down: 1,
+    _my: null,
+    replies: [],
+  },
+  {
+    author: "Sarah Okamoto",
+    handle: "sarahbc",
+    tier: 2,
+    ts: "2026-06-26T20:10:00",
+    body: ["We twinned a river path in Vancouver — the commute time drop was real."],
+    up: 5,
+    down: 0,
+    _my: null,
+    replies: [],
+  },
   {
     author: "Marcus Lee",
     handle: "mlee",

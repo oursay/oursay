@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 import { COMMENT_MAX_DEPTH } from "@/lib/types";
 import type { CommentNode, ViewerContext, VerificationTier } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
-import { isHomeAuthor } from "@/components/utils";
 import { CommentCard } from "./CommentCard";
 
 interface CommentThreadProps {
@@ -50,7 +49,6 @@ export function CommentThread({
   return (
     <ul className={depth > 1 ? "space-y-4 border-l border-border pl-2" : "space-y-4"}>
       {nodes.map((node, i) => {
-        const home = isHomeAuthor(node.districts, viewer.kycTier, viewer.viewerDistricts);
         const atMax = depth >= maxDepth;
         const prefix = i === 0 ? mentionPrefix : undefined;
         const nodePath = path ? `${path}.${i}` : `${i}`;
@@ -60,7 +58,7 @@ export function CommentThread({
               author={node.author}
               tier={node.tier}
               signTier={node.signTier}
-              isHomeAuthor={home}
+              authorGeo={node.authorGeo}
               identity={node.identity}
               timestamp={relTime(node.ts, now)}
               depth={depth}

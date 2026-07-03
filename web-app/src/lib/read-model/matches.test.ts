@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { POSTS } from "@/lib/mock";
+import { JUR_DATA, POSTS } from "@/lib/mock";
 import {
   ANON_VIEWER,
   type FeedFilterParams,
@@ -171,5 +171,106 @@ describe("matches — district scope", () => {
     ).toBe(true);
     // the Wei Chen petition is multi-district and must be included
     expect(inStrathcona.some((p) => p.id === "pet-wei-path")).toBe(true);
+  });
+});
+
+describe("matches — My Jurisdiction (author residence)", () => {
+  const ALBERTA_ONLY: JurisdictionMembership[] = [
+    { name: "Global", included: false },
+    { name: "Alberta", included: true },
+  ];
+  const albertaSlugs = JUR_DATA.Alberta.districts.map((d) => d.slug);
+  const jurFilter = (
+    myJurisdiction: "inclusive" | "exclusive",
+    tierMin: 0 | 1 | 2 | 3 = 0,
+  ): FeedFilterParams => ({
+    jurisdictions: ALBERTA_ONLY,
+    tierMin,
+    geography: {
+      myDistricts: "off",
+      affected: "off",
+      myJurisdiction,
+      jurisdictionDistricts: albertaSlugs,
+    },
+  });
+
+  it("Only drops posts authored from outside the jurisdiction (viewer-independent)", () => {
+    const results = POSTS.filter((p) =>
+      matches(p, "feed", ANON_VIEWER, jurFilter("exclusive")),
+    );
+    expect(results.length).toBeGreaterThan(0);
+    // sarahbc (Vancouver BC, tier 2, no modeled districts) authored this
+    // Alberta petition — the whole point of the filter is to drop it.
+    expect(results.some((p) => p.id === "pet-rural-broadband")).toBe(false);
+    // district-less officials represent the jurisdiction and stay
+    expect(results.some((p) => p.handle === "ableg")).toBe(true);
+    // in-jurisdiction residents stay (Wei Chen, edmonton-strathcona)
+    expect(results.some((p) => p.id === "pet-wei-path")).toBe(true);
+  });
+
+  it("Only pins the effective Verified floor to Residency", () => {
+    const results = POSTS.filter((p) =>
+      matches(p, "feed", ANON_VIEWER, jurFilter("exclusive", 0)),
+    );
+    expect(results.every((p) => p.tier >= 2)).toBe(true);
+  });
+
+  it("Include adds in-jurisdiction-authored posts past the refinements", () => {
+    const tightened = POSTS.filter((p) =>
+      matches(p, "feed", ANON_VIEWER, {
+        jurisdictions: ALBERTA_ONLY,
+        tierMin: 3,
+      }),
+    );
+    expect(tightened.some((p) => p.id === "pet-wei-path")).toBe(false);
+
+    const broadened = POSTS.filter((p) =>
+      matches(p, "feed", ANON_VIEWER, jurFilter("inclusive", 3)),
+    );
+    expect(tightened.every((p) => broadened.includes(p))).toBe(true);
+    expect(broadened.some((p) => p.id === "pet-wei-path")).toBe(true);
+    // district-less residence is never a positive match
+    expect(broadened.some((p) => p.id === "pet-rural-broadband")).toBe(false);
+  });
+
+  it("gates off without a district-slug universe (e.g. Global in the feed)", () => {
+    const gatedOff: FeedFilterParams = {
+      jurisdictions: ALBERTA_ONLY,
+      geography: {
+        myDistricts: "off",
+        affected: "off",
+        myJurisdiction: "exclusive",
+        // no jurisdictionDistricts: a district-less jurisdiction is in scope
+      },
+    };
+    const results = POSTS.filter((p) =>
+      matches(p, "feed", ANON_VIEWER, gatedOff),
+    );
+    // no filtering AND no Residency pin — identical to no geography at all
+    const baseline = POSTS.filter((p) =>
+      matches(p, "feed", ANON_VIEWER, { jurisdictions: ALBERTA_ONLY }),
+    );
+    expect(results).toEqual(baseline);
+  });
+
+  it("applies on district scope too (posts about a district by outside authors drop)", () => {
+    const broadbandDistrict = JUR_DATA.Alberta.districts[0].slug; // riding 0 is in the broadband petition
+    const kept = POSTS.filter((p) =>
+      matches(p, "district", ANON_VIEWER, {
+        districtSlug: broadbandDistrict,
+        tierMin: 0,
+        geography: {
+          myDistricts: "off",
+          affected: "off",
+          myJurisdiction: "exclusive",
+          jurisdictionDistricts: albertaSlugs,
+        },
+      }),
+    );
+    expect(kept.some((p) => p.id === "pet-rural-broadband")).toBe(false);
+    const unfiltered = POSTS.filter((p) =>
+      matches(p, "district", ANON_VIEWER, { districtSlug: broadbandDistrict }),
+    );
+    expect(unfiltered.some((p) => p.id === "pet-rural-broadband")).toBe(true);
   });
 });

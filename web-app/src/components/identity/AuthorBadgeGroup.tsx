@@ -2,6 +2,7 @@ import type { PillDisplayMode, SignTier, VerificationTier } from "@/lib/types";
 import { showsSignedPill } from "@/lib/types/sign-tier";
 import { SignedPill } from "./SignedPill";
 import { VerificationPill } from "./VerificationPill";
+import type { AuthorGeoRelation } from "./VerificationPill";
 
 export type BadgeSurface = "post" | "comment";
 
@@ -22,7 +23,8 @@ export function authorBadgeModes(
 interface AuthorBadgeGroupProps {
   signTier?: SignTier;
   tier: VerificationTier;
-  isHomeAuthor?: boolean;
+  /** Residency author's spatial relation to the context. */
+  authorGeo?: AuthorGeoRelation;
   signedMode: PillDisplayMode;
   kycMode: PillDisplayMode;
   align?: "left" | "right";
@@ -32,7 +34,7 @@ interface AuthorBadgeGroupProps {
 export function AuthorBadgeGroup({
   signTier,
   tier,
-  isHomeAuthor = false,
+  authorGeo,
   signedMode,
   kycMode,
   align = "left",
@@ -46,7 +48,7 @@ export function AuthorBadgeGroup({
       className={`inline-flex shrink-0 items-center gap-0.5 ${align === "right" ? "ml-auto" : ""}`}
     >
       <SignedPill signTier={signTier} mode={signedMode} />
-      <VerificationPill tier={tier} isHomeAuthor={isHomeAuthor} mode={kycMode} />
+      <VerificationPill tier={tier} authorGeo={authorGeo} mode={kycMode} />
     </span>
   );
 }

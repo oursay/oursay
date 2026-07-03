@@ -26,7 +26,6 @@ import {
   ResultOutcome,
   ScopeTag,
 } from "@/components";
-import { isHomeAuthor } from "@/components/utils";
 import { authorPath, postPath, districtPath } from "@/lib/routes";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import { useApp } from "@/lib/state";
@@ -113,7 +112,6 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const reactions = app.reactionCountsFor(target);
   const displayDetail: RecordDetail =
     detail.kind === "petition" ? { ...detail, sig } : detail;
-  const home = isHomeAuthor(detail.districts, app.viewer.kycTier, app.viewer.viewerDistricts);
   const isFinal = detail.jurisdiction === "Alberta";
   const tierMin = app.effectiveVerified;
 
@@ -163,7 +161,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             identity={detail.identity}
             tier={detail.tier}
             signTier={detail.signTier}
-            isHomeAuthor={home}
+            authorGeo={detail.authorGeo}
             onAuthorClick={() => router.push(authorPath(detail.identity, detail.handle))}
             scopeSlot={
               detail.districts.length > 0 ? (

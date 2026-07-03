@@ -50,6 +50,12 @@ const EXTRA_PEOPLE: MockPerson[] = [
     visibility: "my_officials",
   },
   { name: "Wei Chen", handle: "weichen", tier: 2, districts: ["edmonton-strathcona"] },
+  // Residency-verified neighbours used by the river-path petition thread to
+  // demonstrate the residency glyph ladder: Owen is in the petition's *other*
+  // affected riding (map-pin-check), Bea is elsewhere in Alberta and only
+  // in-jurisdiction (map-pinned).
+  { name: "Owen Fletcher", handle: "owenf", tier: 2, districts: ["edmonton-city-centre"] },
+  { name: "Bea Nowak", handle: "beanowak", tier: 2, districts: ["calgary-elbow"] },
   {
     name: "Dale Friesen",
     handle: "dfriesen",

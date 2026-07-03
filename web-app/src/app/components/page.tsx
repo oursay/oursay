@@ -162,11 +162,15 @@ export default function ComponentGallery() {
           <Row>
             <VerificationPill tier={1} />
             <VerificationPill tier={2} />
-            <VerificationPill tier={2} isHomeAuthor />
+            <VerificationPill tier={2} authorGeo="home" />
+            <VerificationPill tier={2} authorGeo="affected" />
+            <VerificationPill tier={2} authorGeo="jurisdiction" />
             <VerificationPill tier={3} />
             <VerificationPill tier={2} mode="icon" />
             <VerificationPill tier={3} mode="icon" />
-            <span className="text-xs text-muted">(tier 0 renders nothing)</span>
+            <span className="text-xs text-muted">
+              (residency glyph: map-pin · in-my-district · affected · in-jurisdiction; tier 0 renders nothing)
+            </span>
           </Row>
         </Section>
 

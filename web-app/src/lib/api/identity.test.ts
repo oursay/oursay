@@ -167,3 +167,47 @@ describe("persona stability across surfaces", () => {
     expect(new Set(map.values()).size).toBe(map.size);
   });
 });
+
+describe("residence privacy — served DTOs carry authorGeo, never districts", () => {
+  it("feed items: raw residence is stripped and replaced by the relation", async () => {
+    const rows = await listFeedItems({ viewer: viewer(2) });
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.authorDistricts).toBeUndefined();
+      expect(row.authorGeo).toBeDefined();
+    }
+    // Wei Chen lives in the viewer's riding -> home; sarahbc (BC) -> none
+    expect(rows.find((r) => r.id === "pet-wei-path")?.authorGeo).toBe("home");
+    expect(rows.find((r) => r.id === "pet-rural-broadband")?.authorGeo).toBe("none");
+  });
+
+  it("comments: relation resolved against the open post, districts stripped", async () => {
+    const result = await getRecordDetail("pet-wei-path", { viewer: viewer(2) });
+    expect(result).not.toBeNull();
+    const flat: CommentNode[] = [];
+    const walk = (nodes: CommentNode[]) => {
+      for (const n of nodes) {
+        flat.push(n);
+        walk(n.replies);
+      }
+    };
+    walk(result!.comments);
+    expect(flat.length).toBeGreaterThan(0);
+    for (const n of flat) {
+      expect(n.districts).toBeUndefined();
+      expect(n.authorGeo).toBeDefined();
+    }
+    const geoFor = (name: string) =>
+      flat.find((n) => n.author === name)?.authorGeo;
+    expect(geoFor("Wei Chen")).toBe("home"); // viewer's own riding
+    expect(geoFor("Owen Fletcher")).toBe("affected"); // the post's other riding
+    expect(geoFor("Bea Nowak")).toBe("jurisdiction"); // Alberta, outside the corridor
+    expect(geoFor("Sarah Okamoto")).toBe("none"); // residency-verified elsewhere
+  });
+
+  it("home never resolves for a viewer below Residency", async () => {
+    const result = await getRecordDetail("pet-wei-path", { viewer: viewer(1) });
+    const top = result!.comments;
+    expect(top.every((n) => n.authorGeo !== "home")).toBe(true);
+  });
+});

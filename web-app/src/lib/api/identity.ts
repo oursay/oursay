@@ -1,11 +1,19 @@
-import { DETAIL_BY_ID, person, personDistricts, THREAD_VISIBILITY_OVERRIDES } from "@/lib/mock";
+import {
+  DETAIL_BY_ID,
+  person,
+  personDistricts,
+  THREAD_VISIBILITY_OVERRIDES,
+} from "@/lib/mock";
+import { jurisdictionSlugs } from "./geo-scope";
 import type { PostTypeEntry } from "@/lib/mock";
 import {
+  authorGeoRelation,
   buildPersonaMap,
   isRevealed,
   personaNameFor,
   resolveVisibility,
 } from "@/lib/read-model";
+import type { AuthorGeoContext } from "@/lib/read-model";
 import type {
   AuthorIdentity,
   AuthorVisibility,
@@ -23,9 +31,13 @@ import type {
  * persona instead.
  *
  * Deliberate demo semantics: only the identity surface (name, handle, profile
- * link, avatar seed) is masked. The verification-tier pill, the comment's
- * `districts` (home-author glyph), and all tallies stay — those are anonymized
- * civic signals per docs/09 §1, not identity.
+ * link, avatar seed) is masked. The verification-tier pill and all tallies
+ * stay — those are anonymized civic signals per docs/09 §1, not identity.
+ *
+ * RESIDENCE PRIVACY: a member's raw districts never leave this layer. Served
+ * DTOs carry only the narrowest viewer-relative relation (`authorGeo`:
+ * home > affected > jurisdiction > none, resolved against the record's own
+ * geography); `districts` / `authorDistricts` on served copies are stripped.
  */
 
 /**
@@ -162,10 +174,24 @@ export function resolveAuthorIdentity(
   };
 }
 
+/** The authorGeo resolution context for a record's own geography. */
+function geoContextFor(
+  record: { districts: string[]; jurisdiction: string },
+  viewer: ViewerContext,
+): AuthorGeoContext {
+  return {
+    postDistricts: record.districts,
+    jurisdictionDistricts: jurisdictionSlugs(record.jurisdiction),
+    viewerDistricts: viewer.viewerDistricts,
+    viewerKycTier: viewer.kycTier,
+  };
+}
+
 /**
  * Copy a feed/list item with its author surface anonymized for this viewer.
  * A card's thread is the record itself, so the card persona matches the
- * detail-page persona.
+ * detail-page persona. The author's raw residence (`authorDistricts`) is
+ * replaced by the server-resolved `authorGeo` relation.
  */
 export function anonymizeFeedItem(item: FeedItem, viewer: ViewerContext): FeedItem {
   const identity = resolveAuthorIdentity(item.handle, item.author, item.id, viewer);
@@ -174,6 +200,8 @@ export function anonymizeFeedItem(item: FeedItem, viewer: ViewerContext): FeedIt
     author: identity.display,
     handle: identity.handle ?? identity.display,
     identity,
+    authorGeo: authorGeoRelation(item.authorDistricts, geoContextFor(item, viewer)),
+    authorDistricts: undefined,
   };
 }
 
@@ -181,6 +209,7 @@ function anonymizeComments(
   nodes: CommentNode[],
   threadId: string,
   viewer: ViewerContext,
+  geoCtx: AuthorGeoContext,
 ): CommentNode[] {
   return nodes.map((node) => {
     const identity = resolveAuthorIdentity(node.handle, node.author, threadId, viewer);
@@ -189,7 +218,9 @@ function anonymizeComments(
       author: identity.display,
       handle: identity.handle ?? identity.display,
       identity,
-      replies: anonymizeComments(node.replies, threadId, viewer),
+      authorGeo: authorGeoRelation(node.districts, geoCtx),
+      districts: undefined,
+      replies: anonymizeComments(node.replies, threadId, viewer, geoCtx),
     };
   });
 }
@@ -201,13 +232,16 @@ export function anonymizeRecordEntry(
   viewer: ViewerContext,
 ): { detail: RecordDetail; comments: CommentNode[] } {
   const identity = resolveAuthorIdentity(detail.handle, detail.author, detail.id, viewer);
+  const geoCtx = geoContextFor(detail, viewer);
   return {
     detail: {
       ...detail,
       author: identity.display,
       handle: identity.handle ?? identity.display,
       identity,
+      authorGeo: authorGeoRelation(detail.authorDistricts, geoCtx),
+      authorDistricts: undefined,
     },
-    comments: anonymizeComments(comments, detail.id, viewer),
+    comments: anonymizeComments(comments, detail.id, viewer, geoCtx),
   };
 }

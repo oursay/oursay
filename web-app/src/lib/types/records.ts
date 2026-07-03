@@ -1,6 +1,6 @@
 import type { AuthorIdentity } from "./identity";
 import type { SignTier } from "./sign-tier";
-import type { VerificationTier } from "./verification";
+import type { AuthorGeoRelation, VerificationTier } from "./verification";
 
 /**
  * Record kind, in the wireframe's product labels. The canonical record type for
@@ -47,6 +47,19 @@ export interface FeedItem {
   tier: VerificationTier;
   /** District slugs: [] jurisdiction-wide, [slug] one riding, [slug,...] several. */
   districts: string[];
+  /**
+   * The AUTHOR's home riding slugs (their residence), distinct from `districts`
+   * (the area the post affects) — SERVER-INTERNAL (mock corpus + read-model
+   * filtering only). A member's district is never shared with other members;
+   * the API strips this and serves the `authorGeo` relation instead.
+   */
+  authorDistricts?: string[];
+  /**
+   * Server-resolved spatial relation of the author to the viewer + this post —
+   * the only residence signal that leaves the API. Present on API-served
+   * copies only.
+   */
+  authorGeo?: AuthorGeoRelation;
   author: string;
   handle: string;
   title: string;
@@ -87,6 +100,10 @@ export interface RecordDetail {
   jurisdiction: string;
   tier: VerificationTier;
   districts: string[];
+  /** Author's home riding slugs — SERVER-INTERNAL, see FeedItem.authorDistricts. */
+  authorDistricts?: string[];
+  /** Server-resolved author relation — see FeedItem.authorGeo. */
+  authorGeo?: AuthorGeoRelation;
   author: string;
   handle: string;
   title: string;

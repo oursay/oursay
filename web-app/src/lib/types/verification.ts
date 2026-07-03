@@ -20,6 +20,27 @@ export type VerificationTier = 0 | 1 | 2 | 3;
  */
 export type PillDisplayMode = "full" | "icon";
 
+/**
+ * A Residency (tier 2) author's spatial relation to the viewer + open context —
+ * the ONLY residence signal the server ever returns. Raw author districts stay
+ * server-side (a member's district is never shared with other members); DTOs
+ * carry this narrowest-relation projection instead:
+ *
+ *   home > affected > jurisdiction > none
+ *
+ * - "home"         in one of the VIEWER's home districts (needs a
+ *                  residency-verified viewer)
+ * - "affected"     resident of the open post's affected area
+ * - "jurisdiction" in the post's jurisdiction but outside its affected area
+ * - "none"         no contextual relation (or below Residency — the tiers
+ *                  themselves travel as `tier`)
+ *
+ * Officials (tier 3) are treated as residents of the district/jurisdiction
+ * they represent for filtering, but display the gavel pill, not a geo glyph.
+ * See read-model authorGeoRelation() for the resolution + drop-off rules.
+ */
+export type AuthorGeoRelation = "none" | "home" | "affected" | "jurisdiction";
+
 /** Wireframe-facing label per tier (KYC pills; filter ladder uses VERIFIED_LEVELS). */
 export const TIER_LABEL: Record<VerificationTier, string> = {
   0: "None",

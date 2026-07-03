@@ -15,7 +15,7 @@ callbacks. Visual QA lives at the `/components` gallery route.
 | `identity/` | `VerificationPill`, `AuthorRow` |
 | `content/` | `FeedCard`, `ScopeTag`, `ReactionButtons`, `PetitionProgress`, `PollOptions`, `CommentThread`, `EditCountLink`, `RecordTypeSection`, record-type icon/label maps |
 | `chrome/` | Modals & dropdowns: `FilterDropdown`, `JurisdictionSelector`, `AuthChooser`, `RegisterForm`, `OtpVerify`, `LoginChooser`, `ProfileModal`, `ComposeFlow`, `SignModal`, `AddJurisdictionModal` |
-| `utils/` | Pure helpers: `initials`, `isHomeAuthor`, `formatCount` |
+| `utils/` | Pure helpers: `initials`, `formatCount` |
 
 Each folder has a barrel `index.ts`; the top-level [`index.ts`](index.ts)
 re-exports everything.
@@ -28,8 +28,10 @@ re-exports everything.
   `onReact: (dir: "up" | "down") => void`). No `fetch`, cookies, or WebAuthn.
 - **Controlled state** (modal `open`, filter selections, `expanded`, selected
   reaction/vote) is owned by the parent. The gallery drives it with `useState`.
-- **Viewer context** is passed explicitly so components can compute
-  `isHomeAuthor` and thin social counts.
+- **Viewer context** is passed explicitly so components can thin social counts.
+  Author residence is never computed client-side: the API serves the
+  viewer-relative `authorGeo` relation (a member's raw districts stay
+  server-side).
 - **Timestamps** take `now: Date` and format via `relTime` (gallery uses the
   deterministic mock `NOW`).
 - Components are named in `PascalCase`; interactive ones are `"use client"`.
@@ -38,13 +40,16 @@ re-exports everything.
 
 - **Verification tier 0 renders nothing** — `VerificationPill` returns `null` for
   public/unverified authors. Tiers 1–3 show a glyph + label and darken with tier.
-- **Residency neighbour glyph** — a residency author (tier 2) in the viewer's own
-  district shows `map-pin-house` instead of `map-pin`, but only when the viewer is
-  themselves residency-verified (`isHomeAuthor`).
+- **Residency glyph ladder** — a residency author's (tier 2) pill refines by the
+  server-resolved `authorGeo` relation: `map-pin-house` (viewer's own district,
+  needs a residency-verified viewer) > `map-pin-check` (in the post's affected
+  area) > `map-pinned` (in the post's jurisdiction, outside the affected area) >
+  `map-pin`. Raw districts never reach the client.
 - **Inclusive Verified filter** — `FilterDropdown` cycles the ladder
-  Any → Identity → Residency → Official (`tier >= selected`). My Districts / Affected
-  are disabled unless the viewer is residency-verified and the ladder is at
-  Residency+.
+  Any → Identity → Residency → Official (`tier >= selected`). My Districts needs
+  a residency-verified viewer; Affected (post pages) and My Jurisdiction(s)
+  (author-residence, all list scopes) are viewer-independent. An engaged
+  geography "Only" pins the effective Verified floor to Residency.
 - **Social vs civic counts** — social counts (comments, reactions) thin as the
   Verified filter rises (`scaleSocial`); civic counts (signatures, votes) never
   thin — instead an additive "+N unverified" note appears (`civicExtra`).

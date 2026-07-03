@@ -1,5 +1,3 @@
-import type { VerificationTier } from "@/lib/types";
-
 /**
  * Initials from a display name: first word + last word, with any ", MLA"-style
  * suffix stripped. Mirrors the wireframe's initials() helper.
@@ -11,19 +9,10 @@ export function initials(name: string): string {
   return ((first[0] ?? "") + (last[0] ?? "")).toUpperCase();
 }
 
-/**
- * An author "in my district": only meaningful when the viewer is themselves
- * residency-verified (kycTier >= 2) and the author's riding overlaps one of the
- * viewer's home ridings. Drives the map-pin-house residency-neighbour glyph.
- */
-export function isHomeAuthor(
-  authorDistricts: string[] | undefined,
-  viewerKycTier: VerificationTier,
-  viewerDistricts: string[],
-): boolean {
-  if (viewerKycTier < 2) return false;
-  return (authorDistricts ?? []).some((s) => viewerDistricts.includes(s));
-}
+// NOTE: author-residence helpers (isHomeAuthor, authorGeoRelation) live in
+// lib/read-model/geography — they run at the API boundary. A member's raw
+// districts are never serialized to the client; components consume the
+// server-stamped `authorGeo` relation instead.
 
 /** Compact count formatting (e.g. 8300 -> "8.3k"), matching the wireframe fmtN. */
 export function formatCount(n: number): string {

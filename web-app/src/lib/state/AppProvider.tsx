@@ -41,7 +41,11 @@ import type { SignKind } from "@/components";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import { nextGeoFilterMode } from "@/lib/types";
 import type { AppState, ChooseSignRequest, SignRequest } from "./types";
-import { feedFilterFromState, viewerFromState } from "./filters";
+import {
+  feedFilterFromState,
+  scopedFeedFilterFromState,
+  viewerFromState,
+} from "./filters";
 import {
   DEFAULT_SUBSCRIPTIONS,
   readSession,
@@ -74,7 +78,8 @@ interface CivicTarget {
   districts: string[];
 }
 
-const INITIAL: AppState = {
+/** Pre-hydration defaults (exported for state-derivation tests). */
+export const INITIAL_APP_STATE: AppState = {
   loggedIn: false,
   kycTier: 0,
   viewerDistricts: [],
@@ -87,6 +92,7 @@ const INITIAL: AppState = {
   verified: 0,
   myDistricts: "off",
   affected: "off",
+  myJurisdiction: "off",
   geoPriority: "myDistricts",
   signedFilter: 0,
 
@@ -130,7 +136,7 @@ const INITIAL: AppState = {
 /** Geography resolution against the state's post context (see resolveGeography). */
 function resolveGeoFromState(s: AppState): ResolvedGeography {
   return resolveGeography(
-    feedFilterFromState(s),
+    scopedFeedFilterFromState(s),
     viewerFromState(s),
     s.postDistricts ? { districts: s.postDistricts } : null,
   );
@@ -170,6 +176,7 @@ export interface AppApi {
   cycleVerified: () => void;
   cycleMyDistricts: () => void;
   cycleAffected: () => void;
+  cycleMyJurisdiction: () => void;
   cycleSignedFilter: () => void;
 
   // Profile Activity-type filter.
@@ -261,7 +268,7 @@ export interface AppApi {
 const AppContext = createContext<AppApi | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(INITIAL);
+  const [state, setState] = useState<AppState>(INITIAL_APP_STATE);
   const pendingCommit = useRef<(() => void) | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Skip the mount-time session write so it can't clobber the cookie before
@@ -524,15 +531,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const cycleAffected = useCallback(() => {
     setState((s) => {
-      if (resolveGeoFromState(s).autoDisabled === "affected") {
+      const geo = resolveGeoFromState(s);
+      if (geo.autoDisabled === "affected") {
         return { ...s, geoPriority: "affected" };
       }
-      const next = nextGeoFilterMode(s.affected);
+      // Cycle from the DISPLAYED mode: when an engaged My Jurisdiction already
+      // implies Include, the next step is Only (not a dead click).
+      const shown = geo.affectedImplied ? "inclusive" : s.affected;
+      const next = nextGeoFilterMode(shown);
       return {
         ...s,
         affected: next,
         geoPriority: next === "exclusive" ? "affected" : s.geoPriority,
       };
+    });
+  }, []);
+
+  const cycleMyJurisdiction = useCallback(() => {
+    setState((s) => {
+      // Cycle from the DISPLAYED mode: when a narrower exclusive already
+      // implies Only, the next step is Off. Never auto-disabled (superset
+      // population — exclusives always compose), so no priority handling.
+      const geo = resolveGeoFromState(s);
+      const shown = geo.jurisdictionImplied ? "exclusive" : s.myJurisdiction;
+      return { ...s, myJurisdiction: nextGeoFilterMode(shown) };
     });
   }, []);
 
@@ -1138,6 +1160,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       state.verified,
       state.myDistricts,
       state.affected,
+      state.myJurisdiction,
       state.geoPriority,
       state.signedFilter,
     ],
@@ -1160,6 +1183,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     cycleVerified,
     cycleMyDistricts,
     cycleAffected,
+    cycleMyJurisdiction,
     cycleSignedFilter,
     toggleProfileType,
     isolateProfileType,

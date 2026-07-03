@@ -109,6 +109,14 @@ interface FilterDropdownProps {
   showAffected?: boolean;
   affected?: GeoFilterMode;
   onCycleAffected?: () => void;
+  /**
+   * My Jurisdiction row (author-residence filter) shows on feed/list views
+   * whose jurisdictions all have districts, and on open posts EXCEPT
+   * jurisdiction-wide ones (there it's the same filter as Affected).
+   */
+  showMyJurisdiction?: boolean;
+  myJurisdiction?: GeoFilterMode;
+  onCycleMyJurisdiction?: () => void;
   /** Exclusive-conflict loser (see read-model resolveGeography) — shown "Auto off". */
   geoAutoDisabled?: "myDistricts" | "affected" | null;
   /** Feed/jurisdiction/district record-type section. */
@@ -140,6 +148,9 @@ export function FilterDropdown({
   showAffected = false,
   affected = "off",
   onCycleAffected,
+  showMyJurisdiction = false,
+  myJurisdiction = "off",
+  onCycleMyJurisdiction,
   geoAutoDisabled = null,
   showRecordTypes = true,
   showActivityTypes = false,
@@ -263,6 +274,21 @@ export function FilterDropdown({
               icon={signedLevelIcon(signedFilter)}
             />
           }
+        />
+      ) : null}
+      {showMyJurisdiction ? (
+        <CheckboxRow
+          label={singleJurisdiction ? "My Jurisdiction" : "My Jurisdictions"}
+          showCheckbox={false}
+          icon={
+            geoEngaged(myJurisdiction, false) ? (
+              <Eye size={16} aria-hidden />
+            ) : (
+              <EyeOff size={16} aria-hidden />
+            )
+          }
+          onSelect={onCycleMyJurisdiction}
+          trailing={geoTrailing(myJurisdiction, true, false)}
         />
       ) : null}
       {showAffected ? (

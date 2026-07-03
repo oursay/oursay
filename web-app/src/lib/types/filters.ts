@@ -28,18 +28,32 @@ export function nextGeoFilterMode(mode: GeoFilterMode): GeoFilterMode {
 }
 
 /**
- * The two geography filters.
+ * The three geography filters.
  * - myDistricts keeps all Global posts + broadens/narrows jurisdiction content
  *   to my ridings depending on its mode.
  * - affected is a Post-page comment filter only (see read-model/geography).
+ * - myJurisdiction is AUTHOR-RESIDENCE based on every scope: does the post's /
+ *   comment's author live in one of the scope's jurisdictions? District-less
+ *   tier-3 officials count as residents of the jurisdiction they represent.
  */
 export interface Geography {
   myDistricts: GeoFilterMode;
   affected: GeoFilterMode;
+  /** Absent reads as "off" (the read-model defaults it). */
+  myJurisdiction?: GeoFilterMode;
+  /**
+   * District-slug universe the myJurisdiction filter matches authors against:
+   * the scope's jurisdiction districts (union across a multi-jurisdiction
+   * feed). undefined/[] means a district-less jurisdiction (e.g. Global) is in
+   * scope — there the filter would mirror Verified: Residency, so it is gated
+   * off entirely (see read-model effectiveMyJurisdiction).
+   */
+  jurisdictionDistricts?: string[];
   /**
    * Which filter last entered exclusive — the tie-break when both are
    * exclusive on a post outside my districts (the loser is temporarily
-   * auto-disabled; see read-model resolveGeography).
+   * auto-disabled; see read-model resolveGeography). myJurisdiction never
+   * conflicts: its population is a superset of both wherever it is engaged.
    */
   priority?: "myDistricts" | "affected";
 }

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { AuthorIdentity, SignTier, VerificationTier } from "@/lib/types";
+import type { AuthorGeoRelation } from "@/components/identity";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
 
@@ -9,7 +10,8 @@ interface CommentCardProps {
   author: string;
   tier: VerificationTier;
   signTier?: SignTier;
-  isHomeAuthor?: boolean;
+  /** Residency author's spatial relation to the open post. */
+  authorGeo?: AuthorGeoRelation;
   /** Viewer-resolved author identity (persona / self affordances). */
   identity?: AuthorIdentity;
   timestamp: string;
@@ -31,7 +33,7 @@ export function CommentCard({
   author,
   tier,
   signTier,
-  isHomeAuthor = false,
+  authorGeo,
   identity,
   timestamp,
   depth = 1,
@@ -52,7 +54,7 @@ export function CommentCard({
         author={author}
         tier={tier}
         signTier={signTier}
-        isHomeAuthor={isHomeAuthor}
+        authorGeo={authorGeo}
         identity={identity}
         timestamp={timestamp}
         depth={depth}

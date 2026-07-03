@@ -118,9 +118,18 @@ function generateComments(postId: string): CommentNode[] {
   return nodes;
 }
 
+/**
+ * Stamp the author's home ridings (their residence, from the people registry)
+ * onto a record. Kept separate from `districts` — the area the post AFFECTS —
+ * so author-row glyphs and the My Jurisdiction filter read actual residence.
+ */
+function withAuthorDistricts<T extends { handle: string }>(item: T): T {
+  return { ...item, authorDistricts: personDistricts(item.handle) };
+}
+
 function feedToDetail(item: FeedItem): RecordDetail {
   const crafted = HAND_CRAFTED_DETAILS[item.id];
-  if (crafted) return crafted;
+  if (crafted) return withAuthorDistricts(crafted);
 
   const seed = hashSeed(item.id);
   return {
@@ -129,6 +138,7 @@ function feedToDetail(item: FeedItem): RecordDetail {
     jurisdiction: item.jurisdiction,
     tier: item.tier,
     districts: item.districts,
+    authorDistricts: item.authorDistricts ?? personDistricts(item.handle),
     author: item.author,
     handle: item.handle,
     title: item.title,
@@ -171,6 +181,28 @@ function buildExtraPosts(): FeedItem[] {
     ],
     sig: 4200,
     goal: 10000,
+    comments: 0,
+    signTier: 1,
+  });
+
+  // In-jurisdiction (map-pinned) feed demo: Bea lives in calgary-elbow but
+  // posts about the Edmonton corridor — an Alberta resident OUTSIDE the post's
+  // affected area, so her author pill resolves "jurisdiction" for everyone.
+  extras.push({
+    id: "stmt-bea-trail-standard",
+    kind: "statement",
+    jurisdiction: "Alberta",
+    tier: 2,
+    districts: ["edmonton-strathcona", "edmonton-city-centre"],
+    author: "Bea Nowak",
+    handle: "beanowak",
+    title: "Calgary is watching the river-path debate — set a provincial trail standard",
+    body: [
+      "The Edmonton corridor fight will repeat in every river city.",
+      "Whatever gets funded there should become the provincial template.",
+    ],
+    up: 19,
+    down: 3,
     comments: 0,
     signTier: 1,
   });
@@ -271,7 +303,7 @@ function buildExtraPosts(): FeedItem[] {
 }
 
 function buildAllFeedItems(): FeedItem[] {
-  return [...WIREFRAME_POSTS, ...buildExtraPosts()];
+  return [...WIREFRAME_POSTS, ...buildExtraPosts()].map(withAuthorDistricts);
 }
 
 function buildRecordEntries(
@@ -290,7 +322,7 @@ function buildRecordEntries(
   for (const detail of [POST_POLL, POST_RESULT]) {
     if (map.has(detail.id)) continue;
     map.set(detail.id, {
-      post: detail,
+      post: withAuthorDistricts(detail),
       comments: HAND_CRAFTED_COMMENTS[detail.id] ?? generateComments(detail.id),
     });
   }
@@ -567,7 +599,7 @@ function buildProfiles(
     };
   }
 
-  for (const handle of ["hanao", "weichen", "samd", "priya", "mlee", "sarahbc", "kevinTO", "marieqc"]) {
+  for (const handle of ["hanao", "weichen", "samd", "priya", "mlee", "sarahbc", "kevinTO", "marieqc", "owenf", "beanowak"]) {
     if (byHandle[handle]) continue;
     const p = person(handle);
     const posts = postsByHandle.get(handle) ?? [];
@@ -592,7 +624,7 @@ function buildProfiles(
 const PROFILE_ONLY_POSTS: FeedItem[] = [
   ...RAE_NGUYEN_PROFILE.posts,
   ...ALEX_MORGAN_PROFILE.posts,
-];
+].map(withAuthorDistricts);
 const RAW_FEED = buildAllFeedItems();
 const RECORD_BY_ID = buildRecordEntries(RAW_FEED, PROFILE_ONLY_POSTS);
 export const POSTS = syncCommentCounts(RAW_FEED, RECORD_BY_ID);
@@ -601,11 +633,17 @@ export const PROFILES_BY_HANDLE = (() => {
   const profiles = buildProfiles(RECORD_BY_ID, POSTS);
   profiles.raenguyen = {
     ...profiles.raenguyen,
-    posts: syncCommentCounts(RAE_NGUYEN_PROFILE.posts, RECORD_BY_ID),
+    posts: syncCommentCounts(
+      RAE_NGUYEN_PROFILE.posts.map(withAuthorDistricts),
+      RECORD_BY_ID,
+    ),
   };
   profiles[MY_HANDLE] = {
     ...profiles[MY_HANDLE],
-    posts: syncCommentCounts(ALEX_MORGAN_PROFILE.posts, RECORD_BY_ID),
+    posts: syncCommentCounts(
+      ALEX_MORGAN_PROFILE.posts.map(withAuthorDistricts),
+      RECORD_BY_ID,
+    ),
   };
   return profiles;
 })();

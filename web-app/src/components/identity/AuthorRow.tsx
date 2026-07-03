@@ -10,13 +10,15 @@ import type {
   VerificationTier,
 } from "@/lib/types";
 import { AuthorBadgeGroup } from "./AuthorBadgeGroup";
+import type { AuthorGeoRelation } from "./VerificationPill";
 
 interface AuthorRowProps {
   author: string;
   handle?: string;
   tier: VerificationTier;
   signTier?: SignTier;
-  isHomeAuthor?: boolean;
+  /** Residency author's spatial relation to the context. */
+  authorGeo?: AuthorGeoRelation;
   signedMode?: PillDisplayMode;
   kycMode?: PillDisplayMode;
   /** Relative time label (comment layout renders it inline after the name). */
@@ -54,7 +56,7 @@ export function AuthorRow({
   handle,
   tier,
   signTier,
-  isHomeAuthor = false,
+  authorGeo,
   signedMode = "icon",
   kycMode = "full",
   timestamp,
@@ -71,7 +73,7 @@ export function AuthorRow({
     <AuthorBadgeGroup
       signTier={signTier}
       tier={tier}
-      isHomeAuthor={isHomeAuthor}
+      authorGeo={authorGeo}
       signedMode={signedMode}
       kycMode={kycMode}
       align="right"
