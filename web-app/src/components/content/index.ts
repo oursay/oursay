@@ -4,6 +4,7 @@ export * from "./ScopeTag";
 export * from "./ReactionButtons";
 export * from "./PollOptions";
 export * from "./ResultOutcome";
+export * from "./ProfileSupportBar";
 export * from "./PetitionProgress";
 export * from "./EditCountLink";
 export * from "./CommentPill";

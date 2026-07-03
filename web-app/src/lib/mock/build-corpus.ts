@@ -5,6 +5,7 @@ import type {
   FeedItem,
   JurisdictionSummary,
   MentionItem,
+  ProfileSupport,
   PublicProfile,
   RecordDetail,
   RecordKind,
@@ -479,6 +480,56 @@ function buildJurData(): Record<string, JurisdictionSummary> {
   };
 }
 
+const BIO_TEMPLATES = [
+  "Local voice focused on transit, parks, and everyday services.",
+  "Here to listen, share updates, and push for practical change.",
+  "Community-minded and always up for a good policy debate.",
+  "Following the issues that shape our riding day to day.",
+  "Bringing neighbourhood concerns into the wider conversation.",
+];
+
+/** Rough, seeded account age for the support-bar caption ("over M …"). */
+function profileAgeLabel(handle: string): string {
+  const seed = hashSeed(`${handle}:age`);
+  const bucket = seed % 3;
+  if (bucket === 0) {
+    const weeks = 3 + (seed % 8);
+    return `${weeks} weeks`;
+  }
+  if (bucket === 1) {
+    const months = 2 + (seed % 10);
+    return `${months} months`;
+  }
+  const years = 1 + (seed % 6);
+  return `${years} ${years === 1 ? "year" : "years"}`;
+}
+
+function generateBio(handle: string, role: string): string {
+  if (role.startsWith("MLA")) {
+    return `${role}. Working on local priorities and open to your questions.`;
+  }
+  return BIO_TEMPLATES[hashSeed(`${handle}:bio`) % BIO_TEMPLATES.length];
+}
+
+/**
+ * Aggregate agree/disagree + content totals for the profile support bar. Agrees
+ * and disagrees come from the member's public statements plus a seeded comment
+ * contribution (per-user comment authorship isn't modelled in the corpus).
+ */
+function computeProfileSupport(handle: string, posts: FeedItem[]): ProfileSupport {
+  const statementPosts = posts.filter((p) => p.kind === "statement");
+  let agrees = 0;
+  let disagrees = 0;
+  for (const p of statementPosts) {
+    agrees += p.up ?? 0;
+    disagrees += p.down ?? 0;
+  }
+  const comments = 4 + (hashSeed(`${handle}:cmts`) % 60);
+  agrees += comments * (3 + (hashSeed(`${handle}:cup`) % 14));
+  disagrees += comments * (1 + (hashSeed(`${handle}:cdn`) % 4));
+  return { agrees, disagrees, statements: statementPosts.length, comments };
+}
+
 function buildProfiles(
   records: Map<string, PostTypeEntry>,
   feedItems: FeedItem[],
@@ -505,11 +556,9 @@ function buildProfiles(
       handle,
       role: `MLA · ${riding.name}`,
       tier: 3,
-      stats: [
-        { n: posts.filter((p) => p.kind === "statement").length, label: "Statements" },
-        { n: hashSeed(handle) % 30, label: "Petitions signed" },
-        { n: hashSeed(handle + "poll") % 5, label: "Polls" },
-      ],
+      bio: generateBio(handle, `MLA · ${riding.name}`),
+      ageLabel: profileAgeLabel(handle),
+      support: computeProfileSupport(handle, posts),
       posts,
       activity: generateProfileActivity(handle, posts, feedItems),
       mentions: generateProfileMentions(handle, feedItems),
@@ -525,11 +574,9 @@ function buildProfiles(
       handle,
       role: p.role ?? "Member",
       tier: p.tier,
-      stats: [
-        { n: posts.filter((x) => x.kind === "statement").length, label: "Statements" },
-        { n: hashSeed(handle) % 20, label: "Petitions signed" },
-        { n: hashSeed(handle + "p") % 4, label: "Polls" },
-      ],
+      bio: generateBio(handle, p.role ?? "Member"),
+      ageLabel: profileAgeLabel(handle),
+      support: computeProfileSupport(handle, posts),
       posts,
       activity: generateProfileActivity(handle, posts, feedItems),
       mentions: generateProfileMentions(handle, feedItems),

@@ -1,10 +1,20 @@
 import type { FeedItem } from "./records";
 import type { VerificationTier } from "./verification";
 
-/** A headline stat on the profile (e.g. "18 Statements"). */
-export interface ProfileStat {
-  n: number;
-  label: string;
+/**
+ * Aggregate civic response for a profile — totals across all of the member's
+ * public Statements and Comments. Drives the profile support bar (agree/disagree
+ * proportion) and its informational count pill (statements/comments totals).
+ */
+export interface ProfileSupport {
+  /** Total agrees (up reactions) across public statements and comments. */
+  agrees: number;
+  /** Total disagrees (down reactions) across public statements and comments. */
+  disagrees: number;
+  /** Number of public statements authored (feather glyph). */
+  statements: number;
+  /** Number of public comments authored (comment glyph). */
+  comments: number;
 }
 
 /** Kind axis for the Profile page's own record-type filter (distinct from the feed set). */
@@ -54,7 +64,12 @@ export interface PublicProfile {
   /** Role line, e.g. "MLA · Edmonton-Strathcona". */
   role: string;
   tier: VerificationTier;
-  stats: ProfileStat[];
+  /** Short freeform bio shown at the top of the profile. */
+  bio: string;
+  /** Rough account age for the support bar caption, e.g. "3 years", "7 months". */
+  ageLabel: string;
+  /** Aggregate agree/disagree + content totals for the support bar. */
+  support: ProfileSupport;
   posts: ProfilePost[];
   activity: ActivityItem[];
   mentions: MentionItem[];

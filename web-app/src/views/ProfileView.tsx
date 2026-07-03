@@ -7,7 +7,12 @@ import { getProfile } from "@/lib/api";
 import type { ActivityKind, PublicProfile } from "@/lib/types";
 import { Avatar, FeedCard, VerificationPill } from "@/components";
 import { Button } from "@/components/ui";
-import { activityRowGlyph, ACTIVITY_REACTION_TONE, REACTION_GLYPH } from "@/components/content";
+import {
+  activityRowGlyph,
+  ACTIVITY_REACTION_TONE,
+  ProfileSupportBar,
+  REACTION_GLYPH,
+} from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
 import { districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
 import { useApp } from "@/lib/state";
@@ -70,8 +75,8 @@ export function ProfileView({
   const activity = profile.activity.filter((a) => profileTypes.includes(a.kind));
 
   return (
-    <div className="space-y-4 p-4">
-      <header className="rounded-xl border border-border bg-surface p-4">
+    <div className="space-y-1 p-3">
+      <header className="rounded-xl border border-border bg-surface px-3 pt-3 pb-1">
         <div className="flex items-center gap-3">
           <Avatar name={profile.name} size="lg" />
           <div className="min-w-0 flex-1">
@@ -87,16 +92,18 @@ export function ProfileView({
             ) : null}
           </div>
         </div>
-        <div className="mt-3 flex gap-4">
-          {profile.stats.map((s) => (
-            <div key={s.label} className="text-center">
-              <p className="text-base font-bold text-ink">{s.n}</p>
-              <p className="text-[11px] text-muted">{s.label}</p>
-            </div>
-          ))}
+        {profile.bio ? (
+          <p className="mt-3 text-sm text-ink-soft">{profile.bio}</p>
+        ) : null}
+        <div className="mt-3">
+          <ProfileSupportBar
+            {...profile.support}
+            ageLabel={profile.ageLabel}
+            showReactions={!self && displayTier === 3}
+          />
         </div>
         {self ? (
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-border pt-3">
+          <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border pt-2">
             <Button
               size="sm"
               variant="outline"
@@ -112,14 +119,16 @@ export function ProfileView({
         ) : null}
       </header>
 
-      <div className="flex gap-1 rounded-lg border border-border bg-surface-muted p-1">
+      <div className="flex gap-1 rounded-lg border border-border bg-surface-muted p-0.5">
         {(["posts", "activity", "mentions"] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`flex-1 rounded-md py-1.5 text-sm font-medium capitalize ${
-              tab === t ? "bg-surface text-ink shadow-sm" : "text-ink-soft"
+            className={`flex-1 rounded-md py-1 text-sm capitalize ${
+              tab === t
+                ? "font-semibold text-ink underline decoration-2 underline-offset-4"
+                : "font-medium text-ink-soft"
             }`}
           >
             {t}
@@ -128,7 +137,7 @@ export function ProfileView({
       </div>
 
       {tab === "posts" ? (
-        <div className="space-y-3">
+        <div className="max-h-[62vh] space-y-3 overflow-y-auto overscroll-auto pr-1 pb-1">
           {posts.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No posts match the filters.</p>
           ) : (
@@ -166,7 +175,7 @@ export function ProfileView({
       ) : null}
 
       {tab === "activity" ? (
-        <ul className="space-y-2">
+        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
           {activity.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No activity matches the filters.</p>
           ) : (
@@ -215,7 +224,7 @@ export function ProfileView({
       ) : null}
 
       {tab === "mentions" ? (
-        <ul className="space-y-2">
+        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
           {profile.mentions.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No mentions yet.</p>
           ) : (

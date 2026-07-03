@@ -7,11 +7,9 @@ export const RAE_NGUYEN_PROFILE: PublicProfile = {
   handle: "raenguyen",
   role: "MLA · Edmonton-Strathcona",
   tier: 3,
-  stats: [
-    { n: 18, label: "Statements" },
-    { n: 42, label: "Petitions signed" },
-    { n: 7, label: "Polls" },
-  ],
+  bio: "MLA for Edmonton-Strathcona. Focused on the ravine review, transit, and keeping constituents in the loop.",
+  ageLabel: "4 years",
+  support: { agrees: 3120, disagrees: 486, statements: 18, comments: 57 },
   posts: [
     {
       id: "prof-rae-ravine",
@@ -117,11 +115,9 @@ export const ALEX_MORGAN_PROFILE: PublicProfile = {
   handle: MY_HANDLE,
   role: "Member · Edmonton-Strathcona",
   tier: 2,
-  stats: [
-    { n: 2, label: "Statements" },
-    { n: 5, label: "Petitions signed" },
-    { n: 3, label: "Polls" },
-  ],
+  bio: "Strathcona resident posting about safer streets, libraries, and local budgets.",
+  ageLabel: "8 months",
+  support: { agrees: 214, disagrees: 33, statements: 2, comments: 9 },
   posts: [
     {
       id: "prof-alex-crosswalk",
@@ -178,11 +174,9 @@ export const PREMIER_PROFILE: PublicProfile = {
   handle: "premier",
   role: "Premier · Alberta",
   tier: 3,
-  stats: [
-    { n: 24, label: "Statements" },
-    { n: 12, label: "Petitions signed" },
-    { n: 4, label: "Polls" },
-  ],
+  bio: "Premier of Alberta. Sharing provincial priorities and consultation updates.",
+  ageLabel: "6 years",
+  support: { agrees: 5400, disagrees: 1290, statements: 24, comments: 38 },
   posts: [],
   activity: [
     { kind: "statement", text: "Posted “Budget 2027 consultation now open”", meta: "3d · Alberta", recordId: "stmt-premier-budget" },
