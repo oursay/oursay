@@ -97,6 +97,9 @@ html.dark {
   --color-danger-200: #b03a3a;
   --color-danger-600: #f87171;
   --color-danger-700: #fca5a5;
+
+  /* Pills + modal stroke/shadow use a brand accent instead of the light ink. */
+  --pill-chrome-color: var(--color-brand-300);
 }
 
 html,
@@ -135,10 +138,11 @@ body {
   }
 }
 
-/* Feed/footer pills — thin ink stroke + hard bottom-right offset (no blur). */
+/* Feed/footer pills + modals — thin stroke + hard bottom-right offset (no blur).
+   Colour is a variable so dark mode can swap the ink stroke for a brand accent. */
 @layer components {
   .pill-chrome {
-    border: 1px solid var(--color-ink);
-    box-shadow: 2px 2px 0 0 var(--color-ink);
+    border: 1px solid var(--pill-chrome-color, var(--color-ink));
+    box-shadow: 2px 2px 0 0 var(--pill-chrome-color, var(--color-ink));
   }
 }

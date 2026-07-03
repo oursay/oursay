@@ -94,7 +94,7 @@ export function Modal({
 
   const vertical = isSheet ? "items-start pt-6 pb-4" : "items-center py-4";
   const horizontal = mobileFull
-    ? "justify-start pl-0 pr-3.5 sm:justify-center sm:px-4"
+    ? "justify-start pl-0.5 pr-3.5 sm:justify-center sm:px-4"
     : "justify-center px-4";
 
   const centered = headerAlign === "center";

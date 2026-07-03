@@ -289,7 +289,7 @@ export function ComposeFlow({
           ) : (
             <>
               <ModalField
-                label="Title"
+                label={selectedType === "statement" ? "Statement" : "Title"}
                 placeholder={
                   selectedType === "petition"
                     ? "What are you calling for?"
@@ -297,11 +297,11 @@ export function ComposeFlow({
                 }
               />
               <ModalField
-                label="Body"
+                label="Details"
                 placeholder={
                   selectedType === "petition"
                     ? "Write your petition…"
-                    : "Write your statement…"
+                    : "Justify your statement in detail…"
                 }
                 multiline
                 rows={4}
