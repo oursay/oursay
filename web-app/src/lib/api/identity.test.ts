@@ -65,7 +65,7 @@ describe("anonymizeFeedItem — reveal waves by viewer tier", () => {
   it("samd (all_officials) reveals at tier 3 — except on his narrowed thread", () => {
     expect(anonymizeFeedItem(item("samd", "Sam Driver"), viewer(2)).identity?.isPersona).toBe(true);
     expect(anonymizeFeedItem(item("samd", "Sam Driver"), viewer(3)).identity?.isPersona).toBe(false);
-    // Thread override pet-sam-109st -> anonymous (narrow beats account).
+    // Thread override pet-sam-109st -> anonymous (thread override wins).
     const onOwnThread = anonymizeFeedItem(
       item("samd", "Sam Driver", "pet-sam-109st"),
       viewer(3),
@@ -77,12 +77,20 @@ describe("anonymizeFeedItem — reveal waves by viewer tier", () => {
     expect(anonymizeFeedItem(item("rosak", "Rosa Klein"), viewer(3)).identity?.isPersona).toBe(true);
   });
 
-  it("dwhitecloud's widening thread override is ignored (anonymous stands)", () => {
-    const out = anonymizeFeedItem(
+  it("dwhitecloud's widening thread override applies (thread widens the anonymous account)", () => {
+    // Hidden to logged-out viewers (id_verified needs tier 1)…
+    const hidden = anonymizeFeedItem(
       item("dwhitecloud", "Dana Whitecloud", "stmt-dana-transit"),
-      viewer(3),
+      viewer(0),
     );
-    expect(out.identity?.isPersona).toBe(true);
+    expect(hidden.identity?.isPersona).toBe(true);
+    // …but revealed from tier 1 up, since the thread override wins over account.
+    const revealed = anonymizeFeedItem(
+      item("dwhitecloud", "Dana Whitecloud", "stmt-dana-transit"),
+      viewer(1),
+    );
+    expect(revealed.identity?.isPersona).toBe(false);
+    expect(revealed.author).toBe("Dana Whitecloud");
   });
 
   it("public authors reveal to logged-out viewers", () => {

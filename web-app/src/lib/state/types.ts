@@ -88,7 +88,7 @@ export interface AppState {
   composeStep: ComposeStep;
   composeJur?: string;
   composeType?: RecordKind;
-  /** Per-post visibility override (narrow-only vs accountVisibility); cleared on close. */
+  /** Per-post visibility override (defaults to accountVisibility; may widen or narrow); cleared on close. */
   composeVisibility?: AuthorVisibility;
 
   // Alberta sign confirmation (null when closed).

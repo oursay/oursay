@@ -83,7 +83,7 @@ export function AuthorRow({
     // see them; revealed rows keep the @handle.
     const secondary = isPersona ? (
       <span className="min-w-0 truncate text-xs italic text-muted">
-        anonymous in this thread
+        anonymous
       </span>
     ) : handle ? (
       <button

@@ -79,13 +79,13 @@ describe("resolveVisibility cascade", () => {
     expect(resolveVisibility("public", "my_district")).toBe("my_district");
   });
 
-  it("rejects a widening thread override", () => {
+  it("applies a widening thread override too (thread always wins)", () => {
     // dwhitecloud fixture: id_verified thread override over an anonymous account.
-    expect(resolveVisibility("anonymous", "id_verified")).toBe("anonymous");
-    expect(resolveVisibility("my_district", "public")).toBe("my_district");
+    expect(resolveVisibility("anonymous", "id_verified")).toBe("id_verified");
+    expect(resolveVisibility("my_district", "public")).toBe("public");
   });
 
-  it("equal narrowness passes through (idempotent override)", () => {
+  it("an equal override passes through (idempotent)", () => {
     expect(resolveVisibility("my_district", "my_district")).toBe("my_district");
   });
 

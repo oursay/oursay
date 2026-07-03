@@ -47,11 +47,11 @@ export interface PersistedSession {
   accountVisibility: AuthorVisibility;
 }
 
-/** New accounts start signed out, unverified, and publicly visible (demo default). */
+/** New accounts start signed out, unverified, and anonymous (demo default). */
 export const DEFAULT_SESSION: PersistedSession = {
   loggedIn: false,
   kycTier: 0,
-  accountVisibility: "public",
+  accountVisibility: "anonymous",
 };
 
 /** Read the persisted session, or the signed-out/unverified default. */

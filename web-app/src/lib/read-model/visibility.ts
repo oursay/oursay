@@ -25,19 +25,15 @@ export const VISIBILITY_NARROWNESS: Record<AuthorVisibility, number> = {
 };
 
 /**
- * Cascade per docs/09 §2: `effective = thread ?? account ?? anonymous`, where a
- * thread-level override may only NARROW — a widening override is rejected and
- * the account value (or the `anonymous` floor) stands.
+ * Cascade: `effective = thread ?? account ?? anonymous`. The account value is
+ * only the default; a per-thread override wins outright in either direction
+ * (it may widen OR narrow), so posts/replies can set any visibility per thread.
  */
 export function resolveVisibility(
   account?: AuthorVisibility | null,
   thread?: AuthorVisibility | null,
 ): AuthorVisibility {
-  const base = account ?? "anonymous";
-  if (thread && VISIBILITY_NARROWNESS[thread] >= VISIBILITY_NARROWNESS[base]) {
-    return thread;
-  }
-  return base;
+  return thread ?? account ?? "anonymous";
 }
 
 function overlaps(a: string[], b: string[]): boolean {

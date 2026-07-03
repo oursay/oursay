@@ -39,7 +39,7 @@ interface ComposeFlowProps {
   onChangeJurisdiction?: () => void;
   /** Account-default profile visibility — the widest this post may allow. */
   accountVisibility?: AuthorVisibility;
-  /** Per-post narrow-only override (unset = account default). */
+  /** Per-post visibility override (unset = account default; may widen or narrow). */
   composeVisibility?: AuthorVisibility;
   onSelectVisibility?: (v: AuthorVisibility) => void;
   /** Submits (Global) or opens the passkey confirmation (Alberta). */
@@ -72,7 +72,7 @@ export function ComposeFlow({
   onSelectType,
   onChangeType,
   onChangeJurisdiction,
-  accountVisibility = "public",
+  accountVisibility = "anonymous",
   composeVisibility,
   onSelectVisibility,
   onPost,
@@ -280,7 +280,6 @@ export function ComposeFlow({
                 label="Anonymity"
                 value={effectiveVisibility}
                 onChange={(v) => onSelectVisibility?.(v)}
-                minVisibility={accountVisibility}
               />
             </div>
           </div>

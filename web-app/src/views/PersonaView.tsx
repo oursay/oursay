@@ -72,9 +72,16 @@ export function PersonaView({ personaName }: { personaName: string }) {
               </p>
               <VerificationPill tier={profile.tier} align="right" />
             </div>
-            <p className="truncate text-sm italic text-muted">
-              Anonymous in this thread
-            </p>
+            <button
+              type="button"
+              onClick={() => router.push(postPathForId(profile.threadId))}
+              className="flex min-w-0 max-w-full items-center gap-1.5 text-left text-xs font-medium text-brand-700 hover:text-brand-800"
+            >
+              <ThreadIcon size={13} className="shrink-0" aria-hidden />
+              <span className="truncate underline underline-offset-2">
+                {threadTitle}
+              </span>
+            </button>
           </div>
         </div>
         <p className="mt-3 text-center text-sm text-ink-soft">{profile.bio}</p>
@@ -84,18 +91,6 @@ export function PersonaView({ personaName }: { personaName: string }) {
             ageLabel={profile.ageLabel}
             pill="comments"
           />
-        </div>
-        <div className="mt-1.5 pb-1">
-          <button
-            type="button"
-            onClick={() => router.push(postPathForId(profile.threadId))}
-            className="flex min-w-0 max-w-full items-center gap-1.5 text-left text-xs font-medium text-brand-700 hover:text-brand-800"
-          >
-            <ThreadIcon size={13} className="shrink-0" aria-hidden />
-            <span className="truncate underline underline-offset-2">
-              {threadTitle}
-            </span>
-          </button>
         </div>
       </header>
 

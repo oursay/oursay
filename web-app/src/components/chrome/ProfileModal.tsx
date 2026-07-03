@@ -112,7 +112,7 @@ export function ProfileModal({
   name,
   handle,
   kycTier,
-  accountVisibility = "public",
+  accountVisibility = "anonymous",
   onChangeVisibility,
   onViewProfile,
   onValidateId,

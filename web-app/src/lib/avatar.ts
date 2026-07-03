@@ -12,10 +12,26 @@ import initialFace from "@dicebear/styles/initial-face.json";
 const STYLE = new Style(initialFace);
 const CACHE = new Map<string, string>();
 
+/** Brand purple ramp (shades 200–950) — DiceBear picks one per seed. */
+const BACKGROUND_COLORS = [
+  "ddd6fe", // brand-200
+  "c4b5fd", // brand-300
+  "a78bfa", // brand-400
+  "8b5cf6", // brand-500
+  "7c3aed", // brand-600
+  "6d28d9", // brand-700
+  "5b21b6", // brand-800
+  "4c1d95", // brand-900
+  "2e1065", // brand-950
+];
+
 export function avatarDataUri(seed: string): string {
   const cached = CACHE.get(seed);
   if (cached) return cached;
-  const uri = new Avatar(STYLE, { seed }).toDataUri();
+  const uri = new Avatar(STYLE, {
+    seed,
+    backgroundColor: BACKGROUND_COLORS,
+  }).toDataUri();
   CACHE.set(seed, uri);
   return uri;
 }

@@ -120,7 +120,7 @@ export function resolveAuthorIdentity(
 ): AuthorIdentity {
   if (viewer.selfHandle && handle.toLowerCase() === viewer.selfHandle.toLowerCase()) {
     const ownVisibility = resolveVisibility(
-      viewer.selfVisibility ?? "public",
+      viewer.selfVisibility ?? "anonymous",
       THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle],
     );
     return {

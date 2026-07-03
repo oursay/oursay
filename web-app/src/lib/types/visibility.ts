@@ -16,15 +16,12 @@ export type AuthorVisibility =
   | "id_verified"
   | "public";
 
-/** All values, widest audience first (picker display order). */
+/** Selectable values, most private first (picker display order). */
 export const VISIBILITY_VALUES: AuthorVisibility[] = [
-  "public",
-  "id_verified",
-  "my_jurisdiction",
-  "my_district",
-  "all_officials",
-  "my_officials",
   "anonymous",
+  "all_officials",
+  "my_district",
+  "public",
 ];
 
 export const VISIBILITY_LABEL: Record<AuthorVisibility, string> = {
@@ -32,7 +29,7 @@ export const VISIBILITY_LABEL: Record<AuthorVisibility, string> = {
   id_verified: "ID Verified",
   my_jurisdiction: "My Jurisdiction",
   my_district: "My District",
-  all_officials: "All Officials",
+  all_officials: "Officials",
   my_officials: "My Officials",
   anonymous: "Anonymous",
 };
@@ -43,7 +40,7 @@ export const VISIBILITY_DESCRIPTION: Record<AuthorVisibility, string> = {
   id_verified: "Only identity-verified members",
   my_jurisdiction: "Residency-verified members of your jurisdiction",
   my_district: "Residency-verified members of your district",
-  all_officials: "Any verified official",
+  all_officials: "Verified officials can see your profile",
   my_officials: "Only your district's officials",
   anonymous: "No one — always a per-thread persona",
 };

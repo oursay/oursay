@@ -21,14 +21,14 @@ describe("session cookie round-trip", () => {
     });
   });
 
-  it("falls back to public on a session without accountVisibility (old cookie)", () => {
+  it("falls back to the anonymous default on a session without accountVisibility (old cookie)", () => {
     document.cookie = `oursay-session=${encodeURIComponent(
       JSON.stringify({ loggedIn: true, kycTier: 1 }),
     )}`;
     expect(readSession()).toEqual({
       loggedIn: true,
       kycTier: 1,
-      accountVisibility: "public",
+      accountVisibility: "anonymous",
     });
   });
 
@@ -36,7 +36,7 @@ describe("session cookie round-trip", () => {
     document.cookie = `oursay-session=${encodeURIComponent(
       JSON.stringify({ loggedIn: false, kycTier: 0, accountVisibility: "everyone" }),
     )}`;
-    expect(readSession().accountVisibility).toBe("public");
+    expect(readSession().accountVisibility).toBe("anonymous");
   });
 
   it("returns the default on a malformed cookie", () => {

@@ -65,7 +65,7 @@ const INITIAL: AppState = {
   loggedIn: false,
   kycTier: 0,
   viewerDistricts: [],
-  accountVisibility: "public",
+  accountVisibility: "anonymous",
   devices: ["iPhone 15 — this device", "MacBook Pro", "Pixel 8"],
   theme: "light",
 
@@ -214,7 +214,7 @@ export interface AppApi {
   selectComposeType: (kind: RecordKind) => void;
   changeComposeType: () => void;
   changeComposeJurisdiction: () => void;
-  /** Per-post visibility override (narrow-only vs the account default). */
+  /** Per-post visibility override (defaults to the account level; may widen or narrow). */
   setComposeVisibility: (v: AuthorVisibility) => void;
   submitCompose: () => void;
   closeCompose: () => void;

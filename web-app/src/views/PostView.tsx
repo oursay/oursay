@@ -42,7 +42,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
   const [shownComments, setShownComments] = useState<CommentNode[]>([]);
   const [scopeExpanded, setScopeExpanded] = useState(false);
-  // Per-reply anonymity override (narrow-only vs the account default).
+  // Per-reply anonymity override (defaults to the account level; may widen or narrow).
   const [replyVisibility, setReplyVisibility] = useState<AuthorVisibility | undefined>();
 
   useEffect(() => {
@@ -281,7 +281,6 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 size="compact"
                 value={replyVisibility ?? app.state.accountVisibility}
                 onChange={setReplyVisibility}
-                minVisibility={app.state.accountVisibility}
               />
               <Button
                 variant="ghost"
