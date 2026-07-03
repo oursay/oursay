@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getRecordDetail } from "@/lib/api";
-import type { CommentNode, RecordDetail, RecordKind } from "@/lib/types";
+import { getRecordDetail, personaFor } from "@/lib/api";
+import type {
+  AuthorVisibility,
+  CommentNode,
+  RecordDetail,
+  RecordKind,
+} from "@/lib/types";
 import { relTime } from "@/lib/read-model";
-import { GRADUATION_CHAIN, NOW, districtName } from "@/lib/mock";
+import { GRADUATION_CHAIN, MY_HANDLE, NOW, districtName } from "@/lib/mock";
 import {
+  AnonymityDropdown,
   Button,
   CommentThread,
   PetitionProgress,
@@ -36,6 +42,8 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
   const [shownComments, setShownComments] = useState<CommentNode[]>([]);
   const [scopeExpanded, setScopeExpanded] = useState(false);
+  // Per-reply anonymity override (narrow-only vs the account default).
+  const [replyVisibility, setReplyVisibility] = useState<AuthorVisibility | undefined>();
 
   useEffect(() => {
     setDetail(null);
@@ -268,18 +276,39 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               placeholder="Write a reply…"
               className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
             />
-            <div className="flex justify-end gap-2">
-              <Button variant="ghost" size="sm" onClick={app.closeReply}>
+            <div className="flex items-center gap-2">
+              <AnonymityDropdown
+                size="compact"
+                value={replyVisibility ?? app.state.accountVisibility}
+                onChange={setReplyVisibility}
+                minVisibility={app.state.accountVisibility}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto"
+                onClick={() => {
+                  setReplyVisibility(undefined);
+                  app.closeReply();
+                }}
+              >
                 Cancel
               </Button>
               <Button
                 size="sm"
+                className="rounded-full!"
                 onClick={() => {
+                  const vis = replyVisibility ?? app.state.accountVisibility;
+                  setReplyVisibility(undefined);
                   app.closeReply();
-                  app.notify("Reply posted (demo).");
+                  app.notify(
+                    vis === "public"
+                      ? "Reply posted (demo)."
+                      : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
+                  );
                 }}
               >
-                Post Reply
+                Reply
               </Button>
             </div>
           </div>

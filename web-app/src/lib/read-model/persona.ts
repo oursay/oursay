@@ -30,18 +30,21 @@ export function personaNameFor(handle: string, threadId: string, digits = 2): st
  * Handles are deduplicated and sorted lexicographically before assignment so
  * the result is independent of traversal order; on a name collision the later
  * handle (in sort order) retries with one more suffix digit until unique.
- * Uniqueness within the thread is correctness-critical — components key lists
- * by the displayed handle.
+ * Uniqueness is correctness-critical — components key lists by the displayed
+ * handle, and the persona page resolves a persona from its name alone.
  *
- * `nameAt` is injectable for tests that force collisions.
+ * Pass a shared `used` set to enforce uniqueness across threads (the persona
+ * page's `/persona/<name>` lookup needs globally unique names); by default
+ * uniqueness is per-thread. `nameAt` is injectable for tests that force
+ * collisions.
  */
 export function buildPersonaMap(
   participantHandles: string[],
   threadId: string,
   nameAt: (handle: string, threadId: string, digits: number) => string = personaNameFor,
+  used: Set<string> = new Set(),
 ): Map<string, string> {
   const map = new Map<string, string>();
-  const used = new Set<string>();
   const handles = [...new Set(participantHandles)].sort();
   for (const handle of handles) {
     let digits = 2;

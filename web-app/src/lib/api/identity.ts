@@ -28,8 +28,20 @@ import type {
  * civic signals per docs/09 §1, not identity.
  */
 
-/** Root-record participants -> persona names, cached (the mock corpus is static). */
-const PERSONA_MAP_CACHE = new Map<string, Map<string, string>>();
+/**
+ * Persona assignment is built once over the whole corpus with a single shared
+ * name space, so a persona name is globally unique and `/persona/<name>`
+ * resolves from the name alone. Threads are processed in sorted order so the
+ * result is deterministic across reloads.
+ */
+interface PersonaIndex {
+  byThread: Map<string, Map<string, string>>;
+  /** persona name -> owning (handle, thread). */
+  reverse: Map<string, { handle: string; threadId: string }>;
+  usedNames: Set<string>;
+}
+
+let personaIndex: PersonaIndex | null = null;
 
 function collectHandles(nodes: CommentNode[], into: Set<string>): void {
   for (const node of nodes) {
@@ -38,25 +50,59 @@ function collectHandles(nodes: CommentNode[], into: Set<string>): void {
   }
 }
 
+function buildPersonaIndex(): PersonaIndex {
+  const byThread = new Map<string, Map<string, string>>();
+  const reverse = new Map<string, { handle: string; threadId: string }>();
+  const usedNames = new Set<string>();
+
+  for (const threadId of Object.keys(DETAIL_BY_ID).sort()) {
+    const entry: PostTypeEntry = DETAIL_BY_ID[threadId];
+    const handles = new Set<string>([entry.post.handle]);
+    collectHandles(entry.comments, handles);
+    const map = buildPersonaMap([...handles], threadId, personaNameFor, usedNames);
+    byThread.set(threadId, map);
+    for (const [handle, name] of map) reverse.set(name, { handle, threadId });
+  }
+  return { byThread, reverse, usedNames };
+}
+
+function getPersonaIndex(): PersonaIndex {
+  if (!personaIndex) personaIndex = buildPersonaIndex();
+  return personaIndex;
+}
+
 /** Viewer-independent persona assignment for every participant in a thread. */
 export function personaMapForThread(threadId: string): Map<string, string> {
-  const cached = PERSONA_MAP_CACHE.get(threadId);
-  if (cached) return cached;
-
-  const handles = new Set<string>();
-  const entry: PostTypeEntry | undefined = DETAIL_BY_ID[threadId];
-  if (entry) {
-    handles.add(entry.post.handle);
-    collectHandles(entry.comments, handles);
-  }
-  const map = buildPersonaMap([...handles], threadId);
-  PERSONA_MAP_CACHE.set(threadId, map);
-  return map;
+  return getPersonaIndex().byThread.get(threadId) ?? new Map();
 }
 
 /** The persona shown for `handle` within `threadId` (roster map, else direct seed). */
 export function personaFor(handle: string, threadId: string): string {
-  return personaMapForThread(threadId).get(handle) ?? personaNameFor(handle, threadId);
+  const index = getPersonaIndex();
+  const fromRoster = index.byThread.get(threadId)?.get(handle);
+  if (fromRoster) return fromRoster;
+  // Off-roster author (e.g. a synthesized mention): assign against the global
+  // name space and register so the persona page resolves it too.
+  let digits = 2;
+  let name = personaNameFor(handle, threadId, digits);
+  while (
+    index.usedNames.has(name) &&
+    (index.reverse.get(name)?.handle !== handle ||
+      index.reverse.get(name)?.threadId !== threadId)
+  ) {
+    digits += 1;
+    name = personaNameFor(handle, threadId, digits);
+  }
+  index.usedNames.add(name);
+  index.reverse.set(name, { handle, threadId });
+  return name;
+}
+
+/** Resolve a persona name back to its (handle, thread) — persona-page lookup. */
+export function lookupPersona(
+  personaName: string,
+): { handle: string; threadId: string } | null {
+  return getPersonaIndex().reverse.get(personaName) ?? null;
 }
 
 function effectiveVisibility(handle: string, threadId: string): AuthorVisibility {

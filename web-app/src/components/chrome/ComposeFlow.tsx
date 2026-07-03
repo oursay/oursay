@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Check, ChevronDown, VenetianMask } from "lucide-react";
+import { BarChart3, Check, ChevronDown } from "lucide-react";
 import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
 import {
   composeTypeLockReason,
@@ -15,10 +15,9 @@ import {
   ModalOptionRow,
   PollComposeBody,
 } from "@/components/ui";
-import { VisibilityPicker } from "@/components/identity";
+import { AnonymityDropdown } from "@/components/identity";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import type { AuthorVisibility, RecordKind, VerificationTier } from "@/lib/types";
-import { VISIBILITY_LABEL } from "@/lib/types";
 
 export type ComposeStep = "where" | "type" | "compose";
 
@@ -83,7 +82,6 @@ export function ComposeFlow({
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   // Alberta petition: optional attached poll (Alberta has no poll root type).
   const [petitionPollOpen, setPetitionPollOpen] = useState(false);
-  const [visibilityOpen, setVisibilityOpen] = useState(false);
   const effectiveVisibility = composeVisibility ?? accountVisibility;
 
   useEffect(() => {
@@ -91,7 +89,6 @@ export function ComposeFlow({
       setJurMenuOpen(false);
       setPollOptions(["", ""]);
       setPetitionPollOpen(false);
-      setVisibilityOpen(false);
     }
   }, [open]);
 
@@ -207,8 +204,9 @@ export function ComposeFlow({
 
       {step === "compose" && selectedType ? (
         <div className="space-y-4">
+          <div className="flex items-start gap-2">
           {selectedJurisdiction && JurIcon ? (
-            <div className="relative">
+            <div className="relative min-w-0 flex-1">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted">
                 Posting in
               </p>
@@ -277,6 +275,15 @@ export function ComposeFlow({
               ) : null}
             </div>
           ) : null}
+            <div className="w-[42%] shrink-0">
+              <AnonymityDropdown
+                label="Anonymity"
+                value={effectiveVisibility}
+                onChange={(v) => onSelectVisibility?.(v)}
+                minVisibility={accountVisibility}
+              />
+            </div>
+          </div>
 
           {selectedType === "poll" ? (
             <PollComposeBody options={pollOptions} onChange={setPollOptions} />
@@ -328,26 +335,6 @@ export function ComposeFlow({
               />
             </CollapsibleSection>
           ) : null}
-
-          <CollapsibleSection
-            icon={VenetianMask}
-            label="Who can see it's you"
-            open={visibilityOpen}
-            onToggle={() => setVisibilityOpen((o) => !o)}
-            count={visibilityOpen ? undefined : VISIBILITY_LABEL[effectiveVisibility]}
-          >
-            <div className="space-y-1.5">
-              <p className="text-xs text-muted">
-                This post can only narrow your account default — never widen it.
-                Out-of-scope viewers see a per-thread persona.
-              </p>
-              <VisibilityPicker
-                value={effectiveVisibility}
-                onChange={(v) => onSelectVisibility?.(v)}
-                minVisibility={accountVisibility}
-              />
-            </div>
-          </CollapsibleSection>
 
           <Button fullWidth onClick={onPost}>
             Post

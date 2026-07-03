@@ -45,21 +45,25 @@ export function profilePath(handle: string): string {
   return `/profile/${handle}`;
 }
 
-/** Per-thread persona surface (anonymous author within one thread). */
-export function personaPath(threadId: string, personaName: string): string {
-  return `/persona/${encodeURIComponent(threadId)}/${encodeURIComponent(personaName)}`;
+/**
+ * Per-thread persona profile (anonymous author within one thread). Persona
+ * names are globally unique, so the name alone addresses the page — the
+ * thread never leaks into the URL (in prod it would be an opaque id anyway).
+ */
+export function personaPath(personaName: string): string {
+  return `/persona/${encodeURIComponent(personaName)}`;
 }
 
 /**
- * Where an author tap lands: personas go to their per-thread persona page
- * (never the real profile); revealed authors go to their profile.
+ * Where an author tap lands: personas go to their persona profile (never the
+ * real profile); revealed authors go to their profile.
  */
 export function authorPath(
   identity: AuthorIdentity | undefined,
   fallbackHandle: string,
 ): string {
   if (identity?.isPersona) {
-    return personaPath(identity.threadId, identity.display);
+    return personaPath(identity.display);
   }
   return profilePath(identity?.handle ?? fallbackHandle);
 }

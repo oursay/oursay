@@ -112,13 +112,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         : undefined;
 
   const accountSlot = state.loggedIn ? (
+    // Mirrors the filter button's footprint; the avatar covers the full circle.
     <button
       type="button"
       aria-label="Account"
       onClick={app.openProfile}
-      className="inline-flex size-10 items-center justify-center rounded-full bg-brand-600 shadow-sm shadow-brand-600/25 hover:bg-brand-700"
+      className="inline-flex size-10 items-center justify-center overflow-hidden rounded-full border border-border-strong shadow-sm hover:opacity-90"
     >
-      <Avatar name={MY_NAME} seed={MY_HANDLE} size="sm" className="size-7" />
+      <Avatar name={MY_NAME} seed={MY_HANDLE} size="sm" className="size-10!" />
     </button>
   ) : (
     <button

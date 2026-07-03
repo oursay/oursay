@@ -8,6 +8,8 @@ interface ProfileSupportBarProps extends ProfileSupport {
   ageLabel: string;
   /** Show the ✓/✗ agree-disagree totals pill (official accounts). */
   showReactions?: boolean;
+  /** Count pill contents: statements + comments, or comments only (personas). */
+  pill?: "full" | "comments";
 }
 
 /**
@@ -24,6 +26,7 @@ export function ProfileSupportBar({
   comments,
   ageLabel,
   showReactions = false,
+  pill = "full",
 }: ProfileSupportBarProps) {
   const total = agrees + disagrees;
   const pct = total > 0 ? Math.round((agrees / total) * 100) : 0;
@@ -76,11 +79,15 @@ export function ProfileSupportBar({
           </div>
         ) : null}
         <div className="pill-chrome ml-auto inline-flex h-5 items-center overflow-hidden rounded-full bg-surface text-xs text-ink-soft">
-          <span className="inline-flex items-center gap-1 px-2">
-            <SquareFeather size={11} strokeWidth={2.25} aria-hidden />
-            {formatCount(statements)}
-          </span>
-          <span className="w-px shrink-0 self-stretch bg-ink" aria-hidden />
+          {pill === "full" ? (
+            <>
+              <span className="inline-flex items-center gap-1 px-2">
+                <SquareFeather size={11} strokeWidth={2.25} aria-hidden />
+                {formatCount(statements)}
+              </span>
+              <span className="w-px shrink-0 self-stretch bg-ink" aria-hidden />
+            </>
+          ) : null}
           <span className="inline-flex items-center gap-1 px-2">
             <MessageSquare size={11} aria-hidden />
             {formatCount(comments)}
