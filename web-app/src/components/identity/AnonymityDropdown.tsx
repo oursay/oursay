@@ -15,6 +15,8 @@ interface AnonymityDropdownProps {
   label?: string;
   /** Compact reply-bar sizing vs the compose field sizing. */
   size?: "field" | "compact";
+  /** Menu edge the option list anchors to (and option text justification). */
+  align?: "left" | "right";
 }
 
 /**
@@ -28,10 +30,12 @@ export function AnonymityDropdown({
   minVisibility,
   label,
   size = "field",
+  align = "right",
 }: AnonymityDropdownProps) {
   const [open, setOpen] = useState(false);
   const floor = minVisibility ? VISIBILITY_NARROWNESS[minVisibility] : 0;
   const compact = size === "compact";
+  const alignRight = align === "right";
 
   return (
     <div className="relative min-w-0">
@@ -70,7 +74,9 @@ export function AnonymityDropdown({
         <ul
           role="listbox"
           aria-label="Anonymity"
-          className="absolute inset-x-0 top-full z-10 mt-1 min-w-36 overflow-hidden rounded-lg border border-border-strong bg-surface py-1 shadow-lg"
+          className={`absolute top-full z-10 mt-1 w-max min-w-28 overflow-hidden rounded-lg border border-border-strong bg-surface py-1 shadow-lg ${
+            alignRight ? "right-0" : "left-0"
+          }`}
         >
           {VISIBILITY_VALUES.map((v) => {
             const disabled = VISIBILITY_NARROWNESS[v] < floor;
@@ -85,14 +91,19 @@ export function AnonymityDropdown({
                     onChange(v);
                     setOpen(false);
                   }}
-                  className={`flex min-h-8 w-full items-center gap-2 px-3 text-left text-sm ${
+                  className={`flex min-h-8 w-full items-center gap-2 px-3 text-sm ${
+                    alignRight ? "text-right" : "text-left"
+                  } ${
                     disabled
                       ? "cursor-not-allowed text-muted"
                       : "text-ink hover:bg-surface-muted"
                   }`}
                 >
+                  {selected && alignRight ? (
+                    <Check size={14} className="shrink-0 text-ink" aria-hidden />
+                  ) : null}
                   <span className="flex-1">{VISIBILITY_LABEL[v]}</span>
-                  {selected ? (
+                  {selected && !alignRight ? (
                     <Check size={14} className="shrink-0 text-ink" aria-hidden />
                   ) : null}
                 </button>

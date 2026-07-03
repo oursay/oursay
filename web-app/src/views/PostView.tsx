@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getRecordDetail, personaFor } from "@/lib/api";
 import {
   COMMENT_MAX_DEPTH,
+  VISIBILITY_LABEL,
   type AuthorVisibility,
   type CommentNode,
   type RecordDetail,
@@ -13,6 +14,7 @@ import {
 import { relTime } from "@/lib/read-model";
 import { GRADUATION_CHAIN, MY_HANDLE, NOW, districtName } from "@/lib/mock";
 import {
+  AnonymityConfirmModal,
   AnonymityDropdown,
   Button,
   CommentThread,
@@ -28,7 +30,11 @@ import {
 } from "@/components";
 import { authorPath, postPath, districtPath } from "@/lib/routes";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
-import { useApp } from "@/lib/state";
+import {
+  readThreadVisibilities,
+  useApp,
+  writeThreadVisibility,
+} from "@/lib/state";
 
 function countNodes(nodes: CommentNode[]): number {
   return nodes.reduce((n, node) => n + 1 + countNodes(node.replies), 0);
@@ -43,8 +49,12 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
   const [shownComments, setShownComments] = useState<CommentNode[]>([]);
   const [scopeExpanded, setScopeExpanded] = useState(false);
-  // Per-reply anonymity override (defaults to the account level; may widen or narrow).
-  const [replyVisibility, setReplyVisibility] = useState<AuthorVisibility | undefined>();
+  // Thread-wide anonymity: chosen once beside the Comments heading and reused by
+  // every reply in this post's thread. Undefined until touched, so it tracks the
+  // account default (§ anonymity is thread-bound, not reply-bound).
+  const [threadVisibility, setThreadVisibility] = useState<AuthorVisibility | undefined>();
+  // Pending change awaiting confirmation (anonymity change is gated by a modal).
+  const [pendingVisibility, setPendingVisibility] = useState<AuthorVisibility | null>(null);
   // Inline comment reply composers, keyed by node path — several open at once.
   const [openReplies, setOpenReplies] = useState<Set<string>>(new Set());
 
@@ -78,6 +88,12 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
       active = false;
     };
   }, [id, viewer, feedFilter, setPostDistricts]);
+
+  // Restore this post's remembered thread anonymity (demo cookie memory).
+  useEffect(() => {
+    setPendingVisibility(null);
+    setThreadVisibility(readThreadVisibilities()[id]);
+  }, [id]);
 
   useEffect(() => {
     if (!detail) return;
@@ -114,6 +130,8 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     detail.kind === "petition" ? { ...detail, sig } : detail;
   const isFinal = detail.jurisdiction === "Alberta";
   const tierMin = app.effectiveVerified;
+  // Effective anonymity for anything the viewer posts in this thread.
+  const threadVis = threadVisibility ?? app.state.accountVisibility;
 
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);
@@ -271,13 +289,28 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
       ) : null}
 
       <section id={COMMENTS_SECTION_ID} className="scroll-mt-3 space-y-3">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
-            Comments
-          </h2>
-          {hidden > 0 ? (
-            <span className="text-xs text-muted">{hidden} hidden by filters</span>
-          ) : null}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
+              Comments
+            </h2>
+            {hidden > 0 ? (
+              <span className="truncate text-xs text-muted">
+                {hidden} hidden by filters
+              </span>
+            ) : null}
+          </div>
+          {/* One anonymity control for the whole thread — every reply here posts
+              under this identity (defaults to the account setting). */}
+          <div className="shrink-0">
+            <AnonymityDropdown
+              size="compact"
+              value={threadVis}
+              onChange={(v) =>
+                setPendingVisibility(v === threadVis ? null : v)
+              }
+            />
+          </div>
         </div>
 
         {app.state.replyOpen ? (
@@ -288,19 +321,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
             />
             <div className="flex items-center gap-2">
-              <AnonymityDropdown
-                size="compact"
-                value={replyVisibility ?? app.state.accountVisibility}
-                onChange={setReplyVisibility}
-              />
               <Button
                 variant="ghost"
                 size="sm"
                 className="ml-auto"
-                onClick={() => {
-                  setReplyVisibility(undefined);
-                  app.closeReply();
-                }}
+                onClick={() => app.closeReply()}
               >
                 Cancel
               </Button>
@@ -308,12 +333,10 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 size="sm"
                 className="rounded-full!"
                 onClick={() => {
-                  const vis = replyVisibility ?? app.state.accountVisibility;
                   app.postComment(detail.jurisdiction, detail.title, () => {
-                    setReplyVisibility(undefined);
                     app.closeReply();
                     app.notify(
-                      vis === "public"
+                      threadVis === "public"
                         ? "Reply posted (demo)."
                         : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
                     );
@@ -347,17 +370,16 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               openReplies.has(nodePath) ? (
                 <div className="mt-2 pl-8">
                   <ReplyComposer
-                    accountVisibility={app.state.accountVisibility}
                     initialText={
                       depth >= COMMENT_MAX_DEPTH ? `@${node.handle} ` : ""
                     }
                     autoFocus
                     onCancel={() => toggleCommentReply(nodePath)}
-                    onSubmit={(_text, vis) => {
+                    onSubmit={() => {
                       app.postComment(detail.jurisdiction, detail.title, () => {
                         toggleCommentReply(nodePath);
                         app.notify(
-                          vis === "public"
+                          threadVis === "public"
                             ? "Reply posted (demo)."
                             : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
                         );
@@ -375,6 +397,21 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           />
         )}
       </section>
+
+      <AnonymityConfirmModal
+        open={pendingVisibility !== null}
+        pending={pendingVisibility}
+        onCancel={() => setPendingVisibility(null)}
+        onConfirm={() => {
+          if (pendingVisibility === null) return;
+          setThreadVisibility(pendingVisibility);
+          writeThreadVisibility(detail.id, pendingVisibility);
+          setPendingVisibility(null);
+          app.notify(
+            `Thread anonymity set to ${VISIBILITY_LABEL[pendingVisibility]}.`,
+          );
+        }}
+      />
     </div>
   );
 }

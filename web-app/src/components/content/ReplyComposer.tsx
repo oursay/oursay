@@ -1,33 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AnonymityDropdown } from "@/components/identity";
 import { Button } from "@/components/ui";
-import type { AuthorVisibility } from "@/lib/types";
 
 interface ReplyComposerProps {
-  /** Account-default visibility — the composer's starting anonymity. */
-  accountVisibility: AuthorVisibility;
   /** Prefilled text (e.g. a leading @handle mention at max depth). */
   initialText?: string;
   autoFocus?: boolean;
   onCancel: () => void;
-  onSubmit: (text: string, visibility: AuthorVisibility) => void;
+  onSubmit: (text: string) => void;
 }
 
 /**
- * Inline reply editor rendered in place under a comment (or the post). Holds its
- * own text + anonymity state so several composers can be open simultaneously.
+ * Inline reply editor rendered in place under a comment. Anonymity is set once
+ * per thread (beside the thread-root header), so the composer only owns text.
  */
 export function ReplyComposer({
-  accountVisibility,
   initialText = "",
   autoFocus = false,
   onCancel,
   onSubmit,
 }: ReplyComposerProps) {
   const [text, setText] = useState(initialText);
-  const [visibility, setVisibility] = useState<AuthorVisibility>(accountVisibility);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // On open, place the caret after the prefilled "@handle " mention.
@@ -51,18 +45,13 @@ export function ReplyComposer({
         className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
       />
       <div className="flex items-center gap-2">
-        <AnonymityDropdown
-          size="compact"
-          value={visibility}
-          onChange={setVisibility}
-        />
         <Button variant="ghost" size="sm" className="ml-auto" onClick={onCancel}>
           Cancel
         </Button>
         <Button
           size="sm"
           className="rounded-full!"
-          onClick={() => onSubmit(text, visibility)}
+          onClick={() => onSubmit(text)}
         >
           Reply
         </Button>
