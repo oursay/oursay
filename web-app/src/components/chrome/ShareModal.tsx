@@ -34,6 +34,20 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/**
+ * Pre-launch copy switch. While OurSay is in demo, shared/copied text is a
+ * launch-promo blurb (with a link to the demo app) instead of the record's own
+ * text — the preview card in the modal still shows the real post/comment.
+ * Set NEXT_PUBLIC_SHARE_DEMO="false" to share actual post data instead.
+ */
+const SHARE_DEMO_MODE = process.env.NEXT_PUBLIC_SHARE_DEMO !== "false";
+/** Where the promo blurb points (override with NEXT_PUBLIC_SHARE_DEMO_URL). */
+const SHARE_DEMO_URL =
+  process.env.NEXT_PUBLIC_SHARE_DEMO_URL ?? "https://demo.oursay.ca";
+const SHARE_DEMO_BLURB =
+  "I'm trying the demo for the new OurSay app, launching in Alberta soon. Check it out at:";
+const SHARE_DEMO_TITLE = "OurSay — launching in Alberta soon";
+
 /** Monochrome brand glyphs (lucide dropped these) — inherit currentColor. */
 function FacebookGlyph({ size = 18 }: { size?: number }) {
   return (
@@ -107,10 +121,20 @@ export function ShareModal({
   if (!open || !target) return null;
 
   const isComment = target.variant === "comment";
-  const url = absoluteUrl(target.path);
   const bodyText = target.body.join("\n");
-  const shareText = target.title ? `${target.title}\n\n${bodyText}` : bodyText;
+  const realText = target.title ? `${target.title}\n\n${bodyText}` : bodyText;
   const shareLabel = isComment ? "comment" : "post";
+
+  // Demo mode swaps the shared text + link for the launch promo; real mode uses
+  // the record's own text and its in-app URL.
+  const linkUrl = SHARE_DEMO_MODE ? SHARE_DEMO_URL : absoluteUrl(target.path);
+  const messageText = SHARE_DEMO_MODE ? SHARE_DEMO_BLURB : realText;
+  const shareTitle = SHARE_DEMO_MODE
+    ? SHARE_DEMO_TITLE
+    : target.title ?? "Shared from OurSay";
+  // "Copy text" bundles the link so the pasted blurb is self-contained; real
+  // mode keeps copying just the record text (link lives on "Copy link").
+  const copyText = SHARE_DEMO_MODE ? `${messageText} ${linkUrl}` : realText;
 
   const enc = encodeURIComponent;
 
@@ -134,7 +158,7 @@ export function ShareModal({
       label: "Facebook",
       icon: <FacebookGlyph />,
       onClick: () =>
-        openExternal(`https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`),
+        openExternal(`https://www.facebook.com/sharer/sharer.php?u=${enc(linkUrl)}`),
     },
     {
       key: "x",
@@ -142,15 +166,15 @@ export function ShareModal({
       icon: <XGlyph />,
       onClick: () =>
         openExternal(
-          `https://twitter.com/intent/tweet?text=${enc(shareText)}&url=${enc(url)}`,
+          `https://twitter.com/intent/tweet?text=${enc(messageText)}&url=${enc(linkUrl)}`,
         ),
     },
     {
       key: "instagram",
       label: "Instagram",
       icon: <InstagramGlyph />,
-      // Instagram has no web share intent — copy the link for the app.
-      onClick: () => copy(url, "Link"),
+      // Instagram has no web share intent — copy the shareable text for the app.
+      onClick: () => copy(copyText, "Text"),
     },
     {
       key: "reddit",
@@ -158,30 +182,28 @@ export function ShareModal({
       icon: <RedditGlyph />,
       onClick: () =>
         openExternal(
-          `https://www.reddit.com/submit?url=${enc(url)}&title=${enc(
-            target.title ?? shareText,
-          )}`,
+          `https://www.reddit.com/submit?url=${enc(linkUrl)}&title=${enc(shareTitle)}`,
         ),
     },
     {
       key: "tiktok",
       label: "TikTok",
       icon: <TikTokGlyph />,
-      // TikTok has no web share intent — copy the link for the app.
-      onClick: () => copy(url, "Link"),
+      // TikTok has no web share intent — copy the shareable text for the app.
+      onClick: () => copy(copyText, "Text"),
     },
     // Row 2 — utilities.
     {
       key: "copy-text",
       label: "Copy text",
       icon: <Copy size={18} aria-hidden />,
-      onClick: () => copy(shareText, "Text"),
+      onClick: () => copy(copyText, "Text"),
     },
     {
       key: "copy-link",
       label: "Copy link",
       icon: <LinkIcon size={18} aria-hidden />,
-      onClick: () => copy(url, "Link"),
+      onClick: () => copy(linkUrl, "Link"),
     },
     {
       key: "email",
@@ -189,8 +211,8 @@ export function ShareModal({
       icon: <Mail size={18} aria-hidden />,
       onClick: () =>
         openExternal(
-          `mailto:?subject=${enc(target.title ?? "Shared from OurSay")}&body=${enc(
-            `${shareText}\n\n${url}`,
+          `mailto:?subject=${enc(shareTitle)}&body=${enc(
+            `${messageText}\n\n${linkUrl}`,
           )}`,
         ),
     },
@@ -198,7 +220,7 @@ export function ShareModal({
       key: "sms",
       label: "SMS",
       icon: <MessageCircle size={18} aria-hidden />,
-      onClick: () => openExternal(`sms:?&body=${enc(`${shareText} ${url}`)}`),
+      onClick: () => openExternal(`sms:?&body=${enc(`${messageText} ${linkUrl}`)}`),
     },
     {
       key: "report",
