@@ -1,5 +1,7 @@
 import type {
   ActivityKind,
+  AuthorGeoRelation,
+  AuthorIdentity,
   AuthorVisibility,
   GeoFilterMode,
   JurisdictionMembership,
@@ -51,6 +53,36 @@ export interface SignRequest {
   isFinal?: boolean;
   /** Jurisdiction name for the modal copy. */
   jurisdiction?: string;
+}
+
+/**
+ * The record/comment being shared, plus everything the ShareModal needs to
+ * render its preview card and build the share link/text. Held in global state
+ * (null when closed) so any card — feed list, post detail, or comment — can
+ * raise the same sheet, mirroring the sign/compose modal pattern.
+ */
+export interface ShareTarget {
+  /** Post/record vs comment — drives the preview card layout. */
+  variant: "record" | "comment";
+  /** Stable key for the once-per-account share tally (record id / comment key). */
+  shareKey: string;
+  /** In-app path to the shared record (the share-link target). */
+  path: string;
+  /** Record kind (records only). */
+  recordKind?: RecordKind;
+  author: string;
+  handle?: string;
+  tier: VerificationTier;
+  signTier?: SignTier;
+  authorGeo?: AuthorGeoRelation;
+  identity?: AuthorIdentity;
+  /** Records: the title line. */
+  title?: string;
+  body: string[];
+  /** Comments: the relative timestamp shown in the header. */
+  timestamp?: string;
+  /** Comments: nesting depth (drives badge modes in the preview header). */
+  depth?: number;
 }
 
 /**
@@ -116,6 +148,8 @@ export interface AppState {
   sign: SignRequest | null;
   // Quick-vs-Passkey chooser for "Ask" actions (null when closed).
   choose: ChooseSignRequest | null;
+  // Share sheet target (null when closed).
+  share: ShareTarget | null;
 
   // Stubbed civic write state (keyed by record id).
   reactions: Record<string, ViewerReaction | null>;
@@ -124,6 +158,8 @@ export interface AppState {
   votes: Record<string, string>;
   /** Overridden signature totals (petition graduation demo). */
   petitionSig: Record<string, number>;
+  /** Records/comments the account has shared (once per account; bumps the count). */
+  shared: Record<string, true>;
 
   // Post reply composer.
   replyOpen: boolean;

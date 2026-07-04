@@ -26,6 +26,9 @@ interface CommentCardProps {
   onReact?: (dir: "up" | "down") => void;
   onReply?: () => void;
   onEditsClick?: () => void;
+  onShare?: () => void;
+  shareCount?: number;
+  shared?: boolean;
 }
 
 /** One comment row — header · body · footer (no comment pill). */
@@ -47,6 +50,9 @@ export function CommentCard({
   onReact,
   onReply,
   onEditsClick,
+  onShare,
+  shareCount,
+  shared,
 }: CommentCardProps) {
   return (
     <div>
@@ -73,6 +79,9 @@ export function CommentCard({
           onReact={onReact}
           onReply={onReply}
           onEditsClick={onEditsClick}
+          onShare={onShare}
+          shareCount={shareCount}
+          shared={shared}
         />
       </div>
     </div>

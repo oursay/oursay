@@ -24,6 +24,11 @@ interface CommentThreadProps {
   onAuthorClick?: (node: CommentNode) => void;
   onReact?: (node: CommentNode, dir: "up" | "down") => void;
   onEditsClick?: (node: CommentNode) => void;
+  onShare?: (node: CommentNode, path: string, depth: number) => void;
+  /** Per-comment share count resolver. */
+  shareCountFor?: (node: CommentNode) => number;
+  /** Whether the viewer has already shared a given comment. */
+  sharedFor?: (node: CommentNode) => boolean;
 }
 
 /**
@@ -45,6 +50,9 @@ export function CommentThread({
   onAuthorClick,
   onReact,
   onEditsClick,
+  onShare,
+  shareCountFor,
+  sharedFor,
 }: CommentThreadProps) {
   return (
     <ul className={depth > 1 ? "space-y-4 border-l border-border pl-2" : "space-y-4"}>
@@ -83,6 +91,9 @@ export function CommentThread({
               onReact={onReact ? (dir) => onReact(node, dir) : undefined}
               onReply={onReply ? () => onReply(node, nodePath, depth) : undefined}
               onEditsClick={onEditsClick ? () => onEditsClick(node) : undefined}
+              onShare={onShare ? () => onShare(node, nodePath, depth) : undefined}
+              shareCount={shareCountFor?.(node)}
+              shared={sharedFor?.(node)}
             />
 
             {renderReply?.(node, nodePath, depth)}
@@ -104,6 +115,9 @@ export function CommentThread({
                     onAuthorClick={onAuthorClick}
                     onReact={onReact}
                     onEditsClick={onEditsClick}
+                    onShare={onShare}
+                    shareCountFor={shareCountFor}
+                    sharedFor={sharedFor}
                   />
                 ) : (
                   <CommentThread
@@ -119,6 +133,9 @@ export function CommentThread({
                     onAuthorClick={onAuthorClick}
                     onReact={onReact}
                     onEditsClick={onEditsClick}
+                    onShare={onShare}
+                    shareCountFor={shareCountFor}
+                    sharedFor={sharedFor}
                   />
                 )}
               </div>

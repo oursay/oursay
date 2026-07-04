@@ -20,6 +20,7 @@ import {
   ProfileModal,
   RegisterForm,
   SafeFooter,
+  ShareModal,
   SignModal,
 } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
@@ -346,6 +347,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         subscriptions={state.subscriptions}
         onJoin={app.addJurisdiction}
         onDelete={app.removeJurisdiction}
+      />
+      <ShareModal
+        open={state.share !== null}
+        onClose={app.closeShare}
+        target={state.share}
+        onNotify={app.notify}
+        onShared={() => {
+          if (state.share) app.recordShare(state.share.shareKey);
+        }}
+        onReport={() => {
+          app.closeShare();
+          app.notify("Report submitted — our team will review it (demo).");
+        }}
       />
 
       {state.toast ? (

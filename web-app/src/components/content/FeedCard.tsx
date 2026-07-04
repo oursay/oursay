@@ -22,6 +22,9 @@ interface FeedCardProps {
   onAuthorClick?: () => void;
   onTitleClick?: () => void;
   onCommentsClick?: () => void;
+  onShare?: () => void;
+  shareCount?: number;
+  shared?: boolean;
   onReact?: (dir: "up" | "down") => void;
   selectedReaction?: "up" | "down" | null;
   selectedVote?: string | null;
@@ -44,6 +47,9 @@ export function FeedCard({
   onAuthorClick,
   onTitleClick,
   onCommentsClick,
+  onShare,
+  shareCount,
+  shared,
   onReact,
   selectedReaction = null,
   selectedVote = null,
@@ -167,6 +173,9 @@ export function FeedCard({
           onReact={onReact}
           onEditsClick={onEditsClick}
           onCommentsClick={onCommentsClick}
+          onShare={onShare}
+          shareCount={shareCount}
+          shared={shared}
           signedPetition={signedPetition}
           votedPoll={selectedVote != null}
           onOpenPost={onTitleClick}

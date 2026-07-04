@@ -40,7 +40,13 @@ import { RECORD_TYPE_LABEL } from "@/components/content";
 import type { SignKind } from "@/components";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import { nextGeoFilterMode } from "@/lib/types";
-import type { AppState, ChooseSignRequest, SignRequest } from "./types";
+import { shareBaseCount } from "@/lib/share";
+import type {
+  AppState,
+  ChooseSignRequest,
+  ShareTarget,
+  SignRequest,
+} from "./types";
 import {
   feedFilterFromState,
   scopedFeedFilterFromState,
@@ -119,11 +125,13 @@ export const INITIAL_APP_STATE: AppState = {
 
   sign: null,
   choose: null,
+  share: null,
 
   reactions: {},
   reactionCounts: {},
   votes: {},
   petitionSig: {},
+  shared: {},
 
   replyOpen: false,
 
@@ -255,6 +263,16 @@ export interface AppApi {
   // Post reply composer.
   startReply: () => void;
   closeReply: () => void;
+
+  // Share sheet.
+  openShare: (target: ShareTarget) => void;
+  closeShare: () => void;
+  /** Current share tally for a record/comment (base + the viewer's own share). */
+  shareCountFor: (key: string) => number;
+  /** Whether the account has already shared this record/comment. */
+  hasShared: (key: string) => boolean;
+  /** Record a share (once per account) — bumps the tally by one. */
+  recordShare: (key: string) => void;
 
   // Shared-chrome coordination (set by the active view).
   setPageJurisdiction: (name: string | null) => void;
@@ -1090,6 +1108,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [requireAuth, set]);
   const closeReply = useCallback(() => set({ replyOpen: false }), [set]);
 
+  // --- Share ---------------------------------------------------------------
+  // Sharing is a read affordance (no auth gate) — anyone can copy/forward a
+  // public record or comment.
+  const openShare = useCallback(
+    (target: ShareTarget) => set({ share: target }),
+    [set],
+  );
+  const closeShare = useCallback(() => set({ share: null }), [set]);
+
+  const shareCountFor = useCallback(
+    (key: string) => shareBaseCount(key) + (state.shared[key] ? 1 : 0),
+    [state.shared],
+  );
+  const hasShared = useCallback(
+    (key: string) => Boolean(state.shared[key]),
+    [state.shared],
+  );
+  // Sharing is counted once per account — a second action on the same target
+  // (or a different channel) never re-increments the tally.
+  const recordShare = useCallback((key: string) => {
+    setState((s) =>
+      s.shared[key] ? s : { ...s, shared: { ...s.shared, [key]: true } },
+    );
+  }, []);
+
   // Comments/reactions are never ledger-final, so a jurisdiction never forces
   // passkey here — the account default decides. `done` runs the actual write
   // (composer close + toast) after the signing method resolves.
@@ -1238,6 +1281,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     closeChoose,
     startReply,
     closeReply,
+    openShare,
+    closeShare,
+    shareCountFor,
+    hasShared,
+    recordShare,
     setPageJurisdiction,
     setPostDistricts,
     notify,

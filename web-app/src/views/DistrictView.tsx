@@ -8,6 +8,7 @@ import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
 import { districtName } from "@/lib/mock";
 import { authorPath, postPath, profilePath, jurisdictionPath } from "@/lib/routes";
+import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 
 export function DistrictView({ slug }: { slug: string }) {
@@ -123,6 +124,9 @@ export function DistrictView({ slug }: { slug: string }) {
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
                 }
+                onShare={() => app.openShare(recordShareTarget(item))}
+                shareCount={app.shareCountFor(item.id)}
+                shared={app.hasShared(item.id)}
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}
                 selectedVote={app.voteFor(item.id)}

@@ -15,6 +15,7 @@ import {
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
 import { authorPath, districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
+import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 
 type Tab = "posts" | "activity" | "mentions";
@@ -160,6 +161,9 @@ export function ProfileView({
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
                 }
+                onShare={() => app.openShare(recordShareTarget(item))}
+                shareCount={app.shareCountFor(item.id)}
+                shared={app.hasShared(item.id)}
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}
                 selectedVote={app.voteFor(item.id)}

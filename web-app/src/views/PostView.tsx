@@ -29,6 +29,11 @@ import {
   ScopeTag,
 } from "@/components";
 import { authorPath, postPath, districtPath } from "@/lib/routes";
+import {
+  commentShareKey,
+  commentShareTarget,
+  recordShareTarget,
+} from "@/lib/share";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
   readThreadVisibilities,
@@ -270,6 +275,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             onReply={app.startReply}
             onEditsClick={() => app.notify("Edit history is not built in this demo.")}
             onCommentsClick={scrollToCommentsSection}
+            onShare={() => app.openShare(recordShareTarget(detail))}
+            shareCount={app.shareCountFor(detail.id)}
+            shared={app.hasShared(detail.id)}
           />
         }
       />
@@ -394,6 +402,21 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             onEditsClick={() =>
               app.notify("Edit history is not built in this demo.")
             }
+            onShare={(node, _path, depth) =>
+              app.openShare(
+                commentShareTarget(
+                  node,
+                  detail.kind,
+                  detail.id,
+                  relTime(node.ts, NOW),
+                  depth,
+                ),
+              )
+            }
+            shareCountFor={(node) =>
+              app.shareCountFor(commentShareKey(detail.id, node))
+            }
+            sharedFor={(node) => app.hasShared(commentShareKey(detail.id, node))}
           />
         )}
       </section>

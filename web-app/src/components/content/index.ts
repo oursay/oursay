@@ -8,6 +8,7 @@ export * from "./ProfileSupportBar";
 export * from "./PetitionProgress";
 export * from "./EditCountLink";
 export * from "./CommentPill";
+export * from "./SharePill";
 export * from "./CivicPills";
 export * from "./ReplyLink";
 export * from "./ReplyComposer";

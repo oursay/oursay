@@ -10,3 +10,4 @@ export * from "./SignModal";
 export * from "./ChooseSignModal";
 export * from "./AddJurisdictionModal";
 export * from "./AnonymityConfirmModal";
+export * from "./ShareModal";

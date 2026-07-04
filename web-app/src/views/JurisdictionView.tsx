@@ -20,6 +20,7 @@ import {
   postPath,
   profilePath,
 } from "@/lib/routes";
+import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 
 export function JurisdictionView({ slug }: { slug: string }) {
@@ -158,6 +159,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
                 }
+                onShare={() => app.openShare(recordShareTarget(item))}
+                shareCount={app.shareCountFor(item.id)}
+                shared={app.hasShared(item.id)}
                 onReact={(dir) => app.react(item, dir)}
                 selectedReaction={app.reactionFor(item.id)}
                 selectedVote={app.voteFor(item.id)}

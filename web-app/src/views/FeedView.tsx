@@ -7,6 +7,7 @@ import type { FeedItem } from "@/lib/types";
 import { FeedCard } from "@/components";
 import { districtName } from "@/lib/mock";
 import { authorPath, districtPath, jurisdictionPath, postPath } from "@/lib/routes";
+import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 
 export function FeedView() {
@@ -65,6 +66,9 @@ export function FeedView() {
           onCommentsClick={() =>
             router.push(postPath(item.kind, item.id, { comments: true }))
           }
+          onShare={() => app.openShare(recordShareTarget(item))}
+          shareCount={app.shareCountFor(item.id)}
+          shared={app.hasShared(item.id)}
           onReact={(dir) => app.react(item, dir)}
           selectedReaction={app.reactionFor(item.id)}
           selectedVote={app.voteFor(item.id)}
