@@ -71,35 +71,37 @@ not a ladder):
 | **Administrator** | n/a | — | off-surface | Moderation / user management; not a product-surface persona (no flows here). |
 | **Electoral-validated** | yes | `electoral_validated` | future | Elections-Alberta tier; not launch. |
 
-**Eligibility is two gates** (carried from stories §Roles): **act-eligibility** (may the member perform
-the action at all — jurisdiction config) and **official-eligibility** (does it count in the *signed/official*
-total — the thread's `appliesToVerified`). Flows note where a gate decides a branch.
+**Eligibility is three axes** (carried from stories §2; the jurisdiction's per-action
+`gates[action]` — see [jurisdiction.md](entities/partitioning/jurisdiction.md)): **act** (may the
+member perform the action at all), **signMin** (minimum sign method; the account preference may
+raise it), and **official count** (does it count in the *signed/official* total, layered with the
+thread's `appliesToVerified`). Flows note where a gate decides a branch.
 
 ## Eligibility matrices (who may act, per jurisdiction)
 
-Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5. `<DECISION>` rows are **open
-product decisions** — the front end must not assume a resolution.
+Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5 — **resolved 2026-07-03**
+(locked jurisdiction configs; encoding is `[align-w3-gates-schema]`).
 
 ### `ab-ca-gov` (Alberta) — partial ladder · `labels.district = riding`
 
-| Action | May act (act-eligibility) | Counts officially (`appliesToVerified`) | Notes |
-|--------|---------------------------|------------------------------------------|-------|
-| create `post` (Belief/Statement) | any registered subscriber | — (reactions counted by tier) | open |
-| react / comment | any registered subscriber | by tier | |
-| create `petition` | `residency-verified` | — | |
-| sign `petition` | **`<DECISION>`** — any registered, or residency-verified? | `residency-verified` | public-sign vs verified-only |
-| create `poll` | **∅ (graduation-only)** | — | poll only via petition graduation |
-| `vote` | **`<DECISION>`** — public voting, or verified-only? | `residency-verified` | "public vote, verified count" |
+| Action | May act | Sign floor | Counts officially | Notes |
+|--------|---------|------------|-------------------|-------|
+| create `post` (Statement) | any registered subscriber | **passkey (uv)** | — (reactions counted by tier) | open, ledger-final signing |
+| react / comment | any registered subscriber | quick | by tier | quick-sign OK |
+| create `petition` | `residency-verified` | passkey | — | |
+| sign `petition` | **any registered** | passkey | **jurisdiction residency** | **sign now, verify later** |
+| create `poll` | **officials only** (role) or via graduation | passkey | — | role gate, not a tier |
+| `vote` | **jurisdiction residency** | passkey | = act set | participation-gated |
 
 ### `oursay-global` — open model (every account auto-joins)
 
-| Action | May act | Counts officially | Notes |
-|--------|---------|-------------------|-------|
-| create `post` / react / comment | any registered | by tier | |
-| create `petition` | any registered | by tier | no graduation gate |
-| sign `petition` | any registered | **`<DECISION>`** — identity-verified default? | permissive act |
-| create `poll` | any registered | by tier | **standalone polls allowed** |
-| `vote` | any registered | **`<DECISION>`** — identity-verified default? | public voting |
+| Action | May act | Sign floor | Counts officially | Notes |
+|--------|---------|------------|-------------------|-------|
+| create `post` / react / comment | any registered | quick | by tier | any sign method, any KYC |
+| create `petition` | any registered | quick | by tier | no graduation gate |
+| sign `petition` | any registered | quick | **ID-or-better** | permissive act |
+| create `poll` | any registered | quick | by tier | **standalone polls allowed** |
+| `vote` | any registered | quick | **ID-or-better** | public voting |
 
 ### `some-strict` (reference, private, future) — full ladder
 
@@ -161,10 +163,12 @@ flowchart TD
 
 1. Enter email  `[screen: Email capture]`  `-> POST /v1/auth/otp/request {purpose:"registration"}`
    - branch: email already registered → unauthenticated request is a **silent no-op** (no enumeration); UI shows "check your email" regardless.
-2. Enter code + profile (name, address, birthdate, `over_18`)  `[screen: OTP + profile form]`  `-> POST /v1/auth/otp/verify`
-   - branch: under 18 → `[screen: Ineligible]`, no account created (age gate in `RegistrationService`).
+2. Enter code + public identity (**handle + display name**, both required) + `over_18` checkbox  `[screen: OTP + identity form]`  `-> POST /v1/auth/otp/verify`
+   — **least-resistance registration**: no legal name, no address, no birthdate; PII is collected at the KYC step (2.x), which also triggers the first geocode.
+   - branch: over-18 box unchecked → `[screen: Ineligible]`, no account created.
+   - branch: handle taken → `[state: inline error]`, suggest alternatives.
    - branch: code wrong/expired → `[state: inline error]`, allow resend (rate-limited 10/min request, 20/min verify).
-   - on success: account created, auto-subscribed to `oursay-global`, address best-effort geocoded to a **private** point (`auth.profile_geocodes`); session issued at **registration** scope.
+   - on success: account created (visibility default **anonymous**), auto-subscribed to `oursay-global`; session issued at **registration** scope. *(Code gap: `otp/verify` still requires `birthdate` and accepts name/address — `[align-w3-gates-schema]`.)*
 3. Enroll first passkey  `[screen: WebAuthn prompt]`  `-> POST /v1/auth/passkey/register/options` → device ceremony → `-> POST /v1/auth/passkey/register/verify`
    - branch: user dismisses WebAuthn → `[state: passkey pending]`; account exists but can only re-enroll (registration scope) — see 1.5 abandon note.
 4. Log in with the new passkey to upgrade scope  `-> POST /v1/auth/passkey/login/options` → `-> POST /v1/auth/passkey/login/verify` → **full** session.
@@ -234,7 +238,7 @@ flowchart TD
 
 **Entry:** Settings → Profile (full session).
 
-1. View own profile (email, birthdate, address, handle, memo)  `[screen: Profile]`  `-> GET /v1/profile`
+1. View own profile (email, handle, display name, `over_18`, visibility default; address/legal name appear only after KYC supplies them)  `[screen: Profile]`  `-> GET /v1/profile`
 
 **End (success):** Profile shown. PII is private to the owner; never on the public record.
 
@@ -331,7 +335,7 @@ flowchart TD
   CH -->|"Statement"| S["3.1 Compose post"]
   CH -->|"Petition"| P["3.2 Compose petition"]
   CH -->|"Poll"| K["3.3 Compose poll"]
-  K -->|"Alberta"| BLOCK["Blocked: graduation-only"]
+  K -->|"Alberta, non-official"| BLOCK["Blocked: officials-only (or graduation)"]
   S --> PREP["prepare + sign + submit"]
   P --> PREP
   K --> PREP
@@ -368,7 +372,7 @@ flowchart TD
 **Entry:** "New petition" (Alberta: act-eligibility = `residency-verified`).
 
 1. Compose: `title` (≤200) + `text` (required, ≤cap) + optional deadline + audience; `addressedTo` inferred from audience (district → seated MLA(s); jurisdiction-wide → Legislature), platform-overridable  `[screen: Compose petition]`
-   - branch: not act-eligible (`graduation.createTier.petition`; may be ∅) → `[state: action blocked]`.
+   - branch: not act-eligible (`gates.petition.act`; may be ∅) → `[state: action blocked]`.
 2. `-> POST /v1/civic/appends/prepare {type:"petition"}` → 3. sign → `-> POST /v1/civic/appends/submit`.
 
 **End (success):** Petition `open`; status path open → closed → delivered → responded (responded = future).
@@ -378,8 +382,8 @@ flowchart TD
 
 **Entry:** "New poll".
 
-- branch (**Alberta**): create `poll` = **∅** → standalone creation blocked; poll exists only by graduation (3.4). `[screen: not available]`.
-- branch (**oursay-global**): any registered may create.
+- branch (**Alberta**): create `poll` = **role: official** → standalone creation blocked for non-officials (`[screen/poll button: not available]`); members' polls exist only by graduation (3.4); a seated official composes directly (passkey-signed).
+- branch (**oursay-global**): any registered may create (quick-sign OK).
 
 1. Compose: `question` (≤200) + `options[]` (2–10, each ≤100) + optional `description` (≤2000) + rules (`allowChange`, deadline, `appliesToVerified`)  `[screen: Compose poll]`
 2. `-> POST /v1/civic/appends/prepare {type:"poll"}` → 3. sign → `-> POST /v1/civic/appends/submit`.
@@ -401,8 +405,11 @@ flowchart TD
 
 ## 4. Civic content — participate
 
-Same join → prepare → submit path (3.0). Signatures and votes are **final by default** and use
-hardware-backed `webauthn-es256` (per-action user verification).
+Same join → prepare → submit path (3.0). Signatures and votes are **final by default** and signed
+at the jurisdiction's floor or stronger — the effective method is the strongest of the account's
+per-action preference (quick/ask/passkey) and `gates[action].signMin`. Alberta floors signatures
+and votes at hardware-backed `webauthn-es256` (per-action user verification); `oursay-global`
+accepts quick-sign (`p256`).
 
 ```mermaid
 flowchart TD
@@ -411,8 +418,8 @@ flowchart TD
   ELIG -->|"yes"| ACT{"Action"}
   ACT -->|"4.1 React agree / disagree"| RX["prepare + sign + submit"]
   ACT -->|"4.2 Comment (depth <= 3)"| CM["prepare + sign + submit"]
-  ACT -->|"4.3 Sign (webauthn-es256)"| SG["prepare + sign + submit"]
-  ACT -->|"4.4 Vote (webauthn-es256)"| VT["prepare + sign + submit"]
+  ACT -->|"4.3 Sign (jurisdiction sign floor)"| SG["prepare + sign + submit"]
+  ACT -->|"4.4 Vote (jurisdiction sign floor)"| VT["prepare + sign + submit"]
   SG -->|"already signed"| DUP["Nullifier dedupe"]
   VT -->|"already voted"| DUP
   RX --> CNT(["Counts update: total + by tier"])
@@ -450,10 +457,10 @@ flowchart TD
 1. Optional comment + optional anonymous flag  `[screen: Sign petition]` (comment hidden if anonymous)
    - branch: already signed → blocked by **nullifier** dedupe (one signature per `(user, petition)`).
    - branch: deadline passed / petition closed → `[state: signing closed]`.
-   - branch: not act-eligible (`<DECISION>` in Alberta) → `[state: action blocked]`.
-2. `-> prepare {type:"petition_signature"}` → **`webauthn-es256`** ceremony → `submit`.
+   - the act gate is **open** (anyone may sign — **sign now, verify later**); a below-official signer sees a notice that their signature won't count officially yet.
+2. `-> prepare {type:"petition_signature"}` → signing ceremony at `gates.petition_signature.signMin` or stronger (AB: **`webauthn-es256`**; Global: quick-sign OK) → `submit`.
 
-**End (success):** Counts as **official** only if signer tier ∈ `appliesToVerified`; otherwise **unofficial** where the act is permitted. Final by default; revoke only if `allowRevoke` + before deadline.
+**End (success):** Counts as **official** only while the signer meets `gates.petition_signature.official` (AB: jurisdiction residency; Global: ID-or-better; ∩ `appliesToVerified` where set), recomputed at read time; otherwise **unofficial**. Final by default; revoke only if `allowRevoke` + before deadline.
 
 ### 4.4 Vote in a poll  ·  eligible member  ·  Built  ·  US-CAP-7
 
@@ -462,10 +469,10 @@ flowchart TD
 1. Select one option + optional anonymous flag  `[screen: Vote]`
    - branch: already voted → blocked by **nullifier** (one vote per `(user, poll)`); change only if `allowChange` + before deadline.
    - branch: poll not active / closed → `[state: voting closed]`.
-   - branch: not act-eligible (`<DECISION>` in Alberta) → `[state: action blocked]`.
-2. `-> prepare {type:"vote"}` → **`webauthn-es256`** ceremony → `submit`.
+   - branch: not act-eligible (`gates.vote.act` — AB: **jurisdiction residency**; Global: anyone) → `[state: action blocked]` with a "get residency-verified" prompt.
+2. `-> prepare {type:"vote"}` → signing ceremony at `gates.vote.signMin` or stronger (AB: **`webauthn-es256`**; Global: quick-sign OK) → `submit`.
 
-**End (success):** Vote recorded; anonymous verified votes show **tier only** (e.g. "Residency Verified — Anonymous"). Official iff voter tier ∈ `appliesToVerified`.
+**End (success):** Vote recorded; anonymous verified votes show **tier only** (e.g. "Residency Verified"). Official per `gates.vote.official` (∩ `appliesToVerified` where set).
 
 ---
 
@@ -523,13 +530,18 @@ flowchart TD
    - caller passes **entity id only** — never a district or user.
    - output: per option / reaction kind, breakable by **geo scope** (`jurisdiction` / `impacted-region` / `my-district` / `all-public`) AND **tier** (identity-verified / residency-verified / unverified), official vs unofficial distinguished.
 2. Filter to **my district**  `[screen: Counts → "My riding"]`
-   - branch: `scope=my-district` requires an authenticated viewer with a verified address; **inert without it (gap: `[mvp-c4c-my-district]`)** — needs viewer district context.
+   - branch: `scope=my-district` requires an authenticated viewer with a verified address; **inert without it (gap: `[mvp-c4c-my-district]`)** — public reads take an **optional session**; anonymous requests simply lack the viewer-relative modes.
    - branch (Alberta US-AB-2): in-region vs out-of-region residency-verified split shown; label "riding".
    - branch: any bucket below `privacy.kAnonymityFloor` → `{ count: null, suppressed: true }` (k-anonymity).
    - branch (US-GLB-3, future): compose region filters (And/Or/Not across presets, up to whole-jurisdiction extents) to isolate residency-verified opinion at any scale — `[mvp-c5-region-presets]`.
 
 **End (success):** Honest tier/geo breakdown with k-anon protection.
 **Notes:** Date-range filters echoed but not resolved (`[mvp-c4b-date-filters]`). Action-time tier/geo snapshots are a gap; counts use current tier/address (`[mvp-c4-action-snapshots]`).
+
+Separately from aggregate counts, every served record/comment carries the author's **`authorGeo`
+relation** (`home` / `affected` / `jurisdiction` / `none` — the only residence signal on any DTO;
+`home` resolves only for residency-verified viewers). See
+[REGION-MODEL.md](REGION-MODEL.md) "Author-geo relations".
 
 ### 5.6 Browse jurisdictions & district map  ·  Guest+  ·  Built  ·  US-AB-2
 
@@ -549,21 +561,39 @@ unlinked without an explicit reveal. [`08-IDENTITY-AND-DEVICE-POLICY.md`](08-IDE
 
 ```mermaid
 flowchart TD
-  J["3.0 Thread join"] --> PS(["Pseudonymous by default (Pt)"])
-  PS --> PR["6.2 Platform reveal (reversible, Planned)"]
+  J["3.0 Thread join"] --> PS(["Pseudonymous by default (Pt + persona name)"])
+  PS --> TV["6.1b Per-thread visibility at compose (narrow OR widen)"]
+  PS --> PR["6.2 Platform reveal (retroactive, reversible, Planned)"]
   PR -->|"unlink"| PS
   PS --> OC["6.3 On-chain reveal (permanent, Planned)"]
   OC --> PERM(["Irreversible public link"])
-  PS --> VIS["6.4 Visibility cascade (Planned)"]
-  VIS --> RES{"anonymous / my_district / officials / public"}
+  PS --> VIS["6.4 Account visibility default"]
+  VIS --> RES{"anonymous / my_officials / all_officials / my_district / my_jurisdiction / id_verified / public"}
 ```
 
 ### 6.1 Pseudonymous-by-default  ·  Registered  ·  Built  ·  US-CAP-9
 
 Established at thread join (3.0). The public record shows only `Pₜ` + signature — never the account id or
-a cross-thread correlation.
+a cross-thread correlation. Product surfaces show the persona's globally-unique **display name** and a
+thread-scoped **persona page** (the anonymous mirror of a profile: tier pill, support bar, that
+thread's comments/activity/mentions; nothing derivable cross-thread) — see
+[thread-persona.md](entities/civic-identity/thread-persona.md).
+
+### 6.1b Per-thread visibility at compose/reply  ·  Registered  ·  Demo-specified (backend pending)  ·  US-CAP-9
+
+**Entry:** Anonymity picker on the compose / reply surface.
+
+1. Choose this thread's visibility (defaults to the account setting)  `[screen: Anonymity picker]`
+   - the override wins outright — it may **narrow or widen** the account default;
+   - widening (more visible than the default) raises a **warning dialog** before it applies.
+
+**End (success):** `effectiveVisibility = thread ?? account ?? anonymous` for this thread. Backend
+storage (`thread_bindings.visibility`) is `[align-w3-gates-schema]`.
 
 ### 6.2 Platform reveal (link / unlink persona ↔ profile)  ·  Registered  ·  Planned  ·  US-CAP-9
+
+The **retroactive** act — changing a past thread's visibility after the fact (going-forward
+visibility is chosen at compose, 6.1b).
 
 **Entry:** Thread or profile → "Show this is me here".
 
@@ -582,15 +612,15 @@ a cross-thread correlation.
 
 **End (success):** Irreversible public link. **Not built.**
 
-### 6.4 Selective visibility cascade  ·  Residency-verified  ·  Planned (future V1)  ·  US-AB-5
+### 6.4 Account visibility default  ·  Registered  ·  Demo-specified (backend pending)  ·  US-AB-5
 
 **Entry:** Privacy settings → visibility.
 
-1. Choose visibility: `anonymous | my_district | officials | public`  `[screen: Visibility]`
-   - resolution cascades thread (narrow-only) > jurisdiction > account > anonymous floor; widening rejected.
-   - out-of-scope viewers get **404** (not 403) on profile lookups.
+1. Choose the account default from the picker subset (`anonymous | all_officials | my_district | public`; full enum `anonymous | my_officials | all_officials | my_district | my_jurisdiction | id_verified | public`)  `[screen: Visibility]`
+   - resolution: `thread ?? account ?? anonymous` — a per-thread choice (6.1b) wins outright in either direction; new accounts default to **anonymous**; a per-jurisdiction middle layer is a future extension.
+   - out-of-scope viewers get **404** (not 403) on the **whole profile surface** (header + tabs), not just handle lookups.
 
-**End (success, when shipped):** Known locally to officials/district without being globally public. **Design-only** (`[code-privacy-schema]`).
+**End (success, when shipped):** Known locally to officials/district without being globally public. Demo-proven in the web-app; backend is `[align-w3-gates-schema]` / `[align-w4-api-surface]`.
 
 ---
 
@@ -682,11 +712,12 @@ All trace to existing tags; **none implemented here** (this is a documentation p
 - **Profile update HTTP route** — service exists, no `PATCH /v1/profile` (1.8) — `[mvp-c10c-profile-patch]`.
 - **Real KYC provider** (Didit) + **recovery re-verify** (2.1, 2.2, 1.5) — `[code-didit-provider]`, `[mvp-c-kyc-provider]`.
 - **Graduation engine** petition→poll auto-start (3.4, US-AB-1) — `[code-jurisdiction-graduation]`.
-- **Participation act-eligibility config** — resolves the `<DECISION>` rows for sign/vote/comment/react (4.x) — `[code-participation-act-eligibility]`.
+- **Per-action gates config** — encodes the resolved eligibility matrices (act / signMin / official for 3.x–4.x), incl. the jurisdiction-residency and official-role gate kinds — `[align-w3-gates-schema]` (absorbs `[code-participation-act-eligibility]`).
 - **My-district auth context** (5.5) — `[mvp-c4c-my-district]`; **date filters** — `[mvp-c4b-date-filters]`; **action-time snapshots** — `[mvp-c4-action-snapshots]`.
 - **Formal `result` entity** at poll close (5.4) — `[mvp-c12-poll-results]`.
 - **Signed count manifests** + **full record sync** + **count amendments** (8.x) — `[mvp-c13-signed-count-snapshots]`, `[mvp-c14-count-amendments]`.
-- **Reveal + visibility cascade** UI (6.2–6.4) — `[code-privacy-schema]`.
+- **Visibility schema + reveal** (6.1b–6.4: account default, per-thread override, persona pages, profile 404s, reveal) — `[align-w3-gates-schema]` / `[align-w4-api-surface]` (supersedes `[code-privacy-schema]`).
+- **Least-resistance registration** (1.1: slim `otp/verify`, handle/display required, over_18 checkbox) — `[align-w3-gates-schema]`.
 - **Official profiles / claim / sentiment** (7.x) — fast-follow, no tag yet.
 - **Multi-jurisdiction selector + populated unified feed** (5.1) — `[mvp-c10b-membership]`, `[mvp-c10-multi-jurisdiction]`.
 

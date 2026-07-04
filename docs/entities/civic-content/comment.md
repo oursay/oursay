@@ -31,6 +31,12 @@ Primary key: `entity_id` (UUID) on `comment` create transaction.
 
 Max nesting depth: **3 levels** below root entity (`COMMENT_MAX_DEPTH`).
 
+### Read-surface projections (target)
+
+Comment DTOs additionally carry `signTier` (action signing tier — comments may be quick-signed in
+both launch jurisdictions), `editCount`, and the viewer-resolved `authorGeo` relation + `identity`
+(persona or revealed handle) — see [entity-projection.md](../record/entity-projection.md).
+
 ## States & lifecycle
 
 ```

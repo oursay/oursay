@@ -42,6 +42,12 @@ Max lengths are the jurisdiction's `contentLimits` (target; AB: title 200, body 
 
 List/detail: reaction tallies are **unfiltered** totals. Scoped counts via `/counts` endpoint.
 
+### Read-surface projections (target)
+
+Detail/list DTOs additionally carry `signTier` (action signing tier), `editCount` (revision count),
+`appliesToDistrictIds` (district-slug projection of the stake), and the viewer-resolved `authorGeo`
+relation + `identity` — see [entity-projection.md](../record/entity-projection.md).
+
 ## States & lifecycle
 
 ```

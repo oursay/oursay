@@ -19,7 +19,8 @@ The civic engine and read/write seams exist; there is no end-user web app yet.
 - **Account auth** — email-OTP registration, account-login passkeys, recovery, gated cross-device
   login, private profile.
 - **Civic identity & signing** — stable per-thread persona Pₜ, per-device WebAuthn (`webauthn-es256`)
-  signing, dual-verifier, browser custody (PRF + secure-storage fallback).
+  signing plus the `p256` quick-sign path (both production methods), browser custody (PRF +
+  secure-storage fallback).
 - **Public record** — append-only commitments (immudb), pooled→settled→anchored write path,
   multi-chain settlement + anchoring worker.
 - **Civic writes** — join → prepare → submit for all record types; `@oursay/identity` client SDK.
@@ -37,9 +38,19 @@ code-alignment prompts in [`../.agents/CODE-ALIGNMENT-PROMPTS.md`](../.agents/CO
 - **Vocabulary & content model** — `JurisdictionConfig.labels` + `contentLimits`; `PostContent`
   `title` required (≤200) / `body` optional (≤2000).
 - **Thread audience** — `appliesToRegion` (district/revision/region/union, keyed off `district_slug`;
-  **shipped**, with `appliesToDistrictIds` kept as a deprecated alias) and `appliesToVerified` (tier set).
+  **shipped**) and `appliesToVerified` (tier set); `appliesToDistrictIds` **kept** as the region's
+  served district-slug projection, maintained by the `entity_audience` projection (promoted from V1
+  performance work to MVP — it powers per-thread district resolution and district pages).
+- **Signing gates & prefs** — per-jurisdiction per-action gates (`act` / `signMin` / `official`,
+  incl. jurisdiction-residency and official-role gate kinds) replacing the platform-wide
+  vote/signature scheme hard-override; per-account per-action signing preferences (quick/ask/passkey,
+  strongest wins); `signTier` projection on read DTOs.
 - **Identity / KYC** — Didit provider (dev ID-only + platform self-signed address; prod POA ~$2 CAD);
-  `over_18` flag instead of stored birthdate.
+  `over_18` checkbox at signup (KYC re-verifies) instead of stored birthdate; **least-resistance
+  registration** (handle + display name required; legal name/address collected at KYC, not signup).
+- **Account privacy** — 7-value visibility enum, cascade `thread ?? account ?? anonymous` (thread
+  override may widen or narrow; default `anonymous`), private profiles 404 out-of-scope, persona
+  display names + persona pages (moved up from V1 — the web-app demo specifies it).
 - **Auth** — `registration` session scope (enroll first passkey only) before `full`.
 - **Results** — formal derived `result` published at poll close ([mvp-c12-poll-results]).
 - **Counts** — action-time geo/tier snapshots and signed count snapshots for official totals
@@ -54,15 +65,16 @@ code-alignment prompts in [`../.agents/CODE-ALIGNMENT-PROMPTS.md`](../.agents/CO
 
 ## V1 — after launch
 
-- **Account privacy / reveal** — visibility cascade (`thread ?? jurisdiction ?? account ??
-  anonymous`; enum `anonymous | my_district | officials | public`); the reveal model (platform-
-  reversible vs on-chain-nuclear) replacing `claimed`/`claimed_at`.
+- **Reveal & privacy extensions** — the reveal model (platform-reversible vs on-chain-nuclear)
+  replacing `claimed`/`claimed_at`; the optional **per-jurisdiction** visibility override layer
+  (the MVP cascade is `thread ?? account ?? anonymous` — see
+  [09-ACCOUNT-PRIVACY-MODEL.md](./09-ACCOUNT-PRIVACY-MODEL.md)).
 - **Filtering** — staged And/Or/Not composition, residency-at-time, tier sets, provider tags, deadline
   snapshots; `ever_in_region`; region presets; `my-district`.
 - **Platform-signed records** — final tallies, tally amendments, censorship reasoning, district
   boundary revisions, official profiles (MLA/premier/agency).
 - **Provider tags** — Equifax (`canadian_verified`); broader KYC providers per region.
-- **Performance** — materialized `entity_audience` projection for district-page listing.
+- **Performance** — further read-model projections (feed, profile activity, mentions) as load demands (`entity_audience` itself is MVP — see Thread audience above).
 
 ## V2 — horizon (deliberately vague)
 

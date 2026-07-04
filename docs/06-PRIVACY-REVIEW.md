@@ -25,6 +25,15 @@ Key point: there is **no "counts-only" tier** — the signed record is public to
 differs by role is only **riding-filtered convenience views** (representatives) and **user-authorized
 disclosure** (auditors). The protected secret is always the **identity link**.
 
+Two additional scoped surfaces (Phase D alignment; see
+[09-ACCOUNT-PRIVACY-MODEL.md](./09-ACCOUNT-PRIVACY-MODEL.md) and
+[REGION-MODEL.md](./REGION-MODEL.md) "Author-geo relations"):
+
+| Surface | May receive | Never receives |
+|---|---|---|
+| **Profile / identity surface** | Viewers **inside** the author's effective visibility scope see handle, display name, profile link. | Out-of-scope viewers get **404** (existence hidden) — the author renders as a per-thread persona; a persona page never yields cross-thread or profile linkage. |
+| **`authorGeo` relation on DTOs** | Every viewer: `affected` / `jurisdiction` / `none` relative to the open post. **Residency-verified viewers only**: `home` (district co-residency with the viewer — the deliberate, privileged disclosure, when allowed by the user's visibility scope; a relation, never a district name or point). | Raw author districts, geocode points, or any "is user U in district D" query surface. |
+
 ---
 
 ## 2. The core privacy shortcoming — re-identification by inference

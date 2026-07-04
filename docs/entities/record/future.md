@@ -17,7 +17,7 @@ Platform-signed count manifests with deadline snapshots for official poll/signat
 A derived `result` record published at poll close, with geographic + tier breakdown and an anchor reference ([mvp-c12-poll-results]).
 
 ## Action-time snapshots
-Snapshot geographic area and verification tier **at action time** on each civic write, so historical counts reproduce regardless of later address/tier changes ([mvp-c4-action-snapshots], [mvp-c4b-date-filters]).
+Snapshot geographic **relationship flags** (in-affected / in-jurisdiction — never points) and verification tier **at action time** on each civic write, so historical counts reproduce regardless of later address/tier changes ([mvp-c4-action-snapshots], [mvp-c4b-date-filters]). Also the target source for the per-author `authorGeo` relation on read DTOs (current residence is the documented interim — [REGION-MODEL.md](../../REGION-MODEL.md)).
 
 ## External anchoring cadence
 Production anchoring cadence and deploy-hash publication ([DEPLOYMENTS.md](../../../DEPLOYMENTS.md)) — launch blocker per PRD open questions.

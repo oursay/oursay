@@ -44,9 +44,14 @@ stable — especially jurisdiction policy, membership, and how official counts a
 | Count exposure (`countGating`) | Per-jurisdiction `JurisdictionConfig.counts` drives `none`/`withheld`/`tier-gated` on petition/poll list+detail+counts; `ab-ca-gov` tier-gates vote/signature scalars, `oursay-global` is permissive |
 | Area catalog (`[mvp-c6-area-catalog]`) | Public `GET /v1/public/jurisdictions` index + effective-dated district directory (`…/jurisdictions/:id/districts?asOf=`) + official boundary geometry (`…/districts/:revisionId/geometry`, or `?include=geometry`). Official `geo.districts` revisions only — no user points, no `geo.regions` presets, no freeform district-id query |
 
-**Intentional UX split:** geo and tier filtering apply only on **`GET …/:id/counts`**. List and thread
+**Intentional UX split:** geo and tier **count** filtering apply only on **`GET …/:id/counts`**. List and thread
 detail endpoints parse `scope`/`tier` but do not filter embedded tallies (`applied.geo` / `applied.tier`
 stay false there). Clients that need scoped numbers must call `/counts`.
+
+**Separate from count filtering (target, Phase D alignment):** read DTOs carry a per-author
+**`authorGeo` relation** (`home`/`affected`/`jurisdiction`/`none`) resolved server-side per viewer —
+public reads accept an **optional session** for this; the relation enum is the only residence
+signal that ever leaves the API. See [REGION-MODEL.md](./REGION-MODEL.md) "Author-geo relations".
 
 ---
 
@@ -58,7 +63,7 @@ Grouped by dependency. Tags are proposed agent-loop names.
 
 | Tag | Gap | Why it matters |
 |-----|-----|----------------|
-| **`[mvp-c4-action-snapshots]`** | No per-action geo/tier snapshot at civic submit | Counts use **current** address + **current** tier only (`asOf = now`). Spec §9 expects geography and tier **at time of action** for audit-grade history. |
+| **`[mvp-c4-action-snapshots]`** | No per-action geo/tier snapshot at civic submit | Counts use **current** address + **current** tier only (`asOf = now`). Spec §9 expects geography and tier **at time of action** for audit-grade history. Snapshots are **relationship flags** (in-affected / in-jurisdiction + tier), never points; they are also the target source for the `authorGeo` relation (current residence is the documented interim). |
 | **`[mvp-c4b-date-filters]`** | `from` / `to` on counts stubbed (`applied.date: false`) | Contributor spec §6.4 combinable date filters. |
 | **`[mvp-c4c-my-district]`** | `scope=my-district` inert without auth | Needs authenticated counts (or viewer context) + `viewerDistrictId`. |
 | **`[mvp-c5-region-presets]`** | `geo.regions` exists; no service/API to create platform presets | Internal “southern Alberta”, rep bundles, etc. Service speaks `region_id`; public API stays coarse `GeoScope`. |
@@ -135,6 +140,10 @@ waits on 6 (`[mvp-c10-multi-jurisdiction]` + `[mvp-c10b-membership]`).
 - **Coarse public API** — fixed `GeoScope` enum on unauthenticated routes; custom regions are internal or authenticated.
 - **No district on the user row** — geocode point + dynamic `contains`; optional snapshots at action time.
 - **Private linkage** — persona/nullifier → user never on public responses.
+- **Relations, never locations** — the one sanctioned per-author residence signal on DTOs is the
+  viewer-relative `authorGeo` **relation enum** (`home`/`affected`/`jurisdiction`/`none`; `home`
+  only for residency-verified viewers), computed server-side. Raw author districts/points are
+  never serialized; action-geo snapshots store **relationship booleans**, not points.
 
 ---
 
@@ -142,10 +151,11 @@ waits on 6 (`[mvp-c10-multi-jurisdiction]` + `[mvp-c10b-membership]`).
 
 When the app lands:
 
-1. **Feed rows** — `jurisdictionId`, `entityId`, `type`, `audienceScope` per item; jurisdiction filter from membership API.
+1. **Feed rows** — `jurisdictionId`, `entityId`, `type`, `audienceScope` (+ `appliesToDistrictIds`, `signTier`, `editCount`, viewer-resolved `identity` and `authorGeo`) per item; jurisdiction filter from membership API.
 2. **Scoped numbers** — always `GET …/:id/counts?scope=…&tier=…`; never list/detail embedded tallies for filtered views.
-3. **Gating** — respect `countGating` from jurisdiction config.
+3. **Gating** — respect `countGating` and the per-action `gates` from jurisdiction config.
 4. **Official view** — optional signed snapshot + amendment chain when C13/C14 exist.
+5. **Viewer-optional reads** — public read endpoints accept an optional session for viewer-relative fields; the anonymous variant is the cacheable one. The full endpoint map for Phase D is `.agents/WEB-APP-GAPS.md` Part 4.
 
 ---
 

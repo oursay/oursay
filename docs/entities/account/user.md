@@ -23,8 +23,8 @@ Two users are the same if their `id` (UUID) matches. Primary key: `public.users.
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
 | `id` | UUID | yes | no* | Primary key |
-| `handle` | TEXT | no | yes | Unique `@username` when set |
-| `display_name` | TEXT | no | yes | Public display; defaults to handle without `@` |
+| `handle` | TEXT | **yes** | scoped | Unique `@username`, collected at registration (NOT NULL target; nullable today — see Gaps). Visible per the account's visibility setting — a private account's handle 404s out-of-scope, it is never null |
+| `display_name` | TEXT | **yes** | scoped | Public display name, collected at registration (NOT NULL target) |
 | `created_at` | TIMESTAMPTZ | yes | no | Account creation |
 
 \* User id is not publicly surfaced; handle/display_name are the public identity.
@@ -46,7 +46,7 @@ Two users are the same if their `id` (UUID) matches. Primary key: `public.users.
 [Unverified User — account, no KYC]
         │ verify (see Verification)
         ▼
-[identity_verified | residency_verified | official_verified | electoral_validated]
+[identity_verified | residency_verified | electoral_validated]  (+ optional platform-assigned official ROLE)
 ```
 
 Additional account states from contributor §5.4: `pending`, `failed`, `sponsored_pending`, `verification_not_completed`.
@@ -74,20 +74,20 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 | Action | Who |
 |--------|-----|
 | Create | Self via OTP registration |
-| Read public profile | Anyone (handle, display_name) |
+| Read public profile | Viewers within the account's effective visibility scope; out-of-scope → **404** ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) |
 | Update public profile | Self (full session) |
 | Delete | Platform policy (not fully specified) |
 
 ## Events
 
-- Registration: creates `users` + `profiles` + best-effort geocode.
-- Verification: appends `kyc_attestations` row.
+- Registration (least-resistance): creates `users` (handle + display name) + `profiles` (email + over_18 only — no name/address); geocode happens later, on the first address write at KYC or profile update.
+- Verification: appends `kyc_attestations` row (the KYC step is where legal name/address are collected).
 
 ## Examples
 
 **Valid:** User with `handle: "@jane_alberta"`, `display_name: "Jane"`, no KYC → unverified tier, can act off-ledger.
 
-**Invalid:** Storing `district_id` or `verification_tier` on `public.users` — tier comes from attestations; district is inferred.
+**Invalid:** Registering without a handle or display name — both are required at signup. Storing `district_id` or `verification_tier` on `public.users` — tier comes from attestations; district is inferred after residency verification.
 
 ## Implementation
 
@@ -101,4 +101,6 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 ## Gaps
 
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
-- Account visibility / per-jurisdiction privacy ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) not built — the reveal model replaces the old persona `claimed`/`claimed_at` flow.
+- **handle/display_name NOT NULL migration** — columns are nullable today; target makes both required (collected at registration) with a backfill for existing rows — `[align-w3-gates-schema]`.
+- Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) not built — profile surface must 404 for out-of-scope viewers; the reveal model replaces the old persona `claimed`/`claimed_at` flow.
+- **Official role** — platform-assigned, revocable `official` role (on the user/jurisdiction membership) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier.

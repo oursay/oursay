@@ -3,8 +3,16 @@
 Deferred design intent for the `account/` entities (user, profile, verification, profile-geocode). These are **not** shipped; they capture agreed direction so it is not lost. See each entity's **Gaps** section for the matching code-alignment prompt.
 
 ## over_18 replaces stored birthdate
-The age gate should store only the boolean **`over_18`**, dropping `auth.profiles.birthdate`, provided the KYC/recovery flow can re-prompt for age when needed. Today `birthdate` (DATE) is stored and 18+ is computed at registration (`api/src/helpers/age.ts`).
+The age gate stores only the boolean **`over_18`** — a self-attested checkbox at registration,
+re-verified factually at the KYC step — dropping `auth.profiles.birthdate`. Today `birthdate` (DATE) is stored and 18+ is computed at registration (`api/src/helpers/age.ts`).
 → `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-over-18]`.
+
+## Least-resistance registration
+Registration collects **email OTP + handle + display name + the over_18 checkbox** and nothing
+else; legal name/address move to the KYC step (or a later profile PATCH), which also triggers the
+first geocode sync. `profileInputSchema` / `RegistrationService` still require `birthdate` and
+accept name/address today.
+→ `.agents/WEB-APP-ALIGNMENT-PROMPTS.md` `[align-w3-gates-schema]`.
 
 ## Jurisdiction membership table
 A user ↔ jurisdiction membership table; every account auto-subscribed to **`oursay-global`** at registration. Future: geocode-suggested subscription prompts after a profile address resolves. ([mvp-c10b-membership])

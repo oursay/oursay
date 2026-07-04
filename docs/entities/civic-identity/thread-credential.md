@@ -10,7 +10,7 @@ Per-device WebAuthn signing credential for civic actions in a thread. Each devic
 |-------|------|
 | Product | Civic signer / per-thread passkey |
 | Code | `ThreadCivicCredential`, `thread_civic_credentials` |
-| Envelope fields | `signerPubkey`, `signScheme: "webauthn-es256"`, `webauthn` assertion |
+| Envelope fields | `signerPubkey`, `signScheme: "webauthn-es256"`, `webauthn` assertion (passkey path; the quick-sign path signs `p256` with the derived thread key and needs no per-device credential) |
 
 Distinct from [PasskeyCredential](../auth/passkey-credential.md) (account login).
 
@@ -57,8 +57,8 @@ Primary key: `thread_civic_credentials.credential_pubkey` (= envelope `signerPub
 ## Invariants
 
 - **R2**: Every envelope signed on device before server accept.
-- `vote` and `petition_signature` **MUST** use `webauthn-es256` (user-verifying assertion per action).
-- Assertion challenge MUST equal signing digest of envelope; UV flag MUST be set.
+- An action MUST be signed with at least the jurisdiction's `gates[action].signMin` method — `ab-ca-gov` floors post/vote/petition_signature at passkey (`webauthn-es256`); `oursay-global` accepts quick-sign (`p256`) for every action. The account's signing preference can raise but never lower the floor.
+- On the `webauthn-es256` path: assertion challenge MUST equal signing digest of envelope; UV flag MUST be set.
 - `authorPubkey` = Pₜ (stable); `signerPubkey` = this device's passkey (required for WebAuthn path).
 - Platform never holds private keys.
 
@@ -77,9 +77,9 @@ Primary key: `thread_civic_credentials.credential_pubkey` (= envelope `signerPub
 
 ## Examples
 
-**Valid:** User casts vote with `signScheme: "webauthn-es256"`, `authorPubkey: Pₜ`, `signerPubkey: device_passkey`, populated `webauthn` assertion.
+**Valid:** User casts an `ab-ca-gov` vote with `signScheme: "webauthn-es256"`, `authorPubkey: Pₜ`, `signerPubkey: device_passkey`, populated `webauthn` assertion. A quick-signed (`p256`) vote on `oursay-global` is equally valid — that jurisdiction's floor is quick.
 
-**Invalid:** Vote signed with `p256` software key only — rejected for `vote` type.
+**Invalid:** Vote signed with `p256` software key on `ab-ca-gov` — rejected by that jurisdiction's passkey floor (`gates.vote.signMin`).
 
 ## Implementation
 
@@ -92,4 +92,5 @@ Primary key: `thread_civic_credentials.credential_pubkey` (= envelope `signerPub
 
 ## Gaps
 
-- Legacy `p256` / `device_keys` / `thread_signers` path deprecated but still in schema for dual-verifier period.
+- The `p256` quick-sign path is a **production signing method** (not a deprecated dual-verifier remnant): it is the floor on `oursay-global` and the method behind the "Quick" account preference. Code still hard-requires `webauthn-es256` for `vote`/`petition_signature` platform-wide (`requiredSignScheme()`); replacing that with per-jurisdiction `gates[action].signMin` is `[align-w3-gates-schema]`.
+- `signTier` (0 quick · 1 passkey · 2 fingerprint · 3 face) read-surface projection not yet derived/stored — target maps envelope `signScheme` + authenticator UV/metadata.

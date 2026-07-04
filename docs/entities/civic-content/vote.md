@@ -26,7 +26,7 @@ See [01-CONTRIBUTOR-SPEC.md §8.3, §9.3](../../01-CONTRIBUTOR-SPEC.md).
 | `option` | string | yes | yes* | Selected option label |
 | `authorPubkey` | TEXT | yes | yes | Pₜ |
 | `signerPubkey` | TEXT | yes | yes | Device passkey |
-| `signScheme` | `"webauthn-es256"` | yes | yes | Required |
+| `signScheme` | `SignScheme` | yes | yes | Per jurisdiction + per entity gate (AB: `webauthn-es256`; Global: `p256` quick-sign accepted) |
 | `nullifier` | TEXT | yes | yes | Dedupe |
 | `parent_id` | UUID | yes | yes | Poll entity id |
 
@@ -56,7 +56,7 @@ Allowed ops: `create`, `update` only — **never deleted**.
 ## Invariants
 
 - **R1a**: Cast FINAL by default; `update` only when rules + deadline allow.
-- **MUST** use `webauthn-es256`.
+- Signed with at least the jurisdiction's `gates.vote.signMin` method — the effective method is the **stronger** of the account's signing preference and the jurisdiction floor. `ab-ca-gov` floors votes at passkey (`webauthn-es256`, UV); `oursay-global` accepts quick-sign (`p256`). See [jurisdiction.md](../partitioning/jurisdiction.md) gates.
 - Verified votes on-ledger with pseudonymous key link (contributor §9.3).
 - No duplicate voting — nullifier + UNIQUE constraint.
 - Verified anonymous votes counted in tier totals.
@@ -65,8 +65,10 @@ Allowed ops: `create`, `update` only — **never deleted**.
 
 | Action | Who |
 |--------|-----|
-| Create (cast) | Any registered user during active period |
+| Create (cast) | Per jurisdiction `gates.vote.act` during active period — `oursay-global`: any registered user; `ab-ca-gov`: **jurisdiction residency** (residency-verified AND resident of Alberta) |
 | Update (change) | Voter, if `allowChange` + before deadline |
+
+Official counts follow `gates.vote.official` — `oursay-global`: `{identity_verified, residency_verified}`; `ab-ca-gov`: jurisdiction residency (participation-gated, so official = act set).
 
 ## Events
 

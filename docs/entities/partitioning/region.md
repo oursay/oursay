@@ -43,7 +43,7 @@ Two regions are the same if their `id` matches within a jurisdiction context. Bu
 | Scope | Compiles to |
 |-------|-------------|
 | `jurisdiction` | Whole jurisdiction at `asOf` |
-| `impacted-region` | Entity's `appliesToRegion` (RegionRef, via `resolveRegionRef`); absent ⇒ whole jurisdiction. A legacy `appliesToDistrictIds` stake maps to an OR-of-revisions RegionRef |
+| `impacted-region` | Entity's `appliesToRegion` (RegionRef, via `resolveRegionRef`); absent ⇒ whole jurisdiction. An author-supplied district-id list maps to an OR-of-revisions RegionRef; the served `appliesToDistrictIds` is the region's district-slug projection |
 | `my-district` | Viewer's inferred district (requires auth) |
 | `all-public` | No geo filter |
 
@@ -57,15 +57,15 @@ Value object — no persistent state for built-in kinds. Custom presets are crea
 |---------|-------------|-------|
 | District | N:M | Union of district revisions |
 | Jurisdiction | N:1 | Scoped to one jurisdiction |
-| EntityRules | derived | `appliesToRegion` (RegionRef) → `impacted-region` scope via `resolveRegionRef`; the `appliesToDistrictIds` alias is deprecated |
+| EntityRules | derived | `appliesToRegion` (RegionRef) → `impacted-region` scope via `resolveRegionRef`; `appliesToDistrictIds` is the region's served district-slug projection ([entity-rules.md](entity-rules.md)) |
 | ProfileGeocode | input | Private point tested via `contains()` |
 
 ## Invariants
 
 - Filter code calls `region.contains(point)` — **never branches on raw district-id lists** ([REGION-MODEL.md](../../REGION-MODEL.md)).
 - Public routes use coarse `GeoScope` enum only — no freeform district-id query surface ([06-PRIVACY-REVIEW.md](../../06-PRIVACY-REVIEW.md)).
-- Geo/tier filtering applies on **`GET …/:id/counts` only**; list/detail tallies are unfiltered by design.
-- A thread declares its geographic stake via **`appliesToRegion`** (a RegionRef/union), never a raw district-id array on the public surface. `RegionResolver.resolveRegionRef` compiles it to a `Region`: a pure `or` of districts collapses to a `district_union`; `and`/`not` build a `composite` region evaluated per point, where **`not` is jurisdiction-bounded** (`not(X) ≡ jurisdiction ∖ X`, so "everywhere except X" never leaks outside the jurisdiction).
+- Geo/tier **count** filtering applies on **`GET …/:id/counts` only**; list/detail tallies are unfiltered by design. Separately, read DTOs carry the per-author **`authorGeo` relation** (`home`/`affected`/`jurisdiction`/`none`) resolved server-side per viewer — a relation enum, never a location ([entity-projection.md](../record/entity-projection.md)).
+- A thread declares its geographic stake via **`appliesToRegion`** (a RegionRef/union); the public surface additionally serves `appliesToDistrictIds`, the server-derived district-slug projection of that stake (the *thread's* stake is public by design — participant locations never are). `RegionResolver.resolveRegionRef` compiles it to a `Region`: a pure `or` of districts collapses to a `district_union`; `and`/`not` build a `composite` region evaluated per point, where **`not` is jurisdiction-bounded** (`not(X) ≡ jurisdiction ∖ X`, so "everywhere except X" never leaks outside the jurisdiction).
 - A thread's stake may **narrow but never widen**. Enforced **structurally** today (no public district-id query surface; refs resolve server-side); an active `newRegion ⊆ oldRegion` gate on governance updates is deferred (see [entity-rules.md](entity-rules.md) Gaps).
 - The term **Region** is retained. A region is, in theory, multi-jurisdiction-capable, but discussions are always jurisdiction-scoped; the cross-jurisdiction path is future — see [partitioning/future.md](./future.md).
 

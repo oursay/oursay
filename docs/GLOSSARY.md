@@ -51,9 +51,12 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
   - **Entity scope** — gating rules **default to the jurisdiction**; an individual poll/petition may
     narrow them via the axes above. This spans a vote about a single local crosswalk through to
     jurisdiction-wide policy.
-  > **Deprecated:** `EntityRules.appliesToDistrictIds` (raw district-id array) remains accepted in code
-  > as an alias — mapped internally to an OR-of-revisions `appliesToRegion` — but is superseded by
-  > `appliesToRegion`. See the superseded-terms table.
+  - **`appliesToDistrictIds`** — the server-maintained **district-slug projection** of
+    `appliesToRegion` (the `entity_audience` projection): which stable seats the stake covers, at
+    the boundary revision in force. Served on read DTOs so clients can render district pills, list
+    threads on district pages, and resolve the Affected filter without geometry. **Both fields are
+    kept** — the RegionRef is canonical for filtering; the slug list is its display/resolution
+    projection, refreshed on governance updates and boundary revisions.
 
 ## Civic content vocabulary (record types ↔ user-facing labels)
 
@@ -71,9 +74,21 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   `post → petition → poll → result`.
 - **Ladder / graduation** — the four content levels form a **ladder**; **graduation** is a lower level
   producing the next (petition → poll; poll → result). Whether climbing is required, who may create at
-  each level, and whether graduation is automatic are **per-jurisdiction** config (`JurisdictionRules`;
-  see [`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)). A **threshold-triggered poll** is the automatic graduation of a petition into a poll when
+  each level, and whether graduation is automatic are **per-jurisdiction** config (the `gates` map;
+  see [`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md) and
+  [`entities/partitioning/jurisdiction.md`](entities/partitioning/jurisdiction.md)). Launch models:
+  `oursay-global` — anyone may create at any level; `ab-ca-gov` — posts open, petitions
+  residency-verified, polls **officials only** (a platform-assigned role) or via graduation. A
+  **threshold-triggered poll** is the automatic graduation of a petition into a poll when
   it reaches a configured verified-signature count.
+- **Gate (per-action)** — a jurisdiction's per-action policy triple: **act** (who may perform it:
+  anyone / tier set / jurisdiction residency / role), **signMin** (minimum sign method), and
+  **official** (who counts in official totals). "**Jurisdiction residency**" is the gate kind
+  `residency_verified` AND geocoded point inside the jurisdiction's region. "**Sign now, verify
+  later**": an open act gate with a stricter official gate — the action lands immediately and
+  counts officially once (and while) the author meets the official gate, recomputed at read time.
+- **Official (role)** — platform-assigned, revocable authority (e.g. a seated MLA) attached to the
+  user/jurisdiction membership. A **role, not a KYC tier** — tiers stay pure verification facts.
 - **Root entity** — a `post` / `petition` / `poll`: a thread root that carries the thread audience.
   Every root entity is **bound to exactly one jurisdiction** (`jurisdictionId`); absent an explicit
   choice it defaults to **`oursay-global`**. Comments, reactions, votes, and signatures inherit their
@@ -83,20 +98,35 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 - **Poll** — the product label for a `poll` (formal vote container). Replaces the retired product term
   *Public Vote*. A user's individual ballot is a **`vote`**; "public vote" refers **only** to that
   ballot, never to the poll container.
-- **vote / petition_signature** — a user's individual ballot on a poll / signature on a petition. Both
-  MUST be signed `webauthn-es256`.
+- **vote / petition_signature** — a user's individual ballot on a poll / signature on a petition.
+  Signed with at least the jurisdiction's per-action floor (`gates[action].signMin`): `ab-ca-gov`
+  requires passkey (`webauthn-es256`); `oursay-global` accepts quick-sign (`p256`).
+- **Sign method / signing preference** — how a civic action is authorised on-device:
+  **quick** (derived thread key, `p256`, no prompt) · **ask** (per-action chooser) · **passkey**
+  (WebAuthn, user-verifying). The account holds a per-action preference; the jurisdiction sets a
+  per-action minimum; the **strongest wins** — a preference can raise but never lower a floor.
+- **Quick sign** — the `p256` derived-key signing path. A first-class production method (not a
+  deprecated legacy path); the floor for every action on `oursay-global` and for
+  comments/reactions on `ab-ca-gov`.
+- **signTier** — the per-transaction signing-strength projection surfaced on read DTOs and the
+  Signed filter: `0` quick-sign · `1` passkey · `2` fingerprint / `3` face (future biometric).
+  Derived from envelope `signScheme` + authenticator UV/metadata; orthogonal to KYC tier.
 
 ## User / account vocabulary
 
-- **handle** — optional, unique `@username` (public profile only); no spaces. `public.users.handle`.
-- **display_name** — optional public display text; defaults to the handle without its `@`.
+- **handle** — **required**, unique `@username` (public profile only); no spaces.
+  `public.users.handle` (NOT NULL target; column is nullable today — migration pending). Collected
+  at registration. A private account keeps its handle — privacy is the explicit visibility setting
+  ([`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md)), never a null handle.
+- **display_name** — **required** public display text, collected at registration (NOT NULL target).
 - **first_name / last_name** — private PII, used for KYC, never publicly surfaced (`auth.profiles`).
 - **province** — the province/territory address component (Canada-centric storage;
   `auth.profiles.province`). Jurisdiction-specific *display* labels live in the front-end.
-- **over_18** — the age-gate result (target: a boolean). The platform needs only "is this account an
-  adult", not a date of birth; if the KYC/recovery flow can re-prompt for age, the stored `birthdate`
-  column is dropped. Today the age gate stores `auth.profiles.birthdate` (DATE) and computes 18+ at
-  registration — see the superseded-terms table and [`account/future.md`](entities/account/future.md).
+- **over_18** — the age-gate boolean. Self-attested via a checkbox at registration and re-verified
+  factually at the KYC step; the platform needs only "is this account an adult", never a date of
+  birth, so the stored `birthdate` column is dropped (target). Today the age gate stores
+  `auth.profiles.birthdate` (DATE) and computes 18+ at registration — see the superseded-terms
+  table and [`account/future.md`](entities/account/future.md).
 - **Jurisdiction membership** — a user belongs to one or more jurisdictions via a membership table;
   every account is auto-subscribed to **`oursay-global`** at registration. Future: geocode-suggested
   subscription prompts.
@@ -154,7 +184,7 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 | `level` as a crypto/dedupe partition key | **jurisdiction** | level is now only a *property* of a jurisdiction |
 | `levelMaster` / `level_master_keys` | `jurisdictionMaster` / `jurisdiction_master_keys` | re-keyed per (user, jurisdiction) |
 | identity `region` (e.g. `"ca-ab"`) | **jurisdiction** membership | the loose per-thread region field was dropped |
-| `EntityRules.region` / `appliesToDistrictIds` | **`appliesToRegion`** | the geographic stake of a thread (a RegionRef); `appliesToDistrictIds` (raw district-id array) is a deprecated alias, mapped internally to an OR-of-revisions RegionRef (see Thread audience) |
+| `EntityRules.region` (loose string) | **`appliesToRegion`** + **`appliesToDistrictIds`** | the geographic stake is a RegionRef (`appliesToRegion`, drives count filtering); `appliesToDistrictIds` is its server-maintained **district-slug projection** for per-thread district display/resolution — both are kept, neither deprecates the other (see Thread audience) |
 | `riding_slug` / `ridingSlug` (district key) | **`district_slug`** / **`districtSlug`** | year-less logical-seat key; backend uses "district" (a jurisdiction may still *display* "riding" via labels) |
 | address `region` | `province` | user/profile address component |
 | `users.handle` holding a free-text display name | `handle` + `display_name` (+ `first_name`/`last_name`) | one field no longer does several jobs |

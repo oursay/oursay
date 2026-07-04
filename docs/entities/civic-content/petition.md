@@ -55,7 +55,15 @@ Status is product-layer metadata — may be derived from rules/deadline/admin ac
 
 ### Derived counts
 
-Signature count (total \| by tier) — policy-gated on list/detail; filterable on `/counts`.
+Signature count (total \| by tier) — policy-gated on list/detail; filterable on `/counts`. Official
+count applies the jurisdiction's `gates.petition_signature.official` gate (AB: jurisdiction
+residency; Global: `{identity_verified, residency_verified}`), recomputed at read time.
+
+### Read-surface projections (target)
+
+Detail/list DTOs additionally carry `signTier` (action signing tier), `editCount` (revision count),
+`appliesToDistrictIds` (district-slug projection of the stake), and the viewer-resolved `authorGeo`
+relation — see [entity-projection.md](../record/entity-projection.md).
 
 ## States & lifecycle
 
@@ -85,7 +93,7 @@ Signature count (total \| by tier) — policy-gated on list/detail; filterable o
 ## Invariants
 
 - **R1a**: Signatures final by default; revoke only if `allowRevoke` + before deadline.
-- `petition_signature` MUST use `webauthn-es256`.
+- `petition_signature` is signed with at least the jurisdiction's `gates.petition_signature.signMin` (AB: passkey `webauthn-es256`; Global: quick-sign `p256` accepted) — see [petition-signature.md](./petition-signature.md).
 - Verified signatures on-ledger; unverified off-ledger.
 - Delivery to official with platform account triggers notification (contributor §8.2).
 
@@ -93,8 +101,8 @@ Signature count (total \| by tier) — policy-gated on list/detail; filterable o
 
 | Action | Who |
 |--------|-----|
-| Create | Any registered user |
-| Sign | Any registered user |
+| Create | Per jurisdiction `gates.petition.act` — `oursay-global`: any registered user; `ab-ca-gov`: residency-verified |
+| Sign | Any registered user (open act gate in both launch jurisdictions — **sign now, verify later**; official counts per `gates.petition_signature.official`) |
 | Revoke signature | Signer, if rules permit |
 | Update | Author / platform governance |
 | Mark delivered | Administrator |

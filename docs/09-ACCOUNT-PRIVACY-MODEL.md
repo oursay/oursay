@@ -1,84 +1,105 @@
-# OurSay — Account Privacy / Visibility Model (DESIGN TODO — not built)
+# OurSay — Account Privacy / Visibility Model (SPECIFIED — demo-proven, backend pending)
 
-_Pinned design intent for explicit, multi-level account visibility. **This is a TODO, not a shipped
-spec.** Today there is no visibility config; this captures the agreed direction so it isn't lost and
-isn't accidentally bolted on as a side effect of unrelated work. Companion to
-[`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md) and [`08-IDENTITY-AND-DEVICE-POLICY.md`](./08-IDENTITY-AND-DEVICE-POLICY.md)._
-
-> Status: **deferred.** Next infra step is the block settler / anchoring worker. This document exists
-> so the privacy model is designed deliberately later, not inferred from incidental state now.
+_The explicit, multi-level author-visibility model. **Specified and demonstrated end-to-end in the
+Phase D `web-app`** (`web-app/src/lib/types/visibility.ts`, `lib/read-model/visibility.ts`,
+`lib/api/identity.ts`); the backend schema and read-path enforcement are pending
+(`.agents/WEB-APP-ALIGNMENT-PROMPTS.md` → `[align-w3-gates-schema]` / `[align-w4-api-surface]`).
+Companion to [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md) and
+[`08-IDENTITY-AND-DEVICE-POLICY.md`](./08-IDENTITY-AND-DEVICE-POLICY.md)._
 
 ---
 
 ## 1. The decision
 
-**Visibility must be an explicit enum, not inferred from whether a profile handle is null.**
+**Visibility is an explicit enum, never inferred from nullable fields.** `handle` and
+`display_name` are **required** at registration ([user.md](entities/account/user.md)) — privacy is
+a setting, not a missing handle. Null is for "unset," never for "private."
 
-Inferring "private = no handle / public = has handle" overloads one nullable field with semantics it
-can't carry (a user may want a display handle *and* be anonymous; or be public with no handle). Null
-is for "unset," never for "private." Make the intent a first-class field.
+The enum (account default + per-thread override), **most private first**:
 
-Enum (`account_privacy` / per-jurisdiction `visibility`):
-
-| Value | Meaning |
+| Value | Who may see the identity (name/handle/profile link) behind the author |
 |---|---|
-| `anonymous` | Identity link hidden; out-of-scope lookups 404 (not 403 — don't confirm existence). |
-| `my_district` | Visible to others within the viewer's/subject's shared district (riding). |
-| `officials` | Visible to the riding's seated representative / official views only. |
-| `public` | Visible to everyone (still only the *anonymized signed record* per 06; this governs the **handle/identity surface**, never the signed civic data itself). |
+| `anonymous` | No one — always a per-thread persona. **The floor and the registration default.** |
+| `my_officials` | Only the seated official(s) of the author's own district(s) and/or jurisdiction(s). |
+| `all_officials` | Any verified official. |
+| `my_district` | Residency-verified members sharing one of the author's districts. |
+| `my_jurisdiction` | Residency-verified members of the author's jurisdiction. |
+| `id_verified` | Any identity-verified member. |
+| `public` | Everyone. |
 
-This governs the **account→identity surface** (handle, profile linkage). It does **not** loosen the
-record-privacy invariants in `06-PRIVACY-REVIEW.md`: the signed record stays public and anonymized;
-the record→person link stays protected regardless of this setting.
+The selectable set in the picker is a curated subset (`anonymous · all_officials · my_district ·
+public` today, per the web-app's `VISIBILITY_VALUES`); the full enum is the wire/domain model.
 
-## 2. Where it pins — a cascade, narrowest wins
+This governs the **account→identity surface** (handle, display name, profile linkage, avatar
+seed). It does **not** loosen the record-privacy invariants in `06-PRIVACY-REVIEW.md`: the signed
+civic data — record body, tallies, verification-tier pill, the thread's public stake, the
+[`authorGeo` relation](REGION-MODEL.md) — stays public and anonymized regardless. Those are civic
+signals, not identity.
 
-The same human can rationally be public municipally and anonymous federally, and may want a single
-thread tighter than their jurisdiction default. So visibility resolves as a **cascade**, with the most
-specific set value winning and `anonymous` as the safe floor:
+## 2. Where it pins — thread wins outright
 
 ```
-effectiveVisibility = thread ?? jurisdiction ?? account ?? anonymous
+effectiveVisibility = thread ?? account ?? anonymous
 ```
 
-- **Thread-level** override is authoritative when set, but **a thread can only narrow, never widen** —
-  it cannot make an account more visible than its jurisdiction/account default allows.
-- **Per-jurisdiction** override is next.
-- **Account-level** setting is the default fallback.
+- **Account-level** setting is the default. New accounts default to **`anonymous`**.
+- **Thread-level** override, set when composing or replying in that thread, **wins outright in
+  either direction — it may narrow _or widen_**. Widening is a deliberate, per-thread act behind a
+  warning dialog (the web-app's anonymity picker + confirmation popup): an anonymous-by-default
+  member can stand publicly behind one statement; a public member can go anonymous for one
+  sensitive thread. The account value is a default, not a ceiling.
 - Absent everything, the floor is **`anonymous`**.
+- A **per-jurisdiction** override (`account ⇒ jurisdiction ⇒ thread` middle layer) is a planned
+  optional extension — schema should leave room for it, but it is not in the MVP cascade and has
+  no UI yet. It would reuse the `08` per-(user, jurisdiction) key, never a parallel taxonomy.
 
-This mirrors the existing **per-(user, jurisdiction) nullifier root / persona compartmentalization**
-in `08`, and the per-thread persona (Pₜ) compartmentalization — visibility is a close cousin and
-should reuse those keys, not invent a parallel taxonomy.
+> **Scope note:** this replaces the earlier narrow-only cascade
+> (`thread ?? jurisdiction ?? account ?? anonymous`, thread-cannot-widen). The *audience* invariant
+> in [entity-rules.md](entities/partitioning/entity-rules.md) — a thread's **geographic audience**
+> may narrow but never widen — is a different rule and still holds.
+
+### Personas are the anonymous mirror
+
+When the viewer is outside the effective visibility, the author renders as their stable
+**per-thread persona** — same persona everywhere within one thread, a different one in every other
+thread, with a globally-unique **persona display name** and a thread-scoped persona page (the
+anonymous mirror of a profile: tier pill, support bar, that thread's comments/activity/mentions,
+nothing derivable cross-thread). See
+[thread-persona.md](entities/civic-identity/thread-persona.md).
 
 ### Relationship to the reveal model
 
-Making a persona's identity *more* visible than `anonymous` is the **reveal** flow (replacing the old
-`thread_keys.claimed` / `claimed_at` columns): a **platform reveal** is reversible (off-ledger); an
-**on-chain reveal** is nuclear (permanent). The cascade above governs who *may* see a revealed link;
-reveal is the act that creates the link in the first place. See
+The per-thread override governs a thread's visibility **going forward from compose time**. The
+**reveal** flow (replacing the old `thread_keys.claimed` / `claimed_at` columns) is the
+*retroactive* act — changing the visibility of an existing thread's persona after the fact: a
+**platform reveal** is reversible (off-ledger); an **on-chain reveal** is nuclear (permanent). See
 [`entities/civic-identity/future.md`](./entities/civic-identity/future.md).
 
 ## 3. Out-of-scope reads → 404, not 403
 
-When a viewer is outside the permitted scope, the handle/identity surface must **404 (hide existence)**,
-not 403 (confirm-but-deny). Confirming a private account exists is itself a leak.
+When a viewer is outside the permitted scope, the **entire identity surface** must **404 (hide
+existence)**, not 403 (confirm-but-deny):
 
-## 4. Why deferred (scope note)
+- `GET /v1/public/profiles/{handle}` — the whole profile (header, posts, activity, mentions), not
+  just the handle lookup;
+- any resolution from a persona toward its owning handle/profile;
+- self is always in scope for self (with a "seen by others as `<persona>`" hint when the effective
+  visibility is not `public`).
 
-This is schema-touching (new columns/table for account default + per-jurisdiction overrides) and
-read-path-touching (every handle/identity surface gains a scope check) and intersects the
-nullifier/persona compartmentalization. It deserves its own design + migration pass, not an
-incidental "null = private" shortcut. It is **not** on the golden path — that was blocked only by a
-WebAuthn `user.id` length bug (fixed separately), unrelated to handles or privacy.
+Confirming a private account exists is itself a leak.
 
-## 5. When picked up
+## 4. Implementation map (backend pending)
 
-1. Schema: `account_privacy` default on the user/profile; `(user, jurisdiction) → visibility` override table; optional `(user, thread)` override (narrow-only). Retire `thread_keys.claimed` / `claimed_at` in favour of the reveal model.
-2. Resolver: `effectiveVisibility = thread ?? jurisdiction ?? account ?? anonymous`; reject thread overrides that would widen.
-3. Read-path enforcement on all handle/identity surfaces; 404 on out-of-scope.
-4. Reconcile with `06-PRIVACY-REVIEW.md`'s disclosure matrix (these are the *handle* surface; the
-   record-disclosure rules there are unchanged).
-5. Reuse the `08` jurisdiction key; do not introduce a second jurisdiction taxonomy.
-
-> Code-alignment prompt: `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-privacy-schema]`.
+1. **Schema** (`[align-w3-gates-schema]`): `auth.profiles.visibility` (enum, default
+   `'anonymous'`); per-thread override on `thread_bindings.visibility` (private side of the join);
+   optional `auth.visibility_overrides (user, jurisdiction)` table reserved for the future middle
+   layer; `thread_keys.persona_name`; retire `thread_keys.claimed`/`claimed_at` in favour of the
+   reveal model.
+2. **Resolver**: `effectiveVisibility = thread ?? account ?? anonymous`; thread override wins
+   outright (no widen-rejection); the web-app's `isRevealed(visibility, authorDistricts, viewer)`
+   semantics move server-side (`[align-w4-api-surface]`).
+3. **Read-path enforcement** on every identity surface; 404 out-of-scope; viewer-resolved
+   `identity` objects on DTOs (persona or revealed handle — raw handles never serialized for
+   out-of-scope viewers).
+4. Reconcile with `06-PRIVACY-REVIEW.md`'s disclosure matrix (this is the *handle/identity*
+   surface; the record-disclosure rules are unchanged).

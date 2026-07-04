@@ -25,9 +25,10 @@ EPSG:4326; source boundaries are reprojected on ingest (`ST_Transform`).
 > **Term & migration note.** The term **Region** is retained. A thread declares its geographic stake
 > through **`appliesToRegion`** (a RegionRef — `"jurisdiction"` / `"district:<district_slug>"` /
 > `"revision:<revisionId>"` / `"region:<presetId>"` / `{op:"and"|"or"|"not", refs}` unions), **not** a raw
-> district-id array on the public surface. The code seam below reads `EntityRules.appliesToRegion`
-> (`RegionResolver.resolveRegionRef`); `EntityRules.appliesToDistrictIds` remains a **deprecated alias**,
-> mapped internally to an OR-of-revisions RegionRef. Stable district pages key off the year-less
+> district-id array as *input* on the public surface. The code seam below reads `EntityRules.appliesToRegion`
+> (`RegionResolver.resolveRegionRef`); `EntityRules.appliesToDistrictIds` is **kept** as the region's
+> server-maintained **district-slug projection** (served on read DTOs for per-thread district
+> resolution; an author-supplied id list maps to an OR-of-revisions RegionRef). Stable district pages key off the year-less
 > **`district_slug`** (`"district:<district_slug>"`); revision ids (`id`) address a specific boundary
 > version for history (`"revision:<revisionId>"`). A region is, in theory, multi-jurisdiction-capable, but
 > discussions stay jurisdiction-scoped for now — the cross-jurisdiction path is future
@@ -64,13 +65,13 @@ endpoints.)
 | `GeoScope` | compiles to |
 |---|---|
 | `jurisdiction` | `forJurisdiction(jurisdictionId, asOf)` |
-| `impacted-region` | `resolveRegionRef(appliesToRegion)`; absent ⇒ whole jurisdiction at `asOf` (a legacy `appliesToDistrictIds` stake maps to an OR-of-revisions RegionRef) |
-| `my-district` | the **authenticated** viewer's district, or `null` (inert — no viewer identity on public routes) |
+| `impacted-region` | `resolveRegionRef(appliesToRegion)`; absent ⇒ whole jurisdiction at `asOf` (an author-supplied district-id stake maps to an OR-of-revisions RegionRef) |
+| `my-district` | the **authenticated** viewer's district, or `null` (inert when no session — public reads accept an **optional** session; see "Author-geo relations" below) |
 | `all-public` | `null` (no geo filter) |
 
 The count path passes **`asOf = now`** (current-point mode pairs with the current boundary set);
-`impacted-region` resolves the entity's `appliesToRegion`. A `"revision:<id>"` (or legacy
-`appliesToDistrictIds`) stake is asOf-independent; a `"district:<district_slug>"` stable-seat ref resolves
+`impacted-region` resolves the entity's `appliesToRegion`. A `"revision:<id>"` (or raw
+revision-id list) stake is asOf-independent; a `"district:<district_slug>"` stable-seat ref resolves
 to the revision in force at `asOf`. `resolveRegionRef`/`compileScope` accept an **`asOf`** (entity
 creation time, poll open, …) for later modes. **Which instant binds is future jurisdictional config:** a
 deployment will choose creation-time vs resolution-time vs an advertised count-snapshot instant for public
@@ -123,7 +124,7 @@ with geo).
 - **Region:** derive the entity's geographic scope from its own governance rules —
   `RegionResolver.compileScope({ scope: "impacted-region", jurisdictionId, appliesToRegion })` where
   `appliesToRegion` (a RegionRef) comes from `EntityRules` (absent ⇒ whole jurisdiction at `asOf`;
-  a legacy `appliesToDistrictIds` stake is mapped to an OR-of-revisions RegionRef). The result is one
+  an author-supplied district-id stake is mapped to an OR-of-revisions RegionRef). The result is one
   `Region` (district / union / jurisdiction / custom / composite).
 - **Participants:** the `authorPubkey` / `nullifier` of the comments, reactions, votes, and signatures
   **in that thread**. Resolve each to a private point with `ParticipantGeoService` and test membership
@@ -140,6 +141,40 @@ with geo).
   membership of an identifiable third party is never returned.
 - **Hard rule:** there must **never** be a public API that answers "is user *U* in district *D*".
   Membership is computed *inside* the count/filter service over a Region, and only aggregates leave it.
+
+## Author-geo relations on read DTOs (relationships, never locations)
+
+Beyond aggregate counts, read surfaces serve a per-author **spatial relation** so the UI can show
+civic standing without ever shipping a location. Every record/comment DTO carries
+
+```
+authorGeo ∈ { "home", "affected", "jurisdiction", "none" }
+```
+
+— the author's **narrowest** relation to (viewer, open post), resolved server-side:
+
+- **`home`** — the author resides in one of the **viewer's** home districts. Resolved **only for a
+  residency-verified viewer** (the privileged case: it discloses district co-residency, nothing
+  finer).
+- **`affected`** — the author resides in the post's affected area (`appliesToRegion`).
+- **`jurisdiction`** — in the post's jurisdiction but outside its affected area. Drops off on a
+  jurisdiction-wide post (there everyone in-jurisdiction is `affected`).
+- **`none`** — no contextual relation, below Residency, or no usable point.
+
+Rules:
+
+- Raw author districts **never leave the server**; the relation enum is the only residence signal
+  on any DTO. The relation attaches to whatever identity surface the viewer is allowed to see
+  (persona or revealed profile) — a private author still shows `affected` without their district
+  ever being enumerable.
+- Public read endpoints therefore take an **optional session**: anonymous requests get
+  viewer-independent relations only (`home` never resolves); authenticated requests get the full
+  resolution. Trade-off: the anonymous variant is the only CDN-cacheable one.
+- **Timing:** the target binds the relation to the author's residence **at action time**
+  (`at_action` snapshots, C4 — the same relationship-flags snapshot, never points); until snapshots
+  land, **`current`** residence is the documented interim.
+- This does not loosen the hard rule: there is still never a public "is user *U* in district *D*"
+  query — the relation is computed server-side per (viewer, post, author) and only the enum leaves.
 
 ## Where it lives
 

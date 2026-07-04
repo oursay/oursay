@@ -34,7 +34,7 @@ See [public-record/src/schema/types.ts](../../../public-record/src/schema/types.
 | `parent_type`, `parent_id` | TEXT/UUID | attachments | yes | Entity-level parent |
 | `parent_revision_tx_id`, `parent_revision_hash` | | attachments | yes | Revision pinning (R1b) |
 | `author_pubkey` | TEXT | yes | yes | Pₜ |
-| `signature` | TEXT | yes | yes | p256 or empty (WebAuthn) |
+| `signature` | TEXT | yes | yes | `p256` quick-sign, or empty on the WebAuthn path — both production schemes; the jurisdiction's per-action floor decides the minimum |
 | `created_at` | TIMESTAMPTZ | yes | yes | Envelope timestamp |
 | `prev_hash` | TEXT | no | yes | Per-entity chain link |
 | `content_hash` | TEXT | yes | yes | Salted commitment |
@@ -47,6 +47,8 @@ See [public-record/src/schema/types.ts](../../../public-record/src/schema/types.
 ### TxEnvelope (public commitment)
 
 Never contains plaintext. Key fields: `v`, `txId`, `type`, `entityId`, `op`, parent fields, `authorPubkey`, `signerPubkey`, `signScheme`, `signature`, `webauthn`, `createdAt`, `prevHash`, `contentHash`, `nullifier`.
+
+Read surfaces additionally project a **`signTier`** per transaction (0 quick-sign `p256` · 1 passkey · 2/3 biometric future), derived from `signScheme` plus the WebAuthn UV/authenticator metadata — target, not yet stored.
 
 ### RecordType attachment rules
 

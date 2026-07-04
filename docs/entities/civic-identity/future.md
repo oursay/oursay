@@ -15,5 +15,5 @@ This replaces the deprecated `thread_keys.claimed` / `claimed_at` columns, which
 - ZK membership proofs (the reserved envelope `proof` slot, Method 4) for nullifier dedupe without platform issuance.
 - Selective-disclosure UX for revealing tier/attributes without revealing identity (R11).
 
-## Legacy signer path retirement
-The legacy `p256` / `device_keys` / `thread_signers` path is deprecated but retained for the dual-verifier period; retire once `webauthn-es256` is the sole civic signer everywhere.
+## Biometric signing tiers
+The `p256` quick-sign path is a permanent production method (the "Quick" signing preference; the floor on `oursay-global`), so there is no signer-path retirement. Future work is upward: biometric `signTier` levels (2 fingerprint · 3 face) derived from authenticator metadata, extending the 0 quick · 1 passkey projection surfaced on read DTOs and the Signed filter ladder.

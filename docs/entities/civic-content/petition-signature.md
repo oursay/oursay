@@ -26,7 +26,7 @@ See [01-CONTRIBUTOR-SPEC.md §9.2](../../01-CONTRIBUTOR-SPEC.md).
 | `comment` | string | no | conditional | Hidden if anonymous |
 | `authorPubkey` | TEXT | yes | yes | Pₜ |
 | `signerPubkey` | TEXT | yes | yes | Device passkey |
-| `signScheme` | `"webauthn-es256"` | yes | yes | Required |
+| `signScheme` | `SignScheme` | yes | yes | Per jurisdiction+entity gate (AB: `webauthn-es256` for posts, petitions, votes & petition_signatures; Global: `p256` quick-sign accepted for all) |
 | `nullifier` | TEXT | yes | yes | Dedupe |
 | `parent_id` | UUID | yes | yes | Petition entity id |
 
@@ -54,7 +54,8 @@ Allowed ops: `create`, `delete` (delete = revoke, governance-gated).
 ## Invariants
 
 - **R1a**: Signed FINAL by default; revoke only when entity rules + deadline allow.
-- **MUST** use `webauthn-es256` ([jurisdiction.ts](../../../public-record/src/jurisdiction.ts)).
+- Signed with at least the jurisdiction's `gates.petition_signature.signMin` method — effective method is the stronger of the account preference and the jurisdiction floor ([jurisdiction.md](../partitioning/jurisdiction.md)). `ab-ca-gov` floors signatures at passkey (`webauthn-es256`, UV); `oursay-global` accepts quick-sign (`p256`).
+- **Sign now, verify later**: anyone may sign (act gate is open even in `ab-ca-gov` (petition signatures, not votes)); the signature counts **officially** only while the signer meets the jurisdiction's official gate (AB: jurisdiction residency; Global: `{identity_verified, residency_verified}`), recomputed at read time.
 - Verified signatures on-ledger.
 - Optional comment hidden when signing anonymously (contributor §8.2).
 

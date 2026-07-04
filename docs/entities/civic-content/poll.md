@@ -43,7 +43,13 @@ Max lengths are the jurisdiction's `contentLimits` (target; AB: question 200, op
 
 ### Derived counts
 
-Vote counts per option (total \| by tier) — policy-gated on list/detail; geo/tier filterable on `/counts`.
+Vote counts per option (total \| by tier) — policy-gated on list/detail; geo/tier filterable on `/counts`. Official counts apply `gates.vote.official` (Global: `{identity_verified, residency_verified}`; AB: jurisdiction residency).
+
+### Read-surface projections (target)
+
+Detail/list DTOs additionally carry `signTier`, `editCount`, `appliesToDistrictIds` (district-slug
+projection of the stake), and the viewer-resolved `authorGeo` relation — see
+[entity-projection.md](../record/entity-projection.md).
 
 ## States & lifecycle
 
@@ -80,8 +86,8 @@ Poll creation may be gated by petition signature threshold (future).
 
 | Action | Who |
 |--------|-----|
-| Create | Registered user (threshold gate future) |
-| Vote | Any registered user |
+| Create | Per jurisdiction `gates.poll.act` — `oursay-global`: any registered user; `ab-ca-gov`: **officials only** (a platform-assigned role, not a KYC tier) or via petition→poll graduation |
+| Vote | Per jurisdiction `gates.vote.act` — `oursay-global`: anyone; `ab-ca-gov`: jurisdiction residency |
 | Update poll | Author / platform governance |
 | Close | Deadline or administrator |
 

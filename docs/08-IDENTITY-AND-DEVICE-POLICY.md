@@ -35,18 +35,27 @@ It captures product intent from design review (June 2026) and should stay aligne
 - For each **thread** they join (a post, poll, or petition — the root of that conversation),
   they use a **thread key**: a pseudonymous public key that appears on the public record.
 
-### One passkey per thread (implemented: Option A + mvp-a5b persona/signer split)
+### Two production signing methods; one passkey per thread on the passkey path
 
-> **Implemented (Option A + mvp-a5b).** The production civic path creates **one WebAuthn passkey
-> credential per (device, thread)**. The stable thread persona **Pₜ** is the envelope's
-> `authorPubkey` (first-wins per `(user, thread)` at join); each device's passkey pubkey is the
-> envelope's **`signerPubkey`** (REQUIRED). **Every** civic append is a fresh user-verifying
-> assertion bound to the signing digest (`signScheme: "webauthn-es256"`), verified against
-> `signerPubkey`, not Pₜ. There is no silent "sign many" after a single unlock — the user verifies
-> (Touch ID / Windows Hello / etc.) on each action. The account-login passkey still unlocks once to
-> seed the singleton **nullifier root** only. See §3.1, §5.4, and §6.
+> **Implemented (Option A + mvp-a5b), reframed 2026-07-04.** There are **two production signing
+> methods**, and the jurisdiction's per-action floor (`gates[action].signMin`) plus the account's
+> per-action preference (quick | ask | passkey — **strongest wins**) decide which is used:
+>
+> - **Passkey path (`webauthn-es256`)** — one WebAuthn passkey credential per (device, thread).
+>   The stable thread persona **Pₜ** is the envelope's `authorPubkey` (first-wins per
+>   `(user, thread)` at join); each device's passkey pubkey is the envelope's **`signerPubkey`**.
+>   **Every** civic append is a fresh user-verifying assertion bound to the signing digest,
+>   verified against `signerPubkey`, not Pₜ. No silent "sign many" after a single unlock — the
+>   user verifies (Touch ID / Windows Hello / etc.) on each action.
+> - **Quick-sign path (`p256`)** — the derived thread key signs directly, no per-action prompt.
+>   The original design below; kept as a first-class method, not a legacy remnant. It is the floor
+>   for every action on `oursay-global` and for comments/reactions on `ab-ca-gov`.
+>
+> The account-login passkey still unlocks once to seed the singleton **nullifier root** only. Read
+> surfaces project the outcome per transaction as **`signTier`** (0 quick · 1 passkey · 2/3
+> biometric future). See §3.1, §5.4, and §6.
 
-_Original design (retained for context, now the legacy `p256` dual-verifier path):_ Users did **not**
+_Original design (now the production **quick-sign** path):_ Users did **not**
 register a new passkey for every thread. They authenticated once (or with a small set of devices),
 then **registered a derived thread key** the first time they participated in a thread, and that key
 signed comments, votes, reactions, and other record entries.
@@ -113,7 +122,10 @@ rules** in future; the platform should support configuration, not hard-code one 
 **Pₜ** (the thread persona pubkey) appears on every envelope as `authorPubkey`. Anyone reading
 the public record — or a future anchored chain leaf — can copy it. That is intentional: Pₜ is an
 **attribution label** (“this post belongs to persona X in this thread”), not a secret capability
-token.
+token. On product surfaces the persona also carries a human-readable **persona display name**
+(globally unique, minted at join, stored alongside `thread_keys.pubkey`) so anonymous authors are
+consistently nameable within a thread — see
+[thread-persona.md](entities/civic-identity/thread-persona.md).
 
 Knowing Pₜ does **not** let someone edit your content. An attacker can build an update envelope
 with `authorPubkey = your Pₜ`, but they still must pass every gate below before `appendSigned`
@@ -285,8 +297,13 @@ device fingerprint on the ledger.
 > credential under that same Pₜ** in `thread_civic_credentials` (one row per device signer). Each
 > civic append is a per-action user-verifying assertion (`signScheme: "webauthn-es256"`); the
 > assertion is verified against `signerPubkey`, not `authorPubkey`. The jurisdiction signing policy
-> **hard-requires** webauthn-es256 for `vote` and `petition_signature`. The record engine keeps the
-> original derived-`p256` path as a **dual-verifier** capability.
+> sets a **per-action minimum sign method** (`gates[action].signMin`) — `ab-ca-gov` floors
+> post/vote/petition_signature at passkey, `oursay-global` floors everything at quick — and the
+> account's per-action preference can only raise it (strongest wins). The record engine's
+> derived-`p256` verifier is the production **quick-sign** path wherever the floor allows it.
+> *(History: an earlier platform-wide hard-require of webauthn-es256 for `vote`/`petition_signature`
+> was replaced by these per-jurisdiction gates; the code still enforces the old rule — see
+> `[align-w3-gates-schema]`.)*
 >
 > **Cross-device edit (rule 6) just works.** Because every device signs as the same Pₜ, the engine's
 > author-match (`validateUpdate`: `head.authorPubkey === actor`) passes for any of the user's
@@ -316,9 +333,10 @@ Concrete rules:
    many passkeys per account allowed.
 3. **Join thread** → allocate stable thread persona *Pₜ* (public author id for that thread);
    register with platform; *Pₜ* must not be derivable across threads by public observers.
-4. **Post comment** → envelope carries `authorPubkey = Pₜ`, `signerPubkey = Dᵢ` (this device's
-   per-thread WebAuthn passkey pubkey), `signScheme = "webauthn-es256"`, and the assertion;
-   no nullifier.
+4. **Post comment** → envelope carries `authorPubkey = Pₜ` and, on the passkey path,
+   `signerPubkey = Dᵢ` (this device's per-thread WebAuthn passkey pubkey),
+   `signScheme = "webauthn-es256"`, and the assertion; on the quick-sign path Pₜ signs directly
+   (`p256`). Which path applies = strongest of account pref and jurisdiction floor. No nullifier.
 5. **Vote / singleton action** → same, plus opaque **nullifier** *N* unique per (user, poll);
    chain rejects duplicate *N* on the same parent; any enrolled *Dᵢ* for that user reuses *N*
    to change a vote when rules allow.
@@ -430,7 +448,12 @@ The current reference implementation derives thread keys from a 32-byte per-juri
 Web Crypto `CryptoKey` with `extractable: false`, backed by the secure enclave where the
 OS provides it.
 
-### Preferred production approach (implemented: Option A — per-thread WebAuthn passkey)
+### Preferred production approach — passkey path (implemented: Option A — per-thread WebAuthn passkey)
+
+The flow below is the **passkey** signing path. The **quick-sign** path (derived `p256` thread key,
+no per-action prompt) is equally production — used wherever the jurisdiction floor is `quick` and
+the account prefers it — and follows the same custody direction (non-exportable `CryptoKey`,
+never raw bytes the app can read).
 
 **Per-thread non-exportable passkeys + per-action user verification:**
 
@@ -570,8 +593,8 @@ for test detail.
 | Area | Status |
 |------|--------|
 | **Per-thread WebAuthn signing (Option A, `webauthn-es256`) + `appendSigned` gate** | Implemented (tests) — one passkey per (device, thread); `authorPubkey = Pₜ`, `signerPubkey` = device credential; user-verifying assertion per append, challenge-bound to the signing digest; `thread_civic_credentials` is enroll + revoke handle. |
-| **Jurisdiction signing policy (hard override)** | Implemented (tests) — `vote` + `petition_signature` MUST be `webauthn-es256` (by record type ⇒ create/update/delete); enforced fail-closed in `appendSigned`. |
-| Legacy per-thread P-256 signing (dual verifier) | Implemented (tests) — retained as engine capability / dev path; `signScheme` absent ⇒ `p256`. Not the production civic path. |
+| **Jurisdiction signing policy (per-action gates — target)** | Code today still hard-requires `webauthn-es256` for `vote` + `petition_signature` (fail-closed in `appendSigned`); target replaces this with per-jurisdiction `gates[action].signMin` floors resolved against the account's signing preference (strongest wins) — `[align-w3-gates-schema]`. |
+| Per-thread P-256 quick-sign path | Implemented (tests) — **production signing method** (the "Quick" preference; floor on `oursay-global`, and for comments/reactions on `ab-ca-gov`); `signScheme` absent ⇒ `p256`. |
 | Thread registration + private binding | Implemented |
 | Nullifier dedupe for votes/reactions/signatures | Implemented |
 | `authorPubkey = Pₜ` (stable per (user, thread)) + `signerPubkey =` device passkey pubkey | Implemented (tests) — mvp-a5b persona/signer split |
@@ -603,8 +626,9 @@ correlator on the record — Method 5 (§5.3) stays ruled out. The user↔Pₜ a
 in the private registry (`thread_keys` + `thread_bindings` + `thread_civic_credentials`), never on the
 envelope. `appendSigned` (the `webauthn-es256` branch) verifies the per-append assertion against
 `signerPubkey`, requires UV, checks the challenge equals the signing digest, and requires a registered
-non-revoked credential under Pₜ with a valid `credential_sig`. See §3.1. The legacy `p256` branch
-(derived thread-scoped `signerPubkey`, dual verifier) is retained for the engine/dev path.
+non-revoked credential under Pₜ with a valid `credential_sig`. See §3.1. The `p256` branch
+(derived thread key signing directly) is the production **quick-sign** path wherever the
+jurisdiction floor allows it.
 The reserved ZK slot is **reserve-and-
 reject**: an envelope that actually carries `proof` is rejected until Method 4 verification
 exists. **Still for Method 4:** real credential issuance + ZK proof generation/verification to

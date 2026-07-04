@@ -4,6 +4,11 @@
 
 Proof that a user has completed identity and/or residency confirmation through a KYC provider. Represented as append-only attestations; the **latest row wins** for tier resolution. Matching is **set membership**, not a strict ladder.
 
+**The KYC step is where identity PII is collected.** Registration is least-resistance (email +
+handle/display name + over_18 checkbox only); legal name and address are entered at the start of
+verification and stored on [Profile](./profile.md) — the first address write also triggers the
+geocode sync.
+
 **Tiers and provider tags are orthogonal.** A *tier* says how verified an account is; a *provider tag* says who attested it (and how). The MVP provider is **Didit**:
 - **Dev:** ID-only verification (free) + a **platform self-signed** address KYC (POA-ready).
 - **Prod:** Didit performs proof-of-address (POA) verification, charged at ~$2 CAD/check.
@@ -46,14 +51,17 @@ Each attestation is uniquely identified by `kyc_attestations.id` (UUID). A user'
 
 Provider output mapping (contributor §5.2):
 
-| Provider output | Tier awarded |
+| Provider output | Awarded |
 |-----------------|--------------|
 | Identity confirmed | `identity_verified` |
 | Identity + address | `residency_verified` |
-| Public official status | `official_verified`* |
+| Public official status | the **`official` role** — platform-assigned and revocable, **not a tier** (see below) |
 | Electoral authority | `electoral_validated` |
 
-\* `official_verified` is in contributor spec but not yet in `KYC_TIERS` enum — future alignment needed.
+**Official is a role, not a tier.** Authority (a seated MLA, an agency) is a platform-assigned,
+revocable **role** attached to the user/jurisdiction membership, used by role-gated actions (e.g.
+`ab-ca-gov` poll creation). Tiers stay pure KYC facts; the earlier `official_verified` tier idea is
+retired.
 
 ### Account verification states (contributor §5.4)
 
@@ -63,7 +71,7 @@ Flow states beyond the tier enum: `pending`, `failed`, `sponsored_pending`, `ver
 
 ```
 [unverified]
-    │ initiate KYC + consent to cost
+    │ initiate KYC — enter legal name/address (first PII write) + consent to cost
     ▼
 [pending]
     ├─ pass → append attestation (identity_verified or residency_verified)
@@ -123,6 +131,7 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 - **Provider drift** — the provider enum today is `'stub' | 'equifax'` (`api/src/config.ts` `KycProviderName`). The MVP provider is **Didit**; the enum and provider seam need a `didit` implementation, and provider tags should be orthogonal to tiers. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-didit-provider]`.
 - **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
 - Recovery re-verify flow incomplete.
-- `official_verified` tier not in canonical enum yet.
+- **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
+- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote/official gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
 - Sponsorship / waitlist mechanics documented in contributor spec but not fully implemented.
 - Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).

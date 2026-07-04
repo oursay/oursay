@@ -53,7 +53,7 @@ Boundary revisions are **append-only**. A redraw adds a new row with a later `ef
 | Jurisdiction | N:1 | `jurisdiction_id` FK |
 | Region | 1:1 kind | Every district is a `district` region |
 | User | inferred | Via geocode point + `region.contains(point)` |
-| EntityRules | referenced | `appliesToRegion` on polls/petitions — `"district:<district_slug>"` keys off the stable seat; `appliesToDistrictIds` is a deprecated alias |
+| EntityRules | referenced | `appliesToRegion` on polls/petitions — `"district:<district_slug>"` keys off the stable seat; `appliesToDistrictIds` is the served district-slug projection of the stake (the `entity_audience` projection powering district-page thread listing) |
 
 ## Invariants
 

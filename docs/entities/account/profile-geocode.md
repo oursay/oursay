@@ -77,7 +77,7 @@ Same fields plus `recorded_at` — append-only; one row per distinct `(user_id, 
 
 ## Invariants
 
-- Participant geocode point is **private PII** — never on HTTP responses ([06-PRIVACY-REVIEW.md](../../06-PRIVACY-REVIEW.md)).
+- Participant geocode point is **private PII** — never on HTTP responses ([06-PRIVACY-REVIEW.md](../../06-PRIVACY-REVIEW.md)). The only derived residence signal on any DTO is the viewer-relative `authorGeo` **relation enum** ([REGION-MODEL.md](../../REGION-MODEL.md) "Author-geo relations").
 - District membership is inferred, never stored ([GLOSSARY.md](../../GLOSSARY.md)).
 - No usable point ⇒ participant is out-of-area for scoped geo filters.
 - Counts today use **current** address + **current** tier only (`asOf = now`).
