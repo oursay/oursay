@@ -85,13 +85,15 @@ export function PersonaView({ personaName }: { personaName: string }) {
           </div>
         </div>
         <p className="mt-3 text-center text-sm text-ink-soft">{profile.bio}</p>
-        <div className="mt-3">
-          <ProfileSupportBar
-            {...profile.support}
-            ageLabel={profile.ageLabel}
-            pill="comments"
-          />
-        </div>
+        {profile.support.agrees + profile.support.disagrees > 0 ? (
+          <div className="mt-3">
+            <ProfileSupportBar
+              {...profile.support}
+              ageLabel={profile.ageLabel}
+              pill="comments"
+            />
+          </div>
+        ) : null}
       </header>
 
       <div className="flex gap-1 rounded-lg border border-border bg-surface-muted p-0.5">

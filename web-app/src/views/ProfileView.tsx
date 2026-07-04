@@ -98,13 +98,15 @@ export function ProfileView({
         {profile.bio ? (
           <p className="mt-3 text-center text-sm text-ink-soft">{profile.bio}</p>
         ) : null}
-        <div className="mt-3">
-          <ProfileSupportBar
-            {...profile.support}
-            ageLabel={profile.ageLabel}
-            showReactions={!self && displayTier === 3}
-          />
-        </div>
+        {profile.support.agrees + profile.support.disagrees > 0 ? (
+          <div className="mt-3">
+            <ProfileSupportBar
+              {...profile.support}
+              ageLabel={profile.ageLabel}
+              showReactions={!self && displayTier === 3}
+            />
+          </div>
+        ) : null}
         {self ? (
           <div className="mt-2 grid grid-cols-2 gap-2 border-t border-border pt-2">
             <Button

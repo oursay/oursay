@@ -23,10 +23,11 @@ describe("listFeedItems", () => {
     expect(rae?.up).toBe(204);
   });
 
-  it("includes the rural-broadband petition naming 29 ridings", async () => {
+  it("includes the rural-broadband petition naming every third riding", async () => {
     const items = await listFeedItems({});
     const broadband = items.find((p) => p.id === "pet-rural-broadband");
-    expect(broadband?.districts.length).toBe(29);
+    // Every third slug of the curated 12-riding demo set.
+    expect(broadband?.districts.length).toBe(4);
   });
 });
 

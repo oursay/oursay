@@ -17,6 +17,7 @@ import {
   AnonymityConfirmModal,
   AnonymityDropdown,
   Button,
+  CommentCountPill,
   CommentThread,
   PetitionProgress,
   PollOptions,
@@ -275,13 +276,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             votedPoll={
               detail.kind === "poll" ? app.voteFor(detail.id) != null : false
             }
-            comments={trueTotal}
             edits={detail.edits}
             tierMin={tierMin}
             onReact={(dir) => app.react(target, dir)}
             onReply={app.startReply}
             onEditsClick={() => app.notify("Edit history is not built in this demo.")}
-            onCommentsClick={scrollToCommentsSection}
             onShare={() => app.openShare(recordShareTarget(detail))}
             shareCount={app.shareCountFor(detail.id)}
             shared={app.hasShared(detail.id)}
@@ -305,15 +304,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
 
       <section id={COMMENTS_SECTION_ID} className="scroll-mt-3 space-y-3">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-baseline gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <h2 className="text-sm font-bold uppercase tracking-wide text-muted">
               Comments
             </h2>
-            {hidden > 0 ? (
-              <span className="truncate text-xs text-muted">
-                {hidden} hidden by filters
-              </span>
-            ) : null}
+            <CommentCountPill count={trueTotal - hidden} hidden={hidden} />
           </div>
           {/* One anonymity control for the whole thread — every reply here posts
               under this identity (defaults to the account setting). */}

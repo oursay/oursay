@@ -73,6 +73,13 @@ function isoDaysAgo(days: number): string {
   return d.toISOString().slice(0, 19);
 }
 
+function collectCommentHandles(nodes: CommentNode[], into: Set<string>): void {
+  for (const node of nodes) {
+    into.add(node.handle);
+    collectCommentHandles(node.replies, into);
+  }
+}
+
 function generateComments(postId: string): CommentNode[] {
   const seed = hashSeed(postId);
   const topCount = 2 + (seed % 4);
@@ -160,8 +167,9 @@ function feedToDetail(item: FeedItem): RecordDetail {
   };
 }
 
-/** Every third riding slug — 29 ridings for the rural-broadband petition. */
+/** Every third riding slug — the named ridings for the rural-broadband petition. */
 const BROADBAND_DISTRICTS = ALBERTA_RIDINGS.filter((_, i) => i % 3 === 0).map((r) => r.slug);
+const BROADBAND_COUNT = BROADBAND_DISTRICTS.length;
 
 function buildExtraPosts(): FeedItem[] {
   const extras: FeedItem[] = [];
@@ -176,7 +184,7 @@ function buildExtraPosts(): FeedItem[] {
     handle: "sarahbc",
     title: "Fund rural broadband across named Alberta ridings",
     body: [
-      "Twenty-nine ridings still lack reliable fibre backhaul.",
+      `${BROADBAND_COUNT} ridings still lack reliable fibre backhaul.`,
       "Commit matching funds so every named riding can bid this cycle.",
     ],
     sig: 4200,
@@ -599,7 +607,19 @@ function buildProfiles(
     };
   }
 
-  for (const handle of ["hanao", "weichen", "samd", "priya", "mlee", "sarahbc", "kevinTO", "marieqc", "owenf", "beanowak"]) {
+  // Every author or commenter anywhere in the corpus needs a resolvable
+  // profile so no revealed author link dangles ("no broken link"). Anonymous
+  // accounts still render as a per-thread persona and route to /persona — and
+  // getProfile's visibility gate keeps these generated profiles hidden for
+  // them — but any author the viewer *can* reveal now has a real page.
+  const corpusHandles = new Set<string>();
+  for (const item of feedItems) corpusHandles.add(item.handle);
+  for (const entry of records.values()) {
+    corpusHandles.add(entry.post.handle);
+    collectCommentHandles(entry.comments, corpusHandles);
+  }
+
+  for (const handle of corpusHandles) {
     if (byHandle[handle]) continue;
     const p = person(handle);
     const posts = postsByHandle.get(handle) ?? [];
@@ -617,7 +637,6 @@ function buildProfiles(
     };
   }
 
-  void records;
   return byHandle;
 }
 

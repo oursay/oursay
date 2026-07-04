@@ -168,13 +168,13 @@ export const ALEX_MORGAN_PROFILE: PublicProfile = {
   ],
 };
 
-/** Hand-crafted profile for the Alberta Premier. */
+/** Hand-crafted profile for the Alberta Premier (also MLA for Calgary-Lougheed). */
 export const PREMIER_PROFILE: PublicProfile = {
   name: "Hon. A. Premier",
   handle: "premier",
   role: "Premier · Alberta",
   tier: 3,
-  bio: "Premier of Alberta. Sharing provincial priorities and consultation updates.",
+  bio: "Premier of Alberta and MLA for Calgary-Lougheed. Sharing provincial priorities and consultation updates.",
   ageLabel: "6 years",
   support: { agrees: 5400, disagrees: 1290, statements: 24, comments: 38 },
   posts: [],
