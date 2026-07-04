@@ -29,11 +29,7 @@ import {
   ScopeTag,
 } from "@/components";
 import { authorPath, postPath, districtPath } from "@/lib/routes";
-import {
-  commentShareKey,
-  commentShareTarget,
-  recordShareTarget,
-} from "@/lib/share";
+import { commentKey, commentShareTarget, recordShareTarget } from "@/lib/share";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
   readThreadVisibilities,
@@ -140,6 +136,17 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
 
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);
+
+  // Comment reactions reuse the record reaction machinery, keyed by a stable
+  // per-comment id so counts/selection survive re-fetches and filter reordering.
+  const commentTarget = (node: CommentNode) => ({
+    id: commentKey(detail.id, node),
+    jurisdiction: detail.jurisdiction,
+    title: detail.title,
+    up: node.up,
+    down: node.down,
+    districts: detail.districts,
+  });
 
   const chainPetition = GRADUATION_CHAIN.petition;
   const chainPoll = GRADUATION_CHAIN.poll;
@@ -398,7 +405,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               ) : null
             }
             onAuthorClick={(node) => router.push(authorPath(node.identity, node.handle))}
-            onReact={() => app.reactComment(detail.jurisdiction, detail.title)}
+            onReact={(node, dir) => app.react(commentTarget(node), dir)}
+            reactionCountsFor={(node) => app.reactionCountsFor(commentTarget(node))}
+            selectedReactionFor={(node) =>
+              app.reactionFor(commentKey(detail.id, node))
+            }
             onEditsClick={() =>
               app.notify("Edit history is not built in this demo.")
             }
@@ -414,9 +425,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               )
             }
             shareCountFor={(node) =>
-              app.shareCountFor(commentShareKey(detail.id, node))
+              app.shareCountFor(commentKey(detail.id, node))
             }
-            sharedFor={(node) => app.hasShared(commentShareKey(detail.id, node))}
+            sharedFor={(node) => app.hasShared(commentKey(detail.id, node))}
           />
         )}
       </section>

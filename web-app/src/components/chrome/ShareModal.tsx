@@ -137,13 +137,6 @@ export function ShareModal({
         openExternal(`https://www.facebook.com/sharer/sharer.php?u=${enc(url)}`),
     },
     {
-      key: "instagram",
-      label: "Instagram",
-      icon: <InstagramGlyph />,
-      // Instagram has no web share intent — copy the link for the app.
-      onClick: () => copy(url, "Link"),
-    },
-    {
       key: "x",
       label: "X",
       icon: <XGlyph />,
@@ -151,6 +144,13 @@ export function ShareModal({
         openExternal(
           `https://twitter.com/intent/tweet?text=${enc(shareText)}&url=${enc(url)}`,
         ),
+    },
+    {
+      key: "instagram",
+      label: "Instagram",
+      icon: <InstagramGlyph />,
+      // Instagram has no web share intent — copy the link for the app.
+      onClick: () => copy(url, "Link"),
     },
     {
       key: "reddit",

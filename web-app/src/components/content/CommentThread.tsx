@@ -23,6 +23,10 @@ interface CommentThreadProps {
   renderReply?: (node: CommentNode, path: string, depth: number) => ReactNode;
   onAuthorClick?: (node: CommentNode) => void;
   onReact?: (node: CommentNode, dir: "up" | "down") => void;
+  /** Live agree/disagree totals for a comment (overrides the node's seed counts). */
+  reactionCountsFor?: (node: CommentNode) => { up: number; down: number };
+  /** The viewer's own reaction on a comment (overrides the node's seed). */
+  selectedReactionFor?: (node: CommentNode) => "up" | "down" | null;
   onEditsClick?: (node: CommentNode) => void;
   onShare?: (node: CommentNode, path: string, depth: number) => void;
   /** Per-comment share count resolver. */
@@ -49,6 +53,8 @@ export function CommentThread({
   renderReply,
   onAuthorClick,
   onReact,
+  reactionCountsFor,
+  selectedReactionFor,
   onEditsClick,
   onShare,
   shareCountFor,
@@ -82,9 +88,9 @@ export function CommentThread({
                   ))}
                 </>
               }
-              up={node.up}
-              down={node.down}
-              selectedReaction={node._my ?? null}
+              up={(reactionCountsFor?.(node) ?? node).up}
+              down={(reactionCountsFor?.(node) ?? node).down}
+              selectedReaction={selectedReactionFor?.(node) ?? node._my ?? null}
               edits={node.edits}
               tierMin={tierMin}
               onAuthorClick={onAuthorClick ? () => onAuthorClick(node) : undefined}
@@ -114,6 +120,8 @@ export function CommentThread({
                     renderReply={renderReply}
                     onAuthorClick={onAuthorClick}
                     onReact={onReact}
+                    reactionCountsFor={reactionCountsFor}
+                    selectedReactionFor={selectedReactionFor}
                     onEditsClick={onEditsClick}
                     onShare={onShare}
                     shareCountFor={shareCountFor}
@@ -132,6 +140,8 @@ export function CommentThread({
                     renderReply={renderReply}
                     onAuthorClick={onAuthorClick}
                     onReact={onReact}
+                    reactionCountsFor={reactionCountsFor}
+                    selectedReactionFor={selectedReactionFor}
                     onEditsClick={onEditsClick}
                     onShare={onShare}
                     shareCountFor={shareCountFor}

@@ -21,10 +21,11 @@ export function shareBaseCount(key: string): number {
 }
 
 /**
- * Stable per-comment share key. Position-independent (handle + timestamp) so it
- * survives filter reordering, unlike the render-time node path.
+ * Stable per-comment identity key (for share + reaction tallies).
+ * Position-independent (handle + timestamp) so it survives filter reordering,
+ * unlike the render-time node path.
  */
-export function commentShareKey(
+export function commentKey(
   recordId: string,
   node: Pick<CommentNode, "handle" | "ts">,
 ): string {
@@ -59,7 +60,7 @@ export function commentShareTarget(
 ): ShareTarget {
   return {
     variant: "comment",
-    shareKey: commentShareKey(recordId, node),
+    shareKey: commentKey(recordId, node),
     path: postPath(recordKind, recordId, { comments: true }),
     author: node.author,
     handle: node.handle,

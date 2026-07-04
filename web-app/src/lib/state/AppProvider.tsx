@@ -238,8 +238,6 @@ export interface AppApi {
   hasSignedPetition: (id: string) => boolean;
   /** Gate a comment/reply post behind the account's comment signing method. */
   postComment: (jurisdiction: string, targetTitle: string, done: () => void) => void;
-  /** Gate a comment reaction behind the account's reaction signing method. */
-  reactComment: (jurisdiction: string, targetTitle: string) => void;
 
   // Compose flow.
   startCompose: (inferredJurisdiction?: string) => void;
@@ -1156,26 +1154,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [requireAuth, runSigned],
   );
 
-  const reactComment = useCallback(
-    (jurisdiction: string, targetTitle: string) => {
-      requireAuth(() => {
-        runSigned(
-          "reaction",
-          jurisdiction,
-          { title: "Post your reaction", lines: [`on “${targetTitle}”`] },
-          {
-            kind: "reaction",
-            targetTitle,
-            showResidencyNotice: false,
-            showAffectedNotice: false,
-          },
-          () => notify("Reaction recorded (demo)."),
-        );
-      });
-    },
-    [requireAuth, runSigned, notify],
-  );
-
   // --- View coordination ---------------------------------------------------
   const setPageJurisdiction = useCallback((name: string | null) => {
     setState((s) => (s.pageJurisdiction === name ? s : { ...s, pageJurisdiction: name }));
@@ -1266,7 +1244,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     petitionSigFor,
     hasSignedPetition,
     postComment,
-    reactComment,
     startCompose,
     selectComposeJurisdiction,
     selectComposeType,
