@@ -1,4 +1,5 @@
 import type { PublicProfile } from "@/lib/types";
+import { ALBERTA_ID } from "@/lib/types";
 import { MY_HANDLE, MY_NAME } from "./constants";
 
 /** Hand-crafted profile for the wireframe MLA (Rae Nguyen). */
@@ -14,7 +15,7 @@ export const RAE_NGUYEN_PROFILE: PublicProfile = {
     {
       id: "prof-rae-ravine",
       kind: "statement",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: 3,
       districts: ["edmonton-strathcona"],
       author: "Rae Nguyen",
@@ -31,7 +32,7 @@ export const RAE_NGUYEN_PROFILE: PublicProfile = {
     {
       id: "prof-rae-footbridge",
       kind: "petition",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: 3,
       districts: ["edmonton-strathcona"],
       author: "Rae Nguyen",
@@ -48,7 +49,7 @@ export const RAE_NGUYEN_PROFILE: PublicProfile = {
     {
       id: "prof-rae-priority",
       kind: "poll",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: 3,
       districts: ["edmonton-strathcona"],
       author: "Rae Nguyen",
@@ -68,7 +69,7 @@ export const RAE_NGUYEN_PROFILE: PublicProfile = {
     {
       id: "prof-rae-townhall",
       kind: "statement",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: 3,
       districts: ["edmonton-strathcona"],
       author: "Rae Nguyen",
@@ -122,7 +123,7 @@ export const ALEX_MORGAN_PROFILE: PublicProfile = {
     {
       id: "prof-alex-crosswalk",
       kind: "statement",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: 2,
       districts: ["edmonton-strathcona"],
       author: MY_NAME,
@@ -139,7 +140,7 @@ export const ALEX_MORGAN_PROFILE: PublicProfile = {
     {
       id: "prof-alex-library",
       kind: "statement",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: 2,
       districts: ["edmonton-strathcona"],
       author: MY_NAME,

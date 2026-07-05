@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
-import { districtName as defaultResolveDistrict } from "@/lib/mock";
+import { districtName as defaultResolveDistrict, jurisdictionLabel } from "@/lib/mock";
 import {
   buildScopeHeadLine,
   computeScopeTailLines,
@@ -52,7 +52,8 @@ export function ScopeTag({
   onDistrictClick,
   part = "all",
 }: ScopeTagProps) {
-  const jur = hideJur ? "" : jurisdiction;
+  // `jurisdiction` is the logic id; the tag renders its display label.
+  const jur = hideJur ? "" : jurisdictionLabel(jurisdiction);
   const districts = hideDistrict ? [] : districtSlugs;
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);

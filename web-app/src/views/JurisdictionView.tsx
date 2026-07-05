@@ -12,11 +12,10 @@ import {
   PlaceHeader,
   TitleLeaderRow,
 } from "@/components";
-import { districtName } from "@/lib/mock";
+import { districtName, jurisdictionIdFromSlug } from "@/lib/mock";
 import {
   authorPath,
   districtPath,
-  jurisdictionNameFromSlug,
   postPath,
   profilePath,
 } from "@/lib/routes";
@@ -27,7 +26,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
   const app = useApp();
   const { setPageJurisdiction, feedFilter, viewer } = app;
   const router = useRouter();
-  const name = jurisdictionNameFromSlug(slug);
+  const id = jurisdictionIdFromSlug(slug) ?? slug;
 
   const [summary, setSummary] = useState<JurisdictionSummary | null>(null);
   const [items, setItems] = useState<FeedItem[] | null>(null);
@@ -37,18 +36,18 @@ export function JurisdictionView({ slug }: { slug: string }) {
   const [feedOpen, setFeedOpen] = useState(true);
 
   useEffect(() => {
-    setPageJurisdiction(name);
-  }, [name, setPageJurisdiction]);
+    setPageJurisdiction(id);
+  }, [id, setPageJurisdiction]);
 
   useEffect(() => {
-    getJurisdiction(name).then(setSummary);
-  }, [name]);
+    getJurisdiction(id).then(setSummary);
+  }, [id]);
 
   useEffect(() => {
     let active = true;
     listFeedItems({
       scope: "jurisdiction",
-      filter: { ...feedFilter, jurisdiction: name },
+      filter: { ...feedFilter, jurisdiction: id },
       viewer,
     }).then((rows) => {
       if (active) setItems(rows);
@@ -56,7 +55,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
     return () => {
       active = false;
     };
-  }, [feedFilter, viewer, name]);
+  }, [feedFilter, viewer, id]);
 
   if (!summary) {
     return <p className="p-6 text-center text-sm text-muted">Jurisdiction not found.</p>;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ALBERTA_ID } from "@/lib/types";
 import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
 import { Button } from "@/components/ui";
 import { ScopeTag } from "./ScopeTag";
@@ -142,7 +143,7 @@ export function FeedCard({
               <PollOptions
                 options={item.options}
                 selectedVote={selectedVote}
-                isFinalJurisdiction={item.jurisdiction === "Alberta"}
+                isFinalJurisdiction={item.jurisdiction === ALBERTA_ID}
                 tierMin={tierMin}
                 onVote={onVote}
               />

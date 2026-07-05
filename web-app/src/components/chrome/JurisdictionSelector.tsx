@@ -1,19 +1,20 @@
 "use client";
 
 import { ExternalLink, Newspaper, Plus } from "lucide-react";
-import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
+import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
+import { jurisdictionLabel } from "@/lib/mock";
 import type { JurisdictionMembership } from "@/lib/types";
 import { CheckboxIndicator, CheckboxRow } from "@/components/ui";
 
 interface JurisdictionSelectorProps {
   subscriptions: JurisdictionMembership[];
-  onToggleInclude: (name: string) => void;
+  onToggleInclude: (id: string) => void;
   /** Include every subscribed jurisdiction (wireframe "all subs" row). */
   onAllJurisdictions: () => void;
-  /** Tap a name -> show only that jurisdiction's feed. */
-  onSelectOnly: (name: string) => void;
-  /** Tap the external-link glyph -> open that jurisdiction's view. */
-  onOpenJurisdiction: (name: string) => void;
+  /** Tap a jurisdiction -> show only that jurisdiction's feed (by id). */
+  onSelectOnly: (id: string) => void;
+  /** Tap the external-link glyph -> open that jurisdiction's view (by id). */
+  onOpenJurisdiction: (id: string) => void;
   onAddJurisdiction: () => void;
 }
 
@@ -54,18 +55,19 @@ export function JurisdictionSelector({
       ) : null}
       {subscriptions.map((sub) => {
         const isLast = includedCount <= 1 && sub.included;
-        const Icon = jurisdictionIconForName(sub.name);
+        const label = jurisdictionLabel(sub.id);
+        const Icon = jurisdictionIconForId(sub.id);
         return (
-          <div key={sub.name} className="contents">
+          <div key={sub.id} className="contents">
             {multi ? (
               <button
                 type="button"
                 role="checkbox"
                 aria-checked={sub.included}
-                aria-label={sub.name}
+                aria-label={label}
                 onClick={() => {
                   if (isLast) return;
-                  onToggleInclude(sub.name);
+                  onToggleInclude(sub.id);
                 }}
                 className={`${ROW_CELL} justify-center`}
               >
@@ -74,18 +76,18 @@ export function JurisdictionSelector({
             ) : null}
             <button
               type="button"
-              onClick={() => onSelectOnly(sub.name)}
+              onClick={() => onSelectOnly(sub.id)}
               className={`${ROW_CELL} gap-1.5 whitespace-nowrap px-1 ${
                 multi ? "justify-center" : "col-span-2 justify-start"
               }`}
             >
               <Icon size={16} className="shrink-0 text-ink-soft" aria-hidden />
-              <span className="text-sm text-ink">{sub.name}</span>
+              <span className="text-sm text-ink">{label}</span>
             </button>
             <button
               type="button"
-              aria-label={`Open ${sub.name}`}
-              onClick={() => onOpenJurisdiction(sub.name)}
+              aria-label={`Open ${label}`}
+              onClick={() => onOpenJurisdiction(sub.id)}
               className={`${ROW_CELL} justify-end self-stretch pl-1`}
             >
               <ExternalLink size={15} className="text-muted" aria-hidden />

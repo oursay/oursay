@@ -21,13 +21,20 @@ import type {
   ViewerContext,
 } from "@/lib/types";
 import {
+  ALBERTA_ID,
   DEFAULT_SIGNING,
+  GLOBAL_ID,
   POST_SUB_ACTIONS,
   effectiveSignMethod,
-  jurisdictionSignRequirement,
   postActionForKind,
 } from "@/lib/types";
-import { MY_DISTRICTS, MY_HANDLE, MY_NAME } from "@/lib/mock";
+import {
+  MY_DISTRICTS,
+  MY_HANDLE,
+  MY_NAME,
+  jurisdictionLabel,
+  jurisdictionSignRequirement,
+} from "@/lib/mock";
 import {
   outsideMyDistricts,
   personaNameFor,
@@ -381,7 +388,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // --- Session -------------------------------------------------------------
   const demoLogin = useCallback(() => {
     setState((s) => {
-      const hasAlberta = s.subscriptions.some((sub) => sub.name === "Alberta");
+      const hasAlberta = s.subscriptions.some((sub) => sub.id === ALBERTA_ID);
       // Accounts start with no registry status (Unverified); the remembered
       // KYC tier is kept if one was already reached this session.
       return {
@@ -394,7 +401,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loginOpen: false,
         subscriptions: hasAlberta
           ? s.subscriptions
-          : [...s.subscriptions, { name: "Alberta", included: true }],
+          : [...s.subscriptions, { id: ALBERTA_ID, included: true }],
       };
     });
     notify("Signed in (demo). Validate your ID to build up verification.");
@@ -611,13 +618,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const toggleSub = useCallback((name: string) => {
+  const toggleSub = useCallback((id: string) => {
     setState((s) => {
       const includedCount = s.subscriptions.filter((x) => x.included).length;
       return {
         ...s,
         subscriptions: s.subscriptions.map((sub) => {
-          if (sub.name !== name) return sub;
+          if (sub.id !== id) return sub;
           if (sub.included && includedCount <= 1) return sub; // keep >= 1
           return { ...sub, included: !sub.included };
         }),
@@ -625,12 +632,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const selectOnlySub = useCallback((name: string) => {
+  const selectOnlySub = useCallback((id: string) => {
     setState((s) => ({
       ...s,
       subscriptions: s.subscriptions.map((sub) => ({
         ...sub,
-        included: sub.name === name,
+        included: sub.id === id,
       })),
     }));
   }, []);
@@ -649,32 +656,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const closeAddJur = useCallback(() => set({ addJurOpen: false }), [set]);
 
   const addJurisdiction = useCallback(
-    (name: string) => {
+    (id: string) => {
       setState((s) => {
-        if (s.subscriptions.some((sub) => sub.name === name)) {
+        if (s.subscriptions.some((sub) => sub.id === id)) {
           return { ...s, addJurOpen: false };
         }
         return {
           ...s,
           subscriptions: [
             ...s.subscriptions.map((sub) => ({ ...sub, included: false })),
-            { name, included: true },
+            { id, included: true },
           ],
           addJurOpen: false,
         };
       });
-      notify(`Joined ${name}.`);
+      notify(`Joined ${jurisdictionLabel(id)}.`);
     },
     [notify],
   );
 
   const removeJurisdiction = useCallback(
-    (name: string) => {
+    (id: string) => {
       setState((s) => {
         if (s.subscriptions.length <= 1) {
           return { ...s, addJurOpen: false };
         }
-        const next = s.subscriptions.filter((sub) => sub.name !== name);
+        const next = s.subscriptions.filter((sub) => sub.id !== id);
         if (!next.some((sub) => sub.included)) {
           return {
             ...s,
@@ -684,7 +691,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return { ...s, subscriptions: next, addJurOpen: false };
       });
-      notify(`Left ${name}.`);
+      notify(`Left ${jurisdictionLabel(id)}.`);
     },
     [notify],
   );
@@ -799,7 +806,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // ledger act), so it carries the FINAL/residency/affected notices. A
         // standing passkey preference shows the same confirmation without them.
         const isFinal = jurReq === "passkey";
-        openSign({ ...passkeyReq, isFinal, jurisdiction }, commit);
+        // SignRequest.jurisdiction is modal COPY — resolve the id to its label.
+        openSign(
+          { ...passkeyReq, isFinal, jurisdiction: jurisdictionLabel(jurisdiction) },
+          commit,
+        );
         return;
       }
       commit();
@@ -995,7 +1006,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setState((s) => {
           const canInfer =
             inferredJurisdiction !== undefined &&
-            s.subscriptions.some((sub) => sub.name === inferredJurisdiction);
+            s.subscriptions.some((sub) => sub.id === inferredJurisdiction);
           const many = s.subscriptions.length > 1;
           return {
             ...s,
@@ -1005,7 +1016,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               ? inferredJurisdiction
               : many
                 ? undefined
-                : s.subscriptions[0]?.name,
+                : s.subscriptions[0]?.id,
             composeType: undefined,
             filterOpen: false,
             jurSelectorOpen: false,
@@ -1053,7 +1064,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const submitCompose = useCallback(() => {
-    const jur = state.composeJur ?? "Global";
+    const jur = state.composeJur ?? GLOBAL_ID;
     const kind = state.composeType ?? "statement";
     const label = state.composeType
       ? RECORD_TYPE_LABEL[state.composeType]
@@ -1079,7 +1090,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     runSigned(
       postActionForKind(kind),
       jur,
-      { title: `Publish your ${label}`, lines: [`in ${jur}`] },
+      { title: `Publish your ${label}`, lines: [`in ${jurisdictionLabel(jur)}`] },
       {
         kind: "compose" as SignKind,
         targetTitle: label,

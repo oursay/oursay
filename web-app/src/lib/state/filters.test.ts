@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
 import { JUR_DATA } from "@/lib/mock";
 import type { AppState } from "./types";
 import { INITIAL_APP_STATE } from "./AppProvider";
 import { feedFilterFromState, scopedFeedFilterFromState } from "./filters";
 
-const ALBERTA_SLUGS = JUR_DATA.Alberta.districts.map((d) => d.slug);
+const ALBERTA_SLUGS = JUR_DATA[ALBERTA_ID].districts.map((d) => d.slug);
 
 function state(patch: Partial<AppState>): AppState {
   return { ...INITIAL_APP_STATE, ...patch };
@@ -16,7 +17,7 @@ describe("feedFilterFromState — fetch-path filter", () => {
     // filter — if the filter read it, every load would invalidate its own
     // fetch and oscillate between "Record not found" and the post.
     const off = feedFilterFromState(state({ pageJurisdiction: null }));
-    const on = feedFilterFromState(state({ pageJurisdiction: "Alberta" }));
+    const on = feedFilterFromState(state({ pageJurisdiction: ALBERTA_ID }));
     expect(on).toEqual(off);
   });
 
@@ -29,7 +30,7 @@ describe("feedFilterFromState — fetch-path filter", () => {
 
 describe("scopedFeedFilterFromState — chrome-only district universe", () => {
   it("an open view's jurisdiction pins the universe", () => {
-    const filter = scopedFeedFilterFromState(state({ pageJurisdiction: "Alberta" }));
+    const filter = scopedFeedFilterFromState(state({ pageJurisdiction: ALBERTA_ID }));
     expect(filter.geography?.jurisdictionDistricts).toEqual(ALBERTA_SLUGS);
   });
 
@@ -38,8 +39,8 @@ describe("scopedFeedFilterFromState — chrome-only district universe", () => {
       state({
         pageJurisdiction: null,
         subscriptions: [
-          { name: "Global", included: false },
-          { name: "Alberta", included: true },
+          { id: GLOBAL_ID, included: false },
+          { id: ALBERTA_ID, included: true },
         ],
       }),
     );
@@ -51,14 +52,14 @@ describe("scopedFeedFilterFromState — chrome-only district universe", () => {
       state({
         pageJurisdiction: null,
         subscriptions: [
-          { name: "Global", included: true },
-          { name: "Alberta", included: true },
+          { id: GLOBAL_ID, included: true },
+          { id: ALBERTA_ID, included: true },
         ],
       }),
     );
     expect(filter.geography?.jurisdictionDistricts).toBeUndefined();
     expect(
-      scopedFeedFilterFromState(state({ pageJurisdiction: "Global" })).geography
+      scopedFeedFilterFromState(state({ pageJurisdiction: GLOBAL_ID })).geography
         ?.jurisdictionDistricts,
     ).toBeUndefined();
   });

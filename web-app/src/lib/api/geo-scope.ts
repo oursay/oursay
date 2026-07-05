@@ -18,16 +18,16 @@ import type { FeedFilterParams, FeedScope } from "@/lib/types";
  */
 
 /** Every riding slug of a jurisdiction ([] for district-less ones, e.g. Global). */
-export function jurisdictionSlugs(jurisdiction: string): string[] {
-  return (JUR_DATA[jurisdiction]?.districts ?? []).map((d) => d.slug);
+export function jurisdictionSlugs(jurisdictionId: string): string[] {
+  return (JUR_DATA[jurisdictionId]?.districts ?? []).map((d) => d.slug);
 }
 
-/** Union of the named jurisdictions' slugs; undefined when any is district-less. */
-function districtUniverse(names: string[]): string[] | undefined {
-  if (names.length === 0) return undefined;
+/** Union of the jurisdictions' slugs; undefined when any is district-less. */
+function districtUniverse(ids: string[]): string[] | undefined {
+  if (ids.length === 0) return undefined;
   const slugs: string[] = [];
-  for (const name of names) {
-    const ds = jurisdictionSlugs(name);
+  for (const id of ids) {
+    const ds = jurisdictionSlugs(id);
     if (ds.length === 0) return undefined;
     slugs.push(...ds);
   }
@@ -40,22 +40,22 @@ export function withScopeJurisdictionDistricts(
   scope: FeedScope,
 ): FeedFilterParams {
   if (!filter.geography) return filter;
-  let names: string[];
+  let ids: string[];
   if (scope === "jurisdiction" && filter.jurisdiction) {
-    names = [filter.jurisdiction];
+    ids = [filter.jurisdiction];
   } else if (scope === "district" && filter.districtSlug) {
     const jur = DISTRICT_BY_SLUG[filter.districtSlug]?.jur;
-    names = jur ? [jur] : [];
+    ids = jur ? [jur] : [];
   } else {
-    names = (filter.jurisdictions ?? [])
+    ids = (filter.jurisdictions ?? [])
       .filter((s) => s.included)
-      .map((s) => s.name);
+      .map((s) => s.id);
   }
   return {
     ...filter,
     geography: {
       ...filter.geography,
-      jurisdictionDistricts: districtUniverse(names),
+      jurisdictionDistricts: districtUniverse(ids),
     },
   };
 }

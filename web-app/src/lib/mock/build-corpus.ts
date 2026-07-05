@@ -10,7 +10,10 @@ import type {
   RecordDetail,
   RecordKind,
   ActivityKind,
+  SignTier,
 } from "@/lib/types";
+import { ALBERTA_ID, GLOBAL_ID, toCanonical } from "@/lib/types";
+import { JURISDICTION_GATES, deriveSignTier } from "./gates";
 import { ALBERTA_RIDINGS } from "./alberta-ridings";
 import { countCommentNodes, hashSeed } from "./comment-utils";
 import {
@@ -134,9 +137,24 @@ function withAuthorDistricts<T extends { handle: string }>(item: T): T {
   return { ...item, authorDistricts: personDistricts(item.handle) };
 }
 
+/**
+ * Reconcile a row's signTier with its jurisdiction's sign floor (M8): a row can
+ * never sit BELOW the floor its jurisdiction mandates for that root type (an AB
+ * ledger-final statement/petition/poll is passkey-signed ⇒ ≥1), while a
+ * hand-set opt-up above the floor is preserved.
+ */
+function withDerivedSignTier<
+  T extends { jurisdiction: string; kind: RecordKind; signTier?: SignTier },
+>(item: T): T {
+  return {
+    ...item,
+    signTier: deriveSignTier(item.jurisdiction, toCanonical(item.kind), item.signTier),
+  };
+}
+
 function feedToDetail(item: FeedItem): RecordDetail {
   const crafted = HAND_CRAFTED_DETAILS[item.id];
-  if (crafted) return withAuthorDistricts(crafted);
+  if (crafted) return withDerivedSignTier(withAuthorDistricts(crafted));
 
   const seed = hashSeed(item.id);
   return {
@@ -177,7 +195,7 @@ function buildExtraPosts(): FeedItem[] {
   extras.push({
     id: "pet-rural-broadband",
     kind: "petition",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 2,
     districts: BROADBAND_DISTRICTS,
     author: "Sarah Okamoto",
@@ -199,7 +217,7 @@ function buildExtraPosts(): FeedItem[] {
   extras.push({
     id: "stmt-bea-trail-standard",
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 2,
     districts: ["edmonton-strathcona", "edmonton-city-centre"],
     author: "Bea Nowak",
@@ -218,7 +236,7 @@ function buildExtraPosts(): FeedItem[] {
   extras.push({
     id: "stmt-kevin-transit",
     kind: "statement",
-    jurisdiction: "Global",
+    jurisdiction: GLOBAL_ID,
     tier: 1,
     districts: [],
     author: "Kevin O'Brien",
@@ -236,7 +254,7 @@ function buildExtraPosts(): FeedItem[] {
   extras.push({
     id: "stmt-marieqc-lang",
     kind: "statement",
-    jurisdiction: "Global",
+    jurisdiction: GLOBAL_ID,
     tier: 1,
     districts: [],
     author: "Marie Dubois",
@@ -256,7 +274,7 @@ function buildExtraPosts(): FeedItem[] {
     extras.push({
       id: `stmt-mla-${riding.slug}`,
       kind: "statement",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: 3,
       districts: [riding.slug],
       author: riding.mla.name,
@@ -291,7 +309,7 @@ function buildExtraPosts(): FeedItem[] {
     extras.push({
       id: `stmt-res-${riding.slug}`,
       kind: "statement",
-      jurisdiction: "Alberta",
+      jurisdiction: ALBERTA_ID,
       tier: p.tier,
       districts: [riding.slug],
       author: p.name,
@@ -311,7 +329,9 @@ function buildExtraPosts(): FeedItem[] {
 }
 
 function buildAllFeedItems(): FeedItem[] {
-  return [...WIREFRAME_POSTS, ...buildExtraPosts()].map(withAuthorDistricts);
+  return [...WIREFRAME_POSTS, ...buildExtraPosts()]
+    .map(withAuthorDistricts)
+    .map(withDerivedSignTier);
 }
 
 function buildRecordEntries(
@@ -330,7 +350,7 @@ function buildRecordEntries(
   for (const detail of [POST_POLL, POST_RESULT]) {
     if (map.has(detail.id)) continue;
     map.set(detail.id, {
-      post: withAuthorDistricts(detail),
+      post: withDerivedSignTier(withAuthorDistricts(detail)),
       comments: HAND_CRAFTED_COMMENTS[detail.id] ?? generateComments(detail.id),
     });
   }
@@ -468,7 +488,7 @@ function buildDistrictMap(): Record<string, DistrictDetail> {
     map[riding.slug] = {
       name: riding.name,
       slug: riding.slug,
-      jur: "Alberta",
+      jur: ALBERTA_ID,
       leader: riding.mla.name,
       leaderHandle: riding.mla.handle,
       boundaryYear: 2019,
@@ -487,9 +507,13 @@ function buildDistrictMap(): Record<string, DistrictDetail> {
 
 function buildJurData(): Record<string, JurisdictionSummary> {
   return {
-    Global: {
+    [GLOBAL_ID]: {
+      id: GLOBAL_ID,
+      slug: "global",
       name: "Global",
+      level: "global",
       leader: { name: "OurSay Stewards", handle: "oursay" },
+      gates: JURISDICTION_GATES[GLOBAL_ID],
       rules: [
         "Open policy — any member may post any root type.",
         "Statements, Petitions and Polls are open to all.",
@@ -500,14 +524,18 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       districtLabel: null,
       districts: [],
     },
-    Alberta: {
+    [ALBERTA_ID]: {
+      id: ALBERTA_ID,
+      slug: "alberta",
       name: "Alberta",
+      level: "province",
       leader: { name: "Hon. A. Premier", handle: "premier" },
+      gates: JURISDICTION_GATES[ALBERTA_ID],
       rules: [
         "Ladder policy — levels graduate upward.",
-        "Statements: open to any registered member.",
+        "Statements: open to any registered member (passkey-signed).",
         "Petitions: residency-verified authors only.",
-        "Polls: via petition→poll graduation threshold.",
+        "Polls: officials only (or via petition→poll graduation).",
         "Verified actions are written on-ledger.",
         "Official counts: residency-verified electors only.",
       ],
@@ -643,7 +671,7 @@ function buildProfiles(
 const PROFILE_ONLY_POSTS: FeedItem[] = [
   ...RAE_NGUYEN_PROFILE.posts,
   ...ALEX_MORGAN_PROFILE.posts,
-].map(withAuthorDistricts);
+].map(withAuthorDistricts).map(withDerivedSignTier);
 const RAW_FEED = buildAllFeedItems();
 const RECORD_BY_ID = buildRecordEntries(RAW_FEED, PROFILE_ONLY_POSTS);
 export const POSTS = syncCommentCounts(RAW_FEED, RECORD_BY_ID);
@@ -684,7 +712,28 @@ export function districtName(slug: string): string {
   return DISTRICT_NAMES[slug] ?? slug;
 }
 
+/** All modelled jurisdiction ids (the JUR_DATA keys). */
 export const ALL_JURISDICTIONS = Object.keys(JUR_DATA);
+
+/** The summary for a jurisdiction id (undefined when unmodelled). */
+export function jurisdictionById(id: string): JurisdictionSummary | undefined {
+  return JUR_DATA[id];
+}
+
+/** Display label for a jurisdiction id (falls back to the id). */
+export function jurisdictionLabel(id: string): string {
+  return JUR_DATA[id]?.name ?? id;
+}
+
+/** Resolve a jurisdiction by its URL slug (e.g. "alberta" -> the summary). */
+export function jurisdictionBySlug(slug: string): JurisdictionSummary | undefined {
+  return Object.values(JUR_DATA).find((j) => j.slug === slug);
+}
+
+/** Jurisdiction id for a URL slug (undefined when unknown). */
+export function jurisdictionIdFromSlug(slug: string): string | undefined {
+  return jurisdictionBySlug(slug)?.id;
+}
 
 export const DISTRICT = DISTRICT_BY_SLUG["edmonton-strathcona"];
 export const PROFILE = PROFILES_BY_HANDLE.raenguyen;

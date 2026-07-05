@@ -1,5 +1,5 @@
 import type { AuthorIdentity, RecordKind } from "@/lib/types";
-import { DETAIL_BY_ID } from "@/lib/mock";
+import { DETAIL_BY_ID, DISTRICT_BY_SLUG, jurisdictionById } from "@/lib/mock";
 import { COMMENTS_SECTION_ID } from "./scroll";
 
 /** The civic views (five wireframe views + the per-thread persona surface). */
@@ -20,25 +20,26 @@ const RECORD_KIND_LABEL: Record<RecordKind, string> = {
   result: "Result",
 };
 
-/** "Alberta" -> "alberta"; the inverse of jurisdictionNameFromSlug for our set. */
-export function jurisdictionSlug(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "-");
+/** Jurisdiction id -> URL slug (e.g. "ab-ca-gov" -> "alberta"; fallback = the id). */
+export function jurisdictionSlug(jurisdictionId: string): string {
+  return jurisdictionById(jurisdictionId)?.slug ?? jurisdictionId;
 }
 
-/** "alberta" -> "Alberta". Title-cases each hyphen segment (Global / Alberta). */
-export function jurisdictionNameFromSlug(slug: string): string {
-  return slug
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+/** Route to a jurisdiction view by id: /jurisdiction/{slug}. */
+export function jurisdictionPath(jurisdictionId: string): string {
+  return `/jurisdiction/${jurisdictionSlug(jurisdictionId)}`;
 }
 
-export function jurisdictionPath(name: string): string {
-  return `/jurisdiction/${jurisdictionSlug(name)}`;
-}
-
-export function districtPath(slug: string): string {
-  return `/district/${slug}`;
+/**
+ * Route to a district by its slug — nested under the parent jurisdiction to
+ * avoid cross-jurisdiction slug collisions (Part 6 #12):
+ * `/jurisdiction/{jurSlug}/district/{districtSlug}`. The parent jurisdiction is
+ * resolved from the district registry, so callers pass only the district slug.
+ */
+export function districtPath(districtSlug: string): string {
+  const jurId = DISTRICT_BY_SLUG[districtSlug]?.jur;
+  const jurSlug = jurId ? jurisdictionSlug(jurId) : "";
+  return `/jurisdiction/${jurSlug}/district/${districtSlug}`;
 }
 
 export function profilePath(handle: string): string {
@@ -92,8 +93,10 @@ export function postPathForId(
 
 /** Derive the active view from the pathname (drives shared chrome in AppShell). */
 export function viewFromPathname(pathname: string): AppView {
+  // District nests under jurisdiction (/jurisdiction/{slug}/district/{dslug}),
+  // so match the district segment BEFORE the jurisdiction prefix.
+  if (pathname.includes("/district/")) return "district";
   if (pathname.startsWith("/jurisdiction")) return "jurisdiction";
-  if (pathname.startsWith("/district")) return "district";
   if (pathname.startsWith("/profile")) return "profile";
   if (pathname.startsWith("/persona")) return "persona";
   if (RECORD_KINDS.some((kind) => pathname.startsWith(`/${kind}/`))) return "post";

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRecordDetail, personaFor } from "@/lib/api";
 import {
+  ALBERTA_ID,
   COMMENT_MAX_DEPTH,
   VISIBILITY_LABEL,
   type AuthorVisibility,
@@ -12,7 +13,13 @@ import {
   type RecordKind,
 } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
-import { GRADUATION_CHAIN, MY_HANDLE, NOW, districtName } from "@/lib/mock";
+import {
+  GRADUATION_CHAIN,
+  MY_HANDLE,
+  NOW,
+  districtName,
+  jurisdictionLabel,
+} from "@/lib/mock";
 import {
   AnonymityConfirmModal,
   AnonymityDropdown,
@@ -130,7 +137,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const reactions = app.reactionCountsFor(target);
   const displayDetail: RecordDetail =
     detail.kind === "petition" ? { ...detail, sig } : detail;
-  const isFinal = detail.jurisdiction === "Alberta";
+  const isFinal = detail.jurisdiction === ALBERTA_ID;
   const tierMin = app.effectiveVerified;
   // Effective anonymity for anything the viewer posts in this thread.
   const threadVis = threadVisibility ?? app.state.accountVisibility;

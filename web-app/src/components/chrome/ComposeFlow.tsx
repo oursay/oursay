@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { BarChart3, Check, ChevronDown } from "lucide-react";
-import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
+import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
+import { jurisdictionLabel } from "@/lib/mock";
 import {
   composeTypeLockReason,
   rootTypesForJurisdiction,
 } from "@/lib/compose-eligibility";
+import type { ComposeViewer } from "@/lib/compose-eligibility";
 import {
   Button,
   CollapsibleSection,
@@ -17,6 +19,7 @@ import {
 } from "@/components/ui";
 import { AnonymityDropdown } from "@/components/identity";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
+import { ALBERTA_ID } from "@/lib/types";
 import type { AuthorVisibility, RecordKind, VerificationTier } from "@/lib/types";
 
 export type ComposeStep = "where" | "type" | "compose";
@@ -25,11 +28,14 @@ interface ComposeFlowProps {
   open: boolean;
   onClose: () => void;
   step: ComposeStep;
-  /** Jurisdictions the viewer can post in (the "where" step, skipped with one). */
+  /** Jurisdiction ids the viewer can post in (the "where" step, skipped with one). */
   jurisdictions: string[];
   kycTier: VerificationTier;
+  /** Viewer's official role (orthogonal to KYC tier) — gates officials-only polls. */
+  role?: "official";
+  /** Selected jurisdiction id. */
   selectedJurisdiction?: string;
-  onSelectJurisdiction: (name: string) => void;
+  onSelectJurisdiction: (id: string) => void;
   /** Root types allowed in the selected jurisdiction. */
   allowedTypes: RecordKind[];
   selectedType?: RecordKind;
@@ -65,6 +71,7 @@ export function ComposeFlow({
   step,
   jurisdictions,
   kycTier,
+  role,
   selectedJurisdiction,
   onSelectJurisdiction,
   allowedTypes,
@@ -83,6 +90,7 @@ export function ComposeFlow({
   // Alberta petition: optional attached poll (Alberta has no poll root type).
   const [petitionPollOpen, setPetitionPollOpen] = useState(false);
   const effectiveVisibility = composeVisibility ?? accountVisibility;
+  const viewer: ComposeViewer = { kycTier, role };
 
   useEffect(() => {
     if (!open) {
@@ -94,7 +102,7 @@ export function ComposeFlow({
 
   const picker = step === "where" || step === "type";
   const JurIcon = selectedJurisdiction
-    ? jurisdictionIconForName(selectedJurisdiction)
+    ? jurisdictionIconForId(selectedJurisdiction)
     : null;
 
   const ComposeTypeIcon = selectedType ? RECORD_TYPE_ICON[selectedType] : null;
@@ -142,7 +150,7 @@ export function ComposeFlow({
           "Pick a jurisdiction"
         ) : step === "type" ? (
           <span>
-            In {selectedJurisdiction}
+            In {selectedJurisdiction ? jurisdictionLabel(selectedJurisdiction) : ""}
             {jurisdictions.length > 1 && onChangeJurisdiction ? (
               <button
                 type="button"
@@ -165,14 +173,14 @@ export function ComposeFlow({
     >
       {step === "where" ? (
         <div className="space-y-2">
-          {jurisdictions.map((name) => {
-            const Icon = jurisdictionIconForName(name);
+          {jurisdictions.map((id) => {
+            const Icon = jurisdictionIconForId(id);
             return (
               <ModalOptionRow
-                key={name}
-                label={name}
+                key={id}
+                label={jurisdictionLabel(id)}
                 icon={<Icon size={18} aria-hidden />}
-                onClick={() => onSelectJurisdiction(name)}
+                onClick={() => onSelectJurisdiction(id)}
               />
             );
           })}
@@ -185,9 +193,9 @@ export function ComposeFlow({
             const Icon = RECORD_TYPE_ICON[kind];
             const lockReason =
               selectedJurisdiction !== undefined
-                ? composeTypeLockReason(selectedJurisdiction, kind, kycTier)
+                ? composeTypeLockReason(selectedJurisdiction, kind, viewer)
                 : undefined;
-            const locked = lockReason !== undefined && lockReason !== "type N/A";
+            const locked = lockReason !== undefined;
             return (
               <ModalOptionRow
                 key={kind}
@@ -218,7 +226,9 @@ export function ComposeFlow({
                 className="mt-1 flex min-h-10 w-full items-center gap-2 rounded-lg border border-border bg-surface-muted px-3 text-sm font-medium text-ink hover:bg-surface"
               >
                 <JurIcon size={18} className="shrink-0 text-ink-soft" aria-hidden />
-                <span className="flex-1 text-left">{selectedJurisdiction}</span>
+                <span className="flex-1 text-left">
+                  {selectedJurisdiction ? jurisdictionLabel(selectedJurisdiction) : ""}
+                </span>
                 <ChevronDown
                   size={16}
                   className={`shrink-0 text-muted transition-transform ${jurMenuOpen ? "rotate-180" : ""}`}
@@ -231,21 +241,21 @@ export function ComposeFlow({
                   aria-label="Posting jurisdiction"
                   className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-border-strong bg-surface py-1 shadow-lg"
                 >
-                  {jurisdictions.map((name) => {
-                    const Icon = jurisdictionIconForName(name);
+                  {jurisdictions.map((id) => {
+                    const Icon = jurisdictionIconForId(id);
                     const lockReason = selectedType
-                      ? composeTypeLockReason(name, selectedType, kycTier)
+                      ? composeTypeLockReason(id, selectedType, viewer)
                       : undefined;
                     const eligible = lockReason === undefined;
-                    const selected = name === selectedJurisdiction;
+                    const selected = id === selectedJurisdiction;
                     return (
-                      <li key={name} role="option" aria-selected={selected}>
+                      <li key={id} role="option" aria-selected={selected}>
                         <button
                           type="button"
                           disabled={!eligible}
                           onClick={() => {
                             if (!eligible) return;
-                            onSelectJurisdiction(name);
+                            onSelectJurisdiction(id);
                             setJurMenuOpen(false);
                           }}
                           className={`flex min-h-9 w-full items-center gap-2 px-3 text-left text-sm ${
@@ -259,7 +269,7 @@ export function ComposeFlow({
                             className={eligible ? "text-ink-soft" : "text-muted"}
                             aria-hidden
                           />
-                          <span className="flex-1">{name}</span>
+                          <span className="flex-1">{jurisdictionLabel(id)}</span>
                           {lockReason ? (
                             <span className="shrink-0 text-[10px] text-muted">
                               {lockReason}
@@ -318,7 +328,7 @@ export function ComposeFlow({
             />
           ) : null}
 
-          {selectedType === "petition" && selectedJurisdiction === "Alberta" ? (
+          {selectedType === "petition" && selectedJurisdiction === ALBERTA_ID ? (
             <CollapsibleSection
               icon={BarChart3}
               label="Add a Poll (optional)"

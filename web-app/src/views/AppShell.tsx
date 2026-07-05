@@ -24,7 +24,12 @@ import {
   SignModal,
 } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
-import { MY_HANDLE, MY_NAME } from "@/lib/mock";
+import {
+  MY_HANDLE,
+  MY_NAME,
+  jurisdictionLabel as labelForJurisdiction,
+} from "@/lib/mock";
+import { GLOBAL_ID } from "@/lib/types";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import { jurisdictionWidePost, resolveGeography } from "@/lib/read-model";
 import { scopedFeedFilterFromState } from "@/lib/state";
@@ -66,19 +71,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [app]);
 
-  const includedSubs = state.subscriptions
+  const includedSubIds = state.subscriptions
     .filter((s) => s.included)
-    .map((s) => s.name);
+    .map((s) => s.id);
+  const includedSubLabels = includedSubIds.map(labelForJurisdiction);
 
   let jurisdictionLabel = jurisdictionPillLabel(
-    includedSubs,
+    includedSubLabels,
     state.subscriptions.length,
   );
   if (
     (view === "jurisdiction" || view === "district" || view === "post") &&
     state.pageJurisdiction
   ) {
-    jurisdictionLabel = state.pageJurisdiction;
+    jurisdictionLabel = labelForJurisdiction(state.pageJurisdiction);
   }
 
   const filterActive =
@@ -117,7 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         !jurisdictionWidePost(openPostBearing.districts, jurisdictionDistricts)
       : hasCardList);
 
-  const composeJur = state.composeJur ?? "Global";
+  const composeJur = state.composeJur ?? GLOBAL_ID;
   const allowedComposeTypes = rootTypesForJurisdiction(composeJur);
 
   // The single jurisdiction the top bar currently displays, if any: an open
@@ -127,8 +133,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     (view === "jurisdiction" || view === "district" || view === "post") &&
     state.pageJurisdiction
       ? state.pageJurisdiction
-      : includedSubs.length === 1
-        ? includedSubs[0]
+      : includedSubIds.length === 1
+        ? includedSubIds[0]
         : undefined;
 
   const accountSlot = state.loggedIn ? (
@@ -305,8 +311,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         open={state.composeOpen}
         onClose={app.closeCompose}
         step={state.composeStep}
-        jurisdictions={state.subscriptions.map((s) => s.name)}
+        jurisdictions={state.subscriptions.map((s) => s.id)}
         kycTier={state.kycTier}
+        role={app.viewer.role}
         selectedJurisdiction={state.composeJur}
         onSelectJurisdiction={app.selectComposeJurisdiction}
         allowedTypes={allowedComposeTypes}
