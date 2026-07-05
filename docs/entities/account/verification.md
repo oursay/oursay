@@ -4,10 +4,7 @@
 
 Proof that a user has completed identity and/or residency confirmation through a KYC provider. Represented as append-only attestations; the **latest row wins** for tier resolution. Matching is **set membership**, not a strict ladder.
 
-**The KYC step is where identity PII is collected.** Registration is least-resistance (email +
-handle/display name + over_18 checkbox only); legal name and address are entered at the start of
-verification and stored on [Profile](./profile.md) — the first address write also triggers the
-geocode sync.
+**The KYC step is where identity PII is verified.** Registration is least-resistance (email + required handle + over_18 checkbox; display name, full name, and address are optional at signup, behind a helper noting they must be filled before ID/residency verification); whatever was left blank is entered at the start of verification and stored on [Profile](./profile.md) — the first address write (signup or here) triggers the geocode sync.
 
 **Tiers and provider tags are orthogonal.** A *tier* says how verified an account is; a *provider tag* says who attested it (and how). The MVP provider is **Didit**:
 - **Dev:** ID-only verification (free) + a **platform self-signed** address KYC (POA-ready).
@@ -62,6 +59,8 @@ Provider output mapping (contributor §5.2):
 revocable **role** attached to the user/jurisdiction membership, used by role-gated actions (e.g.
 `ab-ca-gov` poll creation). Tiers stay pure KYC facts; the earlier `official_verified` tier idea is
 retired.
+
+**Obtaining the official role:** the platform **manually validates** the person — identity verification at minimum, residency preferred though not technically required (an official may live outside the district they represent, so in-district filter logic is **forced to the represented district**, never the home address/geopoint). `identity_verified` (min) + the official role together form the composite **official verification** status. Keep the suffixes distinct everywhere: **official role** (authority), **official verification** (role + KYC composite), **official count** (the counting floor on totals — nothing to do with the role, except that in `ab-ca-gov` role holders are excluded from voting and petition signing).
 
 ### Account verification states (contributor §5.4)
 
@@ -128,10 +127,10 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 
 ## Gaps
 
-- **Provider drift** — the provider enum today is `'stub' | 'equifax'` (`api/src/config.ts` `KycProviderName`). The MVP provider is **Didit**; the enum and provider seam need a `didit` implementation, and provider tags should be orthogonal to tiers. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-didit-provider]`.
+- **Provider drift** — the provider enum today is `'stub' | 'equifax'` (`api/src/config.ts` `KycProviderName`). The MVP provider is **Didit**; the enum and provider seam need a `didit` implementation, and provider tags should be orthogonal to tiers. Tracked as `[code-didit-provider]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 - **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
 - Recovery re-verify flow incomplete.
 - **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
-- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote/official gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
+- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / official-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
 - Sponsorship / waitlist mechanics documented in contributor spec but not fully implemented.
 - Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).

@@ -6,7 +6,7 @@ Deferred design intent for the `partitioning/` entities (jurisdiction, district,
 Remaining `EntityRules` audience axis (`appliesToDistrictIds` is **kept** — the served district-slug projection of the region, see [entity-rules.md](./entity-rules.md)):
 - **`appliesToRegion`** — *shipped*: a `RegionRef` — `jurisdiction` / `district:<district_slug>` (stable seat) / `revision:<revisionId>` (pinned version) / `region:<presetId>` / `{op:and|or|not, refs}` unions.
 - **`appliesToVerified`** — minimum KYC tier **set** counting toward stake/official totals.
-→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-applies-to-verified]`.
+→ `[code-applies-to-verified]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 > The **`entity_audience`** materialized projection is no longer future — it is the MVP mechanism
 > maintaining `appliesToDistrictIds` (specced in [entity-rules.md](./entity-rules.md) and
@@ -14,14 +14,14 @@ Remaining `EntityRules` audience axis (`appliesToDistrictIds` is **kept** — th
 
 ## JurisdictionConfig labels + contentLimits
 Add per-jurisdiction **`labels`** (post/petition/poll/result/district user-facing labels) and **`contentLimits`** (hard caps per type). Today `JurisdictionConfig` has neither.
-→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-jurisdiction-labels-limits]`.
+→ `[code-jurisdiction-labels-limits]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## Per-action gates + graduation config
 The per-action **`gates`** map (act / signMin / official — including the jurisdiction-residency and
 official-role gate kinds) and the `graduation` promotion policy are now **target-specced in
 [jurisdiction.md](./jurisdiction.md)** with the locked launch matrices for `oursay-global` and
 `ab-ca-gov`; they absorb the earlier `createTier`/`actTier` sketches. Not yet in code.
-→ `.agents/WEB-APP-ALIGNMENT-PROMPTS.md` `[align-w3-gates-schema]`.
+→ `[align-w3-gates-schema]`. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
 
 ## allowChange / allowRevoke unification
 Collapse the two governance flags into a single `allowChange` field covering both vote change and signature revoke. The deadline gates both submit and change/revoke.

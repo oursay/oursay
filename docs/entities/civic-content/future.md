@@ -12,7 +12,7 @@ A formal derived `result` record published at poll close is the primary near-ter
 
 ## Post field model
 Target `PostContent`: `title` **required** (≤200), `body` **optional** (≤2000), enforced via `JurisdictionConfig.contentLimits`. Today the shape is inverted (`title?`, `body` required, no caps).
-→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-post-content-fields]`.
+→ `[code-post-content-fields]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## Petition addressedTo automation
 Recipient inference (district → MLA(s); jurisdiction-wide → Legislative Assembly; constitutional checkbox → Minister / Lieutenant Governor) with platform/moderation override; delivery + response workflow automation.
@@ -29,7 +29,7 @@ A root entity (`post` / `petition` / `poll`) is bound to **exactly one** jurisdi
 **Sharing / crossposting** that root into an *additional* jurisdiction's feed or record is **not MVP** —
 deferred. Crosspost creates a copy into the target chain. A participant legitamately in both jurisdictions is able to cast a second vote in the target jurisdiction independantly, they may even vote differently in different jurisdictions.
 Gating rules are per jurisdiction so to cross post you must be able to validly post the record in the target chain.
-→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[crosspost-share]` (future).
+→ `[crosspost-share]` (future). <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## Social tagging
 Future `#`/`@` links inside content bodies are a UI concern; the record layer stores plain text.

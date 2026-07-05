@@ -573,7 +573,7 @@ Many checks should eventually be **configurable per jurisdiction**, with platfor
 
 - Envelope freshness (how old a signature may be).
 - Whether unverified users may comment, react, or vote.
-- Whether votes or signatures are final by default.
+- Whether votes or signatures are changeable (the intentionally loose platform default) or final (a per-jurisdiction tightening, e.g. `ab-ca-gov`).
 - Whether comments are limited to one per thread per user (default: many comments allowed).
 
 A **jurisdiction** (docs/01 §6.0) is 1:1 with a chain and now carries its `level` plus default

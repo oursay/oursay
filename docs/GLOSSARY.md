@@ -45,7 +45,7 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
   - **`appliesToRegion`** — the *geographic* stake (a RegionRef): `"jurisdiction"`,
     `"district:<district_slug>"` (a stable seat, resolved to the revision in force at `asOf`),
     `"revision:<revisionId>"` (a pinned boundary version), `"region:<presetId>"`, or an
-    `{op:"and"|"or"|"not", refs}` union of these. Stable district pages key off `district_slug`.
+    `{op:"and"|"or"|"not", refs}` union of these. Stable district pages key off `district_slug`, nested under their jurisdiction (e.g. `alberta/district/<district_slug>/` — slugs collide across jurisdictions). `web-app` needs updating.
     Absent ⇒ the whole jurisdiction.
   - **`appliesToVerified`** — the minimum KYC tier **set** that counts toward stake/official totals.
   - **Entity scope** — gating rules **default to the jurisdiction**; an individual poll/petition may
@@ -67,6 +67,12 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 - **Record types** (canonical, lower-case, never renamed per deployment): `post`, `petition`, `poll`,
   `result`, `vote`, `petition_signature` (plus the attachments `comment`, `reaction`). API routes use
   these — e.g. `/v1/public/posts`.
+- **"Post" has two scopes.** On user-facing surfaces, "post" is the umbrella word for **any root
+  record** — statement, petition, poll, or result. In backend/code/schema contexts, `post` is the
+  record type for a **statement only**. In mixed contexts write **"statement post"** to
+  disambiguate; any doc that leans on one scope should say which, once, near the top. Per-action
+  gates apply to **all four** root types — `result` included (results are automated and attributed
+  to the poll's author, via graduation or a direct post of the outcome).
 - **User-facing labels** — per jurisdiction via **`JurisdictionConfig.labels`** (post / petition / poll
   / result / district). Defaults: **Statement, Petition, Poll, Result**. Alberta launch (`ab-ca-gov`):
   **Statement** for `post`, **riding** for the district label. `oursay-global` = all defaults.
@@ -78,17 +84,46 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   see [`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md) and
   [`entities/partitioning/jurisdiction.md`](entities/partitioning/jurisdiction.md)). Launch models:
   `oursay-global` — anyone may create at any level; `ab-ca-gov` — posts open, petitions
-  residency-verified, polls **officials only** (a platform-assigned role) or via graduation. A
-  **threshold-triggered poll** is the automatic graduation of a petition into a poll when
-  it reaches a configured verified-signature count.
-- **Gate (per-action)** — a jurisdiction's per-action policy triple: **act** (who may perform it:
-  anyone / tier set / jurisdiction residency / role), **signMin** (minimum sign method), and
-  **official** (who counts in official totals). "**Jurisdiction residency**" is the gate kind
+  residency-verified, polls **official-role only** or via graduation. A
+  **threshold-triggered poll** is the automatic graduation of a petition into a poll when it
+  reaches the configured threshold — the poll is **forced whether or not an official agrees**, and
+  the **proposing user remains the poll's author**. An AB official-role holder may also **manually
+  graduate a petition into a poll at any point** (promote early); neither path affects the petition
+  itself — users keep signing while it is open, and only its **deadline** closes it.
+- **Gate (per-action)** — a jurisdiction's per-action policy triple, set **per jurisdiction per
+  record type**: **act** (who may perform it: anyone / tier set / jurisdiction residency / role —
+  optionally minus a denied role), **signMin** (minimum sign method), and **officialCount** (who is
+  included in the official-count totals). "**Jurisdiction residency**" is the gate kind
   `residency_verified` AND geocoded point inside the jurisdiction's region. "**Sign now, verify
-  later**": an open act gate with a stricter official gate — the action lands immediately and
-  counts officially once (and while) the author meets the official gate, recomputed at read time.
+  later**": an open act gate with a stricter official-count gate — the action lands immediately and
+  is included in the official count once (and while) the author meets it, recomputed at read time.
+- **Official count (gate)** — a **counting floor, not a participation barrier**: it decides which
+  actions are included in the platform-signed official totals, *after* the action. Anyone the act
+  gate admits is welcome to participate; actions below the floor are bunched into the
+  **unverified/unofficial** counts until the author verifies to the required tier. The
+  official-count gate always uses the **act gate as its floor** (it can only be stricter). Never
+  phrase it as eligibility to act.
+- **Official count (record)** — a platform-authored record type appended to the public record: a
+  signed snapshot of every eligible signature/vote and each participant's status
+  (`id_verified`, `residency_verified[none | jurisdiction | affected]`,
+  `official_role` — not count-eligible in AB), amendable with a per-entry reason tag. Anyone can
+  validate their own participation and what the record shows they said — on platform, or via an
+  auditor checking against **personas, not profiles**. See
+  [`entities/record/future.md`](entities/record/future.md).
 - **Official (role)** — platform-assigned, revocable authority (e.g. a seated MLA) attached to the
   user/jurisdiction membership. A **role, not a KYC tier** — tiers stay pure verification facts.
+  Granted after **manual platform validation**: identity verification at minimum, residency
+  preferred (not required — an official may live outside the district they represent, so
+  in-district filter logic is **forced to the represented district**, not the home address).
+  `identity_verified` (min) + the official role = the composite **official verification** status.
+  **Suffix discipline:** always write **official role**, **official count**, or **official
+  verification** — never a bare "official" where the sense is ambiguous.
+- **Threshold (graduation / success)** — a petition-success or poll-graduation trigger: a **fixed
+  number** or a **percentage of the jurisdiction's verified users** (a moving target, or frozen at
+  creation time). Decided by the **platform from jurisdiction config at creation time** — never set
+  per entity by the author. AB plan: percentage-based moving target until the user base is large
+  enough, then a fixed number (10% of valid votes cast in the previous provincial election) or
+  better. Reaching a threshold **does not close the petition** — the deadline is the only closing.
 - **Root entity** — a `post` / `petition` / `poll`: a thread root that carries the thread audience.
   Every root entity is **bound to exactly one jurisdiction** (`jurisdictionId`); absent an explicit
   choice it defaults to **`oursay-global`**. Comments, reactions, votes, and signatures inherit their
@@ -100,7 +135,10 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   ballot, never to the poll container.
 - **vote / petition_signature** — a user's individual ballot on a poll / signature on a petition.
   Signed with at least the jurisdiction's per-action floor (`gates[action].signMin`): `ab-ca-gov`
-  requires passkey (`webauthn-es256`); `oursay-global` accepts quick-sign (`p256`).
+  requires passkey (`webauthn-es256`); `oursay-global` accepts quick-sign (`p256`). **Changeable by
+  default** at the platform layer — the loose defaults (`allowChange`/`allowRevoke` true) are
+  intentional; a jurisdiction tightens to final via its config, never the platform default
+  (`ab-ca-gov` launch: final — both false).
 - **Sign method / signing preference** — how a civic action is authorised on-device:
   **quick** (derived thread key, `p256`, no prompt) · **ask** (per-action chooser) · **passkey**
   (WebAuthn, user-verifying). The account holds a per-action preference; the jurisdiction sets a
@@ -118,7 +156,9 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   `public.users.handle` (NOT NULL target; column is nullable today — migration pending). Collected
   at registration. A private account keeps its handle — privacy is the explicit visibility setting
   ([`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md)), never a null handle.
-- **display_name** — **required** public display text, collected at registration (NOT NULL target).
+- **display_name** — public display text. **Optional at registration** — when unfilled it defaults
+  to the handle (without the `@`), so it is never null on a public surface (NOT NULL target,
+  server-filled from the handle).
 - **first_name / last_name** — private PII, used for KYC, never publicly surfaced (`auth.profiles`).
 - **province** — the province/territory address component (Canada-centric storage;
   `auth.profiles.province`). Jurisdiction-specific *display* labels live in the front-end.

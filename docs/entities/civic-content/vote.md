@@ -2,7 +2,7 @@
 
 ## Definition
 
-A cast ballot on a [Poll](./poll.md) — a signed record selecting one option. The real-world analog of casting a vote: **final once cast by default**.
+A cast ballot on a [Poll](./poll.md) — a signed record selecting one option. **Changeable by default** at the platform layer (the loose defaults are intentional); a jurisdiction tightens to final-once-cast via its config (`ab-ca-gov`: final; `oursay-global`: changeable before deadline).
 
 ## Aliases
 
@@ -37,7 +37,7 @@ Action metadata (product §9): geographic area at time of action, tier at time o
 ## States & lifecycle
 
 ```
-[create vote — FINAL by default]
+[create vote — changeable by default; final where the jurisdiction tightens (AB)]
     │ if allowChange + before deadline
     ▼
 [update vote — change option]
@@ -55,7 +55,7 @@ Allowed ops: `create`, `update` only — **never deleted**.
 
 ## Invariants
 
-- **R1a**: Cast FINAL by default; `update` only when rules + deadline allow.
+- **R1a (jurisdiction-config finality)**: changeable by default at the platform layer; a jurisdiction/entity tightens to final (`ab-ca-gov`: `allowChange: false`); `update` only when rules + deadline allow.
 - Signed with at least the jurisdiction's `gates.vote.signMin` method — the effective method is the **stronger** of the account's signing preference and the jurisdiction floor. `ab-ca-gov` floors votes at passkey (`webauthn-es256`, UV); `oursay-global` accepts quick-sign (`p256`). See [jurisdiction.md](../partitioning/jurisdiction.md) gates.
 - Verified votes on-ledger with pseudonymous key link (contributor §9.3).
 - No duplicate voting — nullifier + UNIQUE constraint.
@@ -65,10 +65,10 @@ Allowed ops: `create`, `update` only — **never deleted**.
 
 | Action | Who |
 |--------|-----|
-| Create (cast) | Per jurisdiction `gates.vote.act` during active period — `oursay-global`: any registered user; `ab-ca-gov`: **jurisdiction residency** (residency-verified AND resident of Alberta) |
+| Create (cast) | Per jurisdiction `gates.vote.act` during active period — `oursay-global`: any registered user; `ab-ca-gov`: **jurisdiction residency** (residency-verified AND resident of Alberta), **official-role holders denied** (officials cannot vote in AB) |
 | Update (change) | Voter, if `allowChange` + before deadline |
 
-Official counts follow `gates.vote.official` — `oursay-global`: `{identity_verified, residency_verified}`; `ab-ca-gov`: jurisdiction residency (participation-gated, so official = act set).
+The **official count** follows `gates.vote.officialCount` — `oursay-global`: `{identity_verified, residency_verified}`; `ab-ca-gov`: jurisdiction residency (participation-gated, so the count floor = act set). It is a **counting floor after the action, never a participation barrier**: where the act gate admits below-floor voters (Global), their ballots land in the unverified counts until they verify.
 
 ## Events
 

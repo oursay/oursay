@@ -2,7 +2,7 @@
 
 ## Definition
 
-The immutable, published outcome of a closed [Poll](./poll.md). Formal capstone of the content hierarchy. **Derived/published** — not a user-appended record type in the current implementation.
+The immutable, published outcome of a closed [Poll](./poll.md). Formal capstone of the content hierarchy. **Derived/published** — not a user-appended record type in the current implementation. Creation is **automated** (poll close / graduation) and **attributed to the poll's author** — the per-action gate story covers all four root types, with `gates.result` mirroring `poll` ([jurisdiction.md](../partitioning/jurisdiction.md)). Note: on user-facing surfaces a result is one of the things called a "post"; in backend contexts `post` means statement only ([GLOSSARY.md](../../GLOSSARY.md)).
 
 Scope of this spec is deliberately narrow: **poll close + near-term publish**. Broader future result types (petition outcomes, bill/legislative outcomes, official responses) are out of scope here — see [civic-content/future.md](./future.md).
 

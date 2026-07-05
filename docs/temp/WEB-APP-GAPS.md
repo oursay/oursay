@@ -90,7 +90,7 @@ still valid; this doc supersedes it only where they disagree) ·
   to MVP (it *is* the district-id list). Strike "deprecated" language; document the derivation rule
   (region → slugs at `asOf`; refreshed on boundary revision).
 - **Web-app policy that forced this, and why:** `FeedItem.districts` / `RecordDetail.districts`
-  (riding slugs) power the district pills, `DistrictView` per-thread listing, `jurisdictionWidePost`
+  (district slugs) power the district pills, `DistrictView` per-thread listing, `jurisdictionWidePost`
   drop-off logic, the Affected filter, and the `authorGeo` context
   (`web-app/src/lib/read-model/geography.ts`). A RegionRef alone cannot do any of that client-side —
   the client would need geometry or a per-post resolution round-trip. A slug list is cheap, stable,
@@ -487,6 +487,64 @@ civic write). New/changed, in dependency order:
 
 ---
 
+## Part 6 — Post-review clarifications (2026-07-04, user review of the W1 sweep — **applied to docs**)
+
+Binding corrections from the user's review; W2–W5 agents treat these as locked:
+
+1. **"Post" has two scopes** — FE "post" = any root record (statement/petition/poll/result);
+   backend `post` = statement only; write "statement post" in mixed contexts, explain once per doc.
+   Gates apply to **all four root types**, `result` included (automated, attributed to the poll's
+   author via graduation or direct post).
+2. **Official count = counting floor, never a participation barrier** — anyone the act gate admits
+   participates; below-floor actions bunch into unverified counts until the author verifies. Gate
+   field renamed **`officialCount`** (suffix discipline: official *role* / official *count* /
+   official *verification*); its floor is always the act gate.
+3. **AB: official-role holders cannot vote or sign petitions** — `deny: [{role:"official"}]` on
+   `vote` (act-blocked) and `petition_signature` (count-excluded with reason tag `official_role`).
+4. **Changeable by default** — platform defaults `allowChange`/`allowRevoke` = **true**
+   (intentionally loose); jurisdictions tighten to final via config (AB: final). Never a platform
+   default of final.
+5. **Official role acquisition** — manual platform validation; identity_verified min, residency
+   preferred; in-district filter logic forced to the **represented** district (home address may be
+   out-of-district); identity_verified + role = composite **official verification**.
+6. **Official-count record** — platform-authored record type on the public record: signed snapshot
+   of all eligible signatures/votes + per-participant status (`id_verified`,
+   `residency_verified[none|jurisdiction|affected]`, `official_role[not eligible in AB]`),
+   amendable with per-entry reason tags; auditable against personas, not profiles
+   (docs/entities/record/future.md).
+7. **Visibility ships with 4 values only** — `anonymous | officials | my_district | public`
+   (web-app wire value `all_officials`, label "Officials"). `officials` = **officials affected by
+   the post** (affected-district officials + jurisdiction-level official-role holders, e.g. the
+   premier). `my_officials`/`my_jurisdiction`/`id_verified`/`affected` = future MAY. Platform is in
+   a privileged position (knows every author) and shares only per the author's setting.
+8. **Registration fields** — handle **required**; display name optional (falls back to handle);
+   full name + address **optional at signup** behind a helper (fill before ID/residency
+   verification; no address ⇒ no auto jurisdiction recommendation — V1 feature, 5+ jurisdictions);
+   over_18 checkbox required. No/pseudo location never blocks (verified: geocode is best-effort in
+   `registration.service.ts`).
+9. **Graduation** — forced poll at threshold (official agreement not required); AB officials may
+   promote early at any point; proposer stays poll author; petition unaffected — **deadline is the
+   only closing**. Threshold = fixed n or % of jurisdiction's verified users (moving or frozen at
+   create), platform-set from jurisdiction config, never author-set; AB plan: % moving target →
+   fixed (10% of previous provincial election valid votes) later.
+10. **`riding_slug`/`ridingSlug` must not exist** — coder error from the "riding" UI label; only
+    GLOSSARY may name it as a legacy term (superseded table, not a heading).
+11. **Deferred at-action shortcut** — verification tier may be included in the record (exposes
+    affected-or-not only; never district); powers `Timeframe → current | at posting` filter
+    (both = future). Not MVP (docs/entities/record/future.md).
+12. **Web-app intentional gaps** (do not "fix" silently; schedule in W2):
+    - compose is missing "Affects Specific District(s) (optional)" — intentional for the demo;
+    - historical district navigation + historic district pages are missing;
+    - district routes must nest under the jurisdiction: `district/edmonton-strathcona/` →
+      `alberta/district/edmonton-strathcona/` (cross-jurisdiction name collisions).
+13. **DTO audience fields live on roots only** — children (comments/reactions/votes/signatures)
+    infer `appliesToRegion`/`appliesToDistrictIds` from the parent/root, never carry them
+    (entity-projection.md).
+14. **`.agents/` is untracked** — tracked docs reference it only inside HTML comments
+    (`<!-- see .agents/... -->`), tags stay visible.
+
+---
+
 _Action plan + agent prompts: [`WEB-APP-ALIGNMENT-PROMPTS.md`](./WEB-APP-ALIGNMENT-PROMPTS.md)._
 
 ---
@@ -504,3 +562,9 @@ _Action plan + agent prompts: [`WEB-APP-ALIGNMENT-PROMPTS.md`](./WEB-APP-ALIGNME
   DTOs documented (REGION-MODEL, 06 disclosure rows, entity read tables); persona display names +
   persona pages specced in thread-persona.md. Code encoding is `[align-w3-gates-schema]` /
   `[align-w4-api-surface]`.
+- **Post-review corrections applied 2026-07-04** (Part 6): officialCount rename + floor framing,
+  AB official-role deny on vote/sign, changeable-by-default finality, 4-value shipped visibility
+  with officials-affected-by-post semantics, registration field split (handle required, rest
+  optional + helper), graduation forced/manual + deadline-only closing + threshold shapes,
+  official-count record + deferred tier-in-record, root-only audience DTO fields, .agents refs
+  moved into HTML comments, riding_slug references purged outside the GLOSSARY legacy row.

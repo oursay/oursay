@@ -93,4 +93,4 @@ Primary key: `auth.sessions.id` (UUID). Active session: `revoked_at IS NULL` AND
 
 ## Gaps
 
-- **Registration scope drift** — `RegistrationService` issues a `full` session directly (`api/src/services/registration.service.ts`), so a freshly registered account can perform full civic actions before enrolling a passkey. Target: issue a limited `registration` scope (enroll first passkey only), then `full` after passkey login. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-registration-scope]`; see [auth/future.md](./future.md).
+- **Registration scope drift** — `RegistrationService` issues a `full` session directly (`api/src/services/registration.service.ts`), so a freshly registered account can perform full civic actions before enrolling a passkey. Target: issue a limited `registration` scope (enroll first passkey only), then `full` after passkey login. Tracked as `[code-registration-scope]`; see [auth/future.md](./future.md). <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->

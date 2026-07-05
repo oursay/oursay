@@ -38,8 +38,7 @@ EPSG:4326; source boundaries are reprojected on ingest (`ST_Transform`).
 
 `geo.districts` holds one row per boundary **revision**:
 
-- **`id`** — stable revision identity, a year-anchored slug (`edmonton-strathcona-2019`, with a
-  `-{n}` suffix when a second set lands the same calendar year, `…-2019-2`).
+- **`id`** — stable revision identity, a year-anchored slug (`edmonton-strathcona-2019`, with a `-{n}` suffix when a second set lands the same calendar year, `…-2019-2`).
 - **`effective_date`** (required) — the first day this geometry is in force. **This is the lookup key.**
 - **`drawn_date`** (optional) — when the map was drawn/enacted, if known (e.g. Alberta Bill-33, 2017‑12‑15).
 - **`boundary_year`** — slug/display only, derived from `effective_date`.
@@ -82,15 +81,8 @@ compiles to a `Region` (a `district_union` for a pure OR of districts; a `compos
 Privacy ([06 §2–3](06-PRIVACY-REVIEW.md)): public geography stays **coarse**. The protected risk is
 **user points and fine-grained slicing**, not official electoral boundaries. Concretely:
 
-- **Public (unauthenticated).** Official **district revision** metadata and their **GeoJSON geometry**
-  from `geo.districts` — this is electoral-authority data, appropriate for maps, labels, and
-  independent audit. Exposed by the area catalog (`GET /v1/public/jurisdictions`,
-  `…/jurisdictions/:id/districts`, `…/districts/:revisionId/geometry`; see
-  [`api/README.md`](../api/README.md)), keyed by effective-dated `asOf`.
-- **Internal only.** Custom `geo.regions` presets and arbitrary stored polygons, sub-riding
-  voting-area tiles, participant geocode points, and any **freeform district-id list** query surface.
-  Filtering on unauthenticated routes stays the coarse `GeoScope` enum on `…/:id/counts`; there is
-  never a public "is user *U* in district *D*" answer.
+- **Public (unauthenticated).** Official **district revision** metadata and their **GeoJSON geometry** from `geo.districts` — this is electoral-authority data, appropriate for maps, labels, and independent audit. Exposed by the area catalog (`GET /v1/public/jurisdictions`, `…/jurisdictions/:id/districts`, `…/districts/:revisionId/geometry`; see [`api/README.md`](../api/README.md)), keyed by effective-dated `asOf`.
+- **Internal only.** Custom `geo.regions` presets and arbitrary stored polygons, sub-riding voting-area tiles, participant geocode points, and any **freeform district-id list** query surface. Filtering on unauthenticated routes stays the coarse `GeoScope` enum on `…/:id/counts`; there is never a public "is user *U* in district *D*" answer.
 
 ## Participant geocode (private input to `contains`)
 
@@ -119,28 +111,11 @@ How a public discussion answers "how much of this conversation comes from the im
 the same surface (`[mvp-c-kyc-stub]`, set membership over each participant's current tier, AND-combined
 with geo).
 
-- **Input: a discussion (root entity) id only.** The caller never supplies a user id or a district;
-  there is no "who is in district D" surface to query.
-- **Region:** derive the entity's geographic scope from its own governance rules —
-  `RegionResolver.compileScope({ scope: "impacted-region", jurisdictionId, appliesToRegion })` where
-  `appliesToRegion` (a RegionRef) comes from `EntityRules` (absent ⇒ whole jurisdiction at `asOf`;
-  an author-supplied district-id stake is mapped to an OR-of-revisions RegionRef). The result is one
-  `Region` (district / union / jurisdiction / custom / composite).
-- **Participants:** the `authorPubkey` / `nullifier` of the comments, reactions, votes, and signatures
-  **in that thread**. Resolve each to a private point with `ParticipantGeoService` and test membership
-  with **`participantInRegion(ref, region)`** → `region.contains(point)`. Count code branches on the
-  boolean, **never on raw district-id lists** (so one call site serves district / union / jurisdiction
-  / custom scopes alike). No usable point ⇒ **out-of-area** (excluded from a scoped count; still in
-  `all-public`).
-- **Privacy.** A participant's riding is only ever inferred for: (a) the **authenticated** viewer
-  themselves (`my-district`, via `viewerDistrictId`); (b) a **single-district entity** scope, where
-  "in scope" reveals nothing beyond the entity's own already-public district; or (c) a fully
-  **public** account that has opted in. Aggregate counts respect the k-anonymity floor (a scoped
-  bucket with `0 < count < effectiveK` is suppressed to `{ count: null, suppressed: true }`;
-  `effectiveK = max(platformMin, jurisdiction.privacy.kAnonymityFloor ?? platformDefault)`); raw
-  membership of an identifiable third party is never returned.
-- **Hard rule:** there must **never** be a public API that answers "is user *U* in district *D*".
-  Membership is computed *inside* the count/filter service over a Region, and only aggregates leave it.
+- **Input: a discussion (root entity) id only.** The caller never supplies a user id or a district; there is no "who is in district D" surface to query.
+- **Region:** derive the entity's geographic scope from its own governance rules — `RegionResolver.compileScope({ scope: "impacted-region", jurisdictionId, appliesToRegion })` where `appliesToRegion` (a RegionRef) comes from `EntityRules` (absent ⇒ whole jurisdiction at `asOf`; an author-supplied district-id stake is mapped to an OR-of-revisions RegionRef). The result is one `Region` (district / union / jurisdiction / custom / composite).
+- **Participants:** the `authorPubkey` / `nullifier` of the comments, reactions, votes, and signatures **in that thread**. Resolve each to a private point with `ParticipantGeoService` and test membership with **`participantInRegion(ref, region)`** → `region.contains(point)`. Count code branches on the boolean, **never on raw district-id lists** (so one call site serves district / union / jurisdiction / custom scopes alike). No usable point ⇒ **out-of-area** (excluded from a scoped count; still in `all-public`).
+- **Privacy.** A participant's riding is only ever inferred for: (a) the **authenticated** viewer themselves (`my-district`, via `viewerDistrictId`); (b) a **single-district entity** scope, where "in scope" reveals nothing beyond the entity's own already-public district; or (c) a fully **public** account that has opted in. Aggregate counts respect the k-anonymity floor (a scoped bucket with `0 < count < effectiveK` is suppressed to `{ count: null, suppressed: true }`; `effectiveK = max(platformMin, jurisdiction.privacy.kAnonymityFloor ?? platformDefault)`); raw membership of an identifiable third party is never returned.
+- **Hard rule:** there must **never** be a public API that answers "is user *U* in district *D*". Membership is computed *inside* the count/filter service over a Region, and only aggregates leave it.
 
 ## Author-geo relations on read DTOs (relationships, never locations)
 
@@ -153,33 +128,22 @@ authorGeo ∈ { "home", "affected", "jurisdiction", "none" }
 
 — the author's **narrowest** relation to (viewer, open post), resolved server-side:
 
-- **`home`** — the author resides in one of the **viewer's** home districts. Resolved **only for a
-  residency-verified viewer** (the privileged case: it discloses district co-residency, nothing
-  finer).
+- **`home`** — the author resides in one of the **viewer's** home districts. Resolved **only for a residency-verified viewer** (the privileged case: it discloses district co-residency, nothing finer).
 - **`affected`** — the author resides in the post's affected area (`appliesToRegion`).
-- **`jurisdiction`** — in the post's jurisdiction but outside its affected area. Drops off on a
-  jurisdiction-wide post (there everyone in-jurisdiction is `affected`).
+- **`jurisdiction`** — in the post's jurisdiction but outside its affected area. Drops off on a jurisdiction-wide post (there everyone in-jurisdiction is `affected`).
 - **`none`** — no contextual relation, below Residency, or no usable point.
 
 Rules:
 
-- Raw author districts **never leave the server**; the relation enum is the only residence signal
-  on any DTO. The relation attaches to whatever identity surface the viewer is allowed to see
-  (persona or revealed profile) — a private author still shows `affected` without their district
-  ever being enumerable.
-- Public read endpoints therefore take an **optional session**: anonymous requests get
-  viewer-independent relations only (`home` never resolves); authenticated requests get the full
-  resolution. Trade-off: the anonymous variant is the only CDN-cacheable one.
-- **Timing:** the target binds the relation to the author's residence **at action time**
-  (`at_action` snapshots, C4 — the same relationship-flags snapshot, never points); until snapshots
-  land, **`current`** residence is the documented interim.
-- This does not loosen the hard rule: there is still never a public "is user *U* in district *D*"
-  query — the relation is computed server-side per (viewer, post, author) and only the enum leaves.
+- Raw author districts **never leave the server**; the relation enum is the only residence signal on any DTO. The relation attaches to whatever identity surface the viewer is allowed to see (persona or revealed profile) — a private author still shows `affected` without their district ever being enumerable.
+- Public read endpoints therefore take an **optional session**: anonymous requests get viewer-independent relations only (`home` never resolves); authenticated requests get the full resolution. Trade-off: the anonymous variant is the only CDN-cacheable one.
+- **Timing:** the target binds the relation to the author's residence **at action time** (`at_action` snapshots, C4 — the same relationship-flags snapshot, never points); until snapshots land, **`current`** residence is the documented interim.
+- **Deferred shortcut (discussed, not scheduled):** including the author's **verification tier in the record at write time** fakes at-action semantics cheaply — it exposes only *affected-or-not* (and could mark "was an official-role holder at action time"), adds **no jurisdiction or district data** to the record (a user's district must never appear in the public record; tier is acceptable), and powers a `Timeframe → current | at posting` refinement filter ("both" is hard, future-only). It cannot power a "my district" filter at-action nor arbitrary "status at time T" search. Not MVP — see [record/future.md](entities/record/future.md).
+- This does not loosen the hard rule: there is still never a public "is user *U* in district *D*" query — the relation is computed server-side per (viewer, post, author) and only the enum leaves.
 
 ## Where it lives
 
 - Schema: `geo/src/schema/geo.sql.ts` (`geo.districts`, `geo.regions`).
 - Store / containment: `geo/src/store.ts` (`GeoStore`).
 - Region + resolver: `geo/src/region.ts`, `geo/src/region-resolver.ts`.
-- Pluggable ingest: `geo/src/ingest/source.ts` (`BoundarySource`, `ShapefileSource`), CLI
-  `geo/scripts/ingest.ts`. Package guide: [`geo/README.md`](../geo/README.md).
+- Pluggable ingest: `geo/src/ingest/source.ts` (`BoundarySource`, `ShapefileSource`), CLI `geo/scripts/ingest.ts`. Package guide: [`geo/README.md`](../geo/README.md).

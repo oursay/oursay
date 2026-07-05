@@ -55,9 +55,7 @@ Status is product-layer metadata — may be derived from rules/deadline/admin ac
 
 ### Derived counts
 
-Signature count (total \| by tier) — policy-gated on list/detail; filterable on `/counts`. Official
-count applies the jurisdiction's `gates.petition_signature.official` gate (AB: jurisdiction
-residency; Global: `{identity_verified, residency_verified}`), recomputed at read time.
+Signature count (total \| by tier) — policy-gated on list/detail; filterable on `/counts`. The **official count** applies the jurisdiction's `gates.petition_signature.officialCount` gate (AB: jurisdiction residency; Global: `{identity_verified, residency_verified}`), recomputed at read time. It is a **counting floor after the action, not a participation barrier** — anyone the act gate admits is welcome to sign; below-floor signatures are bunched into the unverified counts until the signer verifies to the required tier. A platform-signed **official-count record** snapshots the eligible signatures and each signer's status ([record/future.md](../record/future.md)).
 
 ### Read-surface projections (target)
 
@@ -70,7 +68,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 ```
 [create petition — open]
     │ signatures collected
-    │ deadline (if set)
+    │ deadline (the ONLY closing)
     ▼
 [closed]
     │ admin marks delivered
@@ -79,6 +77,8 @@ relation — see [entity-projection.md](../record/entity-projection.md).
     ▼
 [responded]
 ```
+
+**The deadline is the only closing.** Reaching the graduation/success threshold does **not** close a petition, and neither does a manual graduation: at the configured threshold the linked poll is **forced** (whether or not an official agrees), and in `ab-ca-gov` an official-role holder may **promote the petition into a poll early, at any point** — in both cases the **proposing user remains the poll's author** and the petition stays open for signatures until its deadline. See [jurisdiction.md](../partitioning/jurisdiction.md) graduation.
 
 ## Relationships
 
@@ -92,7 +92,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 
 ## Invariants
 
-- **R1a**: Signatures final by default; revoke only if `allowRevoke` + before deadline.
+- **R1a (jurisdiction-config finality)**: signatures are **changeable by default** at the platform layer (loose defaults are intentional); a jurisdiction tightens to final via its config — `ab-ca-gov`: final (`allowRevoke: false`); `oursay-global`: revocable before deadline.
 - `petition_signature` is signed with at least the jurisdiction's `gates.petition_signature.signMin` (AB: passkey `webauthn-es256`; Global: quick-sign `p256` accepted) — see [petition-signature.md](./petition-signature.md).
 - Verified signatures on-ledger; unverified off-ledger.
 - Delivery to official with platform account triggers notification (contributor §8.2).
@@ -102,7 +102,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 | Action | Who |
 |--------|-----|
 | Create | Per jurisdiction `gates.petition.act` — `oursay-global`: any registered user; `ab-ca-gov`: residency-verified |
-| Sign | Any registered user (open act gate in both launch jurisdictions — **sign now, verify later**; official counts per `gates.petition_signature.official`) |
+| Sign | Any registered user (open act gate in both launch jurisdictions — **sign now, verify later**; official count per `gates.petition_signature.officialCount`). **AB: official-role holders excluded** — their signatures never count officially (reason tag `official_role`) |
 | Revoke signature | Signer, if rules permit |
 | Update | Author / platform governance |
 | Mark delivered | Administrator |
@@ -114,7 +114,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 
 ## Examples
 
-**Valid:** Petition to MLA with `{ allowRevoke: false }` — signatures permanent once cast.
+**Valid:** Petition to MLA with `{ allowRevoke: false }` — signatures permanent once cast (an entity/jurisdiction tightening; the platform default is revocable).
 
 **Invalid:** Revoking signature when `allowRevoke` is false — rejected at submit.
 <!-- We should consider adding revocation attempts on chain even if rejected by the platform in vote counting. -->

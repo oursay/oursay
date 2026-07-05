@@ -3,7 +3,7 @@
 _The explicit, multi-level author-visibility model. **Specified and demonstrated end-to-end in the
 Phase D `web-app`** (`web-app/src/lib/types/visibility.ts`, `lib/read-model/visibility.ts`,
 `lib/api/identity.ts`); the backend schema and read-path enforcement are pending
-(`.agents/WEB-APP-ALIGNMENT-PROMPTS.md` → `[align-w3-gates-schema]` / `[align-w4-api-surface]`).
+(`[align-w3-gates-schema]` / `[align-w4-api-surface]`). <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
 Companion to [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md) and
 [`08-IDENTITY-AND-DEVICE-POLICY.md`](./08-IDENTITY-AND-DEVICE-POLICY.md)._
 
@@ -11,24 +11,32 @@ Companion to [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md) and
 
 ## 1. The decision
 
-**Visibility is an explicit enum, never inferred from nullable fields.** `handle` and
-`display_name` are **required** at registration ([user.md](entities/account/user.md)) — privacy is
-a setting, not a missing handle. Null is for "unset," never for "private."
+**Visibility is an explicit enum, never inferred from nullable fields.** `handle` is **required**
+at registration; `display_name` is optional and defaults to the handle
+([user.md](entities/account/user.md)) — privacy is a setting, not a missing handle. Null is for
+"unset," never for "private."
 
-The enum (account default + per-thread override), **most private first**:
+The platform **ships with exactly four values** (account default + per-thread override), **most
+private first**:
 
-| Value | Who may see the identity (name/handle/profile link) behind the author |
+| Value (ships) | Who may see the identity (name/handle/profile link) behind the author |
 |---|---|
 | `anonymous` | No one — always a per-thread persona. **The floor and the registration default.** |
-| `my_officials` | Only the seated official(s) of the author's own district(s) and/or jurisdiction(s). |
-| `all_officials` | Any verified official. |
+| `officials` | The **officials affected by the post**: the seated official(s) of the thread's affected district(s) **plus jurisdiction-level official-role holders of the thread's jurisdiction**. E.g. a post to Alberta touching 3 districts → those 3 MLAs *and* the premier (a jurisdiction-level official who is also an MLA of one riding) may see the author's profile on that thread. Resolved per record from the thread's audience — not from the author's home district. |
 | `my_district` | Residency-verified members sharing one of the author's districts. |
-| `my_jurisdiction` | Residency-verified members of the author's jurisdiction. |
-| `id_verified` | Any identity-verified member. |
 | `public` | Everyone. |
 
-The selectable set in the picker is a curated subset (`anonymous · all_officials · my_district ·
-public` today, per the web-app's `VISIBILITY_VALUES`); the full enum is the wire/domain model.
+(`officials` is the web-app's `all_officials` wire value, UI label "Officials".)
+
+**Future values (MAY be added — not MVP):** `my_officials` (only the author's own district/
+jurisdiction officials), `my_jurisdiction` (residency-verified members of the author's
+jurisdiction), `id_verified` (any identity-verified member), and possibly `affected`
+(members the thread's `appliesTo` audience covers). The schema/enums should leave room; nothing
+outside the four shipped values gets UI or read-path behaviour at launch.
+
+**Where visibility is derived, remember the trust shape:** the platform sits in a privileged
+position — it knows the exact identity of **every** record author, and vows to share it only with
+the viewers the author's visibility setting allows.
 
 This governs the **account→identity surface** (handle, display name, profile linkage, avatar
 seed). It does **not** loosen the record-privacy invariants in `06-PRIVACY-REVIEW.md`: the signed

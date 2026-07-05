@@ -4,6 +4,9 @@
 
 An informal statement of sentiment that users create and others agree or disagree with. The starting point for civic conversation in the four-level hierarchy: Statement → Petition → Poll → Result. The record type is `post`; **Statement** is its default user-facing label.
 
+> **Terminology:** this doc uses the backend sense of `post` — a **statement only**. On user-facing > surfaces "post" is the umbrella word for any root record (statement, petition, poll, or result);
+> write "statement post" where the context is mixed ([GLOSSARY.md](../../GLOSSARY.md)).
+
 ## Aliases
 
 | Layer | Name |
@@ -107,6 +110,6 @@ Posts do not expire unless archived by administrator.
 
 ## Gaps
 
-- **Field model drift (RESOLVED 2026-06-27)** — `PostContent` is now `{ title: string; body?: string }` in `public-record/src/schema/types.ts`: `title` **required** (≤200), `body` **optional** (≤2000), enforced at create *and* update by `validateContent` (`public-record/src/schema/content.ts`) against the jurisdiction's `JurisdictionConfig.contentLimits` (falling back to `DEFAULT_CONTENT_LIMITS`). *History:* it was previously `{ title?: string; body: string }` (body required, title optional, no max lengths). Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-post-content-fields]`.
+- **Field model drift (RESOLVED 2026-06-27)** — `PostContent` is now `{ title: string; body?: string }` in `public-record/src/schema/types.ts`: `title` **required** (≤200), `body` **optional** (≤2000), enforced at create *and* update by `validateContent` (`public-record/src/schema/content.ts`) against the jurisdiction's `JurisdictionConfig.contentLimits` (falling back to `DEFAULT_CONTENT_LIMITS`). *History:* it was previously `{ title?: string; body: string }` (body required, title optional, no max lengths). Tracked as `[code-post-content-fields]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 - Category/tags linking not fully specified in schema — product extension on content JSON.
 - Action-time geo/tier snapshots for historical counts ([mvp-c4-action-snapshots]).

@@ -396,23 +396,23 @@ Introduce `EntityRules.appliesToRegion` (a region reference / union) as the thre
 
 ## Read first
 - docs/entities/partitioning/entity-rules.md — appliesToRegion forms + Gaps
-- docs/entities/partitioning/region.md, docs/REGION-MODEL.md — Region kinds, riding_slug, compileScope
-- docs/entities/partitioning/district.md — riding_slug stable key vs revision id
+- docs/entities/partitioning/region.md, docs/REGION-MODEL.md — Region kinds, district_slug, compileScope
+- docs/entities/partitioning/district.md — district_slug stable key vs revision id
 - public-record/src/schema/types.ts — `EntityRules.appliesToDistrictIds`
 - public-record/src/governance.ts — resolveRules / impacted-region compile
 - geo/src/region-resolver.ts — RegionResolver, compileScope, fromDistrictUnion
 
 ## Goals
-1. Define a `RegionRef` form: `jurisdiction` | `riding:<riding_slug>` | `district:<revisionId>` |
+1. Define a `RegionRef` form: `jurisdiction` | `district:<district_slug>` | `district:<revisionId>` |
    `region:<presetId>` | union (And/Or/Not, not Xor). Add `appliesToRegion` to `EntityRules`.
-2. Compile `appliesToRegion` to a `Region` via the resolver (stable `riding_slug` → current revision at
+2. Compile `appliesToRegion` to a `Region` via the resolver (stable `district_slug` → current revision at
    asOf). Keep `appliesToDistrictIds` accepted as a deprecated alias during migration; map it to the new
    form internally.
 3. Update the `impacted-region` GeoScope path to read `appliesToRegion`.
 
 ## Deliverables
 - Type + governance + resolver changes; regenerate `api/openapi.yaml`.
-- Tests: riding-slug ref resolves across boundary revisions; union composition; legacy
+- Tests: district-slug ref resolves across boundary revisions; union composition; legacy
   `appliesToDistrictIds` still resolves identically.
 
 ## Constraints / Out of scope
@@ -436,17 +436,17 @@ You are reviewing a coding agent's PLAN for [code-applies-to-region] (EntityRule
 ## Read for alignment
 - docs/entities/partitioning/entity-rules.md — appliesToRegion forms + Gaps
 - docs/entities/partitioning/region.md, docs/REGION-MODEL.md
-- docs/entities/partitioning/district.md — riding_slug vs revision id
+- docs/entities/partitioning/district.md — district_slug vs revision id
 - public-record/src/governance.ts, geo/src/region-resolver.ts
 
 ## Rate the plan 1–10 on
 - `RegionRef` forms: jurisdiction | riding:<slug> | district:<revisionId> | region:<presetId> | And/Or/Not union (not Xor)
-- `appliesToRegion` compiles to `Region` via resolver; `riding_slug` resolves to current revision at `asOf`
+- `appliesToRegion` compiles to `Region` via resolver; `district_slug` resolves to current revision at `asOf`
 - Legacy `appliesToDistrictIds` accepted as deprecated alias mapping to new form internally
 - `impacted-region` GeoScope path reads `appliesToRegion`
 - No raw district-id public query surface introduced
 - Narrow-only audience rule preserved
-- Test strategy: riding-slug across boundary revisions; union composition; legacy alias identical resolution
+- Test strategy: district-slug across boundary revisions; union composition; legacy alias identical resolution
 - Scope: no `appliesToVerified`; no entity_audience projection yet
 - Estimated commit size reasonable for one PR
 
@@ -473,7 +473,7 @@ You are reviewing COMPLETED WORK for [code-applies-to-region] (EntityRules appli
 
 ## Rate the work 1–10 on
 - `appliesToRegion` / `RegionRef` implemented per doc forms
-- Resolver compiles refs to `Region`; riding_slug stable across boundary revisions (tests prove it)
+- Resolver compiles refs to `Region`; district_slug stable across boundary revisions (tests prove it)
 - Union composition (And/Or/Not) works as specified
 - Legacy `appliesToDistrictIds` still resolves identically during migration
 - `impacted-region` scope uses `appliesToRegion`
@@ -1136,7 +1136,7 @@ Add a materialized `entity_audience` projection mapping each root entity to its 
 - geo/src/region-resolver.ts — region resolution
 
 ## Goals
-1. Define `entity_audience` (entity_id → resolved riding_slug(s)/region) derived from each root entity's
+1. Define `entity_audience` (entity_id → resolved district_slug(s)/region) derived from each root entity's
    `appliesToRegion` (depends on `[code-applies-to-region]`).
 2. Support a district-page query: "every thread that applies to riding X" without per-request region
    compilation.
@@ -1172,7 +1172,7 @@ Depends on `[code-applies-to-region]` — plan must not assume `appliesToRegion`
 - geo/src/region-resolver.ts
 
 ## Rate the plan 1–10 on
-- `entity_audience` maps entity_id → resolved riding_slug(s)/region from root entity `appliesToRegion`
+- `entity_audience` maps entity_id → resolved district_slug(s)/region from root entity `appliesToRegion`
 - District-page query: threads applying to riding X without per-request region compilation
 - Refresh strategy chosen and documented (incremental vs materialized view refresh)
 - Dependency on `[code-applies-to-region]` handled honestly (blocked, landed, or explicit stub)
@@ -1204,7 +1204,7 @@ You are reviewing COMPLETED WORK for [code-entity-audience-projection] (material
 
 ## Rate the work 1–10 on
 - `entity_audience` projection DDL exists and populates from `appliesToRegion`
-- Resolved riding_slug(s)/region correct for single-district, union, and jurisdiction-wide threads (integration tests)
+- Resolved district_slug(s)/region correct for single-district, union, and jurisdiction-wide threads (integration tests)
 - District-page listing query works without per-request full region compilation
 - Refresh/populate path implemented; strategy documented in code or docs
 - Built on landed `[code-applies-to-region]` (or honest stub called out in review)

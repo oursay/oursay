@@ -60,16 +60,21 @@ Per-type maximum sizes enforced at create/update. Alberta example:
 
 ### JurisdictionRules (defaults)
 
-| Field | Type | Default | Meaning |
-|-------|------|---------|---------|
-| `allowChange` | boolean | false | Votes may change before deadline |
-| `allowRevoke` | boolean | false | Signatures may be revoked before deadline |
+| Field | Type | Platform default | Meaning |
+|-------|------|------------------|---------|
+| `allowChange` | boolean | **true** | Votes may change before deadline |
+| `allowRevoke` | boolean | **true** | Signatures may be revoked before deadline |
 | `defaultDeadline` | ISO 8601 | — | Default close time when entity sets none |
+
+**Changeable by default.** The platform defaults are intentionally as loose as possible — votes
+and signatures are *changeable* by default. A jurisdiction tightens to final-action semantics
+through **its own config**, never a platform default (`oursay-global`: both true; `ab-ca-gov`
+launch: both false — final).
 
 ### gates (per-action policy, target)
 
 The per-action gate map — **the** jurisdiction policy seam for who may act, how actions must be
-signed, and who counts officially. Replaces the earlier `signing.defaultScheme` knob, the
+signed, and whose actions are included in the official count. Replaces the earlier `signing.defaultScheme` knob, the
 platform-wide vote/signature scheme hard-override, and the `graduation.createTier` / `actTier`
 sketches. **Target — not yet present in code** (`[align-w3-gates-schema]`).
 
@@ -82,16 +87,24 @@ type GateActor =
 
 interface ActionGate {
   act: GateActor;                    // who may perform the action at all
+  deny?: GateActor[];                // subtractive — actors excluded from acting (e.g. AB denies
+                                     // official-role holders on vote / petition_signature)
   signMin: "quick" | "passkey";      // minimum sign method; account pref may raise, never lower
-  official?: GateActor;              // who counts in official totals (absent ⇒ same as act)
+  officialCount?: GateActor;         // who is included in official-count totals (absent ⇒ same as
+                                     // act). A counting floor AFTER the action, never an act gate;
+                                     // its effective floor is always the act gate itself.
 }
 
 interface JurisdictionGates {
-  post: ActionGate; petition: ActionGate; poll: ActionGate;   // creation
+  post: ActionGate; petition: ActionGate; poll: ActionGate;   // root creation
+  result: ActionGate;                                         // automated root (see note)
   comment: ActionGate; reaction: ActionGate;                  // attachments
   vote: ActionGate; petition_signature: ActionGate;           // singletons
 }
 ```
+
+Gates are set **per jurisdiction per record type** — the same jurisdiction may floor a
+`petition_signature` at passkey while leaving `comment` quick-signable.
 
 Launch configs:
 
@@ -100,26 +113,33 @@ Launch configs:
 | `post` (create) | anyone · quick | anyone · **passkey (uv)** |
 | `petition` (create) | anyone · quick | residency-verified · passkey |
 | `poll` (create) | anyone · quick | **role: official** · passkey (or petition→poll graduation) |
+| `result` | automated at poll close — attributed to the poll's author; mirrors `poll` | same |
 | `comment` / `reaction` | anyone · quick | anyone · quick |
-| `vote` | act: anyone · quick · official `{identity_verified, residency_verified}` | act: **jurisdiction residency** · passkey |
-| `petition_signature` | act: anyone · quick · official `{identity_verified, residency_verified}` | act: anyone (**sign now, verify later**) · passkey · official: **jurisdiction residency** |
+| `vote` | act: anyone · quick · officialCount `{identity_verified, residency_verified}` | act: **jurisdiction residency**, **deny: official role** · passkey |
+| `petition_signature` | act: anyone · quick · officialCount `{identity_verified, residency_verified}` | act: anyone (**sign now, verify later**), **deny: official role** · passkey · officialCount: **jurisdiction residency** |
 
-Notes: **jurisdiction residency** = `residency_verified` AND geocoded point inside the
-jurisdiction's region (a gate kind, not a tier). Official gates are recomputed at read time from
-current attestations. `counts.minTier` (public count *exposure*) must stay consistent with
-`official` — for `ab-ca-gov` that means dropping `identity_verified` from `minTier` (config change
-tracked in `[align-w3-gates-schema]`).
+Notes:
+
+- **Jurisdiction residency** = `residency_verified` AND geocoded point inside the jurisdiction's region (a gate kind, not a tier).
+- **`officialCount` is a counting floor, not a barrier.** Anyone the act gate admits is welcome to participate; actions below the floor land in the **unverified/unofficial** counts until the author verifies to the required tier. Official-count gates are recomputed at read time from current attestations, and always use the act gate as their floor.
+- **AB: official-role holders may not vote or sign petitions.** `vote` denies them at the act gate (submit rejected); `petition_signature` has an open act gate, so a signature from someone who holds (or later gains) the official role is excluded from the official count with the per-entry reason tag `official_role` — see the official-count record ([record/future.md](../record/future.md)).
+- **`result`** is created automatically (poll close / graduation) and **attributed to the poll's author** — the gate exists for the completeness of the per-root-type rule and mirrors `poll`.
+- `counts.minTier` (public count *exposure*) must stay consistent with `officialCount` — for `ab-ca-gov` that means dropping `identity_verified` from `minTier` (config change tracked in `[align-w3-gates-schema]`).
 
 ### graduation (promotion policy, target)
 
 | Field | Type | Meaning |
 |-------|------|---------|
 | `graduation.policy` | `open` \| `ladder` | `open`: any member may create a root at any level directly. `ladder`: higher levels via graduation (creation gates above still apply). |
-| `graduation.petitionToPoll` | `{ threshold: number, deadlineSource: "duration" \| "explicit" }` | Verified-signature count that auto-graduates a linked petition into a poll, and how the poll's deadline is set. |
+| `graduation.petitionToPoll.threshold` | `{ kind: "fixed", n: number }` \| `{ kind: "percentOfVerified", pct: number, basis: "atCreate" \| "moving" }` | Success trigger: a fixed count, or a percentage of the jurisdiction's verified users — frozen at creation time or a moving target. **Platform-decided from jurisdiction config at creation time; never author-set per entity.** |
+| `graduation.petitionToPoll.deadlineSource` | `"duration"` \| `"explicit"` | How the graduated poll's deadline is set. |
+
+At the threshold the poll is **forced** — it graduates whether or not an official agrees, and the **proposing user remains the poll's author**. In `ab-ca-gov`, an official-role holder may also **manually graduate a petition into a poll at any point** (promote early). Neither path touches the petition: signing stays open, and the petition's **deadline is its only closing** — not the threshold, not a manual graduation.
+
+AB threshold plan: a percentage-based **moving** target until the user base crosses a set size, then a config change to an official **fixed** number — 10% of valid votes cast in the previous provincial election, or better — for poll graduation / petition success.
 
 Reference models: `oursay-global` = `policy: open`; `ab-ca-gov` = `policy: ladder` (polls also
-creatable directly by officials via `gates.poll`); `some-strict` = `policy: ladder` for every
-level. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-jurisdiction-graduation]`.
+creatable directly by official-role holders via `gates.poll`); `some-strict` = `policy: ladder` for every level. Tracked as `[code-jurisdiction-graduation]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## States & lifecycle
 
@@ -154,7 +174,7 @@ Configuration object — no runtime state machine. Registered at API startup fro
 
 ## Examples
 
-**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false, allowRevoke: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, signMin: "passkey" }, petition_signature: { act: "anyone", signMin: "passkey", official: { residencyIn: "jurisdiction" } }, poll: { act: { role: "official" }, signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }`
+**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false, allowRevoke: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, deny: [{ role: "official" }], signMin: "passkey" }, petition_signature: { act: "anyone", deny: [{ role: "official" }], signMin: "passkey", officialCount: { residencyIn: "jurisdiction" } }, poll: { act: { role: "official" }, signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }` — note `rules` tightens the loose platform defaults (`allowChange`/`allowRevoke` default **true**) to final.
 
 **Invalid:** Using `level: "provincial"` as a partition key for signing keys or nullifier roots — level is metadata only.
 
@@ -169,9 +189,9 @@ Configuration object — no runtime state machine. Registered at API startup fro
 
 ## Gaps
 
-- **JurisdictionConfig shape drift** — code today is `{ id, level, label, rules, privacy?, counts? }` in `public-record/src/jurisdiction.ts`; `labels` (per-record-type user-facing labels) and `contentLimits` (hard caps per type) are **not yet** present. Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-jurisdiction-labels-limits]`. Note `label` (singular, the jurisdiction's own display name) is distinct from `labels` (the per-record-type map).
+- **JurisdictionConfig shape drift** — code today is `{ id, level, label, rules, privacy?, counts? }` in `public-record/src/jurisdiction.ts`; `labels` (per-record-type user-facing labels) and `contentLimits` (hard caps per type) are **not yet** present. Tracked as `[code-jurisdiction-labels-limits]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md --> Note `label` (singular, the jurisdiction's own display name) is distinct from `labels` (the per-record-type map).
 - **[mvp-c10-multi-jurisdiction]**: API container still uses a single deployment-default chain for some write paths; worker is already multi-chain ([API-GAPS-AND-ROADMAP.md](../../API-GAPS-AND-ROADMAP.md)).
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription model yet — see [partitioning/future.md](./future.md).
-- **[align-w3-gates-schema]** (absorbs `[code-jurisdiction-graduation]` + `[code-participation-act-eligibility]`): the `gates` per-action map (act / signMin / official, incl. the jurisdiction-residency and official-role gate kinds), the `graduation` policy fields, and the removal of the `requiredSignScheme()` hard override are **target only** — `JurisdictionConfig` has none of them today, and no auto-graduation worker exists. See `.agents/WEB-APP-ALIGNMENT-PROMPTS.md`.
+- **[align-w3-gates-schema]** (absorbs `[code-jurisdiction-graduation]` + `[code-participation-act-eligibility]`): the `gates` per-action map (act / deny / signMin / officialCount, incl. the jurisdiction-residency and official-role gate kinds), the `graduation` policy fields, and the removal of the `requiredSignScheme()` hard override are **target only** — `JurisdictionConfig` has none of them today, and no auto-graduation worker exists. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
 - **Official role** — the `role: "official"` gate needs a platform-assigned, revocable role on the user/jurisdiction membership (a **role, not a KYC tier**); no such column/flow exists yet.
 - **[code-jurisdiction-binding-fallback]**: every root entity carries `jurisdictionId` in its audience, but the explicit **`oursay-global` fallback on create** (and its enforcement that no root is unbound) is not yet asserted in code.

@@ -38,6 +38,22 @@ flowchart LR
 
 ---
 
+> **⚠ Post-review corrections (2026-07-04) — binding for W2–W5; where a prompt below disagrees,
+> WEB-APP-GAPS.md Part 6 wins.** Highlights: gate field is **`officialCount`** (+ optional
+> `deny: [{role:"official"}]`; AB denies official-role holders on vote/petition_signature);
+> official count = counting floor, never an act barrier (floor = act gate); platform finality
+> defaults are **loose** (`allowChange`/`allowRevoke` true — AB tightens to final);
+> visibility ships with **4 values** (`anonymous | officials | my_district | public`,
+> `officials` = officials affected by the post incl. jurisdiction-level role holders);
+> registration = handle required, display name optional (falls back to handle), full name +
+> address optional behind a helper, over_18 required; graduation: forced at threshold, AB official
+> may promote early, proposer stays author, petition's **deadline is the only closing**, threshold
+> = fixed n or % of verified users (platform-set at create); `result` is a gated root type
+> (automated, attributed to the poll author); district routes nest under jurisdiction
+> (`alberta/district/<slug>/`); `riding_slug`/`ridingSlug` must not reappear.
+
+---
+
 ## `[align-w1-docs]` — Documentation sweep
 
 **Conversation:** Start **fresh**. Docs only — no application code, schema, or OpenAPI changes.
@@ -150,14 +166,21 @@ ambiguous.**
    residency-verified (Part 5 resolved).
 3. M4 — official counts: RecordOption/petition tallies carry official vs live totals per the gate
    config's official definition; sign modal notices derive from the same config.
-4. M5 — RegisterForm slims to display name / handle / email / over-18 (C3).
+4. M5 — RegisterForm: handle (required) / display name (optional — falls back to handle) /
+   email / over-18 (required) + optional full name & address behind the helper copy (Part 6 #8).
 5. M8 — signTier on mock rows derives from each jurisdiction's signMin floor (no hand-set values
    that contradict the config).
 6. C2 naming — canonical names stay `appliesToRegion` / `appliesToDistrictIds` (Part 5 resolved:
    keep `appliesTo*`); rename FeedItem/RecordDetail `districts` to align with the served
    `appliesToDistrictIds` projection (or document the mapping explicitly in CONTRACT.md); keep
    field semantics (author residence stays server-internal, authorGeo is the served relation).
-7. Keep all read-model unit tests green; extend them for the gate-driven compose eligibility and
+7. Part 6 items — nest district routes under the jurisdiction
+   (`district/<slug>/` → `<jurisdiction>/district/<slug>/`, avoiding cross-jurisdiction slug
+   collisions); trim the visibility picker/enum handling to the 4 shipped values with
+   officials-affected-by-post semantics; keep the two intentional gaps (compose "Affects Specific
+   District(s)" field, historical district nav/pages) documented as future, don't add them
+   silently.
+8. Keep all read-model unit tests green; extend them for the gate-driven compose eligibility and
    officials-only polls.
 
 ## Deliverables
@@ -202,10 +225,17 @@ schema changes from WEB-APP-GAPS Part 2, and enforce the gates fail-closed on th
 This replaces the platform-wide webauthn-es256 hard override.
 
 **No assumptions — ask the user for clarification when requirements, wire format, or scope are
-ambiguous.** WEB-APP-GAPS Part 5 is fully resolved — key decisions: AB petition create =
+ambiguous.** WEB-APP-GAPS Parts 5–6 are fully resolved — key decisions: AB petition create =
 residency-verified + passkey; over_18 = signup checkbox (birthdate drops); official = platform
-role, not a tier; Global official counts = {identity_verified, residency_verified}; default
-visibility = anonymous; cascade = thread ?? account ?? anonymous.
+role, not a tier; Global officialCount = {identity_verified, residency_verified}; default
+visibility = anonymous; cascade = thread ?? account ?? anonymous. Part 6 corrections: gate field
+`officialCount` (+ `deny`; AB denies official-role holders on vote/petition_signature — vote
+act-blocked, signatures count-excluded with reason `official_role`); loose platform finality
+defaults (allowChange/allowRevoke true; AB config stays final); `result` in JurisdictionGates
+(automated, mirrors poll, attributed to poll author); graduation threshold = fixed n or
+percentOfVerified (moving|atCreate), platform-set at create, manual early promotion by AB
+officials, petition deadline is the only closing; registration = handle required + over_18, all
+else optional (displayName falls back to handle); visibility enum ships 4 values.
 
 ## Read first
 - .agents/WEB-APP-GAPS.md — C1, C3, C4, C5, C6, Part 2 (schema), Part 3 (gate shape)
@@ -259,7 +289,7 @@ migrations cover every Part 2 row with backfills, blocking clarifications asked.
 ```
 QA [align-w3-gates-schema]: run the api + public-record test suites. Spot-check: quick-signed vote
 settles on oursay-global; ab-ca-gov rejects a quick-signed statement and a non-resident vote;
-registration succeeds with only email/otp/handle/displayName; persona_name minted unique at join;
+registration succeeds with only email/otp/handle (displayName optional, falls back to handle); persona_name minted unique at join;
 entity_audience rows appear for a district-scoped root; no public route returns persona→user or
 raw districts. Score 1–10. Do not commit.
 ```

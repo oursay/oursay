@@ -8,7 +8,7 @@ Linking a thread persona (Pₜ) to a public profile is the **reveal** flow:
 - **On-chain reveal** — nuclear, permanent.
 
 This replaces the deprecated `thread_keys.claimed` / `claimed_at` columns, which remain until migration. The account-side privacy surface is [09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md).
-→ `.agents/CODE-ALIGNMENT-PROMPTS.md` `[code-drop-claimed-columns]`.
+→ `[code-drop-claimed-columns]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## Selective disclosure / ZK
 - Salt escrow + at-rest encryption for thread bindings (KMS milestone).

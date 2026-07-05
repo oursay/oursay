@@ -72,10 +72,18 @@ not a ladder):
 | **Electoral-validated** | yes | `electoral_validated` | future | Elections-Alberta tier; not launch. |
 
 **Eligibility is three axes** (carried from stories §2; the jurisdiction's per-action
-`gates[action]` — see [jurisdiction.md](entities/partitioning/jurisdiction.md)): **act** (may the
-member perform the action at all), **signMin** (minimum sign method; the account preference may
-raise it), and **official count** (does it count in the *signed/official* total, layered with the
-thread's `appliesToVerified`). Flows note where a gate decides a branch.
+`gates[action]`, set per jurisdiction per record type — see
+[jurisdiction.md](entities/partitioning/jurisdiction.md)): **act** (may the member perform the
+action at all, optionally minus a deny list), **signMin** (minimum sign method; the account
+preference may raise it), and **official count** (`gates[action].officialCount` — is the action
+*included in the official-count totals*, layered with the thread's `appliesToVerified`). The
+official count is a **counting floor after the action, never a participation barrier**: anyone the
+act gate admits is welcome, and below-floor actions sit in the unverified counts until the author
+verifies. Flows note where a gate decides a branch.
+
+> **Terminology:** in these flows "post" in UI copy means any root record (statement, petition,
+> poll, result); the record type `post` means a statement only — "statement post" where mixed
+> ([GLOSSARY.md](GLOSSARY.md)).
 
 ## Eligibility matrices (who may act, per jurisdiction)
 
@@ -84,24 +92,24 @@ Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5 — **
 
 ### `ab-ca-gov` (Alberta) — partial ladder · `labels.district = riding`
 
-| Action | May act | Sign floor | Counts officially | Notes |
-|--------|---------|------------|-------------------|-------|
+| Action | May act | Sign floor | Official count (floor = act) | Notes |
+|--------|---------|------------|------------------------------|-------|
 | create `post` (Statement) | any registered subscriber | **passkey (uv)** | — (reactions counted by tier) | open, ledger-final signing |
 | react / comment | any registered subscriber | quick | by tier | quick-sign OK |
 | create `petition` | `residency-verified` | passkey | — | |
-| sign `petition` | **any registered** | passkey | **jurisdiction residency** | **sign now, verify later** |
-| create `poll` | **officials only** (role) or via graduation | passkey | — | role gate, not a tier |
-| `vote` | **jurisdiction residency** | passkey | = act set | participation-gated |
+| sign `petition` | **any registered**, official-role holders denied | passkey | **jurisdiction residency** | **sign now, verify later**; role holders excluded (reason `official_role`) |
+| create `poll` | **official-role holders only** or via graduation | passkey | — | role gate, not a tier; officials may promote a petition early |
+| `vote` | **jurisdiction residency**, **official-role holders denied** | passkey | = act set | participation-gated; officials cannot vote in AB |
 
 ### `oursay-global` — open model (every account auto-joins)
 
-| Action | May act | Sign floor | Counts officially | Notes |
-|--------|---------|------------|-------------------|-------|
+| Action | May act | Sign floor | Official count (floor = act) | Notes |
+|--------|---------|------------|------------------------------|-------|
 | create `post` / react / comment | any registered | quick | by tier | any sign method, any KYC |
 | create `petition` | any registered | quick | by tier | no graduation gate |
-| sign `petition` | any registered | quick | **ID-or-better** | permissive act |
+| sign `petition` | any registered | quick | **ID-or-better** | permissive act; below-floor → unverified counts |
 | create `poll` | any registered | quick | by tier | **standalone polls allowed** |
-| `vote` | any registered | quick | **ID-or-better** | public voting |
+| `vote` | any registered | quick | **ID-or-better** | public voting; below-floor → unverified counts |
 
 ### `some-strict` (reference, private, future) — full ladder
 
@@ -163,12 +171,13 @@ flowchart TD
 
 1. Enter email  `[screen: Email capture]`  `-> POST /v1/auth/otp/request {purpose:"registration"}`
    - branch: email already registered → unauthenticated request is a **silent no-op** (no enumeration); UI shows "check your email" regardless.
-2. Enter code + public identity (**handle + display name**, both required) + `over_18` checkbox  `[screen: OTP + identity form]`  `-> POST /v1/auth/otp/verify`
-   — **least-resistance registration**: no legal name, no address, no birthdate; PII is collected at the KYC step (2.x), which also triggers the first geocode.
+2. Enter code + public identity + `over_18` checkbox (required)  `[screen: OTP + identity form]`  `-> POST /v1/auth/otp/verify`
+   — **least-resistance registration** fields: **handle (required)** · **display name (optional — uses the handle when unfilled)** · **full name (optional)** · **address (optional)**, with a helper: *these need to be filled before ID/residency verification; without an address the platform cannot recommend which jurisdictions to join automatically* (auto-recommendation is a V1 feature, at 5+ jurisdictions). No birthdate. The KYC step (2.x) collects/re-verifies whatever was left blank and triggers the first geocode where the address arrives there.
    - branch: over-18 box unchecked → `[screen: Ineligible]`, no account created.
    - branch: handle taken → `[state: inline error]`, suggest alternatives.
    - branch: code wrong/expired → `[state: inline error]`, allow resend (rate-limited 10/min request, 20/min verify).
-   - on success: account created (visibility default **anonymous**), auto-subscribed to `oursay-global`; session issued at **registration** scope. *(Code gap: `otp/verify` still requires `birthdate` and accepts name/address — `[align-w3-gates-schema]`.)*
+   - **no location, pseudo location, or out-of-Alberta address is never a blocker** — geocoding is best-effort and non-blocking in code today (`registration.service.ts`); such users register fine and participate to the degree the gates allow.
+   - on success: account created (visibility default **anonymous**), auto-subscribed to `oursay-global`; session issued at **registration** scope. *(Code gap: `otp/verify` still requires `birthdate` and treats handle as optional — `[align-w3-gates-schema]`.)*
 3. Enroll first passkey  `[screen: WebAuthn prompt]`  `-> POST /v1/auth/passkey/register/options` → device ceremony → `-> POST /v1/auth/passkey/register/verify`
    - branch: user dismisses WebAuthn → `[state: passkey pending]`; account exists but can only re-enroll (registration scope) — see 1.5 abandon note.
 4. Log in with the new passkey to upgrade scope  `-> POST /v1/auth/passkey/login/options` → `-> POST /v1/auth/passkey/login/verify` → **full** session.
@@ -238,7 +247,7 @@ flowchart TD
 
 **Entry:** Settings → Profile (full session).
 
-1. View own profile (email, handle, display name, `over_18`, visibility default; address/legal name appear only after KYC supplies them)  `[screen: Profile]`  `-> GET /v1/profile`
+1. View own profile (email, handle, display name (handle-derived if never set), `over_18`, visibility default; address/legal name appear once supplied — at signup, KYC, or a profile edit)  `[screen: Profile]`  `-> GET /v1/profile`
 
 **End (success):** Profile shown. PII is private to the owner; never on the public record.
 
@@ -382,7 +391,7 @@ flowchart TD
 
 **Entry:** "New poll".
 
-- branch (**Alberta**): create `poll` = **role: official** → standalone creation blocked for non-officials (`[screen/poll button: not available]`); members' polls exist only by graduation (3.4); a seated official composes directly (passkey-signed).
+- branch (**Alberta**): create `poll` = **official role** → standalone creation blocked for non-officials (`[screen/poll button: not available]`); members' polls exist only by graduation (3.4 — forced at threshold, or promoted early by an official-role holder); a seated official composes directly (passkey-signed).
 - branch (**oursay-global**): any registered may create (quick-sign OK).
 
 1. Compose: `question` (≤200) + `options[]` (2–10, each ≤100) + optional `description` (≤2000) + rules (`allowChange`, deadline, `appliesToVerified`)  `[screen: Compose poll]`
@@ -396,7 +405,12 @@ flowchart TD
 
 1. Link a poll definition to the petition  `[screen: Attach poll]`  `-> entity (poll linked to petition)`
 2. Set lifecycle controls (**`oursay-global`**, US-GLB-1): explicit deadline or duration, and opt the petition into/out of auto-graduation; defaults fall back to `defaultDeadline`.  `[screen: Lifecycle settings]`
-3. **Automatic:** when the petition reaches the verified-signature threshold, the poll **auto-starts**, deadline per `deadlineSource`.  **(gap: graduation engine not built — `[code-jurisdiction-graduation]`)**
+3. **Automatic:** at the configured threshold (fixed number or percent of the jurisdiction's verified users — platform-decided from jurisdiction config at creation, never author-set) the poll is **forced** — it auto-starts whether or not an official agrees, deadline per `deadlineSource`.  **(gap: graduation engine not built — `[code-jurisdiction-graduation]`)**
+4. **Manual (AB):** an official-role holder may graduate the petition into its poll **at any point** (promote early)  `[screen: Promote to poll (official)]`.
+
+In every path the **proposing user remains the poll's author**, and the petition is untouched —
+signing stays open, and the petition's **deadline is its only closing** (not the threshold, not a
+manual graduation).
 
 **End (success, when shipped):** Poll graduates with the weight of a successful petition.
 **End (interim):** Link is informational; no auto-start. In `oursay-global`, the poll can also follow direct-create (3.3).
@@ -405,7 +419,9 @@ flowchart TD
 
 ## 4. Civic content — participate
 
-Same join → prepare → submit path (3.0). Signatures and votes are **final by default** and signed
+Same join → prepare → submit path (3.0). Signatures and votes are **changeable by default** at the
+platform layer (loose defaults are intentional) — a jurisdiction tightens to final via its config
+(`ab-ca-gov`: final; `oursay-global`: changeable/revocable before deadline). Every action is signed
 at the jurisdiction's floor or stronger — the effective method is the strongest of the account's
 per-action preference (quick/ask/passkey) and `gates[action].signMin`. Alberta floors signatures
 and votes at hardware-backed `webauthn-es256` (per-action user verification); `oursay-global`
@@ -454,13 +470,14 @@ flowchart TD
 
 **Entry:** "Sign" on a petition.
 
-1. Optional comment + optional anonymous flag  `[screen: Sign petition]` (comment hidden if anonymous)
+1. Optional comment + optional anonymous flag  `[screen: Sign petition]` (comment author is thread persona if anonymous)
    - branch: already signed → blocked by **nullifier** dedupe (one signature per `(user, petition)`).
    - branch: deadline passed / petition closed → `[state: signing closed]`.
-   - the act gate is **open** (anyone may sign — **sign now, verify later**); a below-official signer sees a notice that their signature won't count officially yet.
+   - the act gate is **open** (anyone may sign — **sign now, verify later**); a below-floor signer sees a notice that their signature sits with the unverified signatures until they verify — a counting floor, never a barrier to signing.
+   - branch (**AB**): official-role holders are denied — officials cannot sign petitions in Alberta.
 2. `-> prepare {type:"petition_signature"}` → signing ceremony at `gates.petition_signature.signMin` or stronger (AB: **`webauthn-es256`**; Global: quick-sign OK) → `submit`.
 
-**End (success):** Counts as **official** only while the signer meets `gates.petition_signature.official` (AB: jurisdiction residency; Global: ID-or-better; ∩ `appliesToVerified` where set), recomputed at read time; otherwise **unofficial**. Final by default; revoke only if `allowRevoke` + before deadline.
+**End (success):** Included in the **official count** only while the signer meets `gates.petition_signature.officialCount` (AB: jurisdiction residency; Global: ID-or-better; ∩ `appliesToVerified` where set), recomputed at read time; otherwise bunched with the **unverified** signatures. Finality is jurisdiction config (AB: final; Global: revoke if `allowRevoke` + before deadline).
 
 ### 4.4 Vote in a poll  ·  eligible member  ·  Built  ·  US-CAP-7
 
@@ -469,10 +486,10 @@ flowchart TD
 1. Select one option + optional anonymous flag  `[screen: Vote]`
    - branch: already voted → blocked by **nullifier** (one vote per `(user, poll)`); change only if `allowChange` + before deadline.
    - branch: poll not active / closed → `[state: voting closed]`.
-   - branch: not act-eligible (`gates.vote.act` — AB: **jurisdiction residency**; Global: anyone) → `[state: action blocked]` with a "get residency-verified" prompt.
+   - branch: not act-eligible (`gates.vote.act` — AB: **jurisdiction residency**, official-role holders denied; Global: anyone) → `[state: action blocked]` with a "get residency-verified" prompt (or, for an AB official, a note that officials cannot vote).
 2. `-> prepare {type:"vote"}` → signing ceremony at `gates.vote.signMin` or stronger (AB: **`webauthn-es256`**; Global: quick-sign OK) → `submit`.
 
-**End (success):** Vote recorded; anonymous verified votes show **tier only** (e.g. "Residency Verified"). Official per `gates.vote.official` (∩ `appliesToVerified` where set).
+**End (success):** Vote recorded; anonymous verified votes show **tier only** (e.g. "Residency Verified"). Official count per `gates.vote.officialCount` (∩ `appliesToVerified` where set); below-floor ballots sit in the unverified counts.
 
 ---
 
@@ -568,8 +585,12 @@ flowchart TD
   PS --> OC["6.3 On-chain reveal (permanent, Planned)"]
   OC --> PERM(["Irreversible public link"])
   PS --> VIS["6.4 Account visibility default"]
-  VIS --> RES{"anonymous / my_officials / all_officials / my_district / my_jurisdiction / id_verified / public"}
+  VIS --> RES{"anonymous / officials / my_district / public (shipped set)"}
 ```
+
+Where visibility is derived, remember the trust shape: the platform sits in a **privileged
+position** — it knows the exact identity of every record author, and shares it only with the
+viewers the author's setting allows ([09-ACCOUNT-PRIVACY-MODEL.md](09-ACCOUNT-PRIVACY-MODEL.md)).
 
 ### 6.1 Pseudonymous-by-default  ·  Registered  ·  Built  ·  US-CAP-9
 
@@ -616,7 +637,7 @@ visibility is chosen at compose, 6.1b).
 
 **Entry:** Privacy settings → visibility.
 
-1. Choose the account default from the picker subset (`anonymous | all_officials | my_district | public`; full enum `anonymous | my_officials | all_officials | my_district | my_jurisdiction | id_verified | public`)  `[screen: Visibility]`
+1. Choose the account default from the **four shipped values** (`anonymous | officials | my_district | public` — `officials` = officials **affected by the post**: affected-district officials + jurisdiction-level official-role holders; additional values like `my_officials`/`my_jurisdiction`/`id_verified`/`affected` MAY be added later)  `[screen: Visibility]`
    - resolution: `thread ?? account ?? anonymous` — a per-thread choice (6.1b) wins outright in either direction; new accounts default to **anonymous**; a per-jurisdiction middle layer is a future extension.
    - out-of-scope viewers get **404** (not 403) on the **whole profile surface** (header + tabs), not just handle lookups.
 
@@ -655,7 +676,7 @@ disclaimer: *"generated from public record; [Name] has not endorsed this platfor
 
 **Entry:** Claimed official → "My constituency".
 
-1. View threads whose `appliesToRegion` covers the official's district (or jurisdiction-wide)  `[screen: Sentiment dashboard]`
+1. View threads whose `appliesToRegion` covers the official's **represented** district (or jurisdiction-wide) — in-district logic for officials is forced to the represented seat, never the home address  `[screen: Sentiment dashboard]`
 2. Breakdown by tier; respects `countGating` and `kAnonymityFloor` (narrow buckets suppressed).
 
 **End (success):** See verified constituent will without commissioning a poll. **Not built.**
@@ -717,7 +738,7 @@ All trace to existing tags; **none implemented here** (this is a documentation p
 - **Formal `result` entity** at poll close (5.4) — `[mvp-c12-poll-results]`.
 - **Signed count manifests** + **full record sync** + **count amendments** (8.x) — `[mvp-c13-signed-count-snapshots]`, `[mvp-c14-count-amendments]`.
 - **Visibility schema + reveal** (6.1b–6.4: account default, per-thread override, persona pages, profile 404s, reveal) — `[align-w3-gates-schema]` / `[align-w4-api-surface]` (supersedes `[code-privacy-schema]`).
-- **Least-resistance registration** (1.1: slim `otp/verify`, handle/display required, over_18 checkbox) — `[align-w3-gates-schema]`.
+- **Least-resistance registration** (1.1: slim `otp/verify` — handle required, display name/full name/address optional, over_18 checkbox) — `[align-w3-gates-schema]`.
 - **Official profiles / claim / sentiment** (7.x) — fast-follow, no tag yet.
 - **Multi-jurisdiction selector + populated unified feed** (5.1) — `[mvp-c10b-membership]`, `[mvp-c10-multi-jurisdiction]`.
 

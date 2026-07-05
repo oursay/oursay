@@ -76,7 +76,7 @@ Rules are set on entity `create` and may be updated by a **platform-signed** `up
 ## Invariants
 
 - **R1a [Invariant]**: Governance is per-entity; rules layer over jurisdiction defaults ([REQUIREMENTS.md](../../../public-record/REQUIREMENTS.md)).
-- Vote is cast FINAL by default; signature is signed FINAL by default.
+- Votes and signatures are **changeable by default** at the platform layer (the loose defaults are intentional); a jurisdiction or entity tightens to final via config (`ab-ca-gov`: final), never a platform default.
 - Change/revoke permitted only when entity rules + deadline allow it.
 - `appliesToRegion` absent ⇒ whole jurisdiction (a `null` stake on the public surface; an absent/empty `appliesToDistrictIds` projection resolves the same way via [governance.ts](../../../public-record/src/governance.ts)).
 - A thread's audience cannot be **widened** after creation (privacy/scope cannot leak outward). Today this is upheld **structurally** — there is no public district-id query surface and every `appliesToRegion` resolves server-side to a `Region` — not by an active narrow-only diff check on governance updates (a geometric `newRegion ⊆ oldRegion` proof is deferred; see **Gaps**).

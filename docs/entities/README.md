@@ -20,7 +20,7 @@ This library **formalizes** existing documentation; it does not replace it.
 | Product ↔ record naming | Record types are canonical: `post`, `petition`, `poll`, `result`, `vote`, `petition_signature`. User-facing labels are per-jurisdiction (`JurisdictionConfig.labels`); defaults **Statement** (`post`), **Petition**, **Poll**, **Result**. A user's ballot = `vote`; "vote" means only that ballot, never the `poll` container. |
 | Tier semantics | Set membership, not a strict ladder — see [verification.md](./account/verification.md) |
 | District | Inferred from address at query time; **never stored on the user row** |
-| Finality defaults | Votes and signatures are final unless `EntityRules.allowChange` / `allowRevoke` + before deadline |
+| Finality defaults | Votes and signatures are **changeable by default** (loose platform defaults are intentional); a jurisdiction/entity tightens to final via `allowChange` / `allowRevoke` config (`ab-ca-gov`: final) — change/revoke only before deadline |
 | Verified-only on ledger | Unverified civic actions stay in Postgres only ([contributor §11.1](../01-CONTRIBUTOR-SPEC.md)) |
 | Singleton types | One active vote, signature, or reaction per author + parent (`nullifier` dedupe) |
 | Residency ≠ eligibility | Residency verification is not electoral eligibility, voter registration, or citizenship |

@@ -155,7 +155,7 @@ When the app lands:
 2. **Scoped numbers** — always `GET …/:id/counts?scope=…&tier=…`; never list/detail embedded tallies for filtered views.
 3. **Gating** — respect `countGating` and the per-action `gates` from jurisdiction config.
 4. **Official view** — optional signed snapshot + amendment chain when C13/C14 exist.
-5. **Viewer-optional reads** — public read endpoints accept an optional session for viewer-relative fields; the anonymous variant is the cacheable one. The full endpoint map for Phase D is `.agents/WEB-APP-GAPS.md` Part 4.
+5. **Viewer-optional reads** — public read endpoints accept an optional session for viewer-relative fields; the anonymous variant is the cacheable one. The full endpoint map for Phase D is in the web-app gaps doc, Part 4. <!-- see .agents/WEB-APP-GAPS.md -->
 
 ---
 

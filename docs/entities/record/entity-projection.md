@@ -47,7 +47,7 @@ Exposes public fields from folded content + metadata. Withholds redacted/erased 
 |-------|---------|
 | `none` | Scalars exposed |
 | `withheld` | Scalars hidden |
-| `tier-gated` | Exposed only when request tier ⊆ `minTier` (exposure gating — must stay consistent with the jurisdiction's `gates[action].official` definition; see [jurisdiction.md](../partitioning/jurisdiction.md)) |
+| `tier-gated` | Exposed only when request tier ⊆ `minTier` (exposure gating — must stay consistent with the jurisdiction's `gates[action].officialCount` definition; see [jurisdiction.md](../partitioning/jurisdiction.md)) |
 
 ## States & lifecycle
 
@@ -75,7 +75,8 @@ Geo/tier filtering on counts applies at **read time** via `ParticipantGeoService
 - List/detail tallies: reactions unfiltered; petition/poll scalars policy-gated but not geo/tier-filtered.
 - **`GET …/:id/counts` only**: geo (`scope`) + tier filtering + k-anonymity ([REGION-MODEL.md](../../REGION-MODEL.md)).
 - k-anonymity floor: suppress narrow buckets when geo or tier narrows.
-- **Read-DTO projections (target):** list/detail/comment DTOs carry `signTier` (per-tx signing strength), `editCount` (update-op count per entity), `appliesToDistrictIds` (via `entity_audience`), and the viewer-resolved `authorGeo` relation + `identity` (persona or revealed handle) — public reads take an optional session for the viewer-relative fields.
+- **Read-DTO projections (target):** list/detail/comment DTOs carry `signTier` (per-tx signing strength), `editCount` (update-op count per entity), and the viewer-resolved `authorGeo` relation + `identity` (persona or revealed handle) — public reads take an optional session for the viewer-relative fields.
+- **Audience metadata lives on roots only:** `appliesToRegion` + `appliesToDistrictIds` (via `entity_audience`) are carried on **root-entity DTOs** — post (statement), petition, poll, result. Child records (comments, reactions, votes, petition signatures) **infer the audience from their parent/root record**; the fields are not duplicated onto individual child DTOs.
 
 ## Permissions
 

@@ -16,7 +16,7 @@ See [GLOSSARY.md](../../GLOSSARY.md) and [REGION-MODEL.md](../../REGION-MODEL.md
 
 ## Identity
 
-Two district revisions are the same if their `id` matches. Primary key: `id` (e.g. `edmonton-strathcona-2019`). The year in the slug is a **label**; lookup uses `effective_date`, not the year alone. The **`district_slug`** (year-less) is the stable key across revisions: stable district pages and `appliesToRegion: district:<district_slug>` key off it, while revision slugs (`id`) address a specific boundary version for history.
+Two district revisions are the same if their `id` matches. Primary key: `id` (e.g. `edmonton-strathcona-2019`). The year in the slug is a **label**; lookup uses `effective_date`, not the year alone. The **`district_slug`** (year-less) is the stable key across revisions: stable district pages (nested under the jurisdiction — `<jurisdiction>/district/<district_slug>/`, since slugs may collide across jurisdictions) and `appliesToRegion: district:<district_slug>` key off it, while revision slugs (`id`) address a specific boundary version for history.
 
 ## Attributes
 

@@ -2,7 +2,7 @@
 
 ## Definition
 
-Private personally identifiable information (PII) for a registered user. Legal name, address, and email live here — never on the public user row. Used for KYC, geocoding, and account recovery. **Registration is least-resistance:** only email (plus the public handle/display name on [User](./user.md)) and the `over_18` self-attestation are collected at signup; legal name and address arrive at the **KYC step** (Didit) or a later profile update, so every PII column except email is empty until then. The age gate is the **`over_18`** boolean (target) — self-attested at signup, re-verified by KYC; the platform needs only the adult flag, not a stored date of birth.
+Private personally identifiable information (PII) for a registered user. Legal name, address, and email live here — never on the public user row. Used for KYC, geocoding, and account recovery. **Registration is least-resistance:** email, the required public handle (display name optional — defaults to the handle; see [User](./user.md)), and the `over_18` self-attestation are required at signup; **full name and address are optional signup fields** behind a helper (*fill these before ID/residency verification; without an address the platform cannot auto-recommend jurisdictions — a V1 feature at 5+ jurisdictions*). Whatever is left blank arrives at the **KYC step** (Didit) or a later profile update. No location / a pseudo location never blocks registration (geocoding is best-effort in code today). The age gate is the **`over_18`** boolean (target) — self-attested at signup, re-verified by KYC; the platform needs only the adult flag, not a stored date of birth.
 
 ## Aliases
 
@@ -23,9 +23,9 @@ One profile per user. Primary key: `auth.profiles.user_id` → `public.users.id`
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
 | `user_id` | UUID | yes | no | FK → `users.id` |
-| `first_name` | TEXT | no (empty until KYC) | **never** | Private PII, collected at KYC |
-| `last_name` | TEXT | no (empty until KYC) | **never** | Private PII, collected at KYC |
-| `address_line1` | TEXT | no (empty until KYC) | no | Private, collected at KYC / profile update |
+| `first_name` | TEXT | no (optional at signup, else KYC) | **never** | Private PII |
+| `last_name` | TEXT | no (optional at signup, else KYC) | **never** | Private PII |
+| `address_line1` | TEXT | no (optional at signup, else KYC / profile update) | no | Private |
 | `address_line2` | TEXT | no | no | Private |
 | `city` | TEXT | no (empty until KYC) | no | Private |
 | `province` | TEXT | no (empty until KYC) | no | Canada-centric storage |
@@ -42,13 +42,13 @@ Public-facing name fields (`handle`, `display_name`) live on [User](./user.md), 
 
 ## States & lifecycle
 
-Created atomically at registration with **email + over_18 only** (name/address columns empty).
-The first address write — at KYC or via profile PATCH — triggers the geocode sync (service exists;
-PATCH route gap).
+Created atomically at registration with **email + over_18** (name/address columns filled only if
+the user chose to provide them at signup). The first address write — at signup, KYC, or via
+profile PATCH — triggers the geocode sync (service exists; PATCH route gap; never blocking).
 
 ```
-[registration sets profile — email + over_18 only]
-        │ KYC step / profile PATCH supplies name + address
+[registration sets profile — email + over_18 (+ optional name/address)]
+        │ signup / KYC step / profile PATCH supplies name + address
         ▼
 [geocode sync → ProfileGeocode updated]
 ```
@@ -99,7 +99,7 @@ PATCH route gap).
 
 ## Gaps
 
-- **Age-gate storage drift** — code today stores `auth.profiles.birthdate` (DATE NOT NULL) and computes 18+ at registration (`api/src/helpers/age.ts`). Target stores only `over_18` (boolean; signup checkbox, KYC re-verifies). Tracked in `.agents/CODE-ALIGNMENT-PROMPTS.md` → `[code-over-18]`; the column remains until migration.
-- **Registration input drift** — `POST /v1/auth/otp/verify` (`profileInputSchema`) today accepts name/address and **requires** `birthdate`; target requires handle + displayName (+ `over_18` checkbox) and nothing else — `[align-w3-gates-schema]`.
+- **Age-gate storage drift** — code today stores `auth.profiles.birthdate` (DATE NOT NULL) and computes 18+ at registration (`api/src/helpers/age.ts`). Target stores only `over_18` (boolean; signup checkbox, KYC re-verifies). Tracked as `[code-over-18]`; the column remains until migration. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
+- **Registration input drift** — `POST /v1/auth/otp/verify` (`profileInputSchema`) today accepts name/address and **requires** `birthdate`; target requires handle + `over_18` checkbox, with displayName (falls back to handle), full name, and address optional — `[align-w3-gates-schema]`.
 - **[mvp-c10c-profile-patch]**: `GeocodeService.syncGeocodeForUser` exists; no `PATCH /v1/profile` yet — see [account/future.md](./future.md).
 - `visibility` column (account-default author visibility) not in schema yet — [09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md).

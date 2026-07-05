@@ -40,7 +40,7 @@ Add to docs: `labels` (post/petition/poll/result/district) and `contentLimits` (
 
 ### Thread audience (root entities only; votes/comments/reactions inherit)
 - `jurisdictionId` required on every thread.
-- **`appliesToRegion`** (target): geographic stake — `jurisdiction`, `riding:<riding_slug>`, `district:<revisionId>`, `region:<presetId>`, unions. Stable district pages use `riding_slug`.
+- **`appliesToRegion`** (target): geographic stake — `jurisdiction`, `district:<district_slug>`, `district:<revisionId>`, `region:<presetId>`, unions. Stable district pages use `district_slug`.
 - **`appliesToVerified`** (target): min KYC tier set for stake/official counts.
 - **Deprecate `appliesToDistrictIds`** in docs (still in code today). Future: materialized `entity_audience` projection for district-page listing — document in partitioning/future.md.
 
@@ -69,7 +69,7 @@ Passkey: one per **enrolled authenticator**. Target: OTP registration → **`reg
 Keep term Region. Multi-jurisdiction regions possible in theory; discussions always jurisdiction-scoped. Path forward in partitioning/future.md. `appliesToRegion` over raw district id arrays.
 
 ### District pages
-`riding_slug` stable key; revision slugs for history. Platform signs boundary changes — future.
+`district_slug` stable key; revision slugs for history. Platform signs boundary changes — future.
 
 ### Filtering (ROADMAP emphasis)
 Ongoing staged work: And/Or/Not (not Xor), residency-at-time, tier sets, provider tags, deadline snapshots for official poll/signature counts.

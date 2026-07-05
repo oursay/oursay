@@ -24,7 +24,7 @@ Two users are the same if their `id` (UUID) matches. Primary key: `public.users.
 |-------|------|----------|--------|--------|
 | `id` | UUID | yes | no* | Primary key |
 | `handle` | TEXT | **yes** | scoped | Unique `@username`, collected at registration (NOT NULL target; nullable today — see Gaps). Visible per the account's visibility setting — a private account's handle 404s out-of-scope, it is never null |
-| `display_name` | TEXT | **yes** | scoped | Public display name, collected at registration (NOT NULL target) |
+| `display_name` | TEXT | optional at signup | scoped | Public display name. Optional at registration — server fills it from the handle (without `@`) when unfilled, so it is never null on a public surface (NOT NULL target) |
 | `created_at` | TIMESTAMPTZ | yes | no | Account creation |
 
 \* User id is not publicly surfaced; handle/display_name are the public identity.
@@ -67,7 +67,7 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 - District is **never stored** on the user row ([GLOSSARY.md](../../GLOSSARY.md)).
 - User may belong to **multiple jurisdictions** via a jurisdiction-membership table; every account is auto-subscribed to **`oursay-global`** at registration. Future: geocode-suggested subscription prompts. (Membership table is target — see Gaps.)
 - Administrators cannot alter vote counts, verification statuses, or ledger records (contributor §4.7).
-- Account privacy model ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) is DESIGN TODO — not shipped.
+- Account privacy model ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) is specified (demo-proven); backend enforcement pending.
 
 ## Permissions
 
@@ -80,14 +80,14 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 
 ## Events
 
-- Registration (least-resistance): creates `users` (handle + display name) + `profiles` (email + over_18 only — no name/address); geocode happens later, on the first address write at KYC or profile update.
-- Verification: appends `kyc_attestations` row (the KYC step is where legal name/address are collected).
+- Registration (least-resistance): creates `users` (**handle required**; display name optional — defaults to the handle) + `profiles` (email + over_18 checkbox required; **full name and address optional**, behind a helper explaining they must be filled before ID/residency verification, and that without an address the platform cannot auto-recommend which jurisdictions to join — a V1 feature at 5+ jurisdictions). Geocode happens on the first address write (signup if provided, else KYC/profile update) and **never blocks registration** — users outside Alberta, or with no/pseudo location, register fine and participate to the degree the gates allow.
+- Verification: appends `kyc_attestations` row (the KYC step collects/re-verifies legal name and address where not already filled).
 
 ## Examples
 
 **Valid:** User with `handle: "@jane_alberta"`, `display_name: "Jane"`, no KYC → unverified tier, can act off-ledger.
 
-**Invalid:** Registering without a handle or display name — both are required at signup. Storing `district_id` or `verification_tier` on `public.users` — tier comes from attestations; district is inferred after residency verification.
+**Invalid:** Registering without a handle — required at signup (display name may be omitted; it falls back to the handle). Storing `district_id` or `verification_tier` on `public.users` — tier comes from attestations; district is inferred after residency verification.
 
 ## Implementation
 
@@ -101,6 +101,6 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 ## Gaps
 
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
-- **handle/display_name NOT NULL migration** — columns are nullable today; target makes both required (collected at registration) with a backfill for existing rows — `[align-w3-gates-schema]`.
+- **handle/display_name NOT NULL migration** — columns are nullable today; target makes `handle` required at registration and `display_name` server-filled from the handle when omitted, with a backfill for existing rows — `[align-w3-gates-schema]`.
 - Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) not built — profile surface must 404 for out-of-scope viewers; the reveal model replaces the old persona `claimed`/`claimed_at` flow.
 - **Official role** — platform-assigned, revocable `official` role (on the user/jurisdiction membership) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier.

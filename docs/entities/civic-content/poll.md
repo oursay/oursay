@@ -43,7 +43,7 @@ Max lengths are the jurisdiction's `contentLimits` (target; AB: question 200, op
 
 ### Derived counts
 
-Vote counts per option (total \| by tier) — policy-gated on list/detail; geo/tier filterable on `/counts`. Official counts apply `gates.vote.official` (Global: `{identity_verified, residency_verified}`; AB: jurisdiction residency).
+Vote counts per option (total \| by tier) — policy-gated on list/detail; geo/tier filterable on `/counts`. The **official count** applies `gates.vote.officialCount` (Global: `{identity_verified, residency_verified}`; AB: jurisdiction residency) — a counting floor after the action, never a participation barrier; below-floor ballots (where the act gate admits them) sit in the unverified counts until the voter verifies. A platform-signed **official-count record** snapshots the eligible votes and each voter's status ([record/future.md](../record/future.md)).
 
 ### Read-surface projections (target)
 
@@ -63,7 +63,7 @@ projection of the stake), and the viewer-resolved `authorGeo` relation — see
 [result published]
 ```
 
-Poll creation may be gated by petition signature threshold (future).
+Poll creation may also arrive by **graduation** from a petition: forced automatically at the configured threshold (whether or not an official agrees), or — in `ab-ca-gov` — promoted **early, at any point, by an official-role holder**. Either way the **proposing user remains the poll's author**, and the source petition stays open to its own deadline ([jurisdiction.md](../partitioning/jurisdiction.md) graduation).
 
 ## Relationships
 
@@ -77,7 +77,7 @@ Poll creation may be gated by petition signature threshold (future).
 
 ## Invariants
 
-- **R1a**: Votes final by default; change only if `allowChange` + before deadline.
+- **R1a (jurisdiction-config finality)**: votes are changeable by default at the platform layer; a jurisdiction/entity tightens to final (`ab-ca-gov`: `allowChange: false`); change only if `allowChange` + before deadline.
 - Root type — no parent. It is a thread root and carries the thread audience (`jurisdictionId` + `appliesToRegion` + `appliesToVerified`; see [entity-rules.md](../partitioning/entity-rules.md)).
 - Verified votes on-ledger; anonymous verified votes counted in tier totals (contributor §9.3–9.4).
 - Ballots are `vote` records, not embedded in poll content.
@@ -86,8 +86,8 @@ Poll creation may be gated by petition signature threshold (future).
 
 | Action | Who |
 |--------|-----|
-| Create | Per jurisdiction `gates.poll.act` — `oursay-global`: any registered user; `ab-ca-gov`: **officials only** (a platform-assigned role, not a KYC tier) or via petition→poll graduation |
-| Vote | Per jurisdiction `gates.vote.act` — `oursay-global`: anyone; `ab-ca-gov`: jurisdiction residency |
+| Create | Per jurisdiction `gates.poll.act` — `oursay-global`: any registered user; `ab-ca-gov`: **official-role holders only** (a platform-assigned role, not a KYC tier) or via petition→poll graduation |
+| Vote | Per jurisdiction `gates.vote.act` — `oursay-global`: anyone; `ab-ca-gov`: jurisdiction residency, **official-role holders denied** (officials cannot vote in AB) |
 | Update poll | Author / platform governance |
 | Close | Deadline or administrator |
 

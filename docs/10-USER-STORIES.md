@@ -48,15 +48,17 @@ distinct everywhere:
 
 | Axis | Question | Source |
 |------|----------|--------|
-| **act** | May this member perform the action at all? | `gates[action].act` — `anyone` / tier set / **jurisdiction residency** (residency-verified AND resident) / **role** (e.g. official). Covers creation *and* participation. |
+| **act** | May this member perform the action at all? | `gates[action].act` — `anyone` / tier set / **jurisdiction residency** (residency-verified AND resident) / **role** (e.g. official role), optionally minus a `deny` list (AB denies official-role holders on vote/petition_signature). Covers creation *and* participation. |
 | **signMin** | How strongly must the action be signed? | `gates[action].signMin` (`quick` \| `passkey`); the account's signing preference may raise but never lower it. |
-| **official count** | Does this action count in the **signed/official** total counts? | `gates[action].official` (absent ⇒ same as act), layered with the thread's `appliesToVerified`. Below it, the action still counts in **unofficial** totals where the act is permitted. |
+| **official count** | Is this action **included in the official-count totals**? | `gates[action].officialCount` (absent ⇒ same as act), layered with the thread's `appliesToVerified`. **A counting floor after the action, never a participation barrier** — anyone the act gate admits is welcome; below-floor actions are bunched into the unverified/unofficial counts until the author verifies. The official-count gate always uses the act gate as its floor. |
 
-"Public voting, verified-only official counts" = act *anyone*, official *residency*. "Verified
+"Public voting, verified-only official counts" = act *anyone*, officialCount *residency*. "Verified
 participants only" = act *residency*. Same capability, separate config axes. **"Sign now, verify
-later"** = an open act gate with a stricter official gate — the act lands immediately and counts
-officially once (and while) the author meets the official gate, recomputed at read time. Each
+later"** = an open act gate with a stricter official-count gate — the act lands immediately and is
+included in the official count once (and while) the author meets it, recomputed at read time. Each
 jurisdiction's §3–§5 section opens with an **eligibility matrix** that sets the axes concretely.
+Gates apply to **all four root types** — `result` included (automated, attributed to the poll's
+author) — as well as attachments and singletons, per jurisdiction per record type.
 
 ## Story format
 
@@ -175,14 +177,14 @@ inclusion** for verified actions.
 **US-CAP-2 — React to content**  `[scope: MVP]`
 - **Story:** As a member eligible to react here, I want to agree or disagree on a statement/comment, so that I can register a position without writing.
 - **Acceptance:** A `reaction` is `check` (agree) or `cross` (disagree), **mutually exclusive** — one active reaction per author + parent; position is changeable; verified reactions are on-ledger, unverified off-ledger; counts show total and **by tier**.
-- **Eligibility:** participation act-eligibility for `reaction` (jurisdiction policy; config field TBD — §6).
+- **Eligibility:** `gates.reaction.act` (both launch jurisdictions: any registered, quick-sign floor).
 - **Config knobs:** participation act-eligibility; (reaction kinds fixed for MVP).
 - **Traces:** PRD §7.1; `entities/civic-content/reaction.md`; `01-CONTRIBUTOR-SPEC.md` §9.1, §9.4.
 
 **US-CAP-3 — Comment on a thread**  `[scope: MVP]`
 - **Story:** As a member eligible to comment here, I want to comment on any root entity or result (and reply to comments), so that I can discuss, not just signal.
 - **Acceptance:** A `comment` (`body` ≤ `contentLimits.comment`) attaches to a parent and **inherits the root's audience**; threaded replies reference a parent comment; every comment — including moderator-removed ones — carries a ledger hash.
-- **Eligibility:** participation act-eligibility for `comment` (jurisdiction policy; config field TBD — §6).
+- **Eligibility:** `gates.comment.act` (both launch jurisdictions: any registered, quick-sign floor).
 - **Config knobs:** `contentLimits.comment`, participation act-eligibility.
 - **Traces:** PRD §7.1; `01-CONTRIBUTOR-SPEC.md` §10; `entities/civic-content/comment.md`.
 
@@ -195,22 +197,22 @@ inclusion** for verified actions.
 
 **US-CAP-5 — Sign a petition**  `[scope: MVP]`
 - **Story:** As a member eligible to sign here, I want to sign a petition, so that I add my weight to a formal call to action.
-- **Acceptance:** signature is signed at the jurisdiction's floor or stronger (`gates.petition_signature.signMin`; AB: passkey, Global: quick OK); optional comment **hidden if anonymous**; **final by default** (revoke only where `allowRevoke` + before deadline); inherits the petition's audience; counts officially only while the signer meets `gates.petition_signature.official` (∩ `appliesToVerified` where set), else in **unofficial** counts where the act is permitted — **sign now, verify later**.
-- **Eligibility:** `gates.petition_signature.act` (open in both launch jurisdictions). **Official-eligibility:** `gates.petition_signature.official` (AB: jurisdiction residency; Global: ID-or-better).
+- **Acceptance:** signature is signed at the jurisdiction's floor or stronger (`gates.petition_signature.signMin`; AB: passkey, Global: quick OK); optional comment **hidden if anonymous**; **changeable by default** at the platform layer — a jurisdiction tightens to final via config (AB: final; Global: revocable where `allowRevoke` + before deadline); inherits the petition's audience; included in the **official count** only while the signer meets `gates.petition_signature.officialCount` (∩ `appliesToVerified` where set) — everyone the act gate admits is welcome to sign, and below-floor signatures sit in the **unverified** counts until the signer verifies — **sign now, verify later**.
+- **Eligibility:** `gates.petition_signature.act` (open in both launch jurisdictions; **AB denies official-role holders** — a role holder's signature is excluded from the official count with reason tag `official_role`). **Official-count floor:** `gates.petition_signature.officialCount` (AB: jurisdiction residency; Global: ID-or-better).
 - **Config knobs:** `gates.petition_signature`, `appliesToVerified`, `allowRevoke`, `defaultDeadline`.
 - **Traces:** PRD §7.2; `entities/civic-content/petition-signature.md`; `01-CONTRIBUTOR-SPEC.md` §9.2.
 
 **US-CAP-6 — Attach / graduate a petition into a poll**  `[scope: MVP — graduation impl is a gap]`
 - **Story:** As a petition creator, I want to pre-attach a poll that starts if the petition succeeds, so that the community can decide the question formally.
-- **Acceptance:** the creator links a `poll` to the petition; where the jurisdiction sets `graduation.petitionToPoll`, the poll **starts automatically** when the petition reaches the verified-signature threshold, deadline set per `deadlineSource`; otherwise the link is informational and the poll follows direct-create eligibility.
-- **Eligibility:** petition creator (to pre-attach); the graduation itself is automatic (no actor).
-- **Config knobs:** `graduation.policy`, `graduation.petitionToPoll` (threshold + deadline source).
+- **Acceptance:** the creator links a `poll` to the petition; where the jurisdiction sets `graduation.petitionToPoll`, the poll is **forced automatically** at the threshold (whether or not an official agrees), deadline set per `deadlineSource`; the **proposing user remains the poll's author**; graduation never closes the petition — signing stays open to the petition's own deadline (the only closing); otherwise the link is informational and the poll follows direct-create eligibility. The threshold is a fixed number or a percentage of the jurisdiction's verified users (moving or frozen at creation), decided by the platform from jurisdiction config at creation time — never author-set.
+- **Eligibility:** petition creator (to pre-attach); the graduation itself is automatic (no actor); in AB an **official-role holder may promote early, at any point** (US-AB-1).
+- **Config knobs:** `graduation.policy`, `graduation.petitionToPoll` (threshold shape + deadline source).
 - **Traces:** PRD §1, §7.3; `01-CONTRIBUTOR-SPEC.md` §8.6; GLOSSARY *Ladder / graduation*; `[code-jurisdiction-graduation]`.
 
 **US-CAP-7 — Vote in a poll**  `[scope: MVP]`
 - **Story:** As a member eligible to vote here, I want to cast a `vote`, so that my choice counts in the formal outcome.
-- **Acceptance:** `vote` is signed at the jurisdiction's floor or stronger (`gates.vote.signMin`; AB: passkey, Global: quick OK); **final once cast by default** (change only where `allowChange` + before deadline); one active vote per author + poll; anonymous verified votes are on-ledger showing tier only (e.g. "Residency Verified — Anonymous"); counts officially only while the voter meets `gates.vote.official` (∩ `appliesToVerified` where set), else unofficial.
-- **Eligibility:** `gates.vote.act` (Global: anyone; AB: jurisdiction residency). **Official-eligibility:** `gates.vote.official` (Global: ID-or-better; AB: = act set).
+- **Acceptance:** `vote` is signed at the jurisdiction's floor or stronger (`gates.vote.signMin`; AB: passkey, Global: quick OK); **changeable by default** at the platform layer — a jurisdiction tightens to final via config (AB: final once cast; Global: change where `allowChange` + before deadline); one active vote per author + poll; anonymous verified votes are on-ledger showing tier only (e.g. "Residency Verified — Anonymous"); included in the **official count** only while the voter meets `gates.vote.officialCount` (∩ `appliesToVerified` where set) — below-floor ballots, where the act gate admits them, sit in the unverified counts until the voter verifies.
+- **Eligibility:** `gates.vote.act` (Global: anyone; AB: jurisdiction residency, **official-role holders denied** — officials cannot vote in AB). **Official-count floor:** `gates.vote.officialCount` (Global: ID-or-better; AB: = act set).
 - **Config knobs:** `gates.vote`, `appliesToVerified`, `allowChange`, deadline source.
 - **Traces:** PRD §7.3; `entities/civic-content/vote.md`, `poll.md`; `01-CONTRIBUTOR-SPEC.md` §9.3.
 
@@ -235,11 +237,11 @@ inclusion** for verified actions.
 - **Config knobs:** none.
 - **Traces:** GLOSSARY *Reveal* (on-chain = nuclear); `09-ACCOUNT-PRIVACY-MODEL.md`.
 
-**US-CAP-11 — Official vs unofficial counts**  `[scope: MVP]`
-- **Story:** As a verified resident, I want my actions in the **official** signed counts while lower-tier participation still shows in **unofficial** counts, so that the verified signal is distinct but no one is silenced.
-- **Acceptance:** official totals (signed to the record) include only participants meeting the jurisdiction's `gates[action].official` (∩ the thread's `appliesToVerified` where set — Global: ID-or-better; AB: jurisdiction residency), recomputed at read time; unofficial counts include permitted lower tiers; both are visibly distinguished; unverified participation, where permitted, is counted and labelled separately — never misleadingly merged.
-- **Eligibility:** n/a (read/aggregation rule). This is the **official** axis referenced throughout §2.
-- **Config knobs:** `gates[action].official`, `appliesToVerified` (per thread), `counts.minTier` (exposure — must stay consistent with the official gate).
+**US-CAP-11 — Official count vs unverified counts**  `[scope: MVP]`
+- **Story:** As a verified resident, I want my actions in the **official count** (signed to the record) while lower-tier participation still shows in the **unverified counts**, so that the verified signal is distinct but no one is silenced.
+- **Acceptance:** the official count (a platform-signed record — see [record/future.md](entities/record/future.md)) includes only participants meeting the jurisdiction's `gates[action].officialCount` (∩ the thread's `appliesToVerified` where set — Global: ID-or-better; AB: jurisdiction residency), recomputed at read time; this is a **counting floor after the action, never a participation barrier** — anyone the act gate admits is welcome, and below-floor participation is bunched into the unverified counts until they verify; both are visibly distinguished, never misleadingly merged.
+- **Eligibility:** n/a (read/aggregation rule). This is the **official count** axis referenced throughout §2; its floor is always the act gate.
+- **Config knobs:** `gates[action].officialCount`, `appliesToVerified` (per thread), `counts.minTier` (exposure — must stay consistent with the official-count gate).
 - **Traces:** PRD §1, §7.5; `entities/partitioning/entity-rules.md`; `[code-applies-to-verified]`.
 
 **US-CAP-12 — Filter by my district**  `[scope: MVP for counts; my-district auth context c4c]`
@@ -258,14 +260,14 @@ Partial ladder ([`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)). `grad
 
 ### Eligibility matrix
 
-| Action | May act | Sign floor | Counts officially | Notes |
-|--------|---------|------------|-------------------|-------|
+| Action | May act | Sign floor | Official count (floor = act) | Notes |
+|--------|---------|------------|------------------------------|-------|
 | create `post` (Statement) | any registered subscriber | **passkey (uv)** | — (reactions counted by tier) | open, but ledger-final signing |
 | react / comment | any registered subscriber | quick | by tier | quick-sign OK |
 | create `petition` | `residency-verified` | passkey | — | |
-| sign `petition` | **any registered** | passkey | **jurisdiction residency** | **sign now, verify later** — anyone signs; counts officially while the signer is a residency-verified Alberta resident |
-| create `poll` | **officials only** (platform-assigned role) or via graduation | passkey | — | role gate, not a tier |
-| `vote` | **jurisdiction residency** (residency-verified AND Alberta resident) | passkey | = act set | participation-gated, so official = act |
+| sign `petition` | **any registered**, official-role holders denied | passkey | **jurisdiction residency** | **sign now, verify later** — anyone signs; included in the official count while the signer is a residency-verified Alberta resident; a role holder's signature is excluded (reason `official_role`) |
+| create `poll` | **official-role holders only** or via graduation | passkey | — | role gate, not a tier; officials may also promote a petition early (US-AB-1) |
+| `vote` | **jurisdiction residency** (residency-verified AND Alberta resident), **official-role holders denied** | passkey | = act set | participation-gated, so count floor = act; officials cannot vote in AB |
 
 > Resolved 2026-07-03 (locked jurisdiction configs; see
 > [jurisdiction.md](entities/partitioning/jurisdiction.md) gates). Encoding in config/code is
@@ -273,11 +275,11 @@ Partial ladder ([`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)). `grad
 
 ### Deltas
 
-**US-AB-1 — Poll only by graduation**  `[scope: MVP — graduation impl is a gap]`
+**US-AB-1 — Poll by graduation (forced at threshold, or promoted early by an official)**  `[scope: MVP — graduation impl is a gap]`
 - **Story:** As a petition creator, I want my attached poll to start when the petition reaches the signature threshold, so that polls in Alberta carry the weight of a successful petition.
-- **Acceptance:** no standalone poll creation by non-officials (matrix: create `poll` = role: official); a member's poll exists only via `graduation.petitionToPoll`; platform sets the poll deadline; a `result` derives at close.
-- **Eligibility:** officials may create polls directly; for everyone else graduation is automatic.
-- **Config knobs:** `graduation.petitionToPoll` (threshold + deadline source).
+- **Acceptance:** no standalone poll creation by non-officials (matrix: create `poll` = official role); a member's poll exists via `graduation.petitionToPoll` — **forced at the threshold whether or not an official agrees** — or via an **official-role holder manually graduating the petition at any point** (promote early); either way the **proposing user remains the poll's author**; graduation never affects the petition (signing stays open; only its deadline closes it); platform sets the poll deadline; a `result` derives at close, attributed to the poll's author.
+- **Eligibility:** official-role holders may create polls directly and may promote a petition early; for everyone else graduation is automatic.
+- **Config knobs:** `graduation.petitionToPoll` (threshold shape + deadline source). AB threshold plan: percent-of-verified moving target now; fixed number (10% of valid votes cast in the previous provincial election) once the user base is large enough.
 - **Traces:** §8.6; specializes US-CAP-6/US-CAP-7; `[code-jurisdiction-graduation]`.
 - **Open question:** deadline as explicit timestamp vs inferred duration → `graduation.petitionToPoll.deadlineSource`.
 
@@ -297,14 +299,14 @@ Partial ladder ([`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)). `grad
 
 **US-AB-4 — Official sees their constituency's verified will**  `[scope: fast-follow]`
 - **Story:** As a verified official, I want results from threads whose audience includes my district (or jurisdiction-wide) where my district's verified residents participated, so that I can see constituent sentiment without commissioning a poll.
-- **Acceptance:** official view aggregates threads whose `appliesToRegion` covers the official's district, broken down by tier; respects `countGating` and `kAnonymityFloor`.
+- **Acceptance:** official view aggregates threads whose `appliesToRegion` covers the official's **represented** district (forced to the represented seat, never the official's home address — [verification.md](entities/account/verification.md)), broken down by tier; respects `countGating` and `kAnonymityFloor`.
 - **Eligibility:** claimed officials.
 - **Config knobs:** `counts`, `kAnonymityFloor`.
 - **Traces:** PRD §7.6; `03-OUTREACH-TEMPLATE.md`.
 
 **US-AB-5 — Selective profile visibility**  `[scope: MVP (demo-specified); backend pending]`
 - **Story:** As a residency-verified resident, I want the option to let only my official and/or other verified district residents see the profile linked from my otherwise-anonymized records, so that I can be known locally without being public.
-- **Acceptance:** visibility resolves via the cascade `thread ?? account ?? anonymous` over the 7-value enum (`anonymous | my_officials | all_officials | my_district | my_jurisdiction | id_verified | public`); a per-thread override may narrow **or widen** (widening behind a warning); out-of-scope viewers get **404** (not 403) on the whole profile surface.
+- **Acceptance:** visibility resolves via the cascade `thread ?? account ?? anonymous` over the **four shipped values** (`anonymous | officials | my_district | public` — `officials` = the officials **affected by the post**: seated officials of the thread's affected districts plus jurisdiction-level official-role holders; further values like `my_officials`/`my_jurisdiction`/`id_verified`/`affected` MAY come later); a per-thread override may narrow **or widen** (widening behind a warning); out-of-scope viewers get **404** (not 403) on the whole profile surface.
 - **Eligibility:** any account (over their own records); district-scoped values need residency verification to resolve.
 - **Config knobs:** account default + per-thread visibility; per-jurisdiction middle layer future.
 - **Traces:** `09-ACCOUNT-PRIVACY-MODEL.md`; `[align-w3-gates-schema]` / `[align-w4-api-surface]`.
@@ -317,13 +319,13 @@ The **open** model — `graduation.policy = open`; the fallback every account jo
 
 ### Eligibility matrix
 
-| Action | May act | Sign floor | Counts officially | Notes |
-|--------|---------|------------|-------------------|-------|
+| Action | May act | Sign floor | Official count (floor = act) | Notes |
+|--------|---------|------------|------------------------------|-------|
 | create `post` / react / comment | any registered | quick | by tier | any sign method, any KYC |
 | create `petition` | any registered | quick | by tier | no graduation gate |
-| sign `petition` | any registered | quick | **ID-or-better** `{identity_verified, residency_verified}` | permissive act, ID-verified official counts |
+| sign `petition` | any registered | quick | **ID-or-better** `{identity_verified, residency_verified}` | permissive act; ID-verified official count — below-floor signatures sit in the unverified counts |
 | create `poll` | any registered | quick | by tier | **standalone polls allowed** |
-| `vote` | any registered | quick | **ID-or-better** `{identity_verified, residency_verified}` | public voting, ID-verified official counts |
+| `vote` | any registered | quick | **ID-or-better** `{identity_verified, residency_verified}` | public voting; ID-verified official count — below-floor ballots sit in the unverified counts |
 
 > Resolved 2026-07-03 (locked jurisdiction configs). "ID verification only" = the tier **set**
 > `{identity_verified, residency_verified}` (set membership; residency implies ID was checked).
@@ -360,7 +362,7 @@ configuration space, not a launch deployment.
 
 ### Eligibility matrix
 
-| Action | May act (act-eligibility) | Counts officially (`appliesToVerified`) | Notes |
+| Action | May act (act-eligibility) | Official count (`appliesToVerified`) | Notes |
 |--------|---------------------------|------------------------------------------|-------|
 | create `post` | `residency-verified` | `residency-verified` | |
 | react / comment | `residency-verified` | `residency-verified` | district-scoped (US-STR-2) |
