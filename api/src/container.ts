@@ -55,6 +55,7 @@ import { ParticipantGeoService } from "./services/participant-geo.service.js";
 import { PasskeyService } from "./services/passkey.service.js";
 import { PublicFeedService } from "./services/public-feed.service.js";
 import { PublicRecordReadService } from "./services/public-record-read.service.js";
+import { RecordDetailService } from "./services/record-detail.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
 import { RegistrationService } from "./services/registration.service.js";
 import { ViewerContextService } from "./services/viewer-context.service.js";
@@ -123,6 +124,8 @@ export interface Services {
   identityReadService: IdentityReadService;
   /** The unified, viewer-optional public feed (P1). */
   publicFeedService: PublicFeedService;
+  /** Viewer-aware, kind-agnostic record detail + comment thread (P2/P3). */
+  recordDetailService: RecordDetailService;
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
    *  official boundary geometry). Official electoral boundaries only — no private points. */
   areaCatalogService: AreaCatalogService;
@@ -288,6 +291,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     jurisdictions: [...jurisdictions],
   });
   const publicFeedService = new PublicFeedService({ recordStore, identityReadService });
+  const recordDetailService = new RecordDetailService({ recordStore, identityReadService });
 
   // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
   // (same `jurisdictions` list registered above). Official electoral boundaries only.
@@ -317,6 +321,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     viewerContextService,
     identityReadService,
     publicFeedService,
+    recordDetailService,
     areaCatalogService,
     recordStore,
   };

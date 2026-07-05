@@ -23,6 +23,7 @@ import { registerProfileRoutes } from "./routes/profile.routes.js";
 import { registerMeRoutes } from "./routes/me.routes.js";
 import { registerPublicAreaCatalogRoutes } from "./routes/public-area-catalog.routes.js";
 import { registerPublicFeedRoutes } from "./routes/public-feed.routes.js";
+import { registerPublicRecordDetailRoutes } from "./routes/public-record-detail.routes.js";
 import { registerPublicRecordReadRoutes } from "./routes/public-record-read.routes.js";
 import { registerRecoveryRoutes } from "./routes/recovery.routes.js";
 import { registerRegistrationRoutes } from "./routes/registration.routes.js";
@@ -87,6 +88,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerCivicRecordRoutes(app, services);
   registerPublicRecordReadRoutes(app, services);
   registerPublicFeedRoutes(app, services);
+  registerPublicRecordDetailRoutes(app, services);
   registerPublicAreaCatalogRoutes(app, services);
   registerProfileRoutes(app, services);
   registerMeRoutes(app, services);

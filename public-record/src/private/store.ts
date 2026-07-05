@@ -559,6 +559,20 @@ export class PrivateStore {
     return r.rows.map((x) => ({ option: x.option, count: Number(x.count) }));
   }
 
+  /** Interlink: the LIVE result entity that published a given poll (result.content.sourcePollId =
+   *  pollId), or null. The graduation chain links forward petition→poll→result; only the poll→result
+   *  edge needs a reverse lookup (petition→poll and result→poll are carried inline in content). One
+   *  result per poll is expected; the oldest live match wins if a poll were ever re-published. */
+  async findResultForPoll(pollId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT entity_id FROM entity_state
+       WHERE type = 'result' AND NOT is_deleted AND content->>'sourcePollId' = $1
+       ORDER BY created_at ASC LIMIT 1`,
+      [pollId],
+    );
+    return r.rows[0]?.entity_id ?? null;
+  }
+
   // ── Participant-level enumeration (for geo/tier-scoped counts) ─────────────────────────────
   // The aggregate getters above answer "how many?"; these answer "which participants?" so a caller
   // (api ParticipantGeoService) can resolve each to a region and re-aggregate only those in scope.
