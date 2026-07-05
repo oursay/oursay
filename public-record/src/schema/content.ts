@@ -87,5 +87,33 @@ export function validateContent(type: RecordType, op: Op, content: unknown, juri
         throw new Error(`poll.description exceeds the ${caps.description}-character limit`);
       }
     }
+  } else if (type === "result") {
+    // A result reuses the post caps (title + body prose); tallies/sourcePollId are structural.
+    const caps = limits.post ?? DEFAULT_CONTENT_LIMITS.post!;
+    const c = (content ?? {}) as { title?: unknown; body?: unknown; sourcePollId?: unknown; tallies?: unknown };
+    if (typeof c.title !== "string" || c.title.trim().length === 0) {
+      throw new Error("result.title is required");
+    }
+    if (caps.title != null && c.title.length > caps.title) {
+      throw new Error(`result.title exceeds the ${caps.title}-character limit`);
+    }
+    if (c.body !== undefined) {
+      if (typeof c.body !== "string") throw new Error("result.body must be a string");
+      if (caps.body != null && c.body.length > caps.body) {
+        throw new Error(`result.body exceeds the ${caps.body}-character limit`);
+      }
+    }
+    if (c.sourcePollId !== undefined && typeof c.sourcePollId !== "string") {
+      throw new Error("result.sourcePollId must be a string entity id");
+    }
+    if (c.tallies !== undefined) {
+      if (!Array.isArray(c.tallies)) throw new Error("result.tallies must be an array");
+      c.tallies.forEach((t, i) => {
+        const row = t as { option?: unknown; count?: unknown };
+        if (typeof row?.option !== "string" || typeof row?.count !== "number") {
+          throw new Error(`result.tallies[${i}] must be { option: string, count: number }`);
+        }
+      });
+    }
   }
 }

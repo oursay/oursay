@@ -30,6 +30,8 @@ import { systemNow, type Now } from "./errors.js";
 import { CivicDeviceRepo } from "./repo/civic-device.repo.js";
 import { GeocodeRepo } from "./repo/geocode.repo.js";
 import { KycRepo } from "./repo/kyc.repo.js";
+import { MembershipRepo } from "./repo/membership.repo.js";
+import { SigningPrefsRepo } from "./repo/signing-prefs.repo.js";
 import { OtpRepo } from "./repo/otp.repo.js";
 import { PasskeyRepo } from "./repo/passkey.repo.js";
 import { ProfileRepo } from "./repo/profile.repo.js";
@@ -75,6 +77,10 @@ export interface Repos {
   kyc: KycRepo;
   civicDevice: CivicDeviceRepo;
   geocode: GeocodeRepo;
+  /** Jurisdiction subscriptions + the platform-assigned official role ([mvp-c10b-membership]). */
+  membership: MembershipRepo;
+  /** Per-action signing preferences (C1); floors stay enforced server-side regardless. */
+  signingPrefs: SigningPrefsRepo;
 }
 
 export interface Services {
@@ -135,6 +141,8 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     kyc: new KycRepo(pool),
     civicDevice: new CivicDeviceRepo(pool),
     geocode: new GeocodeRepo(pool),
+    membership: new MembershipRepo(pool),
+    signingPrefs: new SigningPrefsRepo(pool),
   };
 
   const mailer = opts.mailer ?? (await createMailerService(mailerConfig, opts.mailerOverrides));
@@ -159,6 +167,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const registrationService = new RegistrationService({
     userRepo: repos.user,
     profileRepo: repos.profile,
+    membershipRepo: repos.membership,
     otpService,
     authService,
     geocodeService,

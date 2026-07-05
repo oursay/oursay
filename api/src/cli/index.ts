@@ -49,9 +49,9 @@ const COMMANDS: Record<string, { help: string; run: Handler }> = {
     },
   },
   "create-user": {
-    help: "create-user <handle> <email> <birthdate YYYY-MM-DD>  — dev shortcut (no OTP)",
-    run: async (s, [handleArg, email, birthdate]) => {
-      if (!handleArg || !email || !birthdate) throw new Error("handle, email, birthdate are required");
+    help: "create-user <handle> <email>  — dev shortcut (no OTP; over-18 self-attest assumed)",
+    run: async (s, [handleArg, email]) => {
+      if (!handleArg || !email) throw new Error("handle and email are required");
       const handle = normalizeHandle(handleArg);
       if (!handle || !isValidHandle(handle)) throw new Error("handle must be an @username (letters, digits, underscore; no spaces)");
       const { email: normalized, canonical } = normalizeEmail(email);
@@ -62,8 +62,9 @@ const COMMANDS: Record<string, { help: string; run: Handler }> = {
         userId, firstName: null, lastName: null,
         line1: addr.line1, line2: addr.line2, city: addr.city, province: addr.province,
         postalCode: addr.postalCode, country: addr.country, memo: addr.memo,
-        birthdate, email: normalized, emailCanonical: canonical,
+        over18: true, email: normalized, emailCanonical: canonical,
       });
+      await s.repos.membership.add(userId, "oursay-global");
       console.log(`Created user ${userId} (${handle} <${normalized}>).`);
     },
   },

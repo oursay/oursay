@@ -1,5 +1,7 @@
 // Registration completion: verify the email OTP + profile body in one call, then create the account
-// and issue a full session. The age gate (18+) lives in RegistrationService, not here.
+// and issue a LIMITED 'registration'-scoped session (passkey-enroll only — full access comes from
+// the subsequent passkey login, [code-registration-scope]). The over-18 gate lives in
+// RegistrationService, not here.
 
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
@@ -42,11 +44,11 @@ export function registerRegistrationRoutes(app: FastifyInstance, services: Servi
         email: string;
         code: string;
         profile: {
-          handle?: string;
+          handle: string;
           displayName?: string;
+          over18: boolean;
           firstName?: string;
           lastName?: string;
-          birthdate: string;
           address?: Record<string, string>;
         };
       };

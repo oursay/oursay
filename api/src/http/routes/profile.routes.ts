@@ -25,7 +25,8 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
               firstName: { type: ["string", "null"] },
               lastName: { type: ["string", "null"] },
               email: { type: "string" },
-              birthdate: { type: "string" },
+              over18: { type: "boolean", description: "Self-attested age gate; KYC re-verifies. No DOB is stored." },
+              visibility: { type: "string", enum: ["anonymous", "officials", "my_district", "public"] },
               address: {
                 type: "object",
                 properties: {
@@ -39,7 +40,7 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
                 },
               },
             },
-            required: ["userId", "email", "birthdate"],
+            required: ["userId", "email", "over18", "visibility"],
           },
           401: errorSchema,
           403: errorSchema,
@@ -61,7 +62,8 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
         firstName: profile.firstName,
         lastName: profile.lastName,
         email: profile.email,
-        birthdate: profile.birthdate,
+        over18: profile.over18,
+        visibility: profile.visibility,
         address: {
           line1: profile.line1,
           line2: profile.line2,

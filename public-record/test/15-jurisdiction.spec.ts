@@ -15,7 +15,16 @@ describe("15 jurisdiction: layered rule resolution (default ⊕ entity override)
   it("applies the jurisdiction default when the entity sets no rule", () => {
     const r = resolveRules({ allowChange: true }, {});
     expect(r.allowChange).to.equal(true);
-    expect(r.allowRevoke).to.equal(false); // absent default stays final-action
+    expect(r.allowRevoke).to.equal(true); // platform floor is LOOSE (Part 6 #4) — jurisdictions tighten to final
+  });
+
+  it("platform default is changeable; a jurisdiction tightens to final via config", () => {
+    const platform = resolveRules({}, {});
+    expect(platform.allowChange).to.equal(true);
+    expect(platform.allowRevoke).to.equal(true);
+    const ab = resolveRules({ allowChange: false, allowRevoke: false }, {});
+    expect(ab.allowChange).to.equal(false);
+    expect(ab.allowRevoke).to.equal(false);
   });
 
   it("lets the entity override the jurisdiction default (tighten)", () => {

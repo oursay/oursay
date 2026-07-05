@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { assertDestructiveAllowed } from "../../../scripts/destructive-guard.js";
 import type { PgConfig } from "../config.js";
+import { personaNameForPubkey } from "../identity/persona-name.js";
 import type { ChainRow } from "../ledger/connector.js";
 import { POSTGRES_DDL } from "../schema/postgres.sql.js";
 import type { Op, RecordType } from "../schema/types.js";
@@ -537,10 +538,19 @@ export class PrivateStore {
     );
   }
 
-  async putUser(u: { id: string; handle?: string }): Promise<void> {
+  /** Upsert a user row. handle/display_name are NOT NULL (C4): absent inputs synthesize a stable
+   *  handle from the id (and the display name from the handle) on INSERT; on UPDATE an absent input
+   *  never clobbers an existing value. */
+  async putUser(u: { id: string; handle?: string; displayName?: string }): Promise<void> {
+    const defaultHandle = `@u${u.id.replace(/-/g, "").slice(0, 8)}`;
+    const handle = u.handle ?? defaultHandle;
+    const displayName = u.displayName ?? handle.replace(/^@/, "");
     await this.pool.query(
-      `INSERT INTO users(id, handle) VALUES($1,$2) ON CONFLICT (id) DO UPDATE SET handle = EXCLUDED.handle`,
-      [u.id, u.handle ?? null],
+      `INSERT INTO users(id, handle, display_name) VALUES($1,$2,$3)
+       ON CONFLICT (id) DO UPDATE SET
+         handle = COALESCE($4, users.handle),
+         display_name = COALESCE($5, users.display_name)`,
+      [u.id, handle, displayName, u.handle ?? null, u.displayName ?? null],
     );
   }
 
@@ -571,10 +581,11 @@ export class PrivateStore {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      const personaName = await this.freePersonaName(client, input.threadPubkey);
       await client.query(
-        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey, persona_name) VALUES($1,$2,$3,$4,$5,$6)
          ON CONFLICT (user_id, thread_id) DO NOTHING`,
-        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.threadPubkey],
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.threadPubkey, personaName],
       );
       await client.query(
         `INSERT INTO thread_bindings(thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig)
@@ -636,11 +647,15 @@ export class PrivateStore {
         await client.query("COMMIT");
         return personaPubkey;
       }
+      // Mint the persona's public display name (C7): deterministic from Pₜ, retry-on-collision by
+      // widening the numeric suffix. Checked inside this transaction; the UNIQUE constraint is the
+      // last-resort guard against a concurrent-join race (the losing join simply retries).
+      const personaName = await this.freePersonaName(client, input.proposedPubkey);
       const inserted = await client.query(
-        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey, persona_name) VALUES($1,$2,$3,$4,$5,$6)
          ON CONFLICT (user_id, thread_id) DO NOTHING
          RETURNING pubkey`,
-        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.proposedPubkey],
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.proposedPubkey, personaName],
       );
       let personaPubkey: string;
       if (inserted.rows.length > 0) {
@@ -935,6 +950,163 @@ export class PrivateStore {
       `INSERT INTO kyc_attestations(id, user_id, provider, tier, region) VALUES($1,$2,$3,$4,$5)`,
       [randomUUID(), a.userId, a.provider, a.tier, a.region ?? null],
     );
+  }
+
+  // ── [align-w3-gates-schema] persona names, visibility, projections ─────────────────────
+
+  /** The first free persona name for `personaPubkey`, widening the numeric suffix on collision. */
+  private async freePersonaName(client: pg.PoolClient, personaPubkey: string): Promise<string> {
+    for (let digits = 2; digits <= 8; digits++) {
+      const candidate = personaNameForPubkey(personaPubkey, digits);
+      const clash = await client.query(`SELECT 1 FROM thread_keys WHERE persona_name = $1`, [candidate]);
+      if (clash.rows.length === 0) return candidate;
+    }
+    // 8 suffix digits colliding is astronomically unlikely; fall back to an unambiguous unique name.
+    return `Persona${personaPubkey.slice(0, 12)}`;
+  }
+
+  /** Resolve a persona by its PUBLIC display name (the persona page key). Returns only what the
+   *  persona surface may show — pubkey + thread scope; NEVER the user id (P6 anonymity). */
+  async getPersonaByName(personaName: string): Promise<{ pubkey: string; threadId: string; jurisdiction: string } | null> {
+    const r = await this.pool.query(
+      `SELECT pubkey, thread_id, jurisdiction FROM thread_keys WHERE persona_name = $1`,
+      [personaName],
+    );
+    const row = r.rows[0];
+    return row ? { pubkey: row.pubkey, threadId: row.thread_id, jurisdiction: row.jurisdiction } : null;
+  }
+
+  /** The public persona display name for a persona pubkey (null for pre-minting rows). */
+  async getPersonaName(personaPubkey: string): Promise<string | null> {
+    const r = await this.pool.query(`SELECT persona_name FROM thread_keys WHERE pubkey = $1`, [personaPubkey]);
+    return r.rows[0]?.persona_name ?? null;
+  }
+
+  /** Set (or clear with null) the caller's per-thread visibility OVERRIDE (C4). Keyed by the
+   *  caller's own (user, thread) binding; returns false when the user has no persona in the thread. */
+  async setThreadVisibility(userId: string, threadId: string, visibility: string | null): Promise<boolean> {
+    const r = await this.pool.query(
+      `UPDATE thread_bindings b SET visibility = $3
+       FROM thread_keys t
+       WHERE b.thread_pubkey = t.pubkey AND t.user_id = $1 AND t.thread_id = $2`,
+      [userId, threadId, visibility],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** The caller's per-thread visibility override, or null (= account default applies). */
+  async getThreadVisibility(userId: string, threadId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT b.visibility FROM thread_bindings b
+       JOIN thread_keys t ON b.thread_pubkey = t.pubkey
+       WHERE t.user_id = $1 AND t.thread_id = $2`,
+      [userId, threadId],
+    );
+    return r.rows[0]?.visibility ?? null;
+  }
+
+  /** Replace a root's district-audience projection (C2, `entity_audience`). Empty rows = the root
+   *  applies jurisdiction-wide (no rows stored). */
+  async replaceEntityAudience(
+    entityId: string,
+    jurisdictionId: string,
+    rows: { districtSlug: string; revisionId: string }[],
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM entity_audience WHERE entity_id = $1`, [entityId]);
+      for (const row of rows) {
+        await client.query(
+          `INSERT INTO entity_audience(entity_id, jurisdiction_id, district_slug, revision_id)
+           VALUES($1,$2,$3,$4) ON CONFLICT (entity_id, district_slug) DO UPDATE SET revision_id = EXCLUDED.revision_id`,
+          [entityId, jurisdictionId, row.districtSlug, row.revisionId],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** The district-slug audience projection for a root entity ([] = jurisdiction-wide). */
+  async getEntityAudience(entityId: string): Promise<{ districtSlug: string; revisionId: string }[]> {
+    const r = await this.pool.query(
+      `SELECT district_slug, revision_id FROM entity_audience WHERE entity_id = $1 ORDER BY district_slug`,
+      [entityId],
+    );
+    return r.rows.map((row) => ({ districtSlug: row.district_slug, revisionId: row.revision_id }));
+  }
+
+  /** Write the relationship snapshot for one submitted civic tx (C6 + [mvp-c4-action-snapshots]).
+   *  Idempotent per tx. Flags + tier only — never a point, and district_slug stays NULL unless a
+   *  policy explicitly needs an official district breakdown. */
+  async putRecordActionGeo(input: {
+    txId: string;
+    entityId: string;
+    inAffected: boolean;
+    inJurisdiction: boolean;
+    tierAtAction: string;
+    districtSlug?: string | null;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO record_action_geo(tx_id, entity_id, in_affected, in_jurisdiction, tier_at_action, district_slug)
+       VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (tx_id) DO NOTHING`,
+      [input.txId, input.entityId, input.inAffected, input.inJurisdiction, input.tierAtAction, input.districtSlug ?? null],
+    );
+  }
+
+  /** The relationship snapshot for a tx, or null (pre-W3 rows / snapshot write failed). */
+  async getRecordActionGeo(txId: string): Promise<{
+    entityId: string;
+    inAffected: boolean;
+    inJurisdiction: boolean;
+    tierAtAction: string;
+    districtSlug: string | null;
+  } | null> {
+    const r = await this.pool.query(
+      `SELECT entity_id, in_affected, in_jurisdiction, tier_at_action, district_slug
+       FROM record_action_geo WHERE tx_id = $1`,
+      [txId],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    return {
+      entityId: row.entity_id,
+      inAffected: row.in_affected,
+      inJurisdiction: row.in_jurisdiction,
+      tierAtAction: row.tier_at_action,
+      districtSlug: row.district_slug,
+    };
+  }
+
+  /** Mark a share (once per account per target). Returns true when this call created the mark. */
+  async addShareMark(userId: string, shareKey: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `INSERT INTO share_marks(user_id, share_key) VALUES($1,$2)
+       ON CONFLICT (user_id, share_key) DO NOTHING`,
+      [userId, shareKey],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** Distinct accounts that shared a target. */
+  async shareCount(shareKey: string): Promise<number> {
+    const r = await this.pool.query(`SELECT COUNT(*)::int AS n FROM share_marks WHERE share_key = $1`, [shareKey]);
+    return r.rows[0]?.n ?? 0;
+  }
+
+  /** Whether each of `shareKeys` has been shared by `userId` (the A5 record-state read). */
+  async sharedByUser(userId: string, shareKeys: string[]): Promise<Set<string>> {
+    if (shareKeys.length === 0) return new Set();
+    const r = await this.pool.query(
+      `SELECT share_key FROM share_marks WHERE user_id = $1 AND share_key = ANY($2)`,
+      [userId, shareKeys],
+    );
+    return new Set(r.rows.map((row) => row.share_key as string));
   }
 
   async close(): Promise<void> {

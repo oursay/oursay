@@ -184,17 +184,10 @@ export class RecordService {
     // yet — reject rather than silently accepting an unverified proof-looking field.
     if (envelope.proof !== undefined) throw new Error("appendSigned: ZK membership proof not yet supported");
 
-    // Signing-scheme policy + shape. The scheme is `p256` unless declared `webauthn-es256`.
+    // Signing-scheme SHAPE checks. The scheme is `p256` unless declared `webauthn-es256`. The
+    // jurisdiction signing POLICY (per-action signMin floor) is enforced below, after the thread key
+    // lookup resolves the action's jurisdiction — gates are per-jurisdiction, not platform-wide.
     const scheme = envelope.signScheme ?? "p256";
-    // Jurisdiction policy (hard override for vote/petition_signature → webauthn-es256). Resolved by
-    // record type; applies to create/update/delete alike. Fail-closed by default; engine-capability
-    // tests of the raw p256 path may disable it.
-    if (this.enforceSigningPolicy) {
-      const need = requiredSignScheme(envelope.type);
-      if (need && need !== scheme) {
-        throw new Error(`appendSigned: ${envelope.type} requires ${need} signatures`);
-      }
-    }
     if (scheme === "webauthn-es256") {
       // mvp-a5b persona/signer split: authorPubkey = Pₜ (stable thread persona), signerPubkey =
       // this device's per-thread WebAuthn passkey pubkey (REQUIRED — was forbidden on A5). The
@@ -234,6 +227,18 @@ export class RecordService {
     // sign, so this lookup — not a persona signature — is what binds the author to a verified user.)
     const tk = await this.store.getThreadKey(envelope.authorPubkey);
     if (!tk) throw new Error("appendSigned: unknown thread key");
+
+    // Jurisdiction signing policy ([align-w3-gates-schema]): the per-action signMin floor of the
+    // THREAD's jurisdiction. `passkey` floors require a UV-verified webauthn-es256 assertion (UV is
+    // enforced inside verifyWebauthnAssertion); `quick` floors accept p256. Applies to
+    // create/update/delete alike (resolved by type). Fail-closed by default; engine-capability tests
+    // of the raw p256 path may disable it.
+    if (this.enforceSigningPolicy) {
+      const need = requiredSignScheme(envelope.type, tk.jurisdiction);
+      if (need && need !== scheme) {
+        throw new Error(`appendSigned: ${envelope.type} requires ${need} signatures in ${tk.jurisdiction}`);
+      }
+    }
 
     if (scheme === "webauthn-es256") {
       // mvp-a5b persona/signer split: the device's signerPubkey must be a registered, non-revoked
@@ -283,7 +288,7 @@ export class RecordService {
 
     if (envelope.op === "create") {
       if (envelope.prevHash !== null) throw new Error("appendSigned: a create must have prevHash=null");
-      const r = await this.validateCreate({ type: envelope.type, author: envelope.authorPubkey, content, parent, entityId: envelope.entityId });
+      const r = await this.validateCreate({ type: envelope.type, author: envelope.authorPubkey, content, parent, entityId: envelope.entityId, jurisdictionId: tk.jurisdiction });
       if (tk.threadId !== r.rootEntityId) {
         throw new Error("appendSigned: thread key is not scoped to this action's root entity");
       }
@@ -319,8 +324,8 @@ export class RecordService {
       // author-match (proven by the signature over authorPubkey) + governance + op rules.
       const v =
         envelope.op === "update"
-          ? await this.validateUpdate(envelope.entityId, envelope.authorPubkey, content)
-          : await this.validateDelete(envelope.entityId, envelope.authorPubkey);
+          ? await this.validateUpdate(envelope.entityId, envelope.authorPubkey, content, tk.jurisdiction)
+          : await this.validateDelete(envelope.entityId, envelope.authorPubkey, tk.jurisdiction);
       if (tk.threadId !== v.rootEntityId) {
         throw new Error("appendSigned: thread key is not scoped to this action's root entity");
       }
@@ -360,9 +365,11 @@ export class RecordService {
     content: unknown;
     parent?: ParentRef;
     entityId: string;
+    /** The acting thread's jurisdiction (per-jurisdiction content caps); absent ⇒ deployment default. */
+    jurisdictionId?: string;
   }): Promise<{ parentRevisionHash?: string; parentRevisionTxId?: string; rootEntityId: string; isSingleton: boolean }> {
     if (!opAllowed(i.type, "create")) throw new Error(`create not allowed for ${i.type}`);
-    validateContent(i.type, "create", i.content);
+    validateContent(i.type, "create", i.content, i.jurisdictionId);
     let parentRevisionHash: string | undefined;
     let parentRevisionTxId: string | undefined;
     let rootEntityId = i.entityId;
@@ -417,7 +424,7 @@ export class RecordService {
   /** Validate an UPDATE against the entity's head (shared by the unsigned + signed paths). `actor`
    *  is the claimed author (unsigned) or the signed `authorPubkey` (signed, where the signature
    *  PROVES control). Throws on any rule violation; returns the head + the root entity. */
-  private async validateUpdate(entityId: string, actor: string, content?: unknown): Promise<{ head: StoredTx; rootEntityId: string }> {
+  private async validateUpdate(entityId: string, actor: string, content?: unknown, jurisdictionId?: string): Promise<{ head: StoredTx; rootEntityId: string }> {
     const head = await this.store.getHeadTx(entityId);
     if (!head) throw new Error(`entity ${entityId} not found`);
     if (head.op === "delete") throw new Error(`entity ${entityId} is deleted`);
@@ -426,10 +433,10 @@ export class RecordService {
     // Content-model + length caps on edits (the type is known only after we fetch the head). Skipped
     // when no content is supplied (e.g. a prepare that only wants prevHash); the authoritative
     // appendSigned/update() paths always pass it.
-    if (content !== undefined) validateContent(head.type, "update", content);
+    if (content !== undefined) validateContent(head.type, "update", content, jurisdictionId);
     if (head.type === "vote") {
       if (!head.parentId) throw new Error("vote has no parent poll");
-      if (!(await canChangeVote(this.store, head.parentId))) {
+      if (!(await canChangeVote(this.store, head.parentId, new Date(), jurisdictionId))) {
         throw new Error(`vote change not permitted for poll ${head.parentId} (rules/deadline)`);
       }
     }
@@ -437,7 +444,7 @@ export class RecordService {
   }
 
   /** Validate a DELETE against the entity's head (shared by the unsigned + signed paths). */
-  private async validateDelete(entityId: string, actor: string): Promise<{ head: StoredTx; rootEntityId: string }> {
+  private async validateDelete(entityId: string, actor: string, jurisdictionId?: string): Promise<{ head: StoredTx; rootEntityId: string }> {
     const head = await this.store.getHeadTx(entityId);
     if (!head) throw new Error(`entity ${entityId} not found`);
     if (head.op === "delete") throw new Error(`entity ${entityId} already deleted`);
@@ -445,7 +452,7 @@ export class RecordService {
     this.assertAuthor(head.authorPubkey, actor, entityId);
     if (head.type === "petition_signature") {
       if (!head.parentId) throw new Error("signature has no parent petition");
-      if (!(await canRevokeSignature(this.store, head.parentId))) {
+      if (!(await canRevokeSignature(this.store, head.parentId, new Date(), jurisdictionId))) {
         throw new Error(`signature revoke not permitted for petition ${head.parentId} (rules/deadline)`);
       }
     }

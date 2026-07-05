@@ -21,11 +21,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@noble/hashes": "^1.7.1",
     "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
     "@oursay/geo": "*",
     "dotenv": "^16.4.7",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
     "@types/chai": "^5.0.1",

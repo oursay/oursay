@@ -4,7 +4,9 @@
 // reaction, …) is the fold of all its transactions, ordered by `seq`. The append-only chain
 // keeps only hashes; the raw content lives in the mutable Postgres store.
 
-/** The seven record (entity) types. */
+/** The eight record (entity) types. `result` is the fourth ROOT type (WEB-APP-GAPS Part 6 #1): a
+ *  poll's outcome published as its own gated record — automated at poll close (or graduation),
+ *  attributed to the poll's author. */
 export type RecordType =
   | "post"
   | "comment"
@@ -12,7 +14,8 @@ export type RecordType =
   | "petition"
   | "petition_signature"
   | "poll"
-  | "vote";
+  | "vote"
+  | "result";
 
 /** The CRUD verb carried by a transaction. */
 export type Op = "create" | "update" | "delete";
@@ -67,9 +70,10 @@ export const PLATFORM_PUBKEY = "platform";
  */
 export interface EntityRules {
   appliesToRegion?: RegionRef; // GEOGRAPHIC STAKE: a RegionRef ("jurisdiction" | "district:<district_slug>" | "revision:<revisionId>" | "region:<presetId>" | and/or/not union); absent = the whole jurisdiction
-  /** @deprecated alias for {@link appliesToRegion}: a raw array of district REVISION ids (e.g.
-   *  "edmonton-strathcona-2026"); absent/empty = whole jurisdiction. Still accepted during migration —
-   *  the resolver maps it to an OR-of-revisions RegionRef and resolves it identically. Prefer `appliesToRegion`. */
+  /** The district-id projection of {@link appliesToRegion} — a raw array of district ids the entity
+   *  applies to; absent/empty = whole jurisdiction. KEPT alongside appliesToRegion (un-deprecated,
+   *  WEB-APP-GAPS C2): the region drives filtering, this list drives the frontend's district-slug
+   *  projection (`entity_audience`). The resolver maps it to an OR RegionRef and resolves identically. */
   appliesToDistrictIds?: string[];
   deadline?: string; // ISO 8601; after it, no change/revoke is permitted
   allowChange?: boolean; // poll: votes may change before deadline
@@ -110,8 +114,9 @@ export const PARENT_RULES: Record<RecordType, RecordType[]> = {
   post: [],
   petition: [],
   poll: [],
-  comment: ["post", "petition", "poll", "comment"],
-  reaction: ["post", "comment"],
+  result: [],
+  comment: ["post", "petition", "poll", "result", "comment"],
+  reaction: ["post", "comment", "result"],
   petition_signature: ["petition"],
   vote: ["poll"],
 };
@@ -121,6 +126,7 @@ export const ALLOWED_OPS: Record<RecordType, Op[]> = {
   post: ["create", "update", "delete"],
   petition: ["create", "update", "delete"],
   poll: ["create", "update", "delete"],
+  result: ["create", "update", "delete"], // update = platform/author amendment with reason
   comment: ["create", "update", "delete"],
   reaction: ["create", "update", "delete"],
   petition_signature: ["create", "delete"], // delete = revoke (governance-gated)
@@ -166,6 +172,14 @@ export interface PollContent {
 }
 export interface VoteContent {
   option: string;
+}
+/** A poll's published outcome. `tallies` is the snapshot at close; `sourcePollId` interlinks back. */
+export interface ResultContent {
+  title: string;
+  body?: string;
+  sourcePollId?: string;
+  tallies?: { option: string; count: number }[];
+  rules?: EntityRules;
 }
 export interface PetitionSignatureContent {
   comment?: string;

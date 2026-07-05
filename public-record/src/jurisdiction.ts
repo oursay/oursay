@@ -14,15 +14,89 @@ import { jurisdictionConfig } from "./config.js";
 import type { RecordType, SignScheme } from "./schema/types.js";
 
 /** Default gating rules for a jurisdiction. An entity may override these within what the
- *  jurisdiction permits (see {@link resolveRules} in governance.ts). Defaults are FINAL-action
- *  semantics: a vote is cast and a signature is signed with no change/revoke unless opted in. */
+ *  jurisdiction permits (see {@link resolveRules} in governance.ts). Platform defaults are LOOSE
+ *  (change/revoke allowed — WEB-APP-GAPS Part 6 #4); a jurisdiction tightens to FINAL via config. */
 export interface JurisdictionRules {
   allowChange?: boolean; // votes may change before the deadline
   allowRevoke?: boolean; // signatures may be revoked before the deadline
   defaultDeadline?: string; // ISO 8601 default close time when an entity sets none
-  /** Signing policy. `defaultScheme` is the scheme NON-forced record types must use (null/absent ⇒
-   *  any accepted). The forced types (vote, petition_signature) are a HARD override below. */
+  /** @deprecated superseded by {@link JurisdictionGates} (`gates[action].signMin`). Still honored as
+   *  the fallback scheme for jurisdictions registered without gates. */
   signing?: { defaultScheme?: SignScheme };
+}
+
+// ── Per-action gates (WEB-APP-GAPS Part 3 + Part 6 corrections) ─────────────────────────────────
+
+/** Who may perform an action. Tier ids are KYC verification-tier slugs kept as plain strings so this
+ *  package stays free of the api KYC enum (mirrors {@link JurisdictionCountExposure.minTier}). */
+export type GateActor =
+  | "anyone" // any registered account
+  | { tiers: string[] } // set membership over the caller's CURRENT tier
+  | { residencyIn: "jurisdiction" } // residency_verified AND current point ∈ the jurisdiction
+  | { role: "official" }; // authority is a platform-assigned, revocable ROLE — never a tier
+
+/** Minimum signing method for an action. `quick` accepts a software p256 envelope; `passkey`
+ *  requires a UV-verified WebAuthn assertion (webauthn-es256). A user preference may exceed the
+ *  floor — strongest wins; the floor is what the engine enforces. */
+export type SignMethod = "quick" | "passkey";
+
+/** One action's gate. `officialCount` is a COUNTING floor, never a participation barrier (Part 6
+ *  #2): anyone the `act` gate admits participates; below-floor actions bunch into unverified counts.
+ *  `deny` names actors excluded from the action — enforcement is per action type (Part 6 #3): a
+ *  denied `vote` is act-blocked at write time; a denied `petition_signature` is accepted on the
+ *  record but EXCLUDED from official counts with reason tag `official_role`. */
+export interface ActionGate {
+  act: GateActor;
+  signMin: SignMethod;
+  officialCount?: GateActor; // absent ⇒ same as act
+  deny?: GateActor[];
+}
+
+/** The gated actions: the four root types (result included — automated, attributed to the poll's
+ *  author; Part 6 #1), the attachments, and the singletons. */
+export type GatedAction =
+  | "post"
+  | "petition"
+  | "poll"
+  | "result"
+  | "comment"
+  | "reaction"
+  | "vote"
+  | "petition_signature";
+
+export type JurisdictionGates = Record<GatedAction, ActionGate>;
+
+/** Graduation policy (petition → forced poll at threshold; Part 6 #9). Config only — the forced-poll
+ *  engine consumes this; threshold is platform-set at create, never author-set. */
+export interface JurisdictionGraduation {
+  /** `fixed` = an absolute signature count; `percentOfVerified` = % of the jurisdiction's verified
+   *  users (moving target, or frozen at petition create). */
+  threshold: { kind: "fixed"; n: number } | { kind: "percentOfVerified"; percent: number; basis: "moving" | "atCreate" };
+  /** Whether jurisdiction officials may promote a petition to a poll before the threshold. */
+  officialEarlyPromotion?: boolean;
+}
+
+/** Every record type maps to the gate action that governs it. */
+export function actionForType(type: RecordType): GatedAction {
+  return type as GatedAction;
+}
+
+/** Platform default gates: everything open to any registered account at the quick floor. A
+ *  jurisdiction config overrides per action; absent config falls back here. */
+export const DEFAULT_GATES: JurisdictionGates = {
+  post: { act: "anyone", signMin: "quick" },
+  petition: { act: "anyone", signMin: "quick" },
+  poll: { act: "anyone", signMin: "quick" },
+  result: { act: "anyone", signMin: "quick" },
+  comment: { act: "anyone", signMin: "quick" },
+  reaction: { act: "anyone", signMin: "quick" },
+  vote: { act: "anyone", signMin: "quick" },
+  petition_signature: { act: "anyone", signMin: "quick" },
+};
+
+/** Resolve one action's effective gate for a jurisdiction (config override or platform default). */
+export function gateFor(action: GatedAction, jurisdictionId?: string): ActionGate {
+  return getJurisdiction(jurisdictionId).gates?.[action] ?? DEFAULT_GATES[action];
 }
 
 /** Per-jurisdiction privacy policy. The first member is the k-anonymity floor a deployment may raise
@@ -107,6 +181,11 @@ export interface JurisdictionConfig {
   labels?: JurisdictionLabels;
   /** Hard per-type content caps. Defined + exposed here; enforced by per-type validators elsewhere. */
   contentLimits?: JurisdictionContentLimits;
+  /** Per-action gates (act / signMin / officialCount / deny). Absent ⇒ {@link DEFAULT_GATES}.
+   *  Supersedes `rules.signing.defaultScheme` and the retired vote/petition_signature hard override. */
+  gates?: JurisdictionGates;
+  /** Petition→poll graduation policy (config only; the forced-poll engine consumes it). */
+  graduation?: JurisdictionGraduation;
 }
 
 const registry = new Map<string, JurisdictionConfig>();
@@ -124,11 +203,16 @@ export function getJurisdiction(id: string = jurisdictionConfig.id): Jurisdictio
 /**
  * The signature scheme a record TYPE must be signed with, or `null` when any accepted scheme is fine.
  * Resolved by type (not op), so it gates a vote's `create` AND `update`, and a petition_signature's
- * `create` AND `delete` (revoke). `vote` and `petition_signature` are a HARD override — these
- * highest-stakes singletons MUST use `webauthn-es256` (genuine per-action user verification),
- * regardless of jurisdiction config. Other types fall back to the jurisdiction's `defaultScheme`.
+ * `create` AND `delete` (revoke). Gate-driven ([align-w3-gates-schema]): the jurisdiction's
+ * `gates[action].signMin` decides — `passkey` ⇒ `webauthn-es256` (UV-verified assertion), `quick` ⇒
+ * any accepted scheme (a software `p256` envelope suffices; a user preference may still exceed the
+ * floor). The former platform-wide vote/petition_signature hard override is RETIRED — per-action
+ * floors are jurisdiction policy now. Jurisdictions registered without gates fall back to the
+ * deprecated `rules.signing.defaultScheme`, else the platform default (quick).
  */
 export function requiredSignScheme(type: RecordType, jurisdictionId?: string): SignScheme | null {
-  if (type === "vote" || type === "petition_signature") return "webauthn-es256";
-  return getJurisdiction(jurisdictionId).rules.signing?.defaultScheme ?? null;
+  const j = getJurisdiction(jurisdictionId);
+  const gate = j.gates?.[actionForType(type)];
+  if (gate) return gate.signMin === "passkey" ? "webauthn-es256" : null;
+  return j.rules.signing?.defaultScheme ?? null;
 }

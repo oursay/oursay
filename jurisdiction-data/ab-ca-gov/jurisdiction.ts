@@ -24,10 +24,36 @@ export const abCaGov: JurisdictionConfig = {
   counts: {
     votes: true,
     signatures: true,
-    minTier: ["identity_verified", "residency_verified"],
+    // ⊇-consistent with the official-count gates below (residency-based): identity_verified alone
+    // does not unlock AB scalars (WEB-APP-GAPS Part 3 note).
+    minTier: ["residency_verified"],
   },
   // Alberta product labels: a `post` is a "Statement", a `district` is a "riding"; the rest are the
   // platform defaults. Content caps match the documented launch defaults.
   labels: { ...DEFAULT_LABELS, post: "Statement", district: "riding" },
   contentLimits: DEFAULT_CONTENT_LIMITS,
+  // Locked gate matrix (WEB-APP-GAPS C5/Part 3 + Part 6 corrections):
+  //   - statements/petitions/polls/votes/signatures carry a PASSKEY sign floor; comments/reactions quick.
+  //   - petition creation = residency-verified (Part 5 #2); poll/result creation = official ROLE only.
+  //   - vote.act = jurisdiction residency; official-role holders are DENIED on vote (act-blocked) and
+  //     petition_signature (count-excluded, reason `official_role`) — Part 6 #3.
+  //   - petition_signature.act = anyone (sign-now-verify-later); its officialCount floor is residency.
+  gates: {
+    post: { act: "anyone", signMin: "passkey" },
+    petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" },
+    poll: { act: { role: "official" }, signMin: "passkey" },
+    result: { act: { role: "official" }, signMin: "passkey" },
+    comment: { act: "anyone", signMin: "quick" },
+    reaction: { act: "anyone", signMin: "quick" },
+    vote: { act: { residencyIn: "jurisdiction" }, signMin: "passkey", deny: [{ role: "official" }] },
+    petition_signature: {
+      act: "anyone",
+      signMin: "passkey",
+      officialCount: { residencyIn: "jurisdiction" },
+      deny: [{ role: "official" }],
+    },
+  },
+  // Graduation (Part 6 #9): moving %-of-verified threshold now; a fixed n (10% of the previous
+  // provincial election's valid votes) replaces it later. AB officials may promote early.
+  graduation: { threshold: { kind: "percentOfVerified", percent: 10, basis: "moving" }, officialEarlyPromotion: true },
 };

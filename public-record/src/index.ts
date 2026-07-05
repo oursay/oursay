@@ -48,9 +48,11 @@ export {
   canRevokeSignature,
 } from "./governance.js";
 
-// Jurisdiction (domain partition + router: id, level, default gating rules, signing policy)
-export { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS, getJurisdiction, registerJurisdiction, requiredSignScheme } from "./jurisdiction.js";
-export type { JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules } from "./jurisdiction.js";
+// Jurisdiction (domain partition + router: id, level, default gating rules, per-action gates)
+export { DEFAULT_CONTENT_LIMITS, DEFAULT_GATES, DEFAULT_LABELS, actionForType, gateFor, getJurisdiction, registerJurisdiction, requiredSignScheme } from "./jurisdiction.js";
+export type { ActionGate, GateActor, GatedAction, JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionGates, JurisdictionGraduation, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules, SignMethod } from "./jurisdiction.js";
+// Persona display names (minted at join; the persona page key)
+export { personaNameForPubkey } from "./identity/persona-name.js";
 
 // Projections (fold-on-read state)
 export { getThread, reactionTallies } from "./projection.js";
@@ -129,6 +131,7 @@ export type {
   PollContent,
   VoteContent,
   PetitionSignatureContent,
+  ResultContent,
 } from "./schema/types.js";
 
 // Config

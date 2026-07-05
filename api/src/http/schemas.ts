@@ -23,7 +23,7 @@ export const sessionSchema = {
   type: "object",
   properties: {
     token: { type: "string", description: "Opaque bearer token (also set as an HttpOnly cookie)." },
-    scope: { type: "string", enum: ["full", "recovery", "login"] },
+    scope: { type: "string", enum: ["full", "registration", "recovery", "login"] },
     userId: { type: "string", format: "uuid" },
     expiresAt: { type: "string", format: "date-time" },
   },
@@ -47,15 +47,18 @@ export const addressSchema = {
 
 export const profileInputSchema = {
   type: "object",
+  description:
+    "Least-resistance registration (C3): handle + over-18 checkbox required; everything else optional " +
+    "behind a helper (the KYC step collects missing name/address before verification). No date of birth.",
   properties: {
-    handle: { type: "string", description: "Optional unique @username (public profile). Letters, digits, underscore; no spaces." },
-    displayName: { type: "string", description: "Optional public display text; defaults to the handle without its '@'." },
-    firstName: { type: "string", description: "Private PII (KYC); never publicly surfaced." },
-    lastName: { type: "string", description: "Private PII (KYC); never publicly surfaced." },
-    birthdate: { type: "string", pattern: "^\\d{4}-\\d{2}-\\d{2}$", description: "YYYY-MM-DD; age gate (18+) enforced server-side." },
+    handle: { type: "string", description: "REQUIRED unique @username (public profile). Letters, digits, underscore; no spaces." },
+    displayName: { type: "string", description: "Optional public display text; falls back to the handle without its '@'." },
+    over18: { type: "boolean", description: "Self-attested 18+ checkbox (must be true). KYC re-verifies; no DOB is stored." },
+    firstName: { type: "string", description: "Optional private PII (KYC); never publicly surfaced." },
+    lastName: { type: "string", description: "Optional private PII (KYC); never publicly surfaced." },
     address: addressSchema,
   },
-  required: ["birthdate"],
+  required: ["handle", "over18"],
   additionalProperties: false,
 } as const;
 

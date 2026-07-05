@@ -1,33 +1,40 @@
-// RegistrationService: the bootstrap path. Verify the email OTP, enforce the age gate, then create
-// the account (public.users) + private profile (auth.profiles) and issue a session.
+// RegistrationService: the LEAST-RESISTANCE bootstrap path (C3, WEB-APP-GAPS Part 6 #8). Verify the
+// email OTP, then create the account (public.users) + private profile (auth.profiles) and issue a
+// LIMITED 'registration'-scoped session ([code-registration-scope]) — full access comes from the
+// subsequent passkey enrollment + passkey login.
 //
-// Name model: `handle` (optional unique @username) + `display_name` (optional public display) live on
-// public.users; `first_name`/`last_name` are private PII (KYC) on auth.profiles. All are optional at
-// this bootstrap tier — none is forced into the unique handle. The age gate lives HERE (not in HTTP):
-// minimum age is computed from DOB against the injected clock.
+// Required at registration: email (OTP-verified), a unique @handle, and the self-attested over-18
+// checkbox. Optional behind a helper: display name (falls back to the handle), legal name, and
+// address — the KYC step collects whatever is missing before ID/residency verification. No date of
+// birth is collected or stored ([code-over-18]). Every account is auto-subscribed to oursay-global.
 
 import { randomUUID } from "node:crypto";
 import type { RegistrationConfig } from "../config.js";
-import { ServiceError, systemNow, type Now } from "../errors.js";
-import { ageAtLeast, parseBirthdate } from "../helpers/age.js";
+import { ServiceError, type Now } from "../errors.js";
 import { normalizeAddress } from "../helpers/address.js";
 import { normalizeEmail } from "../helpers/email.js";
 import { isValidHandle, normalizeHandle } from "../helpers/handle.js";
+import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import type { AuthService, IssuedSession } from "./auth.service.js";
 import type { GeocodeService } from "./geocode.service.js";
 import type { OtpService, OtpRequestResult } from "./otp.service.js";
 
+/** The jurisdiction every account is subscribed to at creation ([mvp-c10b-membership]). */
+const HOME_JURISDICTION = "oursay-global";
+
 export interface RegistrationProfileInput {
-  /** Optional unique @username (public profile). */
-  handle?: string | null;
-  /** Optional public display text; defaults to the handle without its '@'. */
+  /** REQUIRED unique @username (public profile). */
+  handle: string;
+  /** Optional public display text; falls back to the handle without its '@'. */
   displayName?: string | null;
-  /** Private PII (KYC); never publicly surfaced. */
+  /** REQUIRED self-attested age gate (must be true). KYC re-verifies; no DOB is stored. */
+  over18: boolean;
+  /** Optional private PII (KYC); never publicly surfaced. Collected here only behind the
+   *  "fill it now" helper — otherwise at KYC start. */
   firstName?: string | null;
   lastName?: string | null;
-  birthdate: string; // YYYY-MM-DD
   address?: {
     line1?: string | null;
     line2?: string | null;
@@ -54,6 +61,7 @@ export interface RegisterResult {
 export interface RegistrationServiceDeps {
   userRepo: UserRepo;
   profileRepo: ProfileRepo;
+  membershipRepo: MembershipRepo;
   otpService: OtpService;
   authService: AuthService;
   /** Best-effort geocoding of the new profile's address into a private point. Never blocks registration. */
@@ -63,10 +71,7 @@ export interface RegistrationServiceDeps {
 }
 
 export class RegistrationService {
-  private readonly now: Now;
-  constructor(private readonly d: RegistrationServiceDeps) {
-    this.now = d.now ?? systemNow;
-  }
+  constructor(private readonly d: RegistrationServiceDeps) {}
 
   /** Request a registration OTP, rejecting up front if the email is already registered so we don't
    *  burn a code on an address that can't complete registration. (Registration is not enumeration-
@@ -84,20 +89,20 @@ export class RegistrationService {
 
   async registerWithOtp(input: RegisterInput): Promise<RegisterResult> {
     // Validate the request fully BEFORE consuming the OTP, so a 409/403 never burns a valid code.
-    const birthdate = parseBirthdate(input.profile?.birthdate ?? "");
-    if (!birthdate) throw new ServiceError("validation", "A valid birthdate (YYYY-MM-DD) is required");
-
-    // Handle is optional, but when supplied it must be a well-formed, unclaimed @username.
     const handle = normalizeHandle(input.profile?.handle);
-    if (handle) {
-      if (!isValidHandle(handle)) {
-        throw new ServiceError("validation", "Handle must be an @username (letters, digits, underscore; no spaces)");
-      }
-      if (await this.d.userRepo.handleExists(handle)) {
-        throw new ServiceError("handle_taken", "That handle is already taken");
-      }
+    if (!handle) throw new ServiceError("validation", "A handle (@username) is required");
+    if (!isValidHandle(handle)) {
+      throw new ServiceError("validation", "Handle must be an @username (letters, digits, underscore; no spaces)");
+    }
+    if (await this.d.userRepo.handleExists(handle)) {
+      throw new ServiceError("handle_taken", "That handle is already taken");
     }
     const displayName = input.profile?.displayName?.trim() || null;
+
+    // Age gate (docs/01 §4.3, [code-over-18]): a self-attested checkbox — no DOB is collected.
+    if (input.profile?.over18 !== true) {
+      throw new ServiceError("age_restricted", `You must confirm you are at least ${this.d.config.minAgeYears} to register`);
+    }
 
     const { canonical } = normalizeEmail(input.emailRaw);
     if (await this.d.profileRepo.getByEmailCanonical(canonical)) {
@@ -105,11 +110,6 @@ export class RegistrationService {
         "email_taken",
         "An account already exists for this email — sign in with your passkey, or use account recovery if you've lost access",
       );
-    }
-
-    // Age gate (docs/01 §4.3) — enforced in the service, against the injected clock.
-    if (!ageAtLeast(birthdate, this.d.config.minAgeYears, this.now())) {
-      throw new ServiceError("age_restricted", `You must be at least ${this.d.config.minAgeYears} to register`);
     }
 
     // Everything checks out — verify email ownership last; this consumes the OTP.
@@ -137,21 +137,25 @@ export class RegistrationService {
         postalCode: addr.postalCode,
         country: addr.country,
         memo: addr.memo,
-        birthdate: input.profile.birthdate.trim(),
+        over18: true,
         email,
         emailCanonical,
       });
+      // Every account belongs to the universal record ([mvp-c10b-membership]).
+      await this.d.membershipRepo.add(userId, HOME_JURISDICTION);
     } catch (e) {
       // Roll back the half-built account so a failed profile insert can't orphan a user row.
       await this.d.userRepo.delete(userId).catch(() => {});
       throw e;
     }
 
-    // Best-effort geocode of the just-normalized address (structural resolvability, not KYC). This must
-    // never fail registration — geocodeForUser swallows its own errors and leaves no point on failure.
+    // Best-effort geocode when an address was volunteered (structural resolvability, not KYC). Most
+    // registrations carry no address — the geocode sync then runs at the first address write (A7).
     await this.d.geocodeService.geocodeForUser(userId, addr);
 
-    const session = await this.d.authService.issue(userId, "full", input.userAgent ?? null);
+    // LIMITED enroll-only session: the client enrolls a passkey under it, then passkey-logs-in for
+    // a full session ([code-registration-scope]).
+    const session = await this.d.authService.issue(userId, "registration", input.userAgent ?? null);
     return { userId, session };
   }
 }
