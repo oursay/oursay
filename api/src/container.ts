@@ -58,6 +58,7 @@ import { PublicRecordReadService } from "./services/public-record-read.service.j
 import { RecordDetailService } from "./services/record-detail.service.js";
 import { RecordStateService } from "./services/record-state.service.js";
 import { PersonaPageService } from "./services/persona-page.service.js";
+import { ProfilePageService } from "./services/profile-page.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
 import { RegistrationService } from "./services/registration.service.js";
 import { ViewerContextService } from "./services/viewer-context.service.js";
@@ -132,6 +133,8 @@ export interface Services {
   recordStateService: RecordStateService;
   /** Thread-scoped persona profile surface (P6). */
   personaPageService: PersonaPageService;
+  /** Account-level public profile surface (P4/P5). */
+  profilePageService: ProfilePageService;
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
    *  official boundary geometry). Official electoral boundaries only — no private points. */
   areaCatalogService: AreaCatalogService;
@@ -301,6 +304,15 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const recordDetailService = new RecordDetailService({ recordStore, identityReadService });
   const recordStateService = new RecordStateService({ recordStore });
   const personaPageService = new PersonaPageService({ recordStore, identityReadService });
+  const profilePageService = new ProfilePageService({
+    recordStore,
+    userRepo: repos.user,
+    kycRepo: repos.kyc,
+    membershipRepo: repos.membership,
+    geoStore,
+    identityReadService,
+    publicFeedService,
+  });
 
   // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
   // (same `jurisdictions` list registered above). Official electoral boundaries only.
@@ -333,6 +345,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     recordDetailService,
     recordStateService,
     personaPageService,
+    profilePageService,
     areaCatalogService,
     recordStore,
   };

@@ -127,16 +127,32 @@ export class PublicFeedService {
     }
 
     const page = kept.slice(0, limit);
-    const ids = page.map(({ row }) => row.entityId);
+    const items = await this.feedItemsFromRoots(page.map(({ row, resolved }) => ({ row, resolved })));
+    const nextCursor = kept.length > limit ? String(page[page.length - 1].row.headSeq) : null;
+    return { items, nextCursor };
+  }
+
+  /** Build FeedItem-shaped rows for authored roots (profile Posts tab reuses this). */
+  async feedItemsFromRoots(
+    rows: { row: FeedRootRow; resolved?: Resolved }[],
+    viewer?: ApiViewer,
+  ): Promise<FeedItemDto[]> {
+    if (rows.length === 0) return [];
+    const res = viewer ? this.d.identityReadService.begin(viewer) : null;
+    const resolved = await Promise.all(
+      rows.map(async ({ row, resolved: r }) => {
+        if (r) return { row, resolved: r };
+        return { row, resolved: await this.resolveRow(row, res!) };
+      }),
+    );
+    const ids = resolved.map(({ row }) => row.entityId);
     const [editCounts, commentCounts] = await Promise.all([
       this.d.recordStore.getEditCounts(ids),
       this.d.recordStore.getCommentCounts(ids),
     ]);
-    const items = await Promise.all(
-      page.map(({ row, resolved }) => this.toDto(row, resolved, editCounts, commentCounts)),
+    return Promise.all(
+      resolved.map(({ row, resolved: r }) => this.toDto(row, r, editCounts, commentCounts)),
     );
-    const nextCursor = kept.length > limit ? String(page[page.length - 1].row.headSeq) : null;
-    return { items, nextCursor };
   }
 
   /** The per-row resolution the tier filter needs (author + audience), before metric queries run. */

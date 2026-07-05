@@ -14,6 +14,8 @@ export type {
   RootEntityRow,
   FeedRootRow,
   FeedRootsQuery,
+  AuthorRootsQuery,
+  AuthorActivityRow,
   StoredTx,
   AppendTxInput,
   ThreadBindingRow,

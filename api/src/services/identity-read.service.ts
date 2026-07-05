@@ -176,6 +176,15 @@ export class ReadResolution {
     };
   }
 
+  /** May THIS viewer see the account-level profile behind `userId`? Uses the account-default
+   *  visibility only (no per-thread override) — exact port of the web-app's profileVisibleTo
+   *  (web-app/src/lib/api/profile.ts, docs/09 §3). Self is always in scope. */
+  async profileVisible(userId: string): Promise<boolean> {
+    if (this.viewer.userId && userId === this.viewer.userId) return true;
+    const facts = await this.factsOf(userId);
+    return this.isRevealed(facts.accountVisibility, facts.homeDistricts);
+  }
+
   /** May THIS viewer see the identity behind an author with `visibility`? Exact port of the
    *  web-app's isRevealed (read-model/visibility.ts), with role standing in for the demo's
    *  "tier 3": officials are a platform role, never a KYC tier. */

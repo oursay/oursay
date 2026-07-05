@@ -158,6 +158,32 @@ export interface FeedRootsQuery {
   limit: number;
 }
 
+/** Profile posts query ([align-w4-api-surface] P5): LIVE roots authored by any of the user's
+ *  per-thread persona pubkeys. Results are excluded — a Result is a system outcome, not a user post. */
+export interface AuthorRootsQuery {
+  pubkeys: string[];
+  types?: RecordType[];
+  beforeSeq?: number;
+  limit: number;
+  offset?: number;
+}
+
+/** One row in a profile activity feed ([align-w4-api-surface] P5): a single record_tx event authored
+ *  by one of the user's persona pubkeys, with the thread root id for navigation. */
+export interface AuthorActivityRow {
+  seq: number;
+  entityId: string;
+  type: RecordType;
+  op: Op;
+  parentId: string | null;
+  parentType: string | null;
+  authorPubkey: string;
+  createdAt: string;
+  content: unknown;
+  /** The thread root entity id (walk parent_id until null). */
+  rootEntityId: string;
+}
+
 /**
  * The PRIVATE, mutable store: the `record_tx` event log holding raw content + salt (erasable),
  * identity stubs, and the fold-on-read projection views. immudb holds only commitments; this
@@ -402,6 +428,98 @@ export class PrivateStore {
       params,
     );
     return r.rows.map(mapFeedRootRow);
+  }
+
+  /** Every per-thread persona pubkey registered for one account. Empty when the user has never joined
+   *  a thread — profile posts/activity are then empty, not an error. */
+  async listPubkeysForUser(userId: string): Promise<string[]> {
+    const r = await this.pool.query(`SELECT pubkey FROM thread_keys WHERE user_id = $1`, [userId]);
+    return r.rows.map((x) => x.pubkey as string);
+  }
+
+  /** LIVE roots authored by any of the supplied persona pubkeys, newest head first. */
+  async listAuthorRoots(q: AuthorRootsQuery): Promise<FeedRootRow[]> {
+    if (q.pubkeys.length === 0) return [];
+    const types = q.types && q.types.length > 0 ? q.types : ["post", "petition", "poll", "result"];
+    const params: unknown[] = [q.pubkeys, types, q.limit];
+    let where = `es.author_pubkey = ANY($1) AND es.type = ANY($2) AND es.parent_id IS NULL AND NOT es.is_deleted`;
+    if (q.beforeSeq != null) {
+      params.push(q.beforeSeq);
+      where += ` AND es.head_seq < $${params.length}`;
+    }
+    const offset = q.offset ?? 0;
+    if (offset > 0) {
+      params.push(offset);
+    }
+    const offsetClause = offset > 0 ? ` OFFSET $${params.length}` : "";
+    const r = await this.pool.query(
+      `SELECT es.*,
+              tk.jurisdiction AS thread_jurisdiction,
+              fc.first_created_at
+       FROM entity_state es
+       LEFT JOIN LATERAL (
+         SELECT jurisdiction FROM thread_keys WHERE thread_id = es.entity_id::text ORDER BY jurisdiction ASC LIMIT 1
+       ) tk ON true
+       LEFT JOIN LATERAL (
+         SELECT MIN(created_at) AS first_created_at FROM record_tx WHERE entity_id = es.entity_id AND op = 'create'
+       ) fc ON true
+       WHERE ${where}
+       ORDER BY es.head_seq DESC
+       LIMIT $3${offsetClause}`,
+      params,
+    );
+    return r.rows.map(mapFeedRootRow);
+  }
+
+  /** Every record_tx row authored by any of the supplied persona pubkeys, newest seq first — the raw
+   *  material for the profile Activity tab (posts, comments, edits, reactions, votes, signatures). */
+  async listAuthorActivity(
+    pubkeys: string[],
+    opts: { limit: number; offset?: number; beforeSeq?: number },
+  ): Promise<AuthorActivityRow[]> {
+    if (pubkeys.length === 0) return [];
+    const params: unknown[] = [pubkeys, opts.limit];
+    let where = `t.author_pubkey = ANY($1)`;
+    if (opts.beforeSeq != null) {
+      params.push(opts.beforeSeq);
+      where += ` AND t.seq < $${params.length}`;
+    }
+    const offset = opts.offset ?? 0;
+    if (offset > 0) {
+      params.push(offset);
+    }
+    const offsetClause = offset > 0 ? ` OFFSET $${params.length}` : "";
+    const r = await this.pool.query(
+      `SELECT t.seq, t.entity_id, t.type, t.op, t.parent_id, t.parent_type, t.author_pubkey,
+              t.created_at, t.content,
+              COALESCE(
+                (WITH RECURSIVE chain(entity_id, parent_id) AS (
+                   SELECT es.entity_id, es.parent_id FROM entity_state es WHERE es.entity_id = t.entity_id
+                   UNION ALL
+                   SELECT es.entity_id, es.parent_id FROM entity_state es
+                     JOIN chain c ON es.entity_id = c.parent_id
+                 )
+                 SELECT entity_id FROM chain WHERE parent_id IS NULL LIMIT 1),
+                t.entity_id
+              ) AS root_entity_id
+       FROM record_tx t
+       WHERE ${where}
+       ORDER BY t.seq DESC
+       LIMIT $2${offsetClause}`,
+      params,
+    );
+    return r.rows.map(mapAuthorActivityRow);
+  }
+
+  /** LIVE comments authored by any of the supplied persona pubkeys (all nesting depths). */
+  async countAuthoredComments(pubkeys: string[]): Promise<number> {
+    if (pubkeys.length === 0) return 0;
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS count FROM entity_state
+        WHERE author_pubkey = ANY($1) AND type = 'comment' AND NOT is_deleted`,
+      [pubkeys],
+    );
+    return Number(r.rows[0]?.count ?? 0);
   }
 
   /** Revision counts (`op = 'update'` transactions) for a batch of entities. Entities with no
@@ -1274,6 +1392,21 @@ function mapFeedRootRow(row: pg.QueryResultRow): FeedRootRow {
           ? row.first_created_at
           : new Date(row.first_created_at).toISOString(),
     jurisdiction: row.thread_jurisdiction ?? null,
+  };
+}
+
+function mapAuthorActivityRow(row: pg.QueryResultRow): AuthorActivityRow {
+  return {
+    seq: Number(row.seq),
+    entityId: row.entity_id,
+    type: row.type,
+    op: row.op,
+    parentId: row.parent_id,
+    parentType: row.parent_type,
+    authorPubkey: row.author_pubkey,
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+    content: row.content,
+    rootEntityId: row.root_entity_id,
   };
 }
 
