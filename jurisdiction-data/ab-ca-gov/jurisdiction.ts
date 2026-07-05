@@ -56,4 +56,13 @@ export const abCaGov: JurisdictionConfig = {
   // Graduation (Part 6 #9): moving %-of-verified threshold now; a fixed n (10% of the previous
   // provincial election's valid votes) replaces it later. AB officials may promote early.
   graduation: { threshold: { kind: "percentOfVerified", percent: 10, basis: "moving" }, officialEarlyPromotion: true },
+  leader: { name: "Hon. A. Premier", handle: "premier" },
+  rulesCopy: [
+    "Ladder policy — levels graduate upward.",
+    "Statements: open to any registered member (passkey-signed).",
+    "Petitions: residency-verified authors only.",
+    "Polls: officials only (or via petition→poll graduation).",
+    "Verified actions are written on-ledger.",
+    "Official counts: residency-verified electors only.",
+  ],
 };

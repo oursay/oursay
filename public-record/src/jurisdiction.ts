@@ -186,6 +186,10 @@ export interface JurisdictionConfig {
   gates?: JurisdictionGates;
   /** Petition→poll graduation policy (config only; the forced-poll engine consumes it). */
   graduation?: JurisdictionGraduation;
+  /** Optional public-facing jurisdiction leader (display only; no profile link yet). */
+  leader?: { name: string; handle: string };
+  /** User-facing rules copy for the jurisdiction view (display only). */
+  rulesCopy?: string[];
 }
 
 const registry = new Map<string, JurisdictionConfig>();

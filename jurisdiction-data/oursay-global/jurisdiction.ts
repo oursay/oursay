@@ -36,4 +36,12 @@ export const oursayGlobal: JurisdictionConfig = {
   },
   // Graduation (Part 6 #9): forced poll at a fixed signature count; no early promotion role here.
   graduation: { threshold: { kind: "fixed", n: 100 }, officialEarlyPromotion: false },
+  leader: { name: "OurSay Stewards", handle: "oursay" },
+  rulesCopy: [
+    "Open policy — any member may post any root type.",
+    "Statements, Petitions and Polls are open to all.",
+    "Verified posts are written to the public ledger.",
+    "Unverified posts stay off-ledger.",
+    "Counts appear once past the k-anonymity floor.",
+  ],
 };

@@ -5,7 +5,13 @@
 // or sub-riding tiles; only official ingested electoral boundaries (docs/06 §2–3).
 
 import type { DistrictCatalogRow, GeoStore } from "@oursay/geo";
-import type { JurisdictionConfig, JurisdictionContentLimits, JurisdictionLabels } from "@oursay/public-record";
+import type {
+  JurisdictionConfig,
+  JurisdictionContentLimits,
+  JurisdictionGates,
+  JurisdictionLabels,
+} from "@oursay/public-record";
+import { DEFAULT_GATES } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 
 /** A jurisdiction as exposed publicly: id + level + optional display label, per-record-type labels,
@@ -28,6 +34,31 @@ export interface DistrictDirectory {
   items: DistrictListItem[];
 }
 
+/** Public jurisdiction detail (P7): config fields the jurisdiction view needs — no privacy/counts/rules. */
+export interface JurisdictionDetail {
+  id: string;
+  level: string;
+  label?: string;
+  labels?: JurisdictionLabels;
+  gates: JurisdictionGates;
+  graduationThreshold: number | null;
+  leader?: { name: string; handle: string };
+  rulesCopy?: string[];
+}
+
+/** Public district detail by stable slug (P8). Leader/about have no backend source yet. */
+export interface DistrictDetail {
+  name: string;
+  slug: string;
+  jur: string;
+  boundaryYear: number | null;
+  effectiveDate: string;
+  sourceName?: string;
+  leader: string | null;
+  leaderHandle: string | null;
+  about: string | null;
+}
+
 /** UTC calendar date (YYYY-MM-DD) for a Date — matches GeoStore's `asOf.toISOString().slice(0, 10)`,
  *  so the catalog's default instant is an explicit UTC date, not server-local midnight. */
 function utcDateString(d: Date): string {
@@ -43,6 +74,35 @@ export class AreaCatalogService {
   constructor(deps: { geoStore: GeoStore; jurisdictions: JurisdictionConfig[] }) {
     this.geoStore = deps.geoStore;
     this.jurisdictions = deps.jurisdictions;
+  }
+
+  /** Public jurisdiction detail (P7). Unknown id ⇒ 404. */
+  getJurisdiction(jurisdictionId: string): JurisdictionDetail {
+    const j = this.requireJurisdictionConfig(jurisdictionId);
+    return {
+      id: j.id,
+      level: j.level,
+      ...(j.label !== undefined ? { label: j.label } : {}),
+      ...(j.labels !== undefined ? { labels: j.labels } : {}),
+      gates: j.gates ?? DEFAULT_GATES,
+      graduationThreshold: graduationThreshold(j),
+      ...(j.leader !== undefined ? { leader: j.leader } : {}),
+      ...(j.rulesCopy !== undefined ? { rulesCopy: j.rulesCopy } : {}),
+    };
+  }
+
+  /** Effective-dated district detail for one stable slug (P8). Unknown jurisdiction or slug ⇒ 404. */
+  async getDistrictBySlug(
+    jurisdictionId: string,
+    slug: string,
+    opts: { asOf?: string } = {},
+  ): Promise<DistrictDetail> {
+    this.requireJurisdictionConfig(jurisdictionId);
+    const asOf = this.resolveAsOf(opts.asOf);
+    const items = await this.geoStore.listDistrictsAsOf(jurisdictionId, new Date(`${asOf}T00:00:00Z`));
+    const row = items.find((d) => d.districtSlug === slug);
+    if (!row) throw new ServiceError("not_found", `unknown district: ${slug}`);
+    return mapDistrictDetail(jurisdictionId, row);
   }
 
   /** The registered jurisdiction index — id + level + optional public label, per-record-type labels,
@@ -64,7 +124,7 @@ export class AreaCatalogService {
     jurisdictionId: string,
     opts: { asOf?: string; includeGeometry?: boolean } = {},
   ): Promise<DistrictDirectory> {
-    this.requireJurisdiction(jurisdictionId);
+    this.requireJurisdictionConfig(jurisdictionId);
     const asOf = this.resolveAsOf(opts.asOf);
     const items = await this.geoStore.listDistrictsAsOf(jurisdictionId, new Date(`${asOf}T00:00:00Z`), {
       includeGeometry: opts.includeGeometry,
@@ -76,7 +136,7 @@ export class AreaCatalogService {
    *  fetchable, including superseded redraws (audit). 404 when the jurisdiction is unknown, the
    *  revision is unknown, or the revision belongs to a different jurisdiction. */
   async getDistrictGeometry(jurisdictionId: string, revisionId: string): Promise<unknown> {
-    this.requireJurisdiction(jurisdictionId);
+    this.requireJurisdictionConfig(jurisdictionId);
     const owner = await this.geoStore.districtJurisdiction(revisionId);
     if (owner !== jurisdictionId) {
       throw new ServiceError("not_found", `district revision not found: ${revisionId}`);
@@ -88,10 +148,10 @@ export class AreaCatalogService {
     return geometry;
   }
 
-  private requireJurisdiction(id: string): void {
-    if (!this.jurisdictions.some((j) => j.id === id)) {
-      throw new ServiceError("not_found", `unknown jurisdiction: ${id}`);
-    }
+  private requireJurisdictionConfig(id: string): JurisdictionConfig {
+    const j = this.jurisdictions.find((cfg) => cfg.id === id);
+    if (!j) throw new ServiceError("not_found", `unknown jurisdiction: ${id}`);
+    return j;
   }
 
   private resolveAsOf(asOf?: string): string {
@@ -101,4 +161,29 @@ export class AreaCatalogService {
     }
     return asOf;
   }
+}
+
+function graduationThreshold(j: JurisdictionConfig): number | null {
+  const g = j.graduation;
+  return g && g.threshold.kind === "fixed" ? g.threshold.n : null;
+}
+
+/** Year anchor encoded in the revision id suffix (e.g. edmonton-city-centre-2019 → 2019). */
+function boundaryYearFromRevisionId(id: string): number | null {
+  const m = id.match(/-(\d{4})(?:-\d+)?$/);
+  return m ? Number.parseInt(m[1]!, 10) : null;
+}
+
+function mapDistrictDetail(jurisdictionId: string, row: DistrictCatalogRow): DistrictDetail {
+  return {
+    name: row.name,
+    slug: row.districtSlug,
+    jur: jurisdictionId,
+    boundaryYear: boundaryYearFromRevisionId(row.id),
+    effectiveDate: row.effectiveDate,
+    ...(row.source ? { sourceName: row.source } : {}),
+    leader: null,
+    leaderHandle: null,
+    about: null,
+  };
 }

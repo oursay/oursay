@@ -143,6 +143,98 @@ const geometryResponse = {
   description: "A GeoJSON MultiPolygon (EPSG:4326) — the official boundary of the requested district revision.",
 } as const;
 
+const gateActorSchema = {
+  oneOf: [
+    { type: "string", enum: ["anyone"] },
+    {
+      type: "object",
+      properties: { tiers: { type: "array", items: { type: "string" } } },
+      required: ["tiers"],
+    },
+    {
+      type: "object",
+      properties: { residencyIn: { type: "string", enum: ["jurisdiction"] } },
+      required: ["residencyIn"],
+    },
+    {
+      type: "object",
+      properties: { role: { type: "string", enum: ["official"] } },
+      required: ["role"],
+    },
+  ],
+} as const;
+
+const actionGateSchema = {
+  type: "object",
+  properties: {
+    act: gateActorSchema,
+    signMin: { type: "string", enum: ["quick", "passkey"] },
+    officialCount: gateActorSchema,
+    deny: { type: "array", items: gateActorSchema },
+  },
+  required: ["act", "signMin"],
+} as const;
+
+const jurisdictionDetailResponse = {
+  type: "object",
+  properties: {
+    id: { type: "string" },
+    level: { type: "string" },
+    label: { type: "string" },
+    labels: jurisdictionLabelsSchema,
+    gates: {
+      type: "object",
+      properties: {
+        post: actionGateSchema,
+        petition: actionGateSchema,
+        poll: actionGateSchema,
+        result: actionGateSchema,
+        comment: actionGateSchema,
+        reaction: actionGateSchema,
+        vote: actionGateSchema,
+        petition_signature: actionGateSchema,
+      },
+      required: ["post", "petition", "poll", "result", "comment", "reaction", "vote", "petition_signature"],
+    },
+    graduationThreshold: { type: ["number", "null"] },
+    leader: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        handle: { type: "string" },
+      },
+      required: ["name", "handle"],
+    },
+    rulesCopy: { type: "array", items: { type: "string" } },
+  },
+  required: ["id", "level", "gates", "graduationThreshold"],
+} as const;
+
+const districtSlugParams = {
+  type: "object",
+  properties: {
+    jurisdictionId: { type: "string" },
+    slug: { type: "string", description: "Stable year-less district slug." },
+  },
+  required: ["jurisdictionId", "slug"],
+} as const;
+
+const districtDetailResponse = {
+  type: "object",
+  properties: {
+    name: { type: "string" },
+    slug: { type: "string" },
+    jur: { type: "string", description: "Jurisdiction id." },
+    boundaryYear: { type: ["number", "null"] },
+    effectiveDate: { type: "string" },
+    sourceName: { type: "string" },
+    leader: { type: ["string", "null"] },
+    leaderHandle: { type: ["string", "null"] },
+    about: { type: ["string", "null"] },
+  },
+  required: ["name", "slug", "jur", "boundaryYear", "effectiveDate", "leader", "leaderHandle", "about"],
+} as const;
+
 export function registerPublicAreaCatalogRoutes(app: FastifyInstance, services: Services): void {
   const svc = services.areaCatalogService;
 
@@ -158,6 +250,22 @@ export function registerPublicAreaCatalogRoutes(app: FastifyInstance, services: 
       },
     },
     async () => ({ items: svc.listJurisdictions() }),
+  );
+
+  app.get(
+    "/v1/public/jurisdictions/:jurisdictionId",
+    {
+      schema: {
+        tags: ["public"],
+        summary: "Jurisdiction detail (gates, graduation threshold, leader, rules copy). No privacy/counts/rules.",
+        params: jurisdictionParams,
+        response: { 200: jurisdictionDetailResponse, 404: errorSchema },
+      },
+    },
+    async (req) => {
+      const { jurisdictionId } = req.params as { jurisdictionId: string };
+      return svc.getJurisdiction(jurisdictionId);
+    },
   );
 
   app.get(
@@ -177,6 +285,34 @@ export function registerPublicAreaCatalogRoutes(app: FastifyInstance, services: 
       const { jurisdictionId } = req.params as { jurisdictionId: string };
       const q = req.query as { asOf?: string; include?: "geometry" };
       return svc.listDistricts(jurisdictionId, { asOf: q.asOf, includeGeometry: q.include === "geometry" });
+    },
+  );
+
+  app.get(
+    "/v1/public/jurisdictions/:jurisdictionId/districts/:slug",
+    {
+      schema: {
+        tags: ["public"],
+        summary: "District detail by stable slug at today's effective revision (leader/about nullable — no backend source yet).",
+        params: districtSlugParams,
+        querystring: {
+          type: "object",
+          properties: {
+            asOf: {
+              type: "string",
+              pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+              description: "UTC calendar date (YYYY-MM-DD). Default: today UTC.",
+            },
+          },
+          additionalProperties: false,
+        },
+        response: { 200: districtDetailResponse, 400: errorSchema, 404: errorSchema },
+      },
+    },
+    async (req) => {
+      const { jurisdictionId, slug } = req.params as { jurisdictionId: string; slug: string };
+      const q = req.query as { asOf?: string };
+      return svc.getDistrictBySlug(jurisdictionId, slug, { asOf: q.asOf });
     },
   );
 
