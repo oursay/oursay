@@ -262,8 +262,8 @@ export const POST_POLL: RecordDetail = {
     "province-wide, since this draws on the general budget.",
   ],
   options: [
-    { label: "Yes — fund it in 2027", v: 5413 },
-    { label: "No — defer to a later budget", v: 1206 },
+    { label: "Yes — fund it in 2027", v: 5413, live: 6742 },
+    { label: "No — defer to a later budget", v: 1206, live: 1498 },
   ],
   _vote: null,
   signTier: 1,

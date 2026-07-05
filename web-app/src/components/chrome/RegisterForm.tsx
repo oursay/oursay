@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail } from "lucide-react";
+import { Mail, ShieldCheck } from "lucide-react";
 import { Button, Modal, ModalField } from "@/components/ui";
 
 interface RegisterFormProps {
@@ -31,33 +31,31 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
     >
       <div className="space-y-3">
         <SectionLabel>Public profile</SectionLabel>
-        <ModalField label="Display name" placeholder="Jane" />
         <ModalField label="Handle" placeholder="@jane_alberta" />
-
-        <SectionLabel>Your details — private (KYC)</SectionLabel>
-        <div className="grid grid-cols-2 gap-2">
-          <ModalField label="First name" placeholder="Jane" />
-          <ModalField label="Last name" placeholder="Doe" />
-        </div>
+        <ModalField
+          label="Display name (optional)"
+          placeholder="Jane — defaults to your handle"
+        />
         <ModalField label="Email" placeholder="jane@example.ca" />
-
-        <SectionLabel>Address — sets your districts, never public</SectionLabel>
-        <ModalField label="Street address" placeholder="123 Main St" />
-        <ModalField label="Apt / unit (optional)" placeholder="Unit 4" />
-        <div className="grid grid-cols-2 gap-2">
-          <ModalField label="City" placeholder="Calgary" />
-          <ModalField label="Province" placeholder="AB" />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <ModalField label="Postal code" placeholder="T2P 1A1" />
-          <ModalField label="Country" placeholder="Canada (CA)" />
-        </div>
 
         <label className="flex items-center gap-2 pt-1 text-sm text-ink">
           <input type="checkbox" defaultChecked className="size-4 rounded border-border" />
           I am 18 or older
           <span className="text-xs text-muted">— stored as a yes/no flag</span>
         </label>
+
+        <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-muted p-3">
+          <ShieldCheck size={18} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden />
+          <div>
+            <p className="text-sm font-semibold text-ink">
+              No legal name or address needed to join
+            </p>
+            <p className="text-xs text-muted">
+              You add those later, privately, only when you Get Verified — they
+              set your districts and are never shown publicly.
+            </p>
+          </div>
+        </div>
 
         <div className="flex items-start gap-3 rounded-lg border border-border bg-surface-muted p-3">
           <Mail size={18} className="mt-0.5 shrink-0 text-ink-soft" aria-hidden />
