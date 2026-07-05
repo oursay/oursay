@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+/*
+  OurSay design tokens (values copied from the marketing site, extended for the app UI).
+  Brand = violet (deliberately non-partisan — the blend of red and blue,
+  a "both sides of the aisle" signal). Verify = emerald (the platform's
+  verified/auditable accent). Ink = slate. Paper = warm off-white.
+
+  The mobile wireframe is grayscale by design; here the wireframe's hierarchy maps
+  to colour: primary action (FAB/CTA) = brand-600; verification pills = verify
+  scale with tier shading; cards sit on paper/surface with subtle borders.
+*/
+@theme {
+  --font-sans: var(--font-inter), "Inter", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  --color-paper: #faf9f6;
+  /* Card / panel surface + subtle chrome. */
+  --color-surface: #ffffff;
+  --color-surface-muted: #f7f7f5;
+  --color-border: #e6e4df;
+  --color-border-strong: #c4c0b8;
+
+  /* Text roles. */
+  --color-ink: #1f2937; /* slate-800 — primary text */
+  --color-ink-soft: #475569; /* slate-600 — secondary text */
+  --color-muted: #94a3b8; /* slate-400/500 — meta, placeholders */
+
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+
+  --color-verify-100: #d1fae5;
+  --color-verify-300: #6ee7b7;
+  --color-verify-500: #10b981;
+  --color-verify-600: #059669;
+  --color-verify-700: #047857;
+
+  /* Verification pill backgrounds — distinct hue per tier (not just shades). */
+  --color-verify-tier-1: #059669; /* Identity — green */
+  --color-verify-tier-2: #2563eb; /* Residency — blue-check vibe */
+  --color-verify-tier-3: #111827; /* Official — black */
+
+  /* Notice / danger surfaces — sign-modal FINAL warning, residency/affected boxes. */
+  --color-notice-50: #fffbeb;
+  --color-notice-200: #fde68a;
+  --color-notice-700: #b45309;
+  --color-danger-50: #fef2f2;
+  --color-danger-200: #fecaca;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+}
+
+/*
+  Dark theme. All UI colour is driven through the semantic tokens above
+  (paper/surface/ink/border/…), and every Tailwind utility resolves them via
+  var(--color-*) — so redefining the tokens here is enough to repaint the whole
+  app. We shift the neutral scale to a warm-slate dark and lift the brand/verify
+  accents a step so they read on dark surfaces. The activated class lives on
+  <html> (set from state.theme; seeded server-side from the oursay-theme cookie).
+*/
+html.dark {
+  color-scheme: dark;
+
+  --color-paper: #0f1115; /* app background */
+  --color-surface: #181b22; /* card / panel */
+  --color-surface-muted: #21252e;
+  --color-border: #2b303a;
+  --color-border-strong: #3c434f;
+
+  --color-ink: #f1f5f9; /* slate-100 — primary text */
+  --color-ink-soft: #cbd5e1; /* slate-300 — secondary text */
+  --color-muted: #8b94a3; /* meta, placeholders */
+
+  /* Lift brand/verify one step so mid-tones sit correctly on dark. */
+  --color-brand-600: #8b5cf6;
+  --color-brand-700: #7c3aed;
+  --color-verify-500: #34d399;
+  --color-verify-600: #10b981;
+  --color-verify-700: #059669;
+
+  /* Tier-3 "Official" is black in light mode; invert to a near-white chip. */
+  --color-verify-tier-3: #e5e7eb;
+
+  /* Notice / danger sit on dark now: deepen the fills, brighten the text. */
+  --color-notice-50: #2a2109;
+  --color-notice-200: #b4830c;
+  --color-notice-700: #fcd34d;
+  --color-danger-50: #2a1414;
+  --color-danger-200: #b03a3a;
+  --color-danger-600: #f87171;
+  --color-danger-700: #fca5a5;
+
+  /* Pills + modal stroke/shadow use a brand accent instead of the light ink. */
+  --pill-chrome-color: var(--color-brand-300);
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* Repaint the neutral chrome smoothly when the theme toggles. */
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+::selection {
+  background-color: var(--color-brand-200);
+  color: var(--color-brand-900);
+}
+
+/* Consistent, visible focus for keyboard users (accessibility). */
+:where(a, button, input, textarea, select, summary):focus-visible {
+  outline: 2px solid var(--color-brand-600);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Feed/footer pills + modals — thin stroke + hard bottom-right offset (no blur).
+   Colour is a variable so dark mode can swap the ink stroke for a brand accent. */
+@layer components {
+  .pill-chrome {
+    border: 1px solid var(--pill-chrome-color, var(--color-ink));
+    box-shadow: 2px 2px 0 0 var(--pill-chrome-color, var(--color-ink));
+  }
+}

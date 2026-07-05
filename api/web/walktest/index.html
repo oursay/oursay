@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OurSay — account walk (dev)</title>
+    <style>
+      body { font: 15px/1.5 system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; }
+      h1 { font-size: 1.35rem; margin-bottom: 0.2rem; }
+      h2 { font-size: 1.05rem; margin: 0; }
+      fieldset { border: 1px solid #ccc; border-radius: 10px; margin: 0 0 1rem; padding: 0.8rem 1rem 1rem; }
+      legend { display: flex; align-items: center; gap: 0.5rem; padding: 0 0.4rem; }
+      .badge { font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid #bbb; color: #555; background: #f3f3f3; }
+      .badge.ok { color: #137333; border-color: #9fcfa9; background: #e7f5ea; }
+      .badge.err { color: #b3261e; border-color: #e3a9a4; background: #fbeae9; }
+      label { display: block; font-size: 0.9rem; margin: 0.5rem 0 0.15rem; }
+      input { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid #999; border-radius: 6px; width: 100%; box-sizing: border-box; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.8rem; }
+      button { font: inherit; padding: 0.5rem 0.9rem; margin: 0.7rem 0.4rem 0 0; cursor: pointer; border: 1px solid #888; border-radius: 6px; background: #f6f6f6; }
+      button:disabled { opacity: 0.45; cursor: default; }
+      pre { background: #0f1117; color: #d6e2ff; padding: 0.7rem 0.9rem; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; font-size: 0.82rem; margin: 0.7rem 0 0; min-height: 1.2rem; }
+      code { background: #eee; padding: 0 0.3rem; border-radius: 4px; }
+      .muted { color: #666; }
+      .note { background: #fffbe6; border: 1px solid #e6d27a; border-radius: 8px; padding: 0.55rem 0.85rem; font-size: 0.9rem; }
+      #session { position: sticky; top: 0; background: #eef3ff; border: 1px solid #b9cdf2; border-radius: 8px; padding: 0.5rem 0.85rem; margin-bottom: 1.2rem; font-size: 0.85rem; word-break: break-all; }
+    </style>
+  </head>
+  <body>
+    <h1>OurSay — account walk <span class="badge">dev only</span></h1>
+    <p class="muted">
+      Drives the real <code>/v1</code> API end-to-end on this origin (<code id="origin"></code>) so WebAuthn
+      ceremonies run for human QA — Swagger can't do that. Sessions use the HttpOnly cookie
+      (<code>credentials: include</code>); the Bearer token is shown for pasting into <a href="/docs">/docs</a>.
+    </p>
+
+    <div id="session">No session yet.</div>
+
+    <p class="note">
+      <strong>OTP codes print to the API server console</strong> (the terminal running
+      <code>npm run dev</code>), e.g. <code>[mailer:noop:dev] OTP for you@example.com: 123456</code> —
+      the page can't read your inbox. Copy the code from there into the fields below.
+    </p>
+
+    <fieldset>
+      <legend><h2>1 · Profile</h2> <span class="badge" id="b-profile">todo</span></legend>
+      <p class="muted">Fill the profile <em>first</em>; it's submitted together with the OTP at step&nbsp;3 (18+ required).</p>
+      <div class="grid">
+        <div><label>Display name</label><input id="displayName" value="Walk Tester" /></div>
+        <div><label>Email</label><input id="email" type="email" placeholder="you@example.com" /></div>
+        <div><label>Birthdate (YYYY-MM-DD)</label><input id="birthdate" value="1990-06-15" /></div>
+        <div><label>City</label><input id="city" value="Calgary" /></div>
+        <div><label>Region</label><input id="region" value="AB" /></div>
+        <div><label>Postal code</label><input id="postalCode" value="T2P 1H9" /></div>
+        <div><label>Country</label><input id="country" value="CA" /></div>
+        <div><label>Line 1</label><input id="line1" value="" /></div>
+      </div>
+      <button id="saveProfile">Save profile</button>
+      <pre id="out-profile">(fill in and save)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>2 · Request registration code</h2> <span class="badge" id="b-otp">todo</span></legend>
+      <button id="requestOtp" disabled>Request OTP</button>
+      <pre id="out-otp">(needs a saved profile)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>3 · Verify code + create account</h2> <span class="badge" id="b-verify">todo</span></legend>
+      <label>OTP code (from server console)</label><input id="otpCode" placeholder="123456" />
+      <button id="verifyOtp" disabled>Verify + register</button>
+      <pre id="out-verify">(needs an OTP request)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>4 · Enroll passkey</h2> <span class="badge" id="b-enroll">todo</span></legend>
+      <p class="muted">Runs the WebAuthn create ceremony with your platform authenticator.</p>
+      <button id="enroll" disabled>Enroll passkey</button>
+      <pre id="out-enroll">(needs a session)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>4b · Manage passkeys (list / kick a device)</h2> <span class="badge" id="b-manage">todo</span></legend>
+      <p class="muted">
+        List the account-login passkeys on this account and revoke one — "kick a compromised or
+        retired device". Revoking also <strong>cuts off the sessions that passkey established</strong>.
+        The <em>last</em> passkey can't be removed (403); use recovery for a full reset.
+      </p>
+      <button id="listPasskeys" disabled>List my passkeys</button>
+      <div id="passkeyList"></div>
+      <pre id="out-manage">(needs a full session)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>5 · Civic golden path (real SDK)</h2> <span class="badge" id="b-civic">todo</span></legend>
+      <p class="muted">
+        Drives the production <strong>@oursay/identity</strong> SDK in the browser (bundled at
+        <code>/walk/identity.js</code>), <strong>Option A</strong>: unlock account custody → join an
+        <code>ab-ca-gov</code> thread, which <strong>creates that thread's own WebAuthn passkey</strong>
+        (its public key is the author) → create a post, signed by a <strong>fresh user-verifying
+        assertion</strong>. Every civic action re-prompts. The platform receives only <strong>public
+        keys, an opaque commitment, and the signed envelope</strong>; the result shows the custody source.
+      </p>
+      <p class="note">
+        The per-thread civic passkeys are <strong>separate</strong> from the step-4 account-login passkey
+        (docs/08 §5.4) — expect a passkey prompt to create the thread credential and one
+        <em>per civic action</em>.
+      </p>
+      <button id="enrollCivic" disabled>Run civic golden path</button>
+      <button id="listCivic" disabled>List my civic devices</button>
+      <pre id="out-civic">(needs a full session)</pre>
+
+      <hr style="margin:1.1rem 0 0.6rem; border:none; border-top:1px solid #ddd" />
+      <legend style="padding:0"><h2 style="font-size:0.98rem">Granular sub-steps</h2> <span class="badge" id="b-civicsub">todo</span></legend>
+      <p class="muted">
+        The one-click golden path above is the smoke test. These sub-steps run the same flow phase by
+        phase for human QA — run them <strong>in order 5a → 5e</strong>. <strong>5a</strong> unlocks
+        account custody (one WebAuthn prompt — it seeds the nullifier root); <strong>5b</strong> creates
+        the thread passkey; <strong>5c–5e each prompt for user verification</strong> — one assertion
+        per action (Option A, docs/08 §5.4). Each button stays disabled until its prerequisite exists.
+        Re-running 5a keeps the same thread.
+      </p>
+      <button id="civicUnlock" disabled>5a · Unlock civic custody</button>
+      <button id="civicJoin" disabled>5b · Join thread</button>
+      <button id="civicPost" disabled>5c · Create root post</button>
+      <button id="civicComment" disabled>5d · Add comment</button>
+      <button id="civicReact" disabled>5e · Add reaction</button>
+      <pre id="out-civicsub">(run 5a to unlock civic custody)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>6 · Logout</h2> <span class="badge" id="b-logout">todo</span></legend>
+      <button id="logout" disabled>Logout</button>
+      <pre id="out-logout">(needs a session)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>7 · Passkey login</h2> <span class="badge" id="b-login">todo</span></legend>
+      <p class="muted">Usernameless login with the passkey enrolled above → a fresh full session.</p>
+      <button id="login" disabled>Login with passkey</button>
+      <pre id="out-login">(enroll a passkey first)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>8 · Sign in on another device</h2> <span class="badge" id="b-loginflow">todo</span></legend>
+      <p class="muted">
+        Gated cross-device login (docs/08). <strong>From this trusted device</strong> (full session +
+        a passkey), authorize a login on a new device — that sends a login OTP to the account email.
+        Bare email OTP can't log in unless this window is open.
+      </p>
+      <button id="enableLogin" disabled>Enable login on another device (send OTP)</button>
+      <p class="muted" style="margin-top:0.8rem">
+        <strong>Simulate the new device:</strong> enter the login code from the server console. Verify
+        issues a limited <code>login</code> session (enroll-only); then enroll a passkey on the "new
+        device" and log in with it (step&nbsp;7) for full access.
+      </p>
+      <label>Login code (from server console)</label><input id="loginCode" placeholder="123456" />
+      <button id="verifyLoginOtp" disabled>Verify login (new device)</button>
+      <button id="enrollLoginPasskey" disabled>Enroll passkey on new device</button>
+      <pre id="out-loginflow">(needs a full session with a passkey)</pre>
+    </fieldset>
+
+    <fieldset>
+      <legend><h2>9 · Recovery (lost passkey)</h2> <span class="badge" id="b-recovery">todo</span></legend>
+      <p class="muted">
+        Contrast with step&nbsp;8: recovery is for a registered account that has <em>lost</em> its
+        passkey. Email OTP (via the unified request endpoint, <code>purpose:recovery</code>) →
+        a limited recovery session → re-enroll a passkey. Recovery <strong>revokes all prior
+        sessions</strong>; login (step&nbsp;8) does not. Uses the same email from step&nbsp;1.
+      </p>
+      <button id="recoverRequest" disabled>Request recovery code</button>
+      <label>Recovery code (from server console)</label><input id="recoveryCode" placeholder="123456" />
+      <button id="recoverVerify" disabled>Verify recovery</button>
+      <button id="recoverEnroll" disabled>Re-enroll passkey</button>
+      <pre id="out-recovery">(needs a registered email)</pre>
+    </fieldset>
+
+    <script src="/walk/simplewebauthn-browser.js"></script>
+    <script type="module" src="/walk/app.js"></script>
+  </body>
+</html>

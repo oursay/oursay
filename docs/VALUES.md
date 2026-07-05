@@ -56,9 +56,14 @@ and the code must keep them as distinct properties.
 
 - A user acts through a **per-thread key** so their separate actions are not trivially
   linkable. The platform can verify a per-thread key belongs to a real, verified user
-  **without exposing which user** (BIP32-derived keys; the linking material is PII).
-- Material that links a user's anonymous actions together (e.g. an account-level xpub) is
-  **PII, encrypted at rest**, never published, and accessible to the user for self-audit.
+  **without exposing which user** (keys are HKDF-derived on-device from a jurisdiction master; the
+  linking material is PII held privately, not on the record).
+- Material that links a user's actions together (the platform's per-thread **registration
+  bindings** and **commitment openings** — `user_id`, `salt_t`) is **PII, encrypted at rest**,
+  never published, and accessible to the user for self-audit or authorized per-thread reveal.
+  Nothing published links one thread to another — published records carry only `thread_pubkey`, and
+  the per-thread commitment is opaque and appears only in the platform's signed settlement
+  attestation metadata.
 - "Verified" and "identified" are **different fields**: a verified anonymous action counts
   in its tier total while displaying no identity. Never conflate them anywhere in the
   system.

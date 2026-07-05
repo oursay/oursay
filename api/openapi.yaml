@@ -1,0 +1,4372 @@
+openapi: 3.0.3
+info:
+  title: OurSay Account API
+  description: Account registration & authentication. Email OTP is
+    bootstrap/recovery only; WebAuthn passkeys are the day-to-day login. These
+    passkeys are the ACCOUNT-LOGIN factor and are separate from the civic
+    thread-signing keys in @oursay/public-record.
+  version: 1.0.0
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Opaque session token
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: oursay_session
+  schemas: {}
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      tags:
+        - meta
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  db:
+                    type: string
+                required:
+                  - status
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  db:
+                    type: string
+                required:
+                  - status
+  /v1/auth/otp/request:
+    post:
+      summary: Request an email one-time code (registration, recovery, or gated login)
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                purpose:
+                  type: string
+                  enum:
+                    - registration
+                    - recovery
+                    - login
+                  default: registration
+              required:
+                - email
+              additionalProperties: false
+      responses:
+        "202":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - sent
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: UTC instant after which the issued code is invalid (matches
+                      OTP_TTL_SEC).
+                required:
+                  - status
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/otp/verify:
+    post:
+      summary: Verify a registration code with a profile body to create the account
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  minLength: 1
+                profile:
+                  type: object
+                  properties:
+                    handle:
+                      type: string
+                      description: Optional unique @username (public profile). Letters, digits,
+                        underscore; no spaces.
+                    displayName:
+                      type: string
+                      description: Optional public display text; defaults to the handle without its
+                        '@'.
+                    firstName:
+                      type: string
+                      description: Private PII (KYC); never publicly surfaced.
+                    lastName:
+                      type: string
+                      description: Private PII (KYC); never publicly surfaced.
+                    birthdate:
+                      type: string
+                      pattern: ^\d{4}-\d{2}-\d{2}$
+                      description: YYYY-MM-DD; age gate (18+) enforced server-side.
+                    address:
+                      type: object
+                      description: Address components (Canada-centric storage; the front-end owns
+                        localized labels). No district binding is stored.
+                      properties:
+                        line1:
+                          type: string
+                        line2:
+                          type: string
+                        city:
+                          type: string
+                        province:
+                          type: string
+                          description: Province/territory.
+                        postalCode:
+                          type: string
+                        country:
+                          type: string
+                          description: ISO country code; defaults to CA.
+                        memo:
+                          type: string
+                          description: Free field for jurisdiction-specific edge cases.
+                      additionalProperties: false
+                  required:
+                    - birthdate
+                  additionalProperties: false
+              required:
+                - email
+                - code
+                - profile
+              additionalProperties: false
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  session:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: Opaque bearer token (also set as an HttpOnly cookie).
+                      scope:
+                        type: string
+                        enum:
+                          - full
+                          - recovery
+                          - login
+                      userId:
+                        type: string
+                        format: uuid
+                      expiresAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - token
+                      - scope
+                      - userId
+                      - expiresAt
+                required:
+                  - userId
+                  - session
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/register/options:
+    post:
+      summary: Begin passkey enrollment (returns WebAuthn creation options)
+      tags:
+        - passkey
+      security: &a1
+        - bearerAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/register/verify:
+    post:
+      summary: Complete passkey enrollment (store the credential)
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                response:
+                  type: object
+                  additionalProperties: true
+                label:
+                  type: string
+              required:
+                - response
+              additionalProperties: false
+      security: *a1
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  credentialId:
+                    type: string
+                required:
+                  - credentialId
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkeys:
+    get:
+      summary: List the caller's enrolled account-login passkeys (devices)
+      tags:
+        - passkey
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passkeys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: Stable id used to revoke this passkey.
+                        label:
+                          type: string
+                          nullable: true
+                          description: Optional human label, e.g. "Alice's laptop".
+                        transports:
+                          type: string
+                          nullable: true
+                          description: CSV of authenticator transports.
+                        createdAt:
+                          type: string
+                          format: date-time
+                        lastUsedAt:
+                          type: string
+                          format: date-time
+                          nullable: true
+                      required:
+                        - id
+                        - label
+                        - transports
+                        - createdAt
+                        - lastUsedAt
+                required:
+                  - passkeys
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/revoke:
+    post:
+      summary: Remove one of the caller's passkeys (kick a compromised/retired device)
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+              required:
+                - id
+              additionalProperties: false
+      security: *a1
+      responses:
+        "204":
+          description: Default Response
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/login/options:
+    post:
+      summary: Begin passkey login (returns WebAuthn request options)
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              additionalProperties: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /v1/auth/passkey/login/verify:
+    post:
+      summary: Complete passkey login (assertion → session)
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                response:
+                  type: object
+                  additionalProperties: true
+              required:
+                - response
+              additionalProperties: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  session:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: Opaque bearer token (also set as an HttpOnly cookie).
+                      scope:
+                        type: string
+                        enum:
+                          - full
+                          - recovery
+                          - login
+                      userId:
+                        type: string
+                        format: uuid
+                      expiresAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - token
+                      - scope
+                      - userId
+                      - expiresAt
+                required:
+                  - userId
+                  - session
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/session:
+    get:
+      summary: Describe the current session
+      tags:
+        - auth
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  scope:
+                    type: string
+                    enum:
+                      - full
+                      - recovery
+                required:
+                  - userId
+                  - scope
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/logout:
+    post:
+      summary: Revoke the current session
+      tags:
+        - auth
+      security: *a1
+      responses:
+        "204":
+          description: Default Response
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/recovery/verify:
+    post:
+      summary: Verify a recovery code (unverified → recovery session; verified → KYC
+        re-verification required)
+      tags:
+        - recovery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  minLength: 1
+              required:
+                - email
+                - code
+              additionalProperties: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - passkey_reenroll
+                  userId:
+                    type: string
+                    format: uuid
+                  session:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: Opaque bearer token (also set as an HttpOnly cookie).
+                      scope:
+                        type: string
+                        enum:
+                          - full
+                          - recovery
+                          - login
+                      userId:
+                        type: string
+                        format: uuid
+                      expiresAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - token
+                      - scope
+                      - userId
+                      - expiresAt
+                required:
+                  - status
+                  - userId
+                  - session
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/login/enable:
+    post:
+      summary: Authorize cross-device login from a trusted device (sends a login OTP
+        to the account email)
+      tags:
+        - login
+      description: Requires a full session AND at least one enrolled passkey. Opens a
+        short-lived login window (TTL = OTP_TTL_SEC) and emails a one-time code
+        to sign in on another device.
+      security: *a1
+      responses:
+        "202":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - sent
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: UTC instant after which the issued code is invalid (matches
+                      OTP_TTL_SEC).
+                required:
+                  - status
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/login/verify:
+    post:
+      summary: Complete cross-device login (login OTP → limited enroll-only session)
+      tags:
+        - login
+      description: Succeeds only if a login window was opened from a trusted device.
+        Issues a 'login'-scoped session that may enroll a passkey; full access
+        comes from the subsequent passkey login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                code:
+                  type: string
+                  minLength: 1
+              required:
+                - email
+                - code
+              additionalProperties: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - passkey_enroll
+                  userId:
+                    type: string
+                    format: uuid
+                  session:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        description: Opaque bearer token (also set as an HttpOnly cookie).
+                      scope:
+                        type: string
+                        enum:
+                          - full
+                          - recovery
+                          - login
+                      userId:
+                        type: string
+                        format: uuid
+                      expiresAt:
+                        type: string
+                        format: date-time
+                    required:
+                      - token
+                      - scope
+                      - userId
+                      - expiresAt
+                required:
+                  - status
+                  - userId
+                  - session
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/devices:
+    post:
+      summary: "[deprecated] Enrol a civic device key (not used by the WebAuthn
+        signing path)"
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                devicePubkey:
+                  type: string
+                  minLength: 1
+                label:
+                  type: string
+              required:
+                - devicePubkey
+              additionalProperties: false
+      deprecated: true
+      security: *a1
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devicePubkey:
+                    type: string
+                    description: SEC1 P-256 public key (hex). Public key only — never a private key.
+                  label:
+                    type: string
+                    nullable: true
+                    description: Optional human label, e.g. "Alice's iPhone".
+                  enrolledAt:
+                    type: string
+                    format: date-time
+                required:
+                  - devicePubkey
+                  - label
+                  - enrolledAt
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+    get:
+      summary: "[deprecated] List the caller's enrolled civic device keys"
+      tags:
+        - civic
+      deprecated: true
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        devicePubkey:
+                          type: string
+                          description: SEC1 P-256 public key (hex). Public key only — never a private key.
+                        label:
+                          type: string
+                          nullable: true
+                          description: Optional human label, e.g. "Alice's iPhone".
+                        enrolledAt:
+                          type: string
+                          format: date-time
+                      required:
+                        - devicePubkey
+                        - label
+                        - enrolledAt
+                required:
+                  - devices
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/devices/revoke:
+    post:
+      summary: "[deprecated] Revoke one of the caller's civic device keys"
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                devicePubkey:
+                  type: string
+                  minLength: 1
+              required:
+                - devicePubkey
+              additionalProperties: false
+      deprecated: true
+      security: *a1
+      responses:
+        "204":
+          description: Default Response
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/threads/join:
+    post:
+      summary: "Join a thread: register this device's signer under the stable thread
+        persona Pₜ"
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                threadId:
+                  type: string
+                  description: Root entity id the thread is scoped to.
+                jurisdiction:
+                  type: string
+                  description: Jurisdiction id, e.g. ab-ca-gov.
+                signerPubkey:
+                  type: string
+                  description: This device's per-thread WebAuthn passkey pubkey (envelope
+                    signerPubkey), SEC1 P-256 hex. The server is the authority
+                    on Pₜ — first device wins, subsequent devices receive the
+                    same Pₜ in the response.
+                commitment:
+                  type: string
+                  description: Opaque binding commitment (sha256 hex); opening stays client-side.
+                    Must match the previously-bound commitment on a
+                    returning-device join.
+              required:
+                - threadId
+                - jurisdiction
+                - signerPubkey
+                - commitment
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: The canonical thread persona pubkey Pₜ for the caller's (user,
+            thread). Always returned by join.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The canonical thread persona pubkey Pₜ for the caller's (user,
+                  thread). Always returned by join.
+                properties:
+                  personaPubkey:
+                    type: string
+                    description: Stable thread persona pubkey Pₜ (envelope authorPubkey) — first
+                      device's signer wins; subsequent devices receive the same
+                      Pₜ.
+                required:
+                  - personaPubkey
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/appends/prepare:
+    post:
+      summary: "Prepare an append: server-derived fields for a civic intent"
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                author:
+                  type: string
+                  description: Thread persona pubkey the action is authored as (must be the
+                    caller's).
+                intent:
+                  type: object
+                  description: A civic intent. `content` is the raw payload (kept private); the
+                    server returns the fields to sign.
+                  properties:
+                    op:
+                      type: string
+                      enum:
+                        - create
+                        - update
+                        - delete
+                    type:
+                      type: string
+                      enum:
+                        - post
+                        - comment
+                        - reaction
+                        - petition
+                        - petition_signature
+                        - poll
+                        - vote
+                    entityId:
+                      type: string
+                      description: Caller-chosen entity id (client and server must agree).
+                    parent:
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          enum:
+                            - post
+                            - comment
+                            - reaction
+                            - petition
+                            - petition_signature
+                            - poll
+                            - vote
+                        id:
+                          type: string
+                      required:
+                        - type
+                        - id
+                      additionalProperties: false
+                    content:
+                      description: Opaque payload (any JSON). Never published in plaintext.
+                  required:
+                    - op
+                    - type
+                    - entityId
+                  additionalProperties: false
+              required:
+                - author
+                - intent
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Server-derived fields the client must sign over (mirrors
+            RecordService.prepareAppend).
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Server-derived fields the client must sign over (mirrors
+                  RecordService.prepareAppend).
+                properties:
+                  prevHash:
+                    type: string
+                    nullable: true
+                  parentType:
+                    type: string
+                  parentId:
+                    type: string
+                  parentRevisionHash:
+                    type: string
+                  parentRevisionTxId:
+                    type: string
+                  rootEntityId:
+                    type: string
+                  nullifierParentId:
+                    type: string
+                  nullifier:
+                    type: string
+                required:
+                  - prevHash
+                  - rootEntityId
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/civic/appends/submit:
+    post:
+      summary: Submit a client-signed WebAuthn (webauthn-es256) envelope into the
+        verified record pool
+      tags:
+        - civic
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                envelope:
+                  type: object
+                  additionalProperties: true
+                salt:
+                  type: string
+                  description: Per-record content-commitment salt (random uuid/hex).
+                content:
+                  description: The civic payload this envelope commits to (any JSON).
+              required:
+                - envelope
+                - salt
+                - content
+              additionalProperties: false
+      security: *a1
+      responses:
+        "201":
+          description: A reference to the appended (pooled) transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: A reference to the appended (pooled) transaction.
+                properties:
+                  txId:
+                    type: string
+                  entityId:
+                    type: string
+                  txHash:
+                    type: string
+                required:
+                  - txId
+                  - entityId
+                  - txHash
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/posts:
+    get:
+      summary: Browse posts (Beliefs), newest first. Filters are echoed, not resolved
+        (counts resolve geo/tier).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (echoed on lists, not resolved).
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC tier(s); repeatable (echoed on lists, not resolved).
+        - schema:
+            type: string
+          in: query
+          name: jurisdiction
+          required: false
+          description: Jurisdiction filter for multi-jurisdiction browse (echoed, not
+            resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (echoed, not resolved).
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityId:
+                          type: string
+                        type:
+                          type: string
+                        content:
+                          nullable: true
+                        withheld:
+                          type: boolean
+                        createdAt:
+                          type: string
+                        audienceScope:
+                          type: object
+                          description: Audience metadata for clients/future filters (not write-policy).
+                            Not PII.
+                          properties:
+                            jurisdiction:
+                              type: string
+                              description: Jurisdiction id (default oursay-global when no persona is bound).
+                            appliesToRegion:
+                              nullable: true
+                              description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                                | "district:<district_slug>" |
+                                "revision:<revisionId>" | "region:<presetId>")
+                                or an { op: "and"|"or"|"not", refs: RegionRef[]
+                                } union. Null ⇒ whole jurisdiction. (A legacy
+                                appliesToDistrictIds stake is surfaced here as
+                                an OR of revisions.)'
+                          required:
+                            - jurisdiction
+                            - appliesToRegion
+                        reactions:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - kind
+                              - count
+                      required:
+                        - entityId
+                        - type
+                        - createdAt
+                        - audienceScope
+                        - reactions
+                  page:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      total:
+                        type: integer
+                    required:
+                      - limit
+                      - offset
+                      - total
+                  filters:
+                    type: object
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: object
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
+                          date:
+                            type: boolean
+                            description: Always false (date filtering not yet implemented).
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - kAnonymityFloor
+                      - note
+                required:
+                  - items
+                  - page
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/posts/{id}:
+    get:
+      summary: "A post thread: root + reaction tallies + nested comments."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                      type:
+                        type: string
+                      latestOp:
+                        type: string
+                      contentHash:
+                        type: string
+                      content:
+                        description: Opaque payload, or null when withheld.
+                        nullable: true
+                      withheld:
+                        type: boolean
+                      isDeleted:
+                        type: boolean
+                      isRedacted:
+                        type: boolean
+                      isErased:
+                        type: boolean
+                    required:
+                      - entityId
+                      - type
+                      - withheld
+                      - isDeleted
+                      - isRedacted
+                      - isErased
+                  audienceScope:
+                    type: object
+                    description: Audience metadata for clients/future filters (not write-policy).
+                      Not PII.
+                    properties:
+                      jurisdiction:
+                        type: string
+                        description: Jurisdiction id (default oursay-global when no persona is bound).
+                      appliesToRegion:
+                        nullable: true
+                        description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                          | "district:<district_slug>" | "revision:<revisionId>"
+                          | "region:<presetId>") or an { op: "and"|"or"|"not",
+                          refs: RegionRef[] } union. Null ⇒ whole jurisdiction.
+                          (A legacy appliesToDistrictIds stake is surfaced here
+                          as an OR of revisions.)'
+                    required:
+                      - jurisdiction
+                      - appliesToRegion
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                            type:
+                              type: string
+                            latestOp:
+                              type: string
+                            contentHash:
+                              type: string
+                            content:
+                              description: Opaque payload, or null when withheld.
+                              nullable: true
+                            withheld:
+                              type: boolean
+                            isDeleted:
+                              type: boolean
+                            isRedacted:
+                              type: boolean
+                            isErased:
+                              type: boolean
+                          required:
+                            - entityId
+                            - type
+                            - withheld
+                            - isDeleted
+                            - isRedacted
+                            - isErased
+                        reactionsByEntity:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - kind
+                              - count
+                        reactionsByCurrentRevision:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - kind
+                              - count
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - state
+                        - reactionsByEntity
+                        - reactionsByCurrentRevision
+                        - replies
+                required:
+                  - root
+                  - audienceScope
+                  - reactionsByEntity
+                  - reactionsByCurrentRevision
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/posts/{id}/counts:
+    get:
+      summary: Reaction tallies for a post (geo scope + KYC tier resolved +
+        k-anonymity; date stubbed).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience — RESOLVED on counts (region-first +
+            k-anonymity); my-district is inert.
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
+            counted if their current tier is in the set (set membership, not
+            at-or-above)."
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entityId:
+                    type: string
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  filters:
+                    type: object
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: object
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
+                          date:
+                            type: boolean
+                            description: Always false (date filtering not yet implemented).
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - kAnonymityFloor
+                      - note
+                required:
+                  - entityId
+                  - reactionsByEntity
+                  - reactionsByCurrentRevision
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/petitions:
+    get:
+      summary: Browse petitions, newest first. Filters echoed (not resolved);
+        signatureCount is null + countGating set when the jurisdiction
+        withholds/tier-gates it.
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (echoed on lists, not resolved).
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC tier(s); repeatable (echoed on lists, not resolved).
+        - schema:
+            type: string
+          in: query
+          name: jurisdiction
+          required: false
+          description: Jurisdiction filter for multi-jurisdiction browse (echoed, not
+            resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (echoed, not resolved).
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityId:
+                          type: string
+                        type:
+                          type: string
+                        content:
+                          nullable: true
+                        withheld:
+                          type: boolean
+                        createdAt:
+                          type: string
+                        audienceScope:
+                          type: object
+                          description: Audience metadata for clients/future filters (not write-policy).
+                            Not PII.
+                          properties:
+                            jurisdiction:
+                              type: string
+                              description: Jurisdiction id (default oursay-global when no persona is bound).
+                            appliesToRegion:
+                              nullable: true
+                              description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                                | "district:<district_slug>" |
+                                "revision:<revisionId>" | "region:<presetId>")
+                                or an { op: "and"|"or"|"not", refs: RegionRef[]
+                                } union. Null ⇒ whole jurisdiction. (A legacy
+                                appliesToDistrictIds stake is surfaced here as
+                                an OR of revisions.)'
+                          required:
+                            - jurisdiction
+                            - appliesToRegion
+                        signatureCount:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor or
+                            withheld/tier-gated by jurisdiction count policy.
+                        countGating:
+                          type: string
+                          enum:
+                            - none
+                            - withheld
+                            - tier-gated
+                          description: "Public count exposure for this entity's jurisdiction: none
+                            (exposed), withheld (never public), tier-gated (only
+                            when filtered to verified tiers)."
+                        countGatingNote:
+                          type: string
+                          description: Human-readable reason the count is visible, withheld, or
+                            tier-gated.
+                      required:
+                        - entityId
+                        - type
+                        - createdAt
+                        - audienceScope
+                        - signatureCount
+                        - countGating
+                  page:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      total:
+                        type: integer
+                    required:
+                      - limit
+                      - offset
+                      - total
+                  filters:
+                    type: object
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: object
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
+                          date:
+                            type: boolean
+                            description: Always false (date filtering not yet implemented).
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - kAnonymityFloor
+                      - note
+                required:
+                  - items
+                  - page
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/petitions/{id}:
+    get:
+      summary: "A petition thread: root + signature count (null + countGating when
+        withheld/tier-gated) + reaction tallies + comments."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                      type:
+                        type: string
+                      latestOp:
+                        type: string
+                      contentHash:
+                        type: string
+                      content:
+                        description: Opaque payload, or null when withheld.
+                        nullable: true
+                      withheld:
+                        type: boolean
+                      isDeleted:
+                        type: boolean
+                      isRedacted:
+                        type: boolean
+                      isErased:
+                        type: boolean
+                    required:
+                      - entityId
+                      - type
+                      - withheld
+                      - isDeleted
+                      - isRedacted
+                      - isErased
+                  audienceScope:
+                    type: object
+                    description: Audience metadata for clients/future filters (not write-policy).
+                      Not PII.
+                    properties:
+                      jurisdiction:
+                        type: string
+                        description: Jurisdiction id (default oursay-global when no persona is bound).
+                      appliesToRegion:
+                        nullable: true
+                        description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                          | "district:<district_slug>" | "revision:<revisionId>"
+                          | "region:<presetId>") or an { op: "and"|"or"|"not",
+                          refs: RegionRef[] } union. Null ⇒ whole jurisdiction.
+                          (A legacy appliesToDistrictIds stake is surfaced here
+                          as an OR of revisions.)'
+                    required:
+                      - jurisdiction
+                      - appliesToRegion
+                  signatureCount:
+                    type: integer
+                    nullable: true
+                    description: Null when suppressed by the k-anonymity floor or
+                      withheld/tier-gated by jurisdiction count policy.
+                  countGating:
+                    type: string
+                    enum:
+                      - none
+                      - withheld
+                      - tier-gated
+                    description: "Public count exposure for this entity's jurisdiction: none
+                      (exposed), withheld (never public), tier-gated (only when
+                      filtered to verified tiers)."
+                  countGatingNote:
+                    type: string
+                    description: Human-readable reason the count is visible, withheld, or
+                      tier-gated.
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                            type:
+                              type: string
+                            latestOp:
+                              type: string
+                            contentHash:
+                              type: string
+                            content:
+                              description: Opaque payload, or null when withheld.
+                              nullable: true
+                            withheld:
+                              type: boolean
+                            isDeleted:
+                              type: boolean
+                            isRedacted:
+                              type: boolean
+                            isErased:
+                              type: boolean
+                          required:
+                            - entityId
+                            - type
+                            - withheld
+                            - isDeleted
+                            - isRedacted
+                            - isErased
+                        reactionsByEntity:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - kind
+                              - count
+                        reactionsByCurrentRevision:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - kind
+                              - count
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - state
+                        - reactionsByEntity
+                        - reactionsByCurrentRevision
+                        - replies
+                required:
+                  - root
+                  - audienceScope
+                  - signatureCount
+                  - countGating
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/petitions/{id}/counts:
+    get:
+      summary: Signature count for a petition (jurisdiction exposure gate + geo scope
+        + KYC tier + k-anonymity; date stubbed).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience — RESOLVED on counts (region-first +
+            k-anonymity); my-district is inert.
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
+            counted if their current tier is in the set (set membership, not
+            at-or-above)."
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entityId:
+                    type: string
+                  signatureCount:
+                    type: integer
+                    nullable: true
+                    description: Null when suppressed by the k-anonymity floor or
+                      withheld/tier-gated by jurisdiction count policy.
+                  suppressed:
+                    type: boolean
+                    description: True when an exposed, geo/tier-scoped count was suppressed by the
+                      k-anonymity floor (distinct from policy withholding).
+                  countGating:
+                    type: string
+                    enum:
+                      - none
+                      - withheld
+                      - tier-gated
+                    description: "Public count exposure for this entity's jurisdiction: none
+                      (exposed), withheld (never public), tier-gated (only when
+                      filtered to verified tiers)."
+                  countGatingNote:
+                    type: string
+                    description: Human-readable reason the count is visible, withheld, or
+                      tier-gated.
+                  filters:
+                    type: object
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: object
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
+                          date:
+                            type: boolean
+                            description: Always false (date filtering not yet implemented).
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - kAnonymityFloor
+                      - note
+                required:
+                  - entityId
+                  - signatureCount
+                  - suppressed
+                  - countGating
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/polls:
+    get:
+      summary: Browse polls, newest first. Filters echoed (not resolved); option
+        counts null + countGating set when the jurisdiction withholds/tier-gates
+        votes.
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience (echoed on lists, not resolved).
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: KYC tier(s); repeatable (echoed on lists, not resolved).
+        - schema:
+            type: string
+          in: query
+          name: jurisdiction
+          required: false
+          description: Jurisdiction filter for multi-jurisdiction browse (echoed, not
+            resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (echoed, not resolved).
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityId:
+                          type: string
+                        type:
+                          type: string
+                        content:
+                          nullable: true
+                        withheld:
+                          type: boolean
+                        createdAt:
+                          type: string
+                        audienceScope:
+                          type: object
+                          description: Audience metadata for clients/future filters (not write-policy).
+                            Not PII.
+                          properties:
+                            jurisdiction:
+                              type: string
+                              description: Jurisdiction id (default oursay-global when no persona is bound).
+                            appliesToRegion:
+                              nullable: true
+                              description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                                | "district:<district_slug>" |
+                                "revision:<revisionId>" | "region:<presetId>")
+                                or an { op: "and"|"or"|"not", refs: RegionRef[]
+                                } union. Null ⇒ whole jurisdiction. (A legacy
+                                appliesToDistrictIds stake is surfaced here as
+                                an OR of revisions.)'
+                          required:
+                            - jurisdiction
+                            - appliesToRegion
+                        results:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              option:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - option
+                              - count
+                        countGating:
+                          type: string
+                          enum:
+                            - none
+                            - withheld
+                            - tier-gated
+                          description: "Public count exposure for this entity's jurisdiction: none
+                            (exposed), withheld (never public), tier-gated (only
+                            when filtered to verified tiers)."
+                        countGatingNote:
+                          type: string
+                          description: Human-readable reason the count is visible, withheld, or
+                            tier-gated.
+                      required:
+                        - entityId
+                        - type
+                        - createdAt
+                        - audienceScope
+                        - results
+                        - countGating
+                  page:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                      offset:
+                        type: integer
+                      total:
+                        type: integer
+                    required:
+                      - limit
+                      - offset
+                      - total
+                  filters:
+                    type: object
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: object
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
+                          date:
+                            type: boolean
+                            description: Always false (date filtering not yet implemented).
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - kAnonymityFloor
+                      - note
+                required:
+                  - items
+                  - page
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/polls/{id}:
+    get:
+      summary: "A poll thread: root + option results (counts null + countGating when
+        withheld/tier-gated) + reaction tallies + comments."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  root:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                      type:
+                        type: string
+                      latestOp:
+                        type: string
+                      contentHash:
+                        type: string
+                      content:
+                        description: Opaque payload, or null when withheld.
+                        nullable: true
+                      withheld:
+                        type: boolean
+                      isDeleted:
+                        type: boolean
+                      isRedacted:
+                        type: boolean
+                      isErased:
+                        type: boolean
+                    required:
+                      - entityId
+                      - type
+                      - withheld
+                      - isDeleted
+                      - isRedacted
+                      - isErased
+                  audienceScope:
+                    type: object
+                    description: Audience metadata for clients/future filters (not write-policy).
+                      Not PII.
+                    properties:
+                      jurisdiction:
+                        type: string
+                        description: Jurisdiction id (default oursay-global when no persona is bound).
+                      appliesToRegion:
+                        nullable: true
+                        description: 'Geographic stake as a RegionRef: a base ref string ("jurisdiction"
+                          | "district:<district_slug>" | "revision:<revisionId>"
+                          | "region:<presetId>") or an { op: "and"|"or"|"not",
+                          refs: RegionRef[] } union. Null ⇒ whole jurisdiction.
+                          (A legacy appliesToDistrictIds stake is surfaced here
+                          as an OR of revisions.)'
+                    required:
+                      - jurisdiction
+                      - appliesToRegion
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        option:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - option
+                        - count
+                  countGating:
+                    type: string
+                    enum:
+                      - none
+                      - withheld
+                      - tier-gated
+                    description: "Public count exposure for this entity's jurisdiction: none
+                      (exposed), withheld (never public), tier-gated (only when
+                      filtered to verified tiers)."
+                  countGatingNote:
+                    type: string
+                    description: Human-readable reason the count is visible, withheld, or
+                      tier-gated.
+                  reactionsByEntity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  reactionsByCurrentRevision:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - kind
+                        - count
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        state:
+                          type: object
+                          properties:
+                            entityId:
+                              type: string
+                            type:
+                              type: string
+                            latestOp:
+                              type: string
+                            contentHash:
+                              type: string
+                            content:
+                              description: Opaque payload, or null when withheld.
+                              nullable: true
+                            withheld:
+                              type: boolean
+                            isDeleted:
+                              type: boolean
+                            isRedacted:
+                              type: boolean
+                            isErased:
+                              type: boolean
+                          required:
+                            - entityId
+                            - type
+                            - withheld
+                            - isDeleted
+                            - isRedacted
+                            - isErased
+                        reactionsByEntity:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - kind
+                              - count
+                        reactionsByCurrentRevision:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                              count:
+                                type: integer
+                                nullable: true
+                                description: Null when suppressed by the k-anonymity floor.
+                              suppressed:
+                                type: boolean
+                                description: Present and true when this bucket was suppressed.
+                            required:
+                              - kind
+                              - count
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - state
+                        - reactionsByEntity
+                        - reactionsByCurrentRevision
+                        - replies
+                required:
+                  - root
+                  - audienceScope
+                  - results
+                  - countGating
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/polls/{id}/counts:
+    get:
+      summary: Option results for a poll (jurisdiction exposure gate + geo scope + KYC
+        tier + k-anonymity; date stubbed).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - jurisdiction
+              - impacted-region
+              - my-district
+              - all-public
+          in: query
+          name: scope
+          required: false
+          description: Coarse geo audience — RESOLVED on counts (region-first +
+            k-anonymity); my-district is inert.
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - unverified
+                  - identity_verified
+                  - residency_verified
+                  - electoral_validated
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - unverified
+                    - identity_verified
+                    - residency_verified
+                    - electoral_validated
+          in: query
+          name: tier
+          required: false
+          description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is
+            counted if their current tier is in the set (set membership, not
+            at-or-above)."
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: from
+          required: false
+          description: Start date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+            format: date
+          in: query
+          name: to
+          required: false
+          description: End date, ISO (echoed, not resolved).
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entityId:
+                    type: string
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        option:
+                          type: string
+                        count:
+                          type: integer
+                          nullable: true
+                          description: Null when suppressed by the k-anonymity floor.
+                        suppressed:
+                          type: boolean
+                          description: Present and true when this bucket was suppressed.
+                      required:
+                        - option
+                        - count
+                  countGating:
+                    type: string
+                    enum:
+                      - none
+                      - withheld
+                      - tier-gated
+                    description: "Public count exposure for this entity's jurisdiction: none
+                      (exposed), withheld (never public), tier-gated (only when
+                      filtered to verified tiers)."
+                  countGatingNote:
+                    type: string
+                    description: Human-readable reason the count is visible, withheld, or
+                      tier-gated.
+                  filters:
+                    type: object
+                    description: Filter echo. `applied.geo`/`applied.tier` are resolved on count
+                      endpoints; date not yet implemented.
+                    properties:
+                      scope:
+                        type: string
+                        enum:
+                          - jurisdiction
+                          - impacted-region
+                          - my-district
+                          - all-public
+                      tier:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        nullable: true
+                      jurisdiction:
+                        type: string
+                        nullable: true
+                      from:
+                        type: string
+                        nullable: true
+                      to:
+                        type: string
+                        nullable: true
+                      applied:
+                        type: object
+                        description: Per-dimension applied status. `geo`/`tier` are resolved on count
+                          endpoints; `date` is not yet implemented. When a count
+                          is withheld or tier-gated by jurisdiction policy
+                          (countGating ≠ none with a null scalar), no filter
+                          runs, so `geo`/`tier` stay false even if scope/tier
+                          were supplied.
+                        properties:
+                          geo:
+                            type: boolean
+                            description: True when scope compiled to a region and narrowed the count.
+                          tier:
+                            type: boolean
+                            description: True when a requested tier set narrowed the count (counts only;
+                              never on lists/detail).
+                          date:
+                            type: boolean
+                            description: Always false (date filtering not yet implemented).
+                        required:
+                          - geo
+                          - tier
+                          - date
+                      kAnonymityFloor:
+                        type: integer
+                        nullable: true
+                        description: Effective k-anonymity floor applied when a count is narrowed by geo
+                          or tier; null on lists/all-public(no
+                          tier)/my-district.
+                      note:
+                        type: string
+                    required:
+                      - scope
+                      - tier
+                      - jurisdiction
+                      - from
+                      - to
+                      - applied
+                      - kAnonymityFloor
+                      - note
+                required:
+                  - entityId
+                  - results
+                  - countGating
+                  - filters
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/jurisdictions:
+    get:
+      summary: List registered jurisdictions (id + level + optional public label,
+        per-record-type labels, and content caps). No policy fields.
+      tags:
+        - public
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        level:
+                          type: string
+                          description: Governmental tier (federal | provincial | municipal | …).
+                        label:
+                          type: string
+                          description: Public display name; absent ⇒ fall back to id.
+                        labels:
+                          type: object
+                          properties:
+                            post:
+                              type: string
+                              description: "Label for a `post` (default: Statement)."
+                            petition:
+                              type: string
+                              description: "Label for a `petition` (default: Petition)."
+                            poll:
+                              type: string
+                              description: "Label for a `poll` (default: Poll)."
+                            result:
+                              type: string
+                              description: "Label for a poll `result` (default: Result)."
+                            district:
+                              type: string
+                              description: "Label for a district (e.g. Alberta: riding)."
+                        contentLimits:
+                          type: object
+                          properties:
+                            post:
+                              type: object
+                              properties:
+                                title:
+                                  type: number
+                                body:
+                                  type: number
+                            comment:
+                              type: object
+                              properties:
+                                body:
+                                  type: number
+                            petition:
+                              type: object
+                              properties:
+                                title:
+                                  type: number
+                                text:
+                                  type: number
+                            poll:
+                              type: object
+                              properties:
+                                question:
+                                  type: number
+                                option:
+                                  type: number
+                                maxOptions:
+                                  type: number
+                                description:
+                                  type: number
+                      required:
+                        - id
+                        - level
+                required:
+                  - items
+  /v1/public/jurisdictions/{jurisdictionId}/districts:
+    get:
+      summary: "Effective-dated district directory at asOf (default: today UTC). One
+        revision per riding; registered jurisdiction with no ingested boundaries
+        returns an empty list. include=geometry embeds boundaries (heavy)."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: asOf
+          required: false
+          description: "UTC calendar date (YYYY-MM-DD). Default: today's UTC date. Selects
+            one revision per riding (latest effective_date <= asOf)."
+        - schema:
+            type: string
+            enum:
+              - geometry
+          in: query
+          name: include
+          required: false
+          description: include=geometry embeds each riding's GeoJSON boundary. Heavy for a
+            full jurisdiction (~tens of MultiPolygons); default is
+            metadata-only.
+        - schema:
+            type: string
+          in: path
+          name: jurisdictionId
+          required: true
+          description: Registered jurisdiction id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jurisdictionId:
+                    type: string
+                  asOf:
+                    type: string
+                    description: The resolved UTC calendar date (YYYY-MM-DD) the directory was
+                      selected at.
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Stable district revision id (year-anchored slug).
+                        name:
+                          type: string
+                          description: Display name of the district.
+                        districtSlug:
+                          type: string
+                          description: Year-less logical-seat key grouping revisions across redraws.
+                        effectiveDate:
+                          type: string
+                          description: First day this geometry is in force (YYYY-MM-DD); the asOf lookup
+                            key.
+                        drawnDate:
+                          type: string
+                          nullable: true
+                          description: When the boundary was drawn/enacted, if known (YYYY-MM-DD).
+                        source:
+                          type: string
+                          description: Provenance (file + authority).
+                        sourceRef:
+                          type: string
+                          nullable: true
+                          description: Original source id (e.g. EDNumber20).
+                        geometry:
+                          type: object
+                          additionalProperties: true
+                          description: Official boundary as a GeoJSON MultiPolygon (EPSG:4326). Present
+                            only when include=geometry.
+                      required:
+                        - id
+                        - name
+                        - districtSlug
+                        - effectiveDate
+                        - source
+                required:
+                  - jurisdictionId
+                  - asOf
+                  - items
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/jurisdictions/{jurisdictionId}/districts/{revisionId}/geometry:
+    get:
+      summary: Official GeoJSON MultiPolygon (EPSG:4326) for one district revision by
+        id. Returns ANY ingested revision, including superseded redraws not in
+        the current effective set (correct for audit).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: jurisdictionId
+          required: true
+          description: Registered jurisdiction id.
+        - schema:
+            type: string
+          in: path
+          name: revisionId
+          required: true
+          description: District revision id.
+      responses:
+        "200":
+          description: A GeoJSON MultiPolygon (EPSG:4326) — the official boundary of the
+            requested district revision.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                description: A GeoJSON MultiPolygon (EPSG:4326) — the official boundary of the
+                  requested district revision.
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/profile:
+    get:
+      summary: Get the authenticated user's own profile (private PII)
+      tags:
+        - profile
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  handle:
+                    type:
+                      - "null"
+                      - string
+                  displayName:
+                    type:
+                      - "null"
+                      - string
+                  firstName:
+                    type:
+                      - "null"
+                      - string
+                  lastName:
+                    type:
+                      - "null"
+                      - string
+                  email:
+                    type: string
+                  birthdate:
+                    type: string
+                  address:
+                    type: object
+                    properties:
+                      line1:
+                        type:
+                          - "null"
+                          - string
+                      line2:
+                        type:
+                          - "null"
+                          - string
+                      city:
+                        type:
+                          - "null"
+                          - string
+                      province:
+                        type:
+                          - "null"
+                          - string
+                      postalCode:
+                        type:
+                          - "null"
+                          - string
+                      country:
+                        type: string
+                      memo:
+                        type:
+                          - "null"
+                          - string
+                required:
+                  - userId
+                  - email
+                  - birthdate
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+tags:
+  - name: auth
+    description: Registration, sessions, unified OTP request
+  - name: passkey
+    description: WebAuthn passkey enrollment + login (multi-device)
+  - name: login
+    description: Gated cross-device sign-in via login OTP
+  - name: recovery
+    description: Account recovery via email OTP
+  - name: civic
+    description: Civic signing device keys (public key only; separate from login passkeys)
+  - name: public
+    description: "Unauthenticated public reads: the civic record
+      (browse/detail/counts) and the area catalog (jurisdictions + district
+      boundaries)"
+  - name: profile
+    description: Private account profile
+  - name: meta
+    description: Health & docs

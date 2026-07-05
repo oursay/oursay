@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "db:up": "docker compose up -d --wait immudb immudb-pg postgres",
-    "db:down": "docker compose down -v",
+    "db:down": "tsx ../scripts/destructive-guard.ts db:down && docker compose down -v",
     "db:logs": "docker compose logs -f",
     "test": "mocha",
     "test:unit": "mocha --grep @physical --invert",

@@ -1,7 +1,22 @@
+import { randomUUID } from "node:crypto";
 import pg from "pg";
+import { assertDestructiveAllowed } from "../../../scripts/destructive-guard.js";
 import type { PgConfig } from "../config.js";
+import type { ChainRow } from "../ledger/connector.js";
 import { POSTGRES_DDL } from "../schema/postgres.sql.js";
 import type { Op, RecordType } from "../schema/types.js";
+
+/** A private per-thread registration binding row (never published). */
+export interface ThreadBindingRow {
+  threadPubkey: string;
+  threadId: string;
+  jurisdiction: string;
+  /** Optional at registration: a binding proves account↔thread-key OWNERSHIP; verification tier is
+   *  applied at read/count time, not fixed at join. Null when no tier was bound. */
+  kycTier: string | null;
+  commitment: string;
+  bindingSig: string;
+}
 
 /** A full event-log row (the private, mutable record of one transaction). */
 export interface StoredTx {
@@ -19,6 +34,7 @@ export interface StoredTx {
   createdAt: string;
   prevHash: string | null;
   contentHash: string;
+  nullifier: string | null;
   txHash: string;
   envelope: string;
   salt: string | null;
@@ -42,6 +58,7 @@ export interface AppendTxInput {
   createdAt: string;
   prevHash: string | null;
   contentHash: string;
+  nullifier?: string;
   txHash: string;
   envelope: string;
   salt: string;
@@ -56,6 +73,7 @@ export interface EntityState {
   content: unknown;
   contentHash: string;
   authorPubkey: string;
+  nullifier: string | null;
   parentType: RecordType | null;
   parentId: string | null;
   parentRevisionHash: string | null;
@@ -104,6 +122,13 @@ export interface ReactionCount {
   count: number;
 }
 
+/** A root entity (post/petition/poll) as a browse-list row: its folded state plus `createdAt`
+ *  (the head transaction's timestamp) for recency ordering. List-only — `EntityState` stays
+ *  unchanged so existing callers are untouched. */
+export interface RootEntityRow extends EntityState {
+  createdAt: string;
+}
+
 /**
  * The PRIVATE, mutable store: the `record_tx` event log holding raw content + salt (erasable),
  * identity stubs, and the fold-on-read projection views. immudb holds only commitments; this
@@ -129,35 +154,116 @@ export class PrivateStore {
 
   /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
   async reset(): Promise<void> {
-    await this.pool.query("TRUNCATE record_tx, users, thread_keys");
+    assertDestructiveAllowed("PrivateStore.reset()");
+    await this.pool.query(
+      "TRUNCATE record_outbox, record_tx, thread_signers, thread_civic_credentials, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users CASCADE",
+    );
   }
 
-  async appendTx(input: AppendTxInput): Promise<void> {
+  /**
+   * Append the private record AND enqueue its commitment for the chain in ONE Postgres transaction.
+   * Either both rows land or neither does — so a crash can never leave a record_tx orphaned
+   * without a pending outbox row to settle it (see BlockSettler). The outbox `payload` is the exact
+   * ChainRow (commitments only — never plaintext/salt); `chainId` tags which chain it settles to.
+   */
+  async appendTxAndEnqueue(input: AppendTxInput, chainRow: ChainRow, chainId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO record_tx
+          (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_tx_id,
+           parent_revision_hash, author_pubkey, signature, created_at, prev_hash, content_hash,
+           nullifier, tx_hash, envelope, salt, content)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+        [
+          input.txId,
+          input.type,
+          input.entityId,
+          input.op,
+          input.parentType ?? null,
+          input.parentId ?? null,
+          input.parentRevisionTxId ?? null,
+          input.parentRevisionHash ?? null,
+          input.authorPubkey,
+          input.signature,
+          input.createdAt,
+          input.prevHash,
+          input.contentHash,
+          input.nullifier ?? null,
+          input.txHash,
+          input.envelope,
+          input.salt,
+          JSON.stringify(input.content),
+        ],
+      );
+      await client.query(
+        `INSERT INTO record_outbox (tx_id, chain_id, payload) VALUES ($1, $2, $3)`,
+        [input.txId, chainId, JSON.stringify(chainRow)],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ── Settlement pool (block-close trigger) ───────────────────────────────────────────────
+
+  /**
+   * Pool stats for the settlement trigger, scoped to ONE chain: how many of its txs are unsettled,
+   * and when the OLDEST was ingested. `enqueued_at` is a server-side ingestion clock (atomic with
+   * the write), used ONLY as an operational cadence signal — never as an ordering authority (doc 07
+   * §3.2). `oldestEnqueuedAt` is null when the chain's pool is empty.
+   */
+  async getPendingPoolStats(chainId: string): Promise<{ count: number; oldestEnqueuedAt: string | null }> {
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS count, MIN(enqueued_at) AS oldest
+       FROM record_outbox WHERE status = 'pending' AND chain_id = $1`,
+      [chainId],
+    );
+    const row = r.rows[0];
+    return {
+      count: Number(row.count),
+      oldestEnqueuedAt: row.oldest ? new Date(row.oldest).toISOString() : null,
+    };
+  }
+
+  /**
+   * The next pending commitments to settle for ONE chain, oldest `seq` first (so a block always
+   * covers a contiguous prefix of that chain's unsettled stream). A settler drains only its own
+   * `chainId`, so a shared Postgres pool can carry several chains without one sweeping another's.
+   * Returns the global `seq` (the block's upper bound) and the exact `ChainRow` payload.
+   */
+  async getPendingForSettlement(
+    chainId: string,
+    limit: number,
+  ): Promise<{ txId: string; seq: number; payload: ChainRow }[]> {
+    const r = await this.pool.query(
+      `SELECT o.tx_id, t.seq, o.payload
+       FROM record_outbox o JOIN record_tx t ON t.tx_id = o.tx_id
+       WHERE o.status = 'pending' AND o.chain_id = $1 ORDER BY t.seq ASC LIMIT $2`,
+      [chainId, limit],
+    );
+    return r.rows.map((row) => ({ txId: row.tx_id, seq: Number(row.seq), payload: row.payload as ChainRow }));
+  }
+
+  /** Mark a whole settled block's commitments sent in one statement (atomic with respect to readers). */
+  async markOutboxSentBatch(txIds: string[]): Promise<void> {
+    if (txIds.length === 0) return;
     await this.pool.query(
-      `INSERT INTO record_tx
-        (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_tx_id,
-         parent_revision_hash, author_pubkey, signature, created_at, prev_hash, content_hash,
-         tx_hash, envelope, salt, content)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-      [
-        input.txId,
-        input.type,
-        input.entityId,
-        input.op,
-        input.parentType ?? null,
-        input.parentId ?? null,
-        input.parentRevisionTxId ?? null,
-        input.parentRevisionHash ?? null,
-        input.authorPubkey,
-        input.signature,
-        input.createdAt,
-        input.prevHash,
-        input.contentHash,
-        input.txHash,
-        input.envelope,
-        input.salt,
-        JSON.stringify(input.content),
-      ],
+      `UPDATE record_outbox SET status = 'sent', sent_at = now() WHERE tx_id = ANY($1::uuid[])`,
+      [txIds],
+    );
+  }
+
+  /** Record a failed relay attempt; the row stays pending for the next sweep. */
+  async markOutboxFailed(txId: string, error: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE record_outbox SET attempts = attempts + 1, last_error = $2 WHERE tx_id = $1`,
+      [txId, error],
     );
   }
 
@@ -207,6 +313,56 @@ export class PrivateStore {
     return s ? toPublicView(s) : undefined;
   }
 
+  /**
+   * Browse list of LIVE root entities of one type (`post` / `petition` / `poll`), newest first.
+   * Roots have no parent (`parent_id IS NULL`); delete-tombstones are excluded (`NOT is_deleted`)
+   * so a deleted root never appears in a public feed. Pagination is `LIMIT`/`OFFSET`. Each row is
+   * the folded `EntityState` plus `createdAt`; the caller builds the response-safe view via
+   * `toPublicView` and layers on counts + audience scope.
+   */
+  async listRootEntities(type: RecordType, opts: { limit: number; offset: number }): Promise<RootEntityRow[]> {
+    const r = await this.pool.query(
+      `SELECT * FROM entity_state
+       WHERE type = $1 AND parent_id IS NULL AND NOT is_deleted
+       ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+      [type, opts.limit, opts.offset],
+    );
+    return r.rows.map(mapRootEntityRow);
+  }
+
+  /** Count of LIVE root entities of one type — matches `listRootEntities`' filter so a list's
+   *  `total` agrees with what it pages over. */
+  async countRootEntities(type: RecordType): Promise<number> {
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS count FROM entity_state
+       WHERE type = $1 AND parent_id IS NULL AND NOT is_deleted`,
+      [type],
+    );
+    return Number(r.rows[0].count);
+  }
+
+  /**
+   * The audience jurisdiction for a root entity, resolved from the thread-key bindings keyed by
+   * `thread_id` (= the root entity id). Returns null when no persona has joined yet (the caller
+   * defaults to the platform fallback, e.g. `oursay-global`). All joins on one thread are expected
+   * to share a jurisdiction, so normally a single distinct value; a `>1` result is a data anomaly —
+   * we log it and pick the first deterministically rather than fail a public read.
+   */
+  async getThreadJurisdiction(threadId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT DISTINCT jurisdiction FROM thread_keys WHERE thread_id = $1 ORDER BY jurisdiction ASC`,
+      [threadId],
+    );
+    if (r.rows.length === 0) return null;
+    if (r.rows.length > 1) {
+      console.warn(
+        `getThreadJurisdiction: thread ${threadId} has ${r.rows.length} distinct jurisdictions ` +
+          `(${r.rows.map((x) => x.jurisdiction).join(", ")}); picking the first. Data anomaly.`,
+      );
+    }
+    return r.rows[0].jurisdiction as string;
+  }
+
   /** The hash of the latest non-deleted content revision (create/update) of an entity. */
   async getCurrentRevisionHash(entityId: string): Promise<string | undefined> {
     const r = await this.pool.query(
@@ -231,11 +387,18 @@ export class PrivateStore {
     return Number(r.rows[0].max);
   }
 
-  /** Transactions in the seq range `(fromExclusive, toInclusive]`, ordered by seq — one block. */
-  async getTxsBySeqRange(fromExclusive: number, toInclusive: number): Promise<StoredTx[]> {
+  /**
+   * Transactions of ONE chain in the seq range `(fromExclusive, toInclusive]`, ordered by seq — one
+   * block. `record_tx.seq` is a global, chainless event-log sequence, so a block's seq window can span
+   * other chains' rows when several chains share this store (the settlement worker case). The chain
+   * tag lives on `record_outbox`, so we JOIN it to scope to the block's own chain — matching the
+   * chain-scoped settler (`getPendingForSettlement`). For a single-chain store the join is a no-op.
+   */
+  async getTxsBySeqRange(chainId: string, fromExclusive: number, toInclusive: number): Promise<StoredTx[]> {
     const r = await this.pool.query(
-      `SELECT * FROM record_tx WHERE seq > $1 AND seq <= $2 ORDER BY seq ASC`,
-      [fromExclusive, toInclusive],
+      `SELECT t.* FROM record_tx t JOIN record_outbox o ON o.tx_id = t.tx_id
+       WHERE o.chain_id = $1 AND t.seq > $2 AND t.seq <= $3 ORDER BY t.seq ASC`,
+      [chainId, fromExclusive, toInclusive],
     );
     return r.rows.map(mapStoredTx);
   }
@@ -291,6 +454,62 @@ export class PrivateStore {
     return r.rows.map((x) => ({ option: x.option, count: Number(x.count) }));
   }
 
+  // ── Participant-level enumeration (for geo/tier-scoped counts) ─────────────────────────────
+  // The aggregate getters above answer "how many?"; these answer "which participants?" so a caller
+  // (api ParticipantGeoService) can resolve each to a region and re-aggregate only those in scope.
+  // They return the same active rows the count VIEWS group over, carrying the participant keys
+  // (`authorPubkey`, `nullifier`) the views dedupe by (`COALESCE(nullifier, author_pubkey)`). These
+  // keys are public record fields, not PII — but the resolved point/user linkage stays in the caller
+  // and never reaches an HTTP response.
+
+  /** Active reactions on a parent, one row per reaction entity (mirrors `active_reactions`). Carries
+   *  `parentRevisionHash` so the caller can split the by-entity and by-current-revision tallies. */
+  async listReactionParticipants(
+    parentId: string,
+  ): Promise<{ kind: string; authorPubkey: string; nullifier: string | null; parentId: string; parentRevisionHash: string | null }[]> {
+    const r = await this.pool.query(
+      `SELECT kind, author_pubkey, nullifier, parent_id, parent_revision_hash
+       FROM active_reactions WHERE parent_id = $1`,
+      [parentId],
+    );
+    return r.rows.map((x) => ({
+      kind: x.kind,
+      authorPubkey: x.author_pubkey,
+      nullifier: x.nullifier ?? null,
+      parentId: x.parent_id,
+      parentRevisionHash: x.parent_revision_hash ?? null,
+    }));
+  }
+
+  /** Active (non-revoked) signatures on a petition, one row per signer (mirrors `active_signatures`). */
+  async listSignatureParticipants(
+    petitionId: string,
+  ): Promise<{ authorPubkey: string; nullifier: string | null; parentId: string }[]> {
+    const r = await this.pool.query(
+      `SELECT author_pubkey, nullifier, parent_id FROM active_signatures WHERE parent_id = $1`,
+      [petitionId],
+    );
+    return r.rows.map((x) => ({ authorPubkey: x.author_pubkey, nullifier: x.nullifier ?? null, parentId: x.parent_id }));
+  }
+
+  /** Active votes on a poll, one row per voter with their chosen option (mirrors `poll_results`'
+   *  source: latest non-deleted vote per voter). */
+  async listVoteParticipants(
+    pollId: string,
+  ): Promise<{ option: string; authorPubkey: string; nullifier: string | null; parentId: string }[]> {
+    const r = await this.pool.query(
+      `SELECT content->>'option' AS option, author_pubkey, nullifier, parent_id
+       FROM entity_state WHERE type = 'vote' AND parent_id = $1 AND NOT is_deleted`,
+      [pollId],
+    );
+    return r.rows.map((x) => ({
+      option: x.option,
+      authorPubkey: x.author_pubkey,
+      nullifier: x.nullifier ?? null,
+      parentId: x.parent_id,
+    }));
+  }
+
   /** Comments attached to a parent entity (entity-pinned), oldest → newest. */
   async getChildComments(parentId: string): Promise<EntityState[]> {
     const r = await this.pool.query(
@@ -325,11 +544,396 @@ export class PrivateStore {
     );
   }
 
-  async putThreadKey(k: { pubkey: string; userId?: string; threadId?: string }): Promise<void> {
+  /** Record a user's PUBLIC jurisdiction master key (root for on-device per-thread derivation). */
+  async putJurisdictionMaster(m: { userId: string; jurisdiction: string; masterPubkey: string }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO thread_keys(pubkey, user_id, thread_id) VALUES($1,$2,$3)
-       ON CONFLICT (pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, thread_id = EXCLUDED.thread_id`,
-      [k.pubkey, k.userId ?? null, k.threadId ?? null],
+      `INSERT INTO jurisdiction_master_keys(user_id, jurisdiction, master_pubkey) VALUES($1,$2,$3)
+       ON CONFLICT (user_id, jurisdiction) DO UPDATE SET master_pubkey = EXCLUDED.master_pubkey`,
+      [m.userId, m.jurisdiction, m.masterPubkey],
+    );
+  }
+
+  /**
+   * Low-level: write a thread key + platform binding for a known `(user, thread)` in ONE transaction.
+   * Idempotent on `(user_id, thread_id)` AND on `thread_pubkey` (no-op when both already match). The
+   * persona/signer-split entry point is {@link ensureThreadPersona}, which adds first-wins commitment
+   * validation; this helper preserves the legacy p256-test flow where each user has one thread key.
+   */
+  async registerThreadBinding(input: {
+    threadPubkey: string;
+    userId: string;
+    threadId: string;
+    jurisdiction: string;
+    kycTier?: string | null;
+    commitment: string;
+    bindingSig: string;
+  }): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT (user_id, thread_id) DO NOTHING`,
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.threadPubkey],
+      );
+      await client.query(
+        `INSERT INTO thread_bindings(thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig)
+         VALUES($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (thread_pubkey) DO UPDATE SET
+           thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction, kyc_tier = EXCLUDED.kyc_tier,
+           commitment = EXCLUDED.commitment, binding_sig = EXCLUDED.binding_sig`,
+        [input.threadPubkey, input.threadId, input.jurisdiction, input.kycTier ?? null, input.commitment, input.bindingSig],
+      );
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Ensure the per-thread persona Pₜ exists for `(userId, threadId)` and return its canonical pubkey
+   * (mvp-a5b persona/signer split, docs/08 §5.4 rule 6). FIRST device join inserts the new persona
+   * row PLUS the platform binding in ONE transaction. SUBSEQUENT device joins reuse the existing Pₜ
+   * and VALIDATE that the incoming `commitment` matches the binding already stored under Pₜ —
+   * preventing a second device from claiming a different opening under the same persona. The
+   * `proposedPubkey` is the calling device's signer pubkey (offered as Pₜ candidate); the returned
+   * pubkey is the canonical Pₜ for this `(user, thread)`.
+   */
+  async ensureThreadPersona(input: {
+    userId: string;
+    threadId: string;
+    jurisdiction: string;
+    proposedPubkey: string;
+    commitment: string;
+    /** Optional — omitted (null) when ownership is bound without fixing a tier at join. */
+    kycTier?: string | null;
+    /** Called once when this device wins the first-join race and we must mint the platform binding
+     *  signature over the chosen Pₜ. Skipped on returning-device joins (binding already attested). */
+    signBinding: (personaPubkey: string) => string;
+  }): Promise<string> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const existing = await client.query(
+        `SELECT t.pubkey, b.commitment
+         FROM thread_keys t LEFT JOIN thread_bindings b ON b.thread_pubkey = t.pubkey
+         WHERE t.user_id = $1 AND t.thread_id = $2`,
+        [input.userId, input.threadId],
+      );
+      if (existing.rows.length > 0) {
+        const row = existing.rows[0];
+        const personaPubkey = row.pubkey as string;
+        const boundCommitment = row.commitment as string | null;
+        if (boundCommitment !== null && boundCommitment !== input.commitment) {
+          throw Object.assign(
+            new Error("thread_persona_commitment_mismatch: incoming commitment differs from the one already bound to Pₜ"),
+            { code: "thread_persona_commitment_mismatch" },
+          );
+        }
+        await client.query("COMMIT");
+        return personaPubkey;
+      }
+      const inserted = await client.query(
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT (user_id, thread_id) DO NOTHING
+         RETURNING pubkey`,
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.proposedPubkey],
+      );
+      let personaPubkey: string;
+      if (inserted.rows.length > 0) {
+        personaPubkey = inserted.rows[0].pubkey as string;
+        const bindingSig = input.signBinding(personaPubkey);
+        await client.query(
+          `INSERT INTO thread_bindings(thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig)
+           VALUES($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (thread_pubkey) DO UPDATE SET
+             thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction, kyc_tier = EXCLUDED.kyc_tier,
+             commitment = EXCLUDED.commitment, binding_sig = EXCLUDED.binding_sig`,
+          [personaPubkey, input.threadId, input.jurisdiction, input.kycTier ?? null, input.commitment, bindingSig],
+        );
+      } else {
+        const r = await client.query(
+          `SELECT t.pubkey, b.commitment
+           FROM thread_keys t LEFT JOIN thread_bindings b ON b.thread_pubkey = t.pubkey
+           WHERE t.user_id = $1 AND t.thread_id = $2`,
+          [input.userId, input.threadId],
+        );
+        const row = r.rows[0];
+        personaPubkey = row.pubkey as string;
+        const boundCommitment = row.commitment as string | null;
+        if (boundCommitment !== null && boundCommitment !== input.commitment) {
+          throw Object.assign(
+            new Error("thread_persona_commitment_mismatch: incoming commitment differs from the one already bound to Pₜ"),
+            { code: "thread_persona_commitment_mismatch" },
+          );
+        }
+      }
+      await client.query("COMMIT");
+      return personaPubkey;
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** The private binding for a thread key, or null if the key is not registered. */
+  async getThreadBinding(threadPubkey: string): Promise<ThreadBindingRow | null> {
+    const r = await this.pool.query(
+      `SELECT thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig
+       FROM thread_bindings WHERE thread_pubkey = $1`,
+      [threadPubkey],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    return {
+      threadPubkey: row.thread_pubkey,
+      threadId: row.thread_id,
+      jurisdiction: row.jurisdiction,
+      kycTier: row.kyc_tier,
+      commitment: row.commitment,
+      bindingSig: row.binding_sig,
+    };
+  }
+
+  /** Resolve a thread key to its `(user, thread=root, jurisdiction)` — the thread-scope lookup. */
+  async getThreadKey(pubkey: string): Promise<{ userId: string; threadId: string; jurisdiction: string } | null> {
+    const r = await this.pool.query(
+      `SELECT user_id, thread_id, jurisdiction FROM thread_keys WHERE pubkey = $1`,
+      [pubkey],
+    );
+    const row = r.rows[0];
+    return row ? { userId: row.user_id, threadId: row.thread_id, jurisdiction: row.jurisdiction } : null;
+  }
+
+  /** Resolve the canonical persona pubkey Pₜ for `(userId, threadId)`, or null when no persona has
+   *  been established yet (no device has joined the thread for this user). */
+  async getThreadKeyByUserThread(userId: string, threadId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT pubkey FROM thread_keys WHERE user_id = $1 AND thread_id = $2`,
+      [userId, threadId],
+    );
+    return r.rows[0]?.pubkey ?? null;
+  }
+
+  // ── Multi-device enrollment (Method 3 §5.4) — all PRIVATE, never published ────────────────
+
+  /**
+   * Enrol a hardware-backed PUBLIC device key for a user (multi-passkey / multi-device). Idempotent
+   * on `device_pubkey` (re-enroll clears any prior revocation). Returns the device row id, which a
+   * thread-scoped signer references. `device_pubkey` is account-level and NEVER goes on an envelope.
+   */
+  async enrollDeviceKey(input: { userId: string; devicePubkey: string; label?: string | null }): Promise<string> {
+    const id = randomUUID();
+    const r = await this.pool.query(
+      `INSERT INTO device_keys(id, user_id, device_pubkey, label) VALUES($1,$2,$3,$4)
+       ON CONFLICT (device_pubkey) DO UPDATE SET user_id = EXCLUDED.user_id, label = EXCLUDED.label, revoked_at = NULL
+       RETURNING id`,
+      [id, input.userId, input.devicePubkey, input.label ?? null],
+    );
+    return r.rows[0].id as string;
+  }
+
+  /** Resolve an enrolled device by its account-level public key (the DB id stays off the client). */
+  async getDeviceKeyByPubkey(
+    devicePubkey: string,
+  ): Promise<{ id: string; userId: string; revoked: boolean } | null> {
+    const r = await this.pool.query(
+      `SELECT id, user_id, (revoked_at IS NOT NULL) AS revoked FROM device_keys WHERE device_pubkey = $1`,
+      [devicePubkey],
+    );
+    const row = r.rows[0];
+    return row ? { id: row.id, userId: row.user_id, revoked: row.revoked } : null;
+  }
+
+  /** Revoke an enrolled device (lost/retired). Its thread-scoped signers stop being usable. */
+  async revokeDeviceKey(devicePubkey: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE device_keys SET revoked_at = now() WHERE device_pubkey = $1 AND revoked_at IS NULL`,
+      [devicePubkey],
+    );
+  }
+
+  /**
+   * Register a thread-scoped device signer: the PUBLISHED `signer_pubkey` (the envelope's
+   * signerPubkey) mapped privately to its device and verified user for one thread. Upsert keeps it
+   * idempotent and clears any prior revocation.
+   */
+  async registerThreadSigner(input: {
+    signerPubkey: string;
+    userId: string;
+    deviceId: string;
+    threadId: string;
+    jurisdiction: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO thread_signers(signer_pubkey, user_id, device_id, thread_id, jurisdiction) VALUES($1,$2,$3,$4,$5)
+       ON CONFLICT (signer_pubkey) DO UPDATE SET
+         user_id = EXCLUDED.user_id, device_id = EXCLUDED.device_id,
+         thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction, revoked_at = NULL`,
+      [input.signerPubkey, input.userId, input.deviceId, input.threadId, input.jurisdiction],
+    );
+  }
+
+  /** Revoke a single thread-scoped signer (without retiring the whole device). */
+  async revokeThreadSigner(signerPubkey: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE thread_signers SET revoked_at = now() WHERE signer_pubkey = $1 AND revoked_at IS NULL`,
+      [signerPubkey],
+    );
+  }
+
+  /**
+   * Resolve a published thread-scoped signer to its `(user, thread)` for the appendSigned
+   * authorization check. `revoked` is true when either the signer OR its enrolling device is revoked
+   * (a lost device disables all its signers). Returns null when the signer is unknown.
+   */
+  async getThreadSigner(
+    signerPubkey: string,
+  ): Promise<{ userId: string; threadId: string; deviceId: string; revoked: boolean } | null> {
+    const r = await this.pool.query(
+      `SELECT s.user_id, s.thread_id, s.device_id,
+              (s.revoked_at IS NOT NULL OR d.revoked_at IS NOT NULL) AS revoked
+       FROM thread_signers s JOIN device_keys d ON d.id = s.device_id
+       WHERE s.signer_pubkey = $1`,
+      [signerPubkey],
+    );
+    const row = r.rows[0];
+    return row
+      ? { userId: row.user_id, threadId: row.thread_id, deviceId: row.device_id, revoked: row.revoked }
+      : null;
+  }
+
+  /**
+   * Register a per-DEVICE WebAuthn signing credential under a stable thread persona Pₜ (mvp-a5b
+   * persona/signer split). The PUBLISHED `credentialPubkey` is the envelope's `signerPubkey` for
+   * appends from THIS device; `personaPubkey` is Pₜ (the envelope's `authorPubkey`). `credentialSig`
+   * is the platform attestation over (Pₜ, credentialPubkey, threadId, jurisdiction, commitment),
+   * re-verified on every appendSigned. Upsert keeps join idempotent and clears any prior revocation.
+   */
+  async registerDeviceCredential(input: {
+    credentialPubkey: string;
+    personaPubkey: string;
+    userId: string;
+    threadId: string;
+    jurisdiction: string;
+    credentialSig: string;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO thread_civic_credentials(credential_pubkey, persona_pubkey, user_id, thread_id, jurisdiction, credential_sig)
+       VALUES($1,$2,$3,$4,$5,$6)
+       ON CONFLICT (credential_pubkey) DO UPDATE SET
+         persona_pubkey = EXCLUDED.persona_pubkey, user_id = EXCLUDED.user_id,
+         thread_id = EXCLUDED.thread_id, jurisdiction = EXCLUDED.jurisdiction,
+         credential_sig = EXCLUDED.credential_sig, revoked_at = NULL`,
+      [
+        input.credentialPubkey,
+        input.personaPubkey,
+        input.userId,
+        input.threadId,
+        input.jurisdiction,
+        input.credentialSig,
+      ],
+    );
+  }
+
+  /**
+   * Resolve a per-thread device credential (by its pubkey = signerPubkey) for the appendSigned
+   * authorization check on the webauthn-es256 path. Returns the bound persona Pₜ + jurisdiction +
+   * credential attestation so the engine can re-verify defense-in-depth without an extra round trip.
+   * Returns null when the credential is unknown.
+   */
+  async getThreadCredential(
+    credentialPubkey: string,
+  ): Promise<{
+    personaPubkey: string;
+    userId: string;
+    threadId: string;
+    jurisdiction: string;
+    credentialSig: string;
+    revoked: boolean;
+  } | null> {
+    const r = await this.pool.query(
+      `SELECT persona_pubkey, user_id, thread_id, jurisdiction, credential_sig,
+              (revoked_at IS NOT NULL) AS revoked
+       FROM thread_civic_credentials WHERE credential_pubkey = $1`,
+      [credentialPubkey],
+    );
+    const row = r.rows[0];
+    return row
+      ? {
+          personaPubkey: row.persona_pubkey,
+          userId: row.user_id,
+          threadId: row.thread_id,
+          jurisdiction: row.jurisdiction,
+          credentialSig: row.credential_sig,
+          revoked: row.revoked,
+        }
+      : null;
+  }
+
+  /** Revoke a single per-thread device credential ("revoke this device's thread passkey"). */
+  async revokeThreadCredential(credentialPubkey: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE thread_civic_credentials SET revoked_at = now() WHERE credential_pubkey = $1 AND revoked_at IS NULL`,
+      [credentialPubkey],
+    );
+  }
+
+  /** The platform-attested nullifier for `(user, parent)`, or null if none has been attested yet. */
+  async getAttestedNullifier(userId: string, parentId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT nullifier FROM nullifier_attestations WHERE user_id = $1 AND parent_id = $2`,
+      [userId, parentId],
+    );
+    return r.rows[0]?.nullifier ?? null;
+  }
+
+  /**
+   * Reverse of {@link attestNullifier}: the verified user behind a singleton's `nullifier` on
+   * `parentId`, or null when no attestation exists. Keyed by the `UNIQUE(parent_id, nullifier)`
+   * pair. PRIVATE — the participant↔user linkage it returns is never exposed over HTTP.
+   */
+  async getUserByNullifier(parentId: string, nullifier: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT user_id FROM nullifier_attestations WHERE parent_id = $1 AND nullifier = $2`,
+      [parentId, nullifier],
+    );
+    return r.rows[0]?.user_id ?? null;
+  }
+
+  /**
+   * Record the platform's attestation that `nullifier` is this verified user's single nullifier for
+   * `parentId`. Idempotent per `(user, parent)` (a re-attest keeps the first). Throws if that
+   * nullifier value is already attested for a DIFFERENT user on this parent
+   * (UNIQUE(parent_id, nullifier) collision — someone replayed another user's nullifier).
+   */
+  async attestNullifier(input: { userId: string; parentId: string; nullifier: string; platformSig: string }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO nullifier_attestations(user_id, parent_id, nullifier, platform_sig) VALUES($1,$2,$3,$4)
+       ON CONFLICT (user_id, parent_id) DO NOTHING`,
+      [input.userId, input.parentId, input.nullifier, input.platformSig],
+    );
+  }
+
+  /** True if an ACTIVE singleton on `parentId` already bears `nullifier` (the per-parent dedupe). */
+  async hasActiveSingletonByNullifier(parentId: string, nullifier: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `SELECT 1 FROM entity_state WHERE parent_id = $1 AND nullifier = $2 AND NOT is_deleted LIMIT 1`,
+      [parentId, nullifier],
+    );
+    return r.rows.length > 0;
+  }
+
+  /** KYC attestation stub — carries the tier; no provider integration this phase. */
+  async putAttestation(a: { userId: string; provider: string; tier: string; region?: string | null }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO kyc_attestations(id, user_id, provider, tier, region) VALUES($1,$2,$3,$4,$5)`,
+      [randomUUID(), a.userId, a.provider, a.tier, a.region ?? null],
     );
   }
 
@@ -346,6 +950,7 @@ function mapEntityState(row: pg.QueryResultRow): EntityState {
     content: row.content,
     contentHash: row.content_hash,
     authorPubkey: row.author_pubkey,
+    nullifier: row.nullifier ?? null,
     parentType: row.parent_type,
     parentId: row.parent_id,
     parentRevisionHash: row.parent_revision_hash,
@@ -354,6 +959,13 @@ function mapEntityState(row: pg.QueryResultRow): EntityState {
     isDeleted: row.is_deleted,
     isRedacted: row.is_redacted,
     isErased: row.is_erased,
+  };
+}
+
+function mapRootEntityRow(row: pg.QueryResultRow): RootEntityRow {
+  return {
+    ...mapEntityState(row),
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
   };
 }
 
@@ -373,6 +985,7 @@ function mapStoredTx(row: pg.QueryResultRow): StoredTx {
     createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
     prevHash: row.prev_hash,
     contentHash: row.content_hash,
+    nullifier: row.nullifier ?? null,
     txHash: row.tx_hash,
     envelope: row.envelope,
     salt: row.salt,

@@ -27,8 +27,11 @@ services:
       retries: 20
       start_period: 5s
 
+  # PostGIS image (superset of postgres:16) — @oursay/geo enables `CREATE EXTENSION postgis` for
+  # district boundary geometry. Switching the image needs a one-time `docker compose down -v` to
+  # re-pull (the named volume keeps data; the extension is created idempotently by GeoStore.init()).
   postgres:
-    image: postgres:16-alpine
+    image: postgis/postgis:16-3.4-alpine
     container_name: oursay-public-record-pg
     environment:
       POSTGRES_USER: oursay

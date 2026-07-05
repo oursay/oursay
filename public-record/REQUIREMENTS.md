@@ -55,20 +55,30 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
   The type set MUST be **extensible by configuration**, not hardcoded — candidate future types:
   `discussion`, `bill`, `official_response`. _A starting point, not fixed._
 - **R1a [Invariant]** — **Governance is per-entity.** A `poll`/`petition` create transaction
-  sets its rules (`region`, `deadline`, `allowChange`/`allowRevoke`); a **platform-signed**
-  update may change them. A vote is **cast** and a signature is **signed FINAL by default**
-  (the real-world analog); changing a vote or revoking a signature MUST be **technically
-  possible** but permitted only when the entity's rules + deadline allow it (so a riding/region
-  can follow its own mechanism).
+  sets its rules (`appliesToDistrictIds`, `deadline`, `allowChange`/`allowRevoke`), which **layer
+  over the jurisdiction's defaults**; a **platform-signed** update may change them. A vote is
+  **cast** and a signature is **signed FINAL by default** (the real-world analog); changing a vote
+  or revoking a signature MUST be **technically possible** but permitted only when the entity's
+  rules + deadline allow it (so a district can follow its own mechanism).
 - **R1b [Invariant]** — **Dual attachment.** Every comment and reaction MUST record BOTH the
   parent **entity** (follows edits) and the exact parent **revision** (content-addressed
   txHash). The record MUST be able to count support per-entity AND per-revision, so an edit to a
   parent does not transfer endorsements its old content earned to the new content.
 - **R2 [Invariant]** — Every entry appended to the public record MUST be **signed by a
   per-thread key** controlled by its author.
-- **R3 [Invariant]** — Per-thread keys MUST be **derived deterministically by the user** from
-  a single master secret, so a user (or an auditor the user authorizes) can reproduce and
-  prove them. _Rationale: enables R7, R10, and R11 without the platform holding signing keys._
+- **R3 [Invariant]** — Per-thread keys MUST be **derived deterministically on the user's device**
+  via **domain-separated derivation (HKDF or equivalent)** from a **jurisdiction-scoped master key**
+  (one master per jurisdiction — e.g. `ab-ca-gov`, `ca-gov`), so a user (or an auditor the user
+  authorizes) can reproduce and prove them. Per-thread keys MUST sign envelopes with the single
+  canonical algorithm (**P-256**, passkey-native). Cross-device reproduction requires
+  **recovery/sync of the jurisdiction-master material** — the passkey alone (which authenticates and
+  may *unlock* derivation material) is not sufficient. _Rationale: enables R7, R10, and R11 without
+  the platform holding signing keys._
+  > **Pivot flag (normative change):** previously "derived from a single master secret." This
+  > invariant now mandates **jurisdiction-scoped masters + on-device HKDF** (not BIP32 paths) as the
+  > structural compartmentalization mechanism. (Upgraded from the earlier **level-scoped** wording:
+  > the partition key is the **jurisdiction**, of which governmental level is now only a property —
+  > two same-level jurisdictions must not share a master.) See [`PROPOSAL.md`](./PROPOSAL.md) §6.
 
 ## 3. Data model & confidentiality
 
@@ -83,18 +93,45 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 
 ## 4. Anonymity & identity
 
+> **Identity-model pivot (2026).** This section's invariants were updated when OurSay moved its
+> identity backbone from **BIP32/xpub + remote Turnkey custody** to **passkey auth + jurisdiction-scoped
+> masters + on-device HKDF per-thread keys (P-256) + private per-thread platform bindings +
+> selective reveal**. The normative changes are flagged inline at **R3** (derivation), **R7**
+> (ownership mechanism), and **R11** (selective reveal vs xpub sharing). The pseudonymous
+> public-ownership channel (claim/unclaim, R8/R9) is unchanged and is kept distinct from the
+> identity-to-auditor reveal channel (R11). Rationale and the discarded approach:
+> [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md); worked design:
+> [`PROPOSAL.md`](./PROPOSAL.md) §6.
+
 - **R7 [Invariant]** — The platform MUST be able to verify that a per-thread key belongs to a
-  **verified user, without exposing which user** in the public record.
+  **verified user, without exposing which user** in the public record. This is established by a
+  **private platform registration binding** created before any verified-tier append: the platform
+  signs a binding committing to `thread_pubkey, thread_id, jurisdiction` (and **optionally** `kyc_tier`)
+  and an **opaque per-thread commitment** `H(user_id, salt_t, thread_id, jurisdiction)`. The binding
+  proves account↔thread-key **ownership**; the verification **tier is not fixed at join** — it is
+  applied at read/count time from the user's current attestation (R24–R26), so a binding may carry no
+  `kyc_tier` (omitted from the signed payload, NULL in the private store). The commitment is held in the
+  private binding and surfaced only — opaquely — in the platform's **settlement attestation
+  metadata** (referenced by `thread_pubkey`); the public envelope carries `thread_pubkey` only, and
+  the opening (`user_id`, `salt_t`) stays private until selective reveal (R11).
+  > **Pivot flag (mechanism change):** ownership is now proven via the private registration binding
+  > + opaque commitment, **not** via deriving the key from an account `xpub`. See §6.
 - **R8 [Invariant]** — A user MAY participate **anonymously**, or MAY publicly **claim**
   ownership of a thread's activity, exposing that activity as theirs.
 - **R9 [Invariant]** — Claiming a thread MUST be **reversible**.
 - **R10 [Invariant]** — A user MUST retain a **receipt/proof of each action** and be able to
   **self-audit** it against the public record at any time.
-- **R11 [Future]** — A user MUST be able to authorize an **independent organization** to
-  verify their thread activity (e.g. by sharing their account public key / xpub), with no
-  platform involvement. The independent organization is responsible for binding that key to
-  the user's real identity (its own KYC). _MVP must remain compatible; full realization is
-  Future._
+- **R11 [Future]** — A user MUST be able to authorize an **independent organization** to verify
+  their thread activity by **selectively revealing specific threads** — publishing the opening
+  `(user_id, salt_t, thread_id, jurisdiction)` plus the platform binding **for those threads only**, never
+  a single key that exposes all activity at a scope. The organization recomputes the commitment,
+  confirms the platform's binding signature, and is responsible for binding the identity to the
+  user's real-world identity (its own KYC). _MVP must remain compatible; full realization is
+  Future._ A **user-signed** binding (in addition to the platform's) is the stronger end-state:
+  it lets the organization verify ownership **without platform cooperation**.
+  > **Pivot flag (normative change):** previously "sharing their account public key / xpub." R11 is
+  > now **per-thread selective reveal** of binding openings, not xpub sharing — disclosure is
+  > scoped to chosen threads, not all activity under a key. See §6.
 
 ## 5. Auditability & anchoring
 
@@ -193,17 +230,26 @@ original assertions._
   metadata only; a **mutable Postgres store** holds raw content, salts, and PII. This split is
   what makes both auditability (R4, R12) and redaction/erasure (R17–R19) possible at once. See
   [`../immudb-test/FINDINGS.md`](../immudb-test/FINDINGS.md).
-- **Per-thread keys.** Users hold a BIP32 master key; per-thread keys are derived at
-  deterministic paths (R3). The account-level xpub links a user's anonymous actions, so it is
-  PII — **encrypted at rest, never published**. Sharing the xpub with an independent
-  organization is what enables R11. Key custody is delegated to a provider (see
-  [`../turnkey-test`](../turnkey-test)).
-- **Blocks & anchoring.** Entries accumulate into blocks; a block is closed and its root
-  anchored at **N actions or daily**, whichever comes first. The **anchor target is pluggable**
-  (R15): **Ethereum is the preferred primary anchor** on decentralization grounds, with a
-  transparency-log target (GitHub) as a low-cost complement and other chains (EVM L2, Solana)
-  available. _Solana was originally considered for delivery-partner reasons; that is not a
-  binding constraint, and anchoring remains pluggable._
+- **Per-thread keys.** Users hold a **jurisdiction-scoped master key per jurisdiction** (governmental
+  level is a property of the jurisdiction, not the partition key); per-thread keys are derived
+  **on-device via HKDF** from the matching jurisdiction master (R3) and sign envelopes with **P-256**. The platform links a thread key to a verified user through a **private
+  registration binding** carrying an **opaque per-thread commitment** — this binding, its `salt_t`,
+  and any commitment opening are PII, **encrypted at rest, never published** until the user
+  authorizes a **selective reveal** of specific threads (R11). Custody is the user's device/passkey;
+  Turnkey is an **optional recovery** path only. The discarded BIP32/xpub/Turnkey-custody spike is
+  documented in [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md).
+- **Pool → settle → publish.** Actions are first **pooled** (Postgres `record_outbox`, `pending`,
+  tagged with their `chainId`); nothing reaches the ledger on the user's action. A **block** is
+  **settled** when its trigger fires — `BLOCK_MAX_PENDING` records accumulated **or** the oldest
+  pending tx has waited `BLOCK_MAX_PENDING_AGE_HOURS` (env-configurable; `0` disables a dimension),
+  whichever comes first, capped at `BLOCK_MAX_TXS` — committing the block's commitments to immudb
+  (`record_chain`) and writing a `(chainId, height)` block header (`record_blocks`, the canonical
+  block tip). **Publishing/anchoring is a separate, per-target cadence** (`AnchorPublisher`), not the
+  same step as settlement.
+- **Anchor targets are pluggable** (R15): **Ethereum is the preferred primary anchor** on
+  decentralization grounds, with a transparency-log target (GitHub) as a low-cost complement and
+  other chains (EVM L2, Solana) available. _Solana was originally considered for delivery-partner
+  reasons; that is not a binding constraint, and anchoring remains pluggable._
 - **Pluggable transport.** The ledger is reachable over multiple connectors (Postgres wire
   protocol recommended; gRPC optional) — see [`PROPOSAL.md`](./PROPOSAL.md) §4. The trust root
   is the externally-anchored root + offline verifier (R14, R16), independent of transport.
@@ -220,16 +266,16 @@ Where each requirement is addressed in the design. Sections refer to
 | Requirement | Addressed in |
 |---|---|
 | R1 record types (post/petition/comment/vote/reaction) | §3 (append flow), §5.3 (envelope `RecordType`) |
-| R2 per-thread signing | §3, §5.2 (`signature`, `author_pubkey`), §5.3 |
-| R3 deterministic derivation | §6 (`identity/derivation.ts`) |
+| R2 per-thread signing | **Implemented (full write path):** `identity/envelope.ts` (`signEnvelope`/`verifyEnvelope`, P-256) + `RecordService.prepareAppend`/`appendSigned` over all civic ops — creates (2a) and updates/deletes (2b, cryptographic author-match + optimistic concurrency); suites 10/12/13. The unsigned dev path is retained for dev/seeds. |
+| R3 deterministic derivation | **Implemented (slice):** `identity/derive.ts` (on-device HKDF from a jurisdiction master → P-256); suite 10 |
 | R4 commitments-only ledger | §3, §5.2, §5.3; Philosophy §5 |
 | R5 hiding (salted) commitments | §3 (append flow), §5.1 (`raw_content.salt`); Values §6 |
 | R6 mutable private store | §5.1; Philosophy §5 |
-| R7 ownership without exposure | §6 (`identity/ownership.ts`) |
-| R8 anonymous or claim | §5.1 (`thread_keys.claimed`), §6 |
-| R9 claim reversible | §5.1 (`claimed_at` nullable), §6 (`unclaimThread`) |
-| R10 user self-audit receipt | §3 (append returns id/salt), §7 (`verifyBundle`) |
-| R11 independent-org verification | §6 (xpub-based ownership), §9 Q5 |
+| R7 ownership without exposure | **Implemented:** private registration binding + opaque `threadCommitment` (`crypto/commitment.ts`); `PrivateStore.registerThreadBinding` + `identity/verify.ts` `verifyThreadBinding` (re-verifies `binding_sig`); enforced on every signed op (create + update/delete) in `appendSigned`; suites 12/13 |
+| R8 anonymous or claim | §5.1 (`thread_keys.claimed`), §6 — **claim/unclaim Future** |
+| R9 claim reversible | §5.1 (`claimed_at` nullable), §6 — **Future** |
+| R10 user self-audit receipt | §3 (append returns id/salt), §7 (offline verifier) |
+| R11 independent-org verification | §6 (selective reveal of binding openings; `revealThread` + user-signed binding) — **Future**, §9 Q5 |
 | R12 reconstruct all hashes | §7 (crypto exports), `verifier.ts` |
 | R13 entry/block/record audit | §7, §8 (blocks) |
 | R14 external anchoring | §8; Values §1–2 |

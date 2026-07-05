@@ -55,9 +55,11 @@ non-affiliation disclaimer, public-language discipline, build-hash publication.
 ### 2.2 Evaluation workspaces (spikes)
 
 Time-boxed, hypothesis-driven investigations that answer a small number of sharp questions
-with **tests as evidence**. Today: `turnkey-test` (can we provision per-user HD wallets and
-derive per-thread keys?) and `immudb-test` (is immudb a viable tamper-evident ledger, and
-how do redaction and anchoring actually behave?).
+with **tests as evidence**. `turnkey-test` asked "can we provision per-user HD wallets and
+derive per-thread keys?" — it could, but the BIP32/xpub/remote-custody answer was **not adopted**
+(see [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md); identity moved to passkeys +
+on-device HKDF + per-thread bindings). `immudb-test` asked "is immudb a viable tamper-evident
+ledger, and how do redaction and anchoring actually behave?".
 
 An evaluation workspace is **honest about being a spike**:
 

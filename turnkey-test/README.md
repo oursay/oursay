@@ -1,5 +1,12 @@
 # turnkey-test
 
+> **Historical / exploratory spike — not the current design.** The identity backbone has moved to
+> **passkey auth + level-scoped masters + HKDF per-thread keys (P-256) + per-thread platform
+> bindings**. This spike's BIP32/xpub/Turnkey-custody approach was **not adopted**. See
+> [`FINDINGS.md`](./FINDINGS.md) for why, and
+> [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md) §6 for the chosen model. Turnkey
+> may remain an *optional recovery* path only.
+
 Experiments for OurSay’s Turnkey integration:
 
 1. Provision a **user sub-organization** (tenant) with a root user and **master HD wallet**.

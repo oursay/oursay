@@ -50,27 +50,39 @@ Verified users have confirmed their identity and residency through a pluggable K
 /
 ├── docs/
 │   ├── 01-CONTRIBUTOR-SPEC.md     # Canonical product specification — read this first
+│   ├── entities/                  # Formal domain object specs (attributes, states, invariants)
 │   ├── 02-PUBLIC-EXPLAINER.md     # Public-facing platform overview
 │   ├── 03-OUTREACH-TEMPLATE.md    # Audience-specific outreach templates
 │   ├── 04-LEGAL-OUTREACH.md       # Legal & regulatory outreach materials
 │   ├── 05-TRUST-REVIEW.md         # What's trustless vs. trust-based, and the roadmap to close the gap
 │   ├── 06-PRIVACY-REVIEW.md       # Disclosure matrix, re-identification risk, and mitigations
+│   ├── 07-DECENTRALIZATION-ALIGNMENT.md  # North star: build centralized, stay ready to decentralize
 │   ├── PHILOSOPHY.md              # Monorepo philosophy: structure & how code matures
 │   └── VALUES.md                  # Engineering values that constrain design
 ├── site/                          # Public marketing & explainer website (Astro) [workspace]
-├── turnkey-test/                  # Spike: per-user HD wallets & per-thread keys [workspace]
+├── turnkey-test/                  # Spike (historical): HD wallets/per-thread keys — NOT adopted; see its FINDINGS.md [workspace]
 ├── immudb-test/                   # Spike: tamper-evident verifiable-ledger evaluation [workspace]
 ├── public-record/                 # Proposal & requirements for the verifiable public-record library
+├── api/                            # Account API (@oursay/api): email-OTP registration, passkey auth, recovery [workspace]
 ├── DEPLOYMENTS.md                 # Published build hashes for every production deployment
 ├── LICENSE                        # GNU General Public License v3.0
 └── package.json                   # npm-workspaces monorepo root
 ```
+
+**Running the account API ([`@oursay/api`](api/README.md)):** `npm run db:up -w @oursay/api` (shared
+Postgres) → `npm run dev -w @oursay/api` → Swagger UI at `/docs`, and a dev-only end-to-end walk
+harness at [`/walk`](http://localhost:8080/walk) for clicking through register → passkey → recovery on
+a real browser. See [`api/README.md`](api/README.md) for the full dev cycle.
 
 ---
 
 ## Start Here: Foundational Documents
 
 These documents define the project. Before writing any code, read the contributor spec — then the monorepo philosophy and engineering values before contributing code.
+
+### [`docs/PRD.md`](docs/PRD.md) — Product Requirements Document
+
+The stakeholder-facing product requirements for the Alberta launch: what ships and why, the audiences it serves, success metrics, and scope boundaries. Separates impact and adoption metrics (measured by the October 19, 2026 referendum) from the launch requirements that must be live for the July 18, 2026 soft launch. Sits above the contributor spec and links back to it for behavioural detail.
 
 ### [`docs/01-CONTRIBUTOR-SPEC.md`](docs/01-CONTRIBUTOR-SPEC.md) — Contributor Reference
 
@@ -79,6 +91,10 @@ The canonical product specification. Covers what the system does and why — not
 Covers: guiding principles, verification tiers, pluggable KYC provider architecture, sponsorship and waitlist mechanics, generic geographic area model, public API, the full content model (beliefs, petitions, public votes, results), the anonymity model, the distributed public ledger, build verification, forkability and global adaptability, and contributor decision-making.
 
 **Read this before touching the schema, the API, or the frontend.**
+
+### [`docs/entities/README.md`](docs/entities/README.md) — Formal Domain Object Specifications
+
+Structured definitions of every core domain noun — attributes, states, invariants, relationships, and implementation paths. Synthesizes the contributor spec, glossary, public-record requirements, and shipped schema. Use when you need an unambiguous object contract for product, design, or engineering work.
 
 ### [`docs/02-PUBLIC-EXPLAINER.md`](docs/02-PUBLIC-EXPLAINER.md) — Public Platform Overview
 
@@ -101,6 +117,22 @@ An honest accounting of what a third party can verify **without trusting OurSay*
 ### [`docs/06-PRIVACY-REVIEW.md`](docs/06-PRIVACY-REVIEW.md) — Privacy Review
 
 The most information each audience (public, representatives, media, independent auditors) may receive, the re-identification risk for fully-public users near multiple boundary lines, and the mitigations — including per-governmental-level key compartmentalization.
+
+### [`docs/07-DECENTRALIZATION-ALIGNMENT.md`](docs/07-DECENTRALIZATION-ALIGNMENT.md) — Decentralization Alignment
+
+The north-star constraint behind every design decision: OurSay runs centralized today but must stay
+able to become a permissioned consortium and, eventually, an open network where anyone who can
+validate identity (including public auditors) can run a node — *consensus as a possibility, not
+dictated by us*. Defines the design invariants (timestamps are never the ordering authority,
+authority is a configurable role not a hardcoded "us," blocks carry a consensus-ready header, every
+record is independently verifiable), a readiness checklist for contributors, and an honest ledger of
+the centralization we accept today with each one's migration path.
+
+**Read this before any decision about the record model, ordering, signing, anchoring, or authority.**
+
+### [`docs/08-IDENTITY-AND-DEVICE-POLICY.md`](docs/08-IDENTITY-AND-DEVICE-POLICY.md) — Identity & Device Policy
+
+Plain-English policy for passkeys, per-thread signing keys, device custody (non-exportable keys on device; platform never holds private keys), privacy and linkability, multi-device behaviour, and how this ties to the public record. **Read this before auth, user data, or client signing work.**
 
 ### [`docs/PHILOSOPHY.md`](docs/PHILOSOPHY.md) — Monorepo Philosophy
 

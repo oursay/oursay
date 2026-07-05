@@ -1,0 +1,21 @@
+{
+  "name": "@oursay/jurisdiction-data",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OurSay jurisdiction configs: per-jurisdiction gating rules, privacy floor, and public count-exposure policy as registerable TypeScript modules (oursay-global sandbox + ab-ca-gov launch). District boundary data lives under each jurisdiction's districts/ dir.",
+  "exports": {
+    ".": "./index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@oursay/public-record": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

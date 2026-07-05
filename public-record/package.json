@@ -5,19 +5,25 @@
   "type": "module",
   "description": "OurSay public verifiable record: event-sourced CRUD as append-only commitments (immudb) + private mutable store (Postgres), per-entity hash chain, fold-on-read state.",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./crypto/*": "./src/crypto/*.ts",
+    "./schema/types": "./src/schema/types.ts",
+    "./ledger/chain": "./src/ledger/chain.ts",
+    "./identity/*": "./src/identity/*.ts"
   },
   "scripts": {
     "db:up": "docker compose up -d --wait",
-    "db:down": "docker compose down -v",
+    "db:down": "tsx ../scripts/destructive-guard.ts db:down && docker compose down -v",
     "db:logs": "docker compose logs -f",
     "seed": "tsx scripts/seed.ts",
+    "worker": "tsx scripts/worker.ts",
     "test": "mocha",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@noble/hashes": "^1.7.1",
     "@noble/curves": "^1.8.1",
+    "@oursay/geo": "*",
     "dotenv": "^16.4.7",
     "pg": "^8.13.1"
   },

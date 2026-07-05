@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { anchorTargetsConfig } from "../config.js";
 import { canonicalJson, canonicalStringify } from "../crypto/commitment.js";
-import type { AnchorTarget } from "./target.js";
+import { type AnchorPublishPolicy, type AnchorTarget, everyNBlocks } from "./target.js";
 import type { AnchorRecord, BlockBundle } from "./types.js";
 
 /**
@@ -16,7 +17,10 @@ export class FileAnchorTarget implements AnchorTarget {
   private readonly anchorsPath: string;
   private readonly blocksDir: string;
 
-  constructor(private readonly baseDir: string) {
+  constructor(
+    private readonly baseDir: string,
+    readonly publishPolicy: AnchorPublishPolicy = everyNBlocks(anchorTargetsConfig.fileEveryNBlocks),
+  ) {
     this.anchorsPath = join(baseDir, "anchors.jsonl");
     this.blocksDir = join(baseDir, "blocks");
   }

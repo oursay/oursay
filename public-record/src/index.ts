@@ -11,22 +11,46 @@ export type {
   EntityState,
   PublicEntityView,
   ReactionCount,
+  RootEntityRow,
   StoredTx,
   AppendTxInput,
+  ThreadBindingRow,
 } from "./private/store.js";
 export { PublicChain, txHashOf } from "./ledger/chain.js";
 
 // Connectors (pluggable transport to the append-only chain)
 export { PgWireLedgerConnector } from "./ledger/pgwire.connector.js";
-export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow } from "./ledger/connector.js";
+export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow, BlockHeader, BlockAttestation } from "./ledger/connector.js";
+
+// Block settlement (pool → append-only chain, on the trigger policy)
+export { BlockSettler } from "./ledger/settler.js";
+export type { SettleDecision, SettleOptions } from "./ledger/settler.js";
+
+// Settlement worker (deadline-aware multi-chain loop driving settle + anchor; scripts/worker.ts)
+export { SettlementWorker, realSleeper } from "./worker/settlement-worker.js";
+export type {
+  ChainRunner,
+  SettlerLike,
+  PublisherLike,
+  Sleeper,
+  Logger,
+  ChainDecision,
+  TickSummary,
+  SettlementWorkerOptions,
+} from "./worker/settlement-worker.js";
 
 // Governance
 export {
   rulesOf,
+  resolveRules,
   withinDeadline,
   canChangeVote,
   canRevokeSignature,
 } from "./governance.js";
+
+// Jurisdiction (domain partition + router: id, level, default gating rules, signing policy)
+export { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS, getJurisdiction, registerJurisdiction, requiredSignScheme } from "./jurisdiction.js";
+export type { JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules } from "./jurisdiction.js";
 
 // Projections (fold-on-read state)
 export { getThread, reactionTallies } from "./projection.js";
@@ -36,21 +60,46 @@ export type { Thread, ThreadComment } from "./projection.js";
 export { verifyEntityChain } from "./verify.js";
 export type { ChainReport, TxVerdict } from "./verify.js";
 
-// Block-based external anchoring
-export { BlockBuilder } from "./anchor/block.js";
-export type { CloseBlockOptions } from "./anchor/block.js";
+// Block bundle assembly + external anchoring (settled block → published bundle, per-target cadence)
+export { BundleAssembler } from "./anchor/assembler.js";
+export type { AssembleOptions } from "./anchor/assembler.js";
+export { AnchorPublisher } from "./anchor/publisher.js";
 export { FileAnchorTarget } from "./anchor/file.target.js";
-export type { AnchorTarget } from "./anchor/target.js";
+export { everyNBlocks } from "./anchor/target.js";
+export type { AnchorTarget, AnchorPublishPolicy } from "./anchor/target.js";
 export type { AnchorRecord, BlockBundle, BlockEntry, ImmudbRootRef } from "./anchor/types.js";
 
 // Offline anchor verifier (no DB / no platform)
-export { verifyEntry, verifyBlock, verifyChainLink } from "./anchor/verify.js";
+export { verifyEntry, verifyBlock, verifyChainLink, verifyChain, computeChainTipHash } from "./anchor/verify.js";
 export type { EntryVerdict, BlockReport } from "./anchor/verify.js";
 
 // Crypto (also what an independent auditor reimplements against)
-export { canonicalJson, contentCommitment, newSalt, sha256Hex } from "./crypto/commitment.js";
+export { canonicalJson, contentCommitment, newSalt, sha256Hex, threadCommitment } from "./crypto/commitment.js";
+export type { ThreadCommitmentInput } from "./crypto/commitment.js";
 export { hashLeaf, merkleRoot, merkleProof, verifyMerkleProof } from "./crypto/merkle.js";
 export type { MerkleStep } from "./crypto/merkle.js";
+
+// Identity — per-thread keys, envelope signing, binding inputs (promoted from passkey-test).
+// Browser-safe client helpers; also re-exported via the "./identity/*" subpaths.
+export { deriveThreadKey, deriveThreadPrivateKey, threadDomainInfo } from "./identity/derive.js";
+export type { DeriveInput, ThreadKey } from "./identity/derive.js";
+export { signEnvelope, verifyEnvelope, signingDigest, UNSIGNED } from "./identity/envelope.js";
+export type { SignResult } from "./identity/envelope.js";
+// WebAuthn (ES256) per-thread civic signing (Option A) — one verifier + one builder (dev/tests).
+export { verifyWebauthnAssertion, buildWebauthnAssertion, credentialPubkeyHex, base64urlEncode, base64urlDecode } from "./identity/webauthn.js";
+export type { BuildAssertionInput } from "./identity/webauthn.js";
+// Thread-scoped device signing (Method 3 §5.4) — multi-device / cross-device edit.
+export { deriveDeviceThreadSigner, signEnvelopeWithDevice, deviceSignerDomainInfo } from "./identity/device.js";
+export type { DeriveDeviceSignerInput, DeviceThreadSigner } from "./identity/device.js";
+export { deriveNullifierSecret, threadNullifier } from "./identity/nullifier.js";
+export { buildThreadBindingInputs } from "./identity/binding.js";
+export type { ThreadBindingInputs, ThreadBindingPublic, ThreadBindingOpening, BuildBindingInput } from "./identity/binding.js";
+// Server-side binding (platform signs/verifies the registration binding).
+export { signBinding, verifyBinding, bindingDigest, platformPublicKey } from "./identity/platform-binding.js";
+export { signNullifierAttestation, verifyNullifierAttestation, nullifierAttestationDigest } from "./identity/platform-binding.js";
+export { signCredentialAuth, verifyCredentialAuth, credentialAuthDigest } from "./identity/platform-binding.js";
+export type { CredentialAuthPayload } from "./identity/platform-binding.js";
+export { verifyThreadBinding, bindingFromRow } from "./identity/verify.js";
 
 // Schema / model
 export {
@@ -64,9 +113,12 @@ export {
   opAllowed,
   parentAllowed,
 } from "./schema/types.js";
+export { validateContent } from "./schema/content.js";
 export type {
   RecordType,
   Op,
+  SignScheme,
+  WebauthnAssertion,
   ReactionKind,
   EntityRules,
   TxEnvelope,
@@ -80,5 +132,5 @@ export type {
 } from "./schema/types.js";
 
 // Config
-export { immudbPgConfig, pgConfig } from "./config.js";
-export type { PgConfig } from "./config.js";
+export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, jurisdictionConfig, blockConfig, anchorTargetsConfig, workerConfig, workerChainConfigs } from "./config.js";
+export type { PgConfig, OutboxConfig, ChainConfig, BlockConfig, AnchorTargetsConfig, WorkerConfig, WorkerChainConfig } from "./config.js";

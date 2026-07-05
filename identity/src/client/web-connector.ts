@@ -1,0 +1,285 @@
+// WebPasskeyConnector — the real browser WebAuthn backend (promoted from passkey-test/web/app.js).
+//
+// Account auth + key custody via a platform (account-login) passkey:
+//   - register  → navigator.credentials.create (ES256 / -7), PRF extension probed.
+//   - unlock    → navigator.credentials.get with PRF eval; one 32-byte PRF root per credential.
+// From that single PRF root we HKDF-expand the per-(user, jurisdiction) nullifier-root (and the legacy
+// device root / jurisdiction-master for the dual-verifier path). The ACCOUNT passkey never signs civic
+// actions — it only seeds the singleton nullifier root now (§6).
+//
+// Civic signing (Option A, §5.4): each thread the user joins gets its OWN passkey credential
+// (createThreadCredential → navigator.credentials.create, UV + resident key). The credential's public
+// key IS the envelope author, and every civic append is a fresh user-verifying assertion bound to the
+// envelope's signing digest (assertThread → navigator.credentials.get, UV required). The per-thread
+// credential index lives in ThreadPasskeyStore; the private key never leaves the authenticator.
+//
+// Cross-device note (honest limit, FINDINGS §3): a SYNCED passkey (same credential on two devices,
+// e.g. iCloud Keychain) yields the SAME PRF root → shared per-user secrets and persona. INDEPENDENT
+// passkeys yield different roots; the second device references the existing persona and signs with
+// its own device signer, and per-jurisdiction nullifier consistency needs recovery/sync of the root (the
+// platform attestation remains the dedupe backstop). PRF availability is uneven — gate on the
+// AUTH-time result, not the create-time `enabled` flag (FINDINGS §2).
+//
+// PRF-unavailable fallback (built): when the authenticator produces no PRF output, the IKM comes from
+// the secure-storage master (`./secure-store.ts`) — a random 32-byte master sealed under a
+// non-extractable AES-GCM key in IndexedDB — instead of throwing. The HKDF expansion below is IDENTICAL
+// either way; only the SOURCE of the IKM differs (FINDINGS §3). A credential must therefore enroll and
+// unlock via the SAME source: the devicePubkey/persona are functions of the IKM, so if PRF availability
+// changes for a device it must RE-ENROLL (we do not auto-detect a source switch). Custody trade-off:
+// PRF keeps the root inside the authenticator; the fallback materializes it in memory and shifts custody
+// to the device-bound non-extractable wrapping key. Derived signing keys are always ephemeral in memory.
+//
+// This module imports ONLY @noble + the DOM WebAuthn/Web Crypto/IndexedDB APIs + ./secure-store (no
+// public-record), so it bundles for the browser cleanly. In Node the constructor throws (no `navigator`).
+
+import { hkdf } from "@noble/hashes/hkdf";
+import { sha256 } from "@noble/hashes/sha256";
+import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
+import { p256 } from "@noble/curves/p256";
+import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
+import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
+import { IndexedDbKeyStore, WebCryptoMasterStore, type SecureMasterStore } from "./secure-store.js";
+import { ThreadPasskeyStore } from "./thread-passkey-store.js";
+
+/** The single PRF salt we evaluate; everything else is HKDF-expanded from its result. */
+const PRF_SALT = utf8ToBytes("oursay/v1/prf-root");
+
+function p256PrivFrom(ikm: Uint8Array, info: string): Uint8Array {
+  const okm = hkdf(sha256, ikm, utf8ToBytes("oursay/dev/p256"), utf8ToBytes(info), 48);
+  const n = p256.CURVE.n;
+  return numberToBytesBE((bytesToNumberBE(okm) % (n - 1n)) + 1n, 32);
+}
+function root32(ikm: Uint8Array, salt: string, info: string): Uint8Array {
+  return hkdf(sha256, ikm, utf8ToBytes(salt), utf8ToBytes(info), 32);
+}
+
+/** base64url (no padding) for the raw WebAuthn assertion buffers. */
+function b64u(buf: ArrayBuffer | Uint8Array): string {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+/** Extract a credential's compressed SEC1 P-256 pubkey (hex) from its SPKI DER (getPublicKey()).
+ *  A P-256 SPKI is a fixed 26-byte AlgorithmIdentifier header + the 65-byte uncompressed point
+ *  (0x04 || X || Y), so the point is the trailing 65 bytes. */
+function spkiToCompressedSec1(spki: Uint8Array): string {
+  const point = spki.slice(spki.length - 65);
+  if (point[0] !== 0x04) throw new Error("unexpected SPKI encoding (not an uncompressed P-256 point)");
+  return p256.ProjectivePoint.fromHex(bytesToHex(point)).toHex(true);
+}
+
+export interface WebPasskeyOptions {
+  /** WebAuthn RP id. Default: the page's hostname (e.g. "localhost"). */
+  rpId?: string;
+  rpName?: string;
+  /** Override the PRF-unavailable fallback store. Default: IndexedDB-backed non-extractable AES master. */
+  secureStore?: SecureMasterStore;
+  /** Override the per-thread credential index. Default: localStorage-backed ThreadPasskeyStore. */
+  threadStore?: ThreadPasskeyStore;
+}
+
+export class WebPasskeyConnector implements PasskeyConnector {
+  readonly mode = "web" as const;
+  /** Diagnostic: which IKM source the most recent enroll/unlock used (for QA — e.g. the walk page). */
+  lastUnlockSource: "prf" | "secure-store" | null = null;
+  private readonly rpId: string;
+  private readonly rpName: string;
+  private readonly secureStore: SecureMasterStore;
+  private readonly threadStore: ThreadPasskeyStore;
+
+  constructor(opts: WebPasskeyOptions = {}) {
+    if (typeof navigator === "undefined" || !navigator.credentials) {
+      throw new Error("WebPasskeyConnector requires a browser with WebAuthn (navigator.credentials)");
+    }
+    this.rpId = opts.rpId ?? (typeof location !== "undefined" ? location.hostname : "localhost");
+    this.rpName = opts.rpName ?? "OurSay";
+    this.secureStore = opts.secureStore ?? new WebCryptoMasterStore(new IndexedDbKeyStore());
+    this.threadStore = opts.threadStore ?? new ThreadPasskeyStore();
+  }
+
+  async enrollDevice(o: { userId: string; label?: string; deviceId?: string }): Promise<DeviceCredential> {
+    const deviceId = o.deviceId ?? crypto.randomUUID();
+    // WebAuthn's PublicKeyCredentialUserEntity.id — the spec's "user handle" (an opaque credential→
+    // account binding, NOT OurSay's public @handle / username) — is capped at 64 bytes, and the
+    // browser rejects an over-long one with "User handle exceeds 64 bytes." `${uuid}:${uuid}` is 73.
+    // It is opaque to us (we never parse it back — credential lookup is keyed in localStorage by
+    // userId/deviceId), so bind it as a stable 32-byte sha256 of the same pair.
+    const userHandle = sha256(utf8ToBytes(`${o.userId}:${deviceId}`));
+    const cred = (await navigator.credentials.create({
+      publicKey: {
+        rp: { id: this.rpId, name: this.rpName },
+        user: { id: userHandle as BufferSource, name: o.userId, displayName: o.label ?? o.userId },
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        pubKeyCredParams: [
+          { type: "public-key", alg: -7 }, // ES256 / P-256 (required)
+          { type: "public-key", alg: -257 }, // RS256 (silences a Chrome lint only)
+        ],
+        authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
+        timeout: 60_000,
+        extensions: { prf: {} } as AuthenticationExtensionsClientInputs,
+      },
+    })) as PublicKeyCredential | null;
+    if (!cred) throw new Error("passkey registration cancelled");
+    if ((cred.response as AuthenticatorAttestationResponse).getPublicKeyAlgorithm?.() !== -7) {
+      throw new Error("passkey did not use ES256/P-256 (alg -7); OurSay requires it");
+    }
+    const credentialId = new Uint8Array(cred.rawId);
+    this.storeCredentialId(o.userId, deviceId, credentialId);
+    // derive the account-level device pubkey from the unlock root (PRF, else secure-storage fallback)
+    const root = await this.unlockRoot(credentialId, o.userId);
+    const devicePubkey = bytesToHex(p256.getPublicKey(p256PrivFrom(root32(root, "oursay/web/device-root", deviceId), `account|${o.userId}`)));
+    this.storeDevicePubkey(o.userId, deviceId, devicePubkey);
+    return { userId: o.userId, deviceId, devicePubkey };
+  }
+
+  async unlock(o: { userId: string; deviceId: string }): Promise<UnlockedSession> {
+    const credentialId = this.loadCredentialId(o.userId, o.deviceId);
+    const devicePubkey = this.loadDevicePubkey(o.userId, o.deviceId);
+    const root = await this.unlockRoot(credentialId, o.userId);
+    const deviceRoot = root32(root, "oursay/web/device-root", o.deviceId);
+    return {
+      userId: o.userId,
+      deviceId: o.deviceId,
+      devicePubkey,
+      deviceRoot,
+      jurisdictionMaster: (jurisdiction: string) => root32(root, "oursay/web/jurisdiction-master", jurisdiction),
+      nullifierRoot: (jurisdiction: string) => root32(root, "oursay/web/nullifier-root", jurisdiction),
+      createThreadCredential: (a) => this.createThreadCredentialFor(o.userId, a.threadId),
+      assertThread: (a) => this.assertThreadFor(o.userId, a.threadId, a.challenge),
+      threadSigningPubkey: (threadId) => this.threadStore.get(o.userId, threadId)?.signingPubkey ?? null,
+      threadPersonaPubkey: (threadId) => {
+        const rec = this.threadStore.get(o.userId, threadId);
+        return rec && rec.personaPubkey ? rec.personaPubkey : null;
+      },
+      setThreadPersona: (threadId, personaPubkey) => {
+        const rec = this.threadStore.get(o.userId, threadId);
+        if (!rec) throw new Error(`setThreadPersona: no local credential for ${o.userId}/${threadId}; create one first`);
+        this.threadStore.set(o.userId, threadId, { ...rec, personaPubkey });
+      },
+    };
+  }
+
+  // ── Per-(device, thread) WebAuthn civic credential (mvp-a5b persona/signer split, §5.4) ──────
+
+  /**
+   * Create (once) this device's thread passkey credential and return its PUBLIC key — the envelope's
+   * `signerPubkey`. UV + resident key required. The credential's P-256 pubkey is read from the
+   * attestation SPKI and recorded with its credential id in the ThreadPasskeyStore; the private key
+   * never leaves the authenticator. Idempotent: a second call returns the stored pubkey without a
+   * new ceremony. The stable thread persona Pₜ (envelope `authorPubkey`) is populated separately by
+   * IdentitySession after the server `join` response.
+   */
+  private async createThreadCredentialFor(userId: string, threadId: string): Promise<{ signingPubkey: string }> {
+    const existing = this.threadStore.get(userId, threadId);
+    if (existing) return { signingPubkey: existing.signingPubkey };
+    const userHandle = sha256(utf8ToBytes(`${userId}:thread:${threadId}`));
+    const cred = (await navigator.credentials.create({
+      publicKey: {
+        rp: { id: this.rpId, name: this.rpName },
+        user: { id: userHandle as BufferSource, name: `${userId}:${threadId}`, displayName: `OurSay thread ${threadId}` },
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256 / P-256 only
+        authenticatorSelection: { residentKey: "required", userVerification: "required" },
+        timeout: 60_000,
+      },
+    })) as PublicKeyCredential | null;
+    if (!cred) throw new Error("thread passkey registration cancelled");
+    const resp = cred.response as AuthenticatorAttestationResponse;
+    if (resp.getPublicKeyAlgorithm?.() !== -7) throw new Error("thread passkey did not use ES256/P-256 (alg -7)");
+    const spki = resp.getPublicKey?.();
+    if (!spki) throw new Error("thread passkey: authenticator did not expose a public key");
+    const signingPubkey = spkiToCompressedSec1(new Uint8Array(spki));
+    // personaPubkey is populated by IdentitySession AFTER the server join response returns Pₜ.
+    this.threadStore.set(userId, threadId, { credentialIdHex: bytesToHex(new Uint8Array(cred.rawId)), signingPubkey, personaPubkey: "" });
+    return { signingPubkey };
+  }
+
+  /** A user-verifying assertion for this thread's credential over `challenge` (= signingDigest). */
+  private async assertThreadFor(userId: string, threadId: string, challenge: Uint8Array): Promise<WebauthnAssertion> {
+    const rec = this.threadStore.get(userId, threadId);
+    if (!rec) throw new Error(`no thread passkey for ${userId}/${threadId} (join the thread first)`);
+    const assertion = (await navigator.credentials.get({
+      publicKey: {
+        rpId: this.rpId,
+        challenge: challenge as BufferSource,
+        allowCredentials: [{ type: "public-key", id: hexToBytes(rec.credentialIdHex) as BufferSource }],
+        userVerification: "required",
+        timeout: 60_000,
+      },
+    })) as PublicKeyCredential | null;
+    if (!assertion) throw new Error("thread passkey assertion cancelled");
+    const r = assertion.response as AuthenticatorAssertionResponse;
+    return {
+      authenticatorData: b64u(r.authenticatorData),
+      clientDataJSON: b64u(r.clientDataJSON),
+      signature: b64u(r.signature),
+    };
+  }
+
+  // ── Unlock root: PRF, else secure-storage fallback ───────────────────────────────────────────
+
+  /**
+   * The 32-byte derivation IKM for this credential. PRF when the authenticator produces it (kept inside
+   * the authenticator), else the secure-storage fallback master (FINDINGS §3). Both expand identically
+   * via {@link root32}. Source-consistency invariant: a credential must enroll AND unlock via the same
+   * source — the devicePubkey/persona are functions of this root — so if PRF availability changes for a
+   * device it must RE-ENROLL. The fallback master is keyed per (user, this device).
+   */
+  private async unlockRoot(credentialId: Uint8Array, userId: string): Promise<Uint8Array> {
+    const prf = await this.assertAndProbePrf(credentialId);
+    if (prf) {
+      this.lastUnlockSource = "prf";
+      return prf;
+    }
+    this.lastUnlockSource = "secure-store";
+    return this.secureStore.getOrCreate(`oursay/web/master/${userId}`);
+  }
+
+  /**
+   * One passkey assertion (this gates unlock/auth regardless of PRF). The assertion MUST succeed — a
+   * null result is a cancelled/failed ceremony and throws (we never fall back past a real auth failure).
+   * Returns the 32-byte PRF root when the authenticator produced one — gate on the AUTH-time result, not
+   * the create-time `enabled` flag (FINDINGS §2) — else `null` so {@link unlockRoot} can fall back to
+   * secure storage (PRF genuinely absent, but the user DID authenticate).
+   */
+  private async assertAndProbePrf(credentialId: Uint8Array): Promise<Uint8Array | null> {
+    const assertion = (await navigator.credentials.get({
+      publicKey: {
+        rpId: this.rpId,
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{ type: "public-key", id: credentialId as BufferSource }],
+        userVerification: "preferred",
+        timeout: 60_000,
+        extensions: { prf: { eval: { first: PRF_SALT } } } as AuthenticationExtensionsClientInputs,
+      },
+    })) as PublicKeyCredential | null;
+    if (!assertion) throw new Error("passkey assertion cancelled");
+    const results = assertion.getClientExtensionResults().prf?.results?.first;
+    return results ? new Uint8Array(results as ArrayBuffer) : null;
+  }
+
+  // ── credential persistence (localStorage; a browser-local handle, not a secret) ──────────────
+
+  private key(userId: string, deviceId: string, kind: string): string {
+    return `oursay/web-passkey/${userId}/${deviceId}/${kind}`;
+  }
+  private storeCredentialId(userId: string, deviceId: string, id: Uint8Array): void {
+    localStorage.setItem(this.key(userId, deviceId, "cred"), bytesToHex(id));
+  }
+  private loadCredentialId(userId: string, deviceId: string): Uint8Array {
+    const hex = localStorage.getItem(this.key(userId, deviceId, "cred"));
+    if (!hex) throw new Error(`no enrolled passkey for ${userId}/${deviceId}`);
+    return hexToBytes(hex);
+  }
+  private storeDevicePubkey(userId: string, deviceId: string, pub: string): void {
+    localStorage.setItem(this.key(userId, deviceId, "pub"), pub);
+  }
+  private loadDevicePubkey(userId: string, deviceId: string): string {
+    const pub = localStorage.getItem(this.key(userId, deviceId, "pub"));
+    if (!pub) throw new Error(`no device pubkey for ${userId}/${deviceId}`);
+    return pub;
+  }
+}

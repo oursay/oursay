@@ -6,7 +6,7 @@ import { getWorld } from "./helpers/world.js";
 describe("07 projections: getThread, poll results, signature counts", () => {
   it("assembles a post thread with nested comments and reaction tallies", async () => {
     const { svc, store } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "thread root" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "thread root" } });
     const c1 = await svc.create({ type: "comment", author: "bob", content: { body: "top comment" }, parent: { type: "post", id: post.entityId } });
     await svc.create({ type: "comment", author: "carol", content: { body: "reply" }, parent: { type: "comment", id: c1.entityId } });
     await svc.react("bob", { type: "post", id: post.entityId }, "check");

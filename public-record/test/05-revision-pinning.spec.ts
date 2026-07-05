@@ -10,14 +10,14 @@ import { getWorld } from "./helpers/world.js";
 describe("05 revision pinning: support stays bound to the content it endorsed", () => {
   it("editing a post does not move revision-pinned support to the new revision", async () => {
     const { svc, store } = await getWorld();
-    const post = await svc.create({ type: "post", author: "alice", content: { body: "puppies are good" } });
+    const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "puppies are good" } });
     const rev1 = post.txHash;
 
     // Bob endorses revision 1.
     await svc.react("bob", { type: "post", id: post.entityId }, "check");
 
     // Alice edits the post → revision 2.
-    const edited = await svc.update({ entityId: post.entityId, author: "alice", content: { body: "puppies are jerks" } });
+    const edited = await svc.update({ entityId: post.entityId, author: "alice", content: { title: "Test post", body: "puppies are jerks" } });
     const rev2 = edited.txHash;
     expect(rev2).to.not.equal(rev1);
 

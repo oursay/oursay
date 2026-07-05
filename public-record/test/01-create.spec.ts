@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { getWorld } from "./helpers/world.js";
+import { getWorld, settleAll } from "./helpers/world.js";
 
 /**
  * Create the three root entity types. The append-only chain (immudb) holds ONLY commitments
@@ -8,7 +8,8 @@ import { getWorld } from "./helpers/world.js";
 describe("01 create: roots — commitments on the chain, content in Postgres", () => {
   it("creates a post; immudb stores no plaintext, Postgres stores the content", async () => {
     const { svc, store, connector } = await getWorld();
-    const ref = await svc.create({ type: "post", author: "alice", content: { body: "secret civic text" } });
+    const ref = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "secret civic text" } });
+    await settleAll(); // pooled on append; reaches immudb only at settlement
 
     const envelope = await connector.getEnvelope(ref.txId);
     expect(envelope, "row present in immudb").to.exist;
@@ -23,7 +24,8 @@ describe("01 create: roots — commitments on the chain, content in Postgres", (
 
   it("verifies the committed row server-side via immudb_verify_row()", async () => {
     const { svc, connector } = await getWorld();
-    const ref = await svc.create({ type: "post", author: "bob", content: { body: "verify me" } });
+    const ref = await svc.create({ type: "post", author: "bob", content: { title: "Test post", body: "verify me" } });
+    await settleAll();
     const v = await connector.verifyRow(ref.txId);
     expect(v.verified, "immudb_verify_row reports verified").to.equal(true);
     expect(v.provenance).to.equal("server");
@@ -34,7 +36,7 @@ describe("01 create: roots — commitments on the chain, content in Postgres", (
     const petition = await svc.create({
       type: "petition",
       author: "alice",
-      content: { title: "Fix the road", text: "Please fix Main St.", rules: { region: "riding-1" } },
+      content: { title: "Fix the road", text: "Please fix Main St.", rules: { appliesToDistrictIds: ["edmonton-strathcona-2026"] } },
     });
     const poll = await svc.create({
       type: "poll",
