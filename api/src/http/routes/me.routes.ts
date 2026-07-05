@@ -280,6 +280,64 @@ export function registerMeRoutes(app: FastifyInstance, services: Services): void
     },
   );
 
+  const idsQuery = {
+    anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
+  } as const;
+
+  function asList(raw: unknown): string[] {
+    if (Array.isArray(raw)) return raw as string[];
+    if (raw != null) return [raw as string];
+    return [];
+  }
+
+  app.get(
+    "/v1/me/record-state",
+    {
+      preHandler: app.requireFullScope,
+      schema: {
+        tags: ["me"],
+        summary: "Batch read of the viewer's own participation markers (_my, _vote, signed, shared) per record id",
+        security: bearerSecurity,
+        querystring: {
+          type: "object",
+          properties: {
+            ids: { ...idsQuery, description: "Record ids; repeatable query param (max 100)." },
+          },
+          required: ["ids"],
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              states: {
+                type: "object",
+                additionalProperties: {
+                  type: "object",
+                  properties: {
+                    _my: { type: "string", enum: ["up", "down"], nullable: true },
+                    _vote: { type: "string", nullable: true },
+                    signed: { type: "boolean" },
+                    shared: { type: "boolean" },
+                  },
+                  required: ["_my", "_vote", "signed", "shared"],
+                },
+              },
+            },
+            required: ["states"],
+          },
+          401: errorSchema,
+          403: errorSchema,
+          422: errorSchema,
+        },
+      },
+    },
+    async (req) => {
+      const viewer = await services.viewerContextService.resolve(req.user!.userId);
+      const q = req.query as { ids?: unknown };
+      return services.recordStateService.getStates(asList(q.ids), viewer);
+    },
+  );
+
   app.post(
     "/v1/me/shares/:shareKey",
     {
