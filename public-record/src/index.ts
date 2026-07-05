@@ -12,6 +12,8 @@ export type {
   PublicEntityView,
   ReactionCount,
   RootEntityRow,
+  FeedRootRow,
+  FeedRootsQuery,
   StoredTx,
   AppendTxInput,
   ThreadBindingRow,

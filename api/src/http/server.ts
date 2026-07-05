@@ -21,6 +21,7 @@ import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
 import { registerKycDevRoutes } from "./routes/kyc-dev.routes.js";
 import { registerProfileRoutes } from "./routes/profile.routes.js";
 import { registerPublicAreaCatalogRoutes } from "./routes/public-area-catalog.routes.js";
+import { registerPublicFeedRoutes } from "./routes/public-feed.routes.js";
 import { registerPublicRecordReadRoutes } from "./routes/public-record-read.routes.js";
 import { registerRecoveryRoutes } from "./routes/recovery.routes.js";
 import { registerRegistrationRoutes } from "./routes/registration.routes.js";
@@ -83,6 +84,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerCivicDeviceRoutes(app, services);
   registerCivicRecordRoutes(app, services);
   registerPublicRecordReadRoutes(app, services);
+  registerPublicFeedRoutes(app, services);
   registerPublicAreaCatalogRoutes(app, services);
   registerProfileRoutes(app, services);
 

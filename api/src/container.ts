@@ -50,11 +50,14 @@ import { makeKycProvider, type KycProvider } from "./services/kyc/index.js";
 import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
+import { IdentityReadService } from "./services/identity-read.service.js";
 import { ParticipantGeoService } from "./services/participant-geo.service.js";
 import { PasskeyService } from "./services/passkey.service.js";
+import { PublicFeedService } from "./services/public-feed.service.js";
 import { PublicRecordReadService } from "./services/public-record-read.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
 import { RegistrationService } from "./services/registration.service.js";
+import { ViewerContextService } from "./services/viewer-context.service.js";
 
 export interface BuildOptions {
   /** Injectable clock for deterministic tests. */
@@ -114,6 +117,12 @@ export interface Services {
   participantGeoService: ParticipantGeoService;
   /** Unauthenticated public READ surface over the civic record (browse/detail/counts). */
   publicRecordReadService: PublicRecordReadService;
+  /** Resolves the optional authenticated viewer into read-resolution context ([align-w4] P1–P9). */
+  viewerContextService: ViewerContextService;
+  /** Viewer-dependent author identity + authorGeo resolution for served DTOs (C4/C6/C7 port). */
+  identityReadService: IdentityReadService;
+  /** The unified, viewer-optional public feed (P1). */
+  publicFeedService: PublicFeedService;
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
    *  official boundary geometry). Official electoral boundaries only — no private points. */
   areaCatalogService: AreaCatalogService;
@@ -256,6 +265,30 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     kycRepo: repos.kyc,
   });
 
+  // [align-w4-api-surface] viewer-optional read resolution: the viewer context (tier/role/home
+  // seats), the author identity + authorGeo resolution every served DTO passes through (the
+  // server-side port of the web-app read-model — C4/C6/C7), and the unified feed over both.
+  const viewerContextService = new ViewerContextService({
+    userRepo: repos.user,
+    profileRepo: repos.profile,
+    kycRepo: repos.kyc,
+    membershipRepo: repos.membership,
+    participantGeoService,
+    geoStore,
+    jurisdictions: [...jurisdictions],
+  });
+  const identityReadService = new IdentityReadService({
+    recordStore,
+    userRepo: repos.user,
+    profileRepo: repos.profile,
+    kycRepo: repos.kyc,
+    membershipRepo: repos.membership,
+    participantGeoService,
+    geoStore,
+    jurisdictions: [...jurisdictions],
+  });
+  const publicFeedService = new PublicFeedService({ recordStore, identityReadService });
+
   // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
   // (same `jurisdictions` list registered above). Official electoral boundaries only.
   const areaCatalogService = new AreaCatalogService({ geoStore, jurisdictions });
@@ -281,6 +314,9 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     regionResolver,
     participantGeoService,
     publicRecordReadService,
+    viewerContextService,
+    identityReadService,
+    publicFeedService,
     areaCatalogService,
     recordStore,
   };

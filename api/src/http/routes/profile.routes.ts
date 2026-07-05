@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { ServiceError } from "../../errors.js";
 import type { Services } from "../../container.js";
+import { AUTHOR_VISIBILITIES } from "../../types/visibility.js";
 import { bearerSecurity, errorSchema } from "../schemas.js";
 
 export function registerProfileRoutes(app: FastifyInstance, services: Services): void {
@@ -26,7 +27,7 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
               lastName: { type: ["string", "null"] },
               email: { type: "string" },
               over18: { type: "boolean", description: "Self-attested age gate; KYC re-verifies. No DOB is stored." },
-              visibility: { type: "string", enum: ["anonymous", "officials", "my_district", "public"] },
+              visibility: { type: "string", enum: AUTHOR_VISIBILITIES },
               address: {
                 type: "object",
                 properties: {

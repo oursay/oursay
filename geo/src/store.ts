@@ -278,6 +278,26 @@ export class GeoStore {
     return r.rows[0]?.id ?? null;
   }
 
+  /** Reverse lookup by STABLE SEAT: the year-less `district_slug` whose in-force geometry (at
+   *  `asOf`) contains `point`, or null when the point is outside every seat. Same effective set as
+   *  {@link districtContaining} — this variant returns the slug the web-app DTOs key on
+   *  ([align-w4-api-surface] authorGeo/viewer-district resolution). */
+  async districtSlugContaining(jurisdictionId: string, point: LngLat, asOf: Date): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT eff.district_slug
+         FROM (
+           SELECT DISTINCT ON (district_slug) district_slug, geom
+             FROM geo.districts
+            WHERE jurisdiction_id = $1 AND effective_date <= $2
+            ORDER BY district_slug, effective_date DESC
+         ) eff
+        WHERE ST_Contains(eff.geom, ST_SetSRID(ST_Point($3, $4), 4326))
+        LIMIT 1`,
+      [jurisdictionId, asOf.toISOString().slice(0, 10), point.lon, point.lat],
+    );
+    return r.rows[0]?.district_slug ?? null;
+  }
+
   /** Point-in-polygon over the UNION of the given district revisions. Empty set ⇒ false. */
   async districtsContain(districtIds: string[], point: LngLat): Promise<boolean> {
     if (districtIds.length === 0) return false;

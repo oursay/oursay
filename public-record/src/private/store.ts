@@ -80,6 +80,13 @@ export interface EntityState {
   parentRevisionHash: string | null;
   headTxId: string;
   headTxHash: string;
+  /** The head transaction's timestamp (bumps on update/delete — recency, not creation time). */
+  createdAt: string;
+  /** The head transaction's global event-log seq — the stable recency/cursor key. */
+  headSeq: number;
+  /** Read-surface signing-tier projection (C1): 0 = quick (software p256 / unsigned dev path),
+   *  1 = passkey (UV-verified webauthn-es256); 2/3 (biometric) are future. */
+  signTier: number;
   isDeleted: boolean;
   isRedacted: boolean;
   isErased: boolean;
@@ -128,6 +135,27 @@ export interface ReactionCount {
  *  unchanged so existing callers are untouched. */
 export interface RootEntityRow extends EntityState {
   createdAt: string;
+}
+
+/** A unified-feed root row ([align-w4-api-surface] P1): the folded state plus the ORIGINAL create
+ *  time (display `ts`; `createdAt` is the head tx's and bumps on edit) and the thread's audience
+ *  jurisdiction (from the thread-key bindings; null when no persona has joined — callers default). */
+export interface FeedRootRow extends EntityState {
+  firstCreatedAt: string;
+  jurisdiction: string | null;
+}
+
+/** Unified-feed query options. `types` restricts root types (absent ⇒ all four); `jurisdictions`
+ *  restricts by thread audience jurisdiction (rows with no binding count as `defaultJurisdiction`);
+ *  `signedMin` floors the projected sign tier; `beforeSeq` is the exclusive cursor (head seq). */
+export interface FeedRootsQuery {
+  types?: RecordType[];
+  jurisdictions?: string[];
+  /** The jurisdiction unbound threads belong to for filtering (the deployment default). */
+  defaultJurisdiction: string;
+  signedMin?: number;
+  beforeSeq?: number;
+  limit: number;
 }
 
 /**
@@ -329,6 +357,82 @@ export class PrivateStore {
       [type, opts.limit, opts.offset],
     );
     return r.rows.map(mapRootEntityRow);
+  }
+
+  /**
+   * Unified feed page ([align-w4-api-surface] P1): LIVE roots across the four root types, newest
+   * head first (head_seq DESC — an edited root bumps, matching the per-type lists' recency). Each
+   * row carries the ORIGINAL create time and the thread's audience jurisdiction. Cursor pagination
+   * is `beforeSeq` (exclusive) over the same ordering key, so pages never skip or repeat across
+   * concurrent writes. Filters compose: type set, jurisdiction set (unbound threads count as
+   * `defaultJurisdiction`), and the projected sign-tier floor.
+   */
+  async listFeedRoots(q: FeedRootsQuery): Promise<FeedRootRow[]> {
+    const types = q.types && q.types.length > 0 ? q.types : ["post", "petition", "poll", "result"];
+    const params: unknown[] = [types, q.limit];
+    let where =
+      `es.type = ANY($1) AND es.parent_id IS NULL AND NOT es.is_deleted`;
+    if (q.signedMin != null && q.signedMin > 0) {
+      params.push(q.signedMin);
+      where += ` AND es.sign_tier >= $${params.length}`;
+    }
+    if (q.beforeSeq != null) {
+      params.push(q.beforeSeq);
+      where += ` AND es.head_seq < $${params.length}`;
+    }
+    if (q.jurisdictions && q.jurisdictions.length > 0) {
+      params.push(q.jurisdictions, q.defaultJurisdiction);
+      where += ` AND COALESCE(tk.jurisdiction, $${params.length}) = ANY($${params.length - 1})`;
+    }
+    const r = await this.pool.query(
+      `SELECT es.*,
+              tk.jurisdiction AS thread_jurisdiction,
+              fc.first_created_at
+       FROM entity_state es
+       LEFT JOIN LATERAL (
+         -- thread_id is TEXT while entity ids are UUID; cast for the column-to-column compare.
+         SELECT jurisdiction FROM thread_keys WHERE thread_id = es.entity_id::text ORDER BY jurisdiction ASC LIMIT 1
+       ) tk ON true
+       LEFT JOIN LATERAL (
+         SELECT MIN(created_at) AS first_created_at FROM record_tx WHERE entity_id = es.entity_id AND op = 'create'
+       ) fc ON true
+       WHERE ${where}
+       ORDER BY es.head_seq DESC
+       LIMIT $2`,
+      params,
+    );
+    return r.rows.map(mapFeedRootRow);
+  }
+
+  /** Revision counts (`op = 'update'` transactions) for a batch of entities. Entities with no
+   *  updates are absent from the map — callers default to 0. */
+  async getEditCounts(entityIds: string[]): Promise<Map<string, number>> {
+    if (entityIds.length === 0) return new Map();
+    const r = await this.pool.query(
+      `SELECT entity_id, COUNT(*)::int AS count FROM record_tx
+       WHERE op = 'update' AND entity_id = ANY($1) GROUP BY entity_id`,
+      [entityIds],
+    );
+    return new Map(r.rows.map((x) => [x.entity_id as string, Number(x.count)]));
+  }
+
+  /** LIVE comment counts (all nesting depths) for a batch of ROOT entities, via a recursive walk of
+   *  the non-deleted comment tree. Roots with no comments are absent — callers default to 0. */
+  async getCommentCounts(rootIds: string[]): Promise<Map<string, number>> {
+    if (rootIds.length === 0) return new Map();
+    const r = await this.pool.query(
+      `WITH RECURSIVE tree(entity_id, root_id) AS (
+         SELECT es.entity_id, es.parent_id FROM entity_state es
+          WHERE es.type = 'comment' AND NOT es.is_deleted AND es.parent_id = ANY($1)
+         UNION ALL
+         SELECT es.entity_id, t.root_id FROM entity_state es
+           JOIN tree t ON es.parent_id = t.entity_id
+          WHERE es.type = 'comment' AND NOT es.is_deleted
+       )
+       SELECT root_id, COUNT(*)::int AS count FROM tree GROUP BY root_id`,
+      [rootIds],
+    );
+    return new Map(r.rows.map((x) => [x.root_id as string, Number(x.count)]));
   }
 
   /** Count of LIVE root entities of one type — matches `listRootEntities`' filter so a list's
@@ -1128,6 +1232,9 @@ function mapEntityState(row: pg.QueryResultRow): EntityState {
     parentRevisionHash: row.parent_revision_hash,
     headTxId: row.head_tx_id,
     headTxHash: row.head_tx_hash,
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+    headSeq: Number(row.head_seq),
+    signTier: Number(row.sign_tier ?? 0),
     isDeleted: row.is_deleted,
     isRedacted: row.is_redacted,
     isErased: row.is_erased,
@@ -1138,6 +1245,21 @@ function mapRootEntityRow(row: pg.QueryResultRow): RootEntityRow {
   return {
     ...mapEntityState(row),
     createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+  };
+}
+
+function mapFeedRootRow(row: pg.QueryResultRow): FeedRootRow {
+  return {
+    ...mapEntityState(row),
+    firstCreatedAt:
+      row.first_created_at == null
+        ? typeof row.created_at === "string"
+          ? row.created_at
+          : new Date(row.created_at).toISOString()
+        : typeof row.first_created_at === "string"
+          ? row.first_created_at
+          : new Date(row.first_created_at).toISOString(),
+    jurisdiction: row.thread_jurisdiction ?? null,
   };
 }
 

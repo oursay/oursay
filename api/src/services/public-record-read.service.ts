@@ -52,22 +52,14 @@ const TIER_APPLIED_NOTE =
   "tier set resolved; counts reflect distinct participants whose current tier is in the requested set";
 const MY_DISTRICT_NOTE =
   "scope=my-district is inert on unauthenticated routes (no viewer identity to resolve a district); no geo filter applied";
-const COUNT_GATING_NOTE =
-  "vote/signature counts are publicly exposed for this jurisdiction (subject to the k-anonymity floor)";
-const WITHHELD_NOTE =
-  "vote/signature counts are not publicly exposed for this jurisdiction";
-function tierGatedNote(minTier: readonly string[]): string {
-  return (
-    `vote/signature counts are tier-gated for this jurisdiction; restrict the request to verified ` +
-    `tier(s) in {${minTier.join(", ")}} (e.g. ?tier=${minTier[0]}) to view them`
-  );
-}
-
 /** Why a vote/signature scalar is (or isn't) on a public surface, driven by JurisdictionConfig.counts:
  *  `none` — exposed (still subject to the k-anonymity floor); `withheld` — never publicly exposed for
  *  this jurisdiction; `tier-gated` — exposed only when the request restricts to a tier set ⊆ the
- *  jurisdiction's minTier (so list/detail, which never filter by tier, always withhold a gated scalar). */
-export type CountGating = "none" | "withheld" | "tier-gated";
+ *  jurisdiction's minTier (so list/detail, which never filter by tier, always withhold a gated scalar).
+ *  Resolution lives in ./count-exposure.ts (shared with the unified feed); re-exported here for
+ *  existing import sites (routes, tests). */
+export { countExposure, type CountGating } from "./count-exposure.js";
+import { countExposure as resolveCountExposure, type CountGating } from "./count-exposure.js";
 
 /** Read filters as received from the HTTP layer (already enum-validated by JSON schema). */
 export interface PublicReadFilters {
@@ -509,25 +501,13 @@ export class PublicRecordReadService {
     return Math.max(min, floor ?? def);
   }
 
-  /** Resolve the jurisdiction's PUBLIC COUNT EXPOSURE policy for one scalar (`JurisdictionConfig.counts`):
-   *  - no `counts` block, or the scalar flag `true` with no `minTier` ⇒ `none` (exposed).
-   *  - scalar flag `false` ⇒ `withheld` (never exposed).
-   *  - scalar flag `true` with a non-empty `minTier` ⇒ `tier-gated`: exposed if the REQUEST restricts to
-   *    a tier set ⊆ `minTier` (`requestedTiers` is the raw `filters.tier`; null on list/detail, which never
-   *    filter by tier, so a gated scalar is always withheld there). `gating` reports the POLICY state; the
-   *    caller signals exposure by nulling the scalar (k-anon `suppressed` stays orthogonal). */
+  /** The jurisdiction's PUBLIC COUNT EXPOSURE policy for one scalar — see ./count-exposure.ts. */
   private countExposure(
     jurisdictionId: string,
     scalar: "votes" | "signatures",
     requestedTiers: KycTier[] | null,
   ): { gating: CountGating; exposed: boolean; note: string } {
-    const policy = getJurisdiction(jurisdictionId).counts;
-    if (!policy) return { gating: "none", exposed: true, note: COUNT_GATING_NOTE };
-    if (!policy[scalar]) return { gating: "withheld", exposed: false, note: WITHHELD_NOTE };
-    const minTier = policy.minTier;
-    if (!minTier || minTier.length === 0) return { gating: "none", exposed: true, note: COUNT_GATING_NOTE };
-    const exposed = !!requestedTiers && requestedTiers.length > 0 && requestedTiers.every((t) => minTier.includes(t));
-    return { gating: "tier-gated", exposed, note: tierGatedNote(minTier) };
+    return resolveCountExposure(jurisdictionId, scalar, requestedTiers);
   }
 
   /** Re-aggregate participant rows by bucket, counting only distinct participants that pass EVERY active

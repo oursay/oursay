@@ -33,10 +33,11 @@ CREATE TABLE IF NOT EXISTS auth.profiles (
   over_18         BOOLEAN NOT NULL DEFAULT false, -- self-attested at registration; KYC re-verifies.
                                         -- The age gate stores ONLY this boolean — no date of birth
                                         -- is retained ([code-over-18], C3).
-  visibility      TEXT NOT NULL DEFAULT 'anonymous'
-                  CHECK (visibility IN ('anonymous','officials','my_district','public')),
-                                        -- account-default author visibility (C4; docs/09). The
-                                        -- effective value cascades thread ?? account ?? anonymous.
+  visibility      TEXT NOT NULL DEFAULT 'anonymous',
+                                        -- account-default author visibility (C4; docs/09) — the FULL
+                                        -- web-app enum; CHECK is (re)applied below so the allow-list
+                                        -- can widen idempotently. Effective value cascades
+                                        -- thread ?? account ?? anonymous.
   email           TEXT NOT NULL,        -- as the user typed it
   email_canonical TEXT NOT NULL UNIQUE, -- normalized; uniqueness + all lookups use this form
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -46,6 +47,13 @@ ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS last_name TEXT;
 ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS over_18 BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'anonymous';
+-- [align-w4-api-surface] C4: the visibility enum widens to the full web-app set. Migrate the legacy
+-- 'officials' spelling forward, then (re)apply the widened allow-list (drop + re-add is the
+-- idempotent CHECK-widening pattern used for sessions/email_otp above).
+UPDATE auth.profiles SET visibility = 'all_officials' WHERE visibility = 'officials';
+ALTER TABLE auth.profiles DROP CONSTRAINT IF EXISTS profiles_visibility_check;
+ALTER TABLE auth.profiles ADD CONSTRAINT profiles_visibility_check
+  CHECK (visibility IN ('anonymous','my_officials','all_officials','my_district','my_jurisdiction','id_verified','public'));
 -- [code-over-18]: the stored date of birth is DISCARDED. Rows that predate the boolean carry a
 -- birthdate that passed the 18+ registration gate — mark them over_18 before dropping the column.
 DO $$ BEGIN
@@ -219,7 +227,12 @@ CREATE TABLE IF NOT EXISTS auth.signing_prefs (
 CREATE TABLE IF NOT EXISTS auth.visibility_overrides (
   user_id         UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   jurisdiction_id TEXT NOT NULL,
-  visibility      TEXT NOT NULL CHECK (visibility IN ('anonymous','officials','my_district','public')),
+  visibility      TEXT NOT NULL,
   PRIMARY KEY (user_id, jurisdiction_id)
 );
+-- [align-w4-api-surface] C4: widen to the full web-app enum (same pattern as auth.profiles above).
+UPDATE auth.visibility_overrides SET visibility = 'all_officials' WHERE visibility = 'officials';
+ALTER TABLE auth.visibility_overrides DROP CONSTRAINT IF EXISTS visibility_overrides_visibility_check;
+ALTER TABLE auth.visibility_overrides ADD CONSTRAINT visibility_overrides_visibility_check
+  CHECK (visibility IN ('anonymous','my_officials','all_officials','my_district','my_jurisdiction','id_verified','public'));
 `;

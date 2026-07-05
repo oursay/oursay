@@ -4,8 +4,10 @@
 // thread ?? account ?? anonymous).
 
 import type pg from "pg";
+import type { AuthorVisibility } from "../types/visibility.js";
 
-export type AccountVisibility = "anonymous" | "officials" | "my_district" | "public";
+/** Account-default author visibility — the full C4 enum (see ../types/visibility.ts). */
+export type AccountVisibility = AuthorVisibility;
 
 export interface ProfileRecord {
   userId: string;

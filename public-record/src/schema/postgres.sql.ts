@@ -288,6 +288,7 @@ SELECT DISTINCT ON (entity_id)
   tx_id                     AS head_tx_id,
   tx_hash                   AS head_tx_hash,
   created_at,
+  seq                       AS head_seq,
   -- sign_tier (C1, read-surface projection): 0 = quick (software p256 / unsigned dev path),
   -- 1 = passkey (UV-verified webauthn-es256). 2/3 (biometric) are future. Derived from the stored
   -- canonical envelope so the write path stays untouched.
