@@ -8,11 +8,12 @@ import { webauthnConfig } from "../src/config.js";
 import { SoftAuthenticator } from "./fixtures/webauthn/soft-authenticator.js";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 import { expectServiceError } from "./helpers/expect.js";
-import { ADULT_DOB, makeAccount } from "./helpers/account.js";
+import { makeAccount } from "./helpers/account.js";
 
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
-/** Register an account (via the OTP service path) and enroll one passkey → returns a trusted device. */
+/** Register an account (via the OTP service path), enroll one passkey under the LIMITED
+ *  'registration' session, then passkey-login for the FULL session → returns a trusted device. */
 async function registerWithPasskey(
   w: World,
   email: string,
@@ -22,7 +23,7 @@ async function registerWithPasskey(
   const reg = await w.services.registrationService.registerWithOtp({
     emailRaw: email,
     code,
-    profile: { displayName: "Login Tester", birthdate: ADULT_DOB },
+    profile: { handle: `@lt${email.split("@")[0]!.replace(/[^a-z0-9]/gi, "")}`, over18: true },
   });
   const auth = new SoftAuthenticator(webauthnConfig.rpID, webauthnConfig.origin);
   const opts = await w.services.passkeyService.registerOptions({
@@ -31,7 +32,9 @@ async function registerWithPasskey(
     userDisplayName: "Login Tester",
   });
   await w.services.passkeyService.registerVerify({ userId: reg.userId, response: auth.register(opts.challenge) });
-  return { userId: reg.userId, token: reg.session.token, auth };
+  const loginOpts = await w.services.passkeyService.loginOptions({});
+  const login = await w.services.passkeyService.loginVerify({ response: auth.authenticate(loginOpts.challenge) });
+  return { userId: reg.userId, token: login.session.token, auth };
 }
 
 /** A registered account with NO passkey (created directly, like the recovery spec). */

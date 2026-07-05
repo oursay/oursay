@@ -110,9 +110,11 @@ describe("18 public-record counts: per-jurisdiction exposure gating (countGating
     process.env.PUBLIC_COUNTS_K_ANONYMITY_DEFAULT = "0";
   }
 
-  it("sanity: the packaged ab-ca-gov policy is tier-gated and excludes electoral_validated", () => {
+  it("sanity: the packaged ab-ca-gov policy is tier-gated to residency (the official-count floor)", () => {
     const policy = getJurisdiction(AB_CA_GOV).counts;
-    expect(policy).to.deep.equal({ votes: true, signatures: true, minTier: ["identity_verified", "residency_verified"] });
+    // Part 3 gate matrix: AB official counts floor at residency_verified — identity_verified
+    // participates but doesn't count; electoral_validated stays excluded (unshipped tier).
+    expect(policy).to.deep.equal({ votes: true, signatures: true, minTier: ["residency_verified"] });
     expect(getJurisdiction(OURSAY_GLOBAL).counts).to.deep.equal({ votes: true, signatures: true });
   });
 

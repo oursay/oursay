@@ -5,15 +5,13 @@
 import { randomUUID } from "node:crypto";
 import type { World } from "./world.js";
 
-export const ADULT_DOB = "2008-06-15";
-
 export interface MakeAccountOptions {
   email?: string;
   handle?: string;
   displayName?: string | null;
   province?: string | null;
-  /** Until [code-over-18] lands the profile row carries a birthdate; defaults to an adult. */
-  birthdate?: string;
+  /** [code-over-18]: profile carries the self-attested adult flag; defaults to true. */
+  over18?: boolean;
 }
 
 export interface MadeAccount {
@@ -39,7 +37,7 @@ export async function makeAccount(w: World, opts: MakeAccountOptions = {}): Prom
     postalCode: null,
     country: "CA",
     memo: null,
-    birthdate: opts.birthdate ?? ADULT_DOB,
+    over18: opts.over18 ?? true,
     email,
     emailCanonical: email.toLowerCase(),
   });

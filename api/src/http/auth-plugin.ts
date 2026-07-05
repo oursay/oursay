@@ -10,7 +10,7 @@ import type { Services } from "../container.js";
 
 export interface AuthUser {
   userId: string;
-  scope: "full" | "recovery" | "login";
+  scope: "full" | "recovery" | "login" | "registration";
   token: string;
 }
 
