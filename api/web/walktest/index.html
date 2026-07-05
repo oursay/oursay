@@ -15,6 +15,9 @@
       .badge.err { color: #b3261e; border-color: #e3a9a4; background: #fbeae9; }
       label { display: block; font-size: 0.9rem; margin: 0.5rem 0 0.15rem; }
       input { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid #999; border-radius: 6px; width: 100%; box-sizing: border-box; }
+      input[type="checkbox"] { width: auto; margin-right: 0.4rem; }
+      details { margin-top: 0.6rem; }
+      details summary { cursor: pointer; font-size: 0.9rem; color: #444; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.8rem; }
       button { font: inherit; padding: 0.5rem 0.9rem; margin: 0.7rem 0.4rem 0 0; cursor: pointer; border: 1px solid #888; border-radius: 6px; background: #f6f6f6; }
       button:disabled { opacity: 0.45; cursor: default; }
@@ -43,17 +46,29 @@
 
     <fieldset>
       <legend><h2>1 · Profile</h2> <span class="badge" id="b-profile">todo</span></legend>
-      <p class="muted">Fill the profile <em>first</em>; it's submitted together with the OTP at step&nbsp;3 (18+ required).</p>
+      <p class="muted">
+        Least-resistance registration (C3): a unique <strong>@handle</strong> and the <strong>18+
+        checkbox</strong> are all that's required — no date of birth. Name/address are optional here
+        (the KYC step collects what's missing later). Submitted with the OTP at step&nbsp;3.
+      </p>
       <div class="grid">
-        <div><label>Display name</label><input id="displayName" value="Walk Tester" /></div>
+        <div><label>Handle (required)</label><input id="handle" placeholder="@walk_tester" value="@walk_tester" /></div>
         <div><label>Email</label><input id="email" type="email" placeholder="you@example.com" /></div>
-        <div><label>Birthdate (YYYY-MM-DD)</label><input id="birthdate" value="1990-06-15" /></div>
-        <div><label>City</label><input id="city" value="Calgary" /></div>
-        <div><label>Region</label><input id="region" value="AB" /></div>
-        <div><label>Postal code</label><input id="postalCode" value="T2P 1H9" /></div>
-        <div><label>Country</label><input id="country" value="CA" /></div>
-        <div><label>Line 1</label><input id="line1" value="" /></div>
+        <div><label>Display name (optional; falls back to the handle)</label><input id="displayName" value="" /></div>
+        <div><label style="margin-top:1.55rem"><input id="over18" type="checkbox" checked />I attest I am 18 or older</label></div>
       </div>
+      <details>
+        <summary>Add name &amp; address now (optional — the KYC step asks later otherwise)</summary>
+        <div class="grid">
+          <div><label>First name</label><input id="firstName" value="" /></div>
+          <div><label>Last name</label><input id="lastName" value="" /></div>
+          <div><label>Line 1</label><input id="line1" value="" /></div>
+          <div><label>City</label><input id="city" value="" /></div>
+          <div><label>Region</label><input id="region" value="" placeholder="AB" /></div>
+          <div><label>Postal code</label><input id="postalCode" value="" placeholder="T2P 1H9" /></div>
+          <div><label>Country</label><input id="country" value="" placeholder="CA" /></div>
+        </div>
+      </details>
       <button id="saveProfile">Save profile</button>
       <pre id="out-profile">(fill in and save)</pre>
     </fieldset>
@@ -66,6 +81,11 @@
 
     <fieldset>
       <legend><h2>3 · Verify code + create account</h2> <span class="badge" id="b-verify">todo</span></legend>
+      <p class="muted">
+        Registration issues an <strong>enroll-only <code>registration</code> session</strong>: it can
+        do nothing but enroll a passkey (step&nbsp;4). Full access comes from the passkey login
+        (step&nbsp;7) — profile and civic actions stay 403 until then.
+      </p>
       <label>OTP code (from server console)</label><input id="otpCode" placeholder="123456" />
       <button id="verifyOtp" disabled>Verify + register</button>
       <pre id="out-verify">(needs an OTP request)</pre>

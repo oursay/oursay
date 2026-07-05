@@ -7,7 +7,7 @@ import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
 import { bearerSecurity, errorSchema } from "../schemas.js";
 
-const RECORD_TYPE_ENUM = ["post", "comment", "reaction", "petition", "petition_signature", "poll", "vote"] as const;
+const RECORD_TYPE_ENUM = ["post", "comment", "reaction", "petition", "petition_signature", "poll", "vote", "result"] as const;
 
 const intentSchema = {
   type: "object",

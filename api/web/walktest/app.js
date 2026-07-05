@@ -55,21 +55,36 @@ function setSession(session) {
 }
 
 // ── 1 · Profile ──────────────────────────────────────────────────────────────
+// Least-resistance registration (C3): handle + over-18 checkbox required, no date of birth.
+// Name/address are OPTIONAL here — omitted fields are simply not sent (the KYC step collects
+// what's missing before verification).
 $("saveProfile").addEventListener("click", () => {
   const email = $("email").value.trim();
   if (!email) return show("profile", "Enter an email first.");
+  const handle = $("handle").value.trim();
+  if (!handle) return show("profile", "Enter a handle first — it's the one required profile field.");
+  if (!$("over18").checked) {
+    badge("profile", "err", "18+ required");
+    return show("profile", "The 18+ attestation is required to register (the server rejects over18:false with 403 age_restricted).");
+  }
   state.email = email;
-  state.profile = {
-    displayName: $("displayName").value.trim(),
-    birthdate: $("birthdate").value.trim(),
-    address: {
-      line1: $("line1").value.trim() || null,
-      city: $("city").value.trim() || null,
-      region: $("region").value.trim() || null,
-      postalCode: $("postalCode").value.trim() || null,
-      country: $("country").value.trim() || null,
-    },
+  state.profile = { handle, over18: true };
+  const displayName = $("displayName").value.trim();
+  if (displayName) state.profile.displayName = displayName;
+  const firstName = $("firstName").value.trim();
+  const lastName = $("lastName").value.trim();
+  if (firstName) state.profile.firstName = firstName;
+  if (lastName) state.profile.lastName = lastName;
+  const address = {
+    line1: $("line1").value.trim(),
+    city: $("city").value.trim(),
+    region: $("region").value.trim(),
+    postalCode: $("postalCode").value.trim(),
+    country: $("country").value.trim(),
   };
+  if (Object.values(address).some((v) => v)) {
+    state.profile.address = Object.fromEntries(Object.entries(address).filter(([, v]) => v));
+  }
   badge("profile", "ok", "saved");
   show("profile", { email, profile: state.profile });
   $("requestOtp").disabled = false;
@@ -101,10 +116,16 @@ $("verifyOtp").addEventListener("click", async () => {
   setSession(r.body.session);
   state.userId = r.body.userId;
   badge("verify", "ok", "registered");
-  show("verify", { userId: r.body.userId, session: r.body.session, cookie: "oursay_session set (HttpOnly)" });
+  show("verify", {
+    userId: r.body.userId,
+    session: r.body.session,
+    cookie: "oursay_session set (HttpOnly)",
+    note: "scope 'registration' is enroll-only — enroll a passkey (step 4), then passkey login (step 7) for full access.",
+  });
   $("enroll").disabled = false;
   $("logout").disabled = false;
-  enableFullSessionActions();
+  // NOT enableFullSessionActions(): the 'registration' scope can only enroll a passkey. Full-scope
+  // actions (profile, civic, passkey management) unlock after the passkey login in step 7.
 });
 
 // Civic + passkey-management + cross-device-login actions need a FULL session. Enable after register/login.
@@ -124,7 +145,7 @@ $("enroll").addEventListener("click", async () => {
     const verify = await api("POST", "/v1/auth/passkey/register/verify", { response: attResp, label: "walk page" });
     if (!verify.ok) return failEnroll(verify);
     badge("enroll", "ok", "enrolled");
-    show("enroll", verify.body);
+    show("enroll", { ...verify.body, next: "Log in with this passkey (step 7) to trade the enroll-only session for a full one." });
     $("login").disabled = false;
     $("enableLogin").disabled = false; // now has a passkey → may authorize cross-device login
   } catch (e) {
