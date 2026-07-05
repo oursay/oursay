@@ -55,6 +55,11 @@ export class GateService {
     throw this.rejectionFor(gate.act, action, jurisdictionId);
   }
 
+  /** Whether `userId` currently satisfies one GateActor (shared by the write path and official-count reads). */
+  async matchesActor(userId: string, actor: GateActor, jurisdictionId: string): Promise<boolean> {
+    return this.matches(userId, actor, jurisdictionId);
+  }
+
   /** Whether the caller currently satisfies one GateActor. */
   private async matches(userId: string, actor: GateActor, jurisdictionId: string): Promise<boolean> {
     if (actor === "anyone") return true;

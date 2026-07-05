@@ -35,7 +35,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
     expect(body.items[0].entityId).to.equal(post.entityId);
     expect(body.items[0].reactions).to.deep.equal([{ kind: "check", count: 2 }]);
     expect(body.page.total).to.equal(1);
-    expect(body.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(body.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
 
     const detail = await w.app.inject({ method: "GET", url: `/v1/public/posts/${post.entityId}` });
     expect(detail.statusCode).to.equal(200);
@@ -68,7 +68,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
     const cbody = counts.json() as any;
     expect(cbody.results).to.deep.include.members([{ option: "yes", count: 2 }]);
     expect(cbody.countGating).to.equal("none");
-    expect(cbody.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(cbody.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
   });
 
   it("counts active petition signatures (revocations excluded)", async () => {
@@ -175,7 +175,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
     expect(res.statusCode).to.equal(200);
     const body = res.json() as any;
     expect(body.filters.scope).to.equal("my-district");
-    expect(body.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(body.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
     expect(body.filters.note).to.match(/inert|resolves nothing/i);
   });
 
@@ -193,7 +193,7 @@ describe("13 public record read: browse, detail, counts, filter echo (geo resolu
     // Single value coerces to a one-element array; lists parse + echo only (counts resolve tier, spec 17).
     const one = (await w.app.inject({ method: "GET", url: "/v1/public/posts?tier=identity_verified" })).json() as any;
     expect(one.filters.tier).to.deep.equal(["identity_verified"]);
-    expect(one.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(one.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
 
     // Repeated param parses as a set.
     const many = (await w.app.inject({ method: "GET", url: "/v1/public/posts?tier=identity_verified&tier=residency_verified" })).json() as any;

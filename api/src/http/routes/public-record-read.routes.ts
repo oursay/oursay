@@ -22,9 +22,10 @@ const appliedSchema = {
   properties: {
     geo: { type: "boolean", description: "True when scope compiled to a region and narrowed the count." },
     tier: { type: "boolean", description: "True when a requested tier set narrowed the count (counts only; never on lists/detail)." },
+    official: { type: "boolean", description: "True when the official-count floor was applied (counts only)." },
     date: { type: "boolean", description: "Always false (date filtering not yet implemented)." },
   },
-  required: ["geo", "tier", "date"],
+  required: ["geo", "tier", "official", "date"],
 } as const;
 
 const tierEchoSchema = { type: "array", items: { type: "string", enum: KYC_TIERS }, nullable: true } as const;
@@ -38,6 +39,7 @@ const filtersEchoSchema = {
     jurisdiction: { type: "string", nullable: true },
     from: { type: "string", nullable: true },
     to: { type: "string", nullable: true },
+    official: { type: "boolean", description: "When true, count only participants who satisfy the jurisdiction's officialCount floor minus deny exclusions." },
     applied: appliedSchema,
     kAnonymityFloor: {
       type: "integer",
@@ -46,7 +48,7 @@ const filtersEchoSchema = {
     },
     note: { type: "string" },
   },
-  required: ["scope", "tier", "jurisdiction", "from", "to", "applied", "kAnonymityFloor", "note"],
+  required: ["scope", "tier", "jurisdiction", "from", "to", "official", "applied", "kAnonymityFloor", "note"],
 } as const;
 
 const audienceScopeSchema = {
@@ -178,6 +180,7 @@ const countsQuerystring = {
   properties: {
     scope: { type: "string", enum: GEO_SCOPES, description: "Coarse geo audience — RESOLVED on counts (region-first + k-anonymity); my-district is inert." },
     tier: { ...tierQuery, description: "KYC tier(s); repeatable. RESOLVED on counts: a participant is counted if their current tier is in the set (set membership, not at-or-above)." },
+    official: { type: "boolean", description: "When true, RESOLVED on counts: apply gates[action].officialCount (fallback act) minus deny exclusions." },
     from: { type: "string", format: "date", description: "Start date, ISO (echoed, not resolved)." },
     to: { type: "string", format: "date", description: "End date, ISO (echoed, not resolved)." },
   },
@@ -212,6 +215,7 @@ function countFilters(q: Record<string, unknown>): PublicReadFilters {
   return {
     scope: q.scope as PublicReadFilters["scope"],
     tier: tierList(q.tier),
+    official: q.official === true || q.official === "true",
     from: q.from as string | undefined,
     to: q.to as string | undefined,
   };

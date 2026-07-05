@@ -156,7 +156,7 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     const pub = await counts(w, "polls", t.threadId, "?scope=all-public");
     expect(optionCount(pub.results, "yes")!.count).to.equal(3);
     expect(optionCount(pub.results, "no")!.count).to.equal(1);
-    expect(pub.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(pub.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
     expect(pub.filters.kAnonymityFloor).to.equal(null);
 
     // impacted-region (Edmonton riding only): the 2 Edmonton voters; Calgary + no-point excluded.

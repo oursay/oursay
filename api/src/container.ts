@@ -272,6 +272,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     regionResolver,
     participantGeoService,
     kycRepo: repos.kyc,
+    gateService,
   });
 
   // [align-w4-api-surface] viewer-optional read resolution: the viewer context (tier/role/home

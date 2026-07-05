@@ -153,7 +153,7 @@ describe("17 public-record counts: KYC tier resolution (set membership) + combin
     // No tier ⇒ raw: all four voters.
     const all = await counts(w, "polls", t.threadId, "?scope=all-public");
     expect(optionCount(all.results, "yes")!.count).to.equal(4);
-    expect(all.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(all.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
     expect(all.filters.kAnonymityFloor).to.equal(null);
 
     // ?tier=identity_verified ⇒ ONLY the identity-verified voter — NOT residency/electoral (set

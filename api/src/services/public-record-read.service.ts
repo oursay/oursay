@@ -15,11 +15,13 @@
 
 import { regionRefFromDistrictIds, type Region, type RegionRef, type RegionResolver } from "@oursay/geo";
 import {
+  gateFor,
   getJurisdiction,
   getThread,
   reactionTallies,
   rulesOf,
   toPublicView,
+  type GatedAction,
   type PrivateStore,
   type PublicEntityView,
   type ReactionCount,
@@ -30,6 +32,7 @@ import { publicCountsKAnon } from "../config.js";
 import { ServiceError } from "../errors.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import { KYC_TIERS, normalizeTier, type KycTier } from "../types/kyc.js";
+import type { GateService } from "./gate.service.js";
 import type { ParticipantGeoService, ParticipantRef } from "./participant-geo.service.js";
 
 /** The four coarse geographic audiences (fixed enum — no freeform district ids, which would invite
@@ -50,6 +53,8 @@ const GEO_APPLIED_NOTE =
   "geo scope resolved to a region; counts reflect distinct in-region participants only";
 const TIER_APPLIED_NOTE =
   "tier set resolved; counts reflect distinct participants whose current tier is in the requested set";
+const OFFICIAL_APPLIED_NOTE =
+  "official count filter applied; counts reflect participants who satisfy the jurisdiction's officialCount floor minus deny exclusions";
 const MY_DISTRICT_NOTE =
   "scope=my-district is inert on unauthenticated routes (no viewer identity to resolve a district); no geo filter applied";
 /** Why a vote/signature scalar is (or isn't) on a public surface, driven by JurisdictionConfig.counts:
@@ -70,6 +75,8 @@ export interface PublicReadFilters {
   jurisdiction?: string;
   from?: string;
   to?: string;
+  /** When true, count only participants who satisfy gates[action].officialCount (fallback act) minus deny[]. */
+  official?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -88,6 +95,7 @@ export interface AudienceScope {
 export interface AppliedDimensions {
   geo: boolean;
   tier: boolean;
+  official: boolean;
   date: false;
 }
 
@@ -101,6 +109,7 @@ export interface FilterEcho {
   jurisdiction: string | null;
   from: string | null;
   to: string | null;
+  official: boolean;
   applied: AppliedDimensions;
   kAnonymityFloor: number | null;
   note: string;
@@ -210,6 +219,8 @@ export interface PublicRecordReadServiceDeps {
   participantGeoService: ParticipantGeoService;
   /** Read seam for the CURRENT verification tier of a resolved participant (latest attestation). */
   kycRepo: KycRepo;
+  /** Official-count actor matching (tiers / residency / role) on the read path. */
+  gateService: GateService;
 }
 
 export class PublicRecordReadService {
@@ -308,15 +319,16 @@ export class PublicRecordReadService {
     const audience = await this.audienceScope(id, view);
     const region = await this.resolveRegion(filters, audience);
     const tierSet = narrowingTierSet(filters.tier);
+    const officialCtx = officialFilterCtx(filters, audience.jurisdiction, "reaction");
 
-    if (!region && !tierSet) {
-      // Raw path (all-public / inert my-district, no tier): the existing tallies, unfiltered.
+    if (!region && !tierSet && !officialCtx) {
+      // Raw path (all-public / inert my-district, no tier, no official): the existing tallies, unfiltered.
       const [byEntity, byRevision] = await reactionTallies(this.d.recordStore, id);
       return {
         entityId: id,
         reactionsByEntity: byEntity.map(rawReaction),
         reactionsByCurrentRevision: byRevision.map(rawReaction),
-        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false, officialApplied: false }),
       };
     }
 
@@ -325,15 +337,20 @@ export class PublicRecordReadService {
     const rev = await this.d.recordStore.getCurrentRevision(id);
     const f = newFilterMemos();
 
-    const byEntity = await this.tally(rows.map((r) => ({ bucket: r.kind, ...r })), region, tierSet, k, f);
+    const byEntity = await this.tally(rows.map((r) => ({ bucket: r.kind, ...r })), region, tierSet, officialCtx, k, f);
     const revRows = rev ? rows.filter((r) => r.parentRevisionHash === rev.hash) : [];
-    const byRevision = await this.tally(revRows.map((r) => ({ bucket: r.kind, ...r })), region, tierSet, k, f);
+    const byRevision = await this.tally(revRows.map((r) => ({ bucket: r.kind, ...r })), region, tierSet, officialCtx, k, f);
 
     return {
       entityId: id,
       reactionsByEntity: bucketsToReactions(byEntity),
       reactionsByCurrentRevision: bucketsToReactions(byRevision),
-      filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
+      filters: echoFilters(filters, {
+        geoApplied: region != null,
+        tierApplied: tierSet != null,
+        officialApplied: officialCtx != null,
+        kAnonymityFloor: k,
+      }),
     };
   }
 
@@ -351,27 +368,28 @@ export class PublicRecordReadService {
         suppressed: false,
         countGating: exposure.gating,
         countGatingNote: exposure.note,
-        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false, officialApplied: false }),
       };
     }
 
     const region = await this.resolveRegion(filters, audience);
     const tierSet = narrowingTierSet(filters.tier);
+    const officialCtx = officialFilterCtx(filters, audience.jurisdiction, "petition_signature");
 
-    if (!region && !tierSet) {
+    if (!region && !tierSet && !officialCtx) {
       return {
         entityId: id,
         signatureCount: await this.d.recordStore.getPetitionSignatureCount(id),
         suppressed: false,
         countGating: exposure.gating,
         countGatingNote: exposure.note,
-        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false, officialApplied: false }),
       };
     }
 
     const k = this.effectiveK(audience.jurisdiction);
     const rows = await this.d.recordStore.listSignatureParticipants(id);
-    const tallied = await this.tally(rows.map((r) => ({ bucket: "signature", ...r })), region, tierSet, k, newFilterMemos());
+    const tallied = await this.tally(rows.map((r) => ({ bucket: "signature", ...r })), region, tierSet, officialCtx, k, newFilterMemos());
     const b = tallied.get("signature") ?? { count: 0, suppressed: false };
 
     return {
@@ -380,7 +398,12 @@ export class PublicRecordReadService {
       suppressed: b.suppressed,
       countGating: exposure.gating,
       countGatingNote: exposure.note,
-      filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
+      filters: echoFilters(filters, {
+        geoApplied: region != null,
+        tierApplied: tierSet != null,
+        officialApplied: officialCtx != null,
+        kAnonymityFloor: k,
+      }),
     };
   }
 
@@ -397,34 +420,40 @@ export class PublicRecordReadService {
         results: results.map((r) => ({ option: r.option, count: null })),
         countGating: exposure.gating,
         countGatingNote: exposure.note,
-        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false, officialApplied: false }),
       };
     }
 
     const region = await this.resolveRegion(filters, audience);
     const tierSet = narrowingTierSet(filters.tier);
+    const officialCtx = officialFilterCtx(filters, audience.jurisdiction, "vote");
 
-    if (!region && !tierSet) {
+    if (!region && !tierSet && !officialCtx) {
       const results = await this.d.recordStore.getPollResults(id);
       return {
         entityId: id,
         results: results.map((r) => ({ option: r.option, count: r.count })),
         countGating: exposure.gating,
         countGatingNote: exposure.note,
-        filters: echoFilters(filters, { geoApplied: false, tierApplied: false }),
+        filters: echoFilters(filters, { geoApplied: false, tierApplied: false, officialApplied: false }),
       };
     }
 
     const k = this.effectiveK(audience.jurisdiction);
     const rows = await this.d.recordStore.listVoteParticipants(id);
-    const tallied = await this.tally(rows.map((r) => ({ bucket: r.option, ...r })), region, tierSet, k, newFilterMemos());
+    const tallied = await this.tally(rows.map((r) => ({ bucket: r.option, ...r })), region, tierSet, officialCtx, k, newFilterMemos());
 
     return {
       entityId: id,
       results: bucketsToPoll(tallied),
       countGating: exposure.gating,
       countGatingNote: exposure.note,
-      filters: echoFilters(filters, { geoApplied: region != null, tierApplied: tierSet != null, kAnonymityFloor: k }),
+      filters: echoFilters(filters, {
+        geoApplied: region != null,
+        tierApplied: tierSet != null,
+        officialApplied: officialCtx != null,
+        kAnonymityFloor: k,
+      }),
     };
   }
 
@@ -521,13 +550,14 @@ export class PublicRecordReadService {
     rows: { bucket: string; authorPubkey: string; nullifier: string | null; parentId: string }[],
     region: Region | null,
     tierSet: Set<KycTier> | null,
+    officialCtx: OfficialFilterCtx | null,
     effectiveK: number,
     memos: FilterMemos,
   ): Promise<Map<string, { count: number | null; suppressed: boolean }>> {
     const byBucket = new Map<string, Set<string>>();
     for (const r of rows) byBucket.set(r.bucket, byBucket.get(r.bucket) ?? new Set());
     for (const r of rows) {
-      if (await this.passesFilters(r, region, tierSet, memos)) byBucket.get(r.bucket)!.add(participantKey(r));
+      if (await this.passesFilters(r, region, tierSet, officialCtx, memos)) byBucket.get(r.bucket)!.add(participantKey(r));
     }
     const out = new Map<string, { count: number | null; suppressed: boolean }>();
     for (const [bucket, set] of byBucket) {
@@ -539,16 +569,55 @@ export class PublicRecordReadService {
   }
 
   /** AND across the active dimensions: a participant counts if they are in `region` (when geo narrows)
-   *  AND their current tier is in `tierSet` (when tier narrows). Each test is memoized by participant. */
+   *  AND their current tier is in `tierSet` (when tier narrows) AND they pass the official-count floor
+   *  (when official narrows). Each test is memoized by participant. */
   private async passesFilters(
     row: { authorPubkey: string; nullifier: string | null; parentId: string },
     region: Region | null,
     tierSet: Set<KycTier> | null,
+    officialCtx: OfficialFilterCtx | null,
     memos: FilterMemos,
   ): Promise<boolean> {
     if (region && !(await this.isInRegion(row, region, memos.geo))) return false;
     if (tierSet && !tierSet.has(await this.participantTier(row, memos.tier))) return false;
+    if (officialCtx && !(await this.passesOfficialFilter(row, officialCtx, memos))) return false;
     return true;
+  }
+
+  /** Official-count floor: gates[action].officialCount (fallback act), minus deny[] exclusions. */
+  private async passesOfficialFilter(
+    row: { authorPubkey: string; nullifier: string | null; parentId: string },
+    ctx: OfficialFilterCtx,
+    memos: FilterMemos,
+  ): Promise<boolean> {
+    const key = participantKey(row);
+    const cached = memos.official.get(key);
+    if (cached !== undefined) return cached;
+
+    const gate = gateFor(ctx.action, ctx.jurisdictionId);
+    const userId = await this.d.participantGeoService.resolveUserId(refOf(row));
+
+    if (gate.deny && userId) {
+      for (const denied of gate.deny) {
+        if (await this.d.gateService.matchesActor(userId, denied, ctx.jurisdictionId)) {
+          memos.official.set(key, false);
+          return false;
+        }
+      }
+    }
+
+    const actor = gate.officialCount ?? gate.act;
+    let pass: boolean;
+    if (actor === "anyone") {
+      pass = true;
+    } else if (!userId) {
+      pass = false;
+    } else {
+      pass = await this.d.gateService.matchesActor(userId, actor, ctx.jurisdictionId);
+    }
+
+    memos.official.set(key, pass);
+    return pass;
   }
 
   /** Memoized region membership for one participant (keyed by COALESCE(nullifier, authorPubkey)). */
@@ -587,9 +656,23 @@ export class PublicRecordReadService {
 interface FilterMemos {
   geo: Map<string, boolean>;
   tier: Map<string, KycTier>;
+  official: Map<string, boolean>;
 }
 function newFilterMemos(): FilterMemos {
-  return { geo: new Map(), tier: new Map() };
+  return { geo: new Map(), tier: new Map(), official: new Map() };
+}
+
+interface OfficialFilterCtx {
+  jurisdictionId: string;
+  action: GatedAction;
+}
+
+function officialFilterCtx(
+  filters: PublicReadFilters,
+  jurisdictionId: string,
+  action: GatedAction,
+): OfficialFilterCtx | null {
+  return filters.official ? { jurisdictionId, action } : null;
 }
 
 function refOf(row: { authorPubkey: string; nullifier: string | null; parentId: string }): ParticipantRef {
@@ -615,28 +698,31 @@ function pageParams(f: PublicReadFilters): { limit: number; offset: number } {
 
 function echoFilters(
   f: PublicReadFilters,
-  opts: { geoApplied?: boolean; tierApplied?: boolean; kAnonymityFloor?: number | null } = {},
+  opts: { geoApplied?: boolean; tierApplied?: boolean; officialApplied?: boolean; kAnonymityFloor?: number | null } = {},
 ): FilterEcho {
   const scope: GeoScope = f.scope ?? "all-public";
   const geoApplied = opts.geoApplied ?? false;
   const tierApplied = opts.tierApplied ?? false;
+  const officialApplied = opts.officialApplied ?? false;
   return {
     scope,
     tier: f.tier && f.tier.length > 0 ? [...new Set(f.tier)] : null,
     jurisdiction: f.jurisdiction ?? null,
     from: f.from ?? null,
     to: f.to ?? null,
-    applied: { geo: geoApplied, tier: tierApplied, date: false },
+    official: f.official ?? false,
+    applied: { geo: geoApplied, tier: tierApplied, official: officialApplied, date: false },
     kAnonymityFloor: opts.kAnonymityFloor ?? null,
-    note: buildNote(scope, geoApplied, tierApplied),
+    note: buildNote(scope, geoApplied, tierApplied, officialApplied),
   };
 }
 
-function buildNote(scope: GeoScope, geoApplied: boolean, tierApplied: boolean): string {
+function buildNote(scope: GeoScope, geoApplied: boolean, tierApplied: boolean, officialApplied: boolean): string {
   const parts: string[] = [];
   if (scope === "my-district" && !geoApplied) parts.push(MY_DISTRICT_NOTE);
   if (geoApplied) parts.push(GEO_APPLIED_NOTE);
   if (tierApplied) parts.push(TIER_APPLIED_NOTE);
+  if (officialApplied) parts.push(OFFICIAL_APPLIED_NOTE);
   parts.push(DATE_NOTE);
   return parts.join(". ");
 }
