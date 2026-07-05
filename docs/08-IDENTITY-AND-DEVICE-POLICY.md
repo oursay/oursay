@@ -112,7 +112,7 @@ Under default rules (including the Alberta launch intent):
 |------|--------|--------|-----------------|
 | Posts, comments, reactions | Yes | Yes | Yes (author-only) |
 | Votes | Yes | Only if the poll allows it, before deadline | No |
-| Petition signatures | Yes | No | Only if the petition allows revoke, before deadline |
+| Petition signatures | Yes | No | Only if `allowChange` permits revoke, before deadline |
 
 Different jurisdictions may tighten or relax these via **per-entity or per-deployment
 rules** in future; the platform should support configuration, not hard-code one province forever.

@@ -17,9 +17,6 @@ Target `PostContent`: `title` **required** (≤200), `body` **optional** (≤200
 ## Petition addressedTo automation
 Recipient inference (district → MLA(s); jurisdiction-wide → Legislative Assembly; constitutional checkbox → Minister / Lieutenant Governor) with platform/moderation override; delivery + response workflow automation.
 
-## allowChange / allowRevoke unification
-Unify the two governance flags into a single `allowChange` field covering both vote change and signature revoke. See [partitioning/future.md](../partitioning/future.md).
-
 ## On-record "intent" transactions
 When a change/revoke is rejected by the platform (e.g. after deadline), optionally record the *attempt* on-record for transparency toward officials. Discussion only.
 

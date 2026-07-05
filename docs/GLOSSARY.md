@@ -47,7 +47,7 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
     `"revision:<revisionId>"` (a pinned boundary version), `"region:<presetId>"`, or an
     `{op:"and"|"or"|"not", refs}` union of these. Stable district pages key off `district_slug`, nested under their jurisdiction (e.g. `alberta/district/<district_slug>/` — slugs collide across jurisdictions). `web-app` needs updating.
     Absent ⇒ the whole jurisdiction.
-  - **`appliesToVerified`** — the minimum KYC tier **set** that counts toward stake/official totals.
+  - **`appliesToVerified`** — the minimum KYC tier **set** that counts toward stake/platform totals.
   - **Entity scope** — gating rules **default to the jurisdiction**; an individual poll/petition may
     narrow them via the axes above. This spans a vote about a single local crosswalk through to
     jurisdiction-wide policy.
@@ -90,34 +90,16 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   the **proposing user remains the poll's author**. An AB official-role holder may also **manually
   graduate a petition into a poll at any point** (promote early); neither path affects the petition
   itself — users keep signing while it is open, and only its **deadline** closes it.
-- **Gate (per-action)** — a jurisdiction's per-action policy triple, set **per jurisdiction per
-  record type**: **act** (who may perform it: anyone / tier set / jurisdiction residency / role —
-  optionally minus a denied role), **signMin** (minimum sign method), and **officialCount** (who is
-  included in the official-count totals). "**Jurisdiction residency**" is the gate kind
-  `residency_verified` AND geocoded point inside the jurisdiction's region. "**Sign now, verify
-  later**": an open act gate with a stricter official-count gate — the action lands immediately and
-  is included in the official count once (and while) the author meets it, recomputed at read time.
-- **Official count (gate)** — a **counting floor, not a participation barrier**: it decides which
-  actions are included in the platform-signed official totals, *after* the action. Anyone the act
-  gate admits is welcome to participate; actions below the floor are bunched into the
-  **unverified/unofficial** counts until the author verifies to the required tier. The
-  official-count gate always uses the **act gate as its floor** (it can only be stricter). Never
-  phrase it as eligibility to act.
-- **Official count (record)** — a platform-authored record type appended to the public record: a
-  signed snapshot of every eligible signature/vote and each participant's status
-  (`id_verified`, `residency_verified[none | jurisdiction | affected]`,
-  `official_role` — not count-eligible in AB), amendable with a per-entry reason tag. Anyone can
-  validate their own participation and what the record shows they said — on platform, or via an
-  auditor checking against **personas, not profiles**. See
-  [`entities/record/future.md`](entities/record/future.md).
+- **Gate (per-action)** — a jurisdiction's per-action policy triple, set **per jurisdiction per record type**: **act** (who may perform it: anyone / tier set / jurisdiction residency / role — optionally minus a denied role), **signMin** (minimum sign method), and **platformCount** (who is included in the platform-count totals). "**Jurisdiction residency**" is the gate kind `residency_verified` AND geocoded point inside the jurisdiction's region. "**Sign now, verify later**": an open act gate with a stricter platform-count gate — the action lands immediately and is included in the platform count once (and while) the author meets it, recomputed at read time.
+- **Platform count (gate)** — a **counting floor, not a participation barrier**: it decides which actions are included in the platform-signed platform totals, *after* the action. Anyone the act gate admits is welcome to participate; actions below the floor are bunched into the **unverified** counts until the author verifies to the required tier. The platform-count gate always uses the **act gate as its floor** (it can only be stricter). Never phrase it as eligibility to act.
+- **Platform count (record)** — a platform-authored record type appended to the public record: a signed snapshot of every eligible signature/vote and each participant's status (`id_verified`, `residency_verified[none | jurisdiction | affected]`, `official_role` — not count-eligible in AB for petition signatures), amendable with a per-entry reason tag. Anyone can validate their own participation and what the record shows they said — on platform, or via an auditor checking against **personas, not profiles**. See [`entities/record/future.md`](entities/record/future.md).
 - **Official (role)** — platform-assigned, revocable authority (e.g. a seated MLA) attached to the
   user/jurisdiction membership. A **role, not a KYC tier** — tiers stay pure verification facts.
   Granted after **manual platform validation**: identity verification at minimum, residency
   preferred (not required — an official may live outside the district they represent, so
   in-district filter logic is **forced to the represented district**, not the home address).
   `identity_verified` (min) + the official role = the composite **official verification** status.
-  **Suffix discipline:** always write **official role**, **official count**, or **official
-  verification** — never a bare "official" where the sense is ambiguous.
+  **Suffix discipline:** always write **official role**, **platform count**, or **official verification** — never a bare "official" where the sense is ambiguous.
 - **Threshold (graduation / success)** — a petition-success or poll-graduation trigger: a **fixed
   number** or a **percentage of the jurisdiction's verified users** (a moving target, or frozen at
   creation time). Decided by the **platform from jurisdiction config at creation time** — never set
@@ -135,10 +117,7 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   ballot, never to the poll container.
 - **vote / petition_signature** — a user's individual ballot on a poll / signature on a petition.
   Signed with at least the jurisdiction's per-action floor (`gates[action].signMin`): `ab-ca-gov`
-  requires passkey (`webauthn-es256`); `oursay-global` accepts quick-sign (`p256`). **Changeable by
-  default** at the platform layer — the loose defaults (`allowChange`/`allowRevoke` true) are
-  intentional; a jurisdiction tightens to final via its config, never the platform default
-  (`ab-ca-gov` launch: final — both false).
+  requires passkey (`webauthn-es256`); `oursay-global` accepts quick-sign (`p256`).   **Changeable by default** at the platform layer — the loose default (`allowChange` true) is intentional and covers both vote change and signature revoke; a jurisdiction tightens to final via its config, never the platform default (`ab-ca-gov` launch: `allowChange: false`).
 - **Sign method / signing preference** — how a civic action is authorised on-device:
   **quick** (derived thread key, `p256`, no prompt) · **ask** (per-action chooser) · **passkey**
   (WebAuthn, user-verifying). The account holds a per-action preference; the jurisdiction sets a
@@ -233,6 +212,9 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 | `thread_keys.claimed` / `claimed_at` | **reveal model** | persona→profile linking is now the reveal flow (platform-reversible vs on-chain-nuclear); the columns remain until migration |
 | `auth.profiles.birthdate` (stored DATE) | **`over_18`** (boolean target) | store only the adult flag if age can be re-prompted; column remains until migration |
 | KYC provider `equifax` (MVP) | **`didit`** (MVP) | Didit is the MVP provider; Equifax/electoral are future provider tags |
+| **official count** (totals axis) | **platform count** | avoids confusion with official *role* or official *verification*; gate field **`platformCount`** |
+| **`allowRevoke`** (petition-only flag) | **`allowChange`** (unified) | one flag for vote change and signature revoke; deadline gates both submit and change/revoke |
+| **`officialCount`** (gate field) | **`platformCount`** | suffix discipline — platform *count*, not official *role* |
 
 ## Where the vocabulary is applied
 

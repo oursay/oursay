@@ -47,7 +47,7 @@ Exposes public fields from folded content + metadata. Withholds redacted/erased 
 |-------|---------|
 | `none` | Scalars exposed |
 | `withheld` | Scalars hidden |
-| `tier-gated` | Exposed only when request tier ⊆ `minTier` (exposure gating — must stay consistent with the jurisdiction's `gates[action].officialCount` definition; see [jurisdiction.md](../partitioning/jurisdiction.md)) |
+| `tier-gated` | Exposed only when request tier ⊆ `minTier` (exposure gating — must stay consistent with the jurisdiction's `gates[action].platformCount` definition; see [jurisdiction.md](../partitioning/jurisdiction.md)) |
 
 ## States & lifecycle
 

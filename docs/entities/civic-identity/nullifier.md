@@ -45,7 +45,7 @@ Part of `txHash`, not `contentHash`. Present on singleton record types only.
 [submit with nullifier on envelope]
         │
         ├─ vote update (if allowChange) → same nullifier, new content
-        ├─ signature delete (if allowRevoke) → revoke op
+        ├─ signature delete (if allowChange) → revoke op
         └─ reaction update → change kind (check ↔ cross)
 ```
 

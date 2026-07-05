@@ -62,21 +62,14 @@ Per-type maximum sizes enforced at create/update. Alberta example:
 
 | Field | Type | Platform default | Meaning |
 |-------|------|------------------|---------|
-| `allowChange` | boolean | **true** | Votes may change before deadline |
-| `allowRevoke` | boolean | **true** | Signatures may be revoked before deadline |
+| `allowChange` | boolean | **true** | Singleton actions (votes, petition signatures) may change or be revoked before deadline |
 | `defaultDeadline` | ISO 8601 | — | Default close time when entity sets none |
 
-**Changeable by default.** The platform defaults are intentionally as loose as possible — votes
-and signatures are *changeable* by default. A jurisdiction tightens to final-action semantics
-through **its own config**, never a platform default (`oursay-global`: both true; `ab-ca-gov`
-launch: both false — final).
+**Changeable by default.** The platform defaults are intentionally as loose as possible — votes and signatures are *changeable* by default. A jurisdiction tightens to final-action semantics through **its own config**, never a platform default (`oursay-global`: true; `ab-ca-gov` launch: `allowChange: false` — final).
 
 ### gates (per-action policy, target)
 
-The per-action gate map — **the** jurisdiction policy seam for who may act, how actions must be
-signed, and whose actions are included in the official count. Replaces the earlier `signing.defaultScheme` knob, the
-platform-wide vote/signature scheme hard-override, and the `graduation.createTier` / `actTier`
-sketches. **Target — not yet present in code** (`[align-w3-gates-schema]`).
+The per-action gate map — **the** jurisdiction policy seam for who may act, how actions must be signed, and whose actions are included in the platform count. Replaces the earlier `signing.defaultScheme` knob, the platform-wide vote/signature scheme hard-override, and the `graduation.createTier` / `actTier` sketches. **Target — not yet present in code** (`[align-w3-gates-schema]`).
 
 ```ts
 type GateActor =
@@ -87,12 +80,9 @@ type GateActor =
 
 interface ActionGate {
   act: GateActor;                    // who may perform the action at all
-  deny?: GateActor[];                // subtractive — actors excluded from acting (e.g. AB denies
-                                     // official-role holders on vote / petition_signature)
+  deny?: GateActor[];                // subtractive — actors excluded from acting (e.g. AB denies official-role holders on petition_signature)
   signMin: "quick" | "passkey";      // minimum sign method; account pref may raise, never lower
-  officialCount?: GateActor;         // who is included in official-count totals (absent ⇒ same as
-                                     // act). A counting floor AFTER the action, never an act gate;
-                                     // its effective floor is always the act gate itself.
+  platformCount?: GateActor;         // who is included in platform-count totals (absent ⇒ same as act). A counting floor AFTER the action, never an act gate; its effective floor is always the act gate itself.
 }
 
 interface JurisdictionGates {
@@ -115,16 +105,18 @@ Launch configs:
 | `poll` (create) | anyone · quick | **role: official** · passkey (or petition→poll graduation) |
 | `result` | automated at poll close — attributed to the poll's author; mirrors `poll` | same |
 | `comment` / `reaction` | anyone · quick | anyone · quick |
-| `vote` | act: anyone · quick · officialCount `{identity_verified, residency_verified}` | act: **jurisdiction residency**, **deny: official role** · passkey |
-| `petition_signature` | act: anyone · quick · officialCount `{identity_verified, residency_verified}` | act: anyone (**sign now, verify later**), **deny: official role** · passkey · officialCount: **jurisdiction residency** |
+| `vote` | act: anyone · quick · platformCount `{identity_verified, residency_verified}` | act: **jurisdiction residency** · passkey |
+| `petition_signature` | act: anyone · quick · platformCount `{identity_verified, residency_verified}` | act: anyone (**sign now, verify later**), **deny: official role** · passkey · platformCount: **jurisdiction residency** |
+
+> **Platform policy disclaimer (`ab-ca-gov`).** All rules in the Alberta column are **platform configuration choices for the Alberta jurisdiction**, not requirements or endorsements from the Government of Alberta or any electoral authority. See [01-CONTRIBUTOR-SPEC.md §13.3](../../01-CONTRIBUTOR-SPEC.md).
 
 Notes:
 
 - **Jurisdiction residency** = `residency_verified` AND geocoded point inside the jurisdiction's region (a gate kind, not a tier).
-- **`officialCount` is a counting floor, not a barrier.** Anyone the act gate admits is welcome to participate; actions below the floor land in the **unverified/unofficial** counts until the author verifies to the required tier. Official-count gates are recomputed at read time from current attestations, and always use the act gate as their floor.
-- **AB: official-role holders may not vote or sign petitions.** `vote` denies them at the act gate (submit rejected); `petition_signature` has an open act gate, so a signature from someone who holds (or later gains) the official role is excluded from the official count with the per-entry reason tag `official_role` — see the official-count record ([record/future.md](../record/future.md)).
+- **`platformCount` is a counting floor, not a barrier.** Anyone the act gate admits is welcome to participate; actions below the floor land in the **unverified** counts until the author verifies to the required tier. Platform-count gates are recomputed at read time from current attestations, and always use the act gate as their floor.
+- **AB: official-role holders may not sign petitions** — `petition_signature` denies them at the act gate (submit rejected). Officials **may vote** (no deny on `vote`). A signature from someone who later gains the official role is excluded from the platform count with reason tag `official_role` — see the platform-count record ([record/future.md](../record/future.md)).
 - **`result`** is created automatically (poll close / graduation) and **attributed to the poll's author** — the gate exists for the completeness of the per-root-type rule and mirrors `poll`.
-- `counts.minTier` (public count *exposure*) must stay consistent with `officialCount` — for `ab-ca-gov` that means dropping `identity_verified` from `minTier` (config change tracked in `[align-w3-gates-schema]`).
+- `counts.minTier` (public count *exposure*) must stay consistent with `platformCount` — for `ab-ca-gov` that means dropping `identity_verified` from `minTier` (config change tracked in `[align-w3-gates-schema]`).
 
 ### graduation (promotion policy, target)
 
@@ -174,7 +166,7 @@ Configuration object — no runtime state machine. Registered at API startup fro
 
 ## Examples
 
-**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false, allowRevoke: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, deny: [{ role: "official" }], signMin: "passkey" }, petition_signature: { act: "anyone", deny: [{ role: "official" }], signMin: "passkey", officialCount: { residencyIn: "jurisdiction" } }, poll: { act: { role: "official" }, signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }` — note `rules` tightens the loose platform defaults (`allowChange`/`allowRevoke` default **true**) to final.
+**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, signMin: "passkey" }, petition_signature: { act: "anyone", deny: [{ role: "official" }], signMin: "passkey", platformCount: { residencyIn: "jurisdiction" } }, poll: { act: { role: "official" }, signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }` — note `rules.allowChange: false` tightens the loose platform default (`allowChange` default **true**) to final.
 
 **Invalid:** Using `level: "provincial"` as a partition key for signing keys or nullifier roots — level is metadata only.
 
@@ -192,6 +184,6 @@ Configuration object — no runtime state machine. Registered at API startup fro
 - **JurisdictionConfig shape drift** — code today is `{ id, level, label, rules, privacy?, counts? }` in `public-record/src/jurisdiction.ts`; `labels` (per-record-type user-facing labels) and `contentLimits` (hard caps per type) are **not yet** present. Tracked as `[code-jurisdiction-labels-limits]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md --> Note `label` (singular, the jurisdiction's own display name) is distinct from `labels` (the per-record-type map).
 - **[mvp-c10-multi-jurisdiction]**: API container still uses a single deployment-default chain for some write paths; worker is already multi-chain ([API-GAPS-AND-ROADMAP.md](../../API-GAPS-AND-ROADMAP.md)).
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription model yet — see [partitioning/future.md](./future.md).
-- **[align-w3-gates-schema]** (absorbs `[code-jurisdiction-graduation]` + `[code-participation-act-eligibility]`): the `gates` per-action map (act / deny / signMin / officialCount, incl. the jurisdiction-residency and official-role gate kinds), the `graduation` policy fields, and the removal of the `requiredSignScheme()` hard override are **target only** — `JurisdictionConfig` has none of them today, and no auto-graduation worker exists. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
+- **[align-w3-gates-schema]** (absorbs `[code-jurisdiction-graduation]` + `[code-participation-act-eligibility]`): the `gates` per-action map (act / deny / signMin / platformCount, incl. the jurisdiction-residency and official-role gate kinds), the `graduation` policy fields, and the removal of the `requiredSignScheme()` hard override are **target only** — `JurisdictionConfig` has none of them today, and no auto-graduation worker exists. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
 - **Official role** — the `role: "official"` gate needs a platform-assigned, revocable role on the user/jurisdiction membership (a **role, not a KYC tier**); no such column/flow exists yet.
 - **[code-jurisdiction-binding-fallback]**: every root entity carries `jurisdictionId` in its audience, but the explicit **`oursay-global` fallback on create** (and its enforcement that no root is unbound) is not yet asserted in code.

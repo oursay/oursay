@@ -71,15 +71,7 @@ not a ladder):
 | **Administrator** | n/a | — | off-surface | Moderation / user management; not a product-surface persona (no flows here). |
 | **Electoral-validated** | yes | `electoral_validated` | future | Elections-Alberta tier; not launch. |
 
-**Eligibility is three axes** (carried from stories §2; the jurisdiction's per-action
-`gates[action]`, set per jurisdiction per record type — see
-[jurisdiction.md](entities/partitioning/jurisdiction.md)): **act** (may the member perform the
-action at all, optionally minus a deny list), **signMin** (minimum sign method; the account
-preference may raise it), and **official count** (`gates[action].officialCount` — is the action
-*included in the official-count totals*, layered with the thread's `appliesToVerified`). The
-official count is a **counting floor after the action, never a participation barrier**: anyone the
-act gate admits is welcome, and below-floor actions sit in the unverified counts until the author
-verifies. Flows note where a gate decides a branch.
+**Eligibility is three axes** (carried from stories §2; the jurisdiction's per-action `gates[action]`, set per jurisdiction per record type — see [jurisdiction.md](entities/partitioning/jurisdiction.md)): **act** (may the member perform the action at all, optionally minus a deny list), **signMin** (minimum sign method; the account preference may raise it), and **platform count** (`gates[action].platformCount` — is the action *included in the platform-count totals*, layered with the thread's `appliesToVerified`). The platform count is a **counting floor after the action, never a participation barrier**: anyone the act gate admits is welcome, and below-floor actions sit in the unverified counts until the author verifies. Flows note where a gate decides a branch.
 
 > **Terminology:** in these flows "post" in UI copy means any root record (statement, petition,
 > poll, result); the record type `post` means a statement only — "statement post" where mixed
@@ -92,18 +84,18 @@ Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5 — **
 
 ### `ab-ca-gov` (Alberta) — partial ladder · `labels.district = riding`
 
-| Action | May act | Sign floor | Official count (floor = act) | Notes |
+| Action | May act | Sign floor | Platform count (floor = act) | Notes |
 |--------|---------|------------|------------------------------|-------|
 | create `post` (Statement) | any registered subscriber | **passkey (uv)** | — (reactions counted by tier) | open, ledger-final signing |
 | react / comment | any registered subscriber | quick | by tier | quick-sign OK |
 | create `petition` | `residency-verified` | passkey | — | |
 | sign `petition` | **any registered**, official-role holders denied | passkey | **jurisdiction residency** | **sign now, verify later**; role holders excluded (reason `official_role`) |
 | create `poll` | **official-role holders only** or via graduation | passkey | — | role gate, not a tier; officials may promote a petition early |
-| `vote` | **jurisdiction residency**, **official-role holders denied** | passkey | = act set | participation-gated; officials cannot vote in AB |
+| `vote` | **jurisdiction residency** | passkey | = act set | participation-gated; officials **may** vote |
 
 ### `oursay-global` — open model (every account auto-joins)
 
-| Action | May act | Sign floor | Official count (floor = act) | Notes |
+| Action | May act | Sign floor | Platform count (floor = act) | Notes |
 |--------|---------|------------|------------------------------|-------|
 | create `post` / react / comment | any registered | quick | by tier | any sign method, any KYC |
 | create `petition` | any registered | quick | by tier | no graduation gate |
@@ -474,10 +466,10 @@ flowchart TD
    - branch: already signed → blocked by **nullifier** dedupe (one signature per `(user, petition)`).
    - branch: deadline passed / petition closed → `[state: signing closed]`.
    - the act gate is **open** (anyone may sign — **sign now, verify later**); a below-floor signer sees a notice that their signature sits with the unverified signatures until they verify — a counting floor, never a barrier to signing.
-   - branch (**AB**): official-role holders are denied — officials cannot sign petitions in Alberta.
+   - branch (**AB**): official-role holders are denied — officials cannot sign petitions (platform policy for the Alberta jurisdiction).
 2. `-> prepare {type:"petition_signature"}` → signing ceremony at `gates.petition_signature.signMin` or stronger (AB: **`webauthn-es256`**; Global: quick-sign OK) → `submit`.
 
-**End (success):** Included in the **official count** only while the signer meets `gates.petition_signature.officialCount` (AB: jurisdiction residency; Global: ID-or-better; ∩ `appliesToVerified` where set), recomputed at read time; otherwise bunched with the **unverified** signatures. Finality is jurisdiction config (AB: final; Global: revoke if `allowRevoke` + before deadline).
+**End (success):** Included in the **platform count** only while the signer meets `gates.petition_signature.platformCount` (AB: jurisdiction residency; Global: ID-or-better; ∩ `appliesToVerified` where set), recomputed at read time; otherwise bunched with the **unverified** signatures. Finality is jurisdiction config (AB: final; Global: revoke if `allowChange` + before deadline).
 
 ### 4.4 Vote in a poll  ·  eligible member  ·  Built  ·  US-CAP-7
 
@@ -486,10 +478,10 @@ flowchart TD
 1. Select one option + optional anonymous flag  `[screen: Vote]`
    - branch: already voted → blocked by **nullifier** (one vote per `(user, poll)`); change only if `allowChange` + before deadline.
    - branch: poll not active / closed → `[state: voting closed]`.
-   - branch: not act-eligible (`gates.vote.act` — AB: **jurisdiction residency**, official-role holders denied; Global: anyone) → `[state: action blocked]` with a "get residency-verified" prompt (or, for an AB official, a note that officials cannot vote).
+   - branch: not act-eligible (`gates.vote.act` — AB: **jurisdiction residency**; Global: anyone) → `[state: action blocked]` with a "get residency-verified" prompt.
 2. `-> prepare {type:"vote"}` → signing ceremony at `gates.vote.signMin` or stronger (AB: **`webauthn-es256`**; Global: quick-sign OK) → `submit`.
 
-**End (success):** Vote recorded; anonymous verified votes show **tier only** (e.g. "Residency Verified"). Official count per `gates.vote.officialCount` (∩ `appliesToVerified` where set); below-floor ballots sit in the unverified counts.
+**End (success):** Vote recorded; anonymous verified votes show **tier only** (e.g. "Residency Verified"). Platform count per `gates.vote.platformCount` (∩ `appliesToVerified` where set); below-floor ballots sit in the unverified counts.
 
 ---
 

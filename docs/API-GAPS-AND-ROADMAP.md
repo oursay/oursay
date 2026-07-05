@@ -7,7 +7,7 @@
 
 What `@oursay/api` and the civic read/write surface **do today**, what is **stubbed or missing**, and
 suggested **backend work before Phase D (web app)**. UI planning stays deferred until these seams are
-stable — especially jurisdiction policy, membership, and how official counts are advertised.
+stable — especially jurisdiction policy, membership, and how platform counts are advertised.
 
 **See also:** [`api/README.md`](../api/README.md) (operational detail) · [`REGION-MODEL.md`](./REGION-MODEL.md)
 (region-first filtering) · [`GLOSSARY.md`](./GLOSSARY.md) · [`01-CONTRIBUTOR-SPEC.md`](./01-CONTRIBUTOR-SPEC.md) §6–7

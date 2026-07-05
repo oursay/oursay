@@ -36,7 +36,7 @@ Action record also includes (product spec §9): geographic area at time of actio
 
 ```
 [create signature — changeable by default; final where the jurisdiction tightens (AB)]
-    │ if allowRevoke + before deadline
+    │ if allowChange + before deadline
     ▼
 [delete op = revoke]
 ```
@@ -53,10 +53,10 @@ Allowed ops: `create`, `delete` (delete = revoke, governance-gated).
 
 ## Invariants
 
-- **R1a (jurisdiction-config finality)**: changeable by default at the platform layer (loose defaults are intentional); a jurisdiction/entity tightens to final (`ab-ca-gov`: `allowRevoke: false`); revoke only when rules + deadline allow.
+- **R1a (jurisdiction-config finality)**: changeable by default at the platform layer (loose defaults are intentional); a jurisdiction/entity tightens to final (`ab-ca-gov`: `allowChange: false`); revoke only when `allowChange` + deadline allow.
 - Signed with at least the jurisdiction's `gates.petition_signature.signMin` method — effective method is the stronger of the account preference and the jurisdiction floor ([jurisdiction.md](../partitioning/jurisdiction.md)). `ab-ca-gov` floors signatures at passkey (`webauthn-es256`, UV); `oursay-global` accepts quick-sign (`p256`).
-- **Sign now, verify later**: anyone may sign (act gate is open even in `ab-ca-gov` (petition signatures, not votes)); the signature is included in the **official count** only while the signer meets the jurisdiction's official-count gate (AB: jurisdiction residency; Global: `{identity_verified, residency_verified}`), recomputed at read time. This is a **counting floor, not a barrier** — below-floor signatures sit in the unverified counts until the signer verifies.
-- **AB: official-role holders may not sign petitions** — a signature from a role holder (at signing or at count time) is excluded from the official count with the per-entry reason tag `official_role`.
+- **Sign now, verify later**: anyone the act gate admits may sign; the signature is included in the **platform count** only while the signer meets `gates.petition_signature.platformCount` (AB: jurisdiction residency; Global: `{identity_verified, residency_verified}`), recomputed at read time. This is a **counting floor, not a barrier** — below-floor signatures sit in the unverified counts until the signer verifies.
+- **AB: official-role holders may not sign petitions** — denied at the act gate (submit rejected).
 - Verified signatures on-ledger.
 - Optional comment hidden when signing anonymously (contributor §8.2).
 
@@ -65,7 +65,7 @@ Allowed ops: `create`, `delete` (delete = revoke, governance-gated).
 | Action | Who |
 |--------|-----|
 | Create (sign) | Any registered user (AB: official-role holders denied) |
-| Delete (revoke) | Signer, if `allowRevoke` + before deadline |
+| Delete (revoke) | Signer, if `allowChange` + before deadline |
 
 ## Events
 

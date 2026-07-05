@@ -55,7 +55,7 @@ Status is product-layer metadata — may be derived from rules/deadline/admin ac
 
 ### Derived counts
 
-Signature count (total \| by tier) — policy-gated on list/detail; filterable on `/counts`. The **official count** applies the jurisdiction's `gates.petition_signature.officialCount` gate (AB: jurisdiction residency; Global: `{identity_verified, residency_verified}`), recomputed at read time. It is a **counting floor after the action, not a participation barrier** — anyone the act gate admits is welcome to sign; below-floor signatures are bunched into the unverified counts until the signer verifies to the required tier. A platform-signed **official-count record** snapshots the eligible signatures and each signer's status ([record/future.md](../record/future.md)).
+Signature count (total \| by tier) — policy-gated on list/detail; filterable on `/counts`. The **platform count** applies `gates.petition_signature.platformCount` (AB: jurisdiction residency; Global: `{identity_verified, residency_verified}`), recomputed at read time. It is a **counting floor after the action, not a participation barrier** — anyone the act gate admits is welcome to sign; below-floor signatures are bunched into the unverified counts until the signer verifies to the required tier. A platform-signed **platform-count record** snapshots the eligible signatures and each signer's status ([record/future.md](../record/future.md)).
 
 ### Read-surface projections (target)
 
@@ -92,7 +92,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 
 ## Invariants
 
-- **R1a (jurisdiction-config finality)**: signatures are **changeable by default** at the platform layer (loose defaults are intentional); a jurisdiction tightens to final via its config — `ab-ca-gov`: final (`allowRevoke: false`); `oursay-global`: revocable before deadline.
+- **R1a (jurisdiction-config finality)**: signatures are **changeable by default** at the platform layer (loose defaults are intentional); a jurisdiction tightens to final via its config — `ab-ca-gov`: `allowChange: false`; `oursay-global`: revocable before deadline.
 - `petition_signature` is signed with at least the jurisdiction's `gates.petition_signature.signMin` (AB: passkey `webauthn-es256`; Global: quick-sign `p256` accepted) — see [petition-signature.md](./petition-signature.md).
 - Verified signatures on-ledger; unverified off-ledger.
 - Delivery to official with platform account triggers notification (contributor §8.2).
@@ -102,7 +102,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 | Action | Who |
 |--------|-----|
 | Create | Per jurisdiction `gates.petition.act` — `oursay-global`: any registered user; `ab-ca-gov`: residency-verified |
-| Sign | Any registered user (open act gate in both launch jurisdictions — **sign now, verify later**; official count per `gates.petition_signature.officialCount`). **AB: official-role holders excluded** — their signatures never count officially (reason tag `official_role`) |
+| Sign | Any registered user (**sign now, verify later**; platform count per `gates.petition_signature.platformCount`). **AB: official-role holders denied** at the act gate |
 | Revoke signature | Signer, if rules permit |
 | Update | Author / platform governance |
 | Mark delivered | Administrator |
@@ -114,9 +114,9 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 
 ## Examples
 
-**Valid:** Petition to MLA with `{ allowRevoke: false }` — signatures permanent once cast (an entity/jurisdiction tightening; the platform default is revocable).
+**Valid:** Petition to MLA with `{ allowChange: false }` — signatures permanent once cast (a jurisdiction tightening; the platform default is changeable).
 
-**Invalid:** Revoking signature when `allowRevoke` is false — rejected at submit.
+**Invalid:** Revoking signature when `allowChange` is false — rejected at submit.
 <!-- We should consider adding revocation attempts on chain even if rejected by the platform in vote counting. -->
 
 ## Implementation

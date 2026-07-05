@@ -65,10 +65,10 @@ Allowed ops: `create`, `update` only — **never deleted**.
 
 | Action | Who |
 |--------|-----|
-| Create (cast) | Per jurisdiction `gates.vote.act` during active period — `oursay-global`: any registered user; `ab-ca-gov`: **jurisdiction residency** (residency-verified AND resident of Alberta), **official-role holders denied** (officials cannot vote in AB) |
+| Create (cast) | Per jurisdiction `gates.vote.act` during active period — `oursay-global`: any registered user; `ab-ca-gov`: **jurisdiction residency** (residency-verified AND resident of Alberta; official-role holders may vote) |
 | Update (change) | Voter, if `allowChange` + before deadline |
 
-The **official count** follows `gates.vote.officialCount` — `oursay-global`: `{identity_verified, residency_verified}`; `ab-ca-gov`: jurisdiction residency (participation-gated, so the count floor = act set). It is a **counting floor after the action, never a participation barrier**: where the act gate admits below-floor voters (Global), their ballots land in the unverified counts until they verify.
+The **platform count** follows `gates.vote.platformCount` — `oursay-global`: `{identity_verified, residency_verified}`; `ab-ca-gov`: jurisdiction residency (participation-gated, so the count floor = act set). It is a **counting floor after the action, never a participation barrier**: where the act gate admits below-floor voters (Global), their ballots land in the unverified counts until they verify.
 
 ## Events
 

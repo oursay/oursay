@@ -43,7 +43,7 @@ Max lengths are the jurisdiction's `contentLimits` (target; AB: question 200, op
 
 ### Derived counts
 
-Vote counts per option (total \| by tier) — policy-gated on list/detail; geo/tier filterable on `/counts`. The **official count** applies `gates.vote.officialCount` (Global: `{identity_verified, residency_verified}`; AB: jurisdiction residency) — a counting floor after the action, never a participation barrier; below-floor ballots (where the act gate admits them) sit in the unverified counts until the voter verifies. A platform-signed **official-count record** snapshots the eligible votes and each voter's status ([record/future.md](../record/future.md)).
+Vote counts per option (total \| by tier) — policy-gated on list/detail; geo/tier filterable on `/counts`. The **platform count** applies `gates.vote.platformCount` (Global: `{identity_verified, residency_verified}`; AB: jurisdiction residency) — a counting floor after the action, never a participation barrier; below-floor ballots (where the act gate admits them) sit in the unverified counts until the voter verifies. A platform-signed **platform-count record** snapshots the eligible votes and each voter's status ([record/future.md](../record/future.md)).
 
 ### Read-surface projections (target)
 
@@ -87,7 +87,7 @@ Poll creation may also arrive by **graduation** from a petition: forced automati
 | Action | Who |
 |--------|-----|
 | Create | Per jurisdiction `gates.poll.act` — `oursay-global`: any registered user; `ab-ca-gov`: **official-role holders only** (a platform-assigned role, not a KYC tier) or via petition→poll graduation |
-| Vote | Per jurisdiction `gates.vote.act` — `oursay-global`: anyone; `ab-ca-gov`: jurisdiction residency, **official-role holders denied** (officials cannot vote in AB) |
+| Vote | Per jurisdiction `gates.vote.act` — `oursay-global`: anyone; `ab-ca-gov`: jurisdiction residency (official-role holders **may** vote) |
 | Update poll | Author / platform governance |
 | Close | Deadline or administrator |
 

@@ -60,7 +60,7 @@ revocable **role** attached to the user/jurisdiction membership, used by role-ga
 `ab-ca-gov` poll creation). Tiers stay pure KYC facts; the earlier `official_verified` tier idea is
 retired.
 
-**Obtaining the official role:** the platform **manually validates** the person — identity verification at minimum, residency preferred though not technically required (an official may live outside the district they represent, so in-district filter logic is **forced to the represented district**, never the home address/geopoint). `identity_verified` (min) + the official role together form the composite **official verification** status. Keep the suffixes distinct everywhere: **official role** (authority), **official verification** (role + KYC composite), **official count** (the counting floor on totals — nothing to do with the role, except that in `ab-ca-gov` role holders are excluded from voting and petition signing).
+**Obtaining the official role:** the platform **manually validates** the person — identity verification at minimum, residency preferred though not technically required (an official may live outside the district they represent, so in-district filter logic is **forced to the represented district**, never the home address/geopoint). `identity_verified` (min) + the official role together form the composite **official verification** status. Keep the suffixes distinct everywhere: **official role** (authority), **official verification** (role + KYC composite), **platform count** (the counting floor on totals — nothing to do with the role; in `ab-ca-gov`, role holders are denied petition signing at the act gate but **may vote**).
 
 ### Account verification states (contributor §5.4)
 
@@ -131,6 +131,6 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 - **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
 - Recovery re-verify flow incomplete.
 - **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
-- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / official-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
+- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / platform-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
 - Sponsorship / waitlist mechanics documented in contributor spec but not fully implemented.
 - Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).

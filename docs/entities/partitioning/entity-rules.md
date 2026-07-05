@@ -27,9 +27,9 @@ Target shape (see **Gaps** for current code drift):
 | `jurisdictionId` | string | **yes** | yes | The partition the thread lives in (every thread has one) |
 | `appliesToRegion` | RegionRef \| union | no | yes | Geographic stake — see below; absent = whole jurisdiction. Canonical for **count filtering** |
 | `appliesToDistrictIds` | district_slug[] | derived | yes | Server-maintained **district-slug projection** of `appliesToRegion` (the `entity_audience` projection) — served on read DTOs for district pills, district-page listing, and the Affected filter. Refreshed on governance updates and boundary revisions |
-| `appliesToVerified` | tier set | no | yes | Minimum KYC tier set counting toward stake/official totals |
+| `appliesToVerified` | tier set | no | yes | Minimum KYC tier set counting toward stake/platform totals |
 | `deadline` | ISO 8601 | no | yes | After this instant, no submit and no change/revoke permitted |
-| `allowChange` | boolean | no | yes | Whether a singleton action may change before deadline (target: single unified flag) |
+| `allowChange` | boolean | no | yes | Whether a singleton action may change or be revoked before deadline |
 
 **`appliesToRegion`** is a geographic reference — a [RegionRef](region.md) — or a union of them:
 
@@ -41,11 +41,11 @@ Target shape (see **Gaps** for current code drift):
 | `"region:<presetId>"` | A stored region preset |
 | `{ op: "and" \| "or" \| "not", refs: [...] }` | And/Or/Not composition of the above (not Xor). `not` is bounded by the jurisdiction (`not(X) ≡ jurisdiction ∖ X`) |
 
-Defaults when absent: **final-action semantics** — votes cast and signatures signed are FINAL (real-world analog), whole-jurisdiction audience, no tier floor beyond the jurisdiction's.
+Defaults when absent: jurisdiction defaults apply (platform layer: **changeable** unless the jurisdiction config tightens); whole-jurisdiction audience; no tier floor beyond the jurisdiction's.
 
 > **Deadline gates both submit AND change/revoke.** Once the deadline passes, no new vote/signature may be submitted and none may be changed or revoked.
 >
-> **`allowChange` / `allowRevoke` unify.** Today there are two flags (`allowChange` for polls, `allowRevoke` for petitions); the target is a single `allowChange` field covering both change and revoke. See **Gaps**.
+> **`allowChange` is unified.** One flag covers vote change and signature revoke (the legacy `allowRevoke` name is retired in docs; code may still expose both until `[align-w3-gates-schema]` lands).
 
 ## States & lifecycle
 
@@ -94,9 +94,9 @@ Rules are set on entity `create` and may be updated by a **platform-signed** `up
 
 ## Examples
 
-**Valid:** Petition with `{ allowRevoke: true, deadline: "2026-08-01T00:00:00Z" }` — signers may revoke until deadline.
+**Valid:** Petition with `{ allowChange: true, deadline: "2026-08-01T00:00:00Z" }` — signers may revoke until deadline.
 
-**Invalid:** User revoking a signature when `allowRevoke` is false or after deadline — rejected at submit.
+**Invalid:** User revoking a signature when `allowChange` is false or after deadline — rejected at submit.
 
 ## Implementation
 
@@ -108,7 +108,7 @@ Rules are set on entity `create` and may be updated by a **platform-signed** `up
 
 ## Gaps
 
-- **History — audience model (`[code-applies-to-region]`, resolved; districtIds un-deprecated 2026-07-04):** `EntityRules.appliesToRegion` (a [RegionRef](region.md) / and-or-not union) landed and is the canonical geographic stake; `RegionResolver.resolveRegionRef` compiles it and the `impacted-region` GeoScope reads it. `appliesToDistrictIds` was briefly deprecated but is **kept as the region's server-maintained district-slug projection** (Phase D needs per-thread district resolution client-side); code today still treats an author-supplied array as an input alias — the target derives it server-side via `entity_audience`. Still outstanding: `appliesToVerified` (tier set, `[code-applies-to-verified]`) and the `allowChange`/`allowRevoke` unification.
+- **History — audience model (`[code-applies-to-region]`, resolved; districtIds un-deprecated 2026-07-04):** `EntityRules.appliesToRegion` (a [RegionRef](region.md) / and-or-not union) landed and is the canonical geographic stake; `RegionResolver.resolveRegionRef` compiles it and the `impacted-region` GeoScope reads it. `appliesToDistrictIds` was briefly deprecated but is **kept as the region's server-maintained district-slug projection** (Phase D needs per-thread district resolution client-side); code today still treats an author-supplied array as an input alias — the target derives it server-side via `entity_audience`. Still outstanding: `appliesToVerified` (tier set, `[code-applies-to-verified]`).
 - **Narrow-only enforcement (deferred):** the "audience may narrow, never widen" invariant is upheld structurally (no public district-id query surface; refs resolve server-side), but there is **no active gate** proving `newRegion ⊆ oldRegion` on platform-signed governance `update`s. That geometric containment check (effective-dated old/new resolution + `ST_Covers`) is a separate task.
 - Per-jurisdiction choice of count-snapshot instant (creation vs resolution time) is future config ([REGION-MODEL.md](../../REGION-MODEL.md)).
 - The materialized `entity_audience` projection is **MVP target** (no longer future): it maintains `appliesToDistrictIds` (region → stable district slugs at the revision in force) for read DTOs and district-page listing, refreshed on root create, governance update, and boundary revision — `[align-w3-gates-schema]`.
