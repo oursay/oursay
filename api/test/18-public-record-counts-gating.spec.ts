@@ -26,6 +26,7 @@ import type { KycTier } from "../src/types/kyc.js";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
 import { fullSessionAccount } from "./helpers/account.js";
+import { openGates } from "./helpers/gates.js";
 
 const OURSAY_GLOBAL = "oursay-global"; // permissive (open sandbox)
 const AB_CA_GOV = "ab-ca-gov"; //         tier-gated (verified tiers only)
@@ -91,15 +92,21 @@ async function seedPetition(w: World, jurisdiction: string, tag: string, residen
 
 describe("18 public-record counts: per-jurisdiction exposure gating (countGating)", () => {
   let w: World;
+  let restoreGates: () => void;
 
   before(async function () {
     this.timeout(60000);
     w = await resetWorld();
     // Make the suite order-independent: (re)register the packaged jurisdictions (oursay-global permissive,
-    // ab-ca-gov tier-gated) and an ad-hoc fully-withheld jurisdiction.
+    // ab-ca-gov tier-gated) and an ad-hoc fully-withheld jurisdiction. ab-ca-gov's act GATES are then
+    // stripped (fixture seam): the seeds sign tier-gated petitions with unverified users to isolate the
+    // count-EXPOSURE policy under test; write-gate enforcement is covered in 20-gates.spec.ts.
     for (const j of jurisdictions) registerJurisdiction(j);
     registerJurisdiction({ id: WITHHELD, level: "test", rules: {}, counts: { votes: false, signatures: false } });
+    restoreGates = openGates(AB_CA_GOV);
   });
+
+  after(() => restoreGates());
 
   afterEach(() => {
     delete process.env.PUBLIC_COUNTS_K_ANONYMITY_MIN;

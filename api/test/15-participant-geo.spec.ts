@@ -23,6 +23,7 @@ import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
 import { fullSessionAccount } from "./helpers/account.js";
+import { openGates } from "./helpers/gates.js";
 
 const JURISDICTION = "ab-ca-gov";
 const ASOF = new Date("2020-01-01"); // after the 2019-04-16 effective date below.
@@ -96,11 +97,17 @@ describe("15 participant-geo: civic participant → private point → district r
 
   // Ingest the real 2019 Alberta boundaries ONCE (Db.reset() truncates geo.districts). Tests below use
   // fresh random users/threads and read-only resolution, so they don't reset the world per-test.
+  let restoreGates: () => void;
   before(async function () {
     this.timeout(60000);
     w = await resetWorld();
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
+    // Fixture seam: participants here vote/post BEFORE their point is seeded (or never get one) —
+    // drift-only states the real ab-ca-gov write gates forbid; gates are covered in 20-gates.spec.ts.
+    restoreGates = openGates(JURISDICTION);
   });
+
+  after(() => restoreGates());
 
   it("resolves a posting participant (authorPubkey/Pₜ, no nullifier) to their seeded riding", async () => {
     const m = await enrolledMember(w, "pg-edm@example.com", "edm");

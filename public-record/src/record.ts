@@ -247,40 +247,25 @@ export class RecordService {
       // in depth, same philosophy as binding_sig re-check) so a DB-modified row cannot escalate.
       const signerPubkey = envelope.signerPubkey;
       if (!signerPubkey) throw new Error("appendSigned: webauthn-es256 envelope is missing signerPubkey");
-      const cred = await this.store.getThreadCredential(signerPubkey);
-      if (!cred) throw new Error("appendSigned: device credential is not registered for this thread");
-      if (cred.revoked) throw new Error("appendSigned: device credential is revoked");
-      if (cred.personaPubkey !== envelope.authorPubkey) {
-        throw new Error("appendSigned: device credential's persona does not match authorPubkey");
-      }
-      if (cred.userId !== tk.userId) throw new Error("appendSigned: device credential is not the author's");
-      if (cred.threadId !== tk.threadId) throw new Error("appendSigned: device credential is not scoped to this thread");
-      const binding = await this.store.getThreadBinding(cred.personaPubkey);
-      if (!binding) throw new Error("appendSigned: thread persona binding not found");
-      const credentialAuthOk = verifyCredentialAuth(
-        {
-          domain: "credential-auth-v1",
-          personaPubkey: cred.personaPubkey,
-          credentialPubkey: signerPubkey,
-          threadId: cred.threadId,
-          jurisdiction: cred.jurisdiction,
-          commitment: binding.commitment,
-        },
-        cred.credentialSig,
-        this.platformPubKeyHex!,
-      );
-      if (!credentialAuthOk) throw new Error("appendSigned: device credential attestation failed to verify");
+      await this.verifyCivicCredential(signerPubkey, envelope.authorPubkey, tk);
     } else if (envelope.signerPubkey) {
-      // Device-signer authorization (Method 3 §5.4, legacy p256 path): when the envelope is signed by
-      // a thread-scoped device key, that signer must belong to the SAME verified user as the persona
-      // (the dedupe / authorization boundary) AND be scoped to the SAME thread (no cross-thread signer
-      // reuse). Any enrolled, non-revoked device of that user may thus act for the persona — including
-      // editing content first written from another device (cross-device edit, §5.4 rule 6).
-      const sgn = await this.store.getThreadSigner(envelope.signerPubkey);
-      if (!sgn) throw new Error("appendSigned: signer is not a registered device for this thread");
-      if (sgn.revoked) throw new Error("appendSigned: signer (or its device) is revoked");
-      if (sgn.userId !== tk.userId) throw new Error("appendSigned: signer is not enrolled to the author's user");
-      if (sgn.threadId !== tk.threadId) throw new Error("appendSigned: signer is not scoped to this thread");
+      // p256 path ([align-w3-gates-schema] quick floor): the SAME mvp-a5b credential authorization as
+      // webauthn — a quick-signing device enrolls its per-thread software key as a civic credential at
+      // join, and the software signature (already checked by verifyEnvelope against signerPubkey)
+      // stands in for the assertion. Falls back to the legacy Method-3 thread_signers table so
+      // pre-a5b device-signed envelopes keep verifying.
+      const cred = await this.store.getThreadCredential(envelope.signerPubkey);
+      if (cred) {
+        await this.verifyCivicCredential(envelope.signerPubkey, envelope.authorPubkey, tk);
+      } else {
+        // Legacy device-signer authorization (Method 3 §5.4): the signer must belong to the SAME
+        // verified user as the persona AND be scoped to the SAME thread (no cross-thread reuse).
+        const sgn = await this.store.getThreadSigner(envelope.signerPubkey);
+        if (!sgn) throw new Error("appendSigned: signer is not a registered device for this thread");
+        if (sgn.revoked) throw new Error("appendSigned: signer (or its device) is revoked");
+        if (sgn.userId !== tk.userId) throw new Error("appendSigned: signer is not enrolled to the author's user");
+        if (sgn.threadId !== tk.threadId) throw new Error("appendSigned: signer is not scoped to this thread");
+      }
     }
 
     const parent =
@@ -353,6 +338,40 @@ export class RecordService {
 
     const { txHash } = await this.chain.append(envelope, { salt, content });
     return { txId: envelope.txId, entityId: envelope.entityId, txHash };
+  }
+
+  /** mvp-a5b credential authorization, shared by the webauthn AND p256 quick paths: the signer must
+   *  be a registered, non-revoked civic credential under the envelope's persona, bound to the same
+   *  (user, thread) as Pₜ, with the platform credential_sig re-verified (defense in depth — a
+   *  DB-modified row cannot escalate). */
+  private async verifyCivicCredential(
+    signerPubkey: string,
+    authorPubkey: string,
+    tk: { userId: string; threadId: string },
+  ): Promise<void> {
+    const cred = await this.store.getThreadCredential(signerPubkey);
+    if (!cred) throw new Error("appendSigned: device credential is not registered for this thread");
+    if (cred.revoked) throw new Error("appendSigned: device credential is revoked");
+    if (cred.personaPubkey !== authorPubkey) {
+      throw new Error("appendSigned: device credential's persona does not match authorPubkey");
+    }
+    if (cred.userId !== tk.userId) throw new Error("appendSigned: device credential is not the author's");
+    if (cred.threadId !== tk.threadId) throw new Error("appendSigned: device credential is not scoped to this thread");
+    const binding = await this.store.getThreadBinding(cred.personaPubkey);
+    if (!binding) throw new Error("appendSigned: thread persona binding not found");
+    const credentialAuthOk = verifyCredentialAuth(
+      {
+        domain: "credential-auth-v1",
+        personaPubkey: cred.personaPubkey,
+        credentialPubkey: signerPubkey,
+        threadId: cred.threadId,
+        jurisdiction: cred.jurisdiction,
+        commitment: binding.commitment,
+      },
+      cred.credentialSig,
+      this.platformPubKeyHex!,
+    );
+    if (!credentialAuthOk) throw new Error("appendSigned: device credential attestation failed to verify");
   }
 
   // ── Shared validation (used by the unsigned dev path AND the signed path) ────────────────

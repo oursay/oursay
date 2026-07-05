@@ -42,6 +42,7 @@ import { AreaCatalogService } from "./services/area-catalog.service.js";
 import { AuthService } from "./services/auth.service.js";
 import { CivicDeviceService } from "./services/civic-device.service.js";
 import { CivicRecordService } from "./services/civic-record.service.js";
+import { GateService } from "./services/gate.service.js";
 import { GeocodeService } from "./services/geocode.service.js";
 import { makeGeocodeProvider, type GeocodeProvider } from "./services/geocode/index.js";
 import { KycService } from "./services/kyc.service.js";
@@ -102,6 +103,8 @@ export interface Services {
   recoveryService: RecoveryService;
   loginService: LoginService;
   civicDeviceService: CivicDeviceService;
+  /** Per-action jurisdiction act-gate resolution (tiers / residency / role / deny). */
+  gateService: GateService;
   civicRecordService: CivicRecordService;
   /** PostGIS geo store (district boundaries + Region.contains). One process-lived instance. */
   geoStore: GeoStore;
@@ -211,7 +214,6 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     signedEnvelopeMaxAgeSec: civicConfig.signedEnvelopeMaxAgeSec,
   });
   const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
-  const civicRecordService = new CivicRecordService({ registry: identityRegistry, store: recordStore });
 
   // Geo: ONE process-lived GeoStore (its own small pool, mirroring recordStore) — the schema is
   // already ensured by Db.init(), so we don't re-init or close it here. RegionResolver is the
@@ -229,6 +231,20 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   // appends awarded tiers to kyc_attestations (the same table recovery + the count filter read).
   const kycProvider = makeKycProvider(kycConfig);
   const kycService = new KycService({ provider: kycProvider, recordStore, kycRepo: repos.kyc });
+
+  // Per-action jurisdiction gates ([align-w3-gates-schema]) + the civic write service. Built here —
+  // after kyc/participant-geo — because gate resolution needs the caller's CURRENT tier, point, and
+  // role, and the write path projects the C6 relationship snapshot through the same seams.
+  const gateService = new GateService({ kycService, participantGeoService, membershipRepo: repos.membership });
+  const civicRecordService = new CivicRecordService({
+    registry: identityRegistry,
+    store: recordStore,
+    gateService,
+    kycService,
+    participantGeoService,
+    regionResolver,
+    geoStore,
+  });
 
   // The public read surface resolves geo `scope` AND KYC `tier` on the count endpoints: regionResolver +
   // participantGeoService (region-first, current-point mode) for geo, and KycRepo (current tier, set
@@ -259,6 +275,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     recoveryService,
     loginService,
     civicDeviceService,
+    gateService,
     civicRecordService,
     geoStore,
     regionResolver,

@@ -104,9 +104,11 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
     // C9 count-exposure gating is OFF for these GEO-filter tests: re-register ab-ca-gov with PERMISSIVE
     // counts so raw/filtered signature/vote scalars stay visible and we isolate the geo dimension. The
-    // real tier-gated policy is exercised in spec 18. Restored in after().
+    // real tier-gated policy is exercised in spec 18. Act gates are ALSO stripped (fixture seam): these
+    // fixtures include drift-only states (votes from users without points) the real write gates forbid;
+    // gate enforcement itself is covered in 20-gates.spec.ts. Restored in after().
     abCaGovOriginal = getJurisdiction(JURISDICTION);
-    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true } });
+    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true }, gates: undefined });
   });
 
   after(() => {

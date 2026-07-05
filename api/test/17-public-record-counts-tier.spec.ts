@@ -107,10 +107,11 @@ describe("17 public-record counts: KYC tier resolution (set membership) + combin
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
     // C9 count-exposure gating is OFF for these TIER-FILTER tests: re-register ab-ca-gov with PERMISSIVE
     // counts so the tier FILTER (which participants count) is isolated from the exposure GATE (whether the
-    // scalar is disclosed at all). The real tier-gated exposure policy is exercised in spec 18. Restored
-    // in after().
+    // scalar is disclosed at all). The real tier-gated exposure policy is exercised in spec 18. Act gates
+    // are ALSO stripped (fixture seam): fixtures include unverified/no-point voters the real write gates
+    // forbid; gate enforcement is covered in 20-gates.spec.ts. Restored in after().
     abCaGovOriginal = getJurisdiction(JURISDICTION);
-    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true } });
+    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true }, gates: undefined });
   });
 
   after(() => {
