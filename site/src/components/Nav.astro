@@ -2,7 +2,6 @@
 import Logo from "./Logo.astro";
 import Button from "./Button.astro";
 import { navLinks, site } from "../data/site";
-import { forms } from "../data/forms";
 ---
 
 <header
@@ -25,15 +24,8 @@ import { forms } from "../data/forms";
     </div>
 
     <div class="flex items-center gap-3">
-      <a
-        href={site.githubUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        class="hidden text-sm font-medium text-slate-600 hover:text-brand-700 sm:inline"
-        >GitHub</a
-      >
-      <Button href={forms.waitlist.url} external class="!px-5 !py-2">
-        Join the waitlist
+      <Button href={site.demoUrl} external class="!px-5 !py-2">
+        Try the demo
       </Button>
 
       <!-- Mobile menu (no-JS disclosure) -->
@@ -60,12 +52,13 @@ import { forms } from "../data/forms";
             ))
           }
           <a
-            href={site.githubUrl}
+            href={site.demoUrl}
             target="_blank"
             rel="noopener noreferrer"
-            class="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-brand-50 hover:text-brand-700"
-            >GitHub</a
+            class="block rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
           >
+            Try the demo
+          </a>
         </div>
       </details>
     </div>

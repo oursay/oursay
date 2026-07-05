@@ -3,9 +3,12 @@ import Section from "./Section.astro";
 import Button from "./Button.astro";
 import { audiences } from "../data/audiences";
 import { forms } from "../data/forms";
+import { site } from "../data/site";
 
-const formFor = (kind: "waitlist" | "contact") =>
-  kind === "waitlist" ? forms.waitlist.url : forms.contact.url;
+const formFor = (kind: "waitlist" | "contact" | "demo") => {
+  if (kind === "demo") return site.demoUrl;
+  return kind === "waitlist" ? forms.waitlist.url : forms.contact.url;
+};
 ---
 
 <Section id="who-its-for" tone="white">
@@ -48,7 +51,7 @@ const formFor = (kind: "waitlist" | "contact") =>
             <Button
               href={formFor(a.cta.kind)}
               external
-              variant={a.cta.kind === "waitlist" ? "primary" : "secondary"}
+              variant={a.cta.kind === "contact" ? "secondary" : "primary"}
               class="!px-6 !py-2.5"
             >
               {a.cta.label}

@@ -1,0 +1,89 @@
+---
+import Section from "./Section.astro";
+import Button from "./Button.astro";
+import { site } from "../data/site";
+
+const features = [
+  {
+    tag: "Passkey signing",
+    title: "What you see is what you sign",
+    body: "Before a vote or signature lands on the record, you confirm a plain-language statement with your passkey — civic action treated like signing a document, not liking a post.",
+  },
+  {
+    tag: "Signed badges",
+    title: "Real signatures, not clicks",
+    body: "Every action carries a visible Signed strength — passkey, biometric-ready, or quick sign — so you can filter for the commitments that matter.",
+  },
+  {
+    tag: "Verified anonymity",
+    title: "Prove you're real. Stay anonymous.",
+    body: "Confirm your identity once and participate under a per-thread persona. Verified totals stay honest; your name stays off the public record unless you choose otherwise.",
+  },
+  {
+    tag: "Civic ladder",
+    title: "Petitions that graduate to polls",
+    body: "Grassroots energy has a path: Statement → Petition → Poll → Result. Hit the threshold and a petition opens a binding public vote — the proposing citizen stays author.",
+  },
+  {
+    tag: "District-aware",
+    title: "Filter by riding, not by leaking addresses",
+    body: "See what verified residents in your district think — with residency and affected-area pills — without ever putting raw addresses on the wire.",
+  },
+  {
+    tag: "Honest counts",
+    title: "Sign now, verify later",
+    body: "Anyone can participate immediately. Official totals only include people who meet the verification floor — and both numbers are labeled, never confused.",
+  },
+];
+---
+
+<Section id="demo" tone="white">
+  <div class="mx-auto max-w-3xl text-center">
+    <p class="mb-3 text-sm font-semibold uppercase tracking-wide text-brand-600">
+      Live demo
+    </p>
+    <h2 class="text-balance text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+      Try it now — the devs built more than they brag about
+    </h2>
+    <p class="mt-5 text-pretty text-lg leading-relaxed text-slate-600">
+      The demo at <strong class="font-semibold text-slate-800">demo.oursay.ca</strong> is
+      a working preview of Alberta launch — passkeys, signed badges, district filters,
+      petition graduation, and the full civic ladder. No install. No waitlist required.
+    </p>
+    <div class="mt-8">
+      <Button href={site.demoUrl} external class="!px-8 !py-3.5 text-base">
+        Open the live demo
+      </Button>
+    </div>
+  </div>
+
+  <ul class="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    {
+      features.map((f) => (
+        <li class="flex flex-col rounded-2xl border border-slate-200 bg-paper p-6">
+          <span class="mb-3 inline-flex w-fit rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-800">
+            {f.tag}
+          </span>
+          <h3 class="text-lg font-bold text-slate-900">{f.title}</h3>
+          <p class="mt-2 text-sm leading-relaxed text-slate-600">{f.body}</p>
+        </li>
+      ))
+    }
+  </ul>
+
+  <div class="mx-auto mt-12 max-w-3xl rounded-2xl border border-brand-200 bg-brand-50 p-6 text-center sm:p-8">
+    <p class="text-pretty text-base leading-relaxed text-brand-900 sm:text-lg">
+      <strong class="font-semibold">Behind the scenes:</strong> every significant action
+      is designed for an append-only public record — anchored externally, verifiable offline,
+      and open source. The demo shows the experience; the repo shows the proof.
+    </p>
+    <div class="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+      <Button href={site.demoUrl} external variant="primary" class="!px-7 !py-3">
+        Try the live demo
+      </Button>
+      <Button href={site.githubUrl} external variant="secondary" class="!px-7 !py-3">
+        Inspect the code
+      </Button>
+    </div>
+  </div>
+</Section>

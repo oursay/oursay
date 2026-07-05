@@ -8,7 +8,7 @@ export interface Audience {
   cta: {
     label: string;
     /** Which form/flow the CTA points at. */
-    kind: "waitlist" | "contact";
+    kind: "waitlist" | "contact" | "demo";
   };
 }
 
@@ -19,11 +19,11 @@ export const audiences: Audience[] = [
     headline: "Be heard between elections — not just once every four years",
     body: "Your vote is one day a cycle. Your opinions are every day. OurSay gives you a structured, verifiable way to say what you actually think — and to see what people in other communities believe, so the conversation is bigger than your feed.",
     points: [
-      "Express beliefs, sign petitions, and vote on public questions — all publicly counted",
-      "See how opinion breaks down by area, so you can engage in civil discourse beyond your own community",
-      "Participate anonymously if you choose — and still be counted",
+      "Express beliefs, sign petitions, and vote on public questions — passkey-signed and publicly counted",
+      "See how opinion breaks down by district and verification tier, not just your feed",
+      "Participate anonymously if you choose — per-thread personas, verified totals still honest",
     ],
-    cta: { label: "Join the waitlist", kind: "waitlist" },
+    cta: { label: "Try the live demo", kind: "demo" },
   },
   {
     id: "representatives",
@@ -59,6 +59,6 @@ export const audiences: Audience[] = [
       "Permanent, auditable records that can't be quietly dismissed as unrepresentative",
       "Open source and free to spread — the tools of democracy should belong to everyone",
     ],
-    cta: { label: "Join the waitlist", kind: "waitlist" },
+    cta: { label: "Try the live demo", kind: "demo" },
   },
 ];

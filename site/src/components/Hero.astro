@@ -2,6 +2,7 @@
 import Button from "./Button.astro";
 import LiveStats from "./LiveStats.astro";
 import { forms } from "../data/forms";
+import { site } from "../data/site";
 ---
 
 <section class="relative overflow-hidden bg-paper">
@@ -16,8 +17,8 @@ import { forms } from "../data/forms";
     <p
       class="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-brand-200 bg-white/70 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-700"
     >
-      <span class="h-2 w-2 rounded-full bg-verify-500"></span>
-      Open source · Launching in Alberta
+      <span class="h-2 w-2 animate-pulse rounded-full bg-verify-500"></span>
+      Live demo · Launching in Alberta
     </p>
 
     <h1 class="text-balance text-5xl font-extrabold leading-[1.05] tracking-tight text-slate-900 sm:text-6xl">
@@ -26,21 +27,25 @@ import { forms } from "../data/forms";
     </h1>
 
     <p class="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600 sm:text-xl">
-      A verified, auditable way to express what you believe, sign petitions, and
-      vote on the questions that matter — with results anyone can independently
-      check. Built for any democracy, starting in Alberta.
+      Verified, auditable civic participation — passkey-signed petitions and votes,
+      district-aware filters, and a public record anyone can check. Try the working
+      preview now; we're launching in Alberta next.
     </p>
 
     <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-      <Button href={forms.waitlist.url} external class="!px-8 !py-3.5 text-base">
-        Join the waitlist
+      <Button href={site.demoUrl} external class="!px-8 !py-3.5 text-base">
+        Try the live demo
       </Button>
-      <Button href="#how-it-works" variant="secondary" class="!px-8 !py-3.5 text-base">
-        See how it works
+      <Button href={forms.waitlist.url} external variant="secondary" class="!px-8 !py-3.5 text-base">
+        Join the waitlist
       </Button>
     </div>
 
     <p class="mt-6 text-sm text-slate-500">
+      <a href="#how-it-works" class="font-medium text-brand-700 hover:text-brand-900">
+        See how it works
+      </a>
+      <span class="mx-2 text-slate-300">·</span>
       Open source · Independently auditable · No political party, no agenda
     </p>
 

@@ -4,6 +4,8 @@ export const site = {
   name: "OurSay",
   domain: "oursay.ca",
   tagline: "Make Our Say.",
+  /** Static civic-app demo (Phase D web-app). */
+  demoUrl: "https://demo.oursay.ca",
   githubUrl: "https://github.com/OurSay/oursay",
   contactEmail: "oursay.ca@gmail.com",
 } as const;

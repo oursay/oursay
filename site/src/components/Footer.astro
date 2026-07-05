@@ -14,7 +14,10 @@ const year = new Date().getFullYear();
         </div>
         <p class="mt-4 max-w-sm text-sm leading-relaxed text-slate-400">
           Verified, auditable public opinion for any democracy. Open source.
-          Launching in Alberta.
+          <a href={site.demoUrl} target="_blank" rel="noopener noreferrer" class="font-medium text-brand-300 hover:text-white">
+            Try the live demo
+          </a>
+          — launching in Alberta.
         </p>
       </div>
 
@@ -38,6 +41,9 @@ const year = new Date().getFullYear();
         <ul class="space-y-2">
           <li><a href="/sources" class="text-slate-400 hover:text-white">Sources</a></li>
           <li><a href="/privacy" class="text-slate-400 hover:text-white">Privacy</a></li>
+          <li>
+            <a href={site.demoUrl} target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-white">Live demo</a>
+          </li>
           <li>
             <a href={site.githubUrl} target="_blank" rel="noopener noreferrer" class="text-slate-400 hover:text-white">GitHub</a>
           </li>
