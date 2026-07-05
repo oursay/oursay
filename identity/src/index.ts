@@ -13,6 +13,7 @@ export type {
   MutateIntent,
   PreparedAppend,
   SignedSubmission,
+  SignMode,
   DeviceEnrollment,
   ThreadRegistration,
   JoinThreadResponse,

@@ -16,16 +16,21 @@ import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import { buildThreadBindingInputs } from "@oursay/public-record/identity/binding";
 import { contentCommitment, newSalt } from "@oursay/public-record/crypto/commitment";
+import { deriveDeviceThreadSigner, signEnvelopeWithDevice } from "@oursay/public-record/identity/device";
 import { signingDigest } from "@oursay/public-record/identity/envelope";
 import { deriveNullifierSecret, threadNullifier } from "@oursay/public-record/identity/nullifier";
 import { DELETE_MARKER } from "@oursay/public-record/schema/types";
 import type { TxEnvelope } from "@oursay/public-record/schema/types";
+import type { DeviceThreadSigner } from "@oursay/public-record/identity/device";
 import type { ThreadBindingInputs } from "@oursay/public-record/identity/binding";
 import type { UnlockedSession } from "./connector.js";
-import type { Intent, PreparedAppend, SignedSubmission, ThreadRef } from "../shared/types.js";
+import type { Intent, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
 
 export class IdentitySession {
   constructor(private readonly s: UnlockedSession) {}
+
+  /** Memoized per-(jurisdiction, thread) SOFT quick signers (derived from the device root). */
+  private readonly quickSigners = new Map<string, DeviceThreadSigner>();
 
   get userId(): string {
     return this.s.userId;
@@ -49,6 +54,30 @@ export class IdentitySession {
     if (existing) return existing;
     const { signingPubkey } = await this.s.createThreadCredential({ threadId: t.threadId, jurisdiction: t.jurisdiction });
     return signingPubkey;
+  }
+
+  /**
+   * This device's SOFT per-thread P-256 signer pubkey — the envelope `signerPubkey` on the QUICK
+   * path ([align-w3-gates-schema]: a jurisdiction whose `signMin` is `quick` also accepts a software
+   * p256 envelope). Derived deterministically from the device root via the shared
+   * `deriveDeviceThreadSigner` KDF (domain-separated per (thread, jurisdiction) — cross-thread
+   * unlinkable, same as the WebAuthn signer). No ceremony, no prompt; the private key stays in
+   * memory on this session. The soft key must be ENROLLED as a civic credential (a `join` with it
+   * as `signerPubkey`) before the server will accept its envelopes — see
+   * CivicHttpClient.ensureQuickSigner.
+   */
+  quickSigningPubkey(t: ThreadRef): string {
+    return this.quickSigner(t).signerPubkey;
+  }
+
+  private quickSigner(t: ThreadRef): DeviceThreadSigner {
+    const key = `${t.jurisdiction}:${t.threadId}`;
+    let signer = this.quickSigners.get(key);
+    if (!signer) {
+      signer = deriveDeviceThreadSigner({ deviceRoot: this.s.deviceRoot, threadId: t.threadId, jurisdiction: t.jurisdiction });
+      this.quickSigners.set(key, signer);
+    }
+    return signer;
   }
 
   /**
@@ -78,16 +107,19 @@ export class IdentitySession {
   /** Client-side binding inputs to join a thread. The opening (user_id, salt_t) stays client-side.
    *  Uses THIS device's signing pubkey as the binding's `threadPubkey` — that pubkey is offered to
    *  the server as the candidate Pₜ; the server is the authority on whether it becomes Pₜ (first
-   *  join wins) or is enrolled as an additional signer under the existing Pₜ.
+   *  join wins) or is enrolled as an additional signer under the existing Pₜ. Pass
+   *  `signer: "quick"` to offer the SOFT quick signer instead (enrolling it as an additional civic
+   *  credential under Pₜ — the commitment is signer-independent, so the server's commitment-match
+   *  guard passes either way).
    *
    *  `salt_t` is derived deterministically per `(user, jurisdiction, thread)` from the user's
    *  jurisdiction master (HKDF), so every device of the same user computes the SAME commitment for
    *  the same thread. That is what makes the server's commitment-match guard on second-device join
    *  pass — without it, two devices would propose two different openings under the same persona. */
-  async bindingInputs(t: ThreadRef, o: { kycTier?: string } = {}): Promise<ThreadBindingInputs> {
+  async bindingInputs(t: ThreadRef, o: { kycTier?: string; signer?: SignMode } = {}): Promise<ThreadBindingInputs> {
     return buildThreadBindingInputs({
       userId: this.s.userId,
-      threadPubkey: await this.signingPubkey(t),
+      threadPubkey: o.signer === "quick" ? this.quickSigningPubkey(t) : await this.signingPubkey(t),
       threadId: t.threadId,
       jurisdiction: t.jurisdiction,
       kycTier: o.kycTier,
@@ -120,11 +152,42 @@ export class IdentitySession {
   async buildSigned(t: ThreadRef, prep: PreparedAppend, intent: Intent): Promise<SignedSubmission> {
     const signerPubkey = await this.signingPubkey(t);
     const authorPubkey = this.personaPubkey(t);
-    const txId = crypto.randomUUID();
     const salt = newSalt();
     const content = intent.op === "delete" ? DELETE_MARKER : intent.content;
-    const nullifier = this.nullifierFor(t, prep, intent);
     const base: TxEnvelope = {
+      ...this.envelopeBase(t, prep, intent, salt, content),
+      authorPubkey,
+      signerPubkey,
+      signScheme: "webauthn-es256",
+      signature: "", // the ES256 signature lives inside `webauthn`
+    };
+    const webauthn = await this.s.assertThread({ threadId: t.threadId, challenge: signingDigest(base) });
+    return { envelope: { ...base, webauthn }, salt, content };
+  }
+
+  /**
+   * Assemble + QUICK-sign an envelope with this device's SOFT per-thread P-256 signer — the
+   * frictionless path where the jurisdiction's `signMin` is `quick` (no WebAuthn ceremony, no
+   * prompt). The envelope carries the SAME `authorPubkey = Pₜ` as the passkey path and omits
+   * `signScheme` (absent ⇒ `p256`); `signEnvelopeWithDevice` fills `signerPubkey` + `signature`.
+   * Nullifiers come from the same per-(user, jurisdiction) root, so singleton dedupe holds across
+   * schemes AND devices. The soft signer must already be enrolled as a civic credential
+   * (CivicHttpClient.ensureQuickSigner) or the server rejects the submit.
+   */
+  buildQuickSigned(t: ThreadRef, prep: PreparedAppend, intent: Intent): SignedSubmission {
+    const authorPubkey = this.personaPubkey(t);
+    const salt = newSalt();
+    const content = intent.op === "delete" ? DELETE_MARKER : intent.content;
+    const base = this.envelopeBase(t, prep, intent, salt, content);
+    const { envelope } = signEnvelopeWithDevice(base, this.quickSigner(t).privKey, authorPubkey);
+    return { envelope, salt, content };
+  }
+
+  /** The scheme-independent envelope fields (both signing paths assemble the same skeleton). */
+  private envelopeBase(t: ThreadRef, prep: PreparedAppend, intent: Intent, salt: string, content: unknown): TxEnvelope {
+    const txId = crypto.randomUUID();
+    const nullifier = this.nullifierFor(t, prep, intent);
+    return {
       v: 1,
       txId,
       type: intent.type,
@@ -135,17 +198,13 @@ export class IdentitySession {
       ...(intent.op !== "create" && prep.parentId ? { parentId: prep.parentId } : {}),
       ...(prep.parentRevisionHash ? { parentRevisionHash: prep.parentRevisionHash } : {}),
       ...(prep.parentRevisionTxId ? { parentRevisionTxId: prep.parentRevisionTxId } : {}),
-      authorPubkey,
-      signerPubkey,
-      signScheme: "webauthn-es256",
-      signature: "", // the ES256 signature lives inside `webauthn`
+      authorPubkey: "", // filled by the signing step
+      signature: "", //    "
       createdAt: new Date().toISOString(),
       prevHash: prep.prevHash,
       contentHash: contentCommitment({ id: txId, salt, content }),
       ...(nullifier ? { nullifier } : {}),
     };
-    const webauthn = await this.s.assertThread({ threadId: t.threadId, challenge: signingDigest(base) });
-    return { envelope: { ...base, webauthn }, salt, content };
   }
 
   private nullifierFor(t: ThreadRef, prep: PreparedAppend, intent: Intent): string | undefined {

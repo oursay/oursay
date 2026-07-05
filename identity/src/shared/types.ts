@@ -36,6 +36,17 @@ export interface MutateIntent {
 
 export type Intent = CreateIntent | MutateIntent;
 
+/**
+ * How a civic append is signed ([align-w3-gates-schema] sign floors):
+ *   - `passkey` — a per-(device, thread) WebAuthn passkey assertion (`signScheme: webauthn-es256`);
+ *     a user-verifying ceremony per action. Accepted everywhere.
+ *   - `quick`   — a SOFT per-(device, thread) P-256 key derived from the device root (no ceremony,
+ *     no prompt; `signScheme` absent ⇒ `p256`). Accepted only where the jurisdiction's `signMin`
+ *     for the action is `quick`; a `passkey` floor rejects it with reason `passkey_required`.
+ * Both are device-signed civic credentials enrolled under the same stable persona Pₜ.
+ */
+export type SignMode = "passkey" | "quick";
+
 /** The server-derived fields a client must sign over — mirrors RecordService.prepareAppend. */
 export interface PreparedAppend {
   prevHash: string | null;

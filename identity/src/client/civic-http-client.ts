@@ -10,7 +10,7 @@
 
 import type { CommentContent, PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
 import type { IdentitySession } from "./session.js";
-import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, ThreadRef } from "../shared/types.js";
+import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
 
 export interface CivicHttpClientOptions {
   /** API origin, e.g. "https://api.oursay.org" or "http://localhost". No trailing slash. */
@@ -61,6 +61,7 @@ export class CivicHttpClient {
   // In-memory orchestration state, so a long-lived client joins each thread at most once. Cheap dedupe
   // — not a security boundary (the server re-checks ownership every call).
   private readonly joined = new Set<string>();
+  private readonly quickEnrolled = new Set<string>();
 
   constructor(opts: CivicHttpClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
@@ -139,11 +140,45 @@ export class CivicHttpClient {
   }
 
   /**
-   * The full write path for one intent: ensure thread joined → prepare → WebAuthn-sign (via
-   * IdentitySession) → submit. Each append produces a fresh user-verifying passkey assertion
-   * (UV per action) — there is no silent "sign many" after a single unlock (Option A).
+   * Ensure this device's SOFT quick signer is enrolled as a civic credential for this thread
+   * (once per client instance). Runs AFTER the regular join — so Pₜ stays the WebAuthn signer's
+   * first-join allocation — then joins again offering the soft pubkey. Because the binding
+   * commitment is signer-independent (deterministic per (user, jurisdiction, thread)), the server's
+   * commitment-match guard passes and the soft key lands as an ADDITIONAL `thread_civic_credentials`
+   * row under the same Pₜ. Idempotent server-side (credential upsert).
    */
-  async append(t: ThreadRef, intent: Intent): Promise<SubmitRef> {
+  async ensureQuickSigner(t: ThreadRef): Promise<void> {
+    const key = `${t.jurisdiction}:${t.threadId}`;
+    if (this.quickEnrolled.has(key)) return;
+    await this.ensureJoined(t);
+    const { binding } = await this.session.bindingInputs(t, { signer: "quick" });
+    const resp = await this.request<JoinThreadResponse>("POST", "/v1/civic/threads/join", {
+      threadId: t.threadId,
+      jurisdiction: t.jurisdiction,
+      signerPubkey: binding.thread_pubkey,
+      commitment: binding.commitment,
+    });
+    // The quick join can never re-allocate Pₜ (the thread is already joined) — guard the invariant.
+    if (resp.personaPubkey !== this.session.personaPubkey(t)) {
+      throw new Error("ensureQuickSigner: server returned a different persona than the joined thread's Pₜ");
+    }
+    this.quickEnrolled.add(key);
+  }
+
+  /**
+   * The full write path for one intent: ensure thread joined → prepare → sign → submit. The default
+   * `sign: "passkey"` produces a fresh user-verifying WebAuthn assertion per append — there is no
+   * silent "sign many" after a single unlock (Option A). `sign: "quick"` signs with the soft
+   * per-thread P-256 key instead (no ceremony; enrolls it as a credential on first use) — accepted
+   * only where the jurisdiction's floor for the action is `quick`, else the server 403s
+   * `passkey_required`.
+   */
+  async append(t: ThreadRef, intent: Intent, opts: { sign?: SignMode } = {}): Promise<SubmitRef> {
+    if (opts.sign === "quick") {
+      await this.ensureQuickSigner(t);
+      const prep = await this.prepare(t, intent);
+      return this.submit(this.session.buildQuickSigned(t, prep, intent));
+    }
     await this.ensureJoined(t);
     const prep = await this.prepare(t, intent);
     const signed = await this.session.buildSigned(t, prep, intent);
@@ -153,23 +188,23 @@ export class CivicHttpClient {
   // ── Convenience intents ───────────────────────────────────────────────────────────────────
 
   /** Create the thread's root post (`entityId === threadId`). */
-  async createPost(t: ThreadRef, content: PostContent): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "post", entityId: t.threadId, content });
+  async createPost(t: ThreadRef, content: PostContent, opts: { sign?: SignMode } = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "post", entityId: t.threadId, content }, opts);
   }
 
   /** Comment on a parent entity (post/petition/poll/comment; depth ≤ 3 enforced server-side). */
-  async createComment(t: ThreadRef, parent: ParentRef, content: CommentContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "comment", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
+  async createComment(t: ThreadRef, parent: ParentRef, content: CommentContent, opts: { entityId?: string; sign?: SignMode } = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "comment", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   /** React to a parent entity (singleton per author+parent). */
-  async addReaction(t: ThreadRef, parent: ParentRef, content: ReactionContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "reaction", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
+  async addReaction(t: ThreadRef, parent: ParentRef, content: ReactionContent, opts: { entityId?: string; sign?: SignMode } = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "reaction", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   /** Cast a vote on a parent poll (singleton per author+parent). */
-  async castVote(t: ThreadRef, parent: ParentRef, content: VoteContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "vote", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
+  async castVote(t: ThreadRef, parent: ParentRef, content: VoteContent, opts: { entityId?: string; sign?: SignMode } = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "vote", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────────────────────
