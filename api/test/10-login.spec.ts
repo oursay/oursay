@@ -3,14 +3,13 @@
 // Completing it on a new device yields a LIMITED 'login'-scoped session (enroll-only) — full access
 // comes from the subsequent passkey login. Login does NOT revoke other sessions (it's additive).
 
-import { randomUUID } from "node:crypto";
 import { expect } from "chai";
 import { webauthnConfig } from "../src/config.js";
 import { SoftAuthenticator } from "./fixtures/webauthn/soft-authenticator.js";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 import { expectServiceError } from "./helpers/expect.js";
+import { ADULT_DOB, makeAccount } from "./helpers/account.js";
 
-const ADULT_DOB = "1990-06-15";
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
 /** Register an account (via the OTP service path) and enroll one passkey → returns a trusted device. */
@@ -37,14 +36,7 @@ async function registerWithPasskey(
 
 /** A registered account with NO passkey (created directly, like the recovery spec). */
 async function makeBarAccount(w: World, email: string): Promise<string> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  return userId;
+  return (await makeAccount(w, { email })).userId;
 }
 
 describe("10 gated login: enable window + enroll-only session", () => {

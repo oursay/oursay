@@ -25,8 +25,8 @@ import { getJurisdiction, registerJurisdiction } from "@oursay/public-record";
 import type { KycTier } from "../src/types/kyc.js";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount } from "./helpers/account.js";
 
-const ADULT_DOB = "1990-06-15";
 const OURSAY_GLOBAL = "oursay-global"; // permissive (open sandbox)
 const AB_CA_GOV = "ab-ca-gov"; //         tier-gated (verified tiers only)
 const WITHHELD = "test-cg-withheld"; //   ad-hoc: votes/signatures never exposed
@@ -35,18 +35,6 @@ interface Member {
   userId: string;
   sess: IdentitySession;
   client: CivicHttpClient;
-}
-
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
 }
 
 /** Enroll a device + join the GIVEN shared thread `t` (so many members participate on one root). */

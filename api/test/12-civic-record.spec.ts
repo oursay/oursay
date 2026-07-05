@@ -21,23 +21,11 @@ import { CivicHttpClient, DevPasskeyConnector, IdentitySession } from "@oursay/i
 import type { Intent, ThreadRef } from "@oursay/identity";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount, limitedSessionAccount } from "./helpers/account.js";
 
-const ADULT_DOB = "1990-06-15";
 const JURISDICTION = "ab-ca-gov";
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 const validJoin = () => ({ threadId: randomUUID(), jurisdiction: JURISDICTION, signerPubkey: "02".padEnd(66, "a"), commitment: "a".repeat(64) });
-
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
-}
 
 interface Member {
   userId: string;
@@ -226,14 +214,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
   });
 
   it("rejects join from a limited (recovery) session (403)", async () => {
-    const userId = randomUUID();
-    await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-    await w.services.repos.profile.insert({
-      userId, firstName: null, lastName: null,
-      line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-      memo: null, birthdate: ADULT_DOB, email: "civic-rec@example.com", emailCanonical: "civic-rec@example.com",
-    });
-    const limited = await w.services.authService.issue(userId, "recovery", "test");
+    const limited = await limitedSessionAccount(w, "civic-rec@example.com", "recovery");
     const res = await w.app.inject({ method: "POST", url: "/v1/civic/threads/join", headers: bearer(limited.token), payload: validJoin() });
     expect(res.statusCode).to.equal(403);
   });

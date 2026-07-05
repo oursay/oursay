@@ -2,29 +2,16 @@
 // public.device_keys. These are separate from account-login passkeys, and the platform stores the
 // PUBLIC key only. A user may enroll several (multi-device). Revocation is owner-scoped.
 
-import { randomUUID } from "node:crypto";
 import { expect } from "chai";
 import { p256 } from "@noble/curves/p256";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount, limitedSessionAccount } from "./helpers/account.js";
 
-const ADULT_DOB = "1990-06-15";
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
 /** A fresh uncompressed SEC1 P-256 public key in hex — the platform never sees the private key. */
 function newDevicePubkey(): string {
   return Buffer.from(p256.getPublicKey(p256.utils.randomPrivateKey(), false)).toString("hex");
-}
-
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
 }
 
 describe("11 civic devices: enroll, list, revoke (authenticated, pubkey-only)", () => {
@@ -114,14 +101,7 @@ describe("11 civic devices: enroll, list, revoke (authenticated, pubkey-only)", 
   });
 
   it("requires a full session (a limited scope cannot enroll civic keys)", async () => {
-    const userId = randomUUID();
-    await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-    await w.services.repos.profile.insert({
-      userId, firstName: null, lastName: null,
-      line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-      memo: null, birthdate: ADULT_DOB, email: "civic-recovery@example.com", emailCanonical: "civic-recovery@example.com",
-    });
-    const limited = await w.services.authService.issue(userId, "recovery", "test");
+    const limited = await limitedSessionAccount(w, "civic-recovery@example.com", "recovery");
     const res = await w.app.inject({
       method: "POST",
       url: "/v1/civic/devices",
