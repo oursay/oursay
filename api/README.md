@@ -214,12 +214,20 @@ npm run db:up -w @oursay/public-record       # or: npm run db:up -w @oursay/api 
 cp api/.env.example api/.env                 # optional; dev defaults work out of the box
 npm run dev -w @oursay/api
 
-# 3. Tests (integration; need the DB from step 1)
+# 3. Seed the dev corpus (mock wireframe → real civic writes; re-run after test suites wipe the DB)
+npm run seed -w @oursay/api
+
+# 4. Tests (integration; need the DB from step 1)
 npm test -w @oursay/api
 
-# 4. Regenerate the committed human-readable spec after changing routes
+# 5. Regenerate the committed human-readable spec after changing routes
 npm run openapi:dump -w @oursay/api          # writes api/openapi.yaml
 ```
+
+`npm run seed -w @oursay/api` wipes auth + record rows (not production), ingests Alberta districts
+when `geo.districts` is empty, creates ~17 accounts, and writes ~12 root records through
+`CivicHttpClient` + `DevPasskeyConnector`. Manifest: `api/.oursay-dev/seed-manifest.json` (maps mock
+slugs → UUID entity ids). Pair with `NEXT_PUBLIC_MOCK_ONLY=0` in the web-app for a live feed.
 
 `npm run db:down` wipes Docker volumes — **destructive, dev-only**. The test reset and `db:down` are
 guarded by `scripts/destructive-guard.ts` and refuse to run under `NODE_ENV=production`.

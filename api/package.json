@@ -13,6 +13,7 @@
     "start": "NODE_ENV=production tsx src/http/serve.ts",
     "cli": "tsx src/cli/index.ts",
     "openapi:dump": "tsx scripts/openapi-dump.ts",
+    "seed": "tsx scripts/seed.ts",
     "db:up": "npm run db:up -w @oursay/public-record",
     "db:down": "npm run db:down -w @oursay/public-record",
     "test": "mocha",
