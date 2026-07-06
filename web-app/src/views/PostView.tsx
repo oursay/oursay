@@ -52,7 +52,7 @@ function countNodes(nodes: CommentNode[]): number {
 export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const app = useApp();
   const router = useRouter();
-  const { setPageJurisdiction, setPostDistricts, viewer, feedFilter } = app;
+  const { setPageJurisdiction, setPostDistricts, viewer, feedFilter, hydrateRecordState } = app;
 
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
@@ -99,12 +99,12 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           return [n.id, ...n.replies.flatMap(collect)].filter(Boolean) as string[];
         }),
       ];
-      app.hydrateRecordState(ids);
+      hydrateRecordState(ids);
     });
     return () => {
       active = false;
     };
-  }, [id, viewer, feedFilter, setPostDistricts, app]);
+  }, [id, viewer, feedFilter, setPostDistricts, hydrateRecordState]);
 
   // Restore this post's remembered thread anonymity (demo cookie memory).
   useEffect(() => {

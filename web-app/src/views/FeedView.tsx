@@ -13,7 +13,7 @@ import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function FeedView() {
   const app = useApp();
-  const { setPageJurisdiction, feedFilter, viewer } = app;
+  const { setPageJurisdiction, feedFilter, viewer, hydrateRecordState } = app;
   const router = useRouter();
   const [items, setItems] = useState<FeedItem[] | null>(null);
 
@@ -27,14 +27,14 @@ export function FeedView() {
       (rows) => {
         if (active) {
           setItems(rows);
-          app.hydrateRecordState(rows.map((r) => r.id));
+          hydrateRecordState(rows.map((r) => r.id));
         }
       },
     );
     return () => {
       active = false;
     };
-  }, [feedFilter, viewer, app]);
+  }, [feedFilter, viewer, hydrateRecordState]);
 
   if (items === null) {
     return <p className="p-6 text-center text-sm text-muted">Loading feed…</p>;

@@ -39,6 +39,8 @@ export interface SeedRoot {
   districts?: string[];
   pollOptions?: string[];
   petitionRules?: { appliesToDistrictIds?: string[]; allowRevoke?: boolean };
+  /** Graduation backward edge (CONTRACT §11): a poll that graduated from a petition. */
+  sourcePetitionId?: string;
   sourcePollId?: string;
   resultTallies?: { option: string; count: number }[];
   /** Post-create update (edit count demo). */
@@ -208,6 +210,7 @@ export const SEED_ROOTS: SeedRoot[] = [
     author: "ableg",
     title: "Twin the river-valley path — fund it in 2027?",
     body: "Graduated from Wei Chen's petition after it passed the signature threshold.",
+    sourcePetitionId: rid("pet-wei-path"),
     pollOptions: ["Yes — fund it in 2027", "No — defer to a later budget"],
     votes: [
       { handle: "weichen", option: "Yes — fund it in 2027" },

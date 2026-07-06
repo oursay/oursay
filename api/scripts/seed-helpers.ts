@@ -241,6 +241,7 @@ export async function seedRoot(
         content: {
           question: root.title,
           options: root.pollOptions ?? ["Yes", "No"],
+          ...(root.sourcePetitionId ? { sourcePetitionId: root.sourcePetitionId } : {}),
         },
       },
       { sign },
