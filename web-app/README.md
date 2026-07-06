@@ -96,11 +96,46 @@ gated exactly as production will be.
 | Edit history, account settings, recovery | Toast "not built" | Real screens |
 | Navigation targets | Representative sample per `kind` / `handle` / `slug` | Route by real `entityId` |
 
-### `NEXT_PUBLIC_MOCK_ONLY`
+### `NEXT_PUBLIC_MOCK_ONLY` — mock vs. live
 
-The app is mock-only today, so no flag is required to run it. When the API module
-swaps to live `fetch('/v1/public/...')` calls, keep `NEXT_PUBLIC_MOCK_ONLY=true`
-(the default) to force the mock path and unset it to hit the real endpoints.
+The web-app runs in two modes. The flag defaults to mock, so `npm run dev` with no
+env is the offline demo.
+
+**Mock mode (default — no backend needed):**
+
+```bash
+npm run dev -w @oursay/web-app        # http://localhost:3000, mock corpus
+```
+
+`NEXT_PUBLIC_MOCK_ONLY` unset / `1` / `true` → the `src/lib/api/*` layer reads the
+ported mock corpus. No API, no Postgres. Auth, KYC, and civic writes are stubbed.
+
+**Live mode (against `@oursay/api`):**
+
+```bash
+# 1. Backend (separate terminal) — Postgres + API on :6173
+npm run db:up -w @oursay/api
+npm run seed  -w @oursay/api          # ports the mock corpus through the real signed write path
+npm run dev   -w @oursay/api          # API on http://localhost:6173
+
+# 2. Web-app in live mode
+NEXT_PUBLIC_MOCK_ONLY=0 npm run dev -w @oursay/web-app   # http://localhost:3000
+```
+
+`NEXT_PUBLIC_MOCK_ONLY=0` (or `false`) → every `src/lib/api/*` function hits the real
+API. Next's `rewrites()` proxies `/v1/*` → `http://localhost:6173` same-origin (override
+with `OURSAY_API_URL`), so the session cookie flows without CORS. Register with a real
+email OTP (the dev mailer prints the code to the API console), enroll a passkey, then
+browse the seeded corpus and post/comment/vote for real.
+
+> **KYC in dev:** keep `KYC_PROVIDER=stub` in `api/.env` for the web-app walk — the dev
+> "Get Verified" button uses `POST /v1/dev/kyc/attest`, which awards a tier offline. The
+> Didit provider (`KYC_PROVIDER=didit`) is wired on the backend and sandbox-proven, but the
+> hosted-session flow is not yet called from the UI (see the repo's ROADMAP gaps A/B); under
+> `didit` the dev attest button 403s by design. Validate Didit separately via the api specs.
+
+Re-run `npm run seed -w @oursay/api` after running the api test suite — the tests share the
+dev DB on 5442 and truncate it.
 
 ## Folder map
 

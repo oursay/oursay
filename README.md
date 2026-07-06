@@ -74,6 +74,11 @@ Postgres) → `npm run dev -w @oursay/api` → Swagger UI at `/docs`, and a dev-
 harness at [`/walk`](http://localhost:8080/walk) for clicking through register → passkey → recovery on
 a real browser. See [`api/README.md`](api/README.md) for the full dev cycle.
 
+**Running the web app ([`@oursay/web-app`](web-app/README.md)):** `npm run dev -w @oursay/web-app`
+for the offline mock demo, or run it in live mode against the API (`npm run seed -w @oursay/api`
+then `NEXT_PUBLIC_MOCK_ONLY=0 npm run dev -w @oursay/web-app`). Both modes are documented in
+[`web-app/README.md`](web-app/README.md).
+
 ---
 
 ## Start Here: Foundational Documents
