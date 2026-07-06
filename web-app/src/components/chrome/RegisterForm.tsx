@@ -1,13 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import { Mail, ShieldCheck } from "lucide-react";
 import { Button, Modal, ModalField } from "@/components/ui";
+
+export interface RegisterFormData {
+  email: string;
+  handle: string;
+  displayName?: string;
+  over18: boolean;
+}
 
 interface RegisterFormProps {
   open: boolean;
   onClose: () => void;
-  /** Advances to the OTP step (no real submission). */
-  onSubmit?: () => void;
+  /** Advances to the OTP step. Mock: no args; live: sends registration payload. */
+  onSubmit?: (data?: RegisterFormData) => void;
 }
 
 function SectionLabel({ children }: { children: string }) {
@@ -18,8 +26,25 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
-/** Near-full-screen registration form (presentational only — no submit logic). */
+/** Registration form — mock advances with no payload; live sends email/handle/over18. */
 export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
+  const [handle, setHandle] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [over18, setOver18] = useState(true);
+
+  const submit = () => {
+    const h = handle.trim().replace(/^@/, "");
+    const e = email.trim();
+    if (!h || !e) return;
+    onSubmit?.({
+      email: e,
+      handle: h,
+      displayName: displayName.trim() || undefined,
+      over18,
+    });
+  };
+
   return (
     <Modal
       open={open}
@@ -31,15 +56,32 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
     >
       <div className="space-y-3">
         <SectionLabel>Public profile</SectionLabel>
-        <ModalField label="Handle" placeholder="@jane_alberta" />
+        <ModalField
+          label="Handle"
+          placeholder="@jane_alberta"
+          value={handle}
+          onChange={(e) => setHandle(e.target.value)}
+        />
         <ModalField
           label="Display name (optional)"
           placeholder="Jane — defaults to your handle"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
         />
-        <ModalField label="Email" placeholder="jane@example.ca" />
+        <ModalField
+          label="Email"
+          placeholder="jane@example.ca"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
         <label className="flex items-center gap-2 pt-1 text-sm text-ink">
-          <input type="checkbox" defaultChecked className="size-4 rounded border-border" />
+          <input
+            type="checkbox"
+            checked={over18}
+            onChange={(e) => setOver18(e.target.checked)}
+            className="size-4 rounded border-border"
+          />
           I am 18 or older
           <span className="text-xs text-muted">— stored as a yes/no flag</span>
         </label>
@@ -64,12 +106,13 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
               We&apos;ll email you a 6-digit code
             </p>
             <p className="text-xs text-muted">
-              Verify it on the next step, then add a passkey
+              Verify it on the next step, then add a passkey. In dev the API
+              console prints the code.
             </p>
           </div>
         </div>
 
-        <Button fullWidth icon={Mail} onClick={onSubmit}>
+        <Button fullWidth icon={Mail} onClick={submit}>
           Send Verification Code
         </Button>
       </div>

@@ -95,6 +95,10 @@ export interface AppState {
   loggedIn: boolean;
   kycTier: VerificationTier;
   viewerDistricts: string[];
+  /** Live-session @handle (mock falls back to MY_HANDLE in viewerFromState). */
+  accountHandle?: string;
+  /** Registration email in flight (OTP step subtitle). */
+  authEmail?: string;
   /** Account-default profile visibility (persisted; docs/09 cascade base). */
   accountVisibility: AuthorVisibility;
   /** Registered passkey/device labels (wireframe deviceCount). */

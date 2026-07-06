@@ -7,9 +7,11 @@ import {
   type FeedScope,
   type ViewerContext,
 } from "@/lib/types";
+import { apiGet, buildQuery, isMockOnly } from "./client";
 import { withScopeJurisdictionDistricts } from "./geo-scope";
 import { anonymizeFeedItem } from "./identity";
 import { getJurisdictionMembership } from "./membership";
+import { kindToWireType, mapFeedItem } from "./map";
 
 /** Inputs for a list query. All optional so callers can start from defaults. */
 export interface ListFeedParams {
@@ -19,6 +21,54 @@ export interface ListFeedParams {
   filter?: FeedFilterParams;
   /** Viewer context; defaults to a logged-out anon reader. */
   viewer?: ViewerContext;
+}
+
+async function listFeedItemsMock(params: ListFeedParams): Promise<FeedItem[]> {
+  const scope = params.scope ?? "feed";
+  const viewer = params.viewer ?? ANON_VIEWER;
+  let filter: FeedFilterParams = { ...params.filter };
+
+  if (scope === "feed" && !filter.jurisdictions) {
+    filter.jurisdictions = await getJurisdictionMembership();
+  }
+
+  filter = withScopeJurisdictionDistricts(filter, scope);
+
+  return POSTS.filter((item) => matches(item, scope, viewer, filter)).map(
+    (item) => anonymizeFeedItem(item, viewer),
+  );
+}
+
+async function listFeedItemsLive(params: ListFeedParams): Promise<FeedItem[]> {
+  const scope = params.scope ?? "feed";
+  const viewer = params.viewer ?? ANON_VIEWER;
+  let filter: FeedFilterParams = { ...params.filter };
+
+  if (scope === "feed" && !filter.jurisdictions) {
+    filter.jurisdictions = await getJurisdictionMembership();
+  }
+
+  filter = withScopeJurisdictionDistricts(filter, scope);
+
+  const jurisdictions = filter.jurisdictions
+    ?.filter((j) => j.included)
+    .map((j) => j.id);
+  const types = filter.types?.map(kindToWireType);
+  const qs = buildQuery({
+    jurisdictions,
+    types,
+    tierMin: filter.tierMin,
+    signedMin: filter.signedFilter,
+    limit: 100,
+  });
+
+  const res = await apiGet<{ items: Record<string, unknown>[] }>(
+    `/v1/public/feed${qs}`,
+  );
+  if (!res) return [];
+
+  const items = res.items.map(mapFeedItem);
+  return items.filter((item) => matches(item, scope, viewer, filter));
 }
 
 /**
@@ -35,20 +85,6 @@ export interface ListFeedParams {
 export async function listFeedItems(
   params: ListFeedParams = {},
 ): Promise<FeedItem[]> {
-  const scope = params.scope ?? "feed";
-  const viewer = params.viewer ?? ANON_VIEWER;
-  let filter: FeedFilterParams = { ...params.filter };
-
-  // Feed scope filters by subscribed + included jurisdictions (cookie-shaped).
-  if (scope === "feed" && !filter.jurisdictions) {
-    filter.jurisdictions = await getJurisdictionMembership();
-  }
-
-  // The My Jurisdiction district universe is resolved HERE, per scope — the
-  // client never sends it (see geo-scope.ts).
-  filter = withScopeJurisdictionDistricts(filter, scope);
-
-  return POSTS.filter((item) => matches(item, scope, viewer, filter)).map(
-    (item) => anonymizeFeedItem(item, viewer),
-  );
+  if (isMockOnly()) return listFeedItemsMock(params);
+  return listFeedItemsLive(params);
 }

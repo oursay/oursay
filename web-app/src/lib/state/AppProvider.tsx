@@ -70,6 +70,16 @@ import {
   writeSubscriptions,
   writeTheme,
 } from "./cookies";
+import { isMockOnly } from "@/lib/api/client";
+import type { RegisterFormData } from "@/components/chrome/RegisterForm";
+import {
+  enrollPasskey,
+  loginWithPasskey,
+  logout as apiLogout,
+  requestRegistrationOtp,
+  verifyRegistrationOtp,
+} from "@/lib/api/auth";
+import { devAttestKyc, fetchAccountContext } from "@/lib/api/me";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 const ALL_ACTIVITY: ActivityKind[] = [
@@ -213,8 +223,8 @@ export interface AppApi {
   openAuth: () => void;
   closeAuth: () => void;
   goRegister: () => void;
-  submitRegister: () => void;
-  completeOtp: () => void;
+  submitRegister: (data?: RegisterFormData) => void;
+  completeOtp: (code?: string) => void;
   goLogin: () => void;
   loginPasskey: () => void;
   loginVerifyEmail: () => void;
@@ -294,6 +304,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(INITIAL_APP_STATE);
   const pendingCommit = useRef<(() => void) | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userIdRef = useRef<string | null>(null);
+  const authDraftRef = useRef<RegisterFormData | null>(null);
   // Skip the mount-time session write so it can't clobber the cookie before
   // the persisted values are hydrated in.
   const sessionHydrated = useRef(false);
@@ -302,20 +314,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, ...patch }));
   }, []);
 
-  // Load persisted subscriptions + session (login/KYC) on mount; persist on
-  // every change. viewerDistricts is derived from the restored KYC tier.
+  // Load persisted subscriptions + session on mount. Live mode hydrates from API.
   useEffect(() => {
-    const session = readSession();
-    setState((s) => ({
-      ...s,
-      subscriptions: readSubscriptions(),
-      loggedIn: session.loggedIn,
-      kycTier: session.kycTier,
-      viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
-      accountVisibility: session.accountVisibility,
-      theme: readTheme(),
-      signing: readSigning(),
-    }));
+    if (isMockOnly()) {
+      const session = readSession();
+      setState((s) => ({
+        ...s,
+        subscriptions: readSubscriptions(),
+        loggedIn: session.loggedIn,
+        kycTier: session.kycTier,
+        viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
+        accountVisibility: session.accountVisibility,
+        theme: readTheme(),
+        signing: readSigning(),
+      }));
+      return;
+    }
+    let active = true;
+    fetchAccountContext().then((account) => {
+      if (!active) return;
+      if (!account) {
+        setState((s) => ({
+          ...s,
+          subscriptions: readSubscriptions(),
+          theme: readTheme(),
+        }));
+        return;
+      }
+      userIdRef.current = account.userId;
+      setState((s) => ({
+        ...s,
+        loggedIn: true,
+        kycTier: account.kycTier,
+        viewerDistricts: account.viewerDistricts,
+        accountHandle: account.handle,
+        accountVisibility: account.accountVisibility,
+        subscriptions: account.subscriptions,
+        signing: account.signing,
+        theme: readTheme(),
+      }));
+    });
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Drive the dark stylesheet: the `dark` class on <html> flips every semantic
@@ -340,6 +381,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     writeSubscriptions(state.subscriptions);
   }, [state.subscriptions]);
   useEffect(() => {
+    if (!isMockOnly()) return;
     if (!sessionHydrated.current) {
       sessionHydrated.current = true;
       return;
@@ -407,15 +449,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     notify("Signed in (demo). Validate your ID to build up verification.");
   }, [notify]);
 
+  const applyAccount = useCallback(
+    (account: Awaited<ReturnType<typeof fetchAccountContext>>) => {
+      if (!account) return;
+      userIdRef.current = account.userId;
+      setState((s) => ({
+        ...s,
+        loggedIn: true,
+        kycTier: account.kycTier,
+        viewerDistricts: account.viewerDistricts,
+        accountHandle: account.handle,
+        accountVisibility: account.accountVisibility,
+        subscriptions: account.subscriptions,
+        signing: account.signing,
+        authOpen: false,
+        registerOpen: false,
+        otpOpen: false,
+        loginOpen: false,
+      }));
+    },
+    [],
+  );
+
   const logout = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      loggedIn: false,
-      kycTier: 0,
-      viewerDistricts: [],
-      profileOpen: false,
-    }));
-    notify("Signed out.");
+    const finish = () => {
+      userIdRef.current = null;
+      setState((s) => ({
+        ...s,
+        loggedIn: false,
+        kycTier: 0,
+        viewerDistricts: [],
+        accountHandle: undefined,
+        profileOpen: false,
+      }));
+      notify("Signed out.");
+    };
+    if (isMockOnly()) {
+      finish();
+      return;
+    }
+    apiLogout().then(finish).catch(() => finish());
   }, [notify]);
 
   // Wireframe addDeviceBtn: registers a passkey on this device (count grows).
@@ -459,17 +532,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cycleKyc = useCallback(() => {
-    // Cycle the full ladder incl. Official (tier 3) so the demo can exercise
-    // official-authored data: Unverified → Identity → Residency → Official.
+    if (isMockOnly()) {
+      setState((s) => {
+        const next = ((s.kycTier + 1) % 4) as VerificationTier;
+        return {
+          ...s,
+          kycTier: next,
+          viewerDistricts: next >= 2 ? MY_DISTRICTS : [],
+        };
+      });
+      return;
+    }
     setState((s) => {
-      const next = ((s.kycTier + 1) % 4) as VerificationTier;
-      return {
-        ...s,
-        kycTier: next,
-        viewerDistricts: next >= 2 ? MY_DISTRICTS : [],
-      };
+      void devAttestKyc(s.kycTier)
+        .then(() => fetchAccountContext())
+        .then((account) => {
+          if (account) applyAccount(account);
+        })
+        .catch((e: Error) => notify(e.message));
+      return s;
     });
-  }, []);
+  }, [applyAccount, notify]);
 
   const openAuth = useCallback(() => {
     set({
@@ -712,15 +795,69 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [set],
   );
   const submitRegister = useCallback(
-    () => set({ registerOpen: false, otpOpen: true }),
-    [set],
+    (data?: RegisterFormData) => {
+      if (isMockOnly() || !data) {
+        set({ registerOpen: false, otpOpen: true });
+        return;
+      }
+      authDraftRef.current = data;
+      void requestRegistrationOtp(data.email).then(() => {
+        set({
+          registerOpen: false,
+          otpOpen: true,
+          authEmail: data.email,
+        });
+        notify("Code sent — check the API server console in dev.");
+      }).catch((e: Error) => notify(e.message));
+    },
+    [set, notify],
   );
-  const completeOtp = useCallback(() => demoLogin(), [demoLogin]);
+  const completeOtp = useCallback(
+    (code?: string) => {
+      if (isMockOnly()) {
+        demoLogin();
+        return;
+      }
+      const draft = authDraftRef.current;
+      if (!draft || !code) return;
+      void (async () => {
+        try {
+          const reg = await verifyRegistrationOtp(draft.email, code, {
+            handle: draft.handle,
+            displayName: draft.displayName,
+            over18: draft.over18,
+          });
+          userIdRef.current = reg.userId;
+          await enrollPasskey();
+          const login = await loginWithPasskey();
+          userIdRef.current = login.userId;
+          const account = await fetchAccountContext();
+          applyAccount(account);
+          notify("Account created — signed in with passkey.");
+        } catch (e) {
+          notify(e instanceof Error ? e.message : "Registration failed.");
+        }
+      })();
+    },
+    [demoLogin, applyAccount, notify],
+  );
   const goLogin = useCallback(
     () => set({ authOpen: false, loginOpen: true }),
     [set],
   );
-  const loginPasskey = useCallback(() => demoLogin(), [demoLogin]);
+  const loginPasskey = useCallback(() => {
+    if (isMockOnly()) {
+      demoLogin();
+      return;
+    }
+    void loginWithPasskey()
+      .then(async (res) => {
+        userIdRef.current = res.userId;
+        applyAccount(await fetchAccountContext());
+        notify("Signed in.");
+      })
+      .catch((e: Error) => notify(e.message));
+  }, [demoLogin, applyAccount, notify]);
   const loginVerifyEmail = useCallback(
     () => set({ loginOpen: false, otpOpen: true }),
     [set],

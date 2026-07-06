@@ -10,11 +10,13 @@ import type {
   ViewerContext,
 } from "@/lib/types";
 import { ANON_VIEWER } from "@/lib/types";
+import { apiGet, isMockOnly } from "./client";
 import {
   lookupPersona,
   personaMapForThread,
   resolveAuthorIdentity,
 } from "./identity";
+import { mapPersonaProfile, wireTypeToKind } from "./map";
 
 /**
  * A persona's profile — the anonymous mirror of PublicProfile, scoped to one
@@ -76,7 +78,6 @@ function collectComments(
   }
 }
 
-/** Seeded non-comment activity within the thread (reactions/votes/signs). */
 function generateThreadActivity(
   personaName: string,
   threadId: string,
@@ -92,7 +93,7 @@ function generateThreadActivity(
   if (isAuthor) {
     items.push({
       kind: threadKind === "result" ? "statement" : threadKind,
-      text: `Posted “${title}”`,
+      text: `Posted "${title}"`,
       meta: `${1 + (seed % 6)}d`,
       recordId: threadId,
     });
@@ -101,23 +102,22 @@ function generateThreadActivity(
     items.push({
       kind: "comment",
       icon: "#ic-edit",
-      text: `Edited a comment on “${title}”`,
+      text: `Edited a comment on "${title}"`,
       meta: `${1 + ((seed + i) % 5)}d`,
       recordId: threadId,
     });
   }
-  // One seeded in-thread civic action matching the record type.
   if (threadKind === "petition" && !isAuthor) {
     items.push({
       kind: "petition",
-      text: `Signed “${title}”`,
+      text: `Signed "${title}"`,
       meta: `${2 + (seed % 5)}d`,
       recordId: threadId,
     });
   } else if (threadKind === "poll") {
     items.push({
       kind: "poll",
-      text: `Voted in “${title}”`,
+      text: `Voted in "${title}"`,
       meta: `${2 + (seed % 5)}d`,
       recordId: threadId,
     });
@@ -125,7 +125,7 @@ function generateThreadActivity(
     items.push({
       kind: "reaction",
       icon: seed % 3 === 0 ? "#ic-x" : "#ic-check",
-      text: `${seed % 3 === 0 ? "Disagreed" : "Agreed"} with “${title}”`,
+      text: `${seed % 3 === 0 ? "Disagreed" : "Agreed"} with "${title}"`,
       meta: `${2 + (seed % 5)}d`,
       recordId: threadId,
     });
@@ -133,7 +133,6 @@ function generateThreadActivity(
   return items;
 }
 
-/** Seeded in-thread mentions by other participants, resolved for the viewer. */
 function generateThreadMentions(
   personaName: string,
   handle: string,
@@ -152,7 +151,7 @@ function generateThreadMentions(
     `Agree with @${personaName} on this`,
     `@${personaName} — do you have a source for that?`,
   ];
-  const count = seed % 3; // 0-2 mentions
+  const count = seed % 3;
   const items: MentionItem[] = [];
   for (let i = 0; i < count; i++) {
     const otherHandle = roster[(seed + i * 3) % roster.length];
@@ -167,21 +166,16 @@ function generateThreadMentions(
       handle: identity.handle ?? identity.display,
       identity,
       text: texts[(seed + i) % texts.length],
-      meta: `on “${truncateTitle(threadTitle)}” · ${1 + ((seed + i) % 6)}d`,
+      meta: `on "${truncateTitle(threadTitle)}" · ${1 + ((seed + i) % 6)}d`,
       recordId: threadId,
     });
   }
   return items;
 }
 
-/**
- * Resolve a persona profile from its (globally unique) name. Unknown names
- * and real handles both resolve null — the caller renders the same not-found
- * state (hide existence, docs/09 §3). The persona→profile link never exists.
- */
-export async function getPersonaProfile(
+async function getPersonaProfileMock(
   personaName: string,
-  viewer: ViewerContext = ANON_VIEWER,
+  viewer: ViewerContext,
 ): Promise<PersonaProfile | null> {
   const owner = lookupPersona(personaName);
   if (!owner) return null;
@@ -216,7 +210,7 @@ export async function getPersonaProfile(
     support: {
       agrees,
       disagrees,
-      statements: 0, // persona pill shows comment count only
+      statements: 0,
       comments: comments.length,
     },
     comments,
@@ -236,4 +230,37 @@ export async function getPersonaProfile(
       viewer,
     ),
   };
+}
+
+async function getPersonaProfileLive(
+  personaName: string,
+): Promise<PersonaProfile | null> {
+  const raw = await apiGet<Record<string, unknown>>(
+    `/v1/public/personas/${encodeURIComponent(personaName)}`,
+  );
+  if (!raw) return null;
+
+  const threadId = String(raw.threadId);
+  const record = await apiGet<{
+    detail: Record<string, unknown>;
+  }>(`/v1/public/records/${encodeURIComponent(threadId)}`);
+  const threadKind = record
+    ? wireTypeToKind(String(record.detail.type))
+    : "statement";
+  const threadTitle = record ? String(record.detail.title) : "";
+
+  return mapPersonaProfile(raw, threadKind, threadTitle);
+}
+
+/**
+ * Resolve a persona profile from its (globally unique) name. Unknown names
+ * and real handles both resolve null — the caller renders the same not-found
+ * state (hide existence, docs/09 §3). The persona→profile link never exists.
+ */
+export async function getPersonaProfile(
+  personaName: string,
+  viewer: ViewerContext = ANON_VIEWER,
+): Promise<PersonaProfile | null> {
+  if (isMockOnly()) return getPersonaProfileMock(personaName, viewer);
+  return getPersonaProfileLive(personaName);
 }

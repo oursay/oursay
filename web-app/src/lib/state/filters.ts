@@ -10,7 +10,9 @@ export function viewerFromState(state: AppState): ViewerContext {
     loggedIn: state.loggedIn,
     kycTier: state.kycTier,
     viewerDistricts: state.viewerDistricts,
-    selfHandle: state.loggedIn ? MY_HANDLE : undefined,
+    selfHandle: state.loggedIn
+      ? (state.accountHandle ?? MY_HANDLE)
+      : undefined,
     selfVisibility: state.accountVisibility,
   };
 }

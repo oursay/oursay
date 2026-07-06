@@ -272,6 +272,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <OtpVerify
         open={state.otpOpen}
         onClose={() => app.closeAuth()}
+        email={state.authEmail}
         onRegisterPasskey={app.completeOtp}
         onResend={() => app.notify("A new code has been sent (demo).")}
       />

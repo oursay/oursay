@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 
 interface ModalFieldProps {
   label?: string;
   placeholder?: string;
   defaultValue?: string;
+  value?: string;
+  onChange?: (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   multiline?: boolean;
   rows?: number;
   maxLength?: number;
@@ -19,6 +21,8 @@ export function ModalField({
   label,
   placeholder,
   defaultValue,
+  value,
+  onChange,
   multiline = false,
   rows = 4,
   maxLength,
@@ -42,6 +46,8 @@ export function ModalField({
           rows={rows}
           placeholder={placeholder}
           defaultValue={defaultValue}
+          value={value}
+          onChange={onChange}
           maxLength={maxLength}
           className={className}
         />
@@ -51,8 +57,11 @@ export function ModalField({
             type="text"
             placeholder={placeholder}
             defaultValue={defaultValue}
-            maxLength={maxLength}
-            onChange={counted ? (e) => setLength(e.target.value.length) : undefined}
+            value={value}
+            onChange={
+              onChange ??
+              (counted ? (e) => setLength(e.target.value.length) : undefined)
+            }
             className={className}
           />
           {counted ? (

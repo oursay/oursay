@@ -8,7 +8,9 @@ import {
   type PublicProfile,
   type ViewerContext,
 } from "@/lib/types";
+import { apiGet, isMockOnly } from "./client";
 import { anonymizeFeedItem, resolveAuthorIdentity } from "./identity";
+import { mapActivityItem, mapFeedItem, mapProfileHeader } from "./map";
 
 /** Optional viewer context; profiles are scope-checked against it. */
 export interface GetProfileOptions {
@@ -21,11 +23,6 @@ function isSelf(handle: string, viewer: ViewerContext): boolean {
   );
 }
 
-/**
- * May this viewer see the profile behind `handle` at all? Out-of-scope
- * lookups resolve exactly like unknown handles (hide existence — docs/09 §3:
- * confirming a private account exists is itself a leak).
- */
 function profileVisibleTo(handle: string, viewer: ViewerContext): boolean {
   if (isSelf(handle, viewer)) return true;
   return isRevealed(
@@ -35,7 +32,6 @@ function profileVisibleTo(handle: string, viewer: ViewerContext): boolean {
   );
 }
 
-/** Third-party mention authors resolve like any other author in their thread. */
 function anonymizeMentions(
   mentions: MentionItem[],
   viewer: ViewerContext,
@@ -56,9 +52,9 @@ function anonymizeMentions(
   });
 }
 
-export async function getProfile(
+async function getProfileMock(
   handleOrId: string,
-  opts: GetProfileOptions = {},
+  opts: GetProfileOptions,
 ): Promise<PublicProfile | null> {
   const viewer = opts.viewer ?? ANON_VIEWER;
   const profile = getProfileByHandle(handleOrId);
@@ -66,30 +62,74 @@ export async function getProfile(
 
   return {
     ...profile,
-    // Owner's own posts (revealed by definition here) still run through the
-    // anonymizer for uniformity; mention authors are third parties and mask.
     posts: profile.posts.map((p) => anonymizeFeedItem(p, viewer)),
     mentions: anonymizeMentions(profile.mentions, viewer),
   };
+}
+
+async function fetchProfilePosts(handle: string): Promise<ProfilePost[]> {
+  const res = await apiGet<{ items: Record<string, unknown>[] }>(
+    `/v1/public/profiles/${encodeURIComponent(handle)}/posts?limit=100`,
+  );
+  return res?.items.map(mapFeedItem) ?? [];
+}
+
+async function fetchProfileActivity(handle: string): Promise<ActivityItem[]> {
+  const res = await apiGet<{ items: Record<string, unknown>[] }>(
+    `/v1/public/profiles/${encodeURIComponent(handle)}/activity?limit=100`,
+  );
+  return res?.items.map((row) => mapActivityItem(row)) ?? [];
+}
+
+async function getProfileLive(
+  handleOrId: string,
+  _opts: GetProfileOptions,
+): Promise<PublicProfile | null> {
+  const header = await apiGet<Record<string, unknown>>(
+    `/v1/public/profiles/${encodeURIComponent(handleOrId)}`,
+  );
+  if (!header) return null;
+
+  const [posts, activity] = await Promise.all([
+    fetchProfilePosts(handleOrId),
+    fetchProfileActivity(handleOrId),
+  ]);
+
+  return { ...mapProfileHeader(header), posts, activity, mentions: [] };
+}
+
+export async function getProfile(
+  handleOrId: string,
+  opts: GetProfileOptions = {},
+): Promise<PublicProfile | null> {
+  if (isMockOnly()) return getProfileMock(handleOrId, opts);
+  return getProfileLive(handleOrId, opts);
 }
 
 export async function listProfilePosts(
   handleOrId: string,
   opts: GetProfileOptions = {},
 ): Promise<ProfilePost[]> {
-  return (await getProfile(handleOrId, opts))?.posts ?? [];
+  if (isMockOnly()) return (await getProfileMock(handleOrId, opts))?.posts ?? [];
+  const header = await apiGet(`/v1/public/profiles/${encodeURIComponent(handleOrId)}`);
+  if (!header) return [];
+  return fetchProfilePosts(handleOrId);
 }
 
 export async function listProfileActivity(
   handleOrId: string,
   opts: GetProfileOptions = {},
 ): Promise<ActivityItem[]> {
-  return (await getProfile(handleOrId, opts))?.activity ?? [];
+  if (isMockOnly()) return (await getProfileMock(handleOrId, opts))?.activity ?? [];
+  const header = await apiGet(`/v1/public/profiles/${encodeURIComponent(handleOrId)}`);
+  if (!header) return [];
+  return fetchProfileActivity(handleOrId);
 }
 
 export async function listProfileMentions(
   handleOrId: string,
   opts: GetProfileOptions = {},
 ): Promise<MentionItem[]> {
-  return (await getProfile(handleOrId, opts))?.mentions ?? [];
+  if (isMockOnly()) return (await getProfileMock(handleOrId, opts))?.mentions ?? [];
+  return [];
 }

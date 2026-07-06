@@ -1,0 +1,152 @@
+import { describe, expect, it } from "vitest";
+import {
+  kindToWireType,
+  mapCommentNode,
+  mapFeedItem,
+  mapRecordDetail,
+  tokenToTier,
+  wireTypeToKind,
+} from "./map";
+
+describe("tokenToTier", () => {
+  it("maps KYC tokens to numeric tiers", () => {
+    expect(tokenToTier("unverified")).toBe(0);
+    expect(tokenToTier("identity_verified")).toBe(1);
+    expect(tokenToTier("residency_verified")).toBe(2);
+    expect(tokenToTier("electoral_validated")).toBe(2);
+  });
+
+  it("maps official role to tier 3", () => {
+    expect(tokenToTier("residency_verified", true)).toBe(3);
+  });
+});
+
+describe("wire type mapping", () => {
+  it("round-trips statement ↔ post", () => {
+    expect(kindToWireType("statement")).toBe("post");
+    expect(wireTypeToKind("post")).toBe("statement");
+  });
+});
+
+describe("mapFeedItem", () => {
+  it("maps appliesToDistrictIds to districts and type to kind", () => {
+    const item = mapFeedItem({
+      id: "x1",
+      type: "post",
+      jurisdiction: "ab-ca-gov",
+      tier: "identity_verified",
+      official: false,
+      signTier: 1,
+      appliesToDistrictIds: ["edmonton-strathcona"],
+      author: "Jane",
+      handle: "jane",
+      identity: {
+        display: "Jane",
+        handle: "jane",
+        isPersona: false,
+        isSelf: false,
+        seed: "jane",
+        threadId: "x1",
+      },
+      authorGeo: "none",
+      title: "Hello",
+      body: ["para"],
+      withheld: false,
+      comments: 2,
+      edits: 0,
+      ts: "2026-01-01T00:00:00Z",
+      up: 3,
+      down: 1,
+    });
+    expect(item.kind).toBe("statement");
+    expect(item.districts).toEqual(["edmonton-strathcona"]);
+    expect(item.tier).toBe(1);
+    expect(item.up).toBe(3);
+  });
+});
+
+describe("mapRecordDetail", () => {
+  it("sets interlink flags from wire ids", () => {
+    const detail = mapRecordDetail({
+      id: "poll-1",
+      type: "poll",
+      jurisdiction: "ab-ca-gov",
+      tier: "residency_verified",
+      official: false,
+      signTier: 1,
+      appliesToDistrictIds: [],
+      author: "A",
+      handle: "a",
+      identity: {
+        display: "A",
+        handle: "a",
+        isPersona: false,
+        isSelf: false,
+        seed: "a",
+        threadId: "poll-1",
+      },
+      authorGeo: "none",
+      title: "Budget",
+      body: [],
+      withheld: false,
+      ts: "2026-01-01T00:00:00Z",
+      edits: 0,
+      sourcePetitionId: "pet-1",
+      resultId: "res-1",
+    });
+    expect(detail.sourcePetition).toBe(true);
+    expect(detail.resultPublished).toBe(true);
+  });
+});
+
+describe("mapCommentNode", () => {
+  it("maps nested replies recursively", () => {
+    const node = mapCommentNode({
+      author: "p1",
+      handle: "p1",
+      tier: "unverified",
+      authorGeo: "none",
+      ts: "2026-01-01T00:00:00Z",
+      edits: 0,
+      signTier: 0,
+      body: ["hi"],
+      withheld: false,
+      up: 1,
+      down: 0,
+      identity: {
+        display: "p1",
+        handle: null,
+        isPersona: true,
+        isSelf: false,
+        seed: "p1",
+        threadId: "t1",
+      },
+      replies: [
+        {
+          author: "p2",
+          handle: "p2",
+          tier: "unverified",
+          authorGeo: "none",
+          ts: "2026-01-02T00:00:00Z",
+          edits: 0,
+          signTier: 0,
+          body: ["reply"],
+          withheld: false,
+          up: 0,
+          down: 0,
+          identity: {
+            display: "p2",
+            handle: null,
+            isPersona: true,
+            isSelf: false,
+            seed: "p2",
+            threadId: "t1",
+          },
+          replies: [],
+        },
+      ],
+    });
+    expect(node.replies).toHaveLength(1);
+    expect(node.replies[0].body).toEqual(["reply"]);
+  });
+});

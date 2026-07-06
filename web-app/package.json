@@ -16,6 +16,8 @@
   "dependencies": {
     "@dicebear/core": "^10.3.0",
     "@dicebear/styles": "^10.2.0",
+    "@oursay/identity": "*",
+    "@simplewebauthn/browser": "^13.1.0",
     "lucide-react": "^1.22.0",
     "next": "^16.2.9",
     "react": "^19.2.7",

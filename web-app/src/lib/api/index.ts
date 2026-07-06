@@ -1,3 +1,6 @@
+export * from "./client";
+export * from "./auth";
+export * from "./me";
 export * from "./feed";
 export * from "./record";
 export * from "./places";
@@ -5,3 +8,4 @@ export * from "./profile";
 export * from "./membership";
 export * from "./identity";
 export * from "./persona";
+export * from "./map";
