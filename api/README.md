@@ -291,9 +291,10 @@ npm run cli -w @oursay/api -- create-user "Jane" jane@example.com 1990-01-01
 
 See [`.env.example`](./.env.example). Notable keys: `SESSION_SECRET` (required in production),
 `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN`, OTP TTL + rate limits (`OTP_TTL_SEC` also bounds the gated-login
-window), `MIN_AGE_YEARS`, and per-role mailer vendor lists (`MAILER_REGISTRATION_VENDORS` /
-`MAILER_RECOVERY_VENDORS` / `MAILER_LOGIN_VENDORS`). PII is never logged; OTP codes are never logged
-or returned.
+window), `MIN_AGE_YEARS`, and mailer settings (`MAILER_OTP_USE_POSTMARK` or per-role vendor lists
+`MAILER_REGISTRATION_VENDORS` / `MAILER_RECOVERY_VENDORS` / `MAILER_LOGIN_VENDORS`). For production OTP
+delivery via Postmark, see [`docs/POSTMARK-OTP-SETUP.md`](../docs/POSTMARK-OTP-SETUP.md). PII is never
+logged; OTP codes are never logged or returned.
 
 ## Tests
 

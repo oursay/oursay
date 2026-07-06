@@ -241,14 +241,27 @@ function vendors(raw: string): MailerVendor[] {
     .filter((s): s is MailerVendor => s === "postmark" || s === "smtp" || s === "ses" || s === "noop");
 }
 
+/** Postmark server API token — official name POSTMARK_SERVER_TOKEN; POSTMARK_TOKEN is a legacy alias. */
+function postmarkToken(): string {
+  return process.env.POSTMARK_SERVER_TOKEN?.trim() || process.env.POSTMARK_TOKEN?.trim() || "";
+}
+
+/** OTP mail roles (registration, recovery, login). MAILER_OTP_USE_POSTMARK=true forces Postmark for all three. */
+function otpRoleVendors(roleEnv: string): MailerVendor[] {
+  if (env("MAILER_OTP_USE_POSTMARK", "false") === "true") {
+    return ["postmark"];
+  }
+  return vendors(env(roleEnv, "noop"));
+}
+
 export const mailerConfig: MailerConfig = {
   from: env("MAILER_FROM", "OurSay <no-reply@oursay.ca>"),
   roles: {
-    registration: vendors(env("MAILER_REGISTRATION_VENDORS", "noop")),
-    recovery: vendors(env("MAILER_RECOVERY_VENDORS", "noop")),
-    login: vendors(env("MAILER_LOGIN_VENDORS", "noop")),
+    registration: otpRoleVendors("MAILER_REGISTRATION_VENDORS"),
+    recovery: otpRoleVendors("MAILER_RECOVERY_VENDORS"),
+    login: otpRoleVendors("MAILER_LOGIN_VENDORS"),
   },
-  postmark: { token: env("POSTMARK_TOKEN", "") },
+  postmark: { token: postmarkToken() },
   smtp: {
     host: env("SMTP_HOST", ""),
     port: Number(env("SMTP_PORT", "587")),

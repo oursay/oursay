@@ -36,6 +36,9 @@ public-record/out/
 # @oursay/identity — simulated dev passkey custody (DevPasskeyConnector). NEVER commit key material.
 .oursay-dev/
 
+# @oursay/api — live Postmark smoke-test artifact (delete to re-run api/test/32-postmark-otp.spec.ts)
+api/test/.output/
+
 # OS / editor
 .DS_Store
 Thumbs.db
