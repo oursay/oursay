@@ -2,10 +2,15 @@
  * Authenticated `/v1/me/*` + profile hydration for AppProvider.
  */
 
-import type { AuthorVisibility, JurisdictionMembership, SigningPrefs, VerificationTier } from "@/lib/types";
+import type {
+  AuthorVisibility,
+  JurisdictionMembership,
+  SigningPrefs,
+  VerificationTier,
+} from "@/lib/types";
 import { ALBERTA_ID, DEFAULT_SIGNING, GLOBAL_ID } from "@/lib/types";
 import type { SignAction, SignMethod } from "@/lib/types";
-import { apiGet, apiPost, apiPut } from "./client";
+import { ApiError, apiGet, apiPatch, apiPost, apiPut, buildQuery } from "./client";
 import { tokenToTier } from "./map";
 
 export interface AccountContext {
@@ -20,6 +25,23 @@ export interface AccountContext {
   subscriptions: JurisdictionMembership[];
 }
 
+export interface RecordStateEntry {
+  _my: "up" | "down" | null;
+  _vote: string | null;
+  signed: boolean;
+  shared: boolean;
+}
+
+export interface ProfileAddressPatch {
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  country?: string;
+  memo?: string | null;
+}
+
 const KYC_CYCLE: Array<{ tier: VerificationTier; token: string }> = [
   { tier: 0, token: "unverified" },
   { tier: 1, token: "identity_verified" },
@@ -27,7 +49,7 @@ const KYC_CYCLE: Array<{ tier: VerificationTier; token: string }> = [
   { tier: 3, token: "residency_verified" },
 ];
 
-function mapSigningPrefs(raw: Record<string, string>): SigningPrefs {
+export function mapSigningPrefs(raw: Record<string, string>): SigningPrefs {
   const out = { ...DEFAULT_SIGNING };
   for (const action of Object.keys(DEFAULT_SIGNING) as SignAction[]) {
     const v = raw[action];
@@ -106,4 +128,103 @@ export async function putJurisdictionMemberships(
 ): Promise<void> {
   const jurisdictionIds = subs.map((s) => s.id);
   await apiPut("/v1/me/jurisdictions", { jurisdictionIds });
+}
+
+/** Batch read viewer participation markers (`GET /v1/me/record-state`). */
+export async function getRecordStates(
+  ids: string[],
+): Promise<Record<string, RecordStateEntry>> {
+  if (ids.length === 0) return {};
+  const qs = buildQuery({ ids });
+  const res = await apiGet<{ states: Record<string, RecordStateEntry> }>(
+    `/v1/me/record-state${qs}`,
+  );
+  return res?.states ?? {};
+}
+
+/** Record a share mark (`POST /v1/me/shares/{shareKey}`). */
+export async function postShareMark(
+  shareKey: string,
+): Promise<{ counted: boolean; count: number }> {
+  const res = await apiPost<{ counted: boolean; count: number }>(
+    `/v1/me/shares/${encodeURIComponent(shareKey)}`,
+  );
+  if (!res) throw new Error("share mark returned empty body");
+  return res;
+}
+
+/** Set or clear a per-thread visibility override (`PUT /v1/me/threads/{id}/visibility`). */
+export async function putThreadVisibility(
+  threadId: string,
+  visibility: AuthorVisibility | null,
+): Promise<void> {
+  await apiPut(`/v1/me/threads/${encodeURIComponent(threadId)}/visibility`, {
+    visibility,
+  });
+}
+
+/** Update account-default author visibility (`PATCH /v1/me/visibility`). */
+export async function patchAccountVisibility(
+  visibility: AuthorVisibility,
+): Promise<void> {
+  await apiPatch("/v1/me/visibility", { visibility });
+}
+
+/** Merge signing preferences (`PATCH /v1/me/signing-prefs`). */
+export async function patchSigningPrefs(
+  patch: Partial<Record<SignAction, SignMethod>>,
+): Promise<SigningPrefs> {
+  const raw = await apiPatch<Record<string, string>>("/v1/me/signing-prefs", patch);
+  return mapSigningPrefs(raw);
+}
+
+/** Update private profile fields (`PATCH /v1/profile`). */
+export async function patchProfile(body: ProfileAddressPatch): Promise<void> {
+  await apiPatch("/v1/profile", body);
+}
+
+/**
+ * Award residency verification after address is set.
+ * Uses `POST /v1/kyc/residency/attest` when available; dev-attest fallback until Didit (#6).
+ */
+export async function attestResidency(): Promise<void> {
+  try {
+    await apiPost("/v1/kyc/residency/attest", { consent: true });
+  } catch (e) {
+    if (e instanceof ApiError && (e.status === 404 || e.status === 501)) {
+      await apiPost("/v1/dev/kyc/attest", { tier: "residency_verified" });
+      return;
+    }
+    throw e;
+  }
+}
+
+/** Map record-state entries into AppProvider civic write maps. */
+export function applyRecordStates(
+  states: Record<string, RecordStateEntry>,
+  prev: {
+    reactions: Record<string, { dir: "up" | "down" } | null>;
+    votes: Record<string, string>;
+    shared: Record<string, true>;
+    petitionSig: Record<string, number>;
+  },
+): {
+  reactions: Record<string, { dir: "up" | "down" } | null>;
+  votes: Record<string, string>;
+  shared: Record<string, true>;
+  petitionSig: Record<string, number>;
+} {
+  const reactions = { ...prev.reactions };
+  const votes = { ...prev.votes };
+  const shared = { ...prev.shared };
+  const petitionSig = { ...prev.petitionSig };
+
+  for (const [id, st] of Object.entries(states)) {
+    if (st._my) reactions[id] = { dir: st._my };
+    if (st._vote) votes[id] = st._vote;
+    if (st.shared) shared[id] = true;
+    if (st.signed) petitionSig[id] = petitionSig[id] ?? 1;
+  }
+
+  return { reactions, votes, shared, petitionSig };
 }

@@ -62,6 +62,21 @@ export async function apiPost<T>(
   return (await res.json()) as T;
 }
 
+/** PATCH JSON. Throws on non-OK. */
+export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${apiBase()}${path}`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { Accept: "application/json", "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new ApiError(res.status, text || res.statusText);
+  }
+  return (await res.json()) as T;
+}
+
 /** PUT JSON. Throws on non-OK. */
 export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${apiBase()}${path}`, {
