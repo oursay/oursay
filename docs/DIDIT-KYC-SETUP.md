@@ -26,8 +26,32 @@ Code: `api/src/services/kyc/`, `api/src/services/kyc-session.service.ts`, `api/s
 3. Copy the **API key** into `DIDIT_API_KEY` (repo-root `.env` is loaded first).
 4. **Workflows** → copy a **published** Free KYC workflow id into `DIDIT_WORKFLOW_ID` (required; there is no repo-wide default because workflow ids are per Didit application).
 5. (Optional) Create and publish a **POA** workflow for paid proof-of-address; set `DIDIT_POA_WORKFLOW_ID`.
-6. **Webhooks** → add destination URL `https://<your-api>/v1/kyc/didit/webhook`, subscribe to `status.updated`, store the returned `secret_shared_key` as `DIDIT_WEBHOOK_SECRET`.
-7. Set `DIDIT_CALLBACK_URL` to where users return after the hosted flow (e.g. `https://oursay.ca/verification-complete`).
+6. **Webhooks** → add destination URL `https://<your-ngrok-host>/v1/kyc/didit/webhook`, subscribe to `status.updated`, store the returned `secret_shared_key` as `DIDIT_WEBHOOK_SECRET`.
+7. Set `DIDIT_CALLBACK_URL` to where users return after the hosted flow (e.g. `http://localhost:3000/profile/self`).
+
+### ngrok (local webhook testing)
+
+Tunnel the **API** port, not the Next.js port. With `api/.env` `PORT=6173`:
+
+```powershell
+# Terminal 1 — API (must have KYC_PROVIDER=didit)
+npm run dev -w @oursay/api
+
+# Terminal 2 — public tunnel to the API
+ngrok http 6173
+```
+
+Use the ngrok **https** URL in Didit:
+
+| Field | Value |
+|-------|--------|
+| Webhook URL | `https://<subdomain>.ngrok-free.app/v1/kyc/didit/webhook` |
+| Method | `POST` (Didit delivers events here) |
+| Probe | `GET https://<subdomain>.ngrok-free.app/v1/kyc/didit/webhook` → `{ "ok": true }` |
+
+After Didit shows the destination `secret_shared_key`, set `DIDIT_WEBHOOK_SECRET` in `api/.env` (or repo-root `.env`) and **restart the API**.
+
+The web app on `:3000` only proxies `/v1/*` for browser traffic; Didit webhooks must hit the API origin directly via ngrok → `:6173`.
 
 ## 2. Configure `@oursay/api`
 

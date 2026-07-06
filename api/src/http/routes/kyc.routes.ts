@@ -82,6 +82,29 @@ export async function registerKycRoutes(app: FastifyInstance, services: Services
       done(null, body);
     });
 
+    // Didit (and ngrok) URL checks — POST is the real webhook; GET confirms reachability.
+    webhookApp.get(
+      "/v1/kyc/didit/webhook",
+      {
+        schema: {
+          tags: ["kyc"],
+          hide: true,
+          summary: "Didit webhook reachability probe",
+          response: {
+            200: {
+              type: "object",
+              properties: {
+                ok: { type: "boolean" },
+                endpoint: { type: "string" },
+                method: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+      async () => ({ ok: true, endpoint: "didit-kyc-webhook", method: "POST" }),
+    );
+
     webhookApp.post(
       "/v1/kyc/didit/webhook",
       {

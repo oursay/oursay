@@ -23,6 +23,7 @@ import {
   pgConfig,
   registrationConfig,
   sessionConfig,
+  type KycConfig,
   type MailerVendor,
 } from "./config.js";
 import type { Db } from "./db.js";
@@ -75,6 +76,10 @@ export interface BuildOptions {
   /** Override the platform binding private key (hex) — tests inject an ephemeral key per run so the
    *  registry's binding signature and the RecordService's verification share it. */
   platformBindingPrivKeyHex?: string;
+  /** Override the KYC provider config. Tests inject an explicit provider (stub, or a real didit
+   *  config) so the suite never depends on the ambient KYC_PROVIDER a developer set for a live walk.
+   *  Defaults to the process-wide kycConfig. */
+  kyc?: KycConfig;
 }
 
 export interface Repos {
@@ -255,7 +260,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   });
 
   // KYC: pluggable provider (stub by default; didit/equifax) + session orchestration + attestations.
-  const kycStack = makeKycProviderStack(kycConfig);
+  const kycStack = makeKycProviderStack(opts.kyc ?? kycConfig);
   const kycProvider = kycStack.provider;
   const kycService = new KycService({ provider: kycProvider, recordStore, kycRepo: repos.kyc });
   const kycSessionService = new KycSessionService({
