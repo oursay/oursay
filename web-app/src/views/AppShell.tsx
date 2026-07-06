@@ -325,6 +325,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         accountVisibility={state.accountVisibility}
         composeVisibility={state.composeVisibility}
         onSelectVisibility={app.setComposeVisibility}
+        composeTitle={state.composeTitle}
+        composeBody={state.composeBody}
+        composePollOptions={state.composePollOptions}
+        onComposeTitleChange={app.setComposeTitle}
+        onComposeBodyChange={app.setComposeBody}
+        onComposePollOptionsChange={app.setComposePollOptions}
         onPost={app.submitCompose}
       />
       <SignModal
@@ -346,8 +352,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={app.closeChoose}
         title={state.choose?.title ?? ""}
         lines={state.choose?.lines ?? []}
-        onQuickSign={app.confirmChoose}
-        onPasskeySign={app.confirmChoose}
+        onQuickSign={() => app.confirmChoose("quick")}
+        onPasskeySign={() => app.confirmChoose("passkey")}
       />
       <AddJurisdictionModal
         open={state.addJurOpen}

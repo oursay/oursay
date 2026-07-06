@@ -71,6 +71,12 @@ import {
   writeTheme,
 } from "./cookies";
 import { isMockOnly } from "@/lib/api/client";
+import type { CivicSignMode } from "@/lib/api/civic-helpers";
+import {
+  parentTypeForKind,
+  reactionKindForDir,
+  resolveCivicSignMode,
+} from "@/lib/api/civic-helpers";
 import type { RegisterFormData } from "@/components/chrome/RegisterForm";
 import {
   enrollPasskey,
@@ -93,6 +99,9 @@ const ALL_ACTIVITY: ActivityKind[] = [
 /** A record shape the civic-write actions need (FeedItem or RecordDetail both fit). */
 interface CivicTarget {
   id: string;
+  kind?: RecordKind;
+  threadId?: string;
+  parentType?: "post" | "petition" | "poll" | "comment";
   jurisdiction: string;
   title: string;
   sig?: number;
@@ -100,6 +109,18 @@ interface CivicTarget {
   down?: number;
   districts: string[];
 }
+
+/** Context for posting a comment or reply in a thread. */
+export interface CommentWriteContext {
+  threadId: string;
+  jurisdiction: string;
+  targetTitle: string;
+  parentId: string;
+  parentType: "post" | "comment";
+  body: string;
+}
+
+type SignedCommit = (sign: CivicSignMode) => void;
 
 /** Pre-hydration defaults (exported for state-derivation tests). */
 export const INITIAL_APP_STATE: AppState = {
@@ -139,6 +160,9 @@ export const INITIAL_APP_STATE: AppState = {
   composeJur: undefined,
   composeType: undefined,
   composeVisibility: undefined,
+  composeTitle: "",
+  composeBody: "",
+  composePollOptions: ["", ""],
 
   sign: null,
   choose: null,
@@ -254,7 +278,7 @@ export interface AppApi {
   petitionSigFor: (target: CivicTarget) => number;
   hasSignedPetition: (id: string) => boolean;
   /** Gate a comment/reply post behind the account's comment signing method. */
-  postComment: (jurisdiction: string, targetTitle: string, done: () => void) => void;
+  postComment: (ctx: CommentWriteContext, done: () => void) => void;
 
   // Compose flow.
   startCompose: (inferredJurisdiction?: string) => void;
@@ -264,6 +288,9 @@ export interface AppApi {
   changeComposeJurisdiction: () => void;
   /** Per-post visibility override (defaults to the account level; may widen or narrow). */
   setComposeVisibility: (v: AuthorVisibility) => void;
+  setComposeTitle: (v: string) => void;
+  setComposeBody: (v: string) => void;
+  setComposePollOptions: (v: string[]) => void;
   submitCompose: () => void;
   closeCompose: () => void;
 
@@ -272,7 +299,7 @@ export interface AppApi {
   closeSign: () => void;
 
   // "Ask" Quick-vs-Passkey chooser.
-  confirmChoose: () => void;
+  confirmChoose: (sign: CivicSignMode) => void;
   closeChoose: () => void;
 
   // Post reply composer.
@@ -302,7 +329,7 @@ const AppContext = createContext<AppApi | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(INITIAL_APP_STATE);
-  const pendingCommit = useRef<(() => void) | null>(null);
+  const pendingCommit = useRef<SignedCommit | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userIdRef = useRef<string | null>(null);
   const authDraftRef = useRef<RegisterFormData | null>(null);
@@ -474,6 +501,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     const finish = () => {
       userIdRef.current = null;
+      if (!isMockOnly()) {
+        void import("@/lib/api/civic").then((m) => m.resetCivicClient());
+      }
       setState((s) => ({
         ...s,
         loggedIn: false,
@@ -873,8 +903,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const closeProfile = useCallback(() => set({ profileOpen: false }), [set]);
 
   // --- Sign modal ----------------------------------------------------------
+  const runCivicWrite = useCallback(
+    async (
+      action: SignAction,
+      jurisdiction: string,
+      sign: CivicSignMode,
+      write: (mode: CivicSignMode) => Promise<void>,
+      onSuccess: () => void,
+    ) => {
+      if (isMockOnly()) {
+        onSuccess();
+        return;
+      }
+      const userId = userIdRef.current;
+      if (!userId) {
+        notify("Sign in to continue.");
+        return;
+      }
+      const mode = resolveCivicSignMode(action, jurisdiction, state.signing, sign);
+      try {
+        await write(mode);
+        onSuccess();
+      } catch (e) {
+        notify(e instanceof Error ? e.message : "Write failed.");
+      }
+    },
+    [notify, state.signing],
+  );
+
   const openSign = useCallback(
-    (req: SignRequest, commit: () => void) => {
+    (req: SignRequest, commit: SignedCommit) => {
       pendingCommit.current = commit;
       set({ sign: req });
     },
@@ -885,7 +943,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const commit = pendingCommit.current;
     pendingCommit.current = null;
     set({ sign: null });
-    commit?.();
+    commit?.("passkey");
   }, [set]);
 
   const closeSign = useCallback(() => {
@@ -894,20 +952,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [set]);
 
   const openChoose = useCallback(
-    (req: ChooseSignRequest, commit: () => void) => {
+    (req: ChooseSignRequest, commit: SignedCommit) => {
       pendingCommit.current = commit;
       set({ choose: req });
     },
     [set],
   );
 
-  // Both chooser buttons (Quick Sign / Sign with Passkey) complete the action;
-  // the cryptographic tier differs, but the demo write is the same.
-  const confirmChoose = useCallback(() => {
+  const confirmChoose = useCallback((sign: CivicSignMode) => {
     const commit = pendingCommit.current;
     pendingCommit.current = null;
     set({ choose: null });
-    commit?.();
+    commit?.(sign);
   }, [set]);
 
   const closeChoose = useCallback(() => {
@@ -930,7 +986,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       jurisdiction: string,
       choose: ChooseSignRequest,
       passkeyReq: SignRequest | null,
-      commit: () => void,
+      commit: SignedCommit,
     ) => {
       const jurReq = jurisdictionSignRequirement(jurisdiction, action);
       const method = effectiveSignMethod(state.signing[action], jurReq);
@@ -939,18 +995,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (method === "passkey" && passkeyReq) {
-        // "Final" is derived: the jurisdiction is what demanded passkey (Alberta
-        // ledger act), so it carries the FINAL/residency/affected notices. A
-        // standing passkey preference shows the same confirmation without them.
         const isFinal = jurReq === "passkey";
-        // SignRequest.jurisdiction is modal COPY — resolve the id to its label.
         openSign(
           { ...passkeyReq, isFinal, jurisdiction: jurisdictionLabel(jurisdiction) },
           commit,
         );
         return;
       }
-      commit();
+      const sign: CivicSignMode = method === "quick" ? "quick" : "passkey";
+      commit(sign);
     },
     [state.signing, openChoose, openSign],
   );
@@ -959,9 +1012,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const react = useCallback(
     (target: CivicTarget, dir: "up" | "down") => {
       requireAuth(() => {
-        const commit = () =>
+        const prev = state.reactions[target.id]?.dir ?? null;
+        const toggleOff = prev === dir;
+
+        const commitLocal = () =>
           setState((s) => {
-            const prev = s.reactions[target.id]?.dir ?? null;
+            const prevDir = s.reactions[target.id]?.dir ?? null;
             const base = s.reactionCounts[target.id] ?? {
               up: target.up ?? 0,
               down: target.down ?? 0,
@@ -969,13 +1025,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
             let { up, down } = base;
             let nextReaction: "up" | "down" | null;
 
-            if (prev === dir) {
+            if (prevDir === dir) {
               if (dir === "up") up--;
               else down--;
               nextReaction = null;
             } else {
-              if (prev === "up") up--;
-              else if (prev === "down") down--;
+              if (prevDir === "up") up--;
+              else if (prevDir === "down") down--;
               if (dir === "up") up++;
               else down++;
               nextReaction = dir;
@@ -993,6 +1049,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
               },
             };
           });
+
+        if (toggleOff && !isMockOnly()) {
+          commitLocal();
+          return;
+        }
+
+        const parentType =
+          target.parentType ?? (target.kind ? parentTypeForKind(target.kind) : "post");
+        const threadId = target.threadId ?? target.id;
+
         runSigned(
           "reaction",
           target.jurisdiction,
@@ -1003,11 +1069,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
             showResidencyNotice: false,
             showAffectedNotice: false,
           },
-          commit,
+          (sign) => {
+            void runCivicWrite(
+              "reaction",
+              target.jurisdiction,
+              sign,
+              async (mode) => {
+                const civic = await import("@/lib/api/civic");
+                await civic.civicReaction(
+                  userIdRef.current!,
+                  civic.threadRef(threadId, target.jurisdiction),
+                  target.id,
+                  parentType,
+                  reactionKindForDir(dir),
+                  mode,
+                );
+              },
+              commitLocal,
+            );
+          },
         );
       });
     },
-    [requireAuth, runSigned],
+    [requireAuth, runSigned, runCivicWrite, state.reactions],
   );
 
   const reactionFor = useCallback(
@@ -1067,13 +1151,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
               state.kycTier >= 2 &&
               outsideMyDistricts(target, state.viewerDistricts),
           },
-          () => setVote(target, option),
+          (sign) => {
+            void runCivicWrite(
+              "vote",
+              target.jurisdiction,
+              sign,
+              async (mode) => {
+                const civic = await import("@/lib/api/civic");
+                await civic.civicVote(
+                  userIdRef.current!,
+                  civic.threadRef(target.id, target.jurisdiction),
+                  target.id,
+                  option,
+                  mode,
+                );
+              },
+              () => setVote(target, option),
+            );
+          },
         );
       });
     },
     [
       requireAuth,
       runSigned,
+      runCivicWrite,
       setVote,
       state.votes,
       state.kycTier,
@@ -1125,11 +1227,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
               state.kycTier >= 2 &&
               outsideMyDistricts(target, state.viewerDistricts),
           },
-          () => commitSign(target),
+          (sign) => {
+            void runCivicWrite(
+              "signature",
+              target.jurisdiction,
+              sign,
+              async (mode) => {
+                const civic = await import("@/lib/api/civic");
+                await civic.civicSignPetition(
+                  userIdRef.current!,
+                  civic.threadRef(target.id, target.jurisdiction),
+                  target.id,
+                  mode,
+                );
+              },
+              () => commitSign(target),
+            );
+          },
         );
       });
     },
-    [requireAuth, runSigned, commitSign, state.kycTier, state.viewerDistricts],
+    [requireAuth, runSigned, runCivicWrite, commitSign, state.kycTier, state.viewerDistricts],
   );
 
   // --- Compose flow --------------------------------------------------------
@@ -1187,6 +1305,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setComposeVisibility = useCallback((v: AuthorVisibility) => {
     setState((s) => ({ ...s, composeVisibility: v }));
   }, []);
+  const setComposeTitle = useCallback((v: string) => {
+    setState((s) => ({ ...s, composeTitle: v }));
+  }, []);
+  const setComposeBody = useCallback((v: string) => {
+    setState((s) => ({ ...s, composeBody: v }));
+  }, []);
+  const setComposePollOptions = useCallback((v: string[]) => {
+    setState((s) => ({ ...s, composePollOptions: v }));
+  }, []);
 
   const closeCompose = useCallback(
     () =>
@@ -1196,6 +1323,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         composeJur: undefined,
         composeType: undefined,
         composeVisibility: undefined,
+        composeTitle: "",
+        composeBody: "",
+        composePollOptions: ["", ""],
       }),
     [set],
   );
@@ -1206,26 +1336,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const label = state.composeType
       ? RECORD_TYPE_LABEL[state.composeType]
       : "post";
-    // Nothing persists (writes are stubbed), but the toast tells the anonymity
-    // story: when the effective visibility isn't public, name the per-thread
-    // persona out-of-scope viewers would see on the new thread.
     const effectiveVis = resolveVisibility(
       state.accountVisibility,
       state.composeVisibility,
     );
+    const title = state.composeTitle.trim() || `New ${label}`;
+    const body = state.composeBody.trim() || "(no details)";
     const finish = () => {
       closeCompose();
       notify(
         effectiveVis === "public"
-          ? `${label} published (demo).`
-          : `${label} published (demo) — out-of-scope viewers see you as ${personaNameFor(
-              MY_HANDLE,
-              `compose-${Date.now()}`,
-            )}.`,
+          ? isMockOnly()
+            ? `${label} published (demo).`
+            : `${label} published.`
+          : isMockOnly()
+            ? `${label} published (demo) — out-of-scope viewers see you as ${personaNameFor(
+                MY_HANDLE,
+                `compose-${Date.now()}`,
+              )}.`
+            : `${label} published — out-of-scope viewers see you as ${personaNameFor(
+                MY_HANDLE,
+                `compose-${Date.now()}`,
+              )}.`,
       );
     };
+    const composeAction = postActionForKind(kind);
     runSigned(
-      postActionForKind(kind),
+      composeAction,
       jur,
       { title: `Publish your ${label}`, lines: [`in ${jurisdictionLabel(jur)}`] },
       {
@@ -1235,15 +1372,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showResidencyNotice: state.kycTier < 2,
         showAffectedNotice: false,
       },
-      finish,
+      (sign) => {
+        void runCivicWrite(
+          composeAction,
+          jur,
+          sign,
+          async (mode) => {
+            const civic = await import("@/lib/api/civic");
+            const threadId = crypto.randomUUID();
+            await civic.civicCompose(
+              userIdRef.current!,
+              civic.threadRef(threadId, jur),
+              kind,
+              {
+                title,
+                body,
+                pollOptions: state.composePollOptions,
+              },
+              mode,
+            );
+          },
+          finish,
+        );
+      },
     );
   }, [
     state.composeJur,
     state.composeType,
+    state.composeTitle,
+    state.composeBody,
+    state.composePollOptions,
     state.kycTier,
     state.accountVisibility,
     state.composeVisibility,
     runSigned,
+    runCivicWrite,
     closeCompose,
     notify,
   ]);
@@ -1283,23 +1446,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // passkey here — the account default decides. `done` runs the actual write
   // (composer close + toast) after the signing method resolves.
   const postComment = useCallback(
-    (jurisdiction: string, targetTitle: string, done: () => void) => {
+    (ctx: CommentWriteContext, done: () => void) => {
       requireAuth(() => {
+        const body = ctx.body.trim();
+        if (!body) {
+          notify("Write something before posting.");
+          return;
+        }
         runSigned(
           "comment",
-          jurisdiction,
-          { title: "Post your comment", lines: [`on “${targetTitle}”`] },
+          ctx.jurisdiction,
+          { title: "Post your comment", lines: [`on “${ctx.targetTitle}”`] },
           {
             kind: "comment",
-            targetTitle,
+            targetTitle: ctx.targetTitle,
             showResidencyNotice: false,
             showAffectedNotice: false,
           },
-          done,
+          (sign) => {
+            void runCivicWrite(
+              "comment",
+              ctx.jurisdiction,
+              sign,
+              async (mode) => {
+                const civic = await import("@/lib/api/civic");
+                await civic.civicComment(
+                  userIdRef.current!,
+                  civic.threadRef(ctx.threadId, ctx.jurisdiction),
+                  ctx.parentId,
+                  ctx.parentType,
+                  body,
+                  mode,
+                );
+              },
+              done,
+            );
+          },
         );
       });
     },
-    [requireAuth, runSigned],
+    [requireAuth, runSigned, runCivicWrite, notify],
   );
 
   // --- View coordination ---------------------------------------------------
@@ -1398,6 +1584,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     changeComposeType,
     changeComposeJurisdiction,
     setComposeVisibility,
+    setComposeTitle,
+    setComposeBody,
+    setComposePollOptions,
     submitCompose,
     closeCompose,
     confirmSign,

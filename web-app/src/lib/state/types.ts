@@ -147,6 +147,10 @@ export interface AppState {
   composeType?: RecordKind;
   /** Per-post visibility override (defaults to accountVisibility; may widen or narrow); cleared on close. */
   composeVisibility?: AuthorVisibility;
+  /** Compose editor draft (cleared on close). */
+  composeTitle: string;
+  composeBody: string;
+  composePollOptions: string[];
 
   // Alberta sign confirmation (null when closed).
   sign: SignRequest | null;

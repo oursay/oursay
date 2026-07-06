@@ -11,6 +11,8 @@ export const COMMENT_MAX_DEPTH = 3;
  * `@handle` convention (a UI concern handled at render time).
  */
 export interface CommentNode {
+  /** Comment entity id (live API); absent on mock corpus rows. */
+  id?: string;
   author: string;
   handle: string;
   tier: VerificationTier;

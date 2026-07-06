@@ -213,6 +213,7 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
 /** Map a comment-node wire row (recursive). */
 export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
   const node: CommentNode = {
+    ...(typeof raw.id === "string" ? { id: raw.id } : {}),
     author: String(raw.author),
     handle: String(raw.handle),
     tier: tokenToTier(String(raw.tier)),

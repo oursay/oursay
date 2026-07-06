@@ -71,6 +71,8 @@ export interface RecordDetailDto {
 
 /** One comment node (mirror of web-app CommentNode). No raw districts; `replies` nests to depth ≤ 3. */
 export interface CommentNodeDto {
+  /** Stable comment entity id — required for civic writes (reactions, replies). */
+  id: string;
   author: string;
   handle: string;
   tier: KycTier;
@@ -251,6 +253,7 @@ export class RecordDetailService {
     const [up, down] = await this.reactionUpDown(node.state.entityId);
     const replies = await Promise.all(node.replies.map((r) => this.mapComment(r, res, ctx, my, editCounts)));
     return {
+      id: node.state.entityId,
       author: author.author,
       handle: author.handle,
       tier: author.tier,

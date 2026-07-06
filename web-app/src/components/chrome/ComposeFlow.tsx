@@ -48,6 +48,12 @@ interface ComposeFlowProps {
   /** Per-post visibility override (unset = account default; may widen or narrow). */
   composeVisibility?: AuthorVisibility;
   onSelectVisibility?: (v: AuthorVisibility) => void;
+  composeTitle?: string;
+  composeBody?: string;
+  composePollOptions?: string[];
+  onComposeTitleChange?: (v: string) => void;
+  onComposeBodyChange?: (v: string) => void;
+  onComposePollOptionsChange?: (v: string[]) => void;
   /** Submits (Global) or opens the passkey confirmation (Alberta). */
   onPost?: () => void;
 }
@@ -82,20 +88,24 @@ export function ComposeFlow({
   accountVisibility = "anonymous",
   composeVisibility,
   onSelectVisibility,
+  composeTitle = "",
+  composeBody = "",
+  composePollOptions = ["", ""],
+  onComposeTitleChange,
+  onComposeBodyChange,
+  onComposePollOptionsChange,
   onPost,
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
-  // Wireframe state.pollOptions — starts at the 2-option minimum.
-  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
-  // Alberta petition: optional attached poll (Alberta has no poll root type).
   const [petitionPollOpen, setPetitionPollOpen] = useState(false);
+  const pollOptions = composePollOptions;
+  const setPollOptions = onComposePollOptionsChange ?? (() => {});
   const effectiveVisibility = composeVisibility ?? accountVisibility;
   const viewer: ComposeViewer = { kycTier, role };
 
   useEffect(() => {
     if (!open) {
       setJurMenuOpen(false);
-      setPollOptions(["", ""]);
       setPetitionPollOpen(false);
     }
   }, [open]);
@@ -305,6 +315,8 @@ export function ComposeFlow({
                     ? "What are you calling for?"
                     : "A clear headline…"
                 }
+                value={composeTitle}
+                onChange={(e) => onComposeTitleChange?.(e.target.value)}
               />
               <ModalField
                 label="Details"
@@ -315,6 +327,8 @@ export function ComposeFlow({
                 }
                 multiline
                 rows={4}
+                value={composeBody}
+                onChange={(e) => onComposeBodyChange?.(e.target.value)}
               />
             </>
           )}

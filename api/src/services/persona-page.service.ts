@@ -102,6 +102,7 @@ export class PersonaPageService {
     const author = await res.resolveAuthor(node.state.authorPubkey, ctx);
     const [up, down] = await this.reactionUpDown(node.state.entityId);
     return {
+      id: node.state.entityId,
       author: author.author,
       handle: author.handle,
       tier: author.tier,

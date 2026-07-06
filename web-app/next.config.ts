@@ -4,6 +4,12 @@ import type { NextConfig } from "next";
 const API_ORIGIN = process.env.OURSAY_API_URL ?? "http://localhost:6173";
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@oursay/identity", "@oursay/public-record"],
+  experimental: {
+    extensionAlias: {
+      ".js": [".ts", ".tsx", ".js", ".jsx"],
+    },
+  },
   async rewrites() {
     return [
       {

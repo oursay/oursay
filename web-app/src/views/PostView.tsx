@@ -66,6 +66,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const [pendingVisibility, setPendingVisibility] = useState<AuthorVisibility | null>(null);
   // Inline comment reply composers, keyed by node path — several open at once.
   const [openReplies, setOpenReplies] = useState<Set<string>>(new Set());
+  const [rootReplyText, setRootReplyText] = useState("");
 
   const toggleCommentReply = (nodePath: string) => {
     setOpenReplies((prev) => {
@@ -148,13 +149,23 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   // Comment reactions reuse the record reaction machinery, keyed by a stable
   // per-comment id so counts/selection survive re-fetches and filter reordering.
   const commentTarget = (node: CommentNode) => ({
-    id: commentKey(detail.id, node),
+    id: node.id ?? commentKey(detail.id, node),
+    threadId: detail.id,
+    parentType: "comment" as const,
     jurisdiction: detail.jurisdiction,
     title: detail.title,
     up: node.up,
     down: node.down,
     districts: detail.districts,
   });
+
+  const reactionKeyFor = (node: CommentNode) =>
+    node.id ?? commentKey(detail.id, node);
+
+  const postCommentDone = (message: string, onClose?: () => void) => {
+    onClose?.();
+    app.notify(message);
+  };
 
   const chainPetition = GRADUATION_CHAIN.petition;
   const chainPoll = GRADUATION_CHAIN.poll;
@@ -335,6 +346,8 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             <textarea
               rows={3}
               placeholder="Write a reply…"
+              value={rootReplyText}
+              onChange={(e) => setRootReplyText(e.target.value)}
               className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
             />
             <div className="flex items-center gap-2">
@@ -342,7 +355,10 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 variant="ghost"
                 size="sm"
                 className="ml-auto"
-                onClick={() => app.closeReply()}
+                onClick={() => {
+                  setRootReplyText("");
+                  app.closeReply();
+                }}
               >
                 Cancel
               </Button>
@@ -350,14 +366,25 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 size="sm"
                 className="rounded-full!"
                 onClick={() => {
-                  app.postComment(detail.jurisdiction, detail.title, () => {
-                    app.closeReply();
-                    app.notify(
-                      threadVis === "public"
-                        ? "Reply posted (demo)."
-                        : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
-                    );
-                  });
+                  app.postComment(
+                    {
+                      threadId: detail.id,
+                      jurisdiction: detail.jurisdiction,
+                      targetTitle: detail.title,
+                      parentId: detail.id,
+                      parentType: "post",
+                      body: rootReplyText,
+                    },
+                    () => {
+                      setRootReplyText("");
+                      postCommentDone(
+                        threadVis === "public"
+                          ? "Reply posted."
+                          : `Reply posted — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
+                        () => app.closeReply(),
+                      );
+                    },
+                  );
                 }}
               >
                 Reply
@@ -392,15 +419,29 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                     }
                     autoFocus
                     onCancel={() => toggleCommentReply(nodePath)}
-                    onSubmit={() => {
-                      app.postComment(detail.jurisdiction, detail.title, () => {
-                        toggleCommentReply(nodePath);
-                        app.notify(
-                          threadVis === "public"
-                            ? "Reply posted (demo)."
-                            : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
-                        );
-                      });
+                    onSubmit={(text) => {
+                      if (!node.id) {
+                        app.notify("Comment id missing — refresh and try again.");
+                        return;
+                      }
+                      app.postComment(
+                        {
+                          threadId: detail.id,
+                          jurisdiction: detail.jurisdiction,
+                          targetTitle: detail.title,
+                          parentId: node.id,
+                          parentType: "comment",
+                          body: text,
+                        },
+                        () => {
+                          postCommentDone(
+                            threadVis === "public"
+                              ? "Reply posted."
+                              : `Reply posted — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
+                            () => toggleCommentReply(nodePath),
+                          );
+                        },
+                      );
                     }}
                   />
                 </div>
@@ -410,7 +451,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             onReact={(node, dir) => app.react(commentTarget(node), dir)}
             reactionCountsFor={(node) => app.reactionCountsFor(commentTarget(node))}
             selectedReactionFor={(node) =>
-              app.reactionFor(commentKey(detail.id, node))
+              app.reactionFor(reactionKeyFor(node))
             }
             onEditsClick={() =>
               app.notify("Edit history is not built in this demo.")
