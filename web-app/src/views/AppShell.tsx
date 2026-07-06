@@ -10,6 +10,7 @@ import {
   AppHeader,
   AuthChooser,
   Avatar,
+  ChangeAddressModal,
   ChooseSignModal,
   ComposeFlow,
   Fab,
@@ -42,6 +43,13 @@ import {
   viewFromPathname,
 } from "@/lib/routes";
 import { useApp } from "@/lib/state";
+import { isMockOnly } from "@/lib/api/client";
+import {
+  DEFERRED_EDIT_PROFILE,
+  DEFERRED_JURISDICTIONS_SETTINGS,
+  DEFERRED_LEGAL,
+  DEFERRED_PASSKEY_RECOVERY,
+} from "@/lib/api/deferred";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const app = useApp();
@@ -306,7 +314,29 @@ export function AppShell({ children }: { children: ReactNode }) {
         signing={state.signing}
         onSetSigning={app.setSigning}
         onSetPostSigning={app.setPostSigning}
-        onOpenSetting={(label) => app.notify(`${label} is not built in this demo.`)}
+        onOpenSetting={(label) => {
+          if (label === "Change Address") {
+            app.openChangeAddress();
+            return;
+          }
+          if (label === "Edit Profile") {
+            app.notify(isMockOnly() ? `${label} is not built in this demo.` : DEFERRED_EDIT_PROFILE);
+            return;
+          }
+          if (label === "Jurisdictions") {
+            app.notify(
+              isMockOnly()
+                ? `${label} is not built in this demo.`
+                : DEFERRED_JURISDICTIONS_SETTINGS,
+            );
+            return;
+          }
+          if (label === "Terms of Service" || label === "Privacy Policy") {
+            app.notify(DEFERRED_LEGAL(label));
+            return;
+          }
+          app.notify(`${label} is not built in this demo.`);
+        }}
       />
       <ComposeFlow
         open={state.composeOpen}
@@ -374,6 +404,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           app.closeShare();
           app.notify("Report submitted — our team will review it (demo).");
         }}
+      />
+
+      <ChangeAddressModal
+        open={state.addressOpen}
+        onClose={app.closeChangeAddress}
+        onSubmit={app.submitAddress}
+        attestResidency={!isMockOnly()}
       />
 
       {state.toast ? (

@@ -21,6 +21,7 @@ import {
 } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function JurisdictionView({ slug }: { slug: string }) {
   const app = useApp();
@@ -168,7 +169,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 onVote={(label) => app.votePoll(item, label)}
                 onSignPetition={() => app.signPetition(item)}
                 onEditsClick={() =>
-                  app.notify("Edit history is not built in this demo.")
+                  app.notify(DEFERRED_EDIT_HISTORY)
                 }
                 onDistrictClick={(s) => router.push(districtPath(s))}
               />

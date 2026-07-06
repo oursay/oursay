@@ -42,8 +42,8 @@ import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
   readThreadVisibilities,
   useApp,
-  writeThreadVisibility,
 } from "@/lib/state";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 function countNodes(nodes: CommentNode[]): number {
   return nodes.reduce((n, node) => n + 1 + countNodes(node.replies), 0);
@@ -93,11 +93,18 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
       setFullComments(full.comments);
       setShownComments(filtered?.comments ?? []);
       setPostDistricts(full.detail.districts);
+      const ids = [
+        full.detail.id,
+        ...full.comments.flatMap(function collect(n: CommentNode): string[] {
+          return [n.id, ...n.replies.flatMap(collect)].filter(Boolean) as string[];
+        }),
+      ];
+      app.hydrateRecordState(ids);
     });
     return () => {
       active = false;
     };
-  }, [id, viewer, feedFilter, setPostDistricts]);
+  }, [id, viewer, feedFilter, setPostDistricts, app]);
 
   // Restore this post's remembered thread anonymity (demo cookie memory).
   useEffect(() => {
@@ -298,7 +305,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             tierMin={tierMin}
             onReact={(dir) => app.react(target, dir)}
             onReply={app.startReply}
-            onEditsClick={() => app.notify("Edit history is not built in this demo.")}
+            onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
             onShare={() => app.openShare(recordShareTarget(detail))}
             shareCount={app.shareCountFor(detail.id)}
             shared={app.hasShared(detail.id)}
@@ -453,9 +460,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             selectedReactionFor={(node) =>
               app.reactionFor(reactionKeyFor(node))
             }
-            onEditsClick={() =>
-              app.notify("Edit history is not built in this demo.")
-            }
+            onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
             onShare={(node, _path, depth) =>
               app.openShare(
                 commentShareTarget(
@@ -482,7 +487,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
         onConfirm={() => {
           if (pendingVisibility === null) return;
           setThreadVisibility(pendingVisibility);
-          writeThreadVisibility(detail.id, pendingVisibility);
+          app.setThreadVisibility(detail.id, pendingVisibility);
           setPendingVisibility(null);
           app.notify(
             `Thread anonymity set to ${VISIBILITY_LABEL[pendingVisibility]}.`,

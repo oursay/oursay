@@ -17,6 +17,8 @@ import {
 } from "@/components/content";
 import { authorPath, postPathForId } from "@/lib/routes";
 import { useApp } from "@/lib/state";
+import { isMockOnly } from "@/lib/api/client";
+import { DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 
 type Tab = "comments" | "activity" | "mentions";
 
@@ -33,6 +35,14 @@ export function PersonaView({ personaName }: { personaName: string }) {
   const router = useRouter();
   const [profile, setProfile] = useState<PersonaProfile | null | undefined>();
   const [tab, setTab] = useState<Tab>("comments");
+
+  const selectTab = (t: Tab) => {
+    if (t === "mentions" && !isMockOnly()) {
+      app.notify(DEFERRED_MENTIONS);
+      return;
+    }
+    setTab(t);
+  };
 
   useEffect(() => {
     setPageJurisdiction(null);
@@ -101,7 +111,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => selectTab(t)}
             className={`flex-1 rounded-md py-1 text-sm capitalize ${
               tab === t
                 ? "font-semibold text-ink underline decoration-2 underline-offset-4"
@@ -142,7 +152,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
                   app.requireAuth(() => app.notify("Reaction recorded (demo)."))
                 }
                 onEditsClick={() =>
-                  app.notify("Edit history is not built in this demo.")
+                  app.notify(DEFERRED_EDIT_HISTORY)
                 }
               />
             ))

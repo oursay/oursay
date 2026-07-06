@@ -168,8 +168,11 @@ export interface AppState {
   petitionSig: Record<string, number>;
   /** Records/comments the account has shared (once per account; bumps the count). */
   shared: Record<string, true>;
+  /** Server-reported share totals (live mode; keyed by shareKey). */
+  shareCounts: Record<string, number>;
 
-  // Post reply composer.
+  // Address editor (live settings).
+  addressOpen: boolean;
   replyOpen: boolean;
 
   // View coordination (set by the active view for the shared chrome).

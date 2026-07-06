@@ -14,6 +14,7 @@ import type {
   ActivityKind,
   AuthorVisibility,
   FeedFilterParams,
+  JurisdictionMembership,
   RecordKind,
   SignAction,
   SignMethod,
@@ -85,7 +86,22 @@ import {
   requestRegistrationOtp,
   verifyRegistrationOtp,
 } from "@/lib/api/auth";
-import { devAttestKyc, fetchAccountContext } from "@/lib/api/me";
+import {
+  applyRecordStates,
+  attestResidency,
+  devAttestKyc,
+  fetchAccountContext,
+  getRecordStates,
+  patchAccountVisibility,
+  patchProfile,
+  patchSigningPrefs,
+  postShareMark,
+  putJurisdictionMemberships,
+  putThreadVisibility,
+} from "@/lib/api/me";
+import type { AddressFormData } from "@/components/chrome/ChangeAddressModal";
+import { DEFERRED_PASSKEY_RECOVERY } from "@/lib/api/deferred";
+import { writeThreadVisibility } from "./cookies";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 const ALL_ACTIVITY: ActivityKind[] = [
@@ -173,6 +189,9 @@ export const INITIAL_APP_STATE: AppState = {
   votes: {},
   petitionSig: {},
   shared: {},
+  shareCounts: {},
+
+  addressOpen: false,
 
   replyOpen: false,
 
@@ -316,6 +335,16 @@ export interface AppApi {
   /** Record a share (once per account) — bumps the tally by one. */
   recordShare: (key: string) => void;
 
+  /** Batch-hydrate reaction/vote/signature/share state from `/v1/me/record-state`. */
+  hydrateRecordState: (ids: string[]) => void;
+  /** Remember + sync per-thread anonymity (cookie in mock; PUT in live). */
+  setThreadVisibility: (threadId: string, visibility: AuthorVisibility) => void;
+
+  // Address + residency (live settings).
+  openChangeAddress: () => void;
+  closeChangeAddress: () => void;
+  submitAddress: (data: AddressFormData) => void;
+
   // Shared-chrome coordination (set by the active view).
   setPageJurisdiction: (name: string | null) => void;
   setPostDistricts: (districts: string[] | null) => void;
@@ -397,6 +426,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Persist signing methods (skip the mount value; the effect above hydrates it).
   const signingHydrated = useRef(false);
+  const signingLiveSynced = useRef(false);
   useEffect(() => {
     if (!signingHydrated.current) {
       signingHydrated.current = true;
@@ -443,6 +473,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // Live signing-prefs sync (after account hydrate skips the first change).
+  useEffect(() => {
+    if (!signingHydrated.current) return;
+    if (isMockOnly() || !state.loggedIn) return;
+    if (!signingLiveSynced.current) {
+      signingLiveSynced.current = true;
+      return;
+    }
+    void patchSigningPrefs(state.signing).catch((e: Error) => notify(e.message));
+  }, [state.signing, state.loggedIn, notify]);
+
   const closeAllModals = useCallback(() => {
     set({
       authOpen: false,
@@ -480,6 +521,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (account: Awaited<ReturnType<typeof fetchAccountContext>>) => {
       if (!account) return;
       userIdRef.current = account.userId;
+      signingLiveSynced.current = false;
       setState((s) => ({
         ...s,
         loggedIn: true,
@@ -559,7 +601,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setAccountVisibility = useCallback((v: AuthorVisibility) => {
     setState((s) => ({ ...s, accountVisibility: v }));
-  }, []);
+    if (!isMockOnly()) {
+      void patchAccountVisibility(v).catch((e: Error) => notify(e.message));
+    }
+  }, [notify]);
 
   const cycleKyc = useCallback(() => {
     if (isMockOnly()) {
@@ -768,24 +813,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const closeAddJur = useCallback(() => set({ addJurOpen: false }), [set]);
 
+  const syncMemberships = useCallback((subs: JurisdictionMembership[]) => {
+    if (!isMockOnly() && state.loggedIn) {
+      void putJurisdictionMemberships(subs).catch((e: Error) => notify(e.message));
+    }
+  }, [state.loggedIn, notify]);
+
   const addJurisdiction = useCallback(
     (id: string) => {
       setState((s) => {
         if (s.subscriptions.some((sub) => sub.id === id)) {
           return { ...s, addJurOpen: false };
         }
+        const subscriptions = [
+          ...s.subscriptions.map((sub) => ({ ...sub, included: false })),
+          { id, included: true },
+        ];
+        syncMemberships(subscriptions);
         return {
           ...s,
-          subscriptions: [
-            ...s.subscriptions.map((sub) => ({ ...sub, included: false })),
-            { id, included: true },
-          ],
+          subscriptions,
           addJurOpen: false,
         };
       });
       notify(`Joined ${jurisdictionLabel(id)}.`);
     },
-    [notify],
+    [notify, syncMemberships],
   );
 
   const removeJurisdiction = useCallback(
@@ -795,18 +848,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return { ...s, addJurOpen: false };
         }
         const next = s.subscriptions.filter((sub) => sub.id !== id);
+        let subscriptions = next;
         if (!next.some((sub) => sub.included)) {
-          return {
-            ...s,
-            subscriptions: next.map((sub, i) => ({ ...sub, included: i === 0 })),
-            addJurOpen: false,
-          };
+          subscriptions = next.map((sub, i) => ({ ...sub, included: i === 0 }));
         }
-        return { ...s, subscriptions: next, addJurOpen: false };
+        syncMemberships(subscriptions);
+        return { ...s, subscriptions, addJurOpen: false };
       });
       notify(`Left ${jurisdictionLabel(id)}.`);
     },
-    [notify],
+    [notify, syncMemberships],
   );
 
   // --- Auth flow -----------------------------------------------------------
@@ -896,7 +947,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, loginOtpWindow: !s.loginOtpWindow }));
   }, []);
   const recover = useCallback(
-    () => notify("Account recovery is not built in this demo."),
+    () =>
+      notify(
+        isMockOnly()
+          ? "Account recovery is not built in this demo."
+          : DEFERRED_PASSKEY_RECOVERY,
+      ),
     [notify],
   );
   const openProfile = useCallback(() => set({ profileOpen: true }), [set]);
@@ -1391,6 +1447,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
               },
               mode,
             );
+            if (!isMockOnly() && state.composeVisibility !== undefined) {
+              await putThreadVisibility(threadId, effectiveVis);
+            }
           },
           finish,
         );
@@ -1427,8 +1486,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const closeShare = useCallback(() => set({ share: null }), [set]);
 
   const shareCountFor = useCallback(
-    (key: string) => shareBaseCount(key) + (state.shared[key] ? 1 : 0),
-    [state.shared],
+    (key: string) => {
+      if (key in state.shareCounts) return state.shareCounts[key];
+      return shareBaseCount(key) + (state.shared[key] ? 1 : 0);
+    },
+    [state.shared, state.shareCounts],
   );
   const hasShared = useCallback(
     (key: string) => Boolean(state.shared[key]),
@@ -1437,10 +1499,92 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Sharing is counted once per account — a second action on the same target
   // (or a different channel) never re-increments the tally.
   const recordShare = useCallback((key: string) => {
-    setState((s) =>
-      s.shared[key] ? s : { ...s, shared: { ...s.shared, [key]: true } },
-    );
-  }, []);
+    if (isMockOnly()) {
+      setState((s) =>
+        s.shared[key] ? s : { ...s, shared: { ...s.shared, [key]: true } },
+      );
+      return;
+    }
+    void postShareMark(key)
+      .then(({ count }) => {
+        setState((s) =>
+          s.shared[key]
+            ? s
+            : {
+                ...s,
+                shared: { ...s.shared, [key]: true },
+                shareCounts: { ...s.shareCounts, [key]: count },
+              },
+        );
+      })
+      .catch((e: Error) => notify(e.message));
+  }, [notify]);
+
+  const hydrateRecordState = useCallback(
+    (ids: string[]) => {
+      if (!state.loggedIn || isMockOnly() || ids.length === 0) return;
+      void getRecordStates(ids)
+        .then((states) => {
+          setState((s) => {
+            const applied = applyRecordStates(states, {
+              reactions: s.reactions,
+              votes: s.votes,
+              shared: s.shared,
+              petitionSig: s.petitionSig,
+            });
+            return { ...s, ...applied };
+          });
+        })
+        .catch(() => {
+          // Logged-out or session expired — ignore.
+        });
+    },
+    [state.loggedIn],
+  );
+
+  const setThreadVisibility = useCallback(
+    (threadId: string, visibility: AuthorVisibility) => {
+      writeThreadVisibility(threadId, visibility);
+      if (!isMockOnly()) {
+        void putThreadVisibility(threadId, visibility).catch((e: Error) =>
+          notify(e.message),
+        );
+      }
+    },
+    [notify],
+  );
+
+  const openChangeAddress = useCallback(() => {
+    requireAuth(() => set({ addressOpen: true, profileOpen: false }));
+  }, [requireAuth, set]);
+
+  const closeChangeAddress = useCallback(() => set({ addressOpen: false }), [set]);
+
+  const submitAddress = useCallback(
+    (data: AddressFormData) => {
+      if (isMockOnly()) {
+        closeChangeAddress();
+        notify("Address saved (demo).");
+        return;
+      }
+      void patchProfile({
+        line1: data.line1,
+        city: data.city,
+        province: data.province,
+        postalCode: data.postalCode,
+        country: data.country,
+      })
+        .then(() => attestResidency())
+        .then(() => fetchAccountContext())
+        .then((account) => {
+          if (account) applyAccount(account);
+          closeChangeAddress();
+          notify("Address saved — residency verification updated.");
+        })
+        .catch((e: Error) => notify(e.message));
+    },
+    [applyAccount, closeChangeAddress, notify],
+  );
 
   // Comments/reactions are never ledger-final, so a jurisdiction never forces
   // passkey here — the account default decides. `done` runs the actual write
@@ -1600,6 +1744,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     shareCountFor,
     hasShared,
     recordShare,
+    hydrateRecordState,
+    setThreadVisibility,
+    openChangeAddress,
+    closeChangeAddress,
+    submitAddress,
     setPageJurisdiction,
     setPostDistricts,
     notify,

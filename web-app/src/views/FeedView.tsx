@@ -9,6 +9,7 @@ import { districtName } from "@/lib/mock";
 import { authorPath, districtPath, jurisdictionPath, postPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function FeedView() {
   const app = useApp();
@@ -24,13 +25,16 @@ export function FeedView() {
     let active = true;
     listFeedItems({ scope: "feed", filter: feedFilter, viewer }).then(
       (rows) => {
-        if (active) setItems(rows);
+        if (active) {
+          setItems(rows);
+          app.hydrateRecordState(rows.map((r) => r.id));
+        }
       },
     );
     return () => {
       active = false;
     };
-  }, [feedFilter, viewer]);
+  }, [feedFilter, viewer, app]);
 
   if (items === null) {
     return <p className="p-6 text-center text-sm text-muted">Loading feed…</p>;
@@ -75,7 +79,7 @@ export function FeedView() {
           signedPetition={app.hasSignedPetition(item.id)}
           onVote={(label) => app.votePoll(item, label)}
           onSignPetition={() => app.signPetition(item)}
-          onEditsClick={() => app.notify("Edit history is not built in this demo.")}
+          onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
           onJurisdictionClick={() =>
             router.push(jurisdictionPath(item.jurisdiction))
           }

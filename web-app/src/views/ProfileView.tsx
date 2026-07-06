@@ -17,6 +17,8 @@ import { districtName, MY_DISTRICTS } from "@/lib/mock";
 import { authorPath, districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { isMockOnly } from "@/lib/api/client";
+import { DEFERRED_EDIT_HISTORY, DEFERRED_EDIT_PROFILE, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 
 type Tab = "posts" | "activity" | "mentions";
 
@@ -40,6 +42,14 @@ export function ProfileView({
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [tab, setTab] = useState<Tab>("posts");
+
+  const selectTab = (t: Tab) => {
+    if (t === "mentions" && !isMockOnly()) {
+      app.notify(DEFERRED_MENTIONS);
+      return;
+    }
+    setTab(t);
+  };
 
   useEffect(() => {
     setPageJurisdiction(null);
@@ -113,7 +123,7 @@ export function ProfileView({
               size="sm"
               variant="outline"
               icon={Pencil}
-              onClick={() => app.notify("Edit Profile is not built in this demo.")}
+              onClick={() => app.notify(isMockOnly() ? "Edit Profile is not built in this demo." : DEFERRED_EDIT_PROFILE)}
             >
               Edit Profile
             </Button>
@@ -129,7 +139,7 @@ export function ProfileView({
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => selectTab(t)}
             className={`flex-1 rounded-md py-1 text-sm capitalize ${
               tab === t
                 ? "font-semibold text-ink underline decoration-2 underline-offset-4"
@@ -173,7 +183,7 @@ export function ProfileView({
                 onVote={(label) => app.votePoll(item, label)}
                 onSignPetition={() => app.signPetition(item)}
                 onEditsClick={() =>
-                  app.notify("Edit history is not built in this demo.")
+                  app.notify(DEFERRED_EDIT_HISTORY)
                 }
                 onDistrictClick={(s) => router.push(districtPath(s))}
               />
