@@ -191,6 +191,10 @@ export class RecordDetailService {
         label,
         v: exposure.exposed ? (counts.find((c) => c.option === label)?.count ?? 0) : null,
       }));
+      // Graduation chain, backward edge: a poll born from a petition carries sourcePetitionId
+      // inline (CONTRACT §11 — the "Source Petition" collapsible on the poll detail).
+      const c = view.content as { sourcePetitionId?: unknown } | null;
+      dto.sourcePetitionId = typeof c?.sourcePetitionId === "string" ? c.sourcePetitionId : null;
       dto.resultId = await this.d.recordStore.findResultForPoll(root.entityId);
       dto._vote = await my.voteOn(root.entityId);
     }

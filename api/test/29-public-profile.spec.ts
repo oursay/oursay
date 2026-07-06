@@ -120,6 +120,31 @@ describe("29 public profile: visibility gate, posts, activity", () => {
     expect(res.statusCode).to.equal(404);
   });
 
+  it("keeps per-thread-anonymous participation off the profile (docs/09 §2 — the override severs the link)", async () => {
+    const svc = seeder(w);
+    const author = await makeAccount(w, { handle: "@twofaced", displayName: "Two Faced" });
+    await w.services.repos.profile.setVisibility(author.userId, "public");
+    const open = await svc.create({ type: "post", author: "pk-open", content: { title: "Open topic", body: "b" } });
+    const masked = await svc.create({ type: "post", author: "pk-masked", content: { title: "Sensitive topic", body: "b" } });
+    await link(w, "pk-open", author.userId, open.entityId);
+    await link(w, "pk-masked", author.userId, masked.entityId);
+    await w.services.recordStore.setThreadVisibility(author.userId, masked.entityId, "anonymous");
+
+    // Stranger: the masked thread must not appear on ANY tab — its presence on the account
+    // surface would link the account to the thread persona the override protects.
+    const posts = (await profilePosts(w, "twofaced")).json() as any;
+    expect(posts.items.map((i: any) => i.id)).to.deep.equal([open.entityId]);
+    const activity = (await profileActivity(w, "twofaced")).json() as any;
+    expect(JSON.stringify(activity)).to.not.include("Sensitive topic");
+    const header = (await profile(w, "twofaced")).json() as any;
+    expect(header.support.statements).to.equal(1);
+
+    // Self: sees both (self is always revealed to self).
+    const session = await w.services.authService.issue(author.userId, "full", "test");
+    const own = (await profilePosts(w, "twofaced", "", session.token)).json() as any;
+    expect(own.items.map((i: any) => i.id).sort()).to.deep.equal([open.entityId, masked.entityId].sort());
+  });
+
   it("derives activity rows from record_tx", async () => {
     const svc = seeder(w);
     const author = await makeAccount(w, { handle: "@active", displayName: "Active User" });

@@ -97,9 +97,14 @@ describe("25 record detail: kind-agnostic detail + comment tree, identity, inter
     expect(abd.sig).to.equal(null);
   });
 
-  it("poll detail serves options + resultId interlink; result detail serves sourcePollId", async () => {
+  it("poll detail serves options + resultId + sourcePetitionId interlinks; result detail serves sourcePollId", async () => {
     const svc = seeder(w);
-    const poll = await svc.create({ type: "poll", author: "pk-poll", content: { question: "Q?", options: ["yes", "no"] } });
+    const pet = await svc.create({ type: "petition", author: "pk-gpet", content: { title: "Head", text: "t" } });
+    const poll = await svc.create({
+      type: "poll",
+      author: "pk-poll",
+      content: { question: "Q?", options: ["yes", "no"], sourcePetitionId: pet.entityId },
+    });
     await svc.vote("pk-v1", poll.entityId, "yes");
     const result = await svc.create({
       type: "result",
@@ -113,6 +118,8 @@ describe("25 record detail: kind-agnostic detail + comment tree, identity, inter
       { label: "no", v: 0 },
     ]);
     expect(pd.resultId).to.equal(result.entityId);
+    // Graduation chain, backward edge (CONTRACT §11): the poll links back to its petition head.
+    expect(pd.sourcePetitionId).to.equal(pet.entityId);
 
     const rd = (await detail(w, result.entityId)).detail;
     expect(rd.type).to.equal("result");

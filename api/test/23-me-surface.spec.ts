@@ -50,6 +50,24 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     expect(role?.role).to.equal("official");
   });
 
+  it("PUT /v1/me/jurisdictions never removes a role-bearing membership (roles are platform-assigned)", async () => {
+    const { userId, token } = await fullSessionAccount(w, "official@example.com");
+    await w.services.repos.membership.setRole(userId, "ab-ca-gov", "official", "edmonton-city-centre");
+
+    const res = await w.app.inject({
+      method: "PUT",
+      url: "/v1/me/jurisdictions",
+      headers: bearer(token),
+      payload: { jurisdictionIds: [] },
+    });
+    expect(res.statusCode).to.equal(200, res.body);
+    expect(res.json().jurisdictionIds).to.include("ab-ca-gov");
+
+    const row = await w.services.repos.membership.get(userId, "ab-ca-gov");
+    expect(row?.role).to.equal("official");
+    expect(row?.representedDistrictSlug).to.equal("edmonton-city-centre");
+  });
+
   it("PUT /v1/me/jurisdictions 404s unknown jurisdiction ids", async () => {
     const { token } = await fullSessionAccount(w, "badjur@example.com");
     const res = await w.app.inject({

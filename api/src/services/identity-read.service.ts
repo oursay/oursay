@@ -185,6 +185,18 @@ export class ReadResolution {
     return this.isRevealed(facts.accountVisibility, facts.homeDistricts);
   }
 
+  /** Whether the author's identity within ONE thread is revealed to this viewer — the per-thread
+   *  override applies here (effectiveVisibility), unlike profileVisible. The profile tabs use this
+   *  to keep per-thread-anonymous participation OFF the account surface: an override severs the
+   *  account↔thread link in both directions (docs/09 §2), so a visible profile must never list a
+   *  thread whose persona would mask this same author on the thread side. Self always revealed. */
+  async threadRevealed(userId: string, threadId: string): Promise<boolean> {
+    if (this.viewer.userId && userId === this.viewer.userId) return true;
+    const facts = await this.factsOf(userId);
+    const effective = await this.effectiveVisibility(userId, threadId, facts);
+    return this.isRevealed(effective, facts.homeDistricts);
+  }
+
   /** May THIS viewer see the identity behind an author with `visibility`? Exact port of the
    *  web-app's isRevealed (read-model/visibility.ts), with role standing in for the demo's
    *  "tier 3": officials are a platform role, never a KYC tier. */

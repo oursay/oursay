@@ -430,11 +430,13 @@ export class PrivateStore {
     return r.rows.map(mapFeedRootRow);
   }
 
-  /** Every per-thread persona pubkey registered for one account. Empty when the user has never joined
-   *  a thread — profile posts/activity are then empty, not an error. */
-  async listPubkeysForUser(userId: string): Promise<string[]> {
-    const r = await this.pool.query(`SELECT pubkey FROM thread_keys WHERE user_id = $1`, [userId]);
-    return r.rows.map((x) => x.pubkey as string);
+  /** Every (pubkey, threadId) persona key registered for one account. Empty when the user has never
+   *  joined a thread — profile posts/activity are then empty, not an error. Account-surface callers
+   *  must filter these by per-thread reveal before querying authored rows (docs/09 §2 — a thread's
+   *  anonymous override severs the account↔thread link in both directions). */
+  async listThreadKeysForUser(userId: string): Promise<{ pubkey: string; threadId: string }[]> {
+    const r = await this.pool.query(`SELECT pubkey, thread_id FROM thread_keys WHERE user_id = $1`, [userId]);
+    return r.rows.map((x) => ({ pubkey: x.pubkey as string, threadId: x.thread_id as string }));
   }
 
   /** LIVE roots authored by any of the supplied persona pubkeys, newest head first. */

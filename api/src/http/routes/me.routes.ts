@@ -4,7 +4,6 @@
 import type { FastifyInstance } from "fastify";
 import { ServiceError } from "../../errors.js";
 import type { Services } from "../../container.js";
-import type { UpdateProfileInput } from "../../repo/profile.repo.js";
 import { AUTHOR_VISIBILITIES } from "../../types/visibility.js";
 import { bearerSecurity, errorSchema } from "../schemas.js";
 
@@ -80,6 +79,12 @@ export function registerMeRoutes(app: FastifyInstance, services: Services): void
         }
       }
       const current = await services.repos.membership.listForUser(userId);
+      // Role-bearing memberships are platform-assigned (an official's seat travels on the row) —
+      // this route never touches roles, so removing the row would silently revoke one. Retain them
+      // like oursay-global; added after validation so they can't 404 a valid request body.
+      for (const row of current) {
+        if (row.role !== null) desired.add(row.jurisdictionId);
+      }
       const currentIds = new Set(current.map((r) => r.jurisdictionId));
       for (const id of desired) {
         if (!currentIds.has(id)) await services.repos.membership.add(userId, id);

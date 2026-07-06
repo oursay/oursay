@@ -5,7 +5,7 @@
 // deferred (no mention_index). Reuses ReadResolution for the visibility gate + feed identity.
 
 import type { GeoStore } from "@oursay/geo";
-import { toPublicView, type AuthorActivityRow, type FeedRootRow, type PrivateStore, type RecordType } from "@oursay/public-record";
+import { toPublicView, type AuthorActivityRow, type PrivateStore, type RecordType } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 import { displayNameFor, normalizeHandle } from "../helpers/handle.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
@@ -152,7 +152,15 @@ export class ProfilePageService {
       throw new ServiceError("not_found", "profile not found");
     }
 
-    const pubkeys = await this.d.recordStore.listPubkeysForUser(user.id);
+    // Only threads whose EFFECTIVE visibility reveals this author to THIS viewer feed the account
+    // surface: a per-thread anonymous override severs the account↔thread link in both directions
+    // (docs/09 §2), so a visible profile must not list that thread's posts, activity, or counts.
+    // Filtering the pubkey set (one key per thread) enforces this uniformly across every tab.
+    const keys = await this.d.recordStore.listThreadKeysForUser(user.id);
+    const pubkeys: string[] = [];
+    for (const k of keys) {
+      if (await res.threadRevealed(user.id, k.threadId)) pubkeys.push(k.pubkey);
+    }
     return {
       userId: user.id,
       handleWire: handle.replace(/^@/, ""),
@@ -201,7 +209,6 @@ export class ProfilePageService {
 
     const root = await this.d.recordStore.getEntityState(row.rootEntityId);
     const jurisdiction = (await this.d.recordStore.getThreadJurisdiction(row.rootEntityId)) ?? DEFAULT_JURISDICTION;
-    const audience = await this.d.recordStore.getEntityAudience(row.rootEntityId);
     const rootTitle = root ? rootTitleOf(root.type, toPublicView(root).content, toPublicView(root).withheld) : "a record";
 
     if (row.op === "update") {
