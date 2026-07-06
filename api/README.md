@@ -157,6 +157,7 @@ read this same table — one source of truth.
   never a vendor SDK directly (docs/01 §5.1):
   - `stub` *(default)* — deterministic, offline, no key: awards the requested tier (no real identity
     check). Used by CI/dev and the dev attestation route below.
+  - `didit` — hosted Didit sessions (`POST /v1/kyc/didit/session`); see [`docs/DIDIT-KYC-SETUP.md`](../docs/DIDIT-KYC-SETUP.md).
   - `equifax` — **reserved, not implemented**: selecting it fails fast at startup.
 - **Tiers are a SET, not a ladder.** On counts, `?tier=` is matched by **set membership**, not
   at-or-above: a participant is counted if their *current* tier is **in** the requested set. Tiers are

@@ -124,12 +124,21 @@ export const geocodeConfig: GeocodeConfig = {
   nominatimUrl: env("GEOCODE_NOMINATIM_URL", ""),
 };
 
-export type KycProviderName = "stub" | "equifax";
+export type KycProviderName = "stub" | "didit" | "equifax";
+
+export interface DiditConfig {
+  apiKey: string;
+  webhookSecret: string;
+  baseUrl: string;
+  workflowId: string;
+  poaWorkflowId: string;
+  callbackUrl: string;
+}
 
 export interface KycConfig {
-  /** Provider selection: 'stub' (default; deterministic, no network, awards the requested tier).
-   *  'equifax' is a reserved slot that is NOT implemented (fails fast in the factory). */
+  /** Provider selection: 'stub' (default), 'didit' (hosted sessions), or 'equifax' (reserved). */
   provider: KycProviderName;
+  didit: DiditConfig;
 }
 
 /**
@@ -139,6 +148,14 @@ export interface KycConfig {
  */
 export const kycConfig: KycConfig = {
   provider: env("KYC_PROVIDER", "stub") as KycProviderName,
+  didit: {
+    apiKey: process.env.DIDIT_API_KEY?.trim() || "",
+    webhookSecret: env("DIDIT_WEBHOOK_SECRET", ""),
+    baseUrl: env("DIDIT_BASE_URL", "https://verification.didit.me"),
+    workflowId: env("DIDIT_WORKFLOW_ID", ""),
+    poaWorkflowId: env("DIDIT_POA_WORKFLOW_ID", ""),
+    callbackUrl: env("DIDIT_CALLBACK_URL", ""),
+  },
 };
 
 export interface CivicConfig {

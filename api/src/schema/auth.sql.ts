@@ -235,4 +235,19 @@ UPDATE auth.visibility_overrides SET visibility = 'all_officials' WHERE visibili
 ALTER TABLE auth.visibility_overrides DROP CONSTRAINT IF EXISTS visibility_overrides_visibility_check;
 ALTER TABLE auth.visibility_overrides ADD CONSTRAINT visibility_overrides_visibility_check
   CHECK (visibility IN ('anonymous','my_officials','all_officials','my_district','my_jurisdiction','id_verified','public'));
+
+-- Hosted KYC session tracking (Didit). No decision payload — vendor PII stays at the provider.
+CREATE TABLE IF NOT EXISTS auth.kyc_sessions (
+  id                   UUID PRIMARY KEY,
+  user_id              UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  provider             TEXT NOT NULL,
+  provider_session_id  TEXT NOT NULL UNIQUE,
+  workflow_kind        TEXT NOT NULL CHECK (workflow_kind IN ('identity', 'poa')),
+  status               TEXT NOT NULL,
+  attested_at          TIMESTAMPTZ,
+  last_polled_at       TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS kyc_sessions_user ON auth.kyc_sessions (user_id);
 `;

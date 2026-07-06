@@ -32,13 +32,18 @@ export class KycService {
   ): Promise<{ tier: KycTier } | null> {
     const result = await this.d.provider.verify({ userId, requestedTier, region });
     if (!result) return null;
-    await this.d.recordStore.putAttestation({
-      userId,
-      provider: this.d.provider.name,
-      tier: result.tier,
-      region: result.region ?? null,
-    });
-    return { tier: result.tier };
+    return this.award(userId, result.tier, result.region ?? null, this.d.provider.name);
+  }
+
+  /** Append a verification tier directly (session providers, platform self-attest, tests). */
+  async award(
+    userId: string,
+    tier: KycTier,
+    region: string | null,
+    provider: string,
+  ): Promise<{ tier: KycTier }> {
+    await this.d.recordStore.putAttestation({ userId, provider, tier, region });
+    return { tier };
   }
 
   /** The user's CURRENT verification tier (latest attestation, or `unverified` when none). Shares the

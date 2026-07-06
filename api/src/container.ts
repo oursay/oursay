@@ -30,6 +30,7 @@ import { systemNow, type Now } from "./errors.js";
 import { CivicDeviceRepo } from "./repo/civic-device.repo.js";
 import { GeocodeRepo } from "./repo/geocode.repo.js";
 import { KycRepo } from "./repo/kyc.repo.js";
+import { KycSessionRepo } from "./repo/kyc-session.repo.js";
 import { MembershipRepo } from "./repo/membership.repo.js";
 import { SigningPrefsRepo } from "./repo/signing-prefs.repo.js";
 import { OtpRepo } from "./repo/otp.repo.js";
@@ -46,7 +47,8 @@ import { GateService } from "./services/gate.service.js";
 import { GeocodeService } from "./services/geocode.service.js";
 import { makeGeocodeProvider, type GeocodeProvider } from "./services/geocode/index.js";
 import { KycService } from "./services/kyc.service.js";
-import { makeKycProvider, type KycProvider } from "./services/kyc/index.js";
+import { KycSessionService } from "./services/kyc-session.service.js";
+import { makeKycProviderStack, type KycProvider } from "./services/kyc/index.js";
 import { LoginService } from "./services/login.service.js";
 import { createMailerService, type MailAdapter, type MailerService } from "./services/mailer/mailer.js";
 import { OtpService } from "./services/otp.service.js";
@@ -83,6 +85,7 @@ export interface Repos {
   otp: OtpRepo;
   rateLimit: RateLimitRepo;
   kyc: KycRepo;
+  kycSession: KycSessionRepo;
   civicDevice: CivicDeviceRepo;
   geocode: GeocodeRepo;
   /** Jurisdiction subscriptions + the platform-assigned official role ([mvp-c10b-membership]). */
@@ -106,6 +109,8 @@ export interface Services {
   kycProvider: KycProvider;
   /** Issues verification attestations (provider -> kyc_attestations); single entry point for KYC. */
   kycService: KycService;
+  /** Hosted KYC session orchestration (Didit when KYC_PROVIDER=didit). */
+  kycSessionService: KycSessionService;
   passkeyService: PasskeyService;
   recoveryService: RecoveryService;
   loginService: LoginService;
@@ -163,6 +168,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     otp: new OtpRepo(pool),
     rateLimit: new RateLimitRepo(pool),
     kyc: new KycRepo(pool),
+    kycSession: new KycSessionRepo(pool),
     civicDevice: new CivicDeviceRepo(pool),
     geocode: new GeocodeRepo(pool),
     membership: new MembershipRepo(pool),
@@ -248,10 +254,17 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     geoStore,
   });
 
-  // KYC: pluggable provider (stub by default; equifax reserved → fails fast here) + the service that
-  // appends awarded tiers to kyc_attestations (the same table recovery + the count filter read).
-  const kycProvider = makeKycProvider(kycConfig);
+  // KYC: pluggable provider (stub by default; didit/equifax) + session orchestration + attestations.
+  const kycStack = makeKycProviderStack(kycConfig);
+  const kycProvider = kycStack.provider;
   const kycService = new KycService({ provider: kycProvider, recordStore, kycRepo: repos.kyc });
+  const kycSessionService = new KycSessionService({
+    sessionProvider: kycStack.sessionProvider,
+    kycService,
+    sessionRepo: repos.kycSession,
+    participantGeoService,
+    diditProvider: kycStack.diditProvider,
+  });
 
   // Per-action jurisdiction gates ([align-w3-gates-schema]) + the civic write service. Built here —
   // after kyc/participant-geo — because gate resolution needs the caller's CURRENT tier, point, and
@@ -329,6 +342,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     geocodeService,
     kycProvider,
     kycService,
+    kycSessionService,
     passkeyService,
     recoveryService,
     loginService,

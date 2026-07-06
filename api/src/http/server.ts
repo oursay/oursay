@@ -19,6 +19,7 @@ import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
 import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
 import { registerKycDevRoutes } from "./routes/kyc-dev.routes.js";
+import { registerKycRoutes } from "./routes/kyc.routes.js";
 import { registerProfileRoutes } from "./routes/profile.routes.js";
 import { registerMeRoutes } from "./routes/me.routes.js";
 import { registerPublicAreaCatalogRoutes } from "./routes/public-area-catalog.routes.js";
@@ -64,6 +65,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
         { name: "public", description: "Unauthenticated public reads: the civic record (browse/detail/counts) and the area catalog (jurisdictions + district boundaries)" },
         { name: "profile", description: "Private account profile" },
         { name: "me", description: "Authenticated self-scoped account surface" },
+        { name: "kyc", description: "Identity and residency verification (Didit sessions, platform residency attest)" },
         { name: "meta", description: "Health & docs" },
       ],
       components: {
@@ -96,6 +98,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerPublicAreaCatalogRoutes(app, services);
   registerProfileRoutes(app, services);
   registerMeRoutes(app, services);
+  await registerKycRoutes(app, services);
 
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
 

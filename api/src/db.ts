@@ -45,7 +45,7 @@ export class Db {
   async reset(): Promise<void> {
     assertDestructiveAllowed("Db.reset()");
     await this.pool.query(
-      `TRUNCATE auth.otp_rate_limits, auth.email_otp, auth.sessions, auth.webauthn_challenges,
+      `TRUNCATE auth.otp_rate_limits, auth.kyc_sessions, auth.email_otp, auth.sessions, auth.webauthn_challenges,
                auth.passkey_credentials, auth.profile_geocode_history, auth.profile_geocodes, auth.profiles,
                geo.regions, geo.districts,
                public.record_outbox, public.record_tx, public.users CASCADE`,
