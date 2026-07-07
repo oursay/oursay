@@ -8,8 +8,8 @@ import { rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
-import { defaultDevDir } from "../src/client/dev-connector.js";
+import { assertDestructiveAllowed } from "../../scripts/destructive-guard";
+import { defaultDevDir } from "../src/client/dev-connector";
 
 assertDestructiveAllowed("npm run reset (@oursay/identity)");
 

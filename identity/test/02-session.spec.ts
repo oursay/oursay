@@ -10,9 +10,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { deriveDeviceThreadSigner, deriveNullifierSecret, threadNullifier, verifyEnvelope } from "@oursay/public-record";
-import { DevPasskeyConnector } from "../src/client/dev-connector.js";
-import { IdentitySession } from "../src/client/session.js";
-import type { CreateIntent, PreparedAppend, ThreadRef } from "../src/shared/types.js";
+import { DevPasskeyConnector } from "../src/client/dev-connector";
+import { IdentitySession } from "../src/client/session";
+import type { CreateIntent, PreparedAppend, ThreadRef } from "../src/shared/types";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 

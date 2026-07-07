@@ -19,7 +19,7 @@ import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 import { buildWebauthnAssertion, credentialPubkeyHex } from "@oursay/public-record/identity/webauthn";
 import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
-import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
+import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector";
 
 // Fixed dev RP id / origin for simulated assertions. The offline verifier checks crypto + challenge +
 // UV + type and deliberately does NOT enforce rpIdHash/origin, so any consistent value is accepted.

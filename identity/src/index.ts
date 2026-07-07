@@ -17,4 +17,4 @@ export type {
   DeviceEnrollment,
   ThreadRegistration,
   JoinThreadResponse,
-} from "./shared/types.js";
+} from "./shared/types";

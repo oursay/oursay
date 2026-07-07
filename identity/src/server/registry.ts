@@ -29,7 +29,7 @@ import type {
   PreparedAppend,
   SignedSubmission,
   ThreadRegistration,
-} from "../shared/types.js";
+} from "../shared/types";
 
 export interface IdentityRegistryOptions {
   store: PrivateStore;

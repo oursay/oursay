@@ -20,6 +20,22 @@ export class ApiError extends Error {
   }
 }
 
+function apiErrorFromResponse(status: number, text: string): ApiError {
+  if (text) {
+    try {
+      const parsed = JSON.parse(text) as { error?: { message?: string } };
+      if (parsed.error?.message) return new ApiError(status, parsed.error.message);
+    } catch {
+      // plain-text body
+    }
+  }
+  return new ApiError(status, text || resStatusLabel(status));
+}
+
+function resStatusLabel(status: number): string {
+  return `Request failed (${status})`;
+}
+
 function apiBase(): string {
   if (typeof window !== "undefined") return "";
   return process.env.OURSAY_API_URL ?? "http://localhost:6173";
@@ -34,7 +50,7 @@ export async function apiGet<T>(path: string): Promise<T | null> {
   if (res.status === 404) return null;
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new ApiError(res.status, body || res.statusText);
+    throw apiErrorFromResponse(res.status, body || res.statusText);
   }
   return (await res.json()) as T;
 }
@@ -56,7 +72,7 @@ export async function apiPost<T>(
   if (res.status === 204) return null;
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new ApiError(res.status, text || res.statusText);
+    throw apiErrorFromResponse(res.status, text || res.statusText);
   }
   if (res.status === 202) return (await res.json()) as T;
   return (await res.json()) as T;
@@ -72,7 +88,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new ApiError(res.status, text || res.statusText);
+    throw apiErrorFromResponse(res.status, text || res.statusText);
   }
   return (await res.json()) as T;
 }
@@ -87,7 +103,7 @@ export async function apiPut<T>(path: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new ApiError(res.status, text || res.statusText);
+    throw apiErrorFromResponse(res.status, text || res.statusText);
   }
   return (await res.json()) as T;
 }

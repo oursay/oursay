@@ -38,9 +38,9 @@ import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
-import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
-import { IndexedDbKeyStore, WebCryptoMasterStore, type SecureMasterStore } from "./secure-store.js";
-import { ThreadPasskeyStore } from "./thread-passkey-store.js";
+import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector";
+import { IndexedDbKeyStore, WebCryptoMasterStore, type SecureMasterStore } from "./secure-store";
+import { ThreadPasskeyStore } from "./thread-passkey-store";
 
 /** The single PRF salt we evaluate; everything else is HKDF-expanded from its result. */
 const PRF_SALT = utf8ToBytes("oursay/v1/prf-root");

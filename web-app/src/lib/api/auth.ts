@@ -38,7 +38,15 @@ export async function verifyRegistrationOtp(
   const body = await apiPost<{
     userId: string;
     session: SessionInfo;
-  }>("/v1/auth/otp/verify", { email, code, profile });
+  }>("/v1/auth/otp/verify", {
+    email,
+    code,
+    profile: {
+      handle: profile.handle.trim(),
+      over18: profile.over18 !== false,
+      ...(profile.displayName?.trim() ? { displayName: profile.displayName.trim() } : {}),
+    },
+  });
   if (!body) throw new Error("OTP verify returned empty body");
   return { userId: body.userId, session: body.session };
 }

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Mail, ShieldCheck } from "lucide-react";
+import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
 import { Button, Modal, ModalField } from "@/components/ui";
 
 export interface RegisterFormData {
@@ -32,11 +33,18 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [over18, setOver18] = useState(true);
+  const [handleError, setHandleError] = useState<string | null>(null);
 
   const submit = () => {
-    const h = handle.trim().replace(/^@/, "");
+    const err = handleValidationError(handle);
+    if (err) {
+      setHandleError(err);
+      return;
+    }
+    setHandleError(null);
+    const h = normalizeHandleBody(handle)!;
     const e = email.trim();
-    if (!h || !e) return;
+    if (!e) return;
     onSubmit?.({
       email: e,
       handle: h,
@@ -60,8 +68,16 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
           label="Handle"
           placeholder="@jane_alberta"
           value={handle}
-          onChange={(e) => setHandle(e.target.value)}
+          onChange={(e) => {
+            setHandle(e.target.value);
+            if (handleError) setHandleError(null);
+          }}
         />
+        {handleError ? (
+          <p className="text-sm text-danger-700" role="alert">
+            {handleError}
+          </p>
+        ) : null}
         <ModalField
           label="Display name (optional)"
           placeholder="Jane — defaults to your handle"

@@ -1,7 +1,7 @@
 // @oursay/identity/server — in-process verified-write helpers. @oursay/api wraps these as HTTP.
 
-export { IdentityRegistry } from "./registry.js";
-export type { IdentityRegistryOptions } from "./registry.js";
+export { IdentityRegistry } from "./registry";
+export type { IdentityRegistryOptions } from "./registry";
 
 // Shared DTOs the server surface speaks.
 export type {
@@ -13,4 +13,4 @@ export type {
   DeviceEnrollment,
   ThreadRegistration,
   JoinThreadResponse,
-} from "../shared/types.js";
+} from "../shared/types";

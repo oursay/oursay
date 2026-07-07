@@ -25,10 +25,10 @@ import {
   pgConfig,
 } from "@oursay/public-record";
 import type { TxEnvelope } from "@oursay/public-record/schema/types";
-import { DevPasskeyConnector } from "../src/client/dev-connector.js";
-import { IdentitySession } from "../src/client/session.js";
-import { IdentityRegistry } from "../src/server/registry.js";
-import type { Intent, ThreadRef } from "../src/shared/types.js";
+import { DevPasskeyConnector } from "../src/client/dev-connector";
+import { IdentitySession } from "../src/client/session";
+import { IdentityRegistry } from "../src/server/registry";
+import type { Intent, ThreadRef } from "../src/shared/types";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 

@@ -71,7 +71,7 @@ import {
   writeSubscriptions,
   writeTheme,
 } from "./cookies";
-import { isMockOnly } from "@/lib/api/client";
+import { ApiError, isMockOnly } from "@/lib/api/client";
 import type { CivicSignMode } from "@/lib/api/civic-helpers";
 import {
   parentTypeForKind,
@@ -102,6 +102,13 @@ import {
 import type { AddressFormData } from "@/components/chrome/ChangeAddressModal";
 import { DEFERRED_PASSKEY_RECOVERY } from "@/lib/api/deferred";
 import { writeThreadVisibility } from "./cookies";
+import {
+  clearRegistrationDraft,
+  loadRegistrationDraft,
+  registrationProfileForApi,
+  saveRegistrationDraft,
+} from "./registration-draft";
+import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 const ALL_ACTIVITY: ActivityKind[] = [
@@ -361,7 +368,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pendingCommit = useRef<SignedCommit | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userIdRef = useRef<string | null>(null);
-  const authDraftRef = useRef<RegisterFormData | null>(null);
+  const authDraftRef = useRef<RegisterFormData | null>(loadRegistrationDraft());
   // Skip the mount-time session write so it can't clobber the cookie before
   // the persisted values are hydrated in.
   const sessionHydrated = useRef(false);
@@ -879,17 +886,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (data?: RegisterFormData) => {
       if (isMockOnly() || !data) {
         set({ registerOpen: false, otpOpen: true });
+        if (isMockOnly()) {
+          notify(
+            "Mock mode — no OTP was sent. Set NEXT_PUBLIC_MOCK_ONLY=0 in repo-root .env and restart the web-app.",
+          );
+        }
         return;
       }
-      authDraftRef.current = data;
-      void requestRegistrationOtp(data.email).then(() => {
-        set({
-          registerOpen: false,
-          otpOpen: true,
-          authEmail: data.email,
+      const handleErr = handleValidationError(data.handle);
+      if (handleErr) {
+        notify(handleErr);
+        return;
+      }
+      const normalized = normalizeHandleBody(data.handle);
+      if (!normalized) {
+        notify("Invalid handle.");
+        return;
+      }
+      const payload = { ...data, handle: normalized };
+      authDraftRef.current = payload;
+      saveRegistrationDraft(payload);
+      void requestRegistrationOtp(payload.email)
+        .then(() => {
+          set({
+            registerOpen: false,
+            otpOpen: true,
+            authEmail: payload.email,
+          });
+          notify("Code sent — check the API server console in dev.");
+        })
+        .catch((e: unknown) => {
+          const msg =
+            e instanceof ApiError
+              ? `Registration OTP failed (${e.status}): ${e.message}`
+              : e instanceof Error
+                ? e.message
+                : "Registration OTP failed.";
+          notify(msg);
+          if (process.env.NODE_ENV === "development") {
+            console.error("[auth] requestRegistrationOtp failed:", e);
+          }
         });
-        notify("Code sent — check the API server console in dev.");
-      }).catch((e: Error) => notify(e.message));
     },
     [set, notify],
   );
@@ -899,15 +936,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         demoLogin();
         return;
       }
-      const draft = authDraftRef.current;
-      if (!draft || !code) return;
+      const draft = authDraftRef.current ?? loadRegistrationDraft();
+      if (!draft?.email?.trim() || !draft.handle?.trim()) {
+        notify("Registration data was lost — close this dialog and register again.");
+        return;
+      }
+      const handleErr = handleValidationError(draft.handle);
+      if (handleErr) {
+        clearRegistrationDraft();
+        notify(`${handleErr} Go back and register with a valid handle.`);
+        set({ otpOpen: false, registerOpen: true });
+        return;
+      }
+      if (!code || code.length < 6) return;
+      authDraftRef.current = draft;
       void (async () => {
         try {
-          const reg = await verifyRegistrationOtp(draft.email, code, {
-            handle: draft.handle,
-            displayName: draft.displayName,
-            over18: draft.over18,
-          });
+          const reg = await verifyRegistrationOtp(
+            draft.email.trim(),
+            code,
+            registrationProfileForApi(draft),
+          );
+          clearRegistrationDraft();
           userIdRef.current = reg.userId;
           await enrollPasskey();
           const login = await loginWithPasskey();
@@ -916,7 +966,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           applyAccount(account);
           notify("Account created — signed in with passkey.");
         } catch (e) {
-          notify(e instanceof Error ? e.message : "Registration failed.");
+          const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Registration failed.";
+          notify(msg);
+          if (process.env.NODE_ENV === "development") {
+            console.error("[auth] verifyRegistrationOtp failed:", e);
+          }
         }
       })();
     },

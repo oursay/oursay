@@ -39,6 +39,9 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
     // Fastify validation errors (schema) → 400.
     if (err.validation) {
+      if (process.env.NODE_ENV !== "production" && req.url.includes("/otp/verify")) {
+        req.log.warn({ validation: err.validation }, "OTP verify rejected (request schema)");
+      }
       reply.status(400).send(errorBody("validation", err.message, err.validation));
       return;
     }

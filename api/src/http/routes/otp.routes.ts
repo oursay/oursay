@@ -53,6 +53,16 @@ export function registerOtpRoutes(app: FastifyInstance, services: Services): voi
       } else {
         result = await services.registrationService.requestOtp({ emailRaw: email, ip: req.ip });
       }
+      if (process.env.NODE_ENV !== "production") {
+        if (result) {
+          req.log.info(
+            { purpose, email, expiresAt: result.expiresAt },
+            "OTP issued — dev noop mailer prints the code to this console",
+          );
+        } else {
+          req.log.info({ purpose, email }, "OTP request accepted but no code sent (silent no-op for this flow)");
+        }
+      }
       reply.status(202).send(otpSentBody(result));
     },
   );
