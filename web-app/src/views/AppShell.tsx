@@ -307,7 +307,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         }}
         onValidateId={app.cycleKyc}
         onLogout={app.logout}
-        devices={state.devices}
+        passkeys={state.passkeys}
         onAddDevice={app.addDevice}
         onAddDeviceByEmail={app.addDeviceByEmail}
         theme={state.theme}

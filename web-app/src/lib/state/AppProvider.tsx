@@ -81,10 +81,12 @@ import {
 import type { RegisterFormData } from "@/components/chrome/RegisterForm";
 import {
   enrollPasskey,
+  listPasskeys,
   loginWithPasskey,
   logout as apiLogout,
   requestRegistrationOtp,
   verifyRegistrationOtp,
+  type AuthPasskey,
 } from "@/lib/api/auth";
 import {
   applyRecordStates,
@@ -145,13 +147,29 @@ export interface CommentWriteContext {
 
 type SignedCommit = (sign: CivicSignMode) => void;
 
+function mockPasskey(label: string, id?: string): AuthPasskey {
+  return {
+    id: id ?? `mock-${label}`,
+    label,
+    transports: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    lastUsedAt: null,
+  };
+}
+
+const MOCK_PASSKEYS: AuthPasskey[] = [
+  mockPasskey("iPhone 15 — this device", "mock-1"),
+  mockPasskey("MacBook Pro", "mock-2"),
+  mockPasskey("Pixel 8", "mock-3"),
+];
+
 /** Pre-hydration defaults (exported for state-derivation tests). */
 export const INITIAL_APP_STATE: AppState = {
   loggedIn: false,
   kycTier: 0,
   viewerDistricts: [],
   accountVisibility: "anonymous",
-  devices: ["iPhone 15 — this device", "MacBook Pro", "Pixel 8"],
+  passkeys: MOCK_PASSKEYS,
   theme: "light",
   signing: DEFAULT_SIGNING,
 
@@ -547,8 +565,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         otpOpen: false,
         loginOpen: false,
       }));
+      if (!isMockOnly()) {
+        void listPasskeys()
+          .then((passkeys) => setState((s) => ({ ...s, passkeys })))
+          .catch((e: Error) => notify(e.message));
+      }
     },
-    [],
+    [notify],
   );
 
   const logout = useCallback(() => {
@@ -565,6 +588,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountHandle: undefined,
         accountDisplayName: undefined,
         profileOpen: false,
+        passkeys: isMockOnly() ? MOCK_PASSKEYS : [],
       }));
       notify("Signed out.");
     };
@@ -575,13 +599,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     apiLogout().then(finish).catch(() => finish());
   }, [notify]);
 
-  // Wireframe addDeviceBtn: registers a passkey on this device (count grows).
   const addDevice = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      devices: [...s.devices, `New device (passkey ${s.devices.length + 1})`],
-    }));
-    notify("Passkey added to this device (demo).");
+    if (isMockOnly()) {
+      setState((s) => ({
+        ...s,
+        passkeys: [
+          ...s.passkeys,
+          mockPasskey(`New device (passkey ${s.passkeys.length + 1})`),
+        ],
+      }));
+      notify("Passkey added to this device (demo).");
+      return;
+    }
+    void enrollPasskey()
+      .then(() => listPasskeys())
+      .then((passkeys) => {
+        setState((s) => ({ ...s, passkeys }));
+        notify("Passkey added to this device.");
+      })
+      .catch((e: Error) => notify(e.message));
   }, [notify]);
 
   // Wireframe addDeviceEmailBtn: opens the account's OTP-login window so a
@@ -1014,7 +1050,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ),
     [notify],
   );
-  const openProfile = useCallback(() => set({ profileOpen: true }), [set]);
+  const openProfile = useCallback(() => {
+    set({ profileOpen: true });
+    if (!isMockOnly()) {
+      void listPasskeys()
+        .then((passkeys) => setState((s) => ({ ...s, passkeys })))
+        .catch((e: Error) => notify(e.message));
+    }
+  }, [set, notify]);
   const closeProfile = useCallback(() => set({ profileOpen: false }), [set]);
 
   // --- Sign modal ----------------------------------------------------------

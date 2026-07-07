@@ -1,3 +1,4 @@
+import type { AuthPasskey } from "@/lib/api/auth";
 import type {
   ActivityKind,
   AuthorGeoRelation,
@@ -103,8 +104,8 @@ export interface AppState {
   authEmail?: string;
   /** Account-default profile visibility (persisted; docs/09 cascade base). */
   accountVisibility: AuthorVisibility;
-  /** Registered passkey/device labels (wireframe deviceCount). */
-  devices: string[];
+  /** Enrolled account-login passkeys (live API or mock wireframe). */
+  passkeys: AuthPasskey[];
   /** Light/dark preference — drives the `dark` class on <html> (see global.css). */
   theme: "light" | "dark";
   /** Per-action signing method (Ask/Quick/Passkey); jurisdiction may raise it. */

@@ -30,6 +30,20 @@ export interface SessionInfo {
   scope: "full" | "registration" | "recovery";
 }
 
+/** Account-login passkey metadata from `GET /v1/auth/passkeys` (no key material). */
+export interface AuthPasskey {
+  id: string;
+  label: string | null;
+  transports: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
+export function passkeyDisplayLabel(pk: AuthPasskey): string {
+  const label = pk.label?.trim();
+  return label || "Unnamed passkey";
+}
+
 export interface VerifyRegistrationResult {
   userId: string;
   session: SessionInfo;
@@ -88,6 +102,11 @@ export async function loginWithPasskey(email?: string): Promise<VerifyRegistrati
   );
   if (!body) throw new Error("passkey login verify returned empty body");
   return { userId: body.userId, session: body.session };
+}
+
+export async function listPasskeys(): Promise<AuthPasskey[]> {
+  const body = await apiGet<{ passkeys: AuthPasskey[] }>("/v1/auth/passkeys");
+  return body?.passkeys ?? [];
 }
 
 export async function logout(): Promise<void> {
