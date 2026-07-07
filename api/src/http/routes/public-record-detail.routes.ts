@@ -58,6 +58,7 @@ const myReactionSchema = {
 const commentNodeSchema = {
   type: "object",
   properties: {
+    id: { type: "string", description: "Stable comment entity id (required for civic writes)." },
     author: { type: "string" },
     handle: { type: "string" },
     tier: { type: "string", enum: KYC_TIERS },
@@ -73,7 +74,7 @@ const commentNodeSchema = {
     identity: identitySchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
-  required: ["author", "handle", "tier", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
+  required: ["id", "author", "handle", "tier", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
 const detailSchema = {

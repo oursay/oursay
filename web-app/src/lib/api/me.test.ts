@@ -46,6 +46,21 @@ describe("applyRecordStates", () => {
     expect(next.petitionSig["rec-1"]).toBe(1);
     expect(next.reactions["rec-2"]).toBeUndefined();
   });
+
+  it("preserves a known reaction entity id when record-state omits _myEntityId", () => {
+    const next = applyRecordStates(
+      {
+        "rec-1": { _my: "down", _vote: null, signed: false, shared: false },
+      },
+      {
+        reactions: { "rec-1": { dir: "up", entityId: "rx-keep" } },
+        votes: {},
+        shared: {},
+        petitionSig: {},
+      },
+    );
+    expect(next.reactions["rec-1"]).toEqual({ dir: "down", entityId: "rx-keep" });
+  });
 });
 
 describe("live /v1/me adapters", () => {

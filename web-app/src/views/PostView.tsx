@@ -39,6 +39,7 @@ import {
 import { authorPath, postPath, districtPath, personaHintPath } from "@/lib/routes";
 import { wireHandle } from "@/lib/handle";
 import { commentKey, commentShareTarget, recordShareTarget } from "@/lib/share";
+import { civicCommentParentForReply } from "@/lib/comment-tree";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
   readThreadVisibilities,
@@ -157,10 +158,10 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);
 
-  // Comment reactions reuse the record reaction machinery, keyed by a stable
-  // per-comment id so counts/selection survive re-fetches and filter reordering.
-  const commentTarget = (node: CommentNode) => ({
-    id: node.id ?? commentKey(detail.id, node),
+  // Comment reactions reuse the record reaction machinery. Civic writes require the
+  // server-assigned comment entity id — never the synthetic commentKey fallback.
+  const commentReactionTarget = (node: CommentNode) => ({
+    id: node.id!,
     threadId: detail.id,
     parentType: "comment" as const,
     jurisdiction: detail.jurisdiction,
@@ -170,8 +171,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     districts: detail.districts,
   });
 
-  const reactionKeyFor = (node: CommentNode) =>
-    node.id ?? commentKey(detail.id, node);
+  const reactionKeyFor = (node: CommentNode) => node.id ?? commentKey(detail.id, node);
 
   const postCommentDone = (message: string, onClose?: () => void) => {
     onClose?.();
@@ -440,7 +440,13 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                     autoFocus
                     onCancel={() => toggleCommentReply(nodePath)}
                     onSubmit={(text) => {
-                      if (!node.id) {
+                      const parentId = civicCommentParentForReply(
+                        node,
+                        nodePath,
+                        depth,
+                        fullComments,
+                      );
+                      if (!parentId) {
                         app.notify("Comment id missing — refresh and try again.");
                         return;
                       }
@@ -449,7 +455,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                           threadId: detail.id,
                           jurisdiction: detail.jurisdiction,
                           targetTitle: detail.title,
-                          parentId: node.id,
+                          parentId,
                           parentType: "comment",
                           body: text,
                         },
@@ -466,8 +472,18 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               ) : null
             }
             onAuthorClick={(node) => router.push(authorPath(node.identity, node.handle))}
-            onReact={(node, dir) => app.react(commentTarget(node), dir)}
-            reactionCountsFor={(node) => app.reactionCountsFor(commentTarget(node))}
+            onReact={(node, dir) => {
+              if (!node.id) {
+                app.notify("Comment id missing — refresh and try again.");
+                return;
+              }
+              app.react(commentReactionTarget(node), dir);
+            }}
+            reactionCountsFor={(node) =>
+              node.id
+                ? app.reactionCountsFor(commentReactionTarget(node))
+                : { up: node.up, down: node.down }
+            }
             selectedReactionFor={(node) =>
               app.reactionFor(reactionKeyFor(node))
             }

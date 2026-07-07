@@ -67,7 +67,9 @@ describe("25 record detail: kind-agnostic detail + comment tree, identity, inter
     expect(d).to.not.have.property("authorDistricts");
 
     expect(comments).to.have.length(1);
+    expect(comments[0].id).to.equal(c1.entityId);
     expect(comments[0].body).to.deep.equal(["top"]);
+    expect(comments[0].replies[0].id).to.equal(c2.entityId);
     expect(comments[0].replies[0].body).to.deep.equal(["reply"]);
     expect(comments[0].replies[0].replies[0].body).to.deep.equal(["deep"]);
   });

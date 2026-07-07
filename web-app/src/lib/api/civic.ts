@@ -17,6 +17,8 @@ import type { RecordKind } from "@/lib/types";
 import { isMockOnly } from "./client";
 import { parentTypeForKind, type CivicSignMode } from "./civic-helpers";
 import { loadCustodySession, clearCachedCustodySession } from "./civic-custody";
+import { getRecordStates } from "./me";
+import { CivicHttpError } from "@oursay/identity/client/browser";
 
 export type { CivicSignMode } from "./civic-helpers";
 
@@ -60,6 +62,32 @@ function districtRules(slugs?: string[]): EntityRules | undefined {
   return { appliesToDistrictIds: slugs };
 }
 
+function isSingletonReactionConflict(err: unknown): boolean {
+  if (!(err instanceof CivicHttpError)) return false;
+  const msg = err.message.toLowerCase();
+  return (
+    err.status === 400 &&
+    (msg.includes("singleton") ||
+      msg.includes("already has an active reaction") ||
+      msg.includes("update instead"))
+  );
+}
+
+function isMissingReactionEntity(err: unknown): boolean {
+  if (!(err instanceof CivicHttpError)) return false;
+  const msg = err.message.toLowerCase();
+  return err.status === 400 && (msg.includes("not found") || msg.includes("entity "));
+}
+
+async function reactionEntityIdForParent(
+  parentId: string,
+  hint?: string,
+): Promise<string | undefined> {
+  if (hint) return hint;
+  const states = await getRecordStates([parentId]);
+  return states[parentId]?._myEntityId ?? undefined;
+}
+
 export async function civicReaction(
   userId: string,
   t: ThreadRef,
@@ -71,14 +99,39 @@ export async function civicReaction(
   const { client } = await getCivicClient(userId);
   const content: ReactionContent = { kind };
   const parent = { id: parentId, type: parentType };
-  const ref = existingEntityId
-    ? await client.append(
-        t,
-        { op: "update", type: "reaction", entityId: existingEntityId, content },
-        { sign: "quick" },
-      )
-    : await client.addReaction(t, parent, content, { sign: "quick" });
-  return ref.entityId;
+
+  let entityId = await reactionEntityIdForParent(parentId, existingEntityId);
+
+  const updateReaction = () =>
+    client.append(
+      t,
+      { op: "update", type: "reaction", entityId: entityId!, content },
+      { sign: "quick" },
+    );
+
+  const createReaction = () => client.addReaction(t, parent, content, { sign: "quick" });
+
+  if (entityId) {
+    try {
+      const ref = await updateReaction();
+      return ref.entityId;
+    } catch (err) {
+      if (!isMissingReactionEntity(err)) throw err;
+      entityId = undefined;
+    }
+  }
+
+  try {
+    const ref = await createReaction();
+    return ref.entityId;
+  } catch (err) {
+    if (!isSingletonReactionConflict(err)) throw err;
+    const resolved = await reactionEntityIdForParent(parentId);
+    if (!resolved) throw err;
+    entityId = resolved;
+    const ref = await updateReaction();
+    return ref.entityId;
+  }
 }
 
 export async function civicVote(

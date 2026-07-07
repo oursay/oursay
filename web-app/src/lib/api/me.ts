@@ -227,7 +227,7 @@ export function applyRecordStates(
     if (st._my) {
       reactions[id] = {
         dir: st._my,
-        ...(st._myEntityId ? { entityId: st._myEntityId } : {}),
+        entityId: st._myEntityId ?? prev.reactions[id]?.entityId,
       };
     }
     if (st._vote) votes[id] = st._vote;

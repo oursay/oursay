@@ -4657,6 +4657,9 @@ paths:
                     items:
                       type: object
                       properties:
+                        id:
+                          type: string
+                          description: Stable comment entity id (required for civic writes).
                         author:
                           type: string
                         handle:
@@ -4738,6 +4741,7 @@ paths:
                             type: object
                             additionalProperties: true
                       required:
+                        - id
                         - author
                         - handle
                         - tier
@@ -4800,6 +4804,9 @@ paths:
                     items:
                       type: object
                       properties:
+                        id:
+                          type: string
+                          description: Stable comment entity id (required for civic writes).
                         author:
                           type: string
                         handle:
@@ -4881,6 +4888,7 @@ paths:
                             type: object
                             additionalProperties: true
                       required:
+                        - id
                         - author
                         - handle
                         - tier
@@ -4981,6 +4989,9 @@ paths:
                     items:
                       type: object
                       properties:
+                        id:
+                          type: string
+                          description: Stable comment entity id.
                         author:
                           type: string
                         handle:
@@ -5046,6 +5057,7 @@ paths:
                             type: object
                             additionalProperties: true
                       required:
+                        - id
                         - author
                         - handle
                         - tier
