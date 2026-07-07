@@ -61,6 +61,7 @@ import { PublicRecordReadService } from "./services/public-record-read.service.j
 import { RecordDetailService } from "./services/record-detail.service.js";
 import { RecordStateService } from "./services/record-state.service.js";
 import { PersonaPageService } from "./services/persona-page.service.js";
+import { OfficialPageService } from "./services/official-page.service.js";
 import { ProfilePageService } from "./services/profile-page.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
 import { RegistrationService } from "./services/registration.service.js";
@@ -143,6 +144,8 @@ export interface Services {
   recordStateService: RecordStateService;
   /** Thread-scoped persona profile surface (P6). */
   personaPageService: PersonaPageService;
+  /** Auto-generated official seat pages (jurisdiction leaders; MLA catalog later). */
+  officialPageService: OfficialPageService;
   /** Account-level public profile surface (P4/P5). */
   profilePageService: ProfilePageService;
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
@@ -322,6 +325,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const recordDetailService = new RecordDetailService({ recordStore, identityReadService });
   const recordStateService = new RecordStateService({ recordStore });
   const personaPageService = new PersonaPageService({ recordStore, identityReadService });
+  const officialPageService = new OfficialPageService({ jurisdictions: [...jurisdictions] });
   const profilePageService = new ProfilePageService({
     recordStore,
     userRepo: repos.user,
@@ -364,6 +368,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     recordDetailService,
     recordStateService,
     personaPageService,
+    officialPageService,
     profilePageService,
     areaCatalogService,
     recordStore,

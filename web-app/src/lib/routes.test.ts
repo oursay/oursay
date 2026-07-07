@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { districtPath, profilePath, personaHintPath } from "./routes";
+import { districtPath, officialPath, profilePath, personaHintPath } from "./routes";
 
 describe("districtPath", () => {
   it("uses an explicit jurisdiction slug for districts outside the mock registry", () => {
@@ -10,6 +10,11 @@ describe("districtPath", () => {
 
   it("resolves mock corpus districts without an explicit jurisdiction", () => {
     expect(districtPath("calgary-elbow")).toBe("/jurisdiction/alberta/district/calgary-elbow");
+  });
+
+  it("routes jurisdiction leaders to the official profile surface", () => {
+    expect(officialPath("premier")).toBe("/official/premier");
+    expect(officialPath("@oursay")).toBe("/official/oursay");
   });
 });
 

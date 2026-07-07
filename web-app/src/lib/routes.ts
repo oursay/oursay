@@ -3,14 +3,15 @@ import { DETAIL_BY_ID, DISTRICT_BY_SLUG, jurisdictionById } from "@/lib/mock";
 import { wireHandle } from "@/lib/handle";
 import { COMMENTS_SECTION_ID } from "./scroll";
 
-/** The civic views (five wireframe views + the per-thread persona surface). */
+/** The civic views (five wireframe views + persona + official surfaces). */
 export type AppView =
   | "feed"
   | "jurisdiction"
   | "district"
   | "profile"
   | "post"
-  | "persona";
+  | "persona"
+  | "official";
 
 export const RECORD_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 
@@ -50,6 +51,12 @@ export function districtPath(
       return jurId ? jurisdictionSlug(jurId) : "";
     })();
   return `/jurisdiction/${jurSlug}/district/${districtSlug}`;
+}
+
+/** Route to an auto-generated official seat page: /official/{handle}. */
+export function officialPath(handle: string): string {
+  const wire = wireHandle(handle) ?? handle.replace(/^@/, "");
+  return `/official/${encodeURIComponent(wire)}`;
 }
 
 /** Public profile URL — wire handle only (no leading @). */
@@ -117,6 +124,7 @@ export function viewFromPathname(pathname: string): AppView {
   if (pathname.startsWith("/jurisdiction")) return "jurisdiction";
   if (pathname.startsWith("/profile")) return "profile";
   if (pathname.startsWith("/persona")) return "persona";
+  if (pathname.startsWith("/official")) return "official";
   if (RECORD_KINDS.some((kind) => pathname.startsWith(`/${kind}/`))) return "post";
   return "feed";
 }
@@ -137,6 +145,7 @@ export const VIEW_TITLE: Record<AppView, string> = {
   profile: "Profile",
   post: "Post",
   persona: "Anonymous",
+  official: "Official",
 };
 
 /** Label for the header jurisdiction pill on feed-like views (wireframe pillLabel). */

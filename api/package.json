@@ -19,7 +19,7 @@
     "db:test:up": "npm run db:test:up -w @oursay/public-record",
     "db:test:down": "npm run db:test:down -w @oursay/public-record",
     "pretest": "npm run db:test:up",
-    "test": "mocha",
+    "test": "mocha \"test/**/*.spec.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -16,6 +16,7 @@ import { districtName, jurisdictionIdFromSlug } from "@/lib/mock";
 import {
   authorPath,
   districtPath,
+  officialPath,
   personaHintPath,
   postPath,
   profilePath,
@@ -71,7 +72,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
         title={summary.name}
         leaderName={summary.leader.name}
         leaderHandle={summary.leader.handle}
-        onLeaderClick={() => router.push(profilePath(summary.leader.handle))}
+        onLeaderClick={() => router.push(officialPath(summary.leader.handle))}
       />
 
       {hasRidings ? (

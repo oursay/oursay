@@ -14,3 +14,6 @@ export const DEFERRED_EDIT_PROFILE = "Edit Profile is not available yet.";
 
 export const DEFERRED_JURISDICTIONS_SETTINGS =
   "Use the jurisdiction selector in the header to add or remove jurisdictions.";
+
+export const DEFERRED_CLAIM_PROFILE =
+  "Profile claiming is not available yet — verify as the office holder to take over this page.";

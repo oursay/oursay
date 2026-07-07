@@ -94,7 +94,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
             </button>
           </div>
         </div>
-        <p className="mt-3 text-center text-sm text-ink-soft">{profile.bio}</p>
+        <p className="mt-3 text-center text-sm italic text-ink-soft">{profile.bio}</p>
         {profile.support.agrees + profile.support.disagrees > 0 ? (
           <div className="mt-3">
             <ProfileSupportBar

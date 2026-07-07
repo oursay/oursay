@@ -7,7 +7,7 @@ import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
 import { districtName, jurisdictionIdFromSlug, jurisdictionLabel } from "@/lib/mock";
-import { authorPath, personaHintPath, postPath, profilePath, jurisdictionPath } from "@/lib/routes";
+import { authorPath, personaHintPath, postPath, officialPath, jurisdictionPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
@@ -73,7 +73,7 @@ export function DistrictView({
         }
         leaderName={detail.leader}
         leaderHandle={detail.leaderHandle}
-        onLeaderClick={() => router.push(profilePath(detail.leaderHandle))}
+        onLeaderClick={() => router.push(officialPath(detail.leaderHandle))}
       />
 
       <CollapsibleSection
