@@ -8,6 +8,10 @@ import { createHash } from "node:crypto";
 import type { NormalizedAddress } from "../../helpers/address.js";
 import type { GeocodeHit, GeocodeProvider } from "./provider.js";
 
+/** Dev seed postal → Edmonton-Strathcona interior (see api/scripts/seed-data/content.ts). */
+const DEV_STRATHCONA_POSTAL = "T6E 2A1";
+const DEV_STRATHCONA_POINT = { lon: -113.52, lat: 53.52 };
+
 // Alberta-ish bounding box (lon/lat). Points land inside Alberta so downstream point-in-polygon wiring
 // has something plausible to chew on; exact placement is meaningless (it's a stub).
 const LON_MIN = -120;
@@ -27,6 +31,9 @@ export class StubGeocodeProvider implements GeocodeProvider {
   async geocode(addr: NormalizedAddress): Promise<GeocodeHit | null> {
     if (addr.country !== "CA") return null;
     const postal = addr.postalCode ?? "";
+    if (postal === DEV_STRATHCONA_POSTAL) {
+      return { ...DEV_STRATHCONA_POINT, confidence: 0.95 };
+    }
     if (!CA_POSTAL.test(postal)) return null;
     const h = createHash("sha256").update(postal, "utf8").digest();
     const lon = LON_MIN + unit(h, 0) * (LON_MAX - LON_MIN);

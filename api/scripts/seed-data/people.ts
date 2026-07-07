@@ -1,6 +1,5 @@
 /**
- * Seed personas ported from web-app/src/lib/mock/people.ts (not imported — no Next aliases).
- * Tier: 0 unverified · 1 identity · 2 residency · 3 official-role UI (KYC = residency + role).
+ * Seed persona shapes and fixed anchors. Random users are generated in seed-orchestrator.ts.
  */
 
 export type SeedVisibility =
@@ -15,115 +14,124 @@ export type SeedVisibility =
 export interface SeedPerson {
   handle: string;
   name: string;
-  /** Mock VerificationTier — drives kycService.attest + geocode. */
+  /** 0 unverified · 1 identity · 2 residency · 3 official-role. */
   tier: 0 | 1 | 2 | 3;
   districts?: string[];
   visibility?: SeedVisibility;
-  /** When set, user gets official role in ab-ca-gov. */
+  /** When set, user gets official role in ab-ca-gov (needed for Alberta polls). */
   officialDistrict?: string | null;
-  /** Extra jurisdiction memberships beyond oursay-global. */
   jurisdictions?: string[];
 }
 
-/** ~16 story anchors from the wireframe corpus (MLA stubs omitted). */
-export const SEED_PEOPLE: SeedPerson[] = [
-  { handle: "dwhitecloud", name: "Dana Whitecloud", tier: 0, visibility: "anonymous" },
-  { handle: "oursay", name: "OurSay Stewards", tier: 3, visibility: "public", jurisdictions: ["ab-ca-gov"] },
-  { handle: "priya", name: "Priya Anand", tier: 1, visibility: "id_verified" },
-  { handle: "mlee", name: "Marcus Lee", tier: 1, visibility: "my_jurisdiction" },
+export const GLOBAL_ID = "oursay-global";
+export const ALBERTA_ID = "ab-ca-gov";
+
+/** Fixed officials + visibility showcase accounts (mixed into the random pool). */
+export const SEED_ANCHORS: readonly SeedPerson[] = [
   {
-    handle: "premier",
-    name: "Hon. A. Premier",
-    tier: 3,
+    handle: "strathcona_local",
+    name: "Morgan Strathcona",
+    tier: 2,
+    districts: ["edmonton-strathcona"],
+    visibility: "my_district",
+    jurisdictions: [ALBERTA_ID],
+  },
+  {
+    handle: "whyte_public",
+    name: "Priya Whyte",
+    tier: 2,
+    districts: ["edmonton-strathcona"],
     visibility: "public",
-    jurisdictions: ["ab-ca-gov"],
-    officialDistrict: null,
+    jurisdictions: [ALBERTA_ID],
+  },
+  {
+    handle: "centre_district",
+    name: "Owen Centre",
+    tier: 2,
+    districts: ["edmonton-city-centre"],
+    visibility: "my_district",
+    jurisdictions: [ALBERTA_ID],
+  },
+  {
+    handle: "global_public",
+    name: "Dana Cloud",
+    tier: 1,
+    visibility: "public",
+  },
+  {
+    handle: "anon_voice",
+    name: "Alex Quiet",
+    tier: 2,
+    districts: ["edmonton-strathcona"],
+    visibility: "anonymous",
+    jurisdictions: [ALBERTA_ID],
   },
   {
     handle: "ableg",
     name: "Alberta Assembly",
     tier: 3,
     visibility: "public",
-    jurisdictions: ["ab-ca-gov"],
+    jurisdictions: [ALBERTA_ID],
     officialDistrict: null,
   },
   {
-    handle: "jvance",
-    name: "Jordan Vance",
-    tier: 0,
-    districts: ["edmonton-strathcona"],
-    visibility: "my_district",
-    jurisdictions: ["ab-ca-gov"],
-  },
-  {
-    handle: "pshah",
-    name: "Priti Shah",
-    tier: 1,
-    districts: ["calgary-elbow"],
-    visibility: "my_district",
-    jurisdictions: ["ab-ca-gov"],
-  },
-  {
-    handle: "hanao",
-    name: "Hana Okafor",
-    tier: 2,
-    districts: ["edmonton-strathcona"],
-    visibility: "public",
-    jurisdictions: ["ab-ca-gov"],
-  },
-  {
-    handle: "samd",
-    name: "Sam Driver",
-    tier: 2,
-    districts: ["edmonton-strathcona"],
-    visibility: "all_officials",
-    jurisdictions: ["ab-ca-gov"],
-  },
-  {
-    handle: "rosak",
-    name: "Rosa Klein",
-    tier: 2,
-    districts: ["calgary-elbow"],
-    visibility: "my_officials",
-    jurisdictions: ["ab-ca-gov"],
-  },
-  {
-    handle: "weichen",
-    name: "Wei Chen",
-    tier: 2,
-    districts: ["edmonton-strathcona"],
-    visibility: "public",
-    jurisdictions: ["ab-ca-gov"],
-  },
-  { handle: "owenf", name: "Owen Fletcher", tier: 2, districts: ["edmonton-city-centre"], jurisdictions: ["ab-ca-gov"] },
-  { handle: "beanowak", name: "Bea Nowak", tier: 2, districts: ["calgary-elbow"], jurisdictions: ["ab-ca-gov"] },
-  {
     handle: "raenguyen",
-    name: "Rae Nguyen",
+    name: "Rae Nguyen MLA",
     tier: 3,
     districts: ["edmonton-strathcona"],
     visibility: "public",
-    jurisdictions: ["ab-ca-gov"],
+    jurisdictions: [ALBERTA_ID],
     officialDistrict: "edmonton-strathcona",
-  },
-  {
-    handle: "lenapark",
-    name: "Lena Park",
-    tier: 3,
-    districts: ["edmonton-city-centre"],
-    visibility: "public",
-    jurisdictions: ["ab-ca-gov"],
-    officialDistrict: "edmonton-city-centre",
-  },
-  {
-    handle: "alex_morgan",
-    name: "Alex Morgan",
-    tier: 2,
-    districts: ["edmonton-strathcona"],
-    visibility: "anonymous",
-    jurisdictions: ["ab-ca-gov"],
   },
 ];
 
-export const GLOBAL_ID = "oursay-global";
-export const ALBERTA_ID = "ab-ca-gov";
+/** Visibility mix for generated users (weights). */
+export const GENERATED_VISIBILITY_MIX: readonly { visibility: SeedVisibility; weight: number }[] = [
+  { visibility: "public", weight: 3 },
+  { visibility: "my_district", weight: 3 },
+  { visibility: "anonymous", weight: 2 },
+  { visibility: "id_verified", weight: 2 },
+  { visibility: "my_jurisdiction", weight: 1 },
+];
+
+export const DISTRICT_SLUGS = [
+  "edmonton-strathcona",
+  "edmonton-city-centre",
+  "calgary-elbow",
+] as const;
+
+export const FIRST_NAMES = [
+  "Jordan",
+  "Sam",
+  "Rosa",
+  "Wei",
+  "Lena",
+  "Marcus",
+  "Bea",
+  "Hana",
+  "Owen",
+  "Priti",
+  "Kai",
+  "Noor",
+  "Elliot",
+  "Sage",
+  "Remy",
+] as const;
+
+export const LAST_NAMES = [
+  "Chen",
+  "Klein",
+  "Park",
+  "Driver",
+  "Shah",
+  "Fletcher",
+  "Nowak",
+  "Okafor",
+  "Lee",
+  "Anand",
+  "Vance",
+  "Nguyen",
+  "Morin",
+  "Patel",
+  "Santos",
+] as const;

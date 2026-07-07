@@ -226,9 +226,11 @@ npm run openapi:dump -w @oursay/api          # writes api/openapi.yaml
 ```
 
 `npm run seed -w @oursay/api` wipes auth + record rows (not production), ingests Alberta districts
-when `geo.districts` is empty, creates ~17 accounts, and writes ~12 root records through
-`CivicHttpClient` + `DevPasskeyConnector`. Manifest: `api/.oursay-dev/seed-manifest.json` (maps mock
-slugs → UUID entity ids). Pair with `NEXT_PUBLIC_MOCK_ONLY=0` in the web-app for a live feed.
+when `geo.districts` is empty, creates ~21 accounts with mixed visibility (`public`, `my_district`,
+`anonymous`, …), and writes dozens of statements/petitions/polls through the civic SDK. See
+`api/.oursay-dev/seed-manifest.json` after seeding — includes a dev address for Edmonton-Strathcona
+residency so you can see `my_district` vs `public` comment authors. Pair with
+`NEXT_PUBLIC_MOCK_ONLY=0` in the web-app for a live feed.
 
 `npm run db:down` wipes Docker volumes — **destructive, dev-only**. The test reset and `db:down` are
 guarded by `scripts/destructive-guard.ts` and refuse to run under `NODE_ENV=production`.

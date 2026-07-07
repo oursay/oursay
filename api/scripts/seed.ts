@@ -1,23 +1,17 @@
 /**
- * Dev DB seed — ports the web-app mock corpus through the real civic write path.
+ * Dev DB seed — realistic civic corpus via the real write path.
  *
  * Run: `npm run seed -w @oursay/api` (after `npm run db:up -w @oursay/api`).
- * Re-run after api test suites — they share the dev DB on 5442 and truncate it.
+ * Content templates live in seed-data/content.ts; authors are assigned at runtime.
  */
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ingestBoundaries, ShapefileSource, paths } from "@oursay/geo";
 import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
-import { SEED_ROOTS } from "./seed-data/corpus.js";
-import { SEED_PEOPLE } from "./seed-data/people.js";
-import {
-  buildSeedWorld,
-  clearPasskeyDir,
-  createSeedMember,
-  seedRoot,
-  type SeedMember,
-} from "./seed-helpers.js";
+import { DEV_STRATHCONA_ADDRESS } from "./seed-data/content.js";
+import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
+import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 
@@ -79,40 +73,62 @@ async function main(): Promise<void> {
 
   await ensureGeoBoundaries(world);
 
-  console.log(`Creating ${SEED_PEOPLE.length} accounts…`);
-  const members = new Map<string, SeedMember>();
-  for (const person of SEED_PEOPLE) {
-    const m = await createSeedMember(world, person);
-    members.set(person.handle, m);
-    process.stdout.write(".");
-  }
-  console.log(" done");
+  const { people, posts } = await runSeedOrchestrator(world, defaultSeedRng);
 
-  console.log(`Writing ${SEED_ROOTS.length} root records via civic SDK…`);
-  for (const root of SEED_ROOTS) {
-    await seedRoot(members, root);
-    process.stdout.write(".");
-  }
-  console.log(" done");
-
-  const feed = await world.app.inject({ method: "GET", url: "/v1/public/feed?limit=50" });
+  const feed = await world.app.inject({ method: "GET", url: "/v1/public/feed?limit=80" });
   const feedCount =
     feed.statusCode === 200 ? ((feed.json() as { items?: unknown[] }).items?.length ?? 0) : 0;
 
+  const visibilityShowcase = people.filter((p) =>
+    ["strathcona_local", "whyte_public", "centre_district", "global_public", "anon_voice"].includes(
+      p.handle,
+    ),
+  );
+
   const manifest = {
     seededAt: new Date().toISOString(),
-    users: SEED_PEOPLE.map((p) => p.handle),
-    roots: SEED_ROOTS.map((r) => ({ slug: r.slug, id: r.id, kind: r.kind, author: r.author })),
+    userCount: people.length,
+    postCount: posts.length,
     feedItemCount: feedCount,
-    hint: "Log in as alex_morgan@seed.oursay.dev via OTP/passkey after creating a passkey, or use /walk harness.",
+    visibilityShowcase: visibilityShowcase.map((p) => ({
+      handle: p.handle,
+      email: `${p.handle}@seed.oursay.dev`,
+      visibility: p.visibility,
+      districts: p.districts ?? [],
+    })),
+    devVerifyIntoStrathcona: {
+      summary:
+        "Patch your profile with this address, identity-verify, then POST /v1/kyc/residency/attest to see my_district commenters in Edmonton-Strathcona.",
+      profilePatch: DEV_STRATHCONA_ADDRESS,
+      steps: [
+        "POST /v1/dev/kyc/attest { tier: \"identity_verified\" } (dev only)",
+        "PATCH /v1/profile with devVerifyIntoStrathcona.profilePatch",
+        "POST /v1/kyc/residency/attest { consent: true, jurisdictionId: \"ab-ca-gov\" }",
+        "Open a post with comments by strathcona_local (my_district) vs whyte_public (public)",
+      ],
+    },
+    samplePosts: posts.slice(0, 12).map((p) => ({
+      slug: p.slug,
+      id: p.id,
+      kind: p.kind,
+      author: p.authorHandle,
+      jurisdiction: p.jurisdiction,
+    })),
+    hint: "Log in via OTP at {handle}@seed.oursay.dev or use /walk. Set NEXT_PUBLIC_MOCK_ONLY=0 for live feed.",
   };
   writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2));
 
   console.log("\n--- summary ---");
-  console.log(`  users:  ${SEED_PEOPLE.length}`);
-  console.log(`  roots:  ${SEED_ROOTS.length}`);
+  console.log(`  users:  ${people.length}`);
+  console.log(`  posts:  ${posts.length}`);
   console.log(`  feed:   ${feedCount} items (GET /v1/public/feed)`);
   console.log(`  manifest: ${MANIFEST_PATH}`);
+  console.log("\n  Visibility showcase:");
+  for (const p of visibilityShowcase) {
+    console.log(`    ${p.handle} (${p.visibility}) — ${p.handle}@seed.oursay.dev`);
+  }
+  console.log("\n  Dev-verify into Edmonton-Strathcona (see my_district commenters):");
+  console.log(`    ${DEV_STRATHCONA_ADDRESS.line1}, ${DEV_STRATHCONA_ADDRESS.city} ${DEV_STRATHCONA_ADDRESS.province} ${DEV_STRATHCONA_ADDRESS.postalCode}`);
   console.log("\nSeed complete. Start api + web-app with NEXT_PUBLIC_MOCK_ONLY=0 for live corpus.\n");
 
   await world.db.close();

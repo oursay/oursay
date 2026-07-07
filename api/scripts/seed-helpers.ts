@@ -2,9 +2,9 @@
  * Shared helpers for api/scripts/seed.ts — civic enroll + write orchestration.
  */
 
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import type { CivicHttpClient, ThreadRef } from "@oursay/identity/client";
 import { CivicHttpClient as Client, DevPasskeyConnector, IdentitySession as Session } from "@oursay/identity/client";
 import type { SignMode } from "@oursay/identity";
@@ -17,9 +17,11 @@ import { normalizeHandle } from "../src/helpers/handle.js";
 import { NoopMailAdapter } from "../src/services/mailer/adapters/noop.js";
 import { injectFetch } from "../test/helpers/inject-fetch.js";
 import type { FastifyInstance } from "fastify";
-import type { SeedComment, SeedRoot } from "./seed-data/corpus.js";
+import type { PostKind, PostTemplate } from "./seed-data/content.js";
 import type { SeedPerson } from "./seed-data/people.js";
 import { ALBERTA_ID, GLOBAL_ID } from "./seed-data/people.js";
+
+export type Rng = () => number;
 
 export interface SeedWorld {
   db: Db;
@@ -35,6 +37,23 @@ export interface SeedMember {
   passkey: DevPasskeyConnector;
 }
 
+export interface SeededPost {
+  slug: string;
+  id: string;
+  kind: PostKind;
+  jurisdiction: string;
+  authorHandle: string;
+  pollOptions?: string[];
+  specificComments?: string[];
+}
+
+export interface SeededComment {
+  id: string;
+  postId: string;
+  authorHandle: string;
+  parentType: "post" | "comment";
+}
+
 const PASSKEY_ROOT = join(process.cwd(), ".oursay-dev", "seed-passkeys");
 
 /** Known interior points per home district slug (EPSG:4326). */
@@ -48,11 +67,23 @@ export function signModeFor(jurisdiction: string): SignMode {
   return jurisdiction === ALBERTA_ID ? "passkey" : "quick";
 }
 
+export function pickRandom<T>(rng: Rng, items: readonly T[]): T {
+  return items[Math.floor(rng() * items.length)]!;
+}
+
+export function shuffle<T>(rng: Rng, items: T[]): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
+}
+
 export async function buildSeedWorld(): Promise<SeedWorld> {
   const db = new Db();
   await db.init();
   const mail = new NoopMailAdapter();
-  // Deterministic tier attestations — same as api/test/helpers/world.ts (ignores KYC_PROVIDER=didit in .env).
   const services = await buildServices(db, {
     mailerOverrides: { noop: mail },
     kyc: { ...kycConfig, provider: "stub" },
@@ -66,10 +97,7 @@ export function clearPasskeyDir(): void {
   mkdirSync(PASSKEY_ROOT, { recursive: true });
 }
 
-export async function createSeedMember(
-  world: SeedWorld,
-  person: SeedPerson,
-): Promise<SeedMember> {
+export async function createSeedMember(world: SeedWorld, person: SeedPerson): Promise<SeedMember> {
   const email = `${person.handle}@seed.oursay.dev`;
   const userId = randomUUID();
   const handle = normalizeHandle(person.handle);
@@ -149,79 +177,32 @@ export async function createSeedMember(
   return { userId, token: session.token, handle: person.handle, client, passkey };
 }
 
-export function threadRef(root: SeedRoot): ThreadRef {
-  return { threadId: root.id, jurisdiction: root.jurisdiction };
-}
-
-export async function seedComments(
+export async function createPostFromTemplate(
   member: SeedMember,
-  t: ThreadRef,
-  parent: { type: "post" | "petition" | "poll" | "comment"; id: string },
-  nodes: SeedComment[],
-  sign: SignMode,
-): Promise<void> {
-  for (const node of nodes) {
-    await member.client.ensureJoined(t);
-    const ref = await member.client.createComment(
-      t,
-      parent,
-      { body: node.body },
-      { sign },
-    );
-    if (node.replies?.length) {
-      await seedComments(
-        member,
-        t,
-        { type: "comment", id: ref.entityId },
-        node.replies,
-        sign,
-      );
-    }
-  }
-}
+  template: PostTemplate,
+  entityId: string,
+  jurisdiction: string,
+): Promise<SeededPost> {
+  const t: ThreadRef = { threadId: entityId, jurisdiction };
+  const sign = signModeFor(jurisdiction);
+  await member.client.ensureJoined(t);
 
-export async function seedRoot(
-  members: Map<string, SeedMember>,
-  root: SeedRoot,
-): Promise<void> {
-  const author = members.get(root.author);
-  if (!author) throw new Error(`missing seed author ${root.author}`);
-  const t = threadRef(root);
-  const sign = signModeFor(root.jurisdiction);
-  await author.client.ensureJoined(t);
-
-  if (root.kind === "statement") {
-    await author.client.createPost(
-      t,
-      { title: root.title, body: root.body },
-      { sign },
-    );
-    if (root.updateBody) {
-      await author.client.append(
-        t,
-        {
-          op: "update",
-          type: "post",
-          entityId: root.id,
-          content: { title: root.title, body: root.updateBody },
-        },
-        { sign },
-      );
-    }
-  } else if (root.kind === "petition") {
-    await author.client.append(
+  if (template.kind === "statement") {
+    await member.client.createPost(t, { title: template.title, body: template.body }, { sign });
+  } else if (template.kind === "petition") {
+    await member.client.append(
       t,
       {
         op: "create",
         type: "petition",
-        entityId: root.id,
+        entityId,
         content: {
-          title: root.title,
-          text: root.body,
+          title: template.title,
+          text: template.body,
           rules: {
-            ...root.petitionRules,
+            ...template.petitionRules,
             deadline:
-              root.petitionRules?.allowRevoke === false
+              template.petitionRules?.allowRevoke === false
                 ? undefined
                 : new Date(Date.now() + 30 * 86400_000).toISOString(),
           },
@@ -229,113 +210,29 @@ export async function seedRoot(
       },
       { sign },
     );
-    if (root.updateBody) {
-      await author.client.append(
-        t,
-        {
-          op: "update",
-          type: "petition",
-          entityId: root.id,
-          content: { title: root.title, text: root.updateBody, rules: root.petitionRules },
-        },
-        { sign },
-      );
-    }
-  } else if (root.kind === "poll") {
-    await author.client.append(
+  } else if (template.kind === "poll") {
+    await member.client.append(
       t,
       {
         op: "create",
         type: "poll",
-        entityId: root.id,
+        entityId,
         content: {
-          question: root.title,
-          options: root.pollOptions ?? ["Yes", "No"],
-          ...(root.sourcePetitionId ? { sourcePetitionId: root.sourcePetitionId } : {}),
-        },
-      },
-      { sign },
-    );
-  } else if (root.kind === "result") {
-    await author.client.append(
-      t,
-      {
-        op: "create",
-        type: "result",
-        entityId: root.id,
-        content: {
-          title: root.title,
-          body: root.body,
-          sourcePollId: root.sourcePollId,
-          tallies: root.resultTallies,
+          question: template.title,
+          options: template.pollOptions ?? ["Yes", "No"],
         },
       },
       { sign },
     );
   }
 
-  const parentType: "post" | "petition" | "poll" =
-    root.kind === "statement" ? "post" : root.kind === "result" ? "poll" : root.kind;
-
-  if (root.comments?.length) {
-    for (const c of root.comments) {
-      const m = members.get(c.handle);
-      if (!m) continue;
-      await seedComments(m, t, { type: parentType, id: root.id }, [c], signModeFor(root.jurisdiction));
-    }
-  }
-
-  if (root.reactions) {
-    for (const r of root.reactions) {
-      const m = members.get(r.handle);
-      if (!m) continue;
-      await m.client.ensureJoined(t);
-      await m.client.addReaction(
-        t,
-        { type: parentType, id: root.id },
-        { kind: r.kind },
-        { sign: signModeFor(root.jurisdiction) },
-      );
-    }
-  }
-
-  if (root.signatures) {
-    for (const h of root.signatures) {
-      const m = members.get(h);
-      if (!m) continue;
-      await m.client.ensureJoined(t);
-      const sigRef = await m.client.append(
-        t,
-        {
-          op: "create",
-          type: "petition_signature",
-          entityId: randomUUID(),
-          parent: { type: "petition", id: root.id },
-          content: {},
-        },
-        { sign: signModeFor(root.jurisdiction) },
-      );
-      if (root.revokeSignature === h) {
-        await m.client.append(
-          t,
-          { op: "delete", type: "petition_signature", entityId: sigRef.entityId },
-          { sign: signModeFor(root.jurisdiction) },
-        );
-      }
-    }
-  }
-
-  if (root.votes && root.kind === "poll") {
-    for (const v of root.votes) {
-      const m = members.get(v.handle);
-      if (!m) continue;
-      await m.client.ensureJoined(t);
-      await m.client.castVote(
-        t,
-        { type: "poll", id: root.id },
-        { option: v.option },
-        { sign: signModeFor(root.jurisdiction) },
-      );
-    }
-  }
+  return {
+    slug: template.slug,
+    id: entityId,
+    kind: template.kind,
+    jurisdiction,
+    authorHandle: member.handle,
+    pollOptions: template.pollOptions,
+    specificComments: template.specificComments,
+  };
 }
