@@ -5,6 +5,6 @@ export default async function DistrictPage({
 }: {
   params: Promise<{ slug: string; dslug: string }>;
 }) {
-  const { dslug } = await params;
-  return <DistrictView slug={dslug} />;
+  const { slug, dslug } = await params;
+  return <DistrictView jurisdictionSlug={slug} slug={dslug} />;
 }

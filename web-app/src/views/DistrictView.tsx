@@ -6,16 +6,25 @@ import { Info, Map, Newspaper } from "lucide-react";
 import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
-import { districtName } from "@/lib/mock";
+import { districtName, jurisdictionIdFromSlug, jurisdictionLabel } from "@/lib/mock";
 import { authorPath, personaHintPath, postPath, profilePath, jurisdictionPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
-export function DistrictView({ slug }: { slug: string }) {
+export function DistrictView({
+  slug,
+  jurisdictionSlug,
+}: {
+  slug: string;
+  jurisdictionSlug?: string;
+}) {
   const app = useApp();
   const { setPageJurisdiction, feedFilter, viewer } = app;
   const router = useRouter();
+  const jurisdictionId = jurisdictionSlug
+    ? (jurisdictionIdFromSlug(jurisdictionSlug) ?? jurisdictionSlug)
+    : undefined;
 
   const [detail, setDetail] = useState<DistrictDetail | null>(null);
   const [items, setItems] = useState<FeedItem[] | null>(null);
@@ -24,8 +33,8 @@ export function DistrictView({ slug }: { slug: string }) {
   const [feedOpen, setFeedOpen] = useState(true);
 
   useEffect(() => {
-    getDistrict(slug).then(setDetail);
-  }, [slug]);
+    getDistrict(slug, jurisdictionId ? { jurisdictionId } : undefined).then(setDetail);
+  }, [slug, jurisdictionId]);
 
   useEffect(() => {
     if (detail) setPageJurisdiction(detail.jur);
@@ -59,7 +68,7 @@ export function DistrictView({ slug }: { slug: string }) {
             onClick={() => router.push(jurisdictionPath(detail.jur))}
             className="underline underline-offset-2 hover:text-ink-soft"
           >
-            {detail.jur}
+            {jurisdictionLabel(detail.jur)}
           </button>
         }
         leaderName={detail.leader}

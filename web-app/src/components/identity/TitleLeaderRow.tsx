@@ -42,15 +42,19 @@ export function TitleLeaderRow({
       </h2>
     );
 
+  const hasLeader = leaderName.trim().length > 0;
+
   return (
     <div className="flex w-full min-w-0 items-center gap-2">
       {titleNode}
-      <LeaderProfileLink
-        name={leaderName}
-        handle={leaderHandle}
-        size={variant === "row" ? "sm" : "md"}
-        onClick={onLeaderClick}
-      />
+      {hasLeader ? (
+        <LeaderProfileLink
+          name={leaderName}
+          handle={leaderHandle}
+          size={variant === "row" ? "sm" : "md"}
+          onClick={onLeaderClick}
+        />
+      ) : null}
     </div>
   );
 }

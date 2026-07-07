@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ingestBoundaries, ShapefileSource, paths } from "@oursay/geo";
 import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
-import { DEV_STRATHCONA_ADDRESS } from "./seed-data/content.js";
+import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
 import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
 
@@ -107,12 +107,20 @@ async function main(): Promise<void> {
         "Open a post with comments by strathcona_local (my_district) vs whyte_public (public)",
       ],
     },
-    samplePosts: posts.slice(0, 12).map((p) => ({
-      slug: p.slug,
-      id: p.id,
-      kind: p.kind,
-      author: p.authorHandle,
-      jurisdiction: p.jurisdiction,
+    samplePosts: posts
+      .filter((p) => p.jurisdiction === "ab-ca-gov")
+      .slice(0, 8)
+      .map((p) => ({
+        slug: p.slug,
+        id: p.id,
+        kind: p.kind,
+        author: p.authorHandle,
+        appliesToDistrictIds: p.appliesToDistrictIds,
+      })),
+    districtShowcase: SHOWCASE_BINDINGS.map((b) => ({
+      slug: b.slug,
+      author: b.author,
+      id: seedUuid(b.slug),
     })),
     hint: "Log in via OTP at {handle}@seed.oursay.dev or use /walk. Set NEXT_PUBLIC_MOCK_ONLY=0 for live feed.",
   };

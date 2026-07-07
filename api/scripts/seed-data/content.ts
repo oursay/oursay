@@ -4,6 +4,7 @@
  */
 
 import { createHash } from "node:crypto";
+import type { EntityRules } from "@oursay/public-record/schema/types";
 import { ALBERTA_ID, GLOBAL_ID } from "./people.js";
 
 /** Deterministic UUID v4-shaped id per slug (record_tx.entity_id is UUID). */
@@ -25,12 +26,21 @@ export interface PostTemplate {
   scope: PostScope;
   title: string;
   body: string;
-  districts?: string[];
   pollOptions?: string[];
-  petitionRules?: { appliesToDistrictIds?: string[]; allowRevoke?: boolean };
+  /** Geographic stake for petitions/polls (→ feed `appliesToDistrictIds`). Statements are always jurisdiction-wide. */
+  governance?: EntityRules;
   /** One-time root comments consumed when a user comments on this post. */
   specificComments?: string[];
 }
+
+/** Always seeded first with fixed authors — guarantees single/multi-district UI coverage. */
+export const SHOWCASE_BINDINGS: readonly { slug: string; author: string }[] = [
+  { slug: "ab-province-wide", author: "whyte_public" },
+  { slug: "ab-showcase-pet-single", author: "strathcona_local" },
+  { slug: "ab-river-path", author: "centre_district" },
+  { slug: "ab-showcase-poll-single", author: "ableg" },
+  { slug: "ab-showcase-poll-multi", author: "ableg" },
+];
 
 export function jurisdictionForScope(scope: PostScope): string {
   if (scope === "alberta") return ALBERTA_ID;
@@ -72,14 +82,68 @@ export const GENERIC_REPLY_COMMENTS: readonly string[] = [
 ];
 
 export const POST_TEMPLATES: readonly PostTemplate[] = [
-  // ── Alberta ───────────────────────────────────────────────────────────────
+  // ── Alberta (showcase: province-wide + single-district + multi-district stakes) ──
+  {
+    slug: "ab-province-wide",
+    kind: "statement",
+    scope: "alberta",
+    title: "Alberta should publish monthly ER wait-time dashboards",
+    body: "Province-wide averages hide which facilities are struggling. Monthly facility-level reporting would help residents and MLAs alike.",
+    specificComments: ["Other provinces already do this quarterly."],
+  },
+  {
+    slug: "ab-showcase-pet-single",
+    kind: "petition",
+    scope: "alberta",
+    title: "Restore the Whyte Avenue street trees",
+    body: "Drought and construction took out a full block of mature elms. Replace them this planting season.",
+    governance: {
+      appliesToDistrictIds: ["edmonton-strathcona"],
+      allowRevoke: true,
+    },
+    specificComments: ["The south sidewalk is bare for two full blocks."],
+  },
+  {
+    slug: "ab-river-path",
+    kind: "petition",
+    scope: "alberta",
+    title: "Twin the river-valley commuter path",
+    body: "The path narrows to one lane where Edmonton-Strathcona meets Edmonton-City Centre, backing up cyclists and walkers every morning.",
+    governance: {
+      appliesToDistrictIds: ["edmonton-strathcona", "edmonton-city-centre"],
+      allowRevoke: false,
+    },
+    specificComments: [
+      "City Centre residents feel this every commute — fully behind it.",
+      "One signature away from the threshold — let's push it over.",
+    ],
+  },
+  {
+    slug: "ab-showcase-poll-single",
+    kind: "poll",
+    scope: "alberta",
+    title: "Fund a new Strathcona community rink in 2027?",
+    body: "Single-riding poll — only Edmonton-Strathcona residents are in the impacted audience.",
+    pollOptions: ["Yes — fund in 2027", "No — defer"],
+    governance: { appliesToDistrictIds: ["edmonton-strathcona"] },
+  },
+  {
+    slug: "ab-showcase-poll-multi",
+    kind: "poll",
+    scope: "alberta",
+    title: "Fund the river-valley path twinning in 2027?",
+    body: "Multi-riding poll spanning Strathcona and City Centre.",
+    pollOptions: ["Yes — fund in 2027", "No — defer"],
+    governance: {
+      appliesToDistrictIds: ["edmonton-strathcona", "edmonton-city-centre"],
+    },
+  },
   {
     slug: "ab-ravine",
     kind: "statement",
     scope: "alberta",
     title: "Protect the Whitemud Creek ravine",
     body: "The proposed access roads would cut through old-growth buffer along the creek and disturb a heron rookery. Council should pause rezoning until an independent watershed review is complete.",
-    districts: ["edmonton-strathcona"],
     specificComments: [
       "Agreed — the rookery alone should trigger a review.",
       "What's the timeline on the rezoning vote?",
@@ -92,24 +156,7 @@ export const POST_TEMPLATES: readonly PostTemplate[] = [
     scope: "alberta",
     title: "Protected bike lanes on Whyte Avenue",
     body: "Whyte gets dangerous at rush hour. Protected lanes would help everyone share the road without squeezing transit.",
-    districts: ["edmonton-strathcona"],
     specificComments: ["Businesses worry about parking — has anyone modeled the trade-off?"],
-  },
-  {
-    slug: "ab-river-path",
-    kind: "petition",
-    scope: "alberta",
-    title: "Twin the river-valley commuter path",
-    body: "The path narrows to one lane where Edmonton-Strathcona meets Edmonton-City Centre, backing up cyclists and walkers every morning.",
-    districts: ["edmonton-strathcona", "edmonton-city-centre"],
-    petitionRules: {
-      appliesToDistrictIds: ["edmonton-strathcona", "edmonton-city-centre"],
-      allowRevoke: false,
-    },
-    specificComments: [
-      "City Centre residents feel this every commute — fully behind it.",
-      "One signature away from the threshold — let's push it over.",
-    ],
   },
   {
     slug: "ab-rink",
@@ -117,32 +164,15 @@ export const POST_TEMPLATES: readonly PostTemplate[] = [
     scope: "alberta",
     title: "Save the Elbow Park outdoor rink",
     body: "The community rink needs a small grant to reopen this winter. Neighbourhood kids have nowhere else nearby.",
-    districts: ["calgary-elbow"],
     specificComments: ["Happy to volunteer for a fundraiser skate."],
-  },
-  {
-    slug: "ab-health-wait",
-    kind: "statement",
-    scope: "alberta",
-    title: "Emergency wait times in south Edmonton",
-    body: "South-side ER waits have doubled since last year. We need transparent monthly reporting by facility, not province-wide averages.",
-    districts: ["edmonton-strathcona"],
   },
   {
     slug: "ab-budget-poll",
     kind: "poll",
     scope: "alberta",
     title: "Provincial budget priority for 2027",
-    body: "Where should the next provincial budget lead?",
+    body: "Jurisdiction-wide poll — no district stake (whole of Alberta).",
     pollOptions: ["Healthcare", "Education", "Roads and transit"],
-  },
-  {
-    slug: "ab-path-poll",
-    kind: "poll",
-    scope: "alberta",
-    title: "Fund the river-valley path twinning in 2027?",
-    body: "Follow-on to the commuter-path petition — should it be in the next capital plan?",
-    pollOptions: ["Yes — fund in 2027", "No — defer"],
   },
   // ── Global ──────────────────────────────────────────────────────────────────
   {
@@ -167,7 +197,7 @@ export const POST_TEMPLATES: readonly PostTemplate[] = [
     scope: "global",
     title: "Open-source the public election software stack",
     body: "Code that counts votes should be auditable by anyone. Publish the source under an OSI licence.",
-    petitionRules: { allowRevoke: true },
+    governance: { allowRevoke: true },
     specificComments: ["Security through obscurity is not security."],
   },
   {
@@ -205,7 +235,7 @@ export const POST_TEMPLATES: readonly PostTemplate[] = [
     scope: "generic",
     title: "Convert the vacant lot into a community garden",
     body: "The lot has sat empty for three years. A garden would feed families and reduce vandalism.",
-    petitionRules: { allowRevoke: true },
+    governance: { allowRevoke: true },
   },
   {
     slug: "gen-crosswalk",

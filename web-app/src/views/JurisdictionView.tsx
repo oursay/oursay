@@ -118,7 +118,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
                     leaderName={d.leader}
                     leaderHandle={d.leaderHandle}
                     variant="row"
-                    onTitleClick={() => router.push(districtPath(d.slug))}
+                    onTitleClick={() =>
+                      router.push(districtPath(d.slug, { jurisdictionSlug: slug }))
+                    }
                     onLeaderClick={() => router.push(profilePath(d.leaderHandle))}
                   />
                 </div>
@@ -177,7 +179,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 onEditsClick={() =>
                   app.notify(DEFERRED_EDIT_HISTORY)
                 }
-                onDistrictClick={(s) => router.push(districtPath(s))}
+                onDistrictClick={(s) =>
+                  router.push(districtPath(s, { jurisdictionId: id }))
+                }
               />
               );
             })

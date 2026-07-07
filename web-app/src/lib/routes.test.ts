@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { profilePath, personaHintPath } from "./routes";
+import { districtPath, profilePath, personaHintPath } from "./routes";
+
+describe("districtPath", () => {
+  it("uses an explicit jurisdiction slug for districts outside the mock registry", () => {
+    expect(
+      districtPath("athabasca-barrhead-westlock", { jurisdictionSlug: "alberta" }),
+    ).toBe("/jurisdiction/alberta/district/athabasca-barrhead-westlock");
+  });
+
+  it("resolves mock corpus districts without an explicit jurisdiction", () => {
+    expect(districtPath("calgary-elbow")).toBe("/jurisdiction/alberta/district/calgary-elbow");
+  });
+});
 
 describe("profilePath", () => {
   it("uses wire handle without @ in the URL", () => {

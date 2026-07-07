@@ -67,8 +67,11 @@ async function getDistrictMock(slug: string): Promise<DistrictDetail | null> {
   return getDistrictBySlug(slug) ?? null;
 }
 
-async function getDistrictLive(slug: string): Promise<DistrictDetail | null> {
-  const jurId = DISTRICT_BY_SLUG[slug]?.jur;
+async function getDistrictLive(
+  slug: string,
+  jurisdictionId?: string,
+): Promise<DistrictDetail | null> {
+  const jurId = jurisdictionId ?? DISTRICT_BY_SLUG[slug]?.jur;
   if (!jurId) return null;
 
   const raw = await apiGet<Record<string, unknown>>(
@@ -77,7 +80,10 @@ async function getDistrictLive(slug: string): Promise<DistrictDetail | null> {
   return raw ? mapDistrictDetail(raw) : null;
 }
 
-export async function getDistrict(slug: string): Promise<DistrictDetail | null> {
+export async function getDistrict(
+  slug: string,
+  opts?: { jurisdictionId?: string },
+): Promise<DistrictDetail | null> {
   if (isMockOnly()) return getDistrictMock(slug);
-  return getDistrictLive(slug);
+  return getDistrictLive(slug, opts?.jurisdictionId);
 }

@@ -9,6 +9,7 @@ import {
   jurisdictionForScope,
   POST_TEMPLATES,
   seedUuid,
+  SHOWCASE_BINDINGS,
   type PostKind,
   type PostTemplate,
 } from "./seed-data/content.js";
@@ -137,7 +138,12 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
   const posts: SeededPost[] = [];
   const comments: SeededComment[] = [];
   const postReactions = new Set<string>();
-  const templates = shuffle(rng, [...POST_TEMPLATES]);
+  const showcaseSlugs = new Set(SHOWCASE_BINDINGS.map((b) => b.slug));
+  const templateBySlug = new Map(POST_TEMPLATES.map((t) => [t.slug, t]));
+  const templates = shuffle(
+    rng,
+    POST_TEMPLATES.filter((t) => !showcaseSlugs.has(t.slug)),
+  );
   const templateQueue = [...templates];
   const specificCommentUsed = new Map<string, Set<number>>();
 
@@ -154,6 +160,22 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
   function threadRef(post: SeededPost): ThreadRef {
     return { threadId: post.id, jurisdiction: post.jurisdiction };
   }
+
+  // Phase 0 — guaranteed UI showcase: AB province-wide, single-district, and multi-district stakes.
+  console.log("Phase 0: district showcase posts…");
+  for (const binding of SHOWCASE_BINDINGS) {
+    const template = templateBySlug.get(binding.slug);
+    const author = members.get(binding.author);
+    if (!template || !author) {
+      throw new Error(`showcase binding missing: ${binding.slug} / ${binding.author}`);
+    }
+    const jurisdiction = jurisdictionForScope(template.scope);
+    posts.push(
+      await createPostFromTemplate(author, template, seedUuid(template.slug), jurisdiction),
+    );
+    process.stdout.write(".");
+  }
+  console.log(" done");
 
   function reactionKey(handle: string, postId: string): string {
     return `${handle}:${postId}`;

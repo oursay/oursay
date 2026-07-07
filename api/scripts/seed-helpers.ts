@@ -18,6 +18,7 @@ import { NoopMailAdapter } from "../src/services/mailer/adapters/noop.js";
 import { injectFetch } from "../test/helpers/inject-fetch.js";
 import type { FastifyInstance } from "fastify";
 import type { PostKind, PostTemplate } from "./seed-data/content.js";
+import type { EntityRules } from "@oursay/public-record/schema/types";
 import type { SeedPerson } from "./seed-data/people.js";
 import { ALBERTA_ID, GLOBAL_ID } from "./seed-data/people.js";
 
@@ -43,8 +44,18 @@ export interface SeededPost {
   kind: PostKind;
   jurisdiction: string;
   authorHandle: string;
+  appliesToDistrictIds: string[];
   pollOptions?: string[];
   specificComments?: string[];
+}
+
+function governanceForCreate(template: PostTemplate, kind: PostKind): EntityRules | undefined {
+  if (!template.governance) return undefined;
+  const rules: EntityRules = { ...template.governance };
+  if (kind === "petition" && rules.allowRevoke !== false) {
+    rules.deadline = new Date(Date.now() + 30 * 86400_000).toISOString();
+  }
+  return rules;
 }
 
 export interface SeededComment {
@@ -187,6 +198,8 @@ export async function createPostFromTemplate(
   const sign = signModeFor(jurisdiction);
   await member.client.ensureJoined(t);
 
+  const rules = governanceForCreate(template, template.kind);
+
   if (template.kind === "statement") {
     await member.client.createPost(t, { title: template.title, body: template.body }, { sign });
   } else if (template.kind === "petition") {
@@ -199,13 +212,7 @@ export async function createPostFromTemplate(
         content: {
           title: template.title,
           text: template.body,
-          rules: {
-            ...template.petitionRules,
-            deadline:
-              template.petitionRules?.allowRevoke === false
-                ? undefined
-                : new Date(Date.now() + 30 * 86400_000).toISOString(),
-          },
+          ...(rules ? { rules } : {}),
         },
       },
       { sign },
@@ -220,6 +227,7 @@ export async function createPostFromTemplate(
         content: {
           question: template.title,
           options: template.pollOptions ?? ["Yes", "No"],
+          ...(rules ? { rules } : {}),
         },
       },
       { sign },
@@ -232,6 +240,7 @@ export async function createPostFromTemplate(
     kind: template.kind,
     jurisdiction,
     authorHandle: member.handle,
+    appliesToDistrictIds: template.governance?.appliesToDistrictIds ?? [],
     pollOptions: template.pollOptions,
     specificComments: template.specificComments,
   };

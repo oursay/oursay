@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { POST_TEMPLATES, seedUuid } from "../scripts/seed-data/content.js";
+import { POST_TEMPLATES, seedUuid, SHOWCASE_BINDINGS } from "../scripts/seed-data/content.js";
 import { SEED_ANCHORS } from "../scripts/seed-data/people.js";
 
 describe("31 seed data", () => {
@@ -15,6 +15,7 @@ describe("31 seed data", () => {
   it("exports authorless post templates and visibility anchors", () => {
     expect(POST_TEMPLATES.length).to.be.greaterThan(10);
     expect(SEED_ANCHORS.length).to.be.greaterThan(4);
+    expect(SHOWCASE_BINDINGS.length).to.be.greaterThan(3);
     const scopes = new Set(POST_TEMPLATES.map((p) => p.scope));
     expect(scopes.has("alberta")).to.equal(true);
     expect(scopes.has("global")).to.equal(true);

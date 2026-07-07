@@ -34,12 +34,21 @@ export function jurisdictionPath(jurisdictionId: string): string {
 /**
  * Route to a district by its slug — nested under the parent jurisdiction to
  * avoid cross-jurisdiction slug collisions (Part 6 #12):
- * `/jurisdiction/{jurSlug}/district/{districtSlug}`. The parent jurisdiction is
- * resolved from the district registry, so callers pass only the district slug.
+ * `/jurisdiction/{jurSlug}/district/{districtSlug}`. When the parent is known
+ * (e.g. on the jurisdiction view), pass it via `opts`; otherwise it is resolved
+ * from the mock district registry.
  */
-export function districtPath(districtSlug: string): string {
-  const jurId = DISTRICT_BY_SLUG[districtSlug]?.jur;
-  const jurSlug = jurId ? jurisdictionSlug(jurId) : "";
+export function districtPath(
+  districtSlug: string,
+  opts?: { jurisdictionId?: string; jurisdictionSlug?: string },
+): string {
+  const jurSlug =
+    opts?.jurisdictionSlug ??
+    (opts?.jurisdictionId ? jurisdictionSlug(opts.jurisdictionId) : undefined) ??
+    (() => {
+      const jurId = DISTRICT_BY_SLUG[districtSlug]?.jur;
+      return jurId ? jurisdictionSlug(jurId) : "";
+    })();
   return `/jurisdiction/${jurSlug}/district/${districtSlug}`;
 }
 
