@@ -186,6 +186,7 @@ export const INITIAL_APP_STATE: AppState = {
   composeTitle: "",
   composeBody: "",
   composePollOptions: ["", ""],
+  composeDistricts: [],
 
   sign: null,
   choose: null,
@@ -317,6 +318,7 @@ export interface AppApi {
   setComposeTitle: (v: string) => void;
   setComposeBody: (v: string) => void;
   setComposePollOptions: (v: string[]) => void;
+  setComposeDistricts: (slugs: string[]) => void;
   submitCompose: () => void;
   closeCompose: () => void;
 
@@ -1399,6 +1401,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState((s) => ({
       ...s,
       composeJur: name,
+      composeDistricts: [],
       composeStep: s.composeStep === "compose" ? "compose" : "type",
     }));
   }, []);
@@ -1412,7 +1415,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   // Return to the jurisdiction picker to correct an inferred/specified scope.
   const changeComposeJurisdiction = useCallback(
-    () => set({ composeStep: "where", composeJur: undefined, composeType: undefined }),
+    () => set({ composeStep: "where", composeJur: undefined, composeType: undefined, composeDistricts: [] }),
     [set],
   );
   const setComposeVisibility = useCallback((v: AuthorVisibility) => {
@@ -1427,6 +1430,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setComposePollOptions = useCallback((v: string[]) => {
     setState((s) => ({ ...s, composePollOptions: v }));
   }, []);
+  const setComposeDistricts = useCallback((slugs: string[]) => {
+    setState((s) => ({ ...s, composeDistricts: slugs }));
+  }, []);
 
   const closeCompose = useCallback(
     () =>
@@ -1439,6 +1445,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         composeTitle: "",
         composeBody: "",
         composePollOptions: ["", ""],
+        composeDistricts: [],
       }),
     [set],
   );
@@ -1503,6 +1510,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 title,
                 body,
                 pollOptions: state.composePollOptions,
+                districtSlugs:
+                  state.composeDistricts.length > 0
+                    ? state.composeDistricts
+                    : undefined,
               },
               mode,
             );
@@ -1520,6 +1531,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state.composeTitle,
     state.composeBody,
     state.composePollOptions,
+    state.composeDistricts,
     state.kycTier,
     state.accountVisibility,
     state.composeVisibility,
@@ -1790,6 +1802,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setComposeTitle,
     setComposeBody,
     setComposePollOptions,
+    setComposeDistricts,
     submitCompose,
     closeCompose,
     confirmSign,

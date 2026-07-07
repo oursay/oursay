@@ -356,6 +356,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         accountVisibility={state.accountVisibility}
         composeVisibility={state.composeVisibility}
         onSelectVisibility={app.setComposeVisibility}
+        composeDistricts={state.composeDistricts}
+        onComposeDistrictsChange={app.setComposeDistricts}
         composeTitle={state.composeTitle}
         composeBody={state.composeBody}
         composePollOptions={state.composePollOptions}

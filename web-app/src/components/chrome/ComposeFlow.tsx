@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BarChart3, Check, ChevronDown, VenetianMask } from "lucide-react";
+import { listDistricts } from "@/lib/api";
 import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
 import { jurisdictionLabel } from "@/lib/mock";
 import {
@@ -18,9 +19,10 @@ import {
   PollComposeBody,
 } from "@/components/ui";
 import { AnonymityDropdown } from "@/components/identity";
+import { AffectedDistrictsSelector } from "./AffectedDistrictsSelector";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import { ALBERTA_ID } from "@/lib/types";
-import type { AuthorVisibility, RecordKind, VerificationTier } from "@/lib/types";
+import type { AuthorVisibility, DistrictSummary, RecordKind, VerificationTier } from "@/lib/types";
 
 export type ComposeStep = "where" | "type" | "compose";
 
@@ -48,6 +50,8 @@ interface ComposeFlowProps {
   /** Per-post visibility override (unset = account default; may widen or narrow). */
   composeVisibility?: AuthorVisibility;
   onSelectVisibility?: (v: AuthorVisibility) => void;
+  composeDistricts?: string[];
+  onComposeDistrictsChange?: (slugs: string[]) => void;
   composeTitle?: string;
   composeBody?: string;
   composePollOptions?: string[];
@@ -88,6 +92,8 @@ export function ComposeFlow({
   accountVisibility = "anonymous",
   composeVisibility,
   onSelectVisibility,
+  composeDistricts = [],
+  onComposeDistrictsChange,
   composeTitle = "",
   composeBody = "",
   composePollOptions = ["", ""],
@@ -98,6 +104,7 @@ export function ComposeFlow({
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
   const [petitionPollOpen, setPetitionPollOpen] = useState(false);
+  const [districtOptions, setDistrictOptions] = useState<DistrictSummary[]>([]);
   const pollOptions = composePollOptions;
   const setPollOptions = onComposePollOptionsChange ?? (() => {});
   const effectiveVisibility = composeVisibility ?? accountVisibility;
@@ -109,6 +116,22 @@ export function ComposeFlow({
       setPetitionPollOpen(false);
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || step !== "compose" || !selectedJurisdiction) {
+      setDistrictOptions([]);
+      return;
+    }
+    let active = true;
+    listDistricts(selectedJurisdiction).then((rows) => {
+      if (active) setDistrictOptions(rows);
+    });
+    return () => {
+      active = false;
+    };
+  }, [open, step, selectedJurisdiction]);
+
+  const showDistrictPicker = districtOptions.length > 0;
 
   const picker = step === "where" || step === "type";
   const JurIcon = selectedJurisdiction
@@ -307,6 +330,14 @@ export function ComposeFlow({
               />
             </div>
           </div>
+
+          {showDistrictPicker ? (
+            <AffectedDistrictsSelector
+              districts={districtOptions}
+              value={composeDistricts}
+              onChange={(slugs) => onComposeDistrictsChange?.(slugs)}
+            />
+          ) : null}
 
           {selectedType === "poll" ? (
             <PollComposeBody options={pollOptions} onChange={setPollOptions} />

@@ -6,6 +6,7 @@
 import type { ThreadRef } from "@oursay/identity";
 import type {
   CommentContent,
+  EntityRules,
   PetitionContent,
   PollContent,
   PostContent,
@@ -84,6 +85,11 @@ export function threadRef(threadId: string, jurisdiction: string): ThreadRef {
   return { threadId, jurisdiction };
 }
 
+function districtRules(slugs?: string[]): EntityRules | undefined {
+  if (!slugs?.length) return undefined;
+  return { appliesToDistrictIds: slugs };
+}
+
 export async function civicReaction(
   userId: string,
   t: ThreadRef,
@@ -160,17 +166,33 @@ export async function civicCompose(
     title: string;
     body: string;
     pollOptions?: string[];
+    districtSlugs?: string[];
   },
   sign: CivicSignMode = "passkey",
 ): Promise<{ entityId: string }> {
   const { client } = await getCivicClient(userId);
+  const rules = districtRules(payload.districtSlugs);
   if (kind === "statement") {
-    const content: PostContent = { title: payload.title, body: payload.body };
-    const ref = await client.createPost(t, content, { sign });
+    const content: PostContent & { rules?: EntityRules } = {
+      title: payload.title,
+      body: payload.body,
+      ...(rules ? { rules } : {}),
+    };
+    const ref = rules
+      ? await client.append(
+          t,
+          { op: "create", type: "post", entityId: t.threadId, content },
+          { sign },
+        )
+      : await client.createPost(t, { title: payload.title, body: payload.body }, { sign });
     return { entityId: ref.entityId };
   }
   if (kind === "petition") {
-    const content: PetitionContent = { title: payload.title, text: payload.body };
+    const content: PetitionContent = {
+      title: payload.title,
+      text: payload.body,
+      ...(rules ? { rules } : {}),
+    };
     const ref = await client.append(
       t,
       { op: "create", type: "petition", entityId: t.threadId, content },
@@ -183,6 +205,7 @@ export async function civicCompose(
     const content: PollContent = {
       question: payload.title,
       options: options.length >= 2 ? options : ["Yes", "No"],
+      ...(rules ? { rules } : {}),
     };
     const ref = await client.append(
       t,

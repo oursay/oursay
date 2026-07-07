@@ -153,6 +153,8 @@ export interface AppState {
   composeTitle: string;
   composeBody: string;
   composePollOptions: string[];
+  /** Affected district slugs for the draft post ([] = whole jurisdiction). */
+  composeDistricts: string[];
 
   // Alberta sign confirmation (null when closed).
   sign: SignRequest | null;
