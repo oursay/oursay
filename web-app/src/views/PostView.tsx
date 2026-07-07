@@ -113,6 +113,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   }, [id]);
 
   useEffect(() => {
+    if (!detail || detail.kind === kind) return;
+    router.replace(postPath(detail.kind, detail.id));
+  }, [detail, kind, router]);
+
+  useEffect(() => {
     if (!detail) return;
     setPageJurisdiction(detail.jurisdiction);
     return () => setPageJurisdiction(null);

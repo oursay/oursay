@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { DETAIL_BY_ID } from "@/lib/mock";
+import { isMockOnly } from "@/lib/api/client";
 import type { RecordKind } from "@/lib/types";
 import { PostView } from "@/views/PostView";
 
@@ -11,8 +12,11 @@ export function createRecordPage(kind: RecordKind) {
     params: Promise<{ id: string }>;
   }) {
     const { id } = await params;
-    const entry = DETAIL_BY_ID[id];
-    if (!entry || entry.post.kind !== kind) notFound();
+    // Mock corpus ids only exist offline; live records are resolved in PostView.
+    if (isMockOnly()) {
+      const entry = DETAIL_BY_ID[id];
+      if (!entry || entry.post.kind !== kind) notFound();
+    }
     return <PostView id={id} kind={kind} />;
   };
 }
