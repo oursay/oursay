@@ -23,7 +23,7 @@ export interface MadeAccount {
 /** Insert a user + private profile row directly (no OTP), mirroring what registration produces. */
 export async function makeAccount(w: World, opts: MakeAccountOptions = {}): Promise<MadeAccount> {
   const userId = randomUUID();
-  const handle = opts.handle ?? `@u${userId.slice(0, 8)}`;
+  const handle = opts.handle ?? `u${userId.replace(/-/g, "").slice(0, 8)}`;
   const email = opts.email ?? `${userId.slice(0, 8)}@example.com`;
   await w.services.repos.user.create({ id: userId, handle, displayName: opts.displayName ?? null });
   await w.services.repos.profile.insert({

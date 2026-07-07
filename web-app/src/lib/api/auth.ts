@@ -8,7 +8,7 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
-import { apiGet, apiPost } from "./client";
+import { apiGet, apiPatch, apiPost } from "./client";
 
 export interface RegistrationProfile {
   handle: string;
@@ -77,15 +77,16 @@ export async function verifyRegistrationOtp(
   return { userId: body.userId, session: body.session };
 }
 
-export async function enrollPasskey(label = "this device"): Promise<void> {
+export async function enrollPasskey(label?: string): Promise<void> {
   const options = await apiPost<PublicKeyCredentialCreationOptionsJSON>(
     "/v1/auth/passkey/register/options",
   );
   if (!options) throw new Error("passkey register options missing");
   const attResp = await startRegistration({ optionsJSON: options });
+  const trimmed = label?.trim();
   await apiPost("/v1/auth/passkey/register/verify", {
     response: attResp,
-    label,
+    ...(trimmed ? { label: trimmed } : {}),
   });
 }
 
@@ -107,6 +108,18 @@ export async function loginWithPasskey(email?: string): Promise<VerifyRegistrati
 export async function listPasskeys(): Promise<AuthPasskey[]> {
   const body = await apiGet<{ passkeys: AuthPasskey[] }>("/v1/auth/passkeys");
   return body?.passkeys ?? [];
+}
+
+export async function updatePasskeyLabel(
+  id: string,
+  label: string | null,
+): Promise<AuthPasskey> {
+  const body = await apiPatch<{ passkey: AuthPasskey }>("/v1/auth/passkey/label", {
+    id,
+    label,
+  });
+  if (!body?.passkey) throw new Error("passkey label update returned empty body");
+  return body.passkey;
 }
 
 export async function logout(): Promise<void> {

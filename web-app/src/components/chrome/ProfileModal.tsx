@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { displayHandle } from "@/lib/handle";
 import {
   ChevronRight,
@@ -64,6 +64,8 @@ interface ProfileModalProps {
   onAddDevice?: () => void;
   /** Opens the OTP window so a new device can log in by email. */
   onAddDeviceByEmail?: () => void;
+  /** Rename a passkey label (persisted in live mode). */
+  onRenamePasskey?: (id: string, label: string) => void;
   /** Deferred account-settings destinations (wireframe no-ops → toast). */
   onOpenSetting?: (label: string) => void;
 }
@@ -92,6 +94,69 @@ const KYC_TIER_BG: Record<Exclude<VerificationTier, 0>, string> = {
 
 /** Only the first two passkeys are listed; the rest collapse to "+N more". */
 const PASSKEYS_SHOWN = 2;
+
+function PasskeyRow({
+  passkey,
+  onRename,
+}: {
+  passkey: AuthPasskey;
+  onRename?: (id: string, label: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => passkeyDisplayLabel(passkey));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const display = passkeyDisplayLabel(passkey);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing) setDraft(display);
+  }, [display, editing]);
+
+  const save = () => {
+    setEditing(false);
+    onRename?.(passkey.id, draft);
+  };
+
+  const cancel = () => {
+    setDraft(display);
+    setEditing(false);
+  };
+
+  return (
+    <li className="flex min-h-9 items-center gap-2 text-sm text-ink-soft">
+      <Key size={15} className="shrink-0" aria-hidden />
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") cancel();
+          }}
+          onBlur={save}
+          className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-1 text-sm text-ink"
+          aria-label="Passkey name"
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate">{display}</span>
+      )}
+      {onRename && !editing ? (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="ml-auto shrink-0 rounded p-1 text-muted hover:bg-surface-muted hover:text-ink"
+          aria-label={`Rename ${display}`}
+        >
+          <Pencil size={14} aria-hidden />
+        </button>
+      ) : null}
+    </li>
+  );
+}
 
 function SettingsRow({
   icon: Icon,
@@ -254,6 +319,7 @@ export function ProfileModal({
   passkeys = [],
   onAddDevice,
   onAddDeviceByEmail,
+  onRenamePasskey,
   onOpenSetting,
 }: ProfileModalProps) {
   const KycIcon = KYC_ICON[kycTier];
@@ -316,13 +382,7 @@ export function ProfileModal({
           </p>
           <ul className="space-y-1.5">
             {shownPasskeys.map((pk) => (
-              <li
-                key={pk.id}
-                className="flex min-h-9 items-center gap-2 text-sm text-ink-soft"
-              >
-                <Key size={15} className="shrink-0" aria-hidden />
-                {passkeyDisplayLabel(pk)}
-              </li>
+              <PasskeyRow key={pk.id} passkey={pk} onRename={onRenamePasskey} />
             ))}
             {hidden > 0 ? (
               <li>

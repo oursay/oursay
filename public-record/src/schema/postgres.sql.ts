@@ -66,7 +66,7 @@ CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enq
 -- KMS milestone) are intentionally NOT here yet — see the Track A plan's roadmap.
 CREATE TABLE IF NOT EXISTS users (
   id           UUID PRIMARY KEY,
-  handle       TEXT NOT NULL,         -- UNIQUE @username (public profile); required at registration (C4)
+  handle       TEXT NOT NULL,         -- UNIQUE wire username (no @); required at registration (C4)
   display_name TEXT NOT NULL,         -- public display text; falls back to the handle without its '@'
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -74,11 +74,16 @@ CREATE TABLE IF NOT EXISTS users (
 -- constraints existed: add the column, backfill (handle from the user id; display name from the
 -- handle), then tighten. Safe to re-run — the UPDATEs match only NULL rows.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
-UPDATE users SET handle = '@u' || replace(left(id::text, 8), '-', '') WHERE handle IS NULL;
-UPDATE users SET display_name = ltrim(handle, '@') WHERE display_name IS NULL;
+UPDATE users SET handle = 'u' || replace(left(id::text, 8), '-', '') WHERE handle IS NULL;
+UPDATE users SET display_name = COALESCE(NULLIF(display_name, ''), handle) WHERE display_name IS NULL OR display_name = '';
+-- Legacy rows stored with a leading @; wire form is canonical (matches URLs + web-app).
+UPDATE users SET handle = ltrim(handle, '@') WHERE handle LIKE '@%';
 ALTER TABLE users ALTER COLUMN handle SET NOT NULL;
 ALTER TABLE users ALTER COLUMN display_name SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_handle_unique ON users (handle);
+-- Wire username: 1–30 [A-Za-z0-9_-] (C4; mirrors api/src/helpers/handle.ts).
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_handle_format;
+ALTER TABLE users ADD CONSTRAINT users_handle_format CHECK (handle ~ '^[A-Za-z0-9_-]{1,30}$');
 
 -- Jurisdiction-scoped master PUBLIC keys: one per (user, jurisdiction); the root a client derives
 -- per-thread keys from on-device (HKDF). The platform stores only the public master.

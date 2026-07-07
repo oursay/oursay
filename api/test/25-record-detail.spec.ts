@@ -158,7 +158,7 @@ describe("25 record detail: kind-agnostic detail + comment tree, identity, inter
     const session = await w.services.authService.issue(commenter.userId, "full", "test");
     const self = (await detail(w, post.entityId, session.token)).comments[0];
     expect(self.identity.isSelf).to.equal(true);
-    expect(self.identity.handle).to.equal("@carol");
+    expect(self.identity.handle).to.equal("carol");
     expect(self.identity.seenByOthersAs).to.equal(anon.author);
   });
 

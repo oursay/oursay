@@ -1,6 +1,6 @@
-/** Matches @oursay/api helpers/handle.ts — letters, digits, underscore; 1–30 chars after @. */
+/** Matches @oursay/api helpers/handle.ts — letters, digits, hyphen, underscore; 1–30 chars. */
 
-const HANDLE_BODY_RE = /^[A-Za-z0-9_]{1,30}$/;
+const HANDLE_BODY_RE = /^[A-Za-z0-9_-]{1,30}$/;
 
 /** Profile/API wire handle: no leading @. */
 export function wireHandle(raw: string | null | undefined): string | undefined {
@@ -28,7 +28,7 @@ export function handleValidationError(raw: string): string | null {
   if (!body) return "Handle is required.";
   if (body.length > 30) return "Handle must be at most 30 characters.";
   if (!HANDLE_BODY_RE.test(body)) {
-    return "Handle must use letters, digits, and underscores only (e.g. jane_alberta).";
+    return "Handle must use letters, digits, hyphens, and underscores only (e.g. jane-alberta).";
   }
   return null;
 }

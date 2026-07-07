@@ -48,9 +48,9 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
     });
     expect(blocked.statusCode).to.equal(403);
 
-    // Handle stored as the unique @username; displayName defaults to the handle without its '@'.
+    // Handle stored as wire username; displayName defaults to the handle body.
     const user = await w.services.repos.user.getById(body.userId);
-    expect(user?.handle).to.equal("@newuser");
+    expect(user?.handle).to.equal("newuser");
     expect(user?.displayName).to.equal("newuser");
     // No DOB anywhere — just the self-attested flag; profile PII stays empty until volunteered.
     const profile = await w.services.repos.profile.getByUserId(body.userId);

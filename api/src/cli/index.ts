@@ -53,7 +53,7 @@ const COMMANDS: Record<string, { help: string; run: Handler }> = {
     run: async (s, [handleArg, email]) => {
       if (!handleArg || !email) throw new Error("handle and email are required");
       const handle = normalizeHandle(handleArg);
-      if (!handle || !isValidHandle(handle)) throw new Error("handle must be an @username (letters, digits, underscore; no spaces)");
+      if (!handle || !isValidHandle(handle)) throw new Error("handle must be a username (letters, digits, underscore; no spaces)");
       const { email: normalized, canonical } = normalizeEmail(email);
       const userId = randomUUID();
       await s.repos.user.create({ id: userId, handle });

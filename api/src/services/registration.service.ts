@@ -92,7 +92,7 @@ export class RegistrationService {
     const handle = normalizeHandle(input.profile?.handle);
     if (!handle) throw new ServiceError("validation", "A handle (@username) is required");
     if (!isValidHandle(handle)) {
-      throw new ServiceError("validation", "Handle must be an @username (letters, digits, underscore; no spaces)");
+      throw new ServiceError("validation", "Handle must use letters, digits, hyphens, and underscores only");
     }
     if (await this.d.userRepo.handleExists(handle)) {
       throw new ServiceError("handle_taken", "That handle is already taken");

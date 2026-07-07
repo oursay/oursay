@@ -310,6 +310,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         passkeys={state.passkeys}
         onAddDevice={app.addDevice}
         onAddDeviceByEmail={app.addDeviceByEmail}
+        onRenamePasskey={app.renamePasskey}
         theme={state.theme}
         onToggleTheme={app.toggleTheme}
         signing={state.signing}

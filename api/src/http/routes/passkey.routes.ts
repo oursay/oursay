@@ -12,7 +12,7 @@ const passkeySchema = {
   type: "object",
   properties: {
     id: { type: "string", format: "uuid", description: "Stable id used to revoke this passkey." },
-    label: { type: "string", nullable: true, description: "Optional human label, e.g. \"Alice's laptop\"." },
+    label: { type: "string", nullable: true, description: "User label, or a server-resolved default when unset." },
     transports: { type: "string", nullable: true, description: "CSV of authenticator transports." },
     createdAt: { type: "string", format: "date-time" },
     lastUsedAt: { type: "string", format: "date-time", nullable: true },
@@ -102,6 +102,43 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
     async (req) => {
       const passkeys = await services.passkeyService.list(req.user!.userId);
       return { passkeys };
+    },
+  );
+
+  app.patch(
+    "/v1/auth/passkey/label",
+    {
+      preHandler: app.requireFullScope,
+      schema: {
+        tags: ["passkey"],
+        summary: "Rename one of the caller's passkeys",
+        security: bearerSecurity,
+        body: {
+          type: "object",
+          properties: {
+            id: { type: "string", format: "uuid" },
+            label: { type: "string", nullable: true },
+          },
+          required: ["id", "label"],
+          additionalProperties: false,
+        },
+        response: {
+          200: { type: "object", properties: { passkey: passkeySchema }, required: ["passkey"] },
+          400: errorSchema,
+          401: errorSchema,
+          403: errorSchema,
+          404: errorSchema,
+        },
+      },
+    },
+    async (req) => {
+      const { id, label } = req.body as { id: string; label: string | null };
+      const passkey = await services.passkeyService.updateLabel({
+        userId: req.user!.userId,
+        id,
+        label,
+      });
+      return { passkey };
     },
   );
 

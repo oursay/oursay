@@ -102,7 +102,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     // Anonymous: persona only — never the real handle.
     const anon = (await feed(w)).items[0];
     expect(anon.identity.isPersona).to.equal(false, "public visibility reveals even to anonymous viewers");
-    expect(anon.identity.handle).to.equal("@jane");
+    expect(anon.identity.handle).to.equal("jane");
 
     // Flip to anonymous visibility: nobody (but self) sees the handle.
     await w.services.repos.profile.setVisibility(author.userId, "anonymous");
@@ -117,7 +117,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     const session = await w.services.authService.issue(author.userId, "full", "test");
     const self = (await feed(w, "", session.token)).items[0];
     expect(self.identity.isSelf).to.equal(true);
-    expect(self.identity.handle).to.equal("@jane");
+    expect(self.identity.handle).to.equal("jane");
     expect(self.identity.seenByOthersAs).to.equal(masked.author);
   });
 
@@ -137,7 +137,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     await w.services.recordStore.putAttestation({ userId: viewer.userId, provider: "stub", tier: "identity_verified" });
     const revealed = (await feed(w, "", session.token)).items[0];
     expect(revealed.identity.isPersona).to.equal(false);
-    expect(revealed.identity.handle).to.equal("@vera");
+    expect(revealed.identity.handle).to.equal("vera");
     // The author's own tier travels as a token (unverified here) — never a numeric.
     expect(revealed.tier).to.equal("unverified");
   });

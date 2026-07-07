@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { handleValidationError, normalizeHandleBody, wireHandle, displayHandle } from "./handle";
 
 describe("handle", () => {
-  it("accepts underscore handles", () => {
+  it("accepts underscore and hyphen handles", () => {
     expect(normalizeHandleBody("jane_alberta")).toBe("jane_alberta");
-    expect(normalizeHandleBody("@jane_alberta")).toBe("jane_alberta");
+    expect(normalizeHandleBody("@jane-alberta")).toBe("jane-alberta");
   });
 
   it("rejects dots and spaces", () => {
     expect(normalizeHandleBody("jane.alberta")).toBeNull();
     expect(normalizeHandleBody("Jane Alberta")).toBeNull();
-    expect(handleValidationError("a@oursay.ca")).toMatch(/underscore/i);
+    expect(handleValidationError("a@oursay.ca")).toMatch(/hyphens/i);
   });
 
   it("strips @ for wire handles", () => {

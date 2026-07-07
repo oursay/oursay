@@ -85,6 +85,7 @@ import {
   loginWithPasskey,
   logout as apiLogout,
   requestRegistrationOtp,
+  updatePasskeyLabel,
   verifyRegistrationOtp,
   type AuthPasskey,
 } from "@/lib/api/auth";
@@ -305,6 +306,7 @@ export interface AppApi {
   // Profile modal account management.
   addDevice: () => void;
   addDeviceByEmail: () => void;
+  renamePasskey: (id: string, label: string) => void;
   toggleTheme: () => void;
   /** Set the signing method for one action. */
   setSigning: (action: SignAction, method: SignMethod) => void;
@@ -626,6 +628,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     set({ loginOtpWindow: true });
     notify("OTP window opened — log in by email on the new device.");
   }, [set, notify]);
+
+  const renamePasskey = useCallback(
+    (id: string, label: string) => {
+      const trimmed = label.trim();
+      const nextLabel = trimmed || null;
+      if (isMockOnly()) {
+        setState((s) => ({
+          ...s,
+          passkeys: s.passkeys.map((pk) =>
+            pk.id === id ? { ...pk, label: nextLabel } : pk,
+          ),
+        }));
+        return;
+      }
+      void updatePasskeyLabel(id, nextLabel)
+        .then((passkey) => {
+          setState((s) => ({
+            ...s,
+            passkeys: s.passkeys.map((pk) => (pk.id === id ? passkey : pk)),
+          }));
+        })
+        .catch((e: Error) => notify(e.message));
+    },
+    [notify],
+  );
 
   const toggleTheme = useCallback(() => {
     setState((s) => ({ ...s, theme: s.theme === "light" ? "dark" : "light" }));
@@ -1823,6 +1850,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     closeProfile,
     addDevice,
     addDeviceByEmail,
+    renamePasskey,
     toggleTheme,
     setSigning,
     setPostSigning,

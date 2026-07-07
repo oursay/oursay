@@ -12,6 +12,8 @@ import type { Services } from "../src/container.js";
 import { buildServer } from "../src/http/server.js";
 import { Db } from "../src/db.js";
 import { buildServices } from "../src/container.js";
+import { kycConfig } from "../src/config.js";
+import { normalizeHandle } from "../src/helpers/handle.js";
 import { NoopMailAdapter } from "../src/services/mailer/adapters/noop.js";
 import { injectFetch } from "../test/helpers/inject-fetch.js";
 import type { FastifyInstance } from "fastify";
@@ -50,7 +52,11 @@ export async function buildSeedWorld(): Promise<SeedWorld> {
   const db = new Db();
   await db.init();
   const mail = new NoopMailAdapter();
-  const services = await buildServices(db, { mailerOverrides: { noop: mail } });
+  // Deterministic tier attestations — same as api/test/helpers/world.ts (ignores KYC_PROVIDER=didit in .env).
+  const services = await buildServices(db, {
+    mailerOverrides: { noop: mail },
+    kyc: { ...kycConfig, provider: "stub" },
+  });
   const app = await buildServer(services, { rateLimit: false });
   return { db, services, app };
 }
@@ -66,9 +72,13 @@ export async function createSeedMember(
 ): Promise<SeedMember> {
   const email = `${person.handle}@seed.oursay.dev`;
   const userId = randomUUID();
+  const handle = normalizeHandle(person.handle);
+  if (!handle) throw new Error(`invalid seed handle: ${person.handle}`);
+  const visibility =
+    person.officialDistrict !== undefined ? "public" : (person.visibility ?? "public");
   await world.services.repos.user.create({
     id: userId,
-    handle: person.handle,
+    handle,
     displayName: person.name,
   });
   await world.services.repos.profile.insert({
@@ -83,7 +93,7 @@ export async function createSeedMember(
     country: "CA",
     memo: null,
     over18: true,
-    visibility: person.visibility ?? "public",
+    visibility,
     email,
     emailCanonical: email.toLowerCase(),
   });

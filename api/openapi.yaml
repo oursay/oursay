@@ -181,8 +181,8 @@ paths:
                   properties:
                     handle:
                       type: string
-                      description: REQUIRED unique @username (public profile). Letters, digits,
-                        underscore; no spaces.
+                      description: REQUIRED unique username (wire form, no @). Letters, digits,
+                        hyphens, underscores; 1–30 chars.
                     displayName:
                       type: string
                       description: Optional public display text; falls back to the handle without its
@@ -482,7 +482,7 @@ paths:
                         label:
                           type: string
                           nullable: true
-                          description: Optional human label, e.g. "Alice's laptop".
+                          description: User label, or a server-resolved default when unset.
                         transports:
                           type: string
                           nullable: true
@@ -523,6 +523,147 @@ paths:
                 required:
                   - error
         "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/label:
+    patch:
+      summary: Rename one of the caller's passkeys
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                label:
+                  type: string
+                  nullable: true
+              required:
+                - id
+                - label
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  passkey:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: Stable id used to revoke this passkey.
+                      label:
+                        type: string
+                        nullable: true
+                        description: User label, or a server-resolved default when unset.
+                      transports:
+                        type: string
+                        nullable: true
+                        description: CSV of authenticator transports.
+                      createdAt:
+                        type: string
+                        format: date-time
+                      lastUsedAt:
+                        type: string
+                        format: date-time
+                        nullable: true
+                    required:
+                      - id
+                      - label
+                      - transports
+                      - createdAt
+                      - lastUsedAt
+                required:
+                  - passkey
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
           description: Default Response
           content:
             application/json:
@@ -2074,6 +2215,10 @@ paths:
                       to:
                         type: string
                         nullable: true
+                      official:
+                        type: boolean
+                        description: When true, count only participants who satisfy the jurisdiction's
+                          officialCount floor minus deny exclusions.
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
@@ -2090,12 +2235,16 @@ paths:
                             type: boolean
                             description: True when a requested tier set narrowed the count (counts only;
                               never on lists/detail).
+                          official:
+                            type: boolean
+                            description: True when the official-count floor was applied (counts only).
                           date:
                             type: boolean
                             description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
+                          - official
                           - date
                       kAnonymityFloor:
                         type: integer
@@ -2111,6 +2260,7 @@ paths:
                       - jurisdiction
                       - from
                       - to
+                      - official
                       - applied
                       - kAnonymityFloor
                       - note
@@ -2386,6 +2536,13 @@ paths:
             counted if their current tier is in the set (set membership, not
             at-or-above)."
         - schema:
+            type: boolean
+          in: query
+          name: official
+          required: false
+          description: "When true, RESOLVED on counts: apply gates[action].officialCount
+            (fallback act) minus deny exclusions."
+        - schema:
             type: string
             format: date
           in: query
@@ -2480,6 +2637,10 @@ paths:
                       to:
                         type: string
                         nullable: true
+                      official:
+                        type: boolean
+                        description: When true, count only participants who satisfy the jurisdiction's
+                          officialCount floor minus deny exclusions.
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
@@ -2496,12 +2657,16 @@ paths:
                             type: boolean
                             description: True when a requested tier set narrowed the count (counts only;
                               never on lists/detail).
+                          official:
+                            type: boolean
+                            description: True when the official-count floor was applied (counts only).
                           date:
                             type: boolean
                             description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
+                          - official
                           - date
                       kAnonymityFloor:
                         type: integer
@@ -2517,6 +2682,7 @@ paths:
                       - jurisdiction
                       - from
                       - to
+                      - official
                       - applied
                       - kAnonymityFloor
                       - note
@@ -2752,6 +2918,10 @@ paths:
                       to:
                         type: string
                         nullable: true
+                      official:
+                        type: boolean
+                        description: When true, count only participants who satisfy the jurisdiction's
+                          officialCount floor minus deny exclusions.
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
@@ -2768,12 +2938,16 @@ paths:
                             type: boolean
                             description: True when a requested tier set narrowed the count (counts only;
                               never on lists/detail).
+                          official:
+                            type: boolean
+                            description: True when the official-count floor was applied (counts only).
                           date:
                             type: boolean
                             description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
+                          - official
                           - date
                       kAnonymityFloor:
                         type: integer
@@ -2789,6 +2963,7 @@ paths:
                       - jurisdiction
                       - from
                       - to
+                      - official
                       - applied
                       - kAnonymityFloor
                       - note
@@ -3083,6 +3258,13 @@ paths:
             counted if their current tier is in the set (set membership, not
             at-or-above)."
         - schema:
+            type: boolean
+          in: query
+          name: official
+          required: false
+          description: "When true, RESOLVED on counts: apply gates[action].officialCount
+            (fallback act) minus deny exclusions."
+        - schema:
             type: string
             format: date
           in: query
@@ -3165,6 +3347,10 @@ paths:
                       to:
                         type: string
                         nullable: true
+                      official:
+                        type: boolean
+                        description: When true, count only participants who satisfy the jurisdiction's
+                          officialCount floor minus deny exclusions.
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
@@ -3181,12 +3367,16 @@ paths:
                             type: boolean
                             description: True when a requested tier set narrowed the count (counts only;
                               never on lists/detail).
+                          official:
+                            type: boolean
+                            description: True when the official-count floor was applied (counts only).
                           date:
                             type: boolean
                             description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
+                          - official
                           - date
                       kAnonymityFloor:
                         type: integer
@@ -3202,6 +3392,7 @@ paths:
                       - jurisdiction
                       - from
                       - to
+                      - official
                       - applied
                       - kAnonymityFloor
                       - note
@@ -3450,6 +3641,10 @@ paths:
                       to:
                         type: string
                         nullable: true
+                      official:
+                        type: boolean
+                        description: When true, count only participants who satisfy the jurisdiction's
+                          officialCount floor minus deny exclusions.
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
@@ -3466,12 +3661,16 @@ paths:
                             type: boolean
                             description: True when a requested tier set narrowed the count (counts only;
                               never on lists/detail).
+                          official:
+                            type: boolean
+                            description: True when the official-count floor was applied (counts only).
                           date:
                             type: boolean
                             description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
+                          - official
                           - date
                       kAnonymityFloor:
                         type: integer
@@ -3487,6 +3686,7 @@ paths:
                       - jurisdiction
                       - from
                       - to
+                      - official
                       - applied
                       - kAnonymityFloor
                       - note
@@ -3793,6 +3993,13 @@ paths:
             counted if their current tier is in the set (set membership, not
             at-or-above)."
         - schema:
+            type: boolean
+          in: query
+          name: official
+          required: false
+          description: "When true, RESOLVED on counts: apply gates[action].officialCount
+            (fallback act) minus deny exclusions."
+        - schema:
             type: string
             format: date
           in: query
@@ -3883,6 +4090,10 @@ paths:
                       to:
                         type: string
                         nullable: true
+                      official:
+                        type: boolean
+                        description: When true, count only participants who satisfy the jurisdiction's
+                          officialCount floor minus deny exclusions.
                       applied:
                         type: object
                         description: Per-dimension applied status. `geo`/`tier` are resolved on count
@@ -3899,12 +4110,16 @@ paths:
                             type: boolean
                             description: True when a requested tier set narrowed the count (counts only;
                               never on lists/detail).
+                          official:
+                            type: boolean
+                            description: True when the official-count floor was applied (counts only).
                           date:
                             type: boolean
                             description: Always false (date filtering not yet implemented).
                         required:
                           - geo
                           - tier
+                          - official
                           - date
                       kAnonymityFloor:
                         type: integer
@@ -3920,6 +4135,7 @@ paths:
                       - jurisdiction
                       - from
                       - to
+                      - official
                       - applied
                       - kAnonymityFloor
                       - note
@@ -3948,6 +4164,1289 @@ paths:
                       - message
                 required:
                   - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/feed:
+    get:
+      summary: "Unified feed: every root type across jurisdictions, newest first,
+        cursor-paginated. Viewer-optional — a presented session resolves
+        identity reveal + authorGeo; anonymous gets personas."
+      tags:
+        - public
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - post
+                  - petition
+                  - poll
+                  - result
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - post
+                    - petition
+                    - poll
+                    - result
+          in: query
+          name: types
+          required: false
+          description: Root type filter; repeatable. Absent = all four.
+        - schema:
+            anyOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+          in: query
+          name: jurisdictions
+          required: false
+          description: Jurisdiction id filter; repeatable. Absent = all.
+        - schema:
+            type: integer
+            minimum: 0
+            maximum: 3
+            default: 0
+          in: query
+          name: tierMin
+          required: false
+          description: "Author verification floor: 0 any · 1 identity · 2 residency · 3
+            official (role)."
+        - schema:
+            type: integer
+            minimum: 0
+            maximum: 3
+            default: 0
+          in: query
+          name: signedMin
+          required: false
+          description: "Envelope sign-tier floor: 0 any · 1 passkey (2/3 future)."
+        - schema:
+            type: string
+          in: query
+          name: cursor
+          required: false
+          description: Opaque page cursor from the previous response's nextCursor.
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      description: FeedItem-shaped row (web-app CONTRACT.md §1 + Part 3). Jurisdiction
+                        is an ID (labels resolve client-side);
+                        appliesToDistrictIds is the served name for the affected
+                        seat slugs (the adapter maps it to the mock's
+                        `districts`); raw author districts NEVER appear —
+                        authorGeo is the only residence signal (C6).
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - post
+                            - petition
+                            - poll
+                            - result
+                        jurisdiction:
+                          type: string
+                          description: Jurisdiction id, e.g. "oursay-global" | "ab-ca-gov".
+                        tier:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                          description: Author's canonical KYC tier token (client maps to its numeric
+                            ladder).
+                        official:
+                          type: boolean
+                          description: Author holds the official ROLE in this jurisdiction (never a tier).
+                        signTier:
+                          type: integer
+                          description: "Envelope sign-tier projection: 0 quick · 1 passkey (2/3 future)."
+                        appliesToDistrictIds:
+                          type: array
+                          items:
+                            type: string
+                          description: Affected seat slugs; [] = jurisdiction-wide.
+                        author:
+                          type: string
+                          description: "Anonymized display: real name when revealed, persona otherwise."
+                        handle:
+                          type: string
+                          description: Real @handle when revealed; the persona name otherwise.
+                        identity:
+                          type: object
+                          description: "Viewer-resolved author identity (docs/09): real name/handle iff
+                            the author's effective visibility admits this
+                            viewer; the per-thread persona otherwise (handle
+                            null — never leaked). Self always resolves revealed,
+                            with a seenByOthersAs persona hint when not publicly
+                            visible."
+                          properties:
+                            display:
+                              type: string
+                            handle:
+                              type: string
+                              nullable: true
+                              description: Real @handle iff revealed or self; null for personas.
+                            isPersona:
+                              type: boolean
+                            isSelf:
+                              type: boolean
+                            seed:
+                              type: string
+                              description: "Avatar seed: real handle when revealed, persona name otherwise."
+                            threadId:
+                              type: string
+                            seenByOthersAs:
+                              type: string
+                              description: Self only, when own effective visibility is not public.
+                          required:
+                            - display
+                            - handle
+                            - isPersona
+                            - isSelf
+                            - seed
+                            - threadId
+                        authorGeo:
+                          type: string
+                          enum:
+                            - none
+                            - home
+                            - affected
+                            - jurisdiction
+                          description: The author's narrowest viewer-relative spatial relation (C6) — the
+                            ONLY residence signal served.
+                        title:
+                          type: string
+                        body:
+                          type: array
+                          items:
+                            type: string
+                          description: Paragraphs.
+                        withheld:
+                          type: boolean
+                          description: Content redacted/erased — title/body empty, the row provably
+                            present.
+                        up:
+                          type: integer
+                        down:
+                          type: integer
+                        sig:
+                          type: integer
+                          nullable: true
+                          description: Signature count; null when withheld/tier-gated by count policy.
+                        goal:
+                          type: integer
+                          nullable: true
+                          description: Graduation threshold when the jurisdiction sets a fixed one.
+                        options:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              label:
+                                type: string
+                              v:
+                                type: integer
+                                nullable: true
+                                description: Null when the jurisdiction's count policy withholds/tier-gates
+                                  votes.
+                            required:
+                              - label
+                              - v
+                        attachedPoll:
+                          type: object
+                          nullable: true
+                          properties:
+                            question:
+                              type: string
+                            options:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - question
+                            - options
+                        comments:
+                          type: integer
+                          description: Live comment count, all nesting depths.
+                        edits:
+                          type: integer
+                          description: Revision count (update transactions).
+                        ts:
+                          type: string
+                          description: Original create time, ISO.
+                      required:
+                        - id
+                        - type
+                        - jurisdiction
+                        - tier
+                        - official
+                        - signTier
+                        - appliesToDistrictIds
+                        - author
+                        - handle
+                        - identity
+                        - authorGeo
+                        - title
+                        - body
+                        - withheld
+                        - comments
+                        - edits
+                        - ts
+                  nextCursor:
+                    type: string
+                    nullable: true
+                    description: Pass back as `cursor`; null = no more rows.
+                required:
+                  - items
+                  - nextCursor
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/records/{id}:
+    get:
+      summary: "Kind-agnostic record detail: root + nested comment thread (depth ≤ 3).
+        Viewer-optional — a session resolves identity reveal, authorGeo, and
+        _my/_vote; anonymous gets personas."
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id (any of post/petition/poll/result).
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: object
+                    description: Detail-page root record (web-app RecordDetail). `type` (adapter →
+                      kind), `appliesToDistrictIds` (→ districts), interlinks by
+                      id; raw author districts NEVER appear (authorGeo is the
+                      only residence signal, C6).
+                    properties:
+                      id:
+                        type: string
+                      type:
+                        type: string
+                        enum:
+                          - post
+                          - petition
+                          - poll
+                          - result
+                      jurisdiction:
+                        type: string
+                      tier:
+                        type: string
+                        enum:
+                          - unverified
+                          - identity_verified
+                          - residency_verified
+                          - electoral_validated
+                      official:
+                        type: boolean
+                      signTier:
+                        type: integer
+                      appliesToDistrictIds:
+                        type: array
+                        items:
+                          type: string
+                      author:
+                        type: string
+                      handle:
+                        type: string
+                      identity:
+                        type: object
+                        description: "Viewer-resolved author identity: real name/handle iff the author's
+                          effective visibility admits this viewer; the
+                          per-thread persona otherwise (handle null — never
+                          leaked). Self resolves revealed, with a seenByOthersAs
+                          hint when not public."
+                        properties:
+                          display:
+                            type: string
+                          handle:
+                            type: string
+                            nullable: true
+                          isPersona:
+                            type: boolean
+                          isSelf:
+                            type: boolean
+                          seed:
+                            type: string
+                          threadId:
+                            type: string
+                          seenByOthersAs:
+                            type: string
+                        required:
+                          - display
+                          - handle
+                          - isPersona
+                          - isSelf
+                          - seed
+                          - threadId
+                      authorGeo:
+                        type: string
+                        enum:
+                          - none
+                          - home
+                          - affected
+                          - jurisdiction
+                        description: The author's narrowest viewer-relative spatial relation (C6) — the
+                          ONLY residence signal served.
+                      title:
+                        type: string
+                      body:
+                        type: array
+                        items:
+                          type: string
+                      withheld:
+                        type: boolean
+                      ts:
+                        type: string
+                      edits:
+                        type: integer
+                      up:
+                        type: integer
+                      down:
+                        type: integer
+                      sig:
+                        type: integer
+                        nullable: true
+                      goal:
+                        type: integer
+                        nullable: true
+                      options:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            label:
+                              type: string
+                            v:
+                              type: integer
+                              nullable: true
+                              description: Null when the jurisdiction's count policy withholds/tier-gates the
+                                scalar.
+                          required:
+                            - label
+                            - v
+                      attachedPoll:
+                        type: object
+                        nullable: true
+                        properties:
+                          question:
+                            type: string
+                          options:
+                            type: array
+                            items:
+                              type: string
+                        required:
+                          - question
+                          - options
+                      sourcePollId:
+                        type: string
+                        nullable: true
+                      sourcePetitionId:
+                        type: string
+                        nullable: true
+                      resultId:
+                        type: string
+                        nullable: true
+                      _my:
+                        type: string
+                        enum:
+                          - up
+                          - down
+                        nullable: true
+                        description: The viewer's own reaction on this entity (resolved through their
+                          per-thread persona); null/absent when anonymous or
+                          none.
+                      _vote:
+                        type: string
+                        nullable: true
+                        description: The viewer's own voted option label on a poll; null when not voted.
+                    required:
+                      - id
+                      - type
+                      - jurisdiction
+                      - tier
+                      - official
+                      - signTier
+                      - appliesToDistrictIds
+                      - author
+                      - handle
+                      - identity
+                      - authorGeo
+                      - title
+                      - body
+                      - withheld
+                      - ts
+                      - edits
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        author:
+                          type: string
+                        handle:
+                          type: string
+                        tier:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        authorGeo:
+                          type: string
+                          enum:
+                            - none
+                            - home
+                            - affected
+                            - jurisdiction
+                          description: The author's narrowest viewer-relative spatial relation (C6) — the
+                            ONLY residence signal served.
+                        ts:
+                          type: string
+                        edits:
+                          type: integer
+                        signTier:
+                          type: integer
+                        body:
+                          type: array
+                          items:
+                            type: string
+                        withheld:
+                          type: boolean
+                        up:
+                          type: integer
+                        down:
+                          type: integer
+                        _my:
+                          type: string
+                          enum:
+                            - up
+                            - down
+                          nullable: true
+                          description: The viewer's own reaction on this entity (resolved through their
+                            per-thread persona); null/absent when anonymous or
+                            none.
+                        identity:
+                          type: object
+                          description: "Viewer-resolved author identity: real name/handle iff the author's
+                            effective visibility admits this viewer; the
+                            per-thread persona otherwise (handle null — never
+                            leaked). Self resolves revealed, with a
+                            seenByOthersAs hint when not public."
+                          properties:
+                            display:
+                              type: string
+                            handle:
+                              type: string
+                              nullable: true
+                            isPersona:
+                              type: boolean
+                            isSelf:
+                              type: boolean
+                            seed:
+                              type: string
+                            threadId:
+                              type: string
+                            seenByOthersAs:
+                              type: string
+                          required:
+                            - display
+                            - handle
+                            - isPersona
+                            - isSelf
+                            - seed
+                            - threadId
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - author
+                        - handle
+                        - tier
+                        - authorGeo
+                        - ts
+                        - edits
+                        - signTier
+                        - body
+                        - withheld
+                        - up
+                        - down
+                        - identity
+                        - replies
+                required:
+                  - detail
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/records/{id}/comments:
+    get:
+      summary: The record's nested comment thread only (depth ≤ 3). Viewer-optional
+        (same resolution as the detail).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: id
+          required: true
+          description: Root entity id (any of post/petition/poll/result).
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        author:
+                          type: string
+                        handle:
+                          type: string
+                        tier:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        authorGeo:
+                          type: string
+                          enum:
+                            - none
+                            - home
+                            - affected
+                            - jurisdiction
+                          description: The author's narrowest viewer-relative spatial relation (C6) — the
+                            ONLY residence signal served.
+                        ts:
+                          type: string
+                        edits:
+                          type: integer
+                        signTier:
+                          type: integer
+                        body:
+                          type: array
+                          items:
+                            type: string
+                        withheld:
+                          type: boolean
+                        up:
+                          type: integer
+                        down:
+                          type: integer
+                        _my:
+                          type: string
+                          enum:
+                            - up
+                            - down
+                          nullable: true
+                          description: The viewer's own reaction on this entity (resolved through their
+                            per-thread persona); null/absent when anonymous or
+                            none.
+                        identity:
+                          type: object
+                          description: "Viewer-resolved author identity: real name/handle iff the author's
+                            effective visibility admits this viewer; the
+                            per-thread persona otherwise (handle null — never
+                            leaked). Self resolves revealed, with a
+                            seenByOthersAs hint when not public."
+                          properties:
+                            display:
+                              type: string
+                            handle:
+                              type: string
+                              nullable: true
+                            isPersona:
+                              type: boolean
+                            isSelf:
+                              type: boolean
+                            seed:
+                              type: string
+                            threadId:
+                              type: string
+                            seenByOthersAs:
+                              type: string
+                          required:
+                            - display
+                            - handle
+                            - isPersona
+                            - isSelf
+                            - seed
+                            - threadId
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - author
+                        - handle
+                        - tier
+                        - authorGeo
+                        - ts
+                        - edits
+                        - signTier
+                        - body
+                        - withheld
+                        - up
+                        - down
+                        - identity
+                        - replies
+                required:
+                  - items
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/personas/{name}:
+    get:
+      summary: "Thread-scoped persona profile: identity + authored comments within one
+        thread"
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: name
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  threadId:
+                    type: string
+                  jurisdiction:
+                    type: string
+                  identity:
+                    type: object
+                    properties:
+                      display:
+                        type: string
+                      handle:
+                        type: string
+                        nullable: true
+                      isPersona:
+                        type: boolean
+                      isSelf:
+                        type: boolean
+                      seed:
+                        type: string
+                      threadId:
+                        type: string
+                      seenByOthersAs:
+                        type: string
+                    required:
+                      - display
+                      - handle
+                      - isPersona
+                      - isSelf
+                      - seed
+                      - threadId
+                  tier:
+                    type: string
+                    enum:
+                      - unverified
+                      - identity_verified
+                      - residency_verified
+                      - electoral_validated
+                  isRootAuthor:
+                    type: boolean
+                  comments:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        author:
+                          type: string
+                        handle:
+                          type: string
+                        tier:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        authorGeo:
+                          type: string
+                          enum:
+                            - none
+                            - home
+                            - affected
+                            - jurisdiction
+                        ts:
+                          type: string
+                        edits:
+                          type: integer
+                        signTier:
+                          type: integer
+                        body:
+                          type: array
+                          items:
+                            type: string
+                        withheld:
+                          type: boolean
+                        up:
+                          type: integer
+                        down:
+                          type: integer
+                        identity:
+                          type: object
+                          properties:
+                            display:
+                              type: string
+                            handle:
+                              type: string
+                              nullable: true
+                            isPersona:
+                              type: boolean
+                            isSelf:
+                              type: boolean
+                            seed:
+                              type: string
+                            threadId:
+                              type: string
+                            seenByOthersAs:
+                              type: string
+                          required:
+                            - display
+                            - handle
+                            - isPersona
+                            - isSelf
+                            - seed
+                            - threadId
+                        replies:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                      required:
+                        - author
+                        - handle
+                        - tier
+                        - authorGeo
+                        - ts
+                        - edits
+                        - signTier
+                        - body
+                        - withheld
+                        - up
+                        - down
+                        - identity
+                        - replies
+                required:
+                  - name
+                  - threadId
+                  - jurisdiction
+                  - identity
+                  - tier
+                  - isRootAuthor
+                  - comments
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/profiles/{handle}:
+    get:
+      summary: Public profile header (404 when viewer is outside the account
+        visibility scope)
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: handle
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  handle:
+                    type: string
+                  role:
+                    type: string
+                  tier:
+                    type: string
+                    enum:
+                      - unverified
+                      - identity_verified
+                      - residency_verified
+                      - electoral_validated
+                  official:
+                    type: boolean
+                  bio:
+                    type: string
+                  ageLabel:
+                    type: string
+                  support:
+                    type: object
+                    properties:
+                      agrees:
+                        type: integer
+                      disagrees:
+                        type: integer
+                      statements:
+                        type: integer
+                      comments:
+                        type: integer
+                    required:
+                      - agrees
+                      - disagrees
+                      - statements
+                      - comments
+                required:
+                  - name
+                  - handle
+                  - role
+                  - tier
+                  - official
+                  - bio
+                  - ageLabel
+                  - support
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/profiles/{handle}/posts:
+    get:
+      summary: Profile Posts tab — authored root records as FeedItems (results excluded)
+      tags:
+        - public
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - post
+                  - petition
+                  - poll
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - post
+                    - petition
+                    - poll
+          in: query
+          name: types
+          required: false
+          description: Root type filter; repeatable. Absent = post+petition+poll.
+        - schema:
+            type: string
+          in: query
+          name: cursor
+          required: false
+          description: Opaque page cursor from nextCursor.
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: string
+          in: path
+          name: handle
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                          enum:
+                            - post
+                            - petition
+                            - poll
+                            - result
+                        jurisdiction:
+                          type: string
+                        tier:
+                          type: string
+                          enum:
+                            - unverified
+                            - identity_verified
+                            - residency_verified
+                            - electoral_validated
+                        official:
+                          type: boolean
+                        signTier:
+                          type: integer
+                        appliesToDistrictIds:
+                          type: array
+                          items:
+                            type: string
+                        author:
+                          type: string
+                        handle:
+                          type: string
+                        identity:
+                          type: object
+                          properties:
+                            display:
+                              type: string
+                            handle:
+                              type: string
+                              nullable: true
+                            isPersona:
+                              type: boolean
+                            isSelf:
+                              type: boolean
+                            seed:
+                              type: string
+                            threadId:
+                              type: string
+                            seenByOthersAs:
+                              type: string
+                          required:
+                            - display
+                            - handle
+                            - isPersona
+                            - isSelf
+                            - seed
+                            - threadId
+                        authorGeo:
+                          type: string
+                          enum:
+                            - none
+                            - home
+                            - affected
+                            - jurisdiction
+                        title:
+                          type: string
+                        body:
+                          type: array
+                          items:
+                            type: string
+                        withheld:
+                          type: boolean
+                        up:
+                          type: integer
+                        down:
+                          type: integer
+                        sig:
+                          type: integer
+                          nullable: true
+                        goal:
+                          type: integer
+                          nullable: true
+                        options:
+                          type: array
+                          items:
+                            type: object
+                            additionalProperties: true
+                        attachedPoll:
+                          type: object
+                          nullable: true
+                          additionalProperties: true
+                        comments:
+                          type: integer
+                        edits:
+                          type: integer
+                        ts:
+                          type: string
+                      required:
+                        - id
+                        - type
+                        - jurisdiction
+                        - tier
+                        - official
+                        - signTier
+                        - appliesToDistrictIds
+                        - author
+                        - handle
+                        - identity
+                        - authorGeo
+                        - title
+                        - body
+                        - withheld
+                        - comments
+                        - edits
+                        - ts
+                  nextCursor:
+                    type: string
+                    nullable: true
+                required:
+                  - items
+                  - nextCursor
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/profiles/{handle}/activity:
+    get:
+      summary: Profile Activity tab — first-class actions derived from record_tx
+      tags:
+        - public
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+                enum:
+                  - statement
+                  - comment
+                  - petition
+                  - poll
+                  - reaction
+              - type: array
+                items:
+                  type: string
+                  enum:
+                    - statement
+                    - comment
+                    - petition
+                    - poll
+                    - reaction
+          in: query
+          name: kinds
+          required: false
+          description: Activity kind filter; repeatable.
+        - schema:
+            type: string
+          in: query
+          name: cursor
+          required: false
+          description: Opaque page cursor from nextCursor.
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: string
+          in: path
+          name: handle
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                          enum:
+                            - statement
+                            - comment
+                            - petition
+                            - poll
+                            - reaction
+                        icon:
+                          type: string
+                        text:
+                          type: string
+                        meta:
+                          type: string
+                        recordId:
+                          type: string
+                      required:
+                        - kind
+                        - text
+                        - meta
+                  nextCursor:
+                    type: string
+                    nullable: true
+                required:
+                  - items
+                  - nextCursor
         "404":
           description: Default Response
           content:
@@ -4051,6 +5550,906 @@ paths:
                         - level
                 required:
                   - items
+  /v1/public/jurisdictions/{jurisdictionId}:
+    get:
+      summary: Jurisdiction detail (gates, graduation threshold, leader, rules copy).
+        No privacy/counts/rules.
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: jurisdictionId
+          required: true
+          description: Registered jurisdiction id.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  level:
+                    type: string
+                  label:
+                    type: string
+                  labels:
+                    type: object
+                    properties:
+                      post:
+                        type: string
+                        description: "Label for a `post` (default: Statement)."
+                      petition:
+                        type: string
+                        description: "Label for a `petition` (default: Petition)."
+                      poll:
+                        type: string
+                        description: "Label for a `poll` (default: Poll)."
+                      result:
+                        type: string
+                        description: "Label for a poll `result` (default: Result)."
+                      district:
+                        type: string
+                        description: "Label for a district (e.g. Alberta: riding)."
+                  gates:
+                    type: object
+                    properties:
+                      post:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                      petition:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                      poll:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                      result:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                      comment:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                      reaction:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                      vote:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                      petition_signature:
+                        type: object
+                        properties:
+                          act:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          signMin:
+                            type: string
+                            enum:
+                              - quick
+                              - passkey
+                          officialCount:
+                            oneOf:
+                              - type: string
+                                enum:
+                                  - anyone
+                              - type: object
+                                properties:
+                                  tiers:
+                                    type: array
+                                    items:
+                                      type: string
+                                required:
+                                  - tiers
+                              - type: object
+                                properties:
+                                  residencyIn:
+                                    type: string
+                                    enum:
+                                      - jurisdiction
+                                required:
+                                  - residencyIn
+                              - type: object
+                                properties:
+                                  role:
+                                    type: string
+                                    enum:
+                                      - official
+                                required:
+                                  - role
+                          deny:
+                            type: array
+                            items:
+                              oneOf:
+                                - type: string
+                                  enum:
+                                    - anyone
+                                - type: object
+                                  properties:
+                                    tiers:
+                                      type: array
+                                      items:
+                                        type: string
+                                  required:
+                                    - tiers
+                                - type: object
+                                  properties:
+                                    residencyIn:
+                                      type: string
+                                      enum:
+                                        - jurisdiction
+                                  required:
+                                    - residencyIn
+                                - type: object
+                                  properties:
+                                    role:
+                                      type: string
+                                      enum:
+                                        - official
+                                  required:
+                                    - role
+                        required:
+                          - act
+                          - signMin
+                    required:
+                      - post
+                      - petition
+                      - poll
+                      - result
+                      - comment
+                      - reaction
+                      - vote
+                      - petition_signature
+                  graduationThreshold:
+                    type:
+                      - "null"
+                      - number
+                  leader:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      handle:
+                        type: string
+                    required:
+                      - name
+                      - handle
+                  rulesCopy:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - id
+                  - level
+                  - gates
+                  - graduationThreshold
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/public/jurisdictions/{jurisdictionId}/districts:
     get:
       summary: "Effective-dated district directory at asOf (default: today UTC). One
@@ -4141,6 +6540,115 @@ paths:
                   - jurisdictionId
                   - asOf
                   - items
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/public/jurisdictions/{jurisdictionId}/districts/{slug}:
+    get:
+      summary: District detail by stable slug at today's effective revision
+        (leader/about nullable — no backend source yet).
+      tags:
+        - public
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: asOf
+          required: false
+          description: "UTC calendar date (YYYY-MM-DD). Default: today UTC."
+        - schema:
+            type: string
+          in: path
+          name: jurisdictionId
+          required: true
+        - schema:
+            type: string
+          in: path
+          name: slug
+          required: true
+          description: Stable year-less district slug.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  slug:
+                    type: string
+                  jur:
+                    type: string
+                    description: Jurisdiction id.
+                  boundaryYear:
+                    type:
+                      - "null"
+                      - number
+                  effectiveDate:
+                    type: string
+                  sourceName:
+                    type: string
+                  leader:
+                    type:
+                      - "null"
+                      - string
+                  leaderHandle:
+                    type:
+                      - "null"
+                      - string
+                  about:
+                    type:
+                      - "null"
+                      - string
+                required:
+                  - name
+                  - slug
+                  - jur
+                  - boundaryYear
+                  - effectiveDate
+                  - leader
+                  - leaderHandle
+                  - about
         "400":
           description: Default Response
           content:
@@ -4274,8 +6782,11 @@ paths:
                     type: string
                     enum:
                       - anonymous
-                      - officials
+                      - my_officials
+                      - all_officials
                       - my_district
+                      - my_jurisdiction
+                      - id_verified
                       - public
                   address:
                     type: object
@@ -4371,6 +6882,1252 @@ paths:
                       - message
                 required:
                   - error
+    patch:
+      summary: Update private profile fields (best-effort geocode refresh when address
+        changes)
+      tags:
+        - profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type:
+                    - string
+                    - "null"
+                lastName:
+                  type:
+                    - string
+                    - "null"
+                line1:
+                  type:
+                    - string
+                    - "null"
+                line2:
+                  type:
+                    - string
+                    - "null"
+                city:
+                  type:
+                    - string
+                    - "null"
+                province:
+                  type:
+                    - string
+                    - "null"
+                postalCode:
+                  type:
+                    - string
+                    - "null"
+                country:
+                  type: string
+                memo:
+                  type:
+                    - string
+                    - "null"
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userId:
+                    type: string
+                    format: uuid
+                  handle:
+                    type:
+                      - "null"
+                      - string
+                  displayName:
+                    type:
+                      - "null"
+                      - string
+                  firstName:
+                    type:
+                      - "null"
+                      - string
+                  lastName:
+                    type:
+                      - "null"
+                      - string
+                  email:
+                    type: string
+                  over18:
+                    type: boolean
+                    description: Self-attested age gate; KYC re-verifies. No DOB is stored.
+                  visibility:
+                    type: string
+                    enum:
+                      - anonymous
+                      - my_officials
+                      - all_officials
+                      - my_district
+                      - my_jurisdiction
+                      - id_verified
+                      - public
+                  address:
+                    type: object
+                    properties:
+                      line1:
+                        type:
+                          - "null"
+                          - string
+                      line2:
+                        type:
+                          - "null"
+                          - string
+                      city:
+                        type:
+                          - "null"
+                          - string
+                      province:
+                        type:
+                          - "null"
+                          - string
+                      postalCode:
+                        type:
+                          - "null"
+                          - string
+                      country:
+                        type: string
+                      memo:
+                        type:
+                          - "null"
+                          - string
+                required:
+                  - userId
+                  - email
+                  - over18
+                  - visibility
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/me/jurisdictions:
+    get:
+      summary: List the authenticated user's jurisdiction memberships
+      tags:
+        - me
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jurisdictionIds:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - jurisdictionIds
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+    put:
+      summary: Replace jurisdiction subscriptions (oursay-global is always retained;
+        roles are never changed)
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                jurisdictionIds:
+                  type: array
+                  items:
+                    type: string
+              required:
+                - jurisdictionIds
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jurisdictionIds:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - jurisdictionIds
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/me/signing-prefs:
+    get:
+      summary: Get per-action signing preferences
+      tags:
+        - me
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - quick
+                    - ask
+                    - passkey
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+    patch:
+      summary: Merge signing preferences (null deletes a key)
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties:
+                oneOf:
+                  - type: string
+                    enum:
+                      - quick
+                      - ask
+                      - passkey
+                  - type: "null"
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+                  enum:
+                    - quick
+                    - ask
+                    - passkey
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/me/visibility:
+    get:
+      summary: Get the account-default author visibility
+      tags:
+        - me
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visibility:
+                    type: string
+                    enum:
+                      - anonymous
+                      - my_officials
+                      - all_officials
+                      - my_district
+                      - my_jurisdiction
+                      - id_verified
+                      - public
+                required:
+                  - visibility
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+    patch:
+      summary: Set the account-default author visibility
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visibility:
+                  type: string
+                  enum:
+                    - anonymous
+                    - my_officials
+                    - all_officials
+                    - my_district
+                    - my_jurisdiction
+                    - id_verified
+                    - public
+              required:
+                - visibility
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visibility:
+                    type: string
+                    enum:
+                      - anonymous
+                      - my_officials
+                      - all_officials
+                      - my_district
+                      - my_jurisdiction
+                      - id_verified
+                      - public
+                required:
+                  - visibility
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/me/threads/{threadId}/visibility:
+    put:
+      summary: Set or clear a per-thread visibility override (null clears)
+      tags:
+        - me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                visibility:
+                  oneOf:
+                    - type: string
+                      enum:
+                        - anonymous
+                        - my_officials
+                        - all_officials
+                        - my_district
+                        - my_jurisdiction
+                        - id_verified
+                        - public
+                    - type: "null"
+              required:
+                - visibility
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: threadId
+          required: true
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  visibility:
+                    oneOf:
+                      - type: string
+                        enum:
+                          - anonymous
+                          - my_officials
+                          - all_officials
+                          - my_district
+                          - my_jurisdiction
+                          - id_verified
+                          - public
+                      - type: "null"
+                required:
+                  - visibility
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/me/districts:
+    get:
+      summary: Home district slugs for the authenticated viewer (self-only raw slugs)
+      tags:
+        - me
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  districts:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - districts
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/me/record-state:
+    get:
+      summary: Batch read of the viewer's own participation markers (_my, _vote,
+        signed, shared) per record id
+      tags:
+        - me
+      parameters:
+        - schema:
+            anyOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+          in: query
+          name: ids
+          required: true
+          description: Record ids; repeatable query param (max 100).
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  states:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        _my:
+                          type: string
+                          enum:
+                            - up
+                            - down
+                          nullable: true
+                        _vote:
+                          type: string
+                          nullable: true
+                        signed:
+                          type: boolean
+                        shared:
+                          type: boolean
+                      required:
+                        - _my
+                        - _vote
+                        - signed
+                        - shared
+                required:
+                  - states
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/me/shares/{shareKey}:
+    post:
+      summary: Record a share mark for deduplicated share counts
+      tags:
+        - me
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: shareKey
+          required: true
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  counted:
+                    type: boolean
+                  count:
+                    type: number
+                required:
+                  - counted
+                  - count
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/kyc/didit/session:
+    post:
+      summary: Start a Didit hosted identity or POA verification session
+      tags:
+        - kyc
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workflowKind:
+                  type: string
+                  enum:
+                    - identity
+                    - poa
+                  default: identity
+              additionalProperties: false
+      security: *a1
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                  url:
+                    type: string
+                required:
+                  - sessionId
+                  - url
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "501":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/kyc/didit/session/{sessionId}:
+    get:
+      summary: Poll a Didit session owned by the caller (throttled vendor fetch)
+      tags:
+        - kyc
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: sessionId
+          required: true
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  tier:
+                    type: string
+                    nullable: true
+                required:
+                  - status
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "501":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/kyc/residency/attest:
+    post:
+      summary: Platform self-attest residency when the caller's geocoded point is
+        inside a jurisdiction
+      tags:
+        - kyc
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                consent:
+                  type: boolean
+                jurisdictionId:
+                  type: string
+              required:
+                - consent
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tier:
+                    type: string
+                required:
+                  - tier
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
 tags:
   - name: auth
     description: Registration, sessions, unified OTP request
@@ -4388,5 +8145,10 @@ tags:
       boundaries)"
   - name: profile
     description: Private account profile
+  - name: me
+    description: Authenticated self-scoped account surface
+  - name: kyc
+    description: Identity and residency verification (Didit sessions, platform
+      residency attest)
   - name: meta
     description: Health & docs

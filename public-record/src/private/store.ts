@@ -780,9 +780,9 @@ export class PrivateStore {
    *  handle from the id (and the display name from the handle) on INSERT; on UPDATE an absent input
    *  never clobbers an existing value. */
   async putUser(u: { id: string; handle?: string; displayName?: string }): Promise<void> {
-    const defaultHandle = `@u${u.id.replace(/-/g, "").slice(0, 8)}`;
-    const handle = u.handle ?? defaultHandle;
-    const displayName = u.displayName ?? handle.replace(/^@/, "");
+    const defaultHandle = `u${u.id.replace(/-/g, "").slice(0, 8)}`;
+    const handle = (u.handle ?? defaultHandle).replace(/^@/, "");
+    const displayName = u.displayName ?? handle;
     await this.pool.query(
       `INSERT INTO users(id, handle, display_name) VALUES($1,$2,$3)
        ON CONFLICT (id) DO UPDATE SET

@@ -101,6 +101,6 @@ describe("27 persona page: thread-scoped identity + authored comments", () => {
     const res = await personaPage(w, personaName!, session.token);
     expect(res.statusCode).to.equal(200, res.body);
     expect(res.json().identity.isSelf).to.equal(true);
-    expect(res.json().identity.handle).to.equal("@self");
+    expect(res.json().identity.handle).to.equal("self");
   });
 });

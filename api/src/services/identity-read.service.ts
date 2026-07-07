@@ -189,6 +189,8 @@ export class ReadResolution {
   async profileVisible(userId: string): Promise<boolean> {
     if (this.viewer.userId && userId === this.viewer.userId) return true;
     const facts = await this.factsOf(userId);
+    // Officials are always reachable at /profile/{handle} (platform-facing accounts).
+    if (facts.officialIn.size > 0) return true;
     return this.isRevealed(facts.accountVisibility, facts.homeDistricts);
   }
 

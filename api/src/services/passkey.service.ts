@@ -42,6 +42,7 @@ export interface PasskeyLoginResult {
 /** Public view of an enrolled account-login passkey. No key material — just management metadata. */
 export interface PasskeyView {
   id: string;
+  /** User override when set; otherwise a server-resolved default from aaguid/transports. */
   label: string | null;
   transports: string | null;
   createdAt: string;
@@ -118,7 +119,7 @@ export class PasskeyService {
       counter: credential.counter,
       transports: credential.transports?.join(",") ?? null,
       aaguid: aaguid ?? null,
-      label: input.label ?? null,
+      label: normalizePasskeyLabel(input.label),
     });
     return { credentialId: credential.id };
   }
@@ -128,13 +129,29 @@ export class PasskeyService {
   /** List the caller's enrolled account-login passkeys (one per device). Metadata only. */
   async list(userId: string): Promise<PasskeyView[]> {
     const creds = await this.d.passkeyRepo.listByUserId(userId);
-    return creds.map((c) => ({
-      id: c.id,
-      label: c.label,
-      transports: c.transports,
-      createdAt: c.createdAt,
-      lastUsedAt: c.lastUsedAt,
-    }));
+    return creds.map(toPasskeyView);
+  }
+
+  /** Rename one of the caller's passkeys (user-facing device label). */
+  async updateLabel(input: { userId: string; id: string; label: string | null }): Promise<PasskeyView> {
+    const creds = await this.d.passkeyRepo.listByUserId(input.userId);
+    const cred = creds.find((c) => c.id === input.id);
+    if (!cred) {
+      throw new ServiceError("not_found", "No such passkey for this account");
+    }
+
+    const normalized = normalizePasskeyLabel(input.label);
+    const defaultLabel = resolveDefaultPasskeyLabel(cred.aaguid, cred.transports);
+    const toStore =
+      normalized == null || (defaultLabel != null && normalized === defaultLabel)
+        ? null
+        : normalized;
+
+    const updated = await this.d.passkeyRepo.updateLabel(input.userId, input.id, toStore);
+    if (!updated) {
+      throw new ServiceError("not_found", "No such passkey for this account");
+    }
+    return toPasskeyView({ ...cred, label: toStore });
   }
 
   /** Remove one of the caller's OWN passkeys ("kick a compromised/retired device"). 404 when it isn't
@@ -240,6 +257,42 @@ export class PasskeyService {
 function splitTransports(csv: string | null): ("ble" | "hybrid" | "internal" | "nfc" | "usb" | "cable" | "smart-card")[] | undefined {
   if (!csv) return undefined;
   return csv.split(",").map((s) => s.trim()).filter(Boolean) as any;
+}
+
+const PASSKEY_LABEL_MAX = 80;
+
+function normalizePasskeyLabel(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return trimmed.length > PASSKEY_LABEL_MAX ? trimmed.slice(0, PASSKEY_LABEL_MAX) : trimmed;
+}
+
+/** Resolve a display label from stored authenticator metadata (never sent to clients). */
+function resolveDefaultPasskeyLabel(_aaguid: string | null, transports: string | null): string | null {
+  // Future: FIDO Metadata Service lookup by _aaguid.
+  const parts = transports?.split(",").map((s) => s.trim()) ?? [];
+  if (parts.some((t) => t === "usb" || t === "nfc")) return "Security key";
+  if (parts.some((t) => t === "hybrid" || t === "ble")) return "Phone passkey";
+  if (parts.includes("internal")) return "Built-in passkey";
+  return null;
+}
+
+function toPasskeyView(cred: {
+  id: string;
+  label: string | null;
+  aaguid: string | null;
+  transports: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}): PasskeyView {
+  return {
+    id: cred.id,
+    label: normalizePasskeyLabel(cred.label) ?? resolveDefaultPasskeyLabel(cred.aaguid, cred.transports),
+    transports: cred.transports,
+    createdAt: cred.createdAt,
+    lastUsedAt: cred.lastUsedAt,
+  };
 }
 
 /** Pull the base64url challenge the authenticator signed out of clientDataJSON. */
