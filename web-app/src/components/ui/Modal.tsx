@@ -133,9 +133,10 @@ export function Modal({
         ) : null}
         <button
           ref={closeRef}
+          type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute -right-3 -top-3 z-10 inline-flex size-[26px] items-center justify-center rounded-full bg-ink text-paper shadow-sm hover:bg-ink-soft"
+          className="absolute -right-3 -top-3 z-10 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-ink text-paper shadow-sm hover:bg-ink-soft focus:outline-none focus-visible:rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
         >
           <X size={14} aria-hidden />
         </button>
