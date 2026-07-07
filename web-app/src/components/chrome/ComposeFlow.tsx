@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Check, ChevronDown } from "lucide-react";
+import { BarChart3, Check, ChevronDown, VenetianMask } from "lucide-react";
 import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
 import { jurisdictionLabel } from "@/lib/mock";
 import {
@@ -296,8 +296,12 @@ export function ComposeFlow({
             </div>
           ) : null}
             <div className="w-[42%] shrink-0">
+              <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted">
+                Anonymity
+                <VenetianMask size={12} aria-hidden />
+              </div>
               <AnonymityDropdown
-                label="Anonymity"
+                showButtonIcon={false}
                 value={effectiveVisibility}
                 onChange={(v) => onSelectVisibility?.(v)}
               />
