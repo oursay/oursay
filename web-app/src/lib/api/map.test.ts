@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   kindToWireType,
   mapCommentNode,
+  mapDistrictSummary,
   mapFeedItem,
   mapRecordDetail,
   tokenToTier,
@@ -128,6 +129,33 @@ describe("mapRecordDetail", () => {
     });
     expect(detail.sourcePetition).toBe(true);
     expect(detail.resultPublished).toBe(true);
+  });
+});
+
+describe("mapDistrictSummary", () => {
+  it("uses seatHandle from the API when present", () => {
+    const row = mapDistrictSummary(
+      {
+        name: "Edmonton-Strathcona",
+        districtSlug: "edmonton-strathcona",
+        leader: "Janis Irwin",
+        seatHandle: "ab-edm_strth",
+      },
+      "ab-ca-gov",
+    );
+    expect(row.leaderHandle).toBe("ab-edm_strth");
+    expect(row.leader).toBe("Janis Irwin");
+  });
+
+  it("derives the MLA seat handle when the list omits leaderHandle", () => {
+    const row = mapDistrictSummary(
+      {
+        name: "Edmonton-Strathcona",
+        districtSlug: "edmonton-strathcona",
+      },
+      "ab-ca-gov",
+    );
+    expect(row.leaderHandle).toBe("ab-edm_strth");
   });
 });
 

@@ -111,10 +111,11 @@ function canReactTo(post: SeededPost): boolean {
   return post.kind === "statement";
 }
 
-function canAuthorPoll(person: SeedPerson, template: PostTemplate): boolean {
+function canAuthorPoll(person: SeedPerson, template: PostTemplate, jurisdiction: string): boolean {
   if (template.kind !== "poll") return true;
-  if (template.scope !== "alberta" && template.scope !== "generic") return true;
-  return person.tier === 3 || person.officialDistrict !== undefined || person.globalOfficial === true;
+  if (jurisdiction !== ALBERTA_ID) return true;
+  // Alberta polls require the platform official role (see ab-ca-gov gates.poll).
+  return person.officialDistrict !== undefined;
 }
 
 function resolveScope(template: PostTemplate, rng: Rng): string {
@@ -150,7 +151,8 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
   function takeTemplate(member: SeedPerson): PostTemplate | undefined {
     for (let i = 0; i < templateQueue.length; i++) {
       const t = templateQueue[i]!;
-      if (!canAuthorPoll(member, t)) continue;
+      const jurisdiction = resolveScope(t, rng);
+      if (!canAuthorPoll(member, t, jurisdiction)) continue;
       templateQueue.splice(i, 1);
       return t;
     }
