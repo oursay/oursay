@@ -114,30 +114,25 @@
       <legend><h2>5 · Civic golden path (real SDK)</h2> <span class="badge" id="b-civic">todo</span></legend>
       <p class="muted">
         Drives the production <strong>@oursay/identity</strong> SDK in the browser (bundled at
-        <code>/walk/identity.js</code>), <strong>Option A</strong>: unlock account custody → join an
-        <code>ab-ca-gov</code> thread, which <strong>creates that thread's own WebAuthn passkey</strong>
-        (its public key is the author) → create a post, signed by a <strong>fresh user-verifying
-        assertion</strong>. Every civic action re-prompts. The platform receives only <strong>public
-        keys, an opaque commitment, and the signed envelope</strong>; the result shows the custody source.
+        <code>/walk/identity.js</code>). Account-login passkey (step 7) seeds civic custody; passkey-signed
+        actions create a per-thread WebAuthn credential; <strong>quick reactions</strong> need no extra
+        prompt when PRF was probed at login.
       </p>
       <p class="note">
-        The per-thread civic passkeys are <strong>separate</strong> from the step-4 account-login passkey
-        (docs/08 §5.4) — expect a passkey prompt to create the thread credential and one
-        <em>per civic action</em>.
+        Log in with your account passkey before civic steps. The deprecated <code>/v1/civic/devices</code>
+        registry is no longer part of the client golden path.
       </p>
       <button id="enrollCivic" disabled>Run civic golden path</button>
-      <button id="listCivic" disabled>List my civic devices</button>
-      <pre id="out-civic">(needs a full session)</pre>
+      <pre id="out-civic">(needs a full session + passkey login)</pre>
 
       <hr style="margin:1.1rem 0 0.6rem; border:none; border-top:1px solid #ddd" />
       <legend style="padding:0"><h2 style="font-size:0.98rem">Granular sub-steps</h2> <span class="badge" id="b-civicsub">todo</span></legend>
       <p class="muted">
         The one-click golden path above is the smoke test. These sub-steps run the same flow phase by
-        phase for human QA — run them <strong>in order 5a → 5e</strong>. <strong>5a</strong> unlocks
-        account custody (one WebAuthn prompt — it seeds the nullifier root); <strong>5b</strong> creates
-        the thread passkey; <strong>5c–5e each prompt for user verification</strong> — one assertion
-        per action (Option A, docs/08 §5.4). Each button stays disabled until its prerequisite exists.
-        Re-running 5a keeps the same thread.
+        phase for human QA — run them <strong>in order 5a → 5e</strong>. <strong>5a</strong> loads
+        account custody (silent when PRF warmed at login); <strong>5b</strong> enrolls the passkey
+        thread signer; <strong>5c–5d</strong> passkey-sign with UV per action; <strong>5e</strong> quick-reacts
+        with no extra prompt. Re-running 5a keeps the same thread.
       </p>
       <button id="civicUnlock" disabled>5a · Unlock civic custody</button>
       <button id="civicJoin" disabled>5b · Join thread</button>

@@ -35,7 +35,3 @@ export function resolveCivicSignMode(
   );
   return method === "quick" ? "quick" : "passkey";
 }
-
-export function civicDeviceStorageKey(userId: string): string {
-  return `oursay/web-app/civic-device/${userId}`;
-}

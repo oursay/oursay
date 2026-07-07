@@ -31,6 +31,10 @@ export class IdentitySession {
 
   /** Memoized per-(jurisdiction, thread) SOFT quick signers (derived from the device root). */
   private readonly quickSigners = new Map<string, DeviceThreadSigner>();
+  /** Pₜ per thread when joined on the quick path (no per-thread WebAuthn credential). */
+  private readonly personas = new Map<string, string>();
+  /** Server-minted persona display names per thread (C7). */
+  private readonly personaNames = new Map<string, string>();
 
   get userId(): string {
     return this.s.userId;
@@ -86,6 +90,9 @@ export class IdentitySession {
    * has not been joined yet (no `buildSigned` can run before a persona is known).
    */
   personaPubkey(t: ThreadRef): string {
+    const key = `${t.jurisdiction}:${t.threadId}`;
+    const local = this.personas.get(key);
+    if (local) return local;
     const p = this.s.threadPersonaPubkey(t.threadId);
     if (!p) throw new Error(`IdentitySession: thread persona for ${t.threadId} unknown — call join first and rememberPersona(Pₜ)`);
     return p;
@@ -93,15 +100,22 @@ export class IdentitySession {
 
   /**
    * Persist the thread persona Pₜ returned by the server's `join` response. Must be called once per
-   * thread BEFORE any `prepare` or `buildSigned`. Idempotent within the same Pₜ (re-store).
+   * thread BEFORE any `prepare` or signing. Idempotent within the same Pₜ (re-store). On the quick
+   * path no per-thread WebAuthn credential exists — Pₜ is held on this session only.
    */
-  rememberPersona(t: ThreadRef, personaPubkey: string): void {
-    // Force the device credential to exist before persisting Pₜ — the per-thread store row is the
-    // anchor we attach personaPubkey to. Connectors created the credential during signingPubkey().
-    if (!this.s.threadSigningPubkey(t.threadId)) {
-      throw new Error(`IdentitySession.rememberPersona: no local credential for ${t.threadId}; call signingPubkey first`);
+  rememberPersona(t: ThreadRef, personaPubkey: string, personaName?: string): void {
+    const key = `${t.jurisdiction}:${t.threadId}`;
+    this.personas.set(key, personaPubkey);
+    if (personaName) this.personaNames.set(key, personaName);
+    // Passkey-path joins also mirror Pₜ onto the per-thread WebAuthn store when present.
+    if (this.s.threadSigningPubkey(t.threadId)) {
+      this.s.setThreadPersona(t.threadId, personaPubkey);
     }
-    this.s.setThreadPersona(t.threadId, personaPubkey);
+  }
+
+  /** The server-minted display name for Pₜ in this thread (what out-of-scope viewers see). */
+  personaDisplayName(t: ThreadRef): string | null {
+    return this.personaNames.get(`${t.jurisdiction}:${t.threadId}`) ?? null;
   }
 
   /** Client-side binding inputs to join a thread. The opening (user_id, salt_t) stays client-side.

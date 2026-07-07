@@ -18,7 +18,7 @@
 // is applied at read/count time, not fixed at join); when omitted it must stay omitted on both the
 // signed payload and the re-verification reconstruction (`bindingFromRow`) so canonical JSON matches.
 
-import { RecordService, signBinding, signCredentialAuth } from "@oursay/public-record";
+import { RecordService, signBinding, signCredentialAuth, personaNameForPubkey } from "@oursay/public-record";
 import type { PrivateStore } from "@oursay/public-record";
 import type { Ref } from "@oursay/public-record";
 import type { ThreadBindingPublic } from "@oursay/public-record";
@@ -105,7 +105,9 @@ export class IdentityRegistry {
       credentialSig,
     });
 
-    return { personaPubkey };
+    const personaName =
+      (await this.o.store.getPersonaName(personaPubkey)) ?? personaNameForPubkey(personaPubkey);
+    return { personaPubkey, personaName };
   }
 
   /** Server-derived fields the client must sign over (`author` = the thread persona pubkey). */

@@ -52,7 +52,7 @@ export function ChooseSignModal({
         </Button>
 
         <p className="text-center text-xs text-muted">
-          Quick uses your device key · Passkey prompts your authenticator.
+          Quick signs instantly (no authenticator prompt) · Passkey prompts your authenticator.
         </p>
       </div>
     </Modal>

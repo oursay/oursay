@@ -57,14 +57,18 @@ const refSchema = {
 
 const joinThreadResponseSchema = {
   type: "object",
-  description: "The canonical thread persona pubkey Pₜ for the caller's (user, thread). Always returned by join.",
+  description: "The canonical thread persona Pₜ for the caller's (user, thread). Always returned by join.",
   properties: {
     personaPubkey: {
       type: "string",
       description: "Stable thread persona pubkey Pₜ (envelope authorPubkey) — first device's signer wins; subsequent devices receive the same Pₜ.",
     },
+    personaName: {
+      type: "string",
+      description: "Globally-unique display name minted for Pₜ — what out-of-scope viewers see in this thread.",
+    },
   },
-  required: ["personaPubkey"],
+  required: ["personaPubkey", "personaName"],
   additionalProperties: false,
 } as const;
 

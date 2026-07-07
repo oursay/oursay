@@ -301,7 +301,7 @@ export function registerMeRoutes(app: FastifyInstance, services: Services): void
       preHandler: app.requireFullScope,
       schema: {
         tags: ["me"],
-        summary: "Batch read of the viewer's own participation markers (_my, _vote, signed, shared) per record id",
+        summary: "Batch read of the viewer's own participation markers (_my, _myEntityId, _vote, signed, shared) per record id",
         security: bearerSecurity,
         querystring: {
           type: "object",
@@ -320,11 +320,12 @@ export function registerMeRoutes(app: FastifyInstance, services: Services): void
                   type: "object",
                   properties: {
                     _my: { type: "string", enum: ["up", "down"], nullable: true },
+                    _myEntityId: { type: "string", nullable: true },
                     _vote: { type: "string", nullable: true },
                     signed: { type: "boolean" },
                     shared: { type: "boolean" },
                   },
-                  required: ["_my", "_vote", "signed", "shared"],
+                  required: ["_my", "_myEntityId", "_vote", "signed", "shared"],
                 },
               },
             },

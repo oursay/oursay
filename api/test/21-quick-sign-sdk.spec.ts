@@ -1,8 +1,8 @@
 // Phase-1c client quick-sign through the REAL SDK ([align-w3-gates-schema] sign floors). The
 // 20-gates spec pinned the SERVER contract by hand-building a p256 envelope; this spec proves the
 // @oursay/identity CLIENT produces exactly that envelope end-to-end over HTTP:
-//   CivicHttpClient.append(…, { sign: "quick" }) → ensureQuickSigner (second join enrolls the soft
-//   per-thread P-256 key as an additional civic credential under the SAME Pₜ) → prepare →
+//   CivicHttpClient.append(…, { sign: "quick" }) → ensureQuickSigner (join enrolls the soft
+//   per-thread P-256 key — no per-thread WebAuthn ceremony) → prepare →
 //   IdentitySession.buildQuickSigned (no WebAuthn ceremony) → submit 201.
 // Also: cross-scheme singleton dedupe (the shared nullifier root spans quick + passkey), quick
 // updates (carry-forward nullifier), and the AB passkey floor rejecting the SDK quick path with the
@@ -67,6 +67,26 @@ describe("21 quick-sign SDK: CivicHttpClient sign:'quick' produces the pinned p2
     w = await resetWorld();
     // Order-independence: other suites strip-and-restore gate configs around themselves.
     for (const j of jurisdictions) registerJurisdiction(j);
+  });
+
+  it("global: quick-only join never mints a per-thread WebAuthn credential", async function () {
+    this.timeout(60000);
+    const t = threadIn(GLOBAL);
+    const author = await joinMember(w, "q21-qonly-author@example.com", "q21-qoa", t);
+    await author.client.append(t, { op: "create", type: "poll", entityId: t.threadId, content: { question: "Q?", options: ["yes", "no"] } });
+
+    const { userId, token } = await fullSessionAccount(w, "q21-qonly-voter@example.com");
+    const passkey = new DevPasskeyConnector({ rootDir: mkdtempSync(join(tmpdir(), "oursay-qonly-")), seed: "q21-qov" });
+    await passkey.enrollDevice({ userId, deviceId: "A", label: "phone A" });
+    const unlocked = await passkey.unlock({ userId, deviceId: "A" });
+    const sess = new IdentitySession(unlocked);
+    const client = new CivicHttpClient({ baseUrl: "http://localhost", session: sess, token, fetch: injectFetch(w.app) });
+
+    expect(unlocked.threadSigningPubkey(t.threadId)).to.equal(null);
+    await client.castVote(t, { type: "poll", id: t.threadId }, { option: "yes" }, { sign: "quick" });
+    // First join for this user on the thread — Pₜ is the offered quick signer (distinct from the author's Pₜ).
+    expect(sess.personaPubkey(t)).to.equal(sess.quickSigningPubkey(t));
+    expect(unlocked.threadSigningPubkey(t.threadId)).to.equal(null);
   });
 
   it("global: a quick vote settles end-to-end; the soft signer is enrolled under the WebAuthn Pₜ", async function () {
@@ -143,5 +163,42 @@ describe("21 quick-sign SDK: CivicHttpClient sign:'quick' produces the pinned p2
     expect(details.reason).to.equal("passkey_required");
     expect(details.action).to.equal("post");
     expect(details.jurisdictionId).to.equal(AB);
+  });
+
+  it("quick-then-passkey: passkey comment succeeds after quick reaction on the same thread", async function () {
+    this.timeout(60000);
+    const t = threadIn(GLOBAL);
+    const author = await joinMember(w, "q21-qp-author@example.com", "q21-qpa", t);
+    await author.client.createPost(t, { title: "Thread", body: "for quick-then-passkey" });
+
+    const { userId, token } = await fullSessionAccount(w, "q21-qp-user@example.com");
+    const passkey = new DevPasskeyConnector({ rootDir: mkdtempSync(join(tmpdir(), "oursay-qp-")), seed: "q21-qpu" });
+    await passkey.enrollDevice({ userId, deviceId: "A", label: "phone A" });
+    const unlocked = await passkey.unlock({ userId, deviceId: "A" });
+    const sess = new IdentitySession(unlocked);
+    const client = new CivicHttpClient({ baseUrl: "http://localhost", session: sess, token, fetch: injectFetch(w.app) });
+
+    expect(unlocked.threadSigningPubkey(t.threadId)).to.equal(null);
+    await client.addReaction(t, { type: "post", id: t.threadId }, { kind: "check" }, { sign: "quick" });
+
+    const pt = sess.personaPubkey(t);
+    const quickSigner = sess.quickSigningPubkey(t);
+    const quickCred = await w.services.recordStore.getThreadCredential(quickSigner);
+    expect(quickCred).to.not.equal(null);
+    expect(quickCred!.personaPubkey).to.equal(pt);
+
+    const ref = await client.createComment(
+      t,
+      { type: "post", id: t.threadId },
+      { body: "passkey after quick" },
+      { sign: "passkey" },
+    );
+    expect(ref.entityId).to.be.a("string");
+
+    const passkeySigner = await sess.signingPubkey(t);
+    const passkeyCred = await w.services.recordStore.getThreadCredential(passkeySigner);
+    expect(passkeyCred).to.not.equal(null);
+    expect(passkeyCred!.personaPubkey).to.equal(pt);
+    expect(passkeySigner).to.not.equal(quickSigner);
   });
 });

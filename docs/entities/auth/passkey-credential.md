@@ -55,7 +55,8 @@ Multi-device: user may have several passkeys (one per device).
 |---------|-------------|-------|
 | User | N:1 | |
 | Session | 1:N | Optional `credential_id` pairing |
-| Nullifier root | seeds | Account passkey unlock seeds nullifier root (docs/08) |
+| Nullifier root | seeds | Account passkey login probes PRF (or secure-store fallback) and seeds the per-(user, jurisdiction) nullifier root (docs/08) |
+| Civic custody | seeds | Same account-login passkey credential binds browser custody (`custody-binding`); no separate civic enrollment |
 
 ## Invariants
 

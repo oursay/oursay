@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { custodyBindingStorageKey } from "@oursay/identity/client/browser";
 import {
-  civicDeviceStorageKey,
   parentTypeForKind,
   reactionKindForDir,
   resolveCivicSignMode,
@@ -35,7 +35,7 @@ describe("civic-helpers", () => {
     expect(resolveCivicSignMode("vote", "ab-ca-gov", DEFAULT_SIGNING)).toBe("passkey");
   });
 
-  it("uses stable civic device storage key", () => {
-    expect(civicDeviceStorageKey("user-1")).toBe("oursay/web-app/civic-device/user-1");
+  it("uses stable custody binding storage key", () => {
+    expect(custodyBindingStorageKey("user-1")).toBe("oursay/custody-binding/user-1");
   });
 });

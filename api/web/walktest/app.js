@@ -5,7 +5,75 @@
 const { startRegistration, startAuthentication } = window.SimpleWebAuthnBrowser;
 
 const $ = (id) => document.getElementById(id);
-const state = { profile: null, email: null, token: null, scope: null, userId: null };
+const state = {
+  profile: null,
+  email: null,
+  token: null,
+  scope: null,
+  userId: null,
+  custodyBinding: null,
+  custodyPrfRoot: null,
+};
+
+const OURSAY_PRF_SALT = new TextEncoder().encode("oursay/v1/prf-root");
+
+function bufToB64u(buf) {
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function b64uToBuf(s) {
+  const pad = "=".repeat((4 - (s.length % 4)) % 4);
+  const bin = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function bytesToHex(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Account login with PRF probe (same gesture) for civic custody bootstrap. */
+async function authenticateWithPrfProbe(optionsJSON) {
+  const allowCredentials = optionsJSON.allowCredentials?.map((c) => ({
+    type: "public-key",
+    id: b64uToBuf(c.id),
+    transports: c.transports,
+  }));
+  const cred = await navigator.credentials.get({
+    publicKey: {
+      challenge: b64uToBuf(optionsJSON.challenge),
+      rpId: optionsJSON.rpId,
+      timeout: optionsJSON.timeout,
+      userVerification: optionsJSON.userVerification ?? "preferred",
+      ...(allowCredentials?.length ? { allowCredentials } : {}),
+      extensions: { prf: { eval: { first: OURSAY_PRF_SALT } } },
+    },
+  });
+  if (!cred) throw new Error("Passkey authentication cancelled");
+  const r = cred.response;
+  const prfBuf = cred.getClientExtensionResults().prf?.results?.first;
+  return {
+    response: {
+      id: cred.id,
+      rawId: bufToB64u(cred.rawId),
+      response: {
+        authenticatorData: bufToB64u(r.authenticatorData),
+        clientDataJSON: bufToB64u(r.clientDataJSON),
+        signature: bufToB64u(r.signature),
+        userHandle: r.userHandle ? bufToB64u(r.userHandle) : undefined,
+      },
+      type: cred.type,
+      clientExtensionResults: cred.getClientExtensionResults(),
+      authenticatorAttachment: cred.authenticatorAttachment ?? undefined,
+    },
+    credentialIdHex: bytesToHex(new Uint8Array(cred.rawId)),
+    prfRoot: prfBuf ? new Uint8Array(prfBuf) : null,
+  };
+}
 
 document.getElementById("origin").textContent = window.location.origin;
 
@@ -132,7 +200,6 @@ $("verifyOtp").addEventListener("click", async () => {
 function enableFullSessionActions() {
   $("enrollCivic").disabled = false;
   $("civicUnlock").disabled = false;
-  $("listCivic").disabled = false;
   $("listPasskeys").disabled = false;
 }
 
@@ -168,6 +235,8 @@ $("logout").addEventListener("click", async () => {
   }
   state.token = null;
   state.scope = null;
+  state.custodyBinding = null;
+  state.custodyPrfRoot = null;
   renderSession();
   badge("logout", "ok", "logged out");
   show("logout", "Session revoked (204). Cookie cleared. Use step 6 to log back in with the passkey.");
@@ -178,16 +247,28 @@ $("login").addEventListener("click", async () => {
   try {
     const opts = await api("POST", "/v1/auth/passkey/login/options", {});
     if (!opts.ok) return failLogin(opts);
-    const asgResp = await startAuthentication({ optionsJSON: opts.body });
+    const { response: asgResp, credentialIdHex, prfRoot } = await authenticateWithPrfProbe(opts.body);
     const verify = await api("POST", "/v1/auth/passkey/login/verify", { response: asgResp });
     if (!verify.ok) return failLogin(verify);
     setSession(verify.body.session);
     state.userId = verify.body.userId;
+    state.custodyBinding = {
+      credentialIdHex,
+      unlockSource: prfRoot ? "prf" : "secure-store",
+    };
+    state.custodyPrfRoot = prfRoot;
+    const identity = await loadIdentity();
+    identity.saveCustodyBinding(verify.body.userId, state.custodyBinding);
     badge("login", "ok", "logged in");
     enableFullSessionActions();
     $("enableLogin").disabled = false;
     const me = await api("GET", "/v1/profile");
-    show("login", { userId: verify.body.userId, session: verify.body.session, profile: me.ok ? me.body : `profile ${me.status}` });
+    show("login", {
+      userId: verify.body.userId,
+      session: verify.body.session,
+      custody: state.custodyBinding,
+      profile: me.ok ? me.body : `profile ${me.status}`,
+    });
   } catch (e) {
     badge("login", "err", "ceremony failed");
     show("login", String(e?.message ?? e));
@@ -279,9 +360,9 @@ async function renderPasskeys() {
 // account unlock survives only to seed the singleton nullifier root. The platform only ever receives
 // PUBLIC keys, an opaque commitment, and the signed envelope.
 //
-// NOTE: the civic passkeys are SEPARATE from the step-4 account-login passkey, and you will see a
-// WebAuthn prompt PER ACTION (join creates the thread passkey; each post/comment/reaction/vote signs
-// with it). The SDK is dynamically imported on click so steps 1–4 still work if the bundle fails.
+// NOTE: civic custody is bound to the account-login passkey (step 7). Per-thread passkeys are
+// created lazily on passkey-signed actions; quick-sign reactions need no extra WebAuthn prompt
+// after login when PRF custody was warmed in the same login gesture.
 
 const CIVIC_JURISDICTION = "ab-ca-gov";
 
@@ -302,24 +383,39 @@ async function loadIdentity() {
 }
 
 /**
- * Establish (or re-establish) a civic signing session: enroll the account-custody credential and
- * unlock it once via WebAuthn (this seeds the singleton nullifier root only), then build a
- * CivicHttpClient. The per-thread passkey is created lazily on join/first append, and every append
- * re-prompts for user verification. Shared by the one-click golden path and sub-step 5a. Thread
- * handling is explicit: an existing thread is REUSED (re-running 5a never mints a new thread), and
- * postId/commentId carry over; `joined` resets to false because the freshly built client starts with
- * an empty join set (5b — or 5c–5e's append — will re-join). Returns the stashed state.civic.
+ * Establish civic signing from account-login custody (no separate civic passkey enrollment).
+ * Reuses PRF root from login when available so quick-sign needs no second prompt.
  */
 async function establishCivic(userId) {
-  const { WebPasskeyConnector, IdentitySession, CivicHttpClient } = await loadIdentity();
+  const { WebPasskeyConnector, IdentitySession, CivicHttpClient, loadCustodyBinding } = await loadIdentity();
+  const binding = state.custodyBinding ?? loadCustodyBinding(userId);
+  if (!binding) {
+    throw new Error("Log in with your account passkey first (step 7) — civic custody binds to that credential.");
+  }
   const conn = new WebPasskeyConnector();
-  const cred = await conn.enrollDevice({ userId, label: "walk civic device" });
-  const session = new IdentitySession(await conn.unlock({ userId, deviceId: cred.deviceId }));
+  const session = state.custodyPrfRoot
+    ? new IdentitySession(
+        conn.buildSessionFromPrfRoot({
+          userId,
+          credentialIdHex: binding.credentialIdHex,
+          prfRoot: state.custodyPrfRoot,
+        }),
+      )
+    : new IdentitySession(
+        await conn.unlockFromAccountCredential({
+          userId,
+          credentialIdHex: binding.credentialIdHex,
+          unlockSource: binding.unlockSource,
+        }),
+      );
   const client = new CivicHttpClient({ baseUrl: location.origin, session, credentials: "include" });
   const thread = state.civic?.thread ?? { threadId: crypto.randomUUID(), jurisdiction: CIVIC_JURISDICTION };
   state.civic = {
-    conn, cred, session, client, thread,
-    source: conn.lastUnlockSource, // "prf" or "secure-store" (fallback)
+    conn,
+    session,
+    client,
+    thread,
+    source: conn.lastUnlockSource,
     devicePubkey: session.devicePubkey,
     joined: false,
     postId: state.civic?.postId ?? null,
@@ -328,7 +424,7 @@ async function establishCivic(userId) {
   return state.civic;
 }
 
-/** Gate the 5b–5e sub-step buttons from civic state. listCivic is NOT gated here (full-session only). */
+/** Gate the 5b–5e sub-step buttons from civic state. */
 function refreshCivicButtons() {
   const c = state.civic;
   $("civicJoin").disabled = !c;
@@ -357,9 +453,8 @@ $("enrollCivic").addEventListener("click", async () => {
       devicePubkey: civic.devicePubkey,
       thread: civic.thread,
       ref,
-      note: "Real SDK (Option A): per-thread WebAuthn passkey, a fresh user-verifying assertion per action. Platform received only public keys + the signed envelope. Continue with sub-steps 5d/5e on this post.",
+      note: "Real SDK: passkey-signed post (thread passkey create + UV assertion). Use 5e for a silent quick reaction.",
     });
-    $("listCivic").disabled = false;
     refreshCivicButtons();
   } catch (e) {
     badge("civic", "err", "civic flow failed");
@@ -386,9 +481,8 @@ $("civicUnlock").addEventListener("click", async () => {
       step: "5a · unlock civic custody",
       custodySource: civic.source,
       devicePubkey: civic.devicePubkey,
-      deviceId: civic.cred.deviceId,
       thread: civic.thread,
-      note: "Account custody unlocked (seeds the nullifier root). 5b creates the thread passkey; 5c–5e each prompt for user verification (one assertion per action).",
+      note: "Account custody from login passkey (seeds nullifier root). 5b enrolls passkey signer; 5e quick-reacts with no extra prompt when PRF warmed at login.",
     });
     refreshCivicButtons();
   } catch (e) {
@@ -401,7 +495,7 @@ $("civicJoin").addEventListener("click", async () => {
   const c = state.civic;
   if (!c) return;
   try {
-    await c.client.ensureJoined(c.thread);
+    await c.client.ensurePasskeySigner(c.thread);
     c.joined = true;
     badge("civicsub", "ok", "joined");
     show("civicsub", { step: "5b · join thread", thread: c.thread, note: "Creates the thread passkey + ownership-only join (no kycTier)." });
@@ -448,20 +542,14 @@ $("civicReact").addEventListener("click", async () => {
   if (!c || !c.postId) return;
   try {
     const parent = c.commentId ? { type: "comment", id: c.commentId } : { type: "post", id: c.postId };
-    const ref = await c.client.addReaction(c.thread, parent, { kind: "check" });
-    badge("civicsub", "ok", "reaction added");
-    show("civicsub", { step: "5e · add reaction", parent, kind: "check", ref });
+    const ref = await c.client.addReaction(c.thread, parent, { kind: "check" }, { sign: "quick" });
+    badge("civicsub", "ok", "reaction added (quick)");
+    show("civicsub", { step: "5e · add reaction (quick)", parent, kind: "check", ref, note: "No WebAuthn prompt when custody was warmed at login." });
     refreshCivicButtons();
   } catch (e) {
     badge("civicsub", "err", "reaction failed");
     show("civicsub", String(e?.message ?? e));
   }
-});
-
-$("listCivic").addEventListener("click", async () => {
-  const r = await api("GET", "/v1/civic/devices");
-  badge("civic", r.ok ? "ok" : "err", r.ok ? "listed" : `error ${r.status}`);
-  show("civic", r.body ?? `HTTP ${r.status}`);
 });
 
 // ── 8 · Sign in on another device (gated login OTP) ──────────────────────────

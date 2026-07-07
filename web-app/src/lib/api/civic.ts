@@ -15,7 +15,8 @@ import type {
 } from "@oursay/public-record/schema/types";
 import type { RecordKind } from "@/lib/types";
 import { isMockOnly } from "./client";
-import { civicDeviceStorageKey, parentTypeForKind, type CivicSignMode } from "./civic-helpers";
+import { parentTypeForKind, type CivicSignMode } from "./civic-helpers";
+import { loadCustodySession, clearCachedCustodySession } from "./civic-custody";
 
 export type { CivicSignMode } from "./civic-helpers";
 
@@ -25,54 +26,23 @@ let civicPromise: Promise<{
 }> | null = null;
 
 async function loadCivic(userId: string) {
-  const { WebPasskeyConnector, IdentitySession, CivicHttpClient } = await import(
-    "@oursay/identity/client/browser"
-  );
-  const rpId = typeof location !== "undefined" ? location.hostname : "localhost";
-  const conn = new WebPasskeyConnector({ rpId });
-
-  const storageKey = civicDeviceStorageKey(userId);
-  let deviceId = localStorage.getItem(storageKey) ?? undefined;
-
-  if (deviceId) {
-    try {
-      const session = new IdentitySession(await conn.unlock({ userId, deviceId }));
-      const client = new CivicHttpClient({
-        baseUrl: "",
-        session,
-        credentials: "include",
-      });
-      return { client, userId };
-    } catch {
-      localStorage.removeItem(storageKey);
-      deviceId = undefined;
-    }
-  }
-
-  const cred = await conn.enrollDevice({ userId, label: "web-app civic", deviceId });
-  localStorage.setItem(storageKey, cred.deviceId);
-  const session = new IdentitySession(
-    await conn.unlock({ userId, deviceId: cred.deviceId }),
-  );
+  const { CivicHttpClient } = await import("@oursay/identity/client/browser");
+  const session = await loadCustodySession(userId);
   const client = new CivicHttpClient({
     baseUrl: "",
     session,
     credentials: "include",
   });
-  try {
-    await client.enrollDevice("web-app");
-  } catch {
-    // Already enrolled on the server for this device pubkey.
-  }
   return { client, userId };
 }
 
 /** Drop the cached civic client (e.g. on logout). */
 export function resetCivicClient(): void {
   civicPromise = null;
+  clearCachedCustodySession();
 }
 
-/** Lazily establish the civic signing client (one unlock per page load). */
+/** Lazily establish the civic signing client (reuses custody session warmed at login). */
 export async function getCivicClient(userId: string) {
   if (isMockOnly() || typeof window === "undefined") {
     throw new Error("Civic client unavailable in mock or SSR context");
@@ -96,16 +66,19 @@ export async function civicReaction(
   parentId: string,
   parentType: "post" | "petition" | "poll" | "comment",
   kind: "check" | "cross",
-  sign: CivicSignMode = "quick",
-): Promise<void> {
+  existingEntityId?: string,
+): Promise<string> {
   const { client } = await getCivicClient(userId);
   const content: ReactionContent = { kind };
-  await client.addReaction(
-    t,
-    { id: parentId, type: parentType },
-    content,
-    { sign },
-  );
+  const parent = { id: parentId, type: parentType };
+  const ref = existingEntityId
+    ? await client.append(
+        t,
+        { op: "update", type: "reaction", entityId: existingEntityId, content },
+        { sign: "quick" },
+      )
+    : await client.addReaction(t, parent, content, { sign: "quick" });
+  return ref.entityId;
 }
 
 export async function civicVote(
@@ -127,7 +100,7 @@ export async function civicComment(
   parentType: "post" | "petition" | "poll" | "comment",
   body: string,
   sign: CivicSignMode = "quick",
-): Promise<void> {
+): Promise<string | null> {
   const { client } = await getCivicClient(userId);
   const content: CommentContent = { body };
   await client.createComment(
@@ -136,6 +109,7 @@ export async function civicComment(
     content,
     { sign },
   );
+  return client.personaDisplayName(t);
 }
 
 export async function civicSignPetition(
@@ -169,7 +143,7 @@ export async function civicCompose(
     districtSlugs?: string[];
   },
   sign: CivicSignMode = "passkey",
-): Promise<{ entityId: string }> {
+): Promise<{ entityId: string; personaName: string | null }> {
   const { client } = await getCivicClient(userId);
   const rules = districtRules(payload.districtSlugs);
   if (kind === "statement") {
@@ -185,7 +159,7 @@ export async function civicCompose(
           { sign },
         )
       : await client.createPost(t, { title: payload.title, body: payload.body }, { sign });
-    return { entityId: ref.entityId };
+    return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }
   if (kind === "petition") {
     const content: PetitionContent = {
@@ -198,7 +172,7 @@ export async function civicCompose(
       { op: "create", type: "petition", entityId: t.threadId, content },
       { sign },
     );
-    return { entityId: ref.entityId };
+    return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }
   if (kind === "poll") {
     const options = (payload.pollOptions ?? []).map((o) => o.trim()).filter(Boolean);
@@ -212,7 +186,7 @@ export async function civicCompose(
       { op: "create", type: "poll", entityId: t.threadId, content },
       { sign },
     );
-    return { entityId: ref.entityId };
+    return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }
   throw new Error(`Cannot compose record kind ${kind}`);
 }

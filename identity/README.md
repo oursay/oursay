@@ -111,9 +111,10 @@ const ref = await client.createPost(thread, { title: "Hello", body: "hello" });
 //           client.submit / session.rememberPersona are all exposed
 ```
 
-In the browser the only change is the connector and auth: `new WebPasskeyConnector()` for real
-WebAuthn custody, plus either a Bearer `token` or `{ credentials: "include" }` to send the session
-cookie. Everything else is identical.
+In the browser the only change is the connector and auth: `new WebPasskeyConnector()` binds civic
+custody to the **account-login** passkey credential (`unlockFromAccountCredential` / PRF bootstrap at
+login). Pass either a Bearer `token` or `{ credentials: "include" }` to send the session cookie.
+Do **not** call `POST /v1/civic/devices` on the golden path. Everything else is identical.
 
 ### Browser custody (`WebPasskeyConnector`)
 
@@ -123,25 +124,23 @@ assertion whose challenge is the envelope's signing digest. The private key neve
 authenticator, and the platform only ever receives public keys, the opaque commitment, and the signed
 envelope.
 
-The **account** passkey separately **unlocks** a derivation root that seeds the per-(user, jurisdiction)
-**nullifier root** (it never signs civic actions). When the authenticator supports the **PRF** extension
-the root stays inside the authenticator; when PRF is unavailable, `WebPasskeyConnector` falls back to a
-**secure-storage master** (`secure-store.ts`): a random 32-byte master sealed under a **non-extractable
-AES-GCM key in IndexedDB** — it never throws, and the HKDF derivation is identical (only the IKM source
-differs). `connector.lastUnlockSource` reports `"prf"` or `"secure-store"`.
+The **account-login** passkey seeds civic custody: at login the client probes **PRF** (same WebAuthn
+gesture) and persists a `custody-binding` to the credential id. That root expands to the per-(user,
+jurisdiction) **nullifier root** and the quick-sign device root. When PRF is unavailable,
+`WebPasskeyConnector` falls back to a **secure-storage master** (`secure-store.ts`): a random
+32-byte master sealed under a **non-extractable AES-GCM key in IndexedDB** — subsequent unlocks on the
+same device are silent. `connector.lastUnlockSource` reports `"prf"` or `"secure-store"`.
 
-Two custody notes:
+Custody notes:
 
-- **Source-consistency invariant** — a credential must `enrollDevice` and `unlock` via the **same**
-  root source, since the nullifier root is a function of it; a device whose PRF availability changes
-  must **re-enroll**. (No auto-detection; re-enroll is the remedy.)
-- **Account-login, account-custody, and per-thread civic passkeys are distinct credentials.** A user
-  participating in a thread sees a prompt to create the per-`(device, thread)` passkey and a prompt
-  **per civic action**. Under the mvp-a5b persona/signer split, **cross-device editing just works**
-  — every device signs as the same Pₜ, so a second device's signer can edit/delete entities the
-  first device created (no synced passkey required). Cross-device sync of the **fallback master**
-  (the PRF-unavailable IKM) is still design-only, and PRF-availability inconsistency between
-  devices remains a documented caveat for the per-(user, jurisdiction) nullifier root.
+- **No separate civic passkey** — the web client does not enroll a second passkey for custody; login
+  binds the account credential via `saveCustodyBinding`.
+- **Per-thread passkeys** are still created lazily for passkey-signed actions (`ensurePasskeySigner`).
+  Quick-sign actions (`ensureQuickSigner`) enroll a derived soft key with **no** per-thread WebAuthn
+  ceremony and **no** extra prompt when custody was warmed at login.
+- **Cross-device editing** — every device signs as the same Pₜ; a second device's passkey signer can
+  edit entities the first device created. Quick and passkey signers can coexist as separate rows in
+  `thread_civic_credentials` under one Pₜ.
 
 - **Account recovery.** Recovery revokes the user's `thread_civic_credentials` rows (their device
   signers) but **preserves** `thread_keys` + `thread_bindings`. Pₜ is the same after recovery; the

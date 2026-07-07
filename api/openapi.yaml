@@ -1644,22 +1644,27 @@ paths:
       security: *a1
       responses:
         "200":
-          description: The canonical thread persona pubkey Pₜ for the caller's (user,
-            thread). Always returned by join.
+          description: The canonical thread persona Pₜ for the caller's (user, thread).
+            Always returned by join.
           content:
             application/json:
               schema:
                 type: object
-                description: The canonical thread persona pubkey Pₜ for the caller's (user,
-                  thread). Always returned by join.
+                description: The canonical thread persona Pₜ for the caller's (user, thread).
+                  Always returned by join.
                 properties:
                   personaPubkey:
                     type: string
                     description: Stable thread persona pubkey Pₜ (envelope authorPubkey) — first
                       device's signer wins; subsequent devices receive the same
                       Pₜ.
+                  personaName:
+                    type: string
+                    description: Globally-unique display name minted for Pₜ — what out-of-scope
+                      viewers see in this thread.
                 required:
                   - personaPubkey
+                  - personaName
                 additionalProperties: false
         "400":
           description: Default Response
@@ -7717,8 +7722,8 @@ paths:
                   - error
   /v1/me/record-state:
     get:
-      summary: Batch read of the viewer's own participation markers (_my, _vote,
-        signed, shared) per record id
+      summary: Batch read of the viewer's own participation markers (_my, _myEntityId,
+        _vote, signed, shared) per record id
       tags:
         - me
       parameters:
@@ -7752,6 +7757,9 @@ paths:
                             - up
                             - down
                           nullable: true
+                        _myEntityId:
+                          type: string
+                          nullable: true
                         _vote:
                           type: string
                           nullable: true
@@ -7761,6 +7769,7 @@ paths:
                           type: boolean
                       required:
                         - _my
+                        - _myEntityId
                         - _vote
                         - signed
                         - shared

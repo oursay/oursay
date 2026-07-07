@@ -28,6 +28,7 @@ export interface AccountContext {
 
 export interface RecordStateEntry {
   _my: "up" | "down" | null;
+  _myEntityId?: string | null;
   _vote: string | null;
   signed: boolean;
   shared: boolean;
@@ -206,13 +207,13 @@ export async function attestResidency(): Promise<void> {
 export function applyRecordStates(
   states: Record<string, RecordStateEntry>,
   prev: {
-    reactions: Record<string, { dir: "up" | "down" } | null>;
+    reactions: Record<string, { dir: "up" | "down"; entityId?: string } | null>;
     votes: Record<string, string>;
     shared: Record<string, true>;
     petitionSig: Record<string, number>;
   },
 ): {
-  reactions: Record<string, { dir: "up" | "down" } | null>;
+  reactions: Record<string, { dir: "up" | "down"; entityId?: string } | null>;
   votes: Record<string, string>;
   shared: Record<string, true>;
   petitionSig: Record<string, number>;
@@ -223,7 +224,12 @@ export function applyRecordStates(
   const petitionSig = { ...prev.petitionSig };
 
   for (const [id, st] of Object.entries(states)) {
-    if (st._my) reactions[id] = { dir: st._my };
+    if (st._my) {
+      reactions[id] = {
+        dir: st._my,
+        ...(st._myEntityId ? { entityId: st._myEntityId } : {}),
+      };
+    }
     if (st._vote) votes[id] = st._vote;
     if (st.shared) shared[id] = true;
     if (st.signed) petitionSig[id] = petitionSig[id] ?? 1;

@@ -21,6 +21,8 @@ import type { ComposeStep, SignKind } from "@/components";
 export interface ViewerReaction {
   dir: "up" | "down";
   signTier?: SignTier;
+  /** Civic singleton entity id — used to update rather than recreate reactions. */
+  entityId?: string;
 }
 
 /**

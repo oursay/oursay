@@ -39,11 +39,15 @@ import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
 import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector";
+import type { CustodyUnlockSource } from "./custody-binding";
 import { IndexedDbKeyStore, WebCryptoMasterStore, type SecureMasterStore } from "./secure-store";
 import { ThreadPasskeyStore } from "./thread-passkey-store";
 
 /** The single PRF salt we evaluate; everything else is HKDF-expanded from its result. */
-const PRF_SALT = utf8ToBytes("oursay/v1/prf-root");
+export const OURSAY_PRF_SALT = utf8ToBytes("oursay/v1/prf-root");
+
+/** Fixed device id when civic custody is bound to the account-login passkey. */
+const ACCOUNT_DEVICE_ID = "account";
 
 function p256PrivFrom(ikm: Uint8Array, info: string): Uint8Array {
   const okm = hkdf(sha256, ikm, utf8ToBytes("oursay/dev/p256"), utf8ToBytes(info), 48);
@@ -85,6 +89,8 @@ export class WebPasskeyConnector implements PasskeyConnector {
   readonly mode = "web" as const;
   /** Diagnostic: which IKM source the most recent enroll/unlock used (for QA — e.g. the walk page). */
   lastUnlockSource: "prf" | "secure-store" | null = null;
+  /** PRF root from the most recent unlock when {@link lastUnlockSource} is `prf`. */
+  lastPrfRoot: Uint8Array | null = null;
   private readonly rpId: string;
   private readonly rpName: string;
   private readonly secureStore: SecureMasterStore;
@@ -100,6 +106,10 @@ export class WebPasskeyConnector implements PasskeyConnector {
     this.threadStore = opts.threadStore ?? new ThreadPasskeyStore();
   }
 
+  /**
+   * @deprecated Separate civic passkey enrollment — use account-login custody binding instead.
+   * Enrol a NEW device credential (registration + assertion). Kept for dev/walk backward compat.
+   */
   async enrollDevice(o: { userId: string; label?: string; deviceId?: string }): Promise<DeviceCredential> {
     const deviceId = o.deviceId ?? crypto.randomUUID();
     // WebAuthn's PublicKeyCredentialUserEntity.id — the spec's "user handle" (an opaque credential→
@@ -129,35 +139,78 @@ export class WebPasskeyConnector implements PasskeyConnector {
     const credentialId = new Uint8Array(cred.rawId);
     this.storeCredentialId(o.userId, deviceId, credentialId);
     // derive the account-level device pubkey from the unlock root (PRF, else secure-storage fallback)
-    const root = await this.unlockRoot(credentialId, o.userId);
+    const root = await this.unlockRoot(credentialId, o.userId, deviceId);
     const devicePubkey = bytesToHex(p256.getPublicKey(p256PrivFrom(root32(root, "oursay/web/device-root", deviceId), `account|${o.userId}`)));
     this.storeDevicePubkey(o.userId, deviceId, devicePubkey);
+    if (this.lastUnlockSource) this.storeUnlockSource(o.userId, deviceId, this.lastUnlockSource);
     return { userId: o.userId, deviceId, devicePubkey };
   }
 
   async unlock(o: { userId: string; deviceId: string }): Promise<UnlockedSession> {
     const credentialId = this.loadCredentialId(o.userId, o.deviceId);
     const devicePubkey = this.loadDevicePubkey(o.userId, o.deviceId);
-    const root = await this.unlockRoot(credentialId, o.userId);
-    const deviceRoot = root32(root, "oursay/web/device-root", o.deviceId);
+    const root = await this.unlockRoot(credentialId, o.userId, o.deviceId);
+    return this.buildUnlockedSession(o.userId, o.deviceId, devicePubkey, root);
+  }
+
+  /**
+   * Unlock civic custody from the account-login passkey credential (no separate civic enrollment).
+   * When `unlockSource` is `secure-store`, re-unlock is silent. PRF devices prompt once per call
+   * unless the caller cached an {@link buildSessionFromPrfRoot} session from the login gesture.
+   */
+  async unlockFromAccountCredential(o: {
+    userId: string;
+    credentialIdHex: string;
+    unlockSource?: CustodyUnlockSource | null;
+  }): Promise<UnlockedSession> {
+    const credentialId = hexToBytes(o.credentialIdHex);
+    const root = await this.unlockRootForAccount(credentialId, o.userId, o.unlockSource ?? null);
+    const devicePubkey = bytesToHex(
+      p256.getPublicKey(p256PrivFrom(root32(root, "oursay/web/device-root", ACCOUNT_DEVICE_ID), `account|${o.userId}`)),
+    );
+    return this.buildUnlockedSession(o.userId, ACCOUNT_DEVICE_ID, devicePubkey, root);
+  }
+
+  /**
+   * Build an unlocked session from a PRF root obtained during account-login (same gesture as login).
+   * Avoids a second WebAuthn prompt when the login assertion already evaluated PRF.
+   */
+  buildSessionFromPrfRoot(o: { userId: string; credentialIdHex: string; prfRoot: Uint8Array }): UnlockedSession {
+    this.lastUnlockSource = "prf";
+    this.lastPrfRoot = o.prfRoot;
+    const devicePubkey = bytesToHex(
+      p256.getPublicKey(
+        p256PrivFrom(root32(o.prfRoot, "oursay/web/device-root", ACCOUNT_DEVICE_ID), `account|${o.userId}`),
+      ),
+    );
+    return this.buildUnlockedSession(o.userId, ACCOUNT_DEVICE_ID, devicePubkey, o.prfRoot);
+  }
+
+  private buildUnlockedSession(
+    userId: string,
+    deviceId: string,
+    devicePubkey: string,
+    root: Uint8Array,
+  ): UnlockedSession {
+    const deviceRoot = root32(root, "oursay/web/device-root", deviceId);
     return {
-      userId: o.userId,
-      deviceId: o.deviceId,
+      userId,
+      deviceId,
       devicePubkey,
       deviceRoot,
       jurisdictionMaster: (jurisdiction: string) => root32(root, "oursay/web/jurisdiction-master", jurisdiction),
       nullifierRoot: (jurisdiction: string) => root32(root, "oursay/web/nullifier-root", jurisdiction),
-      createThreadCredential: (a) => this.createThreadCredentialFor(o.userId, a.threadId),
-      assertThread: (a) => this.assertThreadFor(o.userId, a.threadId, a.challenge),
-      threadSigningPubkey: (threadId) => this.threadStore.get(o.userId, threadId)?.signingPubkey ?? null,
+      createThreadCredential: (a) => this.createThreadCredentialFor(userId, a.threadId),
+      assertThread: (a) => this.assertThreadFor(userId, a.threadId, a.challenge),
+      threadSigningPubkey: (threadId) => this.threadStore.get(userId, threadId)?.signingPubkey ?? null,
       threadPersonaPubkey: (threadId) => {
-        const rec = this.threadStore.get(o.userId, threadId);
+        const rec = this.threadStore.get(userId, threadId);
         return rec && rec.personaPubkey ? rec.personaPubkey : null;
       },
       setThreadPersona: (threadId, personaPubkey) => {
-        const rec = this.threadStore.get(o.userId, threadId);
-        if (!rec) throw new Error(`setThreadPersona: no local credential for ${o.userId}/${threadId}; create one first`);
-        this.threadStore.set(o.userId, threadId, { ...rec, personaPubkey });
+        const rec = this.threadStore.get(userId, threadId);
+        if (!rec) throw new Error(`setThreadPersona: no local credential for ${userId}/${threadId}; create one first`);
+        this.threadStore.set(userId, threadId, { ...rec, personaPubkey });
       },
     };
   }
@@ -228,13 +281,40 @@ export class WebPasskeyConnector implements PasskeyConnector {
    * source — the devicePubkey/persona are functions of this root — so if PRF availability changes for a
    * device it must RE-ENROLL. The fallback master is keyed per (user, this device).
    */
-  private async unlockRoot(credentialId: Uint8Array, userId: string): Promise<Uint8Array> {
+  private async unlockRootForAccount(
+    credentialId: Uint8Array,
+    userId: string,
+    unlockSource: CustodyUnlockSource | null,
+  ): Promise<Uint8Array> {
+    if (unlockSource === "secure-store") {
+      this.lastUnlockSource = "secure-store";
+      this.lastPrfRoot = null;
+      return this.secureStore.getOrCreate(`oursay/web/master/${userId}`);
+    }
+    const prf = await this.assertAndProbePrf(credentialId);
+    if (prf) {
+      this.lastUnlockSource = "prf";
+      this.lastPrfRoot = prf;
+      return prf;
+    }
+    this.lastUnlockSource = "secure-store";
+    this.lastPrfRoot = null;
+    return this.secureStore.getOrCreate(`oursay/web/master/${userId}`);
+  }
+
+  private async unlockRoot(credentialId: Uint8Array, userId: string, deviceId: string): Promise<Uint8Array> {
+    // PRF-unavailable devices persist the fallback source at enroll — re-unlock without a ceremony.
+    if (this.loadUnlockSource(userId, deviceId) === "secure-store") {
+      this.lastUnlockSource = "secure-store";
+      return this.secureStore.getOrCreate(`oursay/web/master/${userId}`);
+    }
     const prf = await this.assertAndProbePrf(credentialId);
     if (prf) {
       this.lastUnlockSource = "prf";
       return prf;
     }
     this.lastUnlockSource = "secure-store";
+    this.storeUnlockSource(userId, deviceId, "secure-store");
     return this.secureStore.getOrCreate(`oursay/web/master/${userId}`);
   }
 
@@ -253,7 +333,7 @@ export class WebPasskeyConnector implements PasskeyConnector {
         allowCredentials: [{ type: "public-key", id: credentialId as BufferSource }],
         userVerification: "preferred",
         timeout: 60_000,
-        extensions: { prf: { eval: { first: PRF_SALT } } } as AuthenticationExtensionsClientInputs,
+        extensions: { prf: { eval: { first: OURSAY_PRF_SALT } } } as AuthenticationExtensionsClientInputs,
       },
     })) as PublicKeyCredential | null;
     if (!assertion) throw new Error("passkey assertion cancelled");
@@ -281,5 +361,12 @@ export class WebPasskeyConnector implements PasskeyConnector {
     const pub = localStorage.getItem(this.key(userId, deviceId, "pub"));
     if (!pub) throw new Error(`no device pubkey for ${userId}/${deviceId}`);
     return pub;
+  }
+  private storeUnlockSource(userId: string, deviceId: string, source: "prf" | "secure-store"): void {
+    localStorage.setItem(this.key(userId, deviceId, "unlock-source"), source);
+  }
+  private loadUnlockSource(userId: string, deviceId: string): "prf" | "secure-store" | null {
+    const v = localStorage.getItem(this.key(userId, deviceId, "unlock-source"));
+    return v === "prf" || v === "secure-store" ? v : null;
   }
 }

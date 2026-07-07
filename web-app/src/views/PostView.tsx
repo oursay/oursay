@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getRecordDetail, personaFor } from "@/lib/api";
+import { getRecordDetail, personaShownToOthers } from "@/lib/api";
 import {
   ALBERTA_ID,
   COMMENT_MAX_DEPTH,
@@ -37,6 +37,7 @@ import {
   ScopeTag,
 } from "@/components";
 import { authorPath, postPath, districtPath, personaHintPath } from "@/lib/routes";
+import { wireHandle } from "@/lib/handle";
 import { commentKey, commentShareTarget, recordShareTarget } from "@/lib/share";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
@@ -77,18 +78,12 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     });
   };
 
-  useEffect(() => {
-    setDetail(null);
-    setFullComments([]);
-    setShownComments([]);
-    let active = true;
-    Promise.all([
-      // The unfiltered fetch still carries the viewer — identity anonymization
-      // applies to every read, only the comment refinements are skipped.
+  const reloadDetail = useCallback(() => {
+    return Promise.all([
       getRecordDetail(id, { viewer }),
       getRecordDetail(id, { viewer, filter: feedFilter }),
     ]).then(([full, filtered]) => {
-      if (!active || !full) return;
+      if (!full) return;
       setDetail(full.detail);
       setFullComments(full.comments);
       setShownComments(filtered?.comments ?? []);
@@ -101,10 +96,14 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
       ];
       hydrateRecordState(ids);
     });
-    return () => {
-      active = false;
-    };
   }, [id, viewer, feedFilter, setPostDistricts, hydrateRecordState]);
+
+  useEffect(() => {
+    setDetail(null);
+    setFullComments([]);
+    setShownComments([]);
+    void reloadDetail();
+  }, [reloadDetail]);
 
   // Restore this post's remembered thread anonymity (demo cookie memory).
   useEffect(() => {
@@ -176,7 +175,16 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
 
   const postCommentDone = (message: string, onClose?: () => void) => {
     onClose?.();
-    app.notify(message);
+    void reloadDetail().then(() => app.notify(message));
+  };
+
+  const replyPostedMessage = (serverPersona?: string | null) => {
+    if (threadVis === "public") return "Reply posted.";
+    const handle = wireHandle(app.state.accountHandle) ?? MY_HANDLE;
+    const hint =
+      serverPersona ??
+      (detail.identity?.isSelf ? detail.identity.seenByOthersAs : null);
+    return `Reply posted — shown as ${personaShownToOthers(handle, detail.id, hint)}.`;
   };
 
   const chainPetition = GRADUATION_CHAIN.petition;
@@ -392,14 +400,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                       parentType: "post",
                       body: rootReplyText,
                     },
-                    () => {
+                    (personaName) => {
                       setRootReplyText("");
-                      postCommentDone(
-                        threadVis === "public"
-                          ? "Reply posted."
-                          : `Reply posted — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
-                        () => app.closeReply(),
-                      );
+                      postCommentDone(replyPostedMessage(personaName), () => app.closeReply());
                     },
                   );
                 }}
@@ -450,11 +453,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                           parentType: "comment",
                           body: text,
                         },
-                        () => {
+                        (personaName) => {
                           postCommentDone(
-                            threadVis === "public"
-                              ? "Reply posted."
-                              : `Reply posted — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
+                            replyPostedMessage(personaName),
                             () => toggleCommentReply(nodePath),
                           );
                         },

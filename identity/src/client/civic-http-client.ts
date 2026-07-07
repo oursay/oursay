@@ -58,10 +58,10 @@ export class CivicHttpClient {
   private readonly credentials?: RequestCredentials;
   private readonly fetchImpl: typeof fetch;
 
-  // In-memory orchestration state, so a long-lived client joins each thread at most once. Cheap dedupe
-  // — not a security boundary (the server re-checks ownership every call).
-  private readonly joined = new Set<string>();
+  // In-memory orchestration state — cheap dedupe, not a security boundary (the server re-checks).
+  private readonly personaKnown = new Set<string>();
   private readonly quickEnrolled = new Set<string>();
+  private readonly passkeyEnrolled = new Set<string>();
 
   constructor(opts: CivicHttpClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
@@ -78,7 +78,10 @@ export class CivicHttpClient {
 
   // ── Low-level endpoint wrappers ───────────────────────────────────────────────────────────
 
-  /** Enrol this device's account-level public key (`public.device_keys`). */
+  /**
+   * @deprecated Client-deprecated — `public.device_keys` is not on the golden signing path.
+   * Kept for backward-compat tests of the HTTP registry only.
+   */
   async enrollDevice(label?: string): Promise<CivicDeviceView> {
     return this.request<CivicDeviceView>("POST", "/v1/civic/devices", {
       devicePubkey: this.session.devicePubkey,
@@ -108,8 +111,13 @@ export class CivicHttpClient {
       signerPubkey: binding.thread_pubkey,
       commitment: binding.commitment,
     });
-    this.session.rememberPersona(t, resp.personaPubkey);
+    this.session.rememberPersona(t, resp.personaPubkey, resp.personaName);
     return resp;
+  }
+
+  /** Server-minted persona display name for this `(user, thread)` after join. */
+  personaDisplayName(t: ThreadRef): string | null {
+    return this.session.personaDisplayName(t);
   }
 
   /** Prepare an append: fetch the server-derived fields the client must sign over. */
@@ -131,26 +139,50 @@ export class CivicHttpClient {
 
   // ── Orchestration ─────────────────────────────────────────────────────────────────────────
 
-  /** Ensure this thread is joined (once per client instance). */
+  private threadKey(t: ThreadRef): string {
+    return `${t.jurisdiction}:${t.threadId}`;
+  }
+
+  /**
+   * Ensure this device's per-thread WebAuthn passkey is enrolled as a civic credential (once per
+   * client instance). Creates the local thread passkey on first use, then HTTP-joins the passkey
+   * signer under Pₜ even when a quick signer already joined the same thread.
+   */
+  async ensurePasskeySigner(t: ThreadRef): Promise<void> {
+    const key = this.threadKey(t);
+    await this.session.signingPubkey(t);
+    if (this.passkeyEnrolled.has(key)) return;
+    const { binding } = await this.session.bindingInputs(t);
+    const resp = await this.request<JoinThreadResponse>("POST", "/v1/civic/threads/join", {
+      threadId: t.threadId,
+      jurisdiction: t.jurisdiction,
+      signerPubkey: binding.thread_pubkey,
+      commitment: binding.commitment,
+    });
+    if (!this.personaKnown.has(key)) {
+      this.session.rememberPersona(t, resp.personaPubkey, resp.personaName);
+      this.personaKnown.add(key);
+    } else if (resp.personaPubkey !== this.session.personaPubkey(t)) {
+      throw new Error("ensurePasskeySigner: server returned a different persona than the thread's Pₜ");
+    }
+    this.passkeyEnrolled.add(key);
+  }
+
+  /** @deprecated Use {@link ensurePasskeySigner}. Alias for backward-compat tests. */
   async ensureJoined(t: ThreadRef): Promise<void> {
-    const key = `${t.jurisdiction}:${t.threadId}`;
-    if (this.joined.has(key)) return;
-    await this.joinThread(t);
-    this.joined.add(key);
+    await this.ensurePasskeySigner(t);
   }
 
   /**
    * Ensure this device's SOFT quick signer is enrolled as a civic credential for this thread
-   * (once per client instance). Runs AFTER the regular join — so Pₜ stays the WebAuthn signer's
-   * first-join allocation — then joins again offering the soft pubkey. Because the binding
-   * commitment is signer-independent (deterministic per (user, jurisdiction, thread)), the server's
-   * commitment-match guard passes and the soft key lands as an ADDITIONAL `thread_civic_credentials`
-   * row under the same Pₜ. Idempotent server-side (credential upsert).
+   * (once per client instance). Joins with the derived soft pubkey only — no per-thread WebAuthn
+   * credential ceremony. When the passkey path already joined, the commitment is signer-independent
+   * so the soft key lands as an ADDITIONAL `thread_civic_credentials` row under the same Pₜ.
+   * Idempotent server-side (credential upsert).
    */
   async ensureQuickSigner(t: ThreadRef): Promise<void> {
-    const key = `${t.jurisdiction}:${t.threadId}`;
+    const key = this.threadKey(t);
     if (this.quickEnrolled.has(key)) return;
-    await this.ensureJoined(t);
     const { binding } = await this.session.bindingInputs(t, { signer: "quick" });
     const resp = await this.request<JoinThreadResponse>("POST", "/v1/civic/threads/join", {
       threadId: t.threadId,
@@ -158,8 +190,10 @@ export class CivicHttpClient {
       signerPubkey: binding.thread_pubkey,
       commitment: binding.commitment,
     });
-    // The quick join can never re-allocate Pₜ (the thread is already joined) — guard the invariant.
-    if (resp.personaPubkey !== this.session.personaPubkey(t)) {
+    if (!this.personaKnown.has(key)) {
+      this.session.rememberPersona(t, resp.personaPubkey, resp.personaName);
+      this.personaKnown.add(key);
+    } else if (resp.personaPubkey !== this.session.personaPubkey(t)) {
       throw new Error("ensureQuickSigner: server returned a different persona than the joined thread's Pₜ");
     }
     this.quickEnrolled.add(key);
@@ -179,7 +213,7 @@ export class CivicHttpClient {
       const prep = await this.prepare(t, intent);
       return this.submit(this.session.buildQuickSigned(t, prep, intent));
     }
-    await this.ensureJoined(t);
+    await this.ensurePasskeySigner(t);
     const prep = await this.prepare(t, intent);
     const signed = await this.session.buildSigned(t, prep, intent);
     return this.submit(signed);

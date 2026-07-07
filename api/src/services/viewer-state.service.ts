@@ -27,14 +27,22 @@ export class ViewerState {
   }
 
   async reactionOn(entityId: string): Promise<MyReaction> {
+    const info = await this.reactionInfoOn(entityId);
+    return info?.dir ?? null;
+  }
+
+  /** The viewer's active reaction on an entity, including its civic entity id for updates. */
+  async reactionInfoOn(
+    entityId: string,
+  ): Promise<{ dir: "up" | "down"; entityId: string } | null> {
     const persona = await this.personaKey();
     if (!persona) return null;
     const active = await this.store.getActiveSingleton("reaction", persona, entityId);
     if (!active) return null;
     const state = await this.store.getEntityState(active.entityId);
     const kind = (state?.content as { kind?: unknown } | null)?.kind;
-    if (kind === "check") return "up";
-    if (kind === "cross") return "down";
+    if (kind === "check") return { dir: "up", entityId: active.entityId };
+    if (kind === "cross") return { dir: "down", entityId: active.entityId };
     return null;
   }
 

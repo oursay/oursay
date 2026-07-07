@@ -4,8 +4,18 @@
 // /walk/identity.js). Everything here imports only @noble + DOM APIs + public-record's pure-crypto
 // subpaths, so it carries no node:* or server (pg/dotenv) dependency.
 
-export { WebPasskeyConnector } from "./web-connector";
+export { WebPasskeyConnector, OURSAY_PRF_SALT } from "./web-connector";
 export type { WebPasskeyOptions } from "./web-connector";
+export {
+  saveCustodyBinding,
+  loadCustodyBinding,
+  clearCustodyBinding,
+  custodyBindingStorageKey,
+  savePrfRootSession,
+  loadPrfRootSession,
+  clearPrfRootSession,
+} from "./custody-binding";
+export type { CustodyBinding, CustodyUnlockSource } from "./custody-binding";
 export { ThreadPasskeyStore } from "./thread-passkey-store";
 export type { ThreadCredentialRecord, ThreadStoreBackend } from "./thread-passkey-store";
 export { WebCryptoMasterStore, IndexedDbKeyStore, MemoryKeyStore } from "./secure-store";

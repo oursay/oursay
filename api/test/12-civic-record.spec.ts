@@ -133,7 +133,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
     expect((await prepare(tooManyOptions)).statusCode).to.equal(400);
   });
 
-  it("join returns 200 + { personaPubkey } (not 204) and the canonical Pₜ", async () => {
+  it("join returns 200 + { personaPubkey, personaName } (not 204) and the canonical Pₜ", async () => {
     const { userId, token } = await fullSessionAccount(w, "civic-200@example.com");
     const passkey = new DevPasskeyConnector({ rootDir: mkdtempSync(join(tmpdir(), "oursay-civic-")), seed: "p200" });
     await passkey.enrollDevice({ userId, deviceId: "A" });
@@ -146,8 +146,10 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
       payload: { threadId: t.threadId, jurisdiction: t.jurisdiction, signerPubkey: binding.thread_pubkey, commitment: binding.commitment },
     });
     expect(res.statusCode).to.equal(200);
-    const body = res.json() as { personaPubkey: string };
+    const body = res.json() as { personaPubkey: string; personaName: string };
     expect(body.personaPubkey).to.equal(binding.thread_pubkey); // first device wins ⇒ persona = its signer
+    const stored = await w.services.recordStore.getPersonaName(body.personaPubkey);
+    expect(body.personaName).to.equal(stored);
   });
 
   it("second device join returns the SAME Pₜ as the first device", async () => {

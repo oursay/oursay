@@ -58,9 +58,28 @@ describe("26 record-state: self-only batch participation markers", () => {
     const res = await recordState(w, [post.entityId, poll.entityId, pet.entityId], session.token);
     expect(res.statusCode).to.equal(200, res.body);
     const body = res.json() as { states: Record<string, any> };
-    expect(body.states[post.entityId]).to.deep.equal({ _my: "up", _vote: null, signed: false, shared: true });
-    expect(body.states[poll.entityId]).to.deep.equal({ _my: null, _vote: "no", signed: false, shared: false });
-    expect(body.states[pet.entityId]).to.deep.equal({ _my: null, _vote: null, signed: true, shared: false });
+    expect(body.states[post.entityId]).to.deep.equal({
+      _my: "up",
+      _myEntityId: body.states[post.entityId]._myEntityId,
+      _vote: null,
+      signed: false,
+      shared: true,
+    });
+    expect(body.states[post.entityId]._myEntityId).to.be.a("string");
+    expect(body.states[poll.entityId]).to.deep.equal({
+      _my: null,
+      _myEntityId: null,
+      _vote: "no",
+      signed: false,
+      shared: false,
+    });
+    expect(body.states[pet.entityId]).to.deep.equal({
+      _my: null,
+      _myEntityId: null,
+      _vote: null,
+      signed: true,
+      shared: false,
+    });
   });
 
   it("resolves comment ids through the root thread persona", async () => {
@@ -80,6 +99,7 @@ describe("26 record-state: self-only batch participation markers", () => {
     const res = await recordState(w, [c1.entityId], session.token);
     expect(res.statusCode).to.equal(200, res.body);
     expect(res.json().states[c1.entityId]._my).to.equal("down");
+    expect(res.json().states[c1.entityId]._myEntityId).to.be.a("string");
   });
 
   it("never leaks another user's participation", async () => {
@@ -93,7 +113,13 @@ describe("26 record-state: self-only batch participation markers", () => {
     const session = await w.services.authService.issue(viewer.userId, "full", "test");
     const res = await recordState(w, [post.entityId], session.token);
     expect(res.statusCode).to.equal(200, res.body);
-    expect(res.json().states[post.entityId]).to.deep.equal({ _my: null, _vote: null, signed: false, shared: false });
+    expect(res.json().states[post.entityId]).to.deep.equal({
+      _my: null,
+      _myEntityId: null,
+      _vote: null,
+      signed: false,
+      shared: false,
+    });
   });
 
   it("requires full session auth", async () => {

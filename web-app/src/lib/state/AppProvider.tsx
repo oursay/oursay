@@ -325,7 +325,7 @@ export interface AppApi {
   petitionSigFor: (target: CivicTarget) => number;
   hasSignedPetition: (id: string) => boolean;
   /** Gate a comment/reply post behind the account's comment signing method. */
-  postComment: (ctx: CommentWriteContext, done: () => void) => void;
+  postComment: (ctx: CommentWriteContext, done: (personaName?: string) => void) => void;
 
   // Compose flow.
   startCompose: (inferredJurisdiction?: string) => void;
@@ -439,6 +439,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         signing: account.signing,
         theme: readTheme(),
       }));
+      void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
     });
     return () => {
       active = false;
@@ -568,6 +569,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loginOpen: false,
       }));
       if (!isMockOnly()) {
+        void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
         void listPasskeys()
           .then((passkeys) => setState((s) => ({ ...s, passkeys })))
           .catch((e: Error) => notify(e.message));
@@ -1089,15 +1091,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Sign modal ----------------------------------------------------------
   const runCivicWrite = useCallback(
-    async (
+    async <T,>(
       action: SignAction,
       jurisdiction: string,
       sign: CivicSignMode,
-      write: (mode: CivicSignMode) => Promise<void>,
-      onSuccess: () => void,
+      write: (mode: CivicSignMode) => Promise<T>,
+      onSuccess: (result: T) => void,
     ) => {
       if (isMockOnly()) {
-        onSuccess();
+        onSuccess(undefined as T);
         return;
       }
       const userId = userIdRef.current;
@@ -1107,8 +1109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       const mode = resolveCivicSignMode(action, jurisdiction, state.signing, sign);
       try {
-        await write(mode);
-        onSuccess();
+        onSuccess(await write(mode));
       } catch (e) {
         notify(e instanceof Error ? e.message : "Write failed.");
       }
@@ -1198,9 +1199,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (target: CivicTarget, dir: "up" | "down") => {
       requireAuth(() => {
         const prev = state.reactions[target.id]?.dir ?? null;
+        const existingEntityId = state.reactions[target.id]?.entityId;
         const toggleOff = prev === dir;
 
-        const commitLocal = () =>
+        const commitLocal = (reactionEntityId?: string) =>
           setState((s) => {
             const prevDir = s.reactions[target.id]?.dir ?? null;
             const base = s.reactionCounts[target.id] ?? {
@@ -1226,7 +1228,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
               ...s,
               reactions: {
                 ...s.reactions,
-                [target.id]: nextReaction ? { dir: nextReaction } : null,
+                [target.id]: nextReaction
+                  ? {
+                      dir: nextReaction,
+                      entityId:
+                        reactionEntityId ?? s.reactions[target.id]?.entityId,
+                    }
+                  : null,
               },
               reactionCounts: {
                 ...s.reactionCounts,
@@ -1244,39 +1252,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
           target.parentType ?? (target.kind ? parentTypeForKind(target.kind) : "post");
         const threadId = target.threadId ?? target.id;
 
-        runSigned(
+        // Reactions are always quick-signed — no passkey floor, no chooser, no WYSIWYS.
+        void runCivicWrite(
           "reaction",
           target.jurisdiction,
-          { title: "Post your reaction", lines: [`on “${target.title}”`] },
-          {
-            kind: "reaction",
-            targetTitle: target.title,
-            showResidencyNotice: false,
-            showAffectedNotice: false,
-          },
-          (sign) => {
-            void runCivicWrite(
-              "reaction",
-              target.jurisdiction,
-              sign,
-              async (mode) => {
-                const civic = await import("@/lib/api/civic");
-                await civic.civicReaction(
-                  userIdRef.current!,
-                  civic.threadRef(threadId, target.jurisdiction),
-                  target.id,
-                  parentType,
-                  reactionKindForDir(dir),
-                  mode,
-                );
-              },
-              commitLocal,
+          "quick",
+          async () => {
+            const civic = await import("@/lib/api/civic");
+            return civic.civicReaction(
+              userIdRef.current!,
+              civic.threadRef(threadId, target.jurisdiction),
+              target.id,
+              parentType,
+              reactionKindForDir(dir),
+              existingEntityId,
             );
           },
+          (entityId) => commitLocal(entityId),
         );
       });
     },
-    [requireAuth, runSigned, runCivicWrite, state.reactions],
+    [requireAuth, runCivicWrite, state.reactions],
   );
 
   const reactionFor = useCallback(
@@ -1534,7 +1530,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const body = state.composeBody.trim() || "(no details)";
     const selfHandle =
       wireHandle(state.accountHandle) ?? (isMockOnly() ? MY_HANDLE : "you");
-    const finish = () => {
+    const threadId = crypto.randomUUID();
+    const finish = (personaName?: string | null) => {
       closeCompose();
       notify(
         effectiveVis === "public"
@@ -1544,12 +1541,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           : isMockOnly()
             ? `${label} published (demo) — out-of-scope viewers see you as ${personaNameFor(
                 selfHandle,
-                `compose-${Date.now()}`,
+                threadId,
               )}.`
-            : `${label} published — out-of-scope viewers see you as ${personaNameFor(
-                selfHandle,
-                `compose-${Date.now()}`,
-              )}.`,
+            : `${label} published — out-of-scope viewers see you as ${
+                personaName ?? personaNameFor(selfHandle, threadId)
+              }.`,
       );
     };
     const composeAction = postActionForKind(kind);
@@ -1571,8 +1567,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           sign,
           async (mode) => {
             const civic = await import("@/lib/api/civic");
-            const threadId = crypto.randomUUID();
-            await civic.civicCompose(
+            const result = await civic.civicCompose(
               userIdRef.current!,
               civic.threadRef(threadId, jur),
               kind,
@@ -1590,6 +1585,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (!isMockOnly() && state.composeVisibility !== undefined) {
               await putThreadVisibility(threadId, effectiveVis);
             }
+            return result.personaName;
           },
           finish,
         );
@@ -1731,7 +1727,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // passkey here — the account default decides. `done` runs the actual write
   // (composer close + toast) after the signing method resolves.
   const postComment = useCallback(
-    (ctx: CommentWriteContext, done: () => void) => {
+    (ctx: CommentWriteContext, done: (personaName?: string) => void) => {
       requireAuth(() => {
         const body = ctx.body.trim();
         if (!body) {
@@ -1755,7 +1751,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               sign,
               async (mode) => {
                 const civic = await import("@/lib/api/civic");
-                await civic.civicComment(
+                return civic.civicComment(
                   userIdRef.current!,
                   civic.threadRef(ctx.threadId, ctx.jurisdiction),
                   ctx.parentId,
@@ -1764,7 +1760,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   mode,
                 );
               },
-              done,
+              (personaName) => done(personaName ?? undefined),
             );
           },
         );

@@ -3,12 +3,14 @@
  * Cookie sessions flow through the Next.js `/v1` proxy (same-origin).
  */
 
-import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
+import { startRegistration } from "@simplewebauthn/browser";
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
 import { apiGet, apiPatch, apiPost } from "./client";
+import { authenticateWithPrfProbe } from "./passkey-prf";
+import { bootstrapCivicCustody, clearCachedCustodySession } from "./civic-custody";
 
 export interface RegistrationProfile {
   handle: string;
@@ -96,12 +98,13 @@ export async function loginWithPasskey(email?: string): Promise<VerifyRegistrati
     email ? { email } : {},
   );
   if (!options) throw new Error("passkey login options missing");
-  const asgResp = await startAuthentication({ optionsJSON: options });
+  const { response: asgResp, credentialIdHex, prfRoot } = await authenticateWithPrfProbe(options);
   const body = await apiPost<{ userId: string; session: SessionInfo }>(
     "/v1/auth/passkey/login/verify",
     { response: asgResp },
   );
   if (!body) throw new Error("passkey login verify returned empty body");
+  await bootstrapCivicCustody(body.userId, credentialIdHex, prfRoot);
   return { userId: body.userId, session: body.session };
 }
 
@@ -123,6 +126,7 @@ export async function updatePasskeyLabel(
 }
 
 export async function logout(): Promise<void> {
+  clearCachedCustodySession();
   await apiPost("/v1/auth/logout");
 }
 

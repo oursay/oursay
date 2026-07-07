@@ -106,6 +106,8 @@ export interface ThreadRegistration {
 export interface JoinThreadResponse {
   /** Stable thread persona pubkey Pₜ for this `(user, thread)` — the envelope's `authorPubkey`. */
   personaPubkey: string;
+  /** Globally-unique display name minted for Pₜ (persona page key; what out-of-scope viewers see). */
+  personaName: string;
 }
 
 export type { Op, RecordType, TxEnvelope };

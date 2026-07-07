@@ -3,8 +3,18 @@
 export type { PasskeyConnector, DeviceCredential, UnlockedSession } from "./connector";
 export { DevPasskeyConnector, defaultDevDir } from "./dev-connector";
 export type { DevPasskeyOptions } from "./dev-connector";
-export { WebPasskeyConnector } from "./web-connector";
+export { WebPasskeyConnector, OURSAY_PRF_SALT } from "./web-connector";
 export type { WebPasskeyOptions } from "./web-connector";
+export {
+  saveCustodyBinding,
+  loadCustodyBinding,
+  clearCustodyBinding,
+  custodyBindingStorageKey,
+  savePrfRootSession,
+  loadPrfRootSession,
+  clearPrfRootSession,
+} from "./custody-binding";
+export type { CustodyBinding, CustodyUnlockSource } from "./custody-binding";
 export { ThreadPasskeyStore } from "./thread-passkey-store";
 export type { ThreadCredentialRecord, ThreadStoreBackend } from "./thread-passkey-store";
 export { WebCryptoMasterStore, IndexedDbKeyStore, MemoryKeyStore } from "./secure-store";

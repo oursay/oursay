@@ -503,11 +503,11 @@ families, two tables:
 
 - **Account-login passkeys** → `auth.passkey_credentials`. The preferred, day-to-day factor. A user
   may enroll **several** (one per device); each is independent and the platform stores only public
-  credential metadata.
-- **Civic device keys** → `public.device_keys` (this section's *Dᵢ*). Sign public-record actions
-  on-device; enrolled after login via `POST /v1/civic/devices` (public key only), listed/revoked via
-  `GET /v1/civic/devices` / `POST /v1/civic/devices/revoke`. A second phone = a second passkey **and**
-  a second civic device key under the same user.
+  credential metadata. In the **web client golden path**, the account-login passkey also seeds civic
+  custody (PRF or secure-storage fallback) — no separate civic passkey enrollment.
+- **Civic device keys** → `public.device_keys` (legacy *Dᵢ* registry). **Client-deprecated** — the
+  production signing path uses `thread_civic_credentials` only. `POST/GET /v1/civic/devices` remain
+  as an optional HTTP registry for backward compat but are not called by join/prepare/submit.
 
 **Email OTP is never a standing login method.** It exists for exactly three **purposes**, all sent
 through one request endpoint (`POST /v1/auth/otp/request`, discriminated by `purpose`) so there is a

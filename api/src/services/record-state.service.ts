@@ -12,6 +12,8 @@ const MAX_BATCH = 100;
 
 export interface RecordStateEntry {
   _my: MyReaction;
+  /** Civic entity id of the viewer's active reaction on this parent (for upsert). */
+  _myEntityId: string | null;
   _vote: string | null;
   signed: boolean;
   shared: boolean;
@@ -59,13 +61,14 @@ export class RecordStateService {
       unique.map(async (id) => {
         const threadId = threadById.get(id)!;
         const vs = getViewer(threadId);
-        const [_my, _vote, signed] = await Promise.all([
-          vs.reactionOn(id),
+        const [reactionInfo, _vote, signed] = await Promise.all([
+          vs.reactionInfoOn(id),
           vs.voteOn(id),
           vs.signedPetition(id),
         ]);
         states[id] = {
-          _my,
+          _my: reactionInfo?.dir ?? null,
+          _myEntityId: reactionInfo?.entityId ?? null,
           _vote,
           signed,
           shared: shared.has(id),

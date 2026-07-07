@@ -5,6 +5,7 @@ import {
   THREAD_VISIBILITY_OVERRIDES,
 } from "@/lib/mock";
 import { wireHandle } from "@/lib/handle";
+import { isMockOnly } from "./client";
 import { jurisdictionSlugs } from "./geo-scope";
 import type { PostTypeEntry } from "@/lib/mock";
 import {
@@ -109,6 +110,16 @@ export function personaFor(handle: string, threadId: string): string {
   index.usedNames.add(name);
   index.reverse.set(name, { handle, threadId });
   return name;
+}
+
+/** The persona name out-of-scope viewers see in `threadId`. Mock: handle-seeded; live: prefer server hints. */
+export function personaShownToOthers(
+  handle: string,
+  threadId: string,
+  serverHint?: string | null,
+): string {
+  if (!isMockOnly() && serverHint) return serverHint;
+  return personaFor(handle, threadId);
 }
 
 /** Resolve a persona name back to its (handle, thread) — persona-page lookup. */

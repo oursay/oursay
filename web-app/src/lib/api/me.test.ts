@@ -29,12 +29,18 @@ describe("applyRecordStates", () => {
   it("maps participation markers into app state maps", () => {
     const next = applyRecordStates(
       {
-        "rec-1": { _my: "up", _vote: "Yes", signed: true, shared: true },
+        "rec-1": {
+          _my: "up",
+          _myEntityId: "rx-1",
+          _vote: "Yes",
+          signed: true,
+          shared: true,
+        },
         "rec-2": { _my: null, _vote: null, signed: false, shared: false },
       },
       { reactions: {}, votes: {}, shared: {}, petitionSig: {} },
     );
-    expect(next.reactions["rec-1"]).toEqual({ dir: "up" });
+    expect(next.reactions["rec-1"]).toEqual({ dir: "up", entityId: "rx-1" });
     expect(next.votes["rec-1"]).toBe("Yes");
     expect(next.shared["rec-1"]).toBe(true);
     expect(next.petitionSig["rec-1"]).toBe(1);
