@@ -12,11 +12,10 @@ import {
   type RecordDetail,
   type RecordKind,
 } from "@/lib/types";
-import { relTime } from "@/lib/read-model";
+import { relTime, useNow } from "@/lib/read-model";
 import {
   GRADUATION_CHAIN,
   MY_HANDLE,
-  NOW,
   districtName,
   jurisdictionLabel,
 } from "@/lib/mock";
@@ -52,6 +51,7 @@ function countNodes(nodes: CommentNode[]): number {
 }
 
 export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
+  const now = useNow();
   const app = useApp();
   const router = useRouter();
   const { setPageJurisdiction, setPostDistricts, viewer, feedFilter, hydrateRecordState } = app;
@@ -256,7 +256,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           <>
             <div>
               <h1 className="text-lg font-bold text-ink">{detail.title}</h1>
-              <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, NOW)}</p>
+              <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, now)}</p>
             </div>
             <div className="mt-3 space-y-1 text-sm text-ink-soft">
               {detail.body.map((line, i) => (
@@ -421,7 +421,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           <CommentThread
             nodes={shownComments}
             viewer={app.viewer}
-            now={NOW}
+            now={now}
             tierMin={tierMin}
             onReply={(_node, nodePath) => {
               if (openReplies.has(nodePath)) {
@@ -494,7 +494,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                   node,
                   detail.kind,
                   detail.id,
-                  relTime(node.ts, NOW),
+                  relTime(node.ts, now),
                   depth,
                 ),
               )

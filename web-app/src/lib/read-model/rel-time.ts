@@ -1,17 +1,18 @@
 /**
- * Relative timestamp label, matching the wireframe's relTime() cutoffs exactly:
- *   < 1m        -> "just now"
+ * Relative timestamp label:
+ *   < 2m        -> "just now"
  *   < 60m       -> "Nm ago"
  *   < 24h       -> "Nh ago"
  *   <= 6 days   -> "Nd ago"
  *   > 6 days    -> absolute "YYYY-MM-DD"
  *
- * Pure: pass the reference `now` (mock NOW in tests) rather than reading a clock.
+ * Pure: pass the reference `now` (mock NOW in tests, `useNow()` in production)
+ * rather than reading a clock inside this function.
  */
 export function relTime(iso: string, now: Date): string {
   const t = new Date(iso);
-  const mins = Math.floor((now.getTime() - t.getTime()) / 60000);
-  if (mins < 1) return "just now";
+  const mins = Math.max(0, Math.floor((now.getTime() - t.getTime()) / 60000));
+  if (mins < 2) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;

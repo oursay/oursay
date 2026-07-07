@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { VenetianMask } from "lucide-react";
 import { getPersonaProfile } from "@/lib/api";
 import type { PersonaProfile } from "@/lib/api";
-import { NOW } from "@/lib/mock";
-import { relTime } from "@/lib/read-model";
+import { relTime, useNow } from "@/lib/read-model";
 import { Avatar, CommentCard, VerificationPill } from "@/components";
 import {
   activityRowGlyph,
@@ -30,6 +29,7 @@ type Tab = "comments" | "activity" | "mentions";
  * existence, docs/09 §3).
  */
 export function PersonaView({ personaName }: { personaName: string }) {
+  const now = useNow();
   const app = useApp();
   const { setPageJurisdiction } = app;
   const router = useRouter();
@@ -137,7 +137,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
                 tier={node.tier}
                 signTier={node.signTier}
                 identity={node.identity}
-                timestamp={relTime(node.ts, NOW)}
+                timestamp={relTime(node.ts, now)}
                 body={
                   <>
                     {node.body.map((line, li) => (
