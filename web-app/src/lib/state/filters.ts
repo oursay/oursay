@@ -1,3 +1,5 @@
+import { isMockOnly } from "@/lib/api/client";
+import { wireHandle } from "@/lib/handle";
 import { MY_HANDLE } from "@/lib/mock/constants";
 import { JUR_DATA } from "@/lib/mock";
 import type { FeedFilterParams, SignedFilterLevel, ViewerContext } from "@/lib/types";
@@ -11,7 +13,7 @@ export function viewerFromState(state: AppState): ViewerContext {
     kycTier: state.kycTier,
     viewerDistricts: state.viewerDistricts,
     selfHandle: state.loggedIn
-      ? (state.accountHandle ?? MY_HANDLE)
+      ? (wireHandle(state.accountHandle) ?? (isMockOnly() ? MY_HANDLE : undefined))
       : undefined,
     selfVisibility: state.accountVisibility,
   };

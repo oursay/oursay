@@ -1,5 +1,6 @@
 import type { AuthorIdentity, RecordKind } from "@/lib/types";
 import { DETAIL_BY_ID, DISTRICT_BY_SLUG, jurisdictionById } from "@/lib/mock";
+import { wireHandle } from "@/lib/handle";
 import { COMMENTS_SECTION_ID } from "./scroll";
 
 /** The civic views (five wireframe views + the per-thread persona surface). */
@@ -42,8 +43,10 @@ export function districtPath(districtSlug: string): string {
   return `/jurisdiction/${jurSlug}/district/${districtSlug}`;
 }
 
+/** Public profile URL — wire handle only (no leading @). */
 export function profilePath(handle: string): string {
-  return `/profile/${handle}`;
+  const wire = wireHandle(handle) ?? handle.replace(/^@/, "");
+  return `/profile/${encodeURIComponent(wire)}`;
 }
 
 /**

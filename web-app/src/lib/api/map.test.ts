@@ -63,6 +63,38 @@ describe("mapFeedItem", () => {
     expect(item.tier).toBe(1);
     expect(item.up).toBe(3);
   });
+
+  it("strips leading @ from API handles", () => {
+    const item = mapFeedItem({
+      id: "x2",
+      type: "post",
+      jurisdiction: "ab-ca-gov",
+      tier: "identity_verified",
+      official: false,
+      signTier: 1,
+      appliesToDistrictIds: [],
+      author: "Jane",
+      handle: "@jane_alberta",
+      identity: {
+        display: "Jane",
+        handle: "@jane_alberta",
+        isPersona: false,
+        isSelf: false,
+        seed: "@jane_alberta",
+        threadId: "x2",
+      },
+      authorGeo: "none",
+      title: "Hi",
+      body: [],
+      withheld: false,
+      comments: 0,
+      edits: 0,
+      ts: "2026-01-01T00:00:00Z",
+    });
+    expect(item.handle).toBe("jane_alberta");
+    expect(item.identity?.handle).toBe("jane_alberta");
+    expect(item.identity?.seed).toBe("jane_alberta");
+  });
 });
 
 describe("mapRecordDetail", () => {

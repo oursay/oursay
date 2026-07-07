@@ -4,6 +4,7 @@ import {
   personDistricts,
   THREAD_VISIBILITY_OVERRIDES,
 } from "@/lib/mock";
+import { wireHandle } from "@/lib/handle";
 import { jurisdictionSlugs } from "./geo-scope";
 import type { PostTypeEntry } from "@/lib/mock";
 import {
@@ -130,17 +131,20 @@ export function resolveAuthorIdentity(
   threadId: string,
   viewer: ViewerContext,
 ): AuthorIdentity {
-  if (viewer.selfHandle && handle.toLowerCase() === viewer.selfHandle.toLowerCase()) {
+  if (
+    viewer.selfHandle &&
+    wireHandle(handle)?.toLowerCase() === viewer.selfHandle.toLowerCase()
+  ) {
     const ownVisibility = resolveVisibility(
       viewer.selfVisibility ?? "anonymous",
       THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle],
     );
     return {
       display: displayName,
-      handle,
+      handle: wireHandle(handle) ?? handle,
       isPersona: false,
       isSelf: true,
-      seed: handle,
+      seed: wireHandle(handle) ?? handle,
       threadId,
       seenByOthersAs:
         ownVisibility === "public" ? undefined : personaFor(handle, threadId),
@@ -153,12 +157,13 @@ export function resolveAuthorIdentity(
     viewer,
   );
   if (revealed) {
+    const wire = wireHandle(handle) ?? handle;
     return {
       display: displayName,
-      handle,
+      handle: wire,
       isPersona: false,
       isSelf: false,
-      seed: handle,
+      seed: wire,
       threadId,
     };
   }

@@ -14,6 +14,7 @@ import {
   REACTION_GLYPH,
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
+import { displayHandle, wireHandle } from "@/lib/handle";
 import { authorPath, districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
@@ -42,6 +43,7 @@ export function ProfileView({
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [tab, setTab] = useState<Tab>("posts");
+  const wireHandleParam = wireHandle(handle) ?? handle;
 
   const selectTab = (t: Tab) => {
     if (t === "mentions" && !isMockOnly()) {
@@ -56,16 +58,23 @@ export function ProfileView({
   }, [setPageJurisdiction]);
 
   useEffect(() => {
-    // Viewer-scoped: out-of-visibility profiles resolve null (hide existence),
-    // and the reveal set updates live as the demo KYC tier cycles.
-    getProfile(handle, { viewer: app.viewer }).then(setProfile);
-  }, [handle, app.viewer]);
+    if (self) return;
+    if (wireHandleParam && handle !== wireHandleParam) {
+      router.replace(profilePath(wireHandleParam));
+    }
+  }, [handle, wireHandleParam, router, self]);
 
   useEffect(() => {
-    if (!self && profile && handle !== profile.handle) {
+    // Viewer-scoped: out-of-visibility profiles resolve null (hide existence),
+    // and the reveal set updates live as the demo KYC tier cycles.
+    getProfile(wireHandleParam, { viewer: app.viewer }).then(setProfile);
+  }, [wireHandleParam, app.viewer]);
+
+  useEffect(() => {
+    if (!self && profile && wireHandleParam !== profile.handle) {
       router.replace(profilePath(profile.handle));
     }
-  }, [profile, handle, router, self]);
+  }, [profile, wireHandleParam, router, self]);
 
   if (!profile) {
     return <p className="p-6 text-center text-sm text-muted">Profile not found.</p>;
@@ -99,7 +108,7 @@ export function ProfileView({
               <p className="truncate font-bold text-ink">{profile.name}</p>
               <VerificationPill tier={displayTier} align="right" />
             </div>
-            <p className="truncate text-sm text-muted">@{profile.handle}</p>
+            <p className="truncate text-sm text-muted">{displayHandle(profile.handle)}</p>
             {displayTier === 3 ? (
               <p className="mt-0.5 truncate text-xs text-ink-soft">{displayRole}</p>
             ) : null}

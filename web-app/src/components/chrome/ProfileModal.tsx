@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { displayHandle } from "@/lib/handle";
 import {
   ChevronRight,
   Eye,
@@ -273,7 +274,7 @@ export function ProfileModal({
             <Avatar name={name} seed={handle} size="lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-ink">{name}</p>
-              <p className="truncate text-sm text-muted">@{handle}</p>
+              <p className="truncate text-sm text-muted">{displayHandle(handle)}</p>
             </div>
             <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden />
           </button>

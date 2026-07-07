@@ -9,6 +9,7 @@ import type {
   SignTier,
   VerificationTier,
 } from "@/lib/types";
+import { displayHandle } from "@/lib/handle";
 import { AuthorBadgeGroup } from "./AuthorBadgeGroup";
 import type { AuthorGeoRelation } from "./VerificationPill";
 
@@ -94,7 +95,7 @@ export function AuthorRow({
         disabled={!onAuthorClick}
         className="min-w-0 truncate text-left text-xs text-muted disabled:cursor-default"
       >
-        @{handle}
+        {displayHandle(handle)}
         {identity?.seenByOthersAs ? (
           <span className="italic"> · seen as {identity.seenByOthersAs}</span>
         ) : null}

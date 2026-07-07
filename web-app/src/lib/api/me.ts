@@ -8,6 +8,7 @@ import type {
   SigningPrefs,
   VerificationTier,
 } from "@/lib/types";
+import { wireHandle } from "@/lib/handle";
 import { ALBERTA_ID, DEFAULT_SIGNING, GLOBAL_ID } from "@/lib/types";
 import type { SignAction, SignMethod } from "@/lib/types";
 import { ApiError, apiGet, apiPatch, apiPost, apiPut, buildQuery } from "./client";
@@ -92,10 +93,12 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
 
   if (!profile?.handle) return null;
 
+  const handle = wireHandle(profile.handle)!;
+
   const publicSelf = await apiGet<{
     tier: string;
     official: boolean;
-  }>(`/v1/public/profiles/${encodeURIComponent(profile.handle)}`).catch(() => null);
+  }>(`/v1/public/profiles/${encodeURIComponent(handle)}`).catch(() => null);
 
   const kycTier = publicSelf
     ? tokenToTier(publicSelf.tier, publicSelf.official)
@@ -103,8 +106,8 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
 
   return {
     userId: session.userId,
-    handle: profile.handle,
-    displayName: profile.displayName ?? profile.handle,
+    handle,
+    displayName: profile.displayName?.trim() || handle,
     kycTier,
     isOfficial: publicSelf?.official ?? false,
     accountVisibility: profile.visibility,

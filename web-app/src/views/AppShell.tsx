@@ -25,15 +25,11 @@ import {
   SignModal,
 } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
-import {
-  MY_HANDLE,
-  MY_NAME,
-  jurisdictionLabel as labelForJurisdiction,
-} from "@/lib/mock";
+import { jurisdictionLabel as labelForJurisdiction } from "@/lib/mock";
 import { GLOBAL_ID } from "@/lib/types";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import { jurisdictionWidePost, resolveGeography } from "@/lib/read-model";
-import { scopedFeedFilterFromState } from "@/lib/state";
+import { accountIdentity, scopedFeedFilterFromState, useApp } from "@/lib/state";
 import type { RecordKind } from "@/lib/types";
 import {
   jurisdictionPath,
@@ -42,7 +38,6 @@ import {
   SELF_PROFILE_PATH,
   viewFromPathname,
 } from "@/lib/routes";
-import { useApp } from "@/lib/state";
 import { isMockOnly } from "@/lib/api/client";
 import {
   DEFERRED_EDIT_PROFILE,
@@ -57,6 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const view = viewFromPathname(pathname);
+  const account = accountIdentity(state);
 
   const title = pageTitle(pathname);
   const hasCardList =
@@ -153,7 +149,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       onClick={app.openProfile}
       className="inline-flex size-10 items-center justify-center overflow-hidden rounded-full border border-border-strong shadow-sm hover:opacity-90"
     >
-      <Avatar name={MY_NAME} seed={MY_HANDLE} size="sm" className="size-10!" />
+      <Avatar
+        name={account?.name ?? "Account"}
+        seed={account?.handle ?? "account"}
+        size="sm"
+        className="size-10!"
+      />
     </button>
   ) : (
     <button
@@ -295,8 +296,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       <ProfileModal
         open={state.profileOpen}
         onClose={app.closeProfile}
-        name={MY_NAME}
-        handle={MY_HANDLE}
+        name={account?.name ?? "Account"}
+        handle={account?.handle ?? ""}
         kycTier={state.kycTier}
         accountVisibility={state.accountVisibility}
         onChangeVisibility={app.setAccountVisibility}
@@ -367,7 +368,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         open={state.sign !== null}
         onClose={app.closeSign}
         kind={state.sign?.kind ?? "petition"}
-        signerName={MY_NAME}
+        signerName={account?.name ?? "You"}
         targetTitle={state.sign?.targetTitle ?? ""}
         option={state.sign?.option}
         composeTypeLabel={state.sign?.composeTypeLabel}

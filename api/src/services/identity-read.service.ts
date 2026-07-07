@@ -19,10 +19,17 @@ import type { KycRepo } from "../repo/kyc.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
+import { displayNameFor } from "../helpers/handle.js";
 import { normalizeTier, type KycTier } from "../types/kyc.js";
 import { normalizeVisibility, type AuthorVisibility } from "../types/visibility.js";
 import type { ParticipantGeoService } from "./participant-geo.service.js";
 import type { ApiViewer } from "./viewer-context.service.js";
+
+/** Wire handle for public DTOs (DB stores `@username`; URLs and UI add the @ at display time). */
+function wireHandle(raw: string | null | undefined): string {
+  if (!raw) return "unknown";
+  return raw.trim().replace(/^@/, "") || "unknown";
+}
 
 /** The viewer-resolved author identity attached to served DTOs (mirror of the web-app's
  *  AuthorIdentity — web-app/src/lib/types/identity.ts). `handle` is null for personas: never leaked. */
@@ -312,8 +319,8 @@ export class ReadResolution {
       if (slug) homeDistricts.add(slug);
     }
     const facts: AuthorFacts = {
-      handle: user?.handle ?? "@unknown",
-      displayName: user?.displayName ?? "Unknown",
+      handle: wireHandle(user?.handle),
+      displayName: user?.displayName ?? displayNameFor(user?.handle ?? null, null) ?? "Unknown",
       accountVisibility: normalizeVisibility(profile?.visibility),
       tier: normalizeTier(tierRaw),
       officialIn,

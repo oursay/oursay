@@ -31,7 +31,19 @@ import type {
   CanonicalTierToken,
   VerificationTier,
 } from "@/lib/types/verification";
+import { wireHandle } from "@/lib/handle";
 import type { PersonaProfile } from "./persona";
+
+/** Canonical client handle: wire form (no leading @). Persona names pass through. */
+function mapWireHandle(raw: unknown): string {
+  const s = String(raw);
+  return wireHandle(s) ?? s.replace(/^@/, "");
+}
+
+function mapOptionalWireHandle(raw: unknown): string | null {
+  if (raw == null) return null;
+  return wireHandle(String(raw)) ?? null;
+}
 
 /** Friendly URL slugs for known jurisdiction ids (API serves id only). */
 const JURISDICTION_SLUGS: Record<string, string> = {
@@ -78,12 +90,14 @@ export function tokenToTier(token: string, official = false): VerificationTier {
 }
 
 function mapIdentity(raw: Record<string, unknown>): AuthorIdentity {
+  const handle = mapOptionalWireHandle(raw.handle);
+  const seed = wireHandle(String(raw.seed)) ?? String(raw.seed);
   return {
     display: String(raw.display),
-    handle: (raw.handle as string | null) ?? null,
+    handle,
     isPersona: Boolean(raw.isPersona),
     isSelf: Boolean(raw.isSelf),
-    seed: String(raw.seed),
+    seed,
     threadId: String(raw.threadId),
     seenByOthersAs: raw.seenByOthersAs as string | undefined,
   };
@@ -151,7 +165,7 @@ export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
     tier: tokenToTier(String(raw.tier), official),
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
-    handle: String(raw.handle),
+    handle: mapWireHandle(raw.handle),
     title: String(raw.title),
     body: (raw.body as string[]) ?? [],
     comments: (raw.comments as number) ?? 0,
@@ -183,7 +197,7 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
     tier: tokenToTier(String(raw.tier), official),
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
-    handle: String(raw.handle),
+    handle: mapWireHandle(raw.handle),
     title: String(raw.title),
     body: (raw.body as string[]) ?? [],
     ts: String(raw.ts),
@@ -215,7 +229,7 @@ export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
   const node: CommentNode = {
     ...(typeof raw.id === "string" ? { id: raw.id } : {}),
     author: String(raw.author),
-    handle: String(raw.handle),
+    handle: mapWireHandle(raw.handle),
     tier: tokenToTier(String(raw.tier)),
     ts: String(raw.ts),
     body: (raw.body as string[]) ?? [],
@@ -244,7 +258,7 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
   const supportRaw = raw.support as Record<string, number> | undefined;
   return {
     name: String(raw.name),
-    handle: String(raw.handle),
+    handle: mapWireHandle(raw.handle),
     role: String(raw.role ?? ""),
     tier: tokenToTier(String(raw.tier), official),
     bio: String(raw.bio ?? ""),

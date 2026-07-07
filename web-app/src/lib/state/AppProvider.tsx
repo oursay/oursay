@@ -32,7 +32,6 @@ import {
 import {
   MY_DISTRICTS,
   MY_HANDLE,
-  MY_NAME,
   jurisdictionLabel,
   jurisdictionSignRequirement,
 } from "@/lib/mock";
@@ -72,6 +71,7 @@ import {
   writeTheme,
 } from "./cookies";
 import { ApiError, isMockOnly } from "@/lib/api/client";
+import { wireHandle } from "@/lib/handle";
 import type { CivicSignMode } from "@/lib/api/civic-helpers";
 import {
   parentTypeForKind,
@@ -411,6 +411,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kycTier: account.kycTier,
         viewerDistricts: account.viewerDistricts,
         accountHandle: account.handle,
+        accountDisplayName: account.displayName,
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
@@ -535,6 +536,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kycTier: account.kycTier,
         viewerDistricts: account.viewerDistricts,
         accountHandle: account.handle,
+        accountDisplayName: account.displayName,
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
@@ -559,6 +561,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         kycTier: 0,
         viewerDistricts: [],
         accountHandle: undefined,
+        accountDisplayName: undefined,
         profileOpen: false,
       }));
       notify("Signed out.");
@@ -1452,6 +1455,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     const title = state.composeTitle.trim() || `New ${label}`;
     const body = state.composeBody.trim() || "(no details)";
+    const selfHandle =
+      wireHandle(state.accountHandle) ?? (isMockOnly() ? MY_HANDLE : "you");
     const finish = () => {
       closeCompose();
       notify(
@@ -1461,11 +1466,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
             : `${label} published.`
           : isMockOnly()
             ? `${label} published (demo) — out-of-scope viewers see you as ${personaNameFor(
-                MY_HANDLE,
+                selfHandle,
                 `compose-${Date.now()}`,
               )}.`
             : `${label} published — out-of-scope viewers see you as ${personaNameFor(
-                MY_HANDLE,
+                selfHandle,
                 `compose-${Date.now()}`,
               )}.`,
       );
