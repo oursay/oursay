@@ -19,7 +19,7 @@ export interface AuthorIdentity {
   threadId: string;
   /**
    * Self only, when own effective visibility is not public: the persona name
-   * out-of-scope viewers see instead ("seen as <persona>" hint).
+   * out-of-scope viewers see instead (mask + persona name on own cards).
    */
   seenByOthersAs?: string;
 }

@@ -21,6 +21,7 @@ interface FeedCardProps {
   hideDistrict?: boolean;
   resolveDistrict?: (slug: string) => string;
   onAuthorClick?: () => void;
+  onPersonaClick?: () => void;
   onTitleClick?: () => void;
   onCommentsClick?: () => void;
   onShare?: () => void;
@@ -46,6 +47,7 @@ export function FeedCard({
   hideDistrict = false,
   resolveDistrict,
   onAuthorClick,
+  onPersonaClick,
   onTitleClick,
   onCommentsClick,
   onShare,
@@ -86,6 +88,7 @@ export function FeedCard({
           signTier={item.signTier}
           authorGeo={item.authorGeo}
           onAuthorClick={onAuthorClick}
+          onPersonaClick={onPersonaClick}
           scopeSlot={
             <ScopeTag
               {...scopeProps}

@@ -36,6 +36,8 @@ interface AuthorRowProps {
    */
   identity?: AuthorIdentity;
   onAuthorClick?: () => void;
+  /** Self rows: navigate to the out-of-scope persona surface. */
+  onPersonaClick?: () => void;
 }
 
 /** Small mask glyph marking a per-thread persona. */
@@ -66,6 +68,7 @@ export function AuthorRow({
   scopeContinuationSlot,
   identity,
   onAuthorClick,
+  onPersonaClick,
 }: AuthorRowProps) {
   const isComment = layout === "comment";
   const isPersona = identity?.isPersona ?? false;
@@ -82,12 +85,23 @@ export function AuthorRow({
   );
 
   if (!isComment) {
-    // Secondary line: personas explain themselves; self rows hint how others
-    // see them; revealed rows keep the @handle.
+    const personaHint = identity?.seenByOthersAs;
+    // Secondary line: personas are anonymous; self rows show the mask + persona
+    // name others see; revealed authors show @handle.
     const secondary = isPersona ? (
       <span className="min-w-0 truncate text-xs italic text-muted">
         anonymous
       </span>
+    ) : personaHint ? (
+      <button
+        type="button"
+        onClick={onPersonaClick}
+        disabled={!onPersonaClick}
+        className="flex min-w-0 items-center gap-1 truncate text-left text-xs text-muted disabled:cursor-default"
+      >
+        <PersonaMark size={11} />
+        <span className="truncate">{personaHint}</span>
+      </button>
     ) : handle ? (
       <button
         type="button"
@@ -96,9 +110,6 @@ export function AuthorRow({
         className="min-w-0 truncate text-left text-xs text-muted disabled:cursor-default"
       >
         {displayHandle(handle)}
-        {identity?.seenByOthersAs ? (
-          <span className="italic"> · seen as {identity.seenByOthersAs}</span>
-        ) : null}
       </button>
     ) : timestamp ? (
       <span className="min-w-0 truncate text-xs text-muted">{timestamp}</span>

@@ -16,6 +16,7 @@ import { districtName, jurisdictionIdFromSlug } from "@/lib/mock";
 import {
   authorPath,
   districtPath,
+  personaHintPath,
   postPath,
   profilePath,
 } from "@/lib/routes";
@@ -142,7 +143,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
               No records match the current filters.
             </p>
           ) : (
-            items.map((item) => (
+            items.map((item) => {
+              const personaHint = personaHintPath(item.identity);
+              return (
               <FeedCard
                 key={item.id}
                 item={{
@@ -155,6 +158,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 hideJur
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+                onPersonaClick={
+                  personaHint ? () => router.push(personaHint) : undefined
+                }
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
@@ -173,7 +179,8 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 }
                 onDistrictClick={(s) => router.push(districtPath(s))}
               />
-            ))
+              );
+            })
           )}
         </div>
       </CollapsibleSection>

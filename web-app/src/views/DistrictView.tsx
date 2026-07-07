@@ -7,7 +7,7 @@ import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
 import { districtName } from "@/lib/mock";
-import { authorPath, postPath, profilePath, jurisdictionPath } from "@/lib/routes";
+import { authorPath, personaHintPath, postPath, profilePath, jurisdictionPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
@@ -107,7 +107,9 @@ export function DistrictView({ slug }: { slug: string }) {
               No records match the current filters.
             </p>
           ) : (
-            items.map((item) => (
+            items.map((item) => {
+              const personaHint = personaHintPath(item.identity);
+              return (
               <FeedCard
                 key={item.id}
                 item={{
@@ -121,6 +123,9 @@ export function DistrictView({ slug }: { slug: string }) {
                 hideDistrict
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+                onPersonaClick={
+                  personaHint ? () => router.push(personaHint) : undefined
+                }
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
@@ -138,7 +143,8 @@ export function DistrictView({ slug }: { slug: string }) {
                   app.notify(DEFERRED_EDIT_HISTORY)
                 }
               />
-            ))
+              );
+            })
           )}
         </div>
       </CollapsibleSection>

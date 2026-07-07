@@ -15,7 +15,7 @@ import {
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
 import { displayHandle, wireHandle } from "@/lib/handle";
-import { authorPath, districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
+import { authorPath, districtPath, postPath, postPathForId, profilePath, personaHintPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 import { isMockOnly } from "@/lib/api/client";
@@ -165,7 +165,9 @@ export function ProfileView({
           {posts.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No posts match the filters.</p>
           ) : (
-            posts.map((item) => (
+            posts.map((item) => {
+              const personaHint = personaHintPath(item.identity);
+              return (
               // TODO(entityId): representative-target nav — route by record/profile id.
               <FeedCard
                 key={item.id}
@@ -178,6 +180,9 @@ export function ProfileView({
                 tierMin={verified}
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+                onPersonaClick={
+                  personaHint ? () => router.push(personaHint) : undefined
+                }
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
@@ -196,7 +201,8 @@ export function ProfileView({
                 }
                 onDistrictClick={(s) => router.push(districtPath(s))}
               />
-            ))
+              );
+            })
           )}
         </div>
       ) : null}

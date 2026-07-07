@@ -36,7 +36,7 @@ import {
   ResultOutcome,
   ScopeTag,
 } from "@/components";
-import { authorPath, postPath, districtPath } from "@/lib/routes";
+import { authorPath, postPath, districtPath, personaHintPath } from "@/lib/routes";
 import { commentKey, commentShareTarget, recordShareTarget } from "@/lib/share";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
@@ -219,6 +219,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             signTier={detail.signTier}
             authorGeo={detail.authorGeo}
             onAuthorClick={() => router.push(authorPath(detail.identity, detail.handle))}
+            onPersonaClick={
+              personaHintPath(detail.identity)
+                ? () => router.push(personaHintPath(detail.identity)!)
+                : undefined
+            }
             scopeSlot={
               detail.districts.length > 0 ? (
                 <ScopeTag

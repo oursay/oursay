@@ -6,7 +6,7 @@ import { listFeedItems } from "@/lib/api";
 import type { FeedItem } from "@/lib/types";
 import { FeedCard } from "@/components";
 import { districtName } from "@/lib/mock";
-import { authorPath, districtPath, jurisdictionPath, postPath } from "@/lib/routes";
+import { authorPath, districtPath, jurisdictionPath, personaHintPath, postPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
@@ -52,7 +52,9 @@ export function FeedView() {
 
   return (
     <div className="space-y-3 px-3 py-3">
-      {items.map((item) => (
+      {items.map((item) => {
+        const personaHint = personaHintPath(item.identity);
+        return (
         // TODO(entityId): representative-target nav — route by record/profile id.
         <FeedCard
           key={item.id}
@@ -66,6 +68,9 @@ export function FeedView() {
           hideJur={hideJur}
           resolveDistrict={districtName}
           onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+          onPersonaClick={
+            personaHint ? () => router.push(personaHint) : undefined
+          }
           onTitleClick={() => router.push(postPath(item.kind, item.id))}
           onCommentsClick={() =>
             router.push(postPath(item.kind, item.id, { comments: true }))
@@ -85,7 +90,8 @@ export function FeedView() {
           }
           onDistrictClick={(slug) => router.push(districtPath(slug))}
         />
-      ))}
+        );
+      })}
     </div>
   );
 }

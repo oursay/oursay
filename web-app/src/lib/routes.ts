@@ -72,6 +72,12 @@ export function authorPath(
   return profilePath(identity?.handle ?? fallbackHandle);
 }
 
+/** Persona page for the self "others see you as …" hint; null when not shown. */
+export function personaHintPath(identity: AuthorIdentity | undefined): string | null {
+  if (!identity?.seenByOthersAs) return null;
+  return personaPath(identity.seenByOthersAs);
+}
+
 /** The signed-in account's own public profile (static segment beats [handle]). */
 export const SELF_PROFILE_PATH = "/profile/self";
 
