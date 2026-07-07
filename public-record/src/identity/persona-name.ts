@@ -4,7 +4,7 @@
 // suffix on collision. The name is PUBLIC (it is the persona page's key); the pubkey→name derivation
 // leaks nothing about the user — the input is already the public persona key.
 
-import { adjectives, animals, uniqueNamesGenerator } from "unique-names-generator";
+import { adjectives, colors, animals, names, uniqueNamesGenerator } from "unique-names-generator";
 
 /** Deterministic 31-bit string hash (mirrors the web-app demo's `hashSeed` so styles match). */
 export function hashSeed(s: string): number {
@@ -20,7 +20,10 @@ export function hashSeed(s: string): number {
 export function personaNameForPubkey(personaPubkey: string, digits = 2): string {
   const key = `persona::${personaPubkey}`;
   const words = uniqueNamesGenerator({
-    dictionaries: [adjectives, animals],
+    dictionaries: [
+      [...adjectives, ...colors].filter(word => word.length <= 7), 
+      [...animals, ...names].filter(word => word.length <= 7)
+    ],
     separator: "",
     style: "capital",
     seed: hashSeed(key),

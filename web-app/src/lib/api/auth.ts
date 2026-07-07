@@ -14,6 +14,15 @@ export interface RegistrationProfile {
   handle: string;
   displayName?: string;
   over18: boolean;
+  firstName?: string;
+  lastName?: string;
+  address?: {
+    line1?: string;
+    city?: string;
+    province?: string;
+    postalCode?: string;
+    country?: string;
+  };
 }
 
 export interface SessionInfo {
@@ -45,6 +54,9 @@ export async function verifyRegistrationOtp(
       handle: profile.handle.trim(),
       over18: profile.over18 !== false,
       ...(profile.displayName?.trim() ? { displayName: profile.displayName.trim() } : {}),
+      ...(profile.firstName?.trim() ? { firstName: profile.firstName.trim() } : {}),
+      ...(profile.lastName?.trim() ? { lastName: profile.lastName.trim() } : {}),
+      ...(profile.address ? { address: profile.address } : {}),
     },
   });
   if (!body) throw new Error("OTP verify returned empty body");
