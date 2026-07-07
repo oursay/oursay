@@ -63,11 +63,17 @@ export type GatedAction =
 /** Per-action gate table for a jurisdiction (mirror of the backend `gates`). */
 export type JurisdictionGates = Record<GatedAction, ActionGate>;
 
-/** A jurisdiction's leader (name only; the seat/role is inferred from the jurisdiction). */
+/** Jurisdiction-leader role key for official seat links. */
+export type OfficialLeaderRole = "premier" | "platform" | "mla";
+
+/** A jurisdiction's leader seat — holder name plus claim state for the official link. */
 export interface JurisdictionLeader {
+  /** Current office holder from public record. */
   name: string;
-  /** Mock profile handle for the jurisdiction leader. */
+  /** Official seat handle, e.g. ab-premier or global-platform. */
   handle: string;
+  claimed?: boolean;
+  leaderRole?: OfficialLeaderRole;
 }
 
 /** A district (riding) within a jurisdiction, as listed on the Jurisdiction view. */
@@ -77,8 +83,9 @@ export interface DistrictSummary {
   slug: string;
   /** Riding leader display name (e.g. the MLA). */
   leader: string;
-  /** Mock profile handle for the riding leader. */
+  /** Official seat handle for the riding MLA. */
   leaderHandle: string;
+  leaderClaimed?: boolean;
 }
 
 /**
@@ -113,8 +120,9 @@ export interface DistrictDetail {
   /** Parent jurisdiction id (e.g. `"ab-ca-gov"`) — routes nest under it. */
   jur: JurisdictionId;
   leader: string;
-  /** Mock profile handle for the riding leader (MLA). */
+  /** Official seat handle for the riding MLA. */
   leaderHandle: string;
+  leaderClaimed?: boolean;
   boundaryYear: number;
   source: string;
   about: string[];

@@ -33,6 +33,32 @@ CREATE INDEX IF NOT EXISTS districts_geom_gix    ON geo.districts USING GIST (ge
 CREATE INDEX IF NOT EXISTS districts_jur_eff_idx ON geo.districts (jurisdiction_id, effective_date);
 CREATE INDEX IF NOT EXISTS districts_lineage_idx ON geo.districts (jurisdiction_id, district_slug, effective_date);
 
+-- Official seat roster: one row per seat revision, aligned to a boundary effective_date.
+-- Seat handles (ab-premier, ab-edm_strth) are stable; id is year/redraw-scoped like districts.
+CREATE TABLE IF NOT EXISTS geo.official_seats (
+  id                    TEXT PRIMARY KEY,                       -- e.g. "ab-edm_strth-2019"
+  jurisdiction_id       TEXT NOT NULL,
+  seat_kind             TEXT NOT NULL CHECK (seat_kind IN ('jurisdiction_leader', 'district_mla')),
+  title                 TEXT NOT NULL,                          -- e.g. "Alberta Premier", "District MLA"
+  seat_handle           TEXT NOT NULL,                          -- stable handle, e.g. "ab-edm_strth"
+  district_slug         TEXT,                                   -- year-less riding key (MLA seats)
+  district_short_slug   TEXT,
+  leader_role           TEXT,                                   -- premier | platform (jurisdiction leaders)
+  effective_date        DATE NOT NULL,
+  boundary_year         INT  NOT NULL,
+  role                  TEXT NOT NULL,                          -- display line, e.g. "MLA · Edmonton-Strathcona"
+  representative_name   TEXT NOT NULL,
+  claimed_user_handle   TEXT,                                   -- platform-linked user profile when claimed
+  source                TEXT NOT NULL,
+  ingested_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS official_seats_jur_eff_idx
+  ON geo.official_seats (jurisdiction_id, effective_date);
+CREATE INDEX IF NOT EXISTS official_seats_handle_idx
+  ON geo.official_seats (seat_handle, effective_date);
+CREATE INDEX IF NOT EXISTS official_seats_district_idx
+  ON geo.official_seats (jurisdiction_id, district_slug, effective_date);
+
 -- The Region registry persists ONLY custom/platform presets. Built-in regions (a single district,
 -- a district union, a whole-jurisdiction extent) are computed on the fly by the RegionResolver and
 -- need no rows. A region is defined by explicit district_ids[] (each an effective-dated revision —

@@ -35,6 +35,7 @@ export interface PostTemplate {
 
 /** Always seeded first with fixed authors — guarantees single/multi-district UI coverage. */
 export const SHOWCASE_BINDINGS: readonly { slug: string; author: string }[] = [
+  { slug: "gl-rcv-poll", author: "oursay" },
   { slug: "ab-province-wide", author: "whyte_public" },
   { slug: "ab-showcase-pet-single", author: "strathcona_local" },
   { slug: "ab-river-path", author: "centre_district" },

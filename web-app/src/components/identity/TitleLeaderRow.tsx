@@ -1,6 +1,7 @@
 "use client";
 
 import { LeaderProfileLink } from "./LeaderProfileLink";
+import type { OfficialLeaderRole } from "@/lib/types/jurisdiction";
 
 interface TitleLeaderRowProps {
   title: string;
@@ -10,6 +11,8 @@ interface TitleLeaderRowProps {
   onLeaderClick: () => void;
   onTitleClick?: () => void;
   variant?: "header" | "row";
+  claimed?: boolean;
+  leaderRole?: OfficialLeaderRole;
 }
 
 /** One-line riding title + leader link — leader keeps full width; title truncates on overflow. */
@@ -20,6 +23,8 @@ export function TitleLeaderRow({
   onLeaderClick,
   onTitleClick,
   variant = "row",
+  claimed = true,
+  leaderRole = "mla",
 }: TitleLeaderRowProps) {
   const titleClass =
     variant === "header"
@@ -42,7 +47,7 @@ export function TitleLeaderRow({
       </h2>
     );
 
-  const hasLeader = leaderName.trim().length > 0;
+  const hasLeader = leaderName.trim().length > 0 || !claimed;
 
   return (
     <div className="flex w-full min-w-0 items-center gap-2">
@@ -52,6 +57,8 @@ export function TitleLeaderRow({
           name={leaderName}
           handle={leaderHandle}
           size={variant === "row" ? "sm" : "md"}
+          claimed={claimed}
+          leaderRole={leaderRole}
           onClick={onLeaderClick}
         />
       ) : null}

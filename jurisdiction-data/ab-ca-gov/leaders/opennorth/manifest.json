@@ -1,0 +1,11 @@
+{
+  "jurisdictionId": "ab-ca-gov",
+  "source": "opennorth",
+  "sourceEndpoint": "https://represent.opennorth.ca/representatives/alberta-legislature/",
+  "lastPulledAt": "2026-07-07T21:31:31.218Z",
+  "rawSnapshot": "raw/2026-07-07.json",
+  "normalized": "normalized/seats.json",
+  "seatCount": 88,
+  "mlaCount": 87,
+  "premierName": "Danielle Smith"
+}

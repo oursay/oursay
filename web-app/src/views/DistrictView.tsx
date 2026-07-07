@@ -7,6 +7,7 @@ import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
 import { districtName, jurisdictionIdFromSlug, jurisdictionLabel } from "@/lib/mock";
+import { isSeatClaimed } from "@/lib/official-seat";
 import { authorPath, personaHintPath, postPath, officialPath, jurisdictionPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
@@ -73,7 +74,12 @@ export function DistrictView({
         }
         leaderName={detail.leader}
         leaderHandle={detail.leaderHandle}
-        onLeaderClick={() => router.push(officialPath(detail.leaderHandle))}
+        claimed={detail.leaderClaimed ?? isSeatClaimed(detail.leaderHandle)}
+        leaderRole="mla"
+        onLeaderClick={() => {
+          const path = officialPath(detail.leaderHandle);
+          if (path) router.push(path);
+        }}
       />
 
       <CollapsibleSection

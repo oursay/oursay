@@ -490,7 +490,7 @@ function buildDistrictMap(): Record<string, DistrictDetail> {
       slug: riding.slug,
       jur: ALBERTA_ID,
       leader: riding.mla.name,
-      leaderHandle: riding.mla.handle,
+      leaderHandle: riding.mla.seatHandle,
       boundaryYear: 2019,
       source: "Elections Alberta",
       about: [
@@ -512,7 +512,7 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       slug: "global",
       name: "Global",
       level: "global",
-      leader: { name: "OurSay Stewards", handle: "oursay" },
+      leader: { name: "OurSay Stewards", handle: "global-platform", claimed: true, leaderRole: "platform" },
       gates: JURISDICTION_GATES[GLOBAL_ID],
       rules: [
         "Open policy — any member may post any root type.",
@@ -529,7 +529,7 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       slug: "alberta",
       name: "Alberta",
       level: "province",
-      leader: { name: "Hon. A. Premier", handle: "premier" },
+      leader: { name: "Danielle Smith", handle: "ab-premier", claimed: false, leaderRole: "premier" },
       gates: JURISDICTION_GATES[ALBERTA_ID],
       rules: [
         "Ladder policy — levels graduate upward.",
@@ -544,7 +544,7 @@ function buildJurData(): Record<string, JurisdictionSummary> {
         name: r.name,
         slug: r.slug,
         leader: r.mla.name,
-        leaderHandle: r.mla.handle,
+        leaderHandle: r.mla.seatHandle,
       })),
     },
   };

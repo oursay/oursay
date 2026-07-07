@@ -20,6 +20,8 @@ export interface SeedPerson {
   visibility?: SeedVisibility;
   /** When set, user gets official role in ab-ca-gov (needed for Alberta polls). */
   officialDistrict?: string | null;
+  /** Jurisdiction-wide official in oursay-global (platform leader). */
+  globalOfficial?: boolean;
   jurisdictions?: string[];
 }
 
@@ -28,6 +30,13 @@ export const ALBERTA_ID = "ab-ca-gov";
 
 /** Fixed officials + visibility showcase accounts (mixed into the random pool). */
 export const SEED_ANCHORS: readonly SeedPerson[] = [
+  {
+    handle: "oursay",
+    name: "OurSay Stewards",
+    tier: 3,
+    visibility: "public",
+    globalOfficial: true,
+  },
   {
     handle: "strathcona_local",
     name: "Morgan Strathcona",

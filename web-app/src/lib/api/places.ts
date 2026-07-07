@@ -30,7 +30,9 @@ async function getJurisdictionLive(
   ]);
   if (!detail) return null;
 
-  const districts = (districtsRes?.items ?? []).map(mapDistrictSummary);
+  const districts = (districtsRes?.items ?? []).map((row) =>
+    mapDistrictSummary(row, jurisdictionId),
+  );
   return mapJurisdictionSummary(detail, districts);
 }
 
@@ -53,7 +55,7 @@ async function listDistrictsLive(
   const res = await apiGet<{ items: Record<string, unknown>[] }>(
     `/v1/public/jurisdictions/${encodeURIComponent(jurisdictionId)}/districts`,
   );
-  return res?.items.map(mapDistrictSummary) ?? [];
+  return res?.items.map((row) => mapDistrictSummary(row, jurisdictionId)) ?? [];
 }
 
 export async function listDistricts(

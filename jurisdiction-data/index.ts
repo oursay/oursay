@@ -10,3 +10,19 @@ import { oursayGlobal } from "./oursay-global/jurisdiction.js";
 export const jurisdictions: JurisdictionConfig[] = [oursayGlobal, abCaGov];
 
 export { abCaGov, oursayGlobal };
+export {
+  abCaGovOfficialSeats,
+  abCaGovJurisdictionLeader,
+  allOfficialSeats,
+  officialSeatCatalogs,
+  oursayGlobalPlatformSeat,
+  oursayGlobalStewardSeat,
+} from "./officials-catalog.js";
+export type { OfficialSeatRecord, OfficialSeatsCatalog } from "./lib/official-seats.js";
+export {
+  districtSeatHandle,
+  districtShortSlug,
+  districtSlug,
+  jurisdictionLeaderSeatHandle,
+} from "./lib/slugs.js";
+export { isSeatClaimed, seatDisplayHandle, seatForDistrict, seatTitleFor, seatsByHandle } from "./lib/official-seats.js";

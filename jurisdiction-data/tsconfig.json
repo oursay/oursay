@@ -6,7 +6,8 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["index.ts", "*/jurisdiction.ts"]
+  "include": ["index.ts", "**/*.ts"]
 }

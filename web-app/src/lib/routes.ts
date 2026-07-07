@@ -53,9 +53,10 @@ export function districtPath(
   return `/jurisdiction/${jurSlug}/district/${districtSlug}`;
 }
 
-/** Route to an auto-generated official seat page: /official/{handle}. */
-export function officialPath(handle: string): string {
-  const wire = wireHandle(handle) ?? handle.replace(/^@/, "");
+/** Route to an auto-generated official seat page: /official/{handle}. Null when handle is missing. */
+export function officialPath(handle: string | null | undefined): string | null {
+  const wire = wireHandle(handle ?? "");
+  if (!wire) return null;
   return `/official/${encodeURIComponent(wire)}`;
 }
 

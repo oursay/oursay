@@ -13,13 +13,13 @@ import {
   TitleLeaderRow,
 } from "@/components";
 import { districtName, jurisdictionIdFromSlug } from "@/lib/mock";
+import { inferLeaderRole, isSeatClaimed } from "@/lib/official-seat";
 import {
   authorPath,
   districtPath,
   officialPath,
   personaHintPath,
   postPath,
-  profilePath,
 } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
@@ -72,7 +72,18 @@ export function JurisdictionView({ slug }: { slug: string }) {
         title={summary.name}
         leaderName={summary.leader.name}
         leaderHandle={summary.leader.handle}
-        onLeaderClick={() => router.push(officialPath(summary.leader.handle))}
+        claimed={summary.leader.claimed ?? isSeatClaimed(summary.leader.handle)}
+        leaderRole={
+          summary.leader.leaderRole ??
+          inferLeaderRole({
+            jurisdictionId: summary.id,
+            seatHandle: summary.leader.handle,
+          })
+        }
+        onLeaderClick={() => {
+          const path = officialPath(summary.leader.handle);
+          if (path) router.push(path);
+        }}
       />
 
       {hasRidings ? (
@@ -118,11 +129,16 @@ export function JurisdictionView({ slug }: { slug: string }) {
                     title={d.name}
                     leaderName={d.leader}
                     leaderHandle={d.leaderHandle}
+                    claimed={d.leaderClaimed ?? isSeatClaimed(d.leaderHandle)}
+                    leaderRole="mla"
                     variant="row"
                     onTitleClick={() =>
                       router.push(districtPath(d.slug, { jurisdictionSlug: slug }))
                     }
-                    onLeaderClick={() => router.push(profilePath(d.leaderHandle))}
+                    onLeaderClick={() => {
+                      const path = officialPath(d.leaderHandle);
+                      if (path) router.push(path);
+                    }}
                   />
                 </div>
               </li>

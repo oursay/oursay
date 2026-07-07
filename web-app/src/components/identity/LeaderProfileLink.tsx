@@ -1,6 +1,8 @@
 "use client";
 
+import { Gavel } from "lucide-react";
 import { Avatar } from "@/components/ui";
+import type { OfficialLeaderRole } from "@/lib/types/jurisdiction";
 
 interface LeaderProfileLinkProps {
   name: string;
@@ -9,17 +11,30 @@ interface LeaderProfileLinkProps {
   onClick: () => void;
   /** Header title bar vs compact riding row. */
   size?: "md" | "sm";
+  /** When false, show gavel + role label instead of avatar + name. */
+  claimed?: boolean;
+  leaderRole?: OfficialLeaderRole;
 }
 
-/** Avatar + full name, right-aligned — wireframe leaderLink(). */
+function roleLabel(role: OfficialLeaderRole): string {
+  if (role === "premier") return "Premier";
+  if (role === "platform") return "Platform";
+  return "MLA";
+}
+
+/** Avatar + full name, right-aligned — wireframe leaderLink(). Unclaimed seats use gavel + role. */
 export function LeaderProfileLink({
   name,
   handle,
   onClick,
   size = "md",
+  claimed = true,
+  leaderRole = "mla",
 }: LeaderProfileLinkProps) {
   const textClass =
     size === "sm" ? "text-[11px] font-medium text-ink" : "text-xs font-medium text-ink";
+  const displayName = claimed ? name : roleLabel(leaderRole);
+  const iconSize = size === "sm" ? 14 : 16;
 
   return (
     <button
@@ -27,8 +42,17 @@ export function LeaderProfileLink({
       onClick={onClick}
       className="flex shrink-0 items-center gap-1.5 hover:opacity-80"
     >
-      <Avatar name={name} seed={handle} size="sm" />
-      <span className={`whitespace-nowrap ${textClass}`}>{name}</span>
+      {claimed ? (
+        <Avatar name={name} seed={handle} size="sm" />
+      ) : (
+        <span
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-300"
+          aria-hidden
+        >
+          <Gavel size={iconSize} className="text-ink" />
+        </span>
+      )}
+      <span className={`whitespace-nowrap ${textClass}`}>{displayName}</span>
     </button>
   );
 }

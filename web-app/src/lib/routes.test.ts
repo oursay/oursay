@@ -13,8 +13,9 @@ describe("districtPath", () => {
   });
 
   it("routes jurisdiction leaders to the official profile surface", () => {
-    expect(officialPath("premier")).toBe("/official/premier");
+    expect(officialPath("ab-premier")).toBe("/official/ab-premier");
     expect(officialPath("@oursay")).toBe("/official/oursay");
+    expect(officialPath("")).toBeNull();
   });
 });
 

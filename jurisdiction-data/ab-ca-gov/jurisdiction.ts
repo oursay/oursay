@@ -1,5 +1,6 @@
 import type { JurisdictionConfig } from "@oursay/public-record";
 import { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS } from "@oursay/public-record";
+import { abCaGovJurisdictionLeader } from "./officials.js";
 
 // ab-ca-gov — the Alberta provincial LAUNCH jurisdiction. Production-like gating: FINAL-action
 // semantics (no change/revoke), and vote/signature scalars are TIER-GATED — a public count is disclosed
@@ -56,7 +57,7 @@ export const abCaGov: JurisdictionConfig = {
   // Graduation (Part 6 #9): moving %-of-verified threshold now; a fixed n (10% of the previous
   // provincial election's valid votes) replaces it later. AB officials may promote early.
   graduation: { threshold: { kind: "percentOfVerified", percent: 10, basis: "moving" }, officialEarlyPromotion: true },
-  leader: { name: "Hon. A. Premier", handle: "premier" },
+  leader: { name: abCaGovJurisdictionLeader.name, handle: abCaGovJurisdictionLeader.handle },
   rulesCopy: [
     "Ladder policy — levels graduate upward.",
     "Statements: open to any registered member (passkey-signed).",

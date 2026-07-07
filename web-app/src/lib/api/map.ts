@@ -24,6 +24,7 @@ import type {
   JurisdictionSummary,
   SignFloor,
 } from "@/lib/types/jurisdiction";
+import { districtSeatHandle, inferLeaderRole, isSeatClaimed } from "@/lib/official-seat";
 import type { CommentNode } from "@/lib/types/comments";
 import type { SignTier } from "@/lib/types/sign-tier";
 import type {
@@ -296,13 +297,27 @@ export function mapJurisdictionSummary(
   districts: DistrictSummary[],
 ): JurisdictionSummary {
   const id = String(detail.id);
-  const leader = detail.leader as { name: string; handle: string } | undefined;
+  const leaderRaw = detail.leader as
+    | { name: string; handle: string; claimed?: boolean; leaderRole?: string }
+    | undefined;
+  const seatHandle = leaderRaw?.handle ?? "";
   return {
     id,
     slug: jurisdictionSlugForId(id),
     name: String(detail.label ?? id),
     level: mapLevel(String(detail.level)),
-    leader: leader ?? { name: "", handle: "" },
+    leader: leaderRaw
+      ? {
+          name: leaderRaw.name,
+          handle: seatHandle,
+          claimed: leaderRaw.claimed ?? isSeatClaimed(seatHandle),
+          leaderRole: inferLeaderRole({
+            jurisdictionId: id,
+            leaderRole: leaderRaw.leaderRole,
+            seatHandle: seatHandle,
+          }),
+        }
+      : { name: "", handle: "" },
     rules: (detail.rulesCopy as string[]) ?? [],
     gates: mapGates((detail.gates as Record<string, unknown>) ?? {}),
     districtLabel: districts.length > 0 ? "Ridings" : null,
@@ -310,25 +325,48 @@ export function mapJurisdictionSummary(
   };
 }
 
-export function mapDistrictSummary(raw: Record<string, unknown>): DistrictSummary {
+export function mapDistrictSummary(
+  raw: Record<string, unknown>,
+  jurisdictionId?: string,
+): DistrictSummary {
+  const slug = String(raw.districtSlug ?? raw.slug);
+  const fromApi = String(raw.seatHandle ?? raw.leaderHandle ?? "").trim();
+  const leaderHandle =
+    fromApi || (jurisdictionId ? districtSeatHandle(jurisdictionId, slug) : "");
   return {
     name: String(raw.name),
-    slug: String(raw.districtSlug ?? raw.slug),
-    leader: "",
-    leaderHandle: "",
+    slug,
+    leader: String(raw.leader ?? raw.representativeName ?? ""),
+    leaderHandle,
+    leaderClaimed:
+      raw.leaderClaimed != null
+        ? Boolean(raw.leaderClaimed)
+        : leaderHandle
+          ? isSeatClaimed(leaderHandle)
+          : undefined,
   };
 }
 
 export function mapDistrictDetail(raw: Record<string, unknown>): DistrictDetail {
   const about = raw.about;
+  const slug = String(raw.slug);
+  const jur = String(raw.jur);
+  const fromApi = String(raw.seatHandle ?? raw.leaderHandle ?? "").trim();
+  const leaderHandle = fromApi || districtSeatHandle(jur, slug);
   return {
     name: String(raw.name),
-    slug: String(raw.slug),
-    jur: String(raw.jur),
-    leader: String(raw.leader ?? ""),
-    leaderHandle: String(raw.leaderHandle ?? ""),
+    slug,
+    jur,
+    leader: String(raw.leader ?? raw.representativeName ?? ""),
+    leaderHandle,
+    leaderClaimed:
+      raw.leaderClaimed != null
+        ? Boolean(raw.leaderClaimed)
+        : leaderHandle
+          ? isSeatClaimed(leaderHandle)
+          : undefined,
     boundaryYear: (raw.boundaryYear as number) ?? 0,
-    source: String(raw.sourceName ?? ""),
+    source: String(raw.sourceName ?? raw.source ?? ""),
     about: Array.isArray(about) ? (about as string[]) : about ? [String(about)] : [],
   };
 }

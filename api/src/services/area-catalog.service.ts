@@ -5,6 +5,10 @@
 // or sub-riding tiles; only official ingested electoral boundaries (docs/06 §2–3).
 
 import type { DistrictCatalogRow, GeoStore } from "@oursay/geo";
+import {
+  allOfficialSeats,
+  type OfficialSeatRecord,
+} from "@oursay/jurisdiction-data";
 import type {
   JurisdictionConfig,
   JurisdictionContentLimits,
@@ -26,6 +30,11 @@ export interface JurisdictionSummary {
 
 export interface DistrictListItem extends DistrictCatalogRow {
   geometry?: unknown; // present only when include=geometry
+  /** MLA name from public record, when roster is ingested. */
+  leader?: string;
+  /** Official seat handle for the district MLA (links to /official/{handle}). */
+  leaderHandle?: string;
+  seatHandle?: string;
 }
 
 export interface DistrictDirectory {
@@ -70,10 +79,21 @@ const ASOF_RE = /^\d{4}-\d{2}-\d{2}$/;
 export class AreaCatalogService {
   private readonly geoStore: GeoStore;
   private readonly jurisdictions: JurisdictionConfig[];
+  private readonly seatsByJurisdiction: Map<string, OfficialSeatRecord[]>;
 
-  constructor(deps: { geoStore: GeoStore; jurisdictions: JurisdictionConfig[] }) {
+  constructor(deps: {
+    geoStore: GeoStore;
+    jurisdictions: JurisdictionConfig[];
+    officialSeats?: OfficialSeatRecord[];
+  }) {
     this.geoStore = deps.geoStore;
     this.jurisdictions = deps.jurisdictions;
+    this.seatsByJurisdiction = new Map();
+    for (const seat of deps.officialSeats ?? allOfficialSeats()) {
+      const list = this.seatsByJurisdiction.get(seat.jurisdictionId) ?? [];
+      list.push(seat);
+      this.seatsByJurisdiction.set(seat.jurisdictionId, list);
+    }
   }
 
   /** Public jurisdiction detail (P7). Unknown id ⇒ 404. */
@@ -102,7 +122,13 @@ export class AreaCatalogService {
     const items = await this.geoStore.listDistrictsAsOf(jurisdictionId, new Date(`${asOf}T00:00:00Z`));
     const row = items.find((d) => d.districtSlug === slug);
     if (!row) throw new ServiceError("not_found", `unknown district: ${slug}`);
-    return mapDistrictDetail(jurisdictionId, row);
+    return mapDistrictDetail(
+      jurisdictionId,
+      row,
+      new Date(`${asOf}T00:00:00Z`),
+      this.geoStore,
+      this.seatsByJurisdiction.get(jurisdictionId) ?? [],
+    );
   }
 
   /** The registered jurisdiction index — id + level + optional public label, per-record-type labels,
@@ -126,10 +152,17 @@ export class AreaCatalogService {
   ): Promise<DistrictDirectory> {
     this.requireJurisdictionConfig(jurisdictionId);
     const asOf = this.resolveAsOf(opts.asOf);
-    const items = await this.geoStore.listDistrictsAsOf(jurisdictionId, new Date(`${asOf}T00:00:00Z`), {
+    const asOfDate = new Date(`${asOf}T00:00:00Z`);
+    const items = await this.geoStore.listDistrictsAsOf(jurisdictionId, asOfDate, {
       includeGeometry: opts.includeGeometry,
     });
-    return { jurisdictionId, asOf, items };
+    const fileSeats = this.seatsByJurisdiction.get(jurisdictionId) ?? [];
+    const enriched = await Promise.all(
+      items.map((row) =>
+        enrichDistrictListItem(jurisdictionId, row, asOfDate, this.geoStore, fileSeats),
+      ),
+    );
+    return { jurisdictionId, asOf, items: enriched };
   }
 
   /** Official GeoJSON (4326 MultiPolygon) for ONE district revision by id. Any ingested revision is
@@ -174,7 +207,19 @@ function boundaryYearFromRevisionId(id: string): number | null {
   return m ? Number.parseInt(m[1]!, 10) : null;
 }
 
-function mapDistrictDetail(jurisdictionId: string, row: DistrictCatalogRow): DistrictDetail {
+async function mapDistrictDetail(
+  jurisdictionId: string,
+  row: DistrictCatalogRow,
+  asOf: Date,
+  geoStore: GeoStore,
+  fileSeats: OfficialSeatRecord[],
+): Promise<DistrictDetail> {
+  const dbSeat = await geoStore.getOfficialSeatForDistrict(jurisdictionId, row.districtSlug, asOf);
+  const fileSeat = fileSeats.find(
+    (entry) => entry.seatKind === "district_mla" && entry.districtSlug === row.districtSlug,
+  );
+  const representativeName = dbSeat?.representativeName ?? fileSeat?.name ?? null;
+  const seatHandle = dbSeat?.seatHandle ?? fileSeat?.seatHandle ?? null;
   return {
     name: row.name,
     slug: row.districtSlug,
@@ -182,8 +227,28 @@ function mapDistrictDetail(jurisdictionId: string, row: DistrictCatalogRow): Dis
     boundaryYear: boundaryYearFromRevisionId(row.id),
     effectiveDate: row.effectiveDate,
     ...(row.source ? { sourceName: row.source } : {}),
-    leader: null,
-    leaderHandle: null,
+    leader: representativeName,
+    leaderHandle: seatHandle,
     about: null,
+  };
+}
+
+async function enrichDistrictListItem(
+  jurisdictionId: string,
+  row: DistrictCatalogRow,
+  asOf: Date,
+  geoStore: GeoStore,
+  fileSeats: OfficialSeatRecord[],
+): Promise<DistrictListItem> {
+  const dbSeat = await geoStore.getOfficialSeatForDistrict(jurisdictionId, row.districtSlug, asOf);
+  const fileSeat = fileSeats.find(
+    (entry) => entry.seatKind === "district_mla" && entry.districtSlug === row.districtSlug,
+  );
+  const leader = dbSeat?.representativeName ?? fileSeat?.name;
+  const seatHandle = dbSeat?.seatHandle ?? fileSeat?.seatHandle;
+  return {
+    ...row,
+    ...(leader != null ? { leader } : {}),
+    ...(seatHandle != null ? { leaderHandle: seatHandle, seatHandle } : {}),
   };
 }

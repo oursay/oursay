@@ -1,5 +1,6 @@
 import type { JurisdictionConfig } from "@oursay/public-record";
 import { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS } from "@oursay/public-record";
+import { oursayGlobalPlatformSeat } from "./steward-seat.js";
 
 // oursay-global — the universal OurSay record and OPEN SANDBOX jurisdiction. Permissive by design:
 // votes and signatures are publicly exposable with no tier gate, and change/revoke are allowed so
@@ -36,7 +37,7 @@ export const oursayGlobal: JurisdictionConfig = {
   },
   // Graduation (Part 6 #9): forced poll at a fixed signature count; no early promotion role here.
   graduation: { threshold: { kind: "fixed", n: 100 }, officialEarlyPromotion: false },
-  leader: { name: "OurSay Stewards", handle: "oursay" },
+  leader: { name: oursayGlobalPlatformSeat.name, handle: oursayGlobalPlatformSeat.seatHandle },
   rulesCopy: [
     "Open policy — any member may post any root type.",
     "Statements, Petitions and Polls are open to all.",

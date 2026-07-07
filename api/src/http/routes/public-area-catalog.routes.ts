@@ -24,6 +24,9 @@ const districtItemSchema = {
     drawnDate: { type: "string", nullable: true, description: "When the boundary was drawn/enacted, if known (YYYY-MM-DD)." },
     source: { type: "string", description: "Provenance (file + authority)." },
     sourceRef: { type: "string", nullable: true, description: "Original source id (e.g. EDNumber20)." },
+    leader: { type: "string", description: "District MLA name from public record, when roster is ingested." },
+    leaderHandle: { type: "string", description: "Official seat handle for the MLA (e.g. ab-edm_strth)." },
+    seatHandle: { type: "string", description: "Same as leaderHandle — stable seat key for /official/{handle}." },
     geometry: {
       type: "object",
       additionalProperties: true,

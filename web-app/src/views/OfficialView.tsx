@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, Gavel, User } from "lucide-react";
 import { getOfficialProfile, type OfficialProfile } from "@/lib/api/official";
 import { isMockOnly } from "@/lib/api/client";
 import {
@@ -17,11 +17,10 @@ import {
   REACTION_GLYPH,
   activityRowGlyph,
 } from "@/components/content";
-import { displayHandle } from "@/lib/handle";
 import {
   authorPath,
   districtPath,
-  jurisdictionPath,
+  officialPath,
   personaHintPath,
   postPath,
   postPathForId,
@@ -41,8 +40,8 @@ function activityToRecordId(kind: ActivityKind): string {
 }
 
 /**
- * Official profile — auto-generated from public record (docs/11-USER-FLOWS §7.1).
- * Jurisdiction leaders today; district MLA catalog later. Claim replaces the CTA.
+ * Official seat profile — auto-generated from public record (docs/11-USER-FLOWS §7.1).
+ * Presents the office seat first; the current holder is a secondary link when claimed.
  */
 export function OfficialView({ handle }: { handle: string }) {
   const app = useApp();
@@ -84,24 +83,47 @@ export function OfficialView({ handle }: { handle: string }) {
   const showSupport =
     support != null && support.agrees + support.disagrees > 0;
 
+  const representativeRow = profile.claimed ? (
+    <button
+      type="button"
+      onClick={() => {
+        const path = officialPath(profile.seatHandle);
+        if (path) router.push(path);
+      }}
+      className="flex min-w-0 max-w-full items-center gap-1.5 text-left text-xs font-medium text-brand-700 hover:text-brand-800"
+    >
+      <User size={13} className="shrink-0" aria-hidden />
+      <span className="truncate underline underline-offset-2">
+        {profile.representativeName}
+      </span>
+    </button>
+  ) : (
+    <p className="flex min-w-0 max-w-full items-center gap-1.5 text-xs italic text-muted">
+      <User size={13} className="shrink-0" aria-hidden />
+      <span className="truncate">{profile.representativeName}</span>
+    </p>
+  );
+
   return (
     <div className="space-y-1 p-3">
       <header className="rounded-xl border border-border bg-surface px-3 pt-3 pb-3">
         <div className="flex items-center gap-3">
-          <Avatar name={profile.name} seed={profile.handle} size="lg" />
+          {profile.claimed ? (
+            <Avatar name={profile.seatTitle} seed={profile.seatHandle} size="lg" />
+          ) : (
+            <span
+              className="inline-flex size-13 shrink-0 items-center justify-center rounded-full bg-brand-300"
+              aria-hidden
+            >
+              <Gavel size={28} className="text-ink" />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <p className="truncate font-bold text-ink">{profile.name}</p>
+              <p className="truncate font-bold text-ink">{profile.role}</p>
               <VerificationPill tier={3} align="right" />
             </div>
-            <p className="truncate text-sm text-muted">{displayHandle(profile.handle)}</p>
-            <button
-              type="button"
-              onClick={() => router.push(jurisdictionPath(profile.jurisdictionId))}
-              className="mt-0.5 truncate text-left text-xs text-brand-700 underline underline-offset-2 hover:text-brand-800"
-            >
-              {profile.role}
-            </button>
+            {representativeRow}
           </div>
         </div>
 

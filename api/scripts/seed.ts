@@ -7,7 +7,7 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ingestBoundaries, ShapefileSource, paths } from "@oursay/geo";
+import { ingestBoundaries, ingestOfficialSeats, oursayGlobalStewardSeat, ShapefileSource, paths } from "@oursay/geo";
 import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
 import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
@@ -51,6 +51,26 @@ async function ensureGeoBoundaries(world: Awaited<ReturnType<typeof buildSeedWor
   console.log("Ingesting Alberta 2019 districts…");
   const result = await ingestBoundaries(world.services.geoStore, alberta2019Source());
   console.log(`  → ${result.count} districts`);
+  const seatResult = await ingestOfficialSeats(
+    world.services.geoStore,
+    {
+      jurisdictionId: "ab-ca-gov",
+      effectiveDate: "2019-04-16",
+      boundaryYear: 2019,
+    },
+    paths.repoRoot,
+  );
+  await ingestOfficialSeats(
+    world.services.geoStore,
+    {
+      jurisdictionId: "oursay-global",
+      effectiveDate: "2019-04-16",
+      boundaryYear: 2019,
+      extraSeats: [oursayGlobalStewardSeat()],
+    },
+    paths.repoRoot,
+  );
+  console.log(`  → ${seatResult.count} official seats`);
 }
 
 async function main(): Promise<void> {

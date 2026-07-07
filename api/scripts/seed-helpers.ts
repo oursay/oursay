@@ -114,7 +114,9 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
   const handle = normalizeHandle(person.handle);
   if (!handle) throw new Error(`invalid seed handle: ${person.handle}`);
   const visibility =
-    person.officialDistrict !== undefined ? "public" : (person.visibility ?? "public");
+    person.officialDistrict !== undefined || person.globalOfficial
+      ? "public"
+      : (person.visibility ?? "public");
   await world.services.repos.user.create({
     id: userId,
     handle,
@@ -148,6 +150,9 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
       "official",
       person.officialDistrict,
     );
+  }
+  if (person.globalOfficial) {
+    await world.services.repos.membership.setRole(userId, GLOBAL_ID, "official", null);
   }
 
   if (person.tier >= 1) {

@@ -8,7 +8,8 @@
     ".": "./index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "pull:leaders": "node scripts/pull-opennorth-ab.mjs"
   },
   "dependencies": {
     "@oursay/public-record": "*"

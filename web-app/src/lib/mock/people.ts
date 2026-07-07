@@ -15,7 +15,7 @@ import type { MockPerson } from "./types";
  */
 const EXTRA_PEOPLE: MockPerson[] = [
   { name: "Dana Whitecloud", handle: "dwhitecloud", tier: 0, visibility: "anonymous" },
-  { name: "OurSay Stewards", handle: "oursay", tier: 3, role: "Platform stewards" },
+  { name: "OurSay Stewards", handle: "oursay", tier: 3, role: "Platform · Global" },
   { name: "Priya Anand", handle: "priya", tier: 1, visibility: "id_verified" },
   { name: "Marcus Lee", handle: "mlee", tier: 1, visibility: "my_jurisdiction" },
   { name: "Hon. A. Premier", handle: "premier", tier: 3, role: "Premier · Alberta" },

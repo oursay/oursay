@@ -114,7 +114,7 @@ function canReactTo(post: SeededPost): boolean {
 function canAuthorPoll(person: SeedPerson, template: PostTemplate): boolean {
   if (template.kind !== "poll") return true;
   if (template.scope !== "alberta" && template.scope !== "generic") return true;
-  return person.tier === 3 || person.officialDistrict !== undefined;
+  return person.tier === 3 || person.officialDistrict !== undefined || person.globalOfficial === true;
 }
 
 function resolveScope(template: PostTemplate, rng: Rng): string {

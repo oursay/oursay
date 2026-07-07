@@ -1,0 +1,2931 @@
+{
+  "meta": {
+    "pulledAt": "2026-07-07T21:31:31.218Z",
+    "count": 87
+  },
+  "objects": [
+    {
+      "name": "Irfan Sabir",
+      "district_name": "Calgary-McCall",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Irfan",
+      "last_name": "Sabir",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Bhullar.McCall@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0871&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0871.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 216-5424",
+          "type": "constituency",
+          "postal": "Unit 223, 4850 Westwinds Drive NE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Official Opposition Deputy House Leader"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-mccall/"
+      }
+    },
+    {
+      "name": "Kathleen Ganley",
+      "district_name": "Calgary-Mountain View",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Kathleen",
+      "last_name": "Ganley",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.MountainView@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0846&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0846.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 216-5447",
+          "tel": "1 403 216-5445",
+          "type": "constituency",
+          "postal": "#102, 723 - 14 Street NW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Chief Opposition Whip"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-mountain-view/"
+      }
+    },
+    {
+      "name": "Rebecca Schulz",
+      "district_name": "Calgary-Shaw",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Rebecca",
+      "last_name": "Schulz",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.Shaw@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0942&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0942.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-E Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 256-8969",
+          "type": "constituency",
+          "postal": "#208, 279 Midpark Way SE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-shaw/"
+      }
+    },
+    {
+      "name": "Pete Guthrie",
+      "district_name": "Airdrie-Cochrane",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Pete",
+      "last_name": "Guthrie",
+      "party_name": "Alberta Party",
+      "email": "Airdrie.Cochrane@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0920&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0920.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "3rd Floor, 9820 -107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 840-0439",
+          "tel": "1 587 493-2050",
+          "type": "constituency",
+          "postal": "Suite 1B, 60 Railway Street East, Cochrane, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/airdrie-cochrane/"
+      }
+    },
+    {
+      "name": "Peter Singh",
+      "district_name": "Calgary-East",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Peter",
+      "last_name": "Singh",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.East@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0946&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0946.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-I Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 235-4772",
+          "tel": "1 587 496-2052",
+          "type": "constituency",
+          "postal": "#202, 3505 - 52 Street SE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-east/"
+      }
+    },
+    {
+      "name": "Scott Sinclair",
+      "district_name": "Lesser Slave Lake",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Scott",
+      "last_name": "Sinclair",
+      "party_name": "Independent",
+      "email": "Lesser.SlaveLake@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0980&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0980.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 825 219-1000",
+          "type": "constituency",
+          "postal": "Unit 101, 201 4th Avenue NW, Slave Lake, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/lesser-slave-lake/"
+      }
+    },
+    {
+      "name": "Julia Hayter",
+      "district_name": "Calgary-Edgemont",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Julia",
+      "last_name": "Hayter",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Edgemont@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0964&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0964.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 288-4453",
+          "type": "constituency",
+          "postal": "#202, 1829 Ranchlands Boulevard NW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-edgemont/"
+      }
+    },
+    {
+      "name": "Ron Wiebe",
+      "district_name": "Grande Prairie-Wapiti",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Ron",
+      "last_name": "Wiebe",
+      "party_name": "United Conservative Party",
+      "email": "GrandePrairie.Wapiti@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0981&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0981.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "502E Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 539-0628",
+          "tel": "1 825 412-2050",
+          "type": "constituency",
+          "postal": "15602C - 102 Street, Grande Prairie, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Parliamentary Secretary for Rural Health (North)"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/grande-prairie-wapiti/"
+      }
+    },
+    {
+      "name": "Searle Turton",
+      "district_name": "Spruce Grove-Stony Plain",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Searle",
+      "last_name": "Turton",
+      "party_name": "United Conservative Party",
+      "email": "SpruceGrove.StonyPlain@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0950&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0950.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "130 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 962-6606",
+          "type": "constituency",
+          "postal": "210 McLeod Avenue, Suite 60, Spruce Grove, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Children and Family Services"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/spruce-grove-stony-plain/"
+      }
+    },
+    {
+      "name": "Demetrios Nicolaides",
+      "district_name": "Calgary-Bow",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Demetrios",
+      "last_name": "Nicolaides",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.Bow@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0931&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0931.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "423 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 216-5402",
+          "tel": "1 403 216-5400",
+          "type": "constituency",
+          "postal": "Suite 2214, 8561 - 8A Avenue SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Education and Childcare"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-bow/"
+      }
+    },
+    {
+      "name": "Mickey Amery",
+      "district_name": "Calgary-Cross",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Mickey",
+      "last_name": "Amery",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.Cross@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0913&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0913.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "424 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 273-2898",
+          "tel": "1 403 248-4487",
+          "type": "constituency",
+          "postal": "Unit #201, 920 36th Street NE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Justice",
+          "Deputy Government House Leader"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-cross/"
+      }
+    },
+    {
+      "name": "Heather Sweet",
+      "district_name": "Edmonton-Manning",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Heather",
+      "last_name": "Sweet",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Manning@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0877&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0877.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-0714",
+          "type": "constituency",
+          "postal": "14932 - 50 Street, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-manning/"
+      }
+    },
+    {
+      "name": "Rhiannon Hoyle",
+      "district_name": "Edmonton-South",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Rhiannon",
+      "last_name": "Hoyle",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.South@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0965&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0965.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 540-8441",
+          "tel": "1 780 643-9153",
+          "type": "constituency",
+          "postal": "202, 856 - 119 Street SW, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-south/"
+      }
+    },
+    {
+      "name": "Matt Jones",
+      "district_name": "Calgary-South East",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Matt",
+      "last_name": "Jones",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.SouthEast@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0923&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0923.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "227 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 215-8930",
+          "type": "constituency",
+          "postal": "Unit 202, 5126 - 126 Avenue SE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Hospital and Surgical Health Services"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-south-east/"
+      }
+    },
+    {
+      "name": "Samir Kayande",
+      "district_name": "Calgary-Elbow",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Samir",
+      "last_name": "Kayande",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Elbow@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0968&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0968.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 252-0520",
+          "tel": "1 403 252-0346",
+          "type": "constituency",
+          "postal": "Unit 205, 5005 Elbow Drive SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-elbow/"
+      }
+    },
+    {
+      "name": "Joseph Schow",
+      "district_name": "Cardston-Siksika",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Joseph",
+      "last_name": "Schow",
+      "party_name": "United Conservative Party",
+      "email": "Cardston.Siksika@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0941&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0941.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "tel": "1 403 653-5070",
+          "type": "legislature",
+          "postal": "425 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "type": "constituency",
+          "postal": "P.O. Box 819, Cardston, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Jobs, Economy, Trade, and Immigration",
+          "Government House Leader"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/cardston-siksika/"
+      }
+    },
+    {
+      "name": "Nagwan Al-Guneid",
+      "district_name": "Calgary-Glenmore",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Nagwan",
+      "last_name": "Al-Guneid",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Glenmore@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0984&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0984.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 216-5421",
+          "type": "constituency",
+          "postal": "#311A, 2525 Woodview Drive SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-glenmore/"
+      }
+    },
+    {
+      "name": "Marie Renaud",
+      "district_name": "St. Albert",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Marie",
+      "last_name": "Renaud",
+      "party_name": "Alberta New Democratic Party",
+      "email": "St.Albert@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0869&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0869.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 459-9113",
+          "type": "constituency",
+          "postal": "109B, 50 St. Thomas Street, St. Albert, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/st-albert/"
+      }
+    },
+    {
+      "name": "Nathan Neudorf",
+      "district_name": "Lethbridge-East",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Nathan",
+      "last_name": "Neudorf",
+      "party_name": "United Conservative Party",
+      "email": "Lethbridge.East@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0930&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0930.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "319 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 320-1011",
+          "type": "constituency",
+          "postal": "#10, 550 WT Hill Blvd. South, Lethbridge, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Affordability and Utilities"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/lethbridge-east/"
+      }
+    },
+    {
+      "name": "Nate Horner",
+      "district_name": "Drumheller-Stettler",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Nate",
+      "last_name": "Horner",
+      "party_name": "United Conservative Party",
+      "email": "Drumheller.Stettler@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0921&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0921.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "208 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 587 774-0306",
+          "type": "constituency",
+          "postal": "Box 1929, Bay 400, 300 South Railway Avenue East, Drumheller, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "President of Treasury Board",
+          "Minister of Finance"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/drumheller-stettler/"
+      }
+    },
+    {
+      "name": "Marlin Schmidt",
+      "district_name": "Edmonton-Gold Bar",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Marlin",
+      "last_name": "Schmidt",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Goldbar@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0872&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0872.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-1015",
+          "type": "constituency",
+          "postal": "#100, 8925 - 82 Avenue, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-gold-bar/"
+      }
+    },
+    {
+      "name": "Luanne Metz",
+      "district_name": "Calgary-Varsity",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Luanne",
+      "last_name": "Metz",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Varsity@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0969&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0969.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 216-5436",
+          "type": "constituency",
+          "postal": "Unit 232A, 3630 Brentwood Road N.W., Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-varsity/"
+      }
+    },
+    {
+      "name": "Diana Batten",
+      "district_name": "Calgary-Acadia",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Diana",
+      "last_name": "Batten",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Acadia@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0983&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0983.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 640-1363",
+          "type": "constituency",
+          "postal": "Suite #105, 10333 Southport Road SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-acadia/"
+      }
+    },
+    {
+      "name": "Dan Williams",
+      "district_name": "Peace River",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Dan",
+      "last_name": "Williams",
+      "party_name": "United Conservative Party",
+      "email": "Peace.River@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0952&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0952.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "320 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 928-5100",
+          "type": "constituency",
+          "postal": "10013 - 101 Avenue, P.O. Box 2793, La Crete, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Municipal Affairs",
+          "Deputy Government House Leader"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/peace-river/"
+      }
+    },
+    {
+      "name": "Jackie Armstrong-Homeniuk",
+      "district_name": "Fort Saskatchewan-Vegreville",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Jackie",
+      "last_name": "Armstrong-Homeniuk",
+      "party_name": "United Conservative Party",
+      "email": "FortSaskatchewan.Vegreville@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0914&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0914.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-H Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 632-6840",
+          "type": "constituency",
+          "postal": "Box 451, 5013 50 Street, Vegreville, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Parliamentary Secretary for Settlement Services and Ukrainian Evacuees"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/fort-saskatchewan-vegreville/"
+      }
+    },
+    {
+      "name": "Jodi Calahoo Stonehouse",
+      "district_name": "Edmonton-Rutherford",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Jodi Calahoo",
+      "last_name": "Stonehouse",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Rutherford@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0958&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0958.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 414-1314",
+          "tel": "1 780 414-1311",
+          "type": "constituency",
+          "postal": "308 Saddleback Road, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-rutherford/"
+      }
+    },
+    {
+      "name": "Naheed K. Nenshi",
+      "district_name": "Edmonton-Strathcona",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Naheed K.",
+      "last_name": "Nenshi",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Strathcona@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0987&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0987.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-0702",
+          "type": "constituency",
+          "postal": "Strathcona Professional Centre, #101, 10328 - 81 Avenue NW, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Leader of the Official Opposition"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-strathcona/"
+      }
+    },
+    {
+      "name": "Joe Ceci",
+      "district_name": "Calgary-Buffalo",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Joe",
+      "last_name": "Ceci",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Buffalo@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0838&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0838.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 244-7737",
+          "type": "constituency",
+          "postal": "1173 - 11 Avenue SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-buffalo/"
+      }
+    },
+    {
+      "name": "Nathan Ip",
+      "district_name": "Edmonton-South West",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Nathan",
+      "last_name": "Ip",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.SouthWest@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0966&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0966.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 415-8692",
+          "type": "constituency",
+          "postal": "Suite 229, 6650 177 Street, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-south-west/"
+      }
+    },
+    {
+      "name": "Tanya Fir",
+      "district_name": "Calgary-Peigan",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Tanya",
+      "last_name": "Fir",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.Peigan@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0916&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0916.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "132 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 587 392-8850",
+          "type": "constituency",
+          "postal": "255, 11488 - 24 Street SE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Arts, Culture and Status of Women"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-peigan/"
+      }
+    },
+    {
+      "name": "Scott Cyr",
+      "district_name": "Bonnyville-Cold Lake-St. Paul",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Scott",
+      "last_name": "Cyr",
+      "party_name": "United Conservative Party",
+      "email": "Bonnyville.ColdLake.StPaul@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0886&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0886.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "502A Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 826-2165",
+          "tel": "1 780 826-5658",
+          "type": "constituency",
+          "postal": "Box 5160, #2, 4428 - 50 Avenue, Bonnyville, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/bonnyville-cold-lake-st-paul/"
+      }
+    },
+    {
+      "name": "Muhammad Yaseen",
+      "district_name": "Calgary-North",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Muhammad",
+      "last_name": "Yaseen",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.North@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0954&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0954.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "420 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 274-1931",
+          "type": "constituency",
+          "postal": "104, 200 Country Hills Landing NW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Associate Minister of Multiculturalism"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-north/"
+      }
+    },
+    {
+      "name": "Gurtej Singh Brar",
+      "district_name": "Edmonton-Ellerslie",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Gurtej Singh",
+      "last_name": "Brar",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Ellerslie@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0988&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0988.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-2000",
+          "type": "constituency",
+          "postal": "5732 - 19A Avenue, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-ellerslie/"
+      }
+    },
+    {
+      "name": "David Shepherd",
+      "district_name": "Edmonton-City Centre",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "David",
+      "last_name": "Shepherd",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.CityCentre@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0874&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0874.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-0743",
+          "type": "constituency",
+          "postal": "10208 - 112 Street, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Official Opposition Deputy House Leader"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-city-centre/"
+      }
+    },
+    {
+      "name": "Brooks Arcand-Paul",
+      "district_name": "Edmonton-West Henday",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Brooks",
+      "last_name": "Arcand-Paul",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.WestHenday@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0955&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0955.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-0711",
+          "type": "constituency",
+          "postal": "10267 178 Street, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-west-henday/"
+      }
+    },
+    {
+      "name": "Todd Loewen",
+      "district_name": "Central Peace-Notley",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Todd",
+      "last_name": "Loewen",
+      "party_name": "United Conservative Party",
+      "email": "CentralPeace.Notley@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0890&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0890.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "322 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 835-7212",
+          "tel": "1 780 835-7211",
+          "type": "constituency",
+          "postal": "Box 9, 10410 - 110 Street, Fairview, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Forestry and Parks"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/central-peace-notley/"
+      }
+    },
+    {
+      "name": "Lori Sigurdson",
+      "district_name": "Edmonton-Riverview",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Lori",
+      "last_name": "Sigurdson",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Riverview@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0875&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0875.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-0719",
+          "type": "constituency",
+          "postal": "9202B - 149 Street, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-riverview/"
+      }
+    },
+    {
+      "name": "Gurinder Brar",
+      "district_name": "Calgary-North East",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Gurinder",
+      "last_name": "Brar",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.NorthEast@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0957&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0957.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 930-8731",
+          "type": "constituency",
+          "postal": "1080, 11124 - 36 Street NE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-north-east/"
+      }
+    },
+    {
+      "name": "Peggy Wright",
+      "district_name": "Edmonton-Beverly-Clareview",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Peggy",
+      "last_name": "Wright",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.BeverlyClareview@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0971&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0971.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 476-6473",
+          "tel": "1 780 476-6467",
+          "type": "constituency",
+          "postal": "552 Hermitage Road, 40th Street & Hermitage Road, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-beverly-clareview/"
+      }
+    },
+    {
+      "name": "Rajan Sawhney",
+      "district_name": "Calgary-North West",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Rajan",
+      "last_name": "Sawhney",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.Northwest@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0940&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0940.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "104 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 297-7104",
+          "type": "constituency",
+          "postal": "Suite 7223, 8650 - 112th Avenue NW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Indigenous Relations"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-north-west/"
+      }
+    },
+    {
+      "name": "Jason Nixon",
+      "district_name": "Rimbey-Rocky Mountain House-Sundre",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Jason",
+      "last_name": "Nixon",
+      "party_name": "United Conservative Party",
+      "email": "Rimbey.RockyMountainhouse.Sundre@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0892&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0892.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "228 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 638-5029",
+          "type": "constituency",
+          "postal": "Box 1547, 101 - 6 Street SW, Sundre, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Assisted Living and Social Services"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/rimbey-rocky-mountain-house-sundre/"
+      }
+    },
+    {
+      "name": "Jackie Lovely",
+      "district_name": "Camrose",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Jackie",
+      "last_name": "Lovely",
+      "party_name": "United Conservative Party",
+      "email": "Camrose@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0926&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0926.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "503-E Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 672-6945",
+          "tel": "1 780 672-0000",
+          "type": "constituency",
+          "postal": "4870 - 51 Street, Camrose, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/camrose/"
+      }
+    },
+    {
+      "name": "Brian Jean",
+      "district_name": "Fort McMurray-Lac La Biche",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Brian",
+      "last_name": "Jean",
+      "party_name": "United Conservative Party",
+      "email": "FortMcMurray.LacLaBiche@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0882&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0882.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "324 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 588-7979",
+          "type": "constituency",
+          "postal": "Suite #109, 9912 Franklin Avenue, Fort McMurray, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Energy and Minerals"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/fort-mcmurray-lac-la-biche/"
+      }
+    },
+    {
+      "name": "Amanda Chapman",
+      "district_name": "Calgary-Beddington",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Amanda",
+      "last_name": "Chapman",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Beddington@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0959&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0959.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 215-7710",
+          "type": "constituency",
+          "postal": "Unit 106, 8220 Centre Street NE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Deputy Assistant Opposition Whip"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-beddington/"
+      }
+    },
+    {
+      "name": "Jasvir Deol",
+      "district_name": "Edmonton-Meadows",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Jasvir",
+      "last_name": "Deol",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Meadows@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0909&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0909.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 468-3359",
+          "tel": "1 780 466-3737",
+          "type": "constituency",
+          "postal": "Unit 204B, 3323 - 34 Street NW, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-meadows/"
+      }
+    },
+    {
+      "name": "Mike Ellis",
+      "district_name": "Calgary-West",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Mike",
+      "last_name": "Ellis",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.West@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0832&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0832.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "404 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 216-5441",
+          "tel": "1 403 216-5439",
+          "type": "constituency",
+          "postal": "Unit 234, 333 Aspen Glen Landing SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Deputy Premier",
+          "Minister of Public Safety and Emergency Services"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-west/"
+      }
+    },
+    {
+      "name": "Ric McIver",
+      "district_name": "Calgary-Hays",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Ric",
+      "last_name": "McIver",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.Hays@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0808&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0808.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "325 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 724-9099",
+          "tel": "1 403 215-4380",
+          "type": "constituency",
+          "postal": "222, 5126 - 126 Avenue SE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Speaker"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-hays/"
+      }
+    },
+    {
+      "name": "Lorne Dach",
+      "district_name": "Edmonton-McClung",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Lorne",
+      "last_name": "Dach",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.McClung@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0842&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0842.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 408-1864",
+          "tel": "1 780 408-1860",
+          "type": "constituency",
+          "postal": "#301, 6650 - 177 Street, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-mcclung/"
+      }
+    },
+    {
+      "name": "Parmeet Singh Boparai",
+      "district_name": "Calgary-Falconridge",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Parmeet Singh",
+      "last_name": "Boparai",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Falconridge@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0956&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0956.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 280-3877",
+          "tel": "1 403 280-4022",
+          "type": "constituency",
+          "postal": "924, 5075 Falconridge Boulevard NE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-falconridge/"
+      }
+    },
+    {
+      "name": "Sarah Hoffman",
+      "district_name": "Edmonton-Glenora",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Sarah",
+      "last_name": "Hoffman",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Glenora@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0850&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0850.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 455-7979",
+          "type": "constituency",
+          "postal": "#201, 12408 - 108 Avenue, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-glenora/"
+      }
+    },
+    {
+      "name": "Nate Glubish",
+      "district_name": "Strathcona-Sherwood Park",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Nate",
+      "last_name": "Glubish",
+      "party_name": "United Conservative Party",
+      "email": "Strathcona.Sherwoodpark@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0919&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0919.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "229 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 416-2492",
+          "type": "constituency",
+          "postal": "Athabasca Professional Building, #105, 80 Chippewa Road, Sherwood Park, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Technology and Innovation"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/strathcona-sherwood-park/"
+      }
+    },
+    {
+      "name": "Sarah Elmeligi",
+      "district_name": "Banff-Kananaskis",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Sarah",
+      "last_name": "Elmeligi",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Banff.Kananaskis@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0961&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0961.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 609-4509",
+          "type": "constituency",
+          "postal": "#300-709 8th Street, Canmore, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/banff-kananaskis/"
+      }
+    },
+    {
+      "name": "Grant Hunter",
+      "district_name": "Taber-Warner",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Grant",
+      "last_name": "Hunter",
+      "party_name": "United Conservative Party",
+      "email": "Taber.Warner@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0889&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0889.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "204 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 223-0001",
+          "type": "constituency",
+          "postal": "5402 - 50 Avenue, Taber, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Environment and Protected Areas"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/taber-warner/"
+      }
+    },
+    {
+      "name": "Tara Sawyer",
+      "district_name": "Olds-Didsbury-Three Hills",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Tara",
+      "last_name": "Sawyer",
+      "party_name": "United Conservative Party",
+      "email": "OldsDidsbury.ThreeHills@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0986&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0986.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "502D Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 556-3132",
+          "type": "constituency",
+          "postal": "Box 3909, 4905 B - 50 Avenue, Olds, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/olds-didsbury-three-hills/"
+      }
+    },
+    {
+      "name": "Brandon Lunty",
+      "district_name": "Leduc-Beaumont",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Brandon",
+      "last_name": "Lunty",
+      "party_name": "United Conservative Party",
+      "email": "Leduc.Beaumont@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0977&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0977.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "503-B Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 929-3290",
+          "type": "constituency",
+          "postal": "6422 50 Street, Leduc, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/leduc-beaumont/"
+      }
+    },
+    {
+      "name": "Angela Pitt",
+      "district_name": "Airdrie-East",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Angela",
+      "last_name": "Pitt",
+      "party_name": "United Conservative Party",
+      "email": "Airdrie.East@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0894&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0894.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-D Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 948-8744",
+          "tel": "1 403 948-8741",
+          "type": "constituency",
+          "postal": "209 Bowers Street, Airdrie, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Deputy Speaker",
+          "Chair of Committees"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/airdrie-east/"
+      }
+    },
+    {
+      "name": "R.J. Sigurdson",
+      "district_name": "Highwood",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "R.J.",
+      "last_name": "Sigurdson",
+      "party_name": "United Conservative Party",
+      "email": "Highwood@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0945&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0945.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "131 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 995-5488",
+          "type": "constituency",
+          "postal": "Unit 5, 49 Elizabeth Street, Box 568, Okotoks, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Agriculture and Irrigation"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/highwood/"
+      }
+    },
+    {
+      "name": "Janis Irwin",
+      "district_name": "Edmonton-Highlands-Norwood",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Janis",
+      "last_name": "Irwin",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.HighlandsNorwood@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0910&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0910.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-0682",
+          "type": "constituency",
+          "postal": "6519 - 112 Avenue, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Assistant Opposition Whip"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-highlands-norwood/"
+      }
+    },
+    {
+      "name": "Chelsae Petrovic",
+      "district_name": "Livingstone-Macleod",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Chelsae",
+      "last_name": "Petrovic",
+      "party_name": "United Conservative Party",
+      "email": "Livingstone.Macleod@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0979&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0979.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-B Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 587 424-2004",
+          "type": "constituency",
+          "postal": "4927 - 1 Street West, P.O Box 760, Claresholm, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Parliamentary Secretary for Health Workforce Engagement"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/livingstone-macleod/"
+      }
+    },
+    {
+      "name": "Rakhi Pancholi",
+      "district_name": "Edmonton-Whitemud",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Rakhi",
+      "last_name": "Pancholi",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Whitemud@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0911&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0911.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 413-5971",
+          "tel": "1 780 413-5970",
+          "type": "constituency",
+          "postal": "#203, 596 Riverbend Square, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-whitemud/"
+      }
+    },
+    {
+      "name": "Lizette Tejada",
+      "district_name": "Calgary-Klein",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Lizette",
+      "last_name": "Tejada",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Klein@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0970&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0970.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 216-5432",
+          "tel": "1 403 216-5430",
+          "type": "constituency",
+          "postal": "Unit 232A, 3630 Brentwood Road NW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-klein/"
+      }
+    },
+    {
+      "name": "Jason Stephan",
+      "district_name": "Red Deer-South",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Jason",
+      "last_name": "Stephan",
+      "party_name": "United Conservative Party",
+      "email": "RedDeer.South@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0947&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0947.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "503-F Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 340-5977",
+          "tel": "1 403 340-3565",
+          "type": "constituency",
+          "postal": "201, 4327 - 54 Avenue, Red Deer, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Parliamentary Secretary for Constitutional Affairs"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/red-deer-south/"
+      }
+    },
+    {
+      "name": "Glenn van Dijken",
+      "district_name": "Athabasca-Barrhead-Westlock",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Glenn",
+      "last_name": "van Dijken",
+      "party_name": "United Conservative Party",
+      "email": "Athabasca.Barrhead.Westlock@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0898&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0898.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "503-A Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 674-6183",
+          "tel": "1 780 674-3225",
+          "type": "constituency",
+          "postal": "5106 - 50 Street, Barrhead, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Deputy Chair of Committees"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/athabasca-barrhead-westlock/"
+      }
+    },
+    {
+      "name": "Eric Bouchard",
+      "district_name": "Calgary-Lougheed",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Eric",
+      "last_name": "Bouchard",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.Lougheed@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0974&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0974.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "502C Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 251-5453",
+          "tel": "1 403 238-1212",
+          "type": "constituency",
+          "postal": "2105, 230 Eversyde Blvd SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-lougheed/"
+      }
+    },
+    {
+      "name": "Garth Rowswell",
+      "district_name": "Vermilion-Lloydminster-Wainwright",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Garth",
+      "last_name": "Rowswell",
+      "party_name": "United Conservative Party",
+      "email": "Vermilion.Lloydminster.Wainwright@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0937&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0937.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-G Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 842-6177",
+          "type": "constituency",
+          "postal": "5008 - 50 Avenue, Vermilion, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/vermilion-lloydminster-wainwright/"
+      }
+    },
+    {
+      "name": "Andrew Boitchenko",
+      "district_name": "Drayton Valley-Devon",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Andrew",
+      "last_name": "Boitchenko",
+      "party_name": "United Conservative Party",
+      "email": "DraytonValley.Devon@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0973&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0973.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "402 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 825 420-2496",
+          "tel": "1 780 542-3355",
+          "type": "constituency",
+          "postal": "5136B - 52 Avenue, Box 7272, Drayton Valley, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Tourism and Sport"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/drayton-valley-devon/"
+      }
+    },
+    {
+      "name": "Sharif Haji",
+      "district_name": "Edmonton-Decore",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Sharif",
+      "last_name": "Haji",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Decore@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0963&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0963.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 414-1330",
+          "tel": "1 780 414-1328",
+          "type": "constituency",
+          "postal": "#203, 8119 - 160 Avenue, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-decore/"
+      }
+    },
+    {
+      "name": "Devin Dreeshen",
+      "district_name": "Innisfail-Sylvan Lake",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Devin",
+      "last_name": "Dreeshen",
+      "party_name": "United Conservative Party",
+      "email": "Innisfail.SylvanLake@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0908&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0908.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "127 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 865-7580",
+          "type": "constituency",
+          "postal": "A-5027 - 49 Street, Innisfail, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Transportation and Economic Corridors"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/innisfail-sylvan-lake/"
+      }
+    },
+    {
+      "name": "Dale Nally",
+      "district_name": "Morinville-St. Albert",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Dale",
+      "last_name": "Nally",
+      "party_name": "United Conservative Party",
+      "email": "Morinville.StAlbert@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0929&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0929.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "103 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 572-6162",
+          "tel": "1 780 572-6161",
+          "type": "constituency",
+          "postal": "9805 - 100 Street, Morinville, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Service Alberta and Red Tape Reduction"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/morinville-st-albert/"
+      }
+    },
+    {
+      "name": "Chantelle de Jonge",
+      "district_name": "Chestermere-Strathmore",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Chantelle",
+      "last_name": "de Jonge",
+      "party_name": "United Conservative Party",
+      "email": "Chestermere.Strathmore@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0975&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0975.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "503-D Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 962-0126",
+          "type": "constituency",
+          "postal": "129 - 2nd Avenue, Strathmore, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Parliamentary Secretary for Affordability and Utilities"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/chestermere-strathmore/"
+      }
+    },
+    {
+      "name": "Jennifer Johnson",
+      "district_name": "Lacombe-Ponoka",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Jennifer",
+      "last_name": "Johnson",
+      "party_name": "United Conservative Party",
+      "email": "Lacombe.Ponoka@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0972&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0972.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "503 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 782-7725",
+          "type": "constituency",
+          "postal": "#101, 4892 - 46 Street, Lacombe, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/lacombe-ponoka/"
+      }
+    },
+    {
+      "name": "Rick Wilson",
+      "district_name": "Maskwacis-Wetaskiwin",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Rick",
+      "last_name": "Wilson",
+      "party_name": "United Conservative Party",
+      "email": "Maskwacis.Wetaskiwin@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0953&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0953.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "403 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 312-1882",
+          "tel": "1 780 360-8003",
+          "type": "constituency",
+          "postal": "5019 - 50 Street, Wetaskiwin, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Mental Health and Addiction"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/maskwacis-wetaskiwin/"
+      }
+    },
+    {
+      "name": "Nicole Goehring",
+      "district_name": "Edmonton-Castle Downs",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Nicole",
+      "last_name": "Goehring",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Castledowns@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0847&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0847.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 414-0707",
+          "tel": "1 780 414-0705",
+          "type": "constituency",
+          "postal": "12120 - 161 Avenue, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-castle-downs/"
+      }
+    },
+    {
+      "name": "Justin Wright",
+      "district_name": "Cypress-Medicine Hat",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Justin",
+      "last_name": "Wright",
+      "party_name": "United Conservative Party",
+      "email": "Cypress.MedicineHat@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0982&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0982.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "214 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 403 528-2278",
+          "tel": "1 403 528-2191",
+          "type": "constituency",
+          "postal": "TransCanada Place, #5 1299 TransCanada Way SE, Medicine Hat, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Chief Government Whip",
+          "Parliamentary Secretary for Rural Health (South)"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/cypress-medicine-hat/"
+      }
+    },
+    {
+      "name": "Rob Miyashiro",
+      "district_name": "Lethbridge-West",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Rob",
+      "last_name": "Miyashiro",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Lethbridge.West@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0985&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0985.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 587 425-5869",
+          "tel": "1 403 329-4644",
+          "type": "constituency",
+          "postal": "#110, 410 Stafford Dr. S., Lethbridge, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/lethbridge-west/"
+      }
+    },
+    {
+      "name": "Danielle Smith",
+      "district_name": "Brooks-Medicine Hat",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Danielle",
+      "last_name": "Smith",
+      "party_name": "United Conservative Party",
+      "email": "Brooks.MedicineHat@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0814&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0814.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "307 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB, Canada"
+        },
+        {
+          "fax": "1 587 270-5113",
+          "tel": "1 587 270-5110",
+          "type": "constituency",
+          "postal": "Unit A, 503 4th Avenue West, Brooks, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Premier of Alberta",
+          "President of Executive Council",
+          "Minister of Intergovernmental and International Relations"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/brooks-medicine-hat/"
+      }
+    },
+    {
+      "name": "Tany Yao",
+      "district_name": "Fort McMurray-Wood Buffalo",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Tany",
+      "last_name": "Yao",
+      "party_name": "United Conservative Party",
+      "email": "FortMcMurray.WoodBuffalo@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0899&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0899.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "503-C Legislature Building, 10800 -97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 790-6014",
+          "type": "constituency",
+          "postal": "Suite #109, 9912 Franklin Avenue, Fort McMurray, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Deputy Government Whip",
+          "Parliamentary Secretary for Small Business and Northern Development"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/fort-mcmurray-wood-buffalo/"
+      }
+    },
+    {
+      "name": "Janet Eremenko",
+      "district_name": "Calgary-Currie",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Janet",
+      "last_name": "Eremenko",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Currie@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0962&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0962.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "6th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 246-4794",
+          "type": "constituency",
+          "postal": "206B, 1615 10 Ave SW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-currie/"
+      }
+    },
+    {
+      "name": "David Eggen",
+      "district_name": "Edmonton-North West",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "David",
+      "last_name": "Eggen",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Northwest@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0757&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0757.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 451-2344",
+          "tel": "1 780 451-2345",
+          "type": "constituency",
+          "postal": "Unit A, 10212 - 127 Avenue, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-north-west/"
+      }
+    },
+    {
+      "name": "Nolan Dyck",
+      "district_name": "Grande Prairie",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Nolan",
+      "last_name": "Dyck",
+      "party_name": "United Conservative Party",
+      "email": "GrandePrairie@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0976&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0976.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-C Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 538-1800",
+          "type": "constituency",
+          "postal": "15602C - 102 Street, Grande Prairie, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Parliamentary Secretary for Indigenous and Rural Policing"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/grande-prairie/"
+      }
+    },
+    {
+      "name": "Martin Long",
+      "district_name": "West Yellowhead",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Martin",
+      "last_name": "Long",
+      "party_name": "United Conservative Party",
+      "email": "West.Yellowhead@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0925&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0925.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "419 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 587 466-0463",
+          "tel": "1 780 712-7790",
+          "type": "constituency",
+          "postal": "5005 - 6th Avenue, Edson, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Infrastructure"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/west-yellowhead/"
+      }
+    },
+    {
+      "name": "Court Ellingson",
+      "district_name": "Calgary-Foothills",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Court",
+      "last_name": "Ellingson",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Calgary.Foothills@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0960&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0960.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 216-5444",
+          "type": "constituency",
+          "postal": "#202, 1829 Ranchlands Boulevard NW, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-foothills/"
+      }
+    },
+    {
+      "name": "Kyle Kasawski",
+      "district_name": "Sherwood Park",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Kyle",
+      "last_name": "Kasawski",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Sherwood.Park@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0967&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0967.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 417-4748",
+          "tel": "1 780 417-4747",
+          "type": "constituency",
+          "postal": "Unit #200, 48 Brentwood Blvd, Sherwood Park, AB, Canada"
+        }
+      ],
+      "extra": {},
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/sherwood-park/"
+      }
+    },
+    {
+      "name": "Christina Gray",
+      "district_name": "Edmonton-Mill Woods",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Christina",
+      "last_name": "Gray",
+      "party_name": "Alberta New Democratic Party",
+      "email": "Edmonton.Millwoods@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0848&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0848.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "5th Floor, 9820 - 107 Street, Edmonton, AB"
+        },
+        {
+          "tel": "1 780 414-1000",
+          "type": "constituency",
+          "postal": "3448 - 93 Street, Edmonton, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Official Opposition House Leader"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/edmonton-mill-woods/"
+      }
+    },
+    {
+      "name": "Adriana LaGrange",
+      "district_name": "Red Deer-North",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Adriana",
+      "last_name": "LaGrange",
+      "party_name": "United Conservative Party",
+      "email": "RedDeer.North@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0924&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0924.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "224 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 342-2263",
+          "type": "constituency",
+          "postal": "#202, 5913 - 50 Avenue, Red Deer, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Primary and Preventative Health Services"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/red-deer-north/"
+      }
+    },
+    {
+      "name": "Shane Getson",
+      "district_name": "Lac Ste. Anne-Parkland",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Shane",
+      "last_name": "Getson",
+      "party_name": "United Conservative Party",
+      "email": "LacSteAnne.Parkland@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0917&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0917.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "513-F Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "fax": "1 780 967-4338",
+          "tel": "1 780 967-0760",
+          "type": "constituency",
+          "postal": "#18, 4708 Lac Ste. Anne Trail North, P.O. Box 248 Onoway PO\"\", Onoway, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Parliamentary Secretary for Economic Corridor Development"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/lac-ste-anne-parkland/"
+      }
+    },
+    {
+      "name": "Myles McDougall",
+      "district_name": "Calgary-Fish Creek",
+      "elected_office": "MLA",
+      "source_url": "https://www.assembly.ab.ca/txt/mla_home/contacts.csv",
+      "first_name": "Myles",
+      "last_name": "McDougall",
+      "party_name": "United Conservative Party",
+      "email": "Calgary.FishCreek@assembly.ab.ca",
+      "url": "https://www.assembly.ab.ca/members/members-of-the-legislative-assembly/member-information?mid=0978&legl=31&from=mla_home",
+      "personal_url": "",
+      "photo_url": "https://www.assembly.ab.ca/images/default-source/members/mla-photos/ph-mla0978.jpg",
+      "gender": "",
+      "offices": [
+        {
+          "type": "legislature",
+          "postal": "107 Legislature Building, 10800 - 97 Avenue NW, Edmonton, AB"
+        },
+        {
+          "tel": "1 403 278-4444",
+          "type": "constituency",
+          "postal": "Bay 7, 1215 Lake Sylvan Drive SE, Calgary, AB, Canada"
+        }
+      ],
+      "extra": {
+        "roles": [
+          "Minister of Advanced Education"
+        ]
+      },
+      "representative_set_name": "Legislative Assembly of Alberta",
+      "related": {
+        "representative_set_url": "/representative-sets/alberta-legislature/",
+        "boundary_url": "/boundaries/alberta-electoral-districts-2017/calgary-fish-creek/"
+      }
+    }
+  ]
+}
