@@ -131,17 +131,25 @@ text).
 # from the repo root
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + PostGIS (postgres 16)
-npm run test    --workspace public-record   # 53 tests (11 suites)
+npm run test    --workspace public-record   # 53 tests (11 suites); pretest starts test stack
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
-npm run db:down --workspace public-record   # tear down (wipes volumes; blocked when NODE_ENV=production)
+npm run db:down --workspace public-record   # tear down dev stack (wipes volumes; blocked when NODE_ENV=production)
 ```
+
+Integration tests use a **separate Docker stack** (`docker-compose.test.yml`: `oursay-test-pg` on
+**5444**, `oursay-test-immudb` on **5445**) so `TRUNCATE` isolation does not wipe the dev seed on
+**5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test`, so dev
+and test stacks do not replace each other); tear it down with
+`npm run db:test:down --workspace public-record`. Mocha loads repo-root `.env.test` before package
+config (see `scripts/load-test-env.ts`).
 
 Destructive npm scripts (`db:down`, `seed`, `reset`) and `PrivateStore.reset()` refuse to run when
 `NODE_ENV=production`. Raw `docker compose down -v` is not gated — production hosts must not expose
 the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` §11).
 
-Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
-stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.
+Host ports are offset from `immudb-test` (immudb pg-wire **5433**, postgres **5432**) and the
+integration-test stack (**5444** / **5445**) so all three can run at once. No `.env` is needed;
+defaults match `docker-compose.yml`.
 
 **PostGIS.** The Postgres service runs the **`postgis/postgis:16`** image (a superset of `postgres:16`)
 so [`@oursay/geo`](../geo/README.md) can `CREATE EXTENSION postgis` for district-boundary geometry. If

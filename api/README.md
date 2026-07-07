@@ -215,10 +215,10 @@ npm run db:up -w @oursay/public-record       # or: npm run db:up -w @oursay/api 
 cp api/.env.example api/.env                 # optional; dev defaults work out of the box
 npm run dev -w @oursay/api
 
-# 3. Seed the dev corpus (mock wireframe → real civic writes; re-run after test suites wipe the DB)
+# 3. Seed the dev corpus (mock wireframe → real civic writes)
 npm run seed -w @oursay/api
 
-# 4. Tests (integration; need the DB from step 1)
+# 4. Tests (integration; auto-start the isolated test stack via pretest — dev seed is untouched)
 npm test -w @oursay/api
 
 # 5. Regenerate the committed human-readable spec after changing routes

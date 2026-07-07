@@ -9,6 +9,7 @@
   },
   "scripts": {
     "ingest": "tsx scripts/ingest.ts",
+    "pretest": "npm run db:test:up -w @oursay/public-record",
     "test": "mocha",
     "typecheck": "tsc --noEmit"
   },
