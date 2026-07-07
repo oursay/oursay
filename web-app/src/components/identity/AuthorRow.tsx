@@ -89,7 +89,8 @@ export function AuthorRow({
     // Secondary line: personas are anonymous; self rows show the mask + persona
     // name others see; revealed authors show @handle.
     const secondary = isPersona ? (
-      <span className="min-w-0 truncate text-xs italic text-muted">
+      <span className="flex min-w-0 items-center gap-1 truncate text-xs italic text-muted">
+        <PersonaMark size={11} />
         anonymous
       </span>
     ) : personaHint ? (
@@ -100,7 +101,7 @@ export function AuthorRow({
         className="flex min-w-0 items-center gap-1 truncate text-left text-xs text-muted disabled:cursor-default"
       >
         <PersonaMark size={11} />
-        <span className="truncate">{personaHint}</span>
+        <span className="truncate italic">{personaHint}</span>
       </button>
     ) : handle ? (
       <button
@@ -139,7 +140,6 @@ export function AuthorRow({
                 <span className="min-w-0 truncate text-sm font-semibold leading-tight text-ink">
                   {author}
                 </span>
-                {isPersona ? <PersonaMark /> : null}
               </button>
               {badges}
             </div>
