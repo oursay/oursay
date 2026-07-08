@@ -102,7 +102,7 @@ export function OfficialView({ handle }: { handle: string }) {
   ) : (
     <p className="flex min-w-0 max-w-full items-center gap-1.5 text-xs italic text-muted">
       <User size={13} className="shrink-0" aria-hidden />
-      <span className="truncate">{profile.representativeName}</span>
+      <span className="truncate pr-1">{profile.representativeName}</span>
     </p>
   );
 

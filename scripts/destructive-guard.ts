@@ -17,6 +17,17 @@ export function assertDestructiveAllowed(label: string): void {
   }
 }
 
+/** Dev-only scripts (e.g. api seed) must not run in staging or production. */
+export function assertDevelopmentOnly(label: string): void {
+  if (process.env.NODE_ENV && process.env.NODE_ENV !== "development") {
+    const env = process.env.NODE_ENV ?? "(unset)";
+    throw new Error(
+      `Refusing ${label}: NODE_ENV must be "development" (got ${env}). ` +
+        "Set NODE_ENV=development for local dev seeding only.",
+    );
+  }
+}
+
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (isMain) {
   const label = process.argv[2] ?? "destructive script";
