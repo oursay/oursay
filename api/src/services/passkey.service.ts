@@ -155,16 +155,24 @@ export class PasskeyService {
   }
 
   /** Remove one of the caller's OWN passkeys ("kick a compromised/retired device"). 404 when it isn't
-   *  theirs (no cross-account info). Refuses to remove the LAST passkey — that would lock the account
-   *  out of normal login; the user must use recovery instead. Also revokes the sessions that passkey
-   *  established, so a kicked device loses access immediately. */
-  async revoke(input: { userId: string; id: string }): Promise<void> {
+   *  theirs (no cross-account info). Refuses to remove the LAST passkey (422) — that would lock the
+   *  account out of normal login; the user must use recovery instead. Then refuses to remove the
+   *  passkey that established the caller's current session (422) — sign out or kick another device
+   *  instead. Also revokes the sessions that passkey established, so a kicked device loses access
+   *  immediately. */
+  async revoke(input: { userId: string; id: string; sessionCredentialId?: string | null }): Promise<void> {
     const creds = await this.d.passkeyRepo.listByUserId(input.userId);
     if (!creds.some((c) => c.id === input.id)) {
       throw new ServiceError("not_found", "No such passkey for this account");
     }
     if (creds.length <= 1) {
-      throw new ServiceError("forbidden", "Cannot remove your last passkey; use recovery to reset access");
+      throw new ServiceError("unprocessable", "Cannot remove your last passkey; use recovery to reset access");
+    }
+    if (input.sessionCredentialId && input.sessionCredentialId === input.id) {
+      throw new ServiceError(
+        "unprocessable",
+        "Cannot remove the passkey for this session; sign out first or remove another device",
+      );
     }
     await this.d.authService.revokeSessionsForCredential(input.id);
     await this.d.passkeyRepo.deleteByIdForUser(input.userId, input.id);

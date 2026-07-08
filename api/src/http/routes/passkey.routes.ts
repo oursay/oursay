@@ -156,12 +156,23 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
           required: ["id"],
           additionalProperties: false,
         },
-        response: { 204: { type: "null" }, 400: errorSchema, 401: errorSchema, 403: errorSchema, 404: errorSchema },
+        response: {
+          204: { type: "null" },
+          400: errorSchema,
+          401: errorSchema,
+          403: errorSchema,
+          404: errorSchema,
+          422: errorSchema,
+        },
       },
     },
     async (req, reply) => {
       const { id } = req.body as { id: string };
-      await services.passkeyService.revoke({ userId: req.user!.userId, id });
+      await services.passkeyService.revoke({
+        userId: req.user!.userId,
+        id,
+        sessionCredentialId: req.user!.credentialId,
+      });
       reply.status(204).send();
     },
   );

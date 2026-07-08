@@ -166,13 +166,40 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
     expect(res.statusCode).to.equal(404);
   });
 
-  it("refuses to remove the LAST passkey (avoid lockout) → 403", async () => {
+  it("refuses to remove the passkey for the current session → 422", async () => {
+    const userId = await makeUser(w, "@selfrevoke");
+    const a = newAuthenticator();
+    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
+    const regA = await w.services.passkeyService.registerVerify({ userId, response: a.register(optsA.challenge) });
+    const sessA = await w.services.passkeyService.loginVerify({
+      response: a.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge),
+    });
+    const b = newAuthenticator();
+    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
+    await w.services.passkeyService.registerVerify({ userId, response: b.register(optsB.challenge) });
+
+    const creds = await w.services.repos.passkey.listByUserId(userId);
+    const aId = creds.find((c) => c.credentialId === regA.credentialId)!.id;
+    const res = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/passkey/revoke",
+      headers: bearer(sessA.session.token),
+      payload: { id: aId },
+    });
+    expect(res.statusCode).to.equal(422);
+    expect((res.json() as { error: { message: string } }).error.message).to.include("this session");
+    expect(await w.services.repos.passkey.listByUserId(userId)).to.have.length(2);
+    expect(await w.services.authService.resolve(sessA.session.token)).to.not.be.null;
+  });
+
+  it("refuses to remove the LAST passkey (avoid lockout) → 422", async () => {
     const userId = await makeUser(w, "@lastkey");
     const id = await enroll(userId);
     const token = (await w.services.authService.issue(userId, "full", "test")).token;
 
     const res = await w.app.inject({ method: "POST", url: "/v1/auth/passkey/revoke", headers: bearer(token), payload: { id } });
-    expect(res.statusCode).to.equal(403);
+    expect(res.statusCode).to.equal(422);
+    expect((res.json() as { error: { message: string } }).error.message).to.include("last passkey");
     expect(await w.services.repos.passkey.listByUserId(userId)).to.have.length(1);
   });
 

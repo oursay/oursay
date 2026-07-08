@@ -211,8 +211,8 @@ export async function updatePasskeyLabel(
   return body.passkey;
 }
 
-/** Remove one of the caller's own passkeys. The server refuses to remove the last one (use
- *  recovery instead) and 404s if the id isn't the caller's. */
+/** Remove one of the caller's own passkeys. The server returns 422 for the last remaining passkey
+ *  or the passkey tied to this session; 404 if the id isn't the caller's. */
 export async function revokePasskey(id: string): Promise<void> {
   await apiPost("/v1/auth/passkey/revoke", { id });
 }
