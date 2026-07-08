@@ -785,6 +785,26 @@ paths:
                       - message
                 required:
                   - error
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/auth/passkey/login/options:
     post:
       summary: Begin passkey login (returns WebAuthn request options)
@@ -4956,6 +4976,15 @@ paths:
                     type: string
                   jurisdiction:
                     type: string
+                  threadKind:
+                    type: string
+                    enum:
+                      - post
+                      - petition
+                      - poll
+                      - result
+                  threadTitle:
+                    type: string
                   identity:
                     type: object
                     properties:
@@ -4990,6 +5019,22 @@ paths:
                       - electoral_validated
                   isRootAuthor:
                     type: boolean
+                  support:
+                    type: object
+                    properties:
+                      agrees:
+                        type: integer
+                      disagrees:
+                        type: integer
+                      statements:
+                        type: integer
+                      comments:
+                        type: integer
+                    required:
+                      - agrees
+                      - disagrees
+                      - statements
+                      - comments
                   comments:
                     type: array
                     items:
@@ -5094,7 +5139,7 @@ paths:
                           type: string
                         text:
                           type: string
-                        meta:
+                        ts:
                           type: string
                         jurisdictionId:
                           type: string
@@ -5103,15 +5148,18 @@ paths:
                       required:
                         - kind
                         - text
-                        - meta
+                        - ts
                         - jurisdictionId
                 required:
                   - name
                   - threadId
                   - jurisdiction
+                  - threadKind
+                  - threadTitle
                   - identity
                   - tier
                   - isRootAuthor
+                  - support
                   - comments
                   - activity
         "404":
@@ -5641,7 +5689,7 @@ paths:
                           type: string
                         text:
                           type: string
-                        meta:
+                        ts:
                           type: string
                         jurisdictionId:
                           type: string
@@ -5650,7 +5698,7 @@ paths:
                       required:
                         - kind
                         - text
-                        - meta
+                        - ts
                         - jurisdictionId
                   nextCursor:
                     type: string

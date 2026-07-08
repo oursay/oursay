@@ -5,21 +5,19 @@
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
 import { KYC_TIERS } from "../../types/kyc.js";
+import { ROOT_TYPES } from "../../services/public-feed.service.js";
 import { errorSchema } from "../schemas.js";
-import { ACTIVITY_KINDS } from "../../services/profile-page.service.js";
+import { activityItemSchema, identitySchema } from "./public-page.schemas.js";
 
-const identitySchema = {
+const supportSchema = {
   type: "object",
   properties: {
-    display: { type: "string" },
-    handle: { type: "string", nullable: true },
-    isPersona: { type: "boolean" },
-    isSelf: { type: "boolean" },
-    seed: { type: "string" },
-    threadId: { type: "string" },
-    seenByOthersAs: { type: "string" },
+    agrees: { type: "integer" },
+    disagrees: { type: "integer" },
+    statements: { type: "integer" },
+    comments: { type: "integer" },
   },
-  required: ["display", "handle", "isPersona", "isSelf", "seed", "threadId"],
+  required: ["agrees", "disagrees", "statements", "comments"],
 } as const;
 
 const commentNodeSchema = {
@@ -43,19 +41,6 @@ const commentNodeSchema = {
   required: ["id", "author", "handle", "tier", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
-const activityItemSchema = {
-  type: "object",
-  properties: {
-    kind: { type: "string", enum: [...ACTIVITY_KINDS] },
-    icon: { type: "string" },
-    text: { type: "string" },
-    meta: { type: "string" },
-    jurisdictionId: { type: "string" },
-    recordId: { type: "string" },
-  },
-  required: ["kind", "text", "meta", "jurisdictionId"],
-} as const;
-
 export function registerPublicPersonaRoutes(app: FastifyInstance, services: Services): void {
   app.get(
     "/v1/public/personas/:name",
@@ -76,13 +61,16 @@ export function registerPublicPersonaRoutes(app: FastifyInstance, services: Serv
               name: { type: "string" },
               threadId: { type: "string" },
               jurisdiction: { type: "string" },
+              threadKind: { type: "string", enum: [...ROOT_TYPES] },
+              threadTitle: { type: "string" },
               identity: identitySchema,
               tier: { type: "string", enum: KYC_TIERS },
               isRootAuthor: { type: "boolean" },
+              support: supportSchema,
               comments: { type: "array", items: commentNodeSchema },
               activity: { type: "array", items: activityItemSchema },
             },
-            required: ["name", "threadId", "jurisdiction", "identity", "tier", "isRootAuthor", "comments", "activity"],
+            required: ["name", "threadId", "jurisdiction", "threadKind", "threadTitle", "identity", "tier", "isRootAuthor", "support", "comments", "activity"],
           },
           404: errorSchema,
         },

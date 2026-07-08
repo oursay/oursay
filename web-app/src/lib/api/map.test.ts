@@ -162,122 +162,57 @@ describe("mapDistrictSummary", () => {
 });
 
 describe("mapPersonaProfile", () => {
-  it("includes root post reactions when the persona authored the thread", () => {
-    const profile = mapPersonaProfile(
-      {
-        name: "SourCecilla77",
-        threadId: "thread-1",
-        isRootAuthor: true,
-        tier: "identity_verified",
-        comments: [
-          {
-            author: "SourCecilla77",
-            handle: "SourCecilla77",
-            tier: "identity_verified",
-            authorGeo: "none",
-            ts: "2026-01-01T00:00:00Z",
-            edits: 0,
-            signTier: 0,
-            body: ["comment"],
-            withheld: false,
-            up: 1,
-            down: 1,
-            identity: {
-              display: "SourCecilla77",
-              handle: null,
-              isPersona: true,
-              isSelf: false,
-              seed: "SourCecilla77",
-              threadId: "thread-1",
-            },
-            replies: [],
-          },
-        ],
-      },
-      "statement",
-      "My statement",
-      { up: 5, down: 0 },
-    );
-    expect(profile.support).toEqual({
-      agrees: 6,
-      disagrees: 1,
-      statements: 0,
-      comments: 1,
+  it("reads thread kind/title, jurisdiction, and the support tally from the DTO (server single-source)", () => {
+    const profile = mapPersonaProfile({
+      name: "Reactor77",
+      threadId: "thread-1",
+      threadKind: "post",
+      threadTitle: "Topic",
+      jurisdiction: "ab-ca-gov",
+      isRootAuthor: false,
+      tier: "identity_verified",
+      support: { agrees: 12, disagrees: 3, statements: 0, comments: 1 },
+      comments: [],
+      activity: [],
     });
-  });
-
-  it("ignores root post reactions when the persona only commented", () => {
-    const profile = mapPersonaProfile(
-      {
-        name: "Commenter77",
-        threadId: "thread-1",
-        isRootAuthor: false,
-        tier: "identity_verified",
-        comments: [
-          {
-            author: "Commenter77",
-            handle: "Commenter77",
-            tier: "identity_verified",
-            authorGeo: "none",
-            ts: "2026-01-01T00:00:00Z",
-            edits: 0,
-            signTier: 0,
-            body: ["comment"],
-            withheld: false,
-            up: 1,
-            down: 1,
-            identity: {
-              display: "Commenter77",
-              handle: null,
-              isPersona: true,
-              isSelf: false,
-              seed: "Commenter77",
-              threadId: "thread-1",
-            },
-            replies: [],
-          },
-        ],
-      },
-      "statement",
-      "Someone else's statement",
-      { up: 5, down: 0 },
-    );
-    expect(profile.support).toEqual({
-      agrees: 1,
-      disagrees: 1,
-      statements: 0,
-      comments: 1,
-    });
+    expect(profile.threadKind).toBe("statement"); // wire "post" → client kind
+    expect(profile.threadTitle).toBe("Topic");
+    expect(profile.jurisdiction).toBe("ab-ca-gov");
+    // Support is taken verbatim from the DTO — no client-side reduce over comment reactions.
+    expect(profile.support).toEqual({ agrees: 12, disagrees: 3, statements: 0, comments: 1 });
+    expect(profile.isRootAuthor).toBe(false);
+    expect(profile.rootPost).toBeUndefined();
   });
 
   it("maps activity rows from the persona page wire payload", () => {
-    const profile = mapPersonaProfile(
-      {
-        name: "Reactor77",
-        threadId: "thread-1",
-        isRootAuthor: false,
-        tier: "identity_verified",
-        comments: [],
-        activity: [
-          {
-            kind: "reaction",
-            icon: "#ic-check",
-            text: 'Agreed with "Topic"',
-            meta: "2d",
-            jurisdictionId: "ab-ca-gov",
-            recordId: "thread-1",
-          },
-        ],
-      },
-      "statement",
-      "Topic",
-    );
+    const profile = mapPersonaProfile({
+      name: "Reactor77",
+      threadId: "thread-1",
+      threadKind: "post",
+      threadTitle: "Topic",
+      jurisdiction: "ab-ca-gov",
+      isRootAuthor: false,
+      tier: "identity_verified",
+      support: { agrees: 0, disagrees: 0, statements: 0, comments: 0 },
+      comments: [],
+      activity: [
+        {
+          kind: "reaction",
+          icon: "#ic-check",
+          text: 'Agreed with "Topic"',
+          ts: "2026-07-01T00:00:00Z",
+          jurisdictionId: "ab-ca-gov",
+          recordId: "thread-1",
+        },
+      ],
+    });
     expect(profile.activity).toEqual([
       {
         kind: "reaction",
         icon: "#ic-check",
         text: 'Agreed with "Topic"',
-        meta: "2d",
+        ts: "2026-07-01T00:00:00Z",
+        meta: undefined,
         jurisdictionId: "ab-ca-gov",
         recordId: "thread-1",
       },

@@ -1,5 +1,6 @@
 import type { CommentNode, FeedItem, RecordDetail, RecordKind } from "@/lib/types";
 import type { ShareTarget } from "@/lib/state";
+import { isMockOnly } from "@/lib/api/client";
 import { postPath } from "@/lib/routes";
 
 /** Small deterministic string hash — seeds a believable base share count. */
@@ -13,10 +14,13 @@ function hashKey(key: string): number {
 
 /**
  * Seeded base share count for a record/comment (the tally before the viewer's
- * own share). Deterministic from the share key, so the pill reads the same in
- * every list and on the detail page.
+ * own share). **Demo-only:** there is no server share model yet (WEB-APP-GAPS
+ * Part 2 `share_marks`), so this fabricates a believable, deterministic tally
+ * from the share key in mock/demo mode. In live mode it returns 0 — the pill
+ * then reflects only the viewer's own share rather than an invented number.
  */
 export function shareBaseCount(key: string): number {
+  if (!isMockOnly()) return 0;
   return 3 + (hashKey(key) % 480);
 }
 

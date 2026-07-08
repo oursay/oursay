@@ -414,47 +414,39 @@ export function mapDistrictDetail(raw: Record<string, unknown>): DistrictDetail 
   };
 }
 
-const PERSONA_BIO =
+export const PERSONA_BIO =
   "This member participates here under a per-thread pseudonym. Their identity, profile, and activity elsewhere stay private.";
 
-/** Compose a {@link PersonaProfile} from the persona page wire row + thread metadata. */
+/** Compose a {@link PersonaProfile} from the persona page wire row. Thread kind/title and the
+ *  agree/disagree tally are served on the persona DTO (single source — the client no longer
+ *  re-derives them from the comment reactions); `rootPost` is built by the caller only when this
+ *  persona authored the thread root (the one case that still needs the record detail). */
 export function mapPersonaProfile(
   raw: Record<string, unknown>,
-  threadKind: RecordKind,
-  threadTitle: string,
-  rootReactions?: { up: number; down: number },
   rootPost?: FeedItem,
-  jurisdiction = "oursay-global",
 ): PersonaProfile {
-  const name = String(raw.name);
   const comments = Array.isArray(raw.comments)
     ? raw.comments.map((c) => mapCommentNode(c as Record<string, unknown>))
     : [];
-  const isRootAuthor = Boolean(raw.isRootAuthor);
-  let agrees = comments.reduce((n, c) => n + c.up, 0);
-  let disagrees = comments.reduce((n, c) => n + c.down, 0);
-  if (isRootAuthor && rootReactions) {
-    agrees += rootReactions.up;
-    disagrees += rootReactions.down;
-  }
+  const rawSupport = (raw.support ?? {}) as Record<string, unknown>;
 
   return {
-    name,
+    name: String(raw.name),
     threadId: String(raw.threadId),
-    threadKind,
-    threadTitle,
-    jurisdiction,
+    threadKind: wireTypeToKind(String(raw.threadKind)),
+    threadTitle: String(raw.threadTitle ?? ""),
+    jurisdiction: String(raw.jurisdiction ?? "oursay-global"),
     tier: tokenToTier(String(raw.tier)),
     bio: PERSONA_BIO,
     ageLabel: "this thread",
     support: {
-      agrees,
-      disagrees,
-      statements: 0,
-      comments: comments.length,
+      agrees: Number(rawSupport.agrees ?? 0),
+      disagrees: Number(rawSupport.disagrees ?? 0),
+      statements: Number(rawSupport.statements ?? 0),
+      comments: Number(rawSupport.comments ?? comments.length),
     },
     comments,
-    isRootAuthor,
+    isRootAuthor: Boolean(raw.isRootAuthor),
     rootPost,
     activity: Array.isArray(raw.activity)
       ? raw.activity.map((row) => mapActivityItem(row as Record<string, unknown>))

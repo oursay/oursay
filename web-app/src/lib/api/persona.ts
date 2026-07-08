@@ -18,7 +18,7 @@ import {
   personaMapForThread,
   resolveAuthorIdentity,
 } from "./identity";
-import { mapPersonaProfile, mapRecordDetail, wireTypeToKind } from "./map";
+import { mapPersonaProfile, mapRecordDetail, PERSONA_BIO } from "./map";
 
 /**
  * A persona's profile — the anonymous mirror of PublicProfile, scoped to one
@@ -50,9 +50,6 @@ export interface PersonaProfile {
   /** In-thread mentions of this persona by other participants. */
   mentions: MentionItem[];
 }
-
-const PERSONA_BIO =
-  "This member participates here under a per-thread pseudonym. Their identity, profile, and activity elsewhere stay private.";
 
 function truncateTitle(title: string, max = 42): string {
   return title.length <= max ? title : `${title.slice(0, max)}…`;
@@ -313,39 +310,26 @@ async function getPersonaProfileLive(
   );
   if (!raw) return null;
 
-  const threadId = String(raw.threadId);
-  const record = await apiGet<{
-    detail: Record<string, unknown>;
-  }>(`/v1/public/records/${encodeURIComponent(threadId)}`);
-  const threadKind = record
-    ? wireTypeToKind(String(record.detail.type))
-    : "statement";
-  const threadTitle = record ? String(record.detail.title) : "";
-  const rootReactions = record
-    ? {
-        up: Number(record.detail.up ?? 0),
-        down: Number(record.detail.down ?? 0),
-      }
-    : undefined;
-  const isRootAuthor = Boolean(raw.isRootAuthor);
-  const rootPost =
-    isRootAuthor && record?.detail
-      ? toPersonaRootPost(
-          mapRecordDetail(record.detail),
-          String(raw.name),
-          threadId,
-          Array.isArray(raw.comments) ? raw.comments.length : 0,
-        )
-      : undefined;
+  // The persona DTO now carries thread kind/title, jurisdiction, and the agree/disagree tally, so
+  // the second fetch to /v1/public/records/:id is only needed to build the full root card when this
+  // persona authored the thread root. Non-authors are served entirely by the persona payload (no N+1).
+  let rootPost: FeedItem | undefined;
+  if (raw.isRootAuthor) {
+    const threadId = String(raw.threadId);
+    const record = await apiGet<{ detail: Record<string, unknown> }>(
+      `/v1/public/records/${encodeURIComponent(threadId)}`,
+    );
+    if (record?.detail) {
+      rootPost = toPersonaRootPost(
+        mapRecordDetail(record.detail),
+        String(raw.name),
+        threadId,
+        Array.isArray(raw.comments) ? raw.comments.length : 0,
+      );
+    }
+  }
 
-  return mapPersonaProfile(
-    raw,
-    threadKind,
-    threadTitle,
-    rootReactions,
-    rootPost,
-    String(raw.jurisdiction ?? record?.detail?.jurisdiction ?? "oursay-global"),
-  );
+  return mapPersonaProfile(raw, rootPost);
 }
 
 /**
