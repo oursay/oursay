@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { User } from "lucide-react";
 import {
   AddJurisdictionModal,
@@ -51,6 +51,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { state } = app;
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const otpEmailParam = searchParams.get("otpEmail");
+  const handledOtpEmailRef = useRef<string | null>(null);
   const view = viewFromPathname(pathname);
   const account = accountIdentity(state);
 
@@ -62,6 +65,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.title = `OurSay — ${title}`;
   }, [title]);
+
+  // Deep-link: valid `?otpEmail=...` opens Verify Your Email; invalid opens login with prefill.
+  useEffect(() => {
+    if (!otpEmailParam) return;
+    if (state.loggedIn) return;
+    if (handledOtpEmailRef.current === otpEmailParam) return;
+
+    handledOtpEmailRef.current = otpEmailParam;
+    app.openLoginOtpWindowByEmail(otpEmailParam);
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("otpEmail");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [otpEmailParam, pathname, router, searchParams, state.loggedIn, app]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
@@ -289,6 +307,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         open={state.loginOpen}
         onClose={() => app.closeAuth()}
         otpWindow={state.loginOtpWindow}
+        email={state.authEmail}
         onPasskeyLogin={app.loginPasskey}
         onVerifyEmail={app.loginVerifyEmail}
         onRecover={app.recover}

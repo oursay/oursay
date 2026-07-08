@@ -84,8 +84,10 @@ import {
   listPasskeys,
   loginWithPasskey,
   logout as apiLogout,
+  enableLogin,
   requestRegistrationOtp,
   updatePasskeyLabel,
+  verifyLoginOtp,
   verifyRegistrationOtp,
   type AuthPasskey,
 } from "@/lib/api/auth";
@@ -111,6 +113,7 @@ import {
   registrationProfileForApi,
   saveRegistrationDraft,
 } from "./registration-draft";
+import { isValidEmailFormat } from "@/lib/email";
 import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
@@ -297,7 +300,8 @@ export interface AppApi {
   completeOtp: (code?: string) => void;
   goLogin: () => void;
   loginPasskey: () => void;
-  loginVerifyEmail: () => void;
+  loginVerifyEmail: (email: string) => void;
+  openLoginOtpWindowByEmail: (email: string) => void;
   toggleLoginOtpWindow: () => void;
   recover: () => void;
   openProfile: () => void;
@@ -546,6 +550,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         registerOpen: false,
         otpOpen: false,
         loginOpen: false,
+        loginOtpWindow: false,
         subscriptions: hasAlberta
           ? s.subscriptions
           : [...s.subscriptions, { id: ALBERTA_ID, included: true }],
@@ -573,6 +578,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         registerOpen: false,
         otpOpen: false,
         loginOpen: false,
+        loginOtpWindow: false,
       }));
       if (!isMockOnly()) {
         void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
@@ -598,6 +604,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountHandle: undefined,
         accountDisplayName: undefined,
         profileOpen: false,
+        loginOtpWindow: false,
         passkeys: isMockOnly() ? MOCK_PASSKEYS : [],
       }));
       notify("Signed out.");
@@ -633,9 +640,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Wireframe addDeviceEmailBtn: opens the account's OTP-login window so a
   // new device can sign in by email and register its own passkey.
   const addDeviceByEmail = useCallback(() => {
-    set({ loginOtpWindow: true });
-    notify("OTP window opened — log in by email on the new device.");
-  }, [set, notify]);
+    if (isMockOnly()) {
+      notify("OTP window opened — log in by email on the new device (demo).");
+      return;
+    }
+    void enableLogin()
+      .then((res) => {
+        notify(
+          `Email login enabled — OTP sent for ${res.expiresAt} (check API server console in dev).`,
+        );
+      })
+      .catch((e: Error) => notify(e.message));
+  }, [notify]);
 
   const renamePasskey = useCallback(
     (id: string, label: string) => {
@@ -1008,6 +1024,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
   const completeOtp = useCallback(
     (code?: string) => {
+      if (!code || code.length < 6) return;
+
+      // Login OTP path (gated cross-device login):
+      //   OTP verifies a limited `login` session → enroll a passkey → passkey login for full access.
+      if (state.loginOtpWindow) {
+        if (isMockOnly()) {
+          demoLogin();
+          return;
+        }
+        const email = state.authEmail?.trim();
+        if (!email) {
+          notify("Login email was lost — close this dialog and try again.");
+          return;
+        }
+        void (async () => {
+          try {
+            await verifyLoginOtp(email, code);
+            await enrollPasskey();
+            const login = await loginWithPasskey(email);
+            userIdRef.current = login.userId;
+            const account = await fetchAccountContext();
+            applyAccount(account);
+            notify("Signed in with email OTP.");
+          } catch (e) {
+            const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Login failed.";
+            notify(msg);
+            if (process.env.NODE_ENV === "development") {
+              console.error("[auth] verifyLoginOtp failed:", e);
+            }
+          }
+        })();
+        return;
+      }
+
+      // Registration OTP path:
       if (isMockOnly()) {
         demoLogin();
         return;
@@ -1024,8 +1075,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         set({ otpOpen: false, registerOpen: true });
         return;
       }
-      if (!code || code.length < 6) return;
       authDraftRef.current = draft;
+
       void (async () => {
         try {
           const reg = await verifyRegistrationOtp(
@@ -1050,10 +1101,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       })();
     },
-    [demoLogin, applyAccount, notify],
+    [demoLogin, applyAccount, notify, state.loginOtpWindow, state.authEmail],
   );
   const goLogin = useCallback(
-    () => set({ authOpen: false, loginOpen: true }),
+    () => set({ authOpen: false, loginOpen: true, loginOtpWindow: false }),
     [set],
   );
   const loginPasskey = useCallback(() => {
@@ -1070,7 +1121,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch((e: Error) => notify(e.message));
   }, [demoLogin, applyAccount, notify]);
   const loginVerifyEmail = useCallback(
-    () => set({ loginOpen: false, otpOpen: true }),
+    (email: string) =>
+      set({
+        loginOpen: false,
+        otpOpen: true,
+        authEmail: email.trim(),
+        loginOtpWindow: true,
+      }),
+    [set],
+  );
+  const openLoginOtpWindowByEmail = useCallback(
+    (email: string) => {
+      const trimmed = email.trim();
+      if (isValidEmailFormat(trimmed)) {
+        set({
+          authOpen: false,
+          registerOpen: false,
+          otpOpen: true,
+          loginOpen: false,
+          authEmail: trimmed,
+          loginOtpWindow: true,
+        });
+        return;
+      }
+      set({
+        authOpen: false,
+        registerOpen: false,
+        otpOpen: false,
+        loginOpen: true,
+        authEmail: trimmed,
+        loginOtpWindow: true,
+      });
+    },
     [set],
   );
   const toggleLoginOtpWindow = useCallback(() => {
@@ -1846,6 +1928,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     goLogin,
     loginPasskey,
     loginVerifyEmail,
+    openLoginOtpWindowByEmail,
     toggleLoginOtpWindow,
     recover,
     openProfile,

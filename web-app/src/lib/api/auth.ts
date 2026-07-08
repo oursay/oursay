@@ -51,6 +51,17 @@ export interface VerifyRegistrationResult {
   session: SessionInfo;
 }
 
+export interface EnableLoginResult {
+  status: "sent";
+  expiresAt: string;
+}
+
+export interface VerifyLoginResult {
+  status: "passkey_enroll";
+  userId: string;
+  session: SessionInfo;
+}
+
 export async function requestRegistrationOtp(email: string): Promise<void> {
   await apiPost("/v1/auth/otp/request", { email, purpose: "registration" });
 }
@@ -77,6 +88,33 @@ export async function verifyRegistrationOtp(
   });
   if (!body) throw new Error("OTP verify returned empty body");
   return { userId: body.userId, session: body.session };
+}
+
+/**
+ * Trusted-device enablement for gated cross-device login.
+ *
+ * Opens a short-lived login window and sends a `purpose:'login'` OTP to the
+ * account email.
+ */
+export async function enableLogin(): Promise<EnableLoginResult> {
+  const body = await apiPost<EnableLoginResult>("/v1/auth/login/enable");
+  if (!body) throw new Error("login enable returned empty body");
+  return body;
+}
+
+/**
+ * New-device redemption of gated login OTP.
+ *
+ * Sets a limited `login` session (enroll-only). The caller should then
+ * enroll a new passkey and complete a passkey login.
+ */
+export async function verifyLoginOtp(
+  email: string,
+  code: string,
+): Promise<VerifyLoginResult> {
+  const body = await apiPost<VerifyLoginResult>("/v1/auth/login/verify", { email, code });
+  if (!body) throw new Error("login verify returned empty body");
+  return body;
 }
 
 export async function enrollPasskey(label?: string): Promise<void> {

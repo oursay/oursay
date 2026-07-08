@@ -12,6 +12,8 @@ interface CollapsibleSectionProps {
   /** Optional count/caption shown before the chevron. */
   count?: string;
   children?: ReactNode;
+  /** Optional override for the expanded content wrapper. */
+  contentClassName?: string;
 }
 
 /** Collapsible interlink/section header — wireframe collHeader (chevron on the right). */
@@ -22,6 +24,7 @@ export function CollapsibleSection({
   onToggle,
   count,
   children,
+  contentClassName = "px-1 pt-3",
 }: CollapsibleSectionProps) {
   return (
     <div>
@@ -40,7 +43,7 @@ export function CollapsibleSection({
           <ChevronRight size={16} className="text-ink-soft" aria-hidden />
         )}
       </button>
-      {open && children ? <div className="px-1 pt-3">{children}</div> : null}
+      {open && children ? <div className={contentClassName}>{children}</div> : null}
     </div>
   );
 }

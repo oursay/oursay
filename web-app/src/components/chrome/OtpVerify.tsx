@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound } from "lucide-react";
+import { Key } from "lucide-react";
 import { Button, Modal } from "@/components/ui";
 
 interface OtpVerifyProps {
@@ -44,7 +44,7 @@ export function OtpVerify({
         />
         <Button
           fullWidth
-          icon={KeyRound}
+          icon={Key}
           onClick={() => onRegisterPasskey?.(code)}
           disabled={code.length < 6}
         >
