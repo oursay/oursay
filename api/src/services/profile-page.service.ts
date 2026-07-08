@@ -267,7 +267,12 @@ export class ProfilePageService {
       }
     }
 
-    const commentCount = await this.d.recordStore.countAuthoredComments(pubkeys);
+    const [commentCount, commentReactions] = await Promise.all([
+      this.d.recordStore.countAuthoredComments(pubkeys),
+      this.d.recordStore.sumAuthoredCommentReactionCounts(pubkeys),
+    ]);
+    agrees += commentReactions.agrees;
+    disagrees += commentReactions.disagrees;
     return { agrees, disagrees, statements, comments: commentCount };
   }
 

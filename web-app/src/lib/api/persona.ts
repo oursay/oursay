@@ -248,8 +248,14 @@ async function getPersonaProfileLive(
     ? wireTypeToKind(String(record.detail.type))
     : "statement";
   const threadTitle = record ? String(record.detail.title) : "";
+  const rootReactions = record
+    ? {
+        up: Number(record.detail.up ?? 0),
+        down: Number(record.detail.down ?? 0),
+      }
+    : undefined;
 
-  return mapPersonaProfile(raw, threadKind, threadTitle);
+  return mapPersonaProfile(raw, threadKind, threadTitle, rootReactions);
 }
 
 /**

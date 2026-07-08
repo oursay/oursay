@@ -527,6 +527,25 @@ export class PrivateStore {
     return Number(r.rows[0]?.count ?? 0);
   }
 
+  /** Agree/disagree reaction totals on LIVE comments authored by the supplied persona pubkeys. */
+  async sumAuthoredCommentReactionCounts(
+    pubkeys: string[],
+  ): Promise<{ agrees: number; disagrees: number }> {
+    if (pubkeys.length === 0) return { agrees: 0, disagrees: 0 };
+    const r = await this.pool.query(
+      `SELECT r.kind, COALESCE(SUM(r.count), 0)::int AS count
+         FROM entity_state es
+         JOIN reaction_counts_by_entity r ON r.parent_id = es.entity_id
+        WHERE es.author_pubkey = ANY($1) AND es.type = 'comment' AND NOT es.is_deleted
+        GROUP BY r.kind`,
+      [pubkeys],
+    );
+    return {
+      agrees: Number(r.rows.find((x) => x.kind === "check")?.count ?? 0),
+      disagrees: Number(r.rows.find((x) => x.kind === "cross")?.count ?? 0),
+    };
+  }
+
   /** Revision counts (`op = 'update'` transactions) for a batch of entities. Entities with no
    *  updates are absent from the map — callers default to 0. */
   async getEditCounts(entityIds: string[]): Promise<Map<string, number>> {

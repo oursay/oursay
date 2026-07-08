@@ -420,6 +420,7 @@ export function mapPersonaProfile(
   raw: Record<string, unknown>,
   threadKind: RecordKind,
   threadTitle: string,
+  rootReactions?: { up: number; down: number },
 ): PersonaProfile {
   const name = String(raw.name);
   const comments = Array.isArray(raw.comments)
@@ -428,6 +429,10 @@ export function mapPersonaProfile(
   const isAuthor = Boolean(raw.isRootAuthor);
   let agrees = comments.reduce((n, c) => n + c.up, 0);
   let disagrees = comments.reduce((n, c) => n + c.down, 0);
+  if (isAuthor && rootReactions) {
+    agrees += rootReactions.up;
+    disagrees += rootReactions.down;
+  }
 
   return {
     name,

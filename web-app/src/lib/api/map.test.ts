@@ -4,6 +4,7 @@ import {
   mapCommentNode,
   mapDistrictSummary,
   mapFeedItem,
+  mapPersonaProfile,
   mapRecordDetail,
   tokenToTier,
   wireTypeToKind,
@@ -156,6 +157,96 @@ describe("mapDistrictSummary", () => {
       "ab-ca-gov",
     );
     expect(row.leaderHandle).toBe("ab-edm_strth");
+  });
+});
+
+describe("mapPersonaProfile", () => {
+  it("includes root post reactions when the persona authored the thread", () => {
+    const profile = mapPersonaProfile(
+      {
+        name: "SourCecilla77",
+        threadId: "thread-1",
+        isRootAuthor: true,
+        tier: "identity_verified",
+        comments: [
+          {
+            author: "SourCecilla77",
+            handle: "SourCecilla77",
+            tier: "identity_verified",
+            authorGeo: "none",
+            ts: "2026-01-01T00:00:00Z",
+            edits: 0,
+            signTier: 0,
+            body: ["comment"],
+            withheld: false,
+            up: 1,
+            down: 1,
+            identity: {
+              display: "SourCecilla77",
+              handle: null,
+              isPersona: true,
+              isSelf: false,
+              seed: "SourCecilla77",
+              threadId: "thread-1",
+            },
+            replies: [],
+          },
+        ],
+      },
+      "statement",
+      "My statement",
+      { up: 5, down: 0 },
+    );
+    expect(profile.support).toEqual({
+      agrees: 6,
+      disagrees: 1,
+      statements: 0,
+      comments: 1,
+    });
+  });
+
+  it("ignores root post reactions when the persona only commented", () => {
+    const profile = mapPersonaProfile(
+      {
+        name: "Commenter77",
+        threadId: "thread-1",
+        isRootAuthor: false,
+        tier: "identity_verified",
+        comments: [
+          {
+            author: "Commenter77",
+            handle: "Commenter77",
+            tier: "identity_verified",
+            authorGeo: "none",
+            ts: "2026-01-01T00:00:00Z",
+            edits: 0,
+            signTier: 0,
+            body: ["comment"],
+            withheld: false,
+            up: 1,
+            down: 1,
+            identity: {
+              display: "Commenter77",
+              handle: null,
+              isPersona: true,
+              isSelf: false,
+              seed: "Commenter77",
+              threadId: "thread-1",
+            },
+            replies: [],
+          },
+        ],
+      },
+      "statement",
+      "Someone else's statement",
+      { up: 5, down: 0 },
+    );
+    expect(profile.support).toEqual({
+      agrees: 1,
+      disagrees: 1,
+      statements: 0,
+      comments: 1,
+    });
   });
 });
 

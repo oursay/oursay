@@ -146,6 +146,33 @@ describe("29 public profile: visibility gate, posts, activity", () => {
     expect(own.items.map((i: any) => i.id).sort()).to.deep.equal([open.entityId, masked.entityId].sort());
   });
 
+  it("aggregates support across statements and authored comments", async () => {
+    const svc = seeder(w);
+    const author = await makeAccount(w, { handle: "@supported", displayName: "Supported User" });
+    await w.services.repos.profile.setVisibility(author.userId, "public");
+    const post = await svc.create({ type: "post", author: "pk-sup", content: { title: "Topic", body: "b" } });
+    await link(w, "pk-sup", author.userId, post.entityId);
+    const comment = await svc.create({
+      type: "comment",
+      author: "pk-sup",
+      content: { body: "hi" },
+      parent: { type: "post", id: post.entityId },
+    });
+    await svc.react("pk-other", { type: "post", id: post.entityId }, "check");
+    await svc.react("pk-other2", { type: "post", id: post.entityId }, "check");
+    await svc.react("pk-other3", { type: "comment", id: comment.entityId }, "cross");
+
+    const res = await profile(w, "supported");
+    expect(res.statusCode).to.equal(200, res.body);
+    const body = res.json() as any;
+    expect(body.support).to.deep.equal({
+      agrees: 2,
+      disagrees: 1,
+      statements: 1,
+      comments: 1,
+    });
+  });
+
   it("derives activity rows from record_tx", async () => {
     const svc = seeder(w);
     const author = await makeAccount(w, { handle: "@active", displayName: "Active User" });
