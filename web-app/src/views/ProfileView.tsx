@@ -179,7 +179,7 @@ export function ProfileView({
             <ProfileSupportBar
               {...profile.support}
               ageLabel={profile.ageLabel}
-              showReactions={!self && displayTier === 3}
+              showReactions
             />
           </div>
         ) : null}

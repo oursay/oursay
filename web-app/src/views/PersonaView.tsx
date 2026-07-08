@@ -100,6 +100,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
             <ProfileSupportBar
               {...profile.support}
               ageLabel={profile.ageLabel}
+              showReactions
               pill="comments"
             />
           </div>
