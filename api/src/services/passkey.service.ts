@@ -166,12 +166,15 @@ export class PasskeyService {
       throw new ServiceError("not_found", "No such passkey for this account");
     }
     if (creds.length <= 1) {
-      throw new ServiceError("unprocessable", "Cannot remove your last passkey; use recovery to reset access");
+      throw new ServiceError("unprocessable", "Cannot remove your last passkey; use recovery to reset access", {
+        reason: "last_passkey",
+      });
     }
     if (input.sessionCredentialId && input.sessionCredentialId === input.id) {
       throw new ServiceError(
         "unprocessable",
         "Cannot remove the passkey for this session; sign out first or remove another device",
+        { reason: "current_session" },
       );
     }
     await this.d.authService.revokeSessionsForCredential(input.id);

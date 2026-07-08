@@ -14,6 +14,8 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly code?: string,
+    readonly details?: unknown,
   ) {
     super(message);
     this.name = "ApiError";
@@ -23,8 +25,10 @@ export class ApiError extends Error {
 function apiErrorFromResponse(status: number, text: string): ApiError {
   if (text) {
     try {
-      const parsed = JSON.parse(text) as { error?: { message?: string } };
-      if (parsed.error?.message) return new ApiError(status, parsed.error.message);
+      const parsed = JSON.parse(text) as { error?: { code?: string; message?: string; details?: unknown } };
+      if (parsed.error?.message) {
+        return new ApiError(status, parsed.error.message, parsed.error.code, parsed.error.details);
+      }
     } catch {
       // plain-text body
     }

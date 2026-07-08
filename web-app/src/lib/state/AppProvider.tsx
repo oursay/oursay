@@ -88,6 +88,7 @@ import {
   requestRegistrationOtp,
   requestRecoveryOtp,
   revokePasskey as apiRevokePasskey,
+  passkeyRevokeFailureToast,
   updatePasskeyLabel,
   verifyLoginOtp,
   verifyRecoveryOtp,
@@ -712,7 +713,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           setState((s) => ({ ...s, passkeys }));
           notify("Passkey removed.");
         })
-        .catch((e: Error) => notify(e.message));
+        .catch((e: Error) => notify(passkeyRevokeFailureToast(e)));
     },
     [notify],
   );
