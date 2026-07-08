@@ -17,9 +17,11 @@ export function assertDestructiveAllowed(label: string): void {
   }
 }
 
-/** Dev-only scripts (e.g. api seed) must not run in staging or production. */
+/** Dev-only scripts (e.g. api seed) must not run in staging or production — and must not run with an
+ *  UNSET NODE_ENV either (fail-closed: an unset env is not "development"). Callers load their .env
+ *  first, which sets NODE_ENV=development for local dev. */
 export function assertDevelopmentOnly(label: string): void {
-  if (process.env.NODE_ENV && process.env.NODE_ENV !== "development") {
+  if (process.env.NODE_ENV !== "development") {
     const env = process.env.NODE_ENV ?? "(unset)";
     throw new Error(
       `Refusing ${label}: NODE_ENV must be "development" (got ${env}). ` +

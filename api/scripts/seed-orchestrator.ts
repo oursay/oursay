@@ -38,6 +38,32 @@ import {
 } from "./seed-helpers.js";
 import { ThreadRef } from "@oursay/identity/client";
 
+/**
+ * Pick a not-yet-used thread-specific comment for a post/target, else fall back to a generic root
+ * comment. Mutates `used` so each `specificComments` entry is consumed at most once per thread.
+ * Extracted so Phase 1b (author comments) and Phase 2 (secondary engagement) share one implementation.
+ */
+export function pickSeedComment(
+  rng: Rng,
+  slug: string,
+  specificComments: string[] | undefined,
+  used: Map<string, Set<number>>,
+): string {
+  if (specificComments?.length) {
+    const taken = used.get(slug) ?? new Set<number>();
+    const available = specificComments
+      .map((text, idx) => ({ text, idx }))
+      .filter((x) => !taken.has(x.idx));
+    if (available.length > 0) {
+      const pick = pickRandom(rng, available);
+      taken.add(pick.idx);
+      used.set(slug, taken);
+      return pick.text;
+    }
+  }
+  return pickRandom(rng, GENERIC_ROOT_COMMENTS);
+}
+
 const GENERATED_USER_COUNT = 14;
 
 export interface SeedRunResult {
@@ -247,22 +273,9 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
     const author = members.get(post.authorHandle);
     if (!author) continue;
     const sign = signModeFor(post.jurisdiction);
-    const used = specificCommentUsed.get(post.slug) ?? new Set<number>();
     const authorCommentCount = 1 + Math.floor(rng() * 2);
     for (let i = 0; i < authorCommentCount; i++) {
-      let body: string | undefined;
-      if (post.specificComments?.length) {
-        const available = post.specificComments
-          .map((text, idx) => ({ text, idx }))
-          .filter((x) => !used.has(x.idx));
-        if (available.length > 0) {
-          const pick = pickRandom(rng, available);
-          used.add(pick.idx);
-          specificCommentUsed.set(post.slug, used);
-          body = pick.text;
-        }
-      }
-      body ??= pickRandom(rng, GENERIC_ROOT_COMMENTS);
+      const body = pickSeedComment(rng, post.slug, post.specificComments, specificCommentUsed);
       await author.client.ensureJoined(threadRef(post));
       const ref = await author.client.createComment(
         threadRef(post),
@@ -300,20 +313,7 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
     ).slice(0, Math.floor(rng() * 3) + 1);
     for (const target of commentTargets) {
       const sign = signModeFor(target.jurisdiction);
-      const used = specificCommentUsed.get(target.slug) ?? new Set<number>();
-      let body: string | undefined;
-      if (target.specificComments?.length) {
-        const available = target.specificComments
-          .map((text, idx) => ({ text, idx }))
-          .filter((x) => !used.has(x.idx));
-        if (available.length > 0) {
-          const pick = pickRandom(rng, available);
-          used.add(pick.idx);
-          specificCommentUsed.set(target.slug, used);
-          body = pick.text;
-        }
-      }
-      body ??= pickRandom(rng, GENERIC_ROOT_COMMENTS);
+      const body = pickSeedComment(rng, target.slug, target.specificComments, specificCommentUsed);
       await member.client.ensureJoined(threadRef(target));
       const ref = await member.client.createComment(
         threadRef(target),
@@ -389,6 +389,9 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
 
   // Petition signatures and poll votes on a sample of posts.
   console.log("Phase 4: signatures + votes…");
+  // AB residency/role gates legitimately block some voters — but a spike here can also be a real
+  // gate regression, so we COUNT skips and surface the total rather than swallowing them silently.
+  let voteGateSkips = 0;
   for (const post of posts) {
     if (post.kind === "petition") {
       const signers = shuffle(
@@ -429,14 +432,20 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
             { option },
             { sign },
           );
-        } catch {
-          // AB residency / role gates may block some voters — skip.
+        } catch (e) {
+          voteGateSkips++;
+          if (process.env.SEED_VERBOSE) {
+            console.warn(`\n  vote skipped (${person.handle} on ${post.slug}): ${(e as Error).message}`);
+          }
         }
       }
     }
     process.stdout.write(".");
   }
   console.log(" done");
+  if (voteGateSkips > 0) {
+    console.log(`  → ${voteGateSkips} vote(s) skipped by gates (set SEED_VERBOSE=1 for per-vote reasons)`);
+  }
 
   return { members, people, posts };
 }

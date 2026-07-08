@@ -83,6 +83,11 @@ async function main(): Promise<void> {
   clearPasskeyDir();
 
   const world = await buildSeedWorld();
+  // NOTE: the content seed is NOT idempotent — it fully wipes the civic record (db.reset) and the
+  // dev passkey dir on every run, then re-seeds from scratch. "Re-seed" therefore means "reset +
+  // rebuild", never "merge into existing data". (Geo boundary ingest below IS idempotent — it skips
+  // when geo.districts is already populated.) db.reset() routes through assertDestructiveAllowed, so
+  // it refuses to run under NODE_ENV=production.
   console.log("Resetting dev DB…");
   await world.db.reset();
 
