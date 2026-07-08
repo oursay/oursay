@@ -187,9 +187,7 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
       payload: { id: aId },
     });
     expect(res.statusCode).to.equal(422);
-    expect((res.json() as { error: { message: string; details?: { reason: string } } }).error.details?.reason).to.equal(
-      "current_session",
-    );
+    expect((res.json() as { error: { message: string } }).error.message).to.include("this session");
     expect(await w.services.repos.passkey.listByUserId(userId)).to.have.length(2);
     expect(await w.services.authService.resolve(sessA.session.token)).to.not.be.null;
   });
@@ -201,9 +199,7 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
 
     const res = await w.app.inject({ method: "POST", url: "/v1/auth/passkey/revoke", headers: bearer(token), payload: { id } });
     expect(res.statusCode).to.equal(422);
-    expect((res.json() as { error: { message: string; details?: { reason: string } } }).error.details?.reason).to.equal(
-      "last_passkey",
-    );
+    expect((res.json() as { error: { message: string } }).error.message).to.include("last passkey");
     expect(await w.services.repos.passkey.listByUserId(userId)).to.have.length(1);
   });
 

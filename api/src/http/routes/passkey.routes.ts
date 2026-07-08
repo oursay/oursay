@@ -168,10 +168,11 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
     },
     async (req, reply) => {
       const { id } = req.body as { id: string };
+      const session = await services.authService.resolve(req.user!.token);
       await services.passkeyService.revoke({
         userId: req.user!.userId,
         id,
-        sessionCredentialId: req.user!.credentialId,
+        sessionCredentialId: session?.credentialId ?? null,
       });
       reply.status(204).send();
     },

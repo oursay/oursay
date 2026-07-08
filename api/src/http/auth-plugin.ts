@@ -12,8 +12,6 @@ export interface AuthUser {
   userId: string;
   scope: "full" | "recovery" | "login" | "registration";
   token: string;
-  /** Passkey that established this session (passkey login only); null for OTP/recovery sessions. */
-  credentialId: string | null;
 }
 
 declare module "fastify" {
@@ -41,7 +39,7 @@ export function registerAuth(app: FastifyInstance, services: Services): void {
     const token = bearerOrCookie(req);
     const session = token ? await services.authService.resolve(token) : null;
     if (!session || !token) throw new ServiceError("unauthorized", "Authentication required");
-    req.user = { userId: session.userId, scope: session.scope, token, credentialId: session.credentialId };
+    req.user = { userId: session.userId, scope: session.scope, token };
   });
 
   app.decorate("requireFullScope", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -60,7 +58,7 @@ export function registerAuth(app: FastifyInstance, services: Services): void {
     if (!token) return;
     const session = await services.authService.resolve(token);
     if (session && session.scope === "full") {
-      req.user = { userId: session.userId, scope: session.scope, token, credentialId: session.credentialId };
+      req.user = { userId: session.userId, scope: session.scope, token };
     }
   });
 }

@@ -8,7 +8,7 @@ import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
-import { apiGet, apiPatch, apiPost, ApiError } from "./client";
+import { apiGet, apiPatch, apiPost } from "./client";
 import { authenticateWithPrfProbe } from "./passkey-prf";
 import { bootstrapCivicCustody, clearCachedCustodySession } from "./civic-custody";
 
@@ -215,18 +215,6 @@ export async function updatePasskeyLabel(
  *  or the passkey tied to this session; 404 if the id isn't the caller's. */
 export async function revokePasskey(id: string): Promise<void> {
   await apiPost("/v1/auth/passkey/revoke", { id });
-}
-
-/** User-facing toast when passkey revoke fails (422 self-session uses dedicated copy). */
-export function passkeyRevokeFailureToast(e: unknown): string {
-  if (e instanceof ApiError && e.status === 422 && e.code === "unprocessable") {
-    const reason = (e.details as { reason?: string } | undefined)?.reason;
-    if (reason === "current_session") {
-      return "This passkey signed you in on this device. Sign out first, or remove a passkey from another device.";
-    }
-  }
-  if (e instanceof Error) return e.message;
-  return "Could not remove passkey.";
 }
 
 export async function logout(): Promise<void> {
