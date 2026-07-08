@@ -1135,6 +1135,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [set, notify],
   );
+  // Shared tail for the OTP paths that end signed-in with a passkey (registration
+  // and gated login both run the identical enroll → passkey-login → hydrate → apply
+  // sequence; only the login-email hint and the success copy differ).
+  const finishPasskeyLogin = useCallback(
+    async (successMsg: string, email?: string) => {
+      await enrollPasskey();
+      const login = await loginWithPasskey(email);
+      userIdRef.current = login.userId;
+      const account = await fetchAccountContext();
+      applyAccount(account);
+      notify(successMsg);
+    },
+    [applyAccount, notify],
+  );
   const completeOtp = useCallback(
     (code?: string) => {
       if (!code || code.length < 6) return;
@@ -1154,12 +1168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void (async () => {
           try {
             await verifyLoginOtp(email, code);
-            await enrollPasskey();
-            const login = await loginWithPasskey(email);
-            userIdRef.current = login.userId;
-            const account = await fetchAccountContext();
-            applyAccount(account);
-            notify("Signed in with email OTP.");
+            await finishPasskeyLogin("Signed in with email OTP.", email);
           } catch (e) {
             const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Login failed.";
             notify(msg);
@@ -1248,12 +1257,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           );
           clearRegistrationDraft();
           userIdRef.current = reg.userId;
-          await enrollPasskey();
-          const login = await loginWithPasskey();
-          userIdRef.current = login.userId;
-          const account = await fetchAccountContext();
-          applyAccount(account);
-          notify("Account created — signed in with passkey.");
+          await finishPasskeyLogin("Account created — signed in with passkey.");
         } catch (e) {
           const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Registration failed.";
           notify(msg);
@@ -1265,7 +1269,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [
       demoLogin,
-      applyAccount,
+      finishPasskeyLogin,
       enrollPasskey,
       notify,
       requestRecoveryOtp,
