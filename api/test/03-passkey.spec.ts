@@ -125,7 +125,7 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
     expect(list.statusCode).to.equal(200);
     const listed = (list.json() as { passkeys: { label: string | null }[] }).passkeys;
     expect(listed).to.have.length(2);
-    expect(listed[0].label).to.equal("Built-in passkey");
+    expect(listed[0].label).to.equal("Built-In Passkey");
 
     const revoke = await w.app.inject({ method: "POST", url: "/v1/auth/passkey/revoke", headers: bearer(token), payload: { id: idB } });
     expect(revoke.statusCode).to.equal(204);

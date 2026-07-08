@@ -18,6 +18,7 @@ import {
   Plus,
   ShieldCheck,
   Sun,
+  Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Avatar, Button, Modal } from "@/components/ui";
@@ -66,6 +67,8 @@ interface ProfileModalProps {
   onAddDeviceByEmail?: () => void;
   /** Rename a passkey label (persisted in live mode). */
   onRenamePasskey?: (id: string, label: string) => void;
+  /** Remove a passkey ("kick" a device). Hidden on the last remaining passkey. */
+  onRevokePasskey?: (id: string) => void;
   /** Deferred account-settings destinations (wireframe no-ops → toast). */
   onOpenSetting?: (label: string) => void;
 }
@@ -98,9 +101,14 @@ const PASSKEYS_SHOWN = 2;
 function PasskeyRow({
   passkey,
   onRename,
+  onRevoke,
+  canRevoke,
 }: {
   passkey: AuthPasskey;
   onRename?: (id: string, label: string) => void;
+  onRevoke?: (id: string) => void;
+  /** False for the last remaining passkey — the server refuses to remove it (use recovery). */
+  canRevoke?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => passkeyDisplayLabel(passkey));
@@ -144,15 +152,29 @@ function PasskeyRow({
       ) : (
         <span className="min-w-0 flex-1 truncate">{display}</span>
       )}
-      {onRename && !editing ? (
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="ml-auto shrink-0 rounded p-1 text-muted hover:bg-surface-muted hover:text-ink"
-          aria-label={`Rename ${display}`}
-        >
-          <Pencil size={14} aria-hidden />
-        </button>
+      {!editing ? (
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          {onRename ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="shrink-0 rounded p-1 text-muted hover:bg-surface-muted hover:text-ink"
+              aria-label={`Rename ${display}`}
+            >
+              <Pencil size={14} aria-hidden />
+            </button>
+          ) : null}
+          {onRevoke && canRevoke ? (
+            <button
+              type="button"
+              onClick={() => onRevoke(passkey.id)}
+              className="shrink-0 rounded p-1 text-muted hover:bg-surface-muted hover:text-danger"
+              aria-label={`Remove ${display}`}
+            >
+              <Trash2 size={14} aria-hidden />
+            </button>
+          ) : null}
+        </span>
       ) : null}
     </li>
   );
@@ -320,6 +342,7 @@ export function ProfileModal({
   onAddDevice,
   onAddDeviceByEmail,
   onRenamePasskey,
+  onRevokePasskey,
   onOpenSetting,
 }: ProfileModalProps) {
   const KycIcon = KYC_ICON[kycTier];
@@ -382,7 +405,13 @@ export function ProfileModal({
           </p>
           <ul className="space-y-1.5">
             {shownPasskeys.map((pk) => (
-              <PasskeyRow key={pk.id} passkey={pk} onRename={onRenamePasskey} />
+              <PasskeyRow
+                key={pk.id}
+                passkey={pk}
+                onRename={onRenamePasskey}
+                onRevoke={onRevokePasskey}
+                canRevoke={passkeys.length > 1}
+              />
             ))}
             {hidden > 0 ? (
               <li>

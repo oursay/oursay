@@ -211,6 +211,12 @@ export async function updatePasskeyLabel(
   return body.passkey;
 }
 
+/** Remove one of the caller's own passkeys. The server refuses to remove the last one (use
+ *  recovery instead) and 404s if the id isn't the caller's. */
+export async function revokePasskey(id: string): Promise<void> {
+  await apiPost("/v1/auth/passkey/revoke", { id });
+}
+
 export async function logout(): Promise<void> {
   clearCachedCustodySession();
   await apiPost("/v1/auth/logout");

@@ -268,11 +268,27 @@ function normalizePasskeyLabel(raw: string | null | undefined): string | null {
   return trimmed.length > PASSKEY_LABEL_MAX ? trimmed.slice(0, PASSKEY_LABEL_MAX) : trimmed;
 }
 
-/** Resolve a display label from stored authenticator metadata (never sent to clients). */
-function resolveDefaultPasskeyLabel(_aaguid: string | null, transports: string | null): string | null {
+// Curated AAGUID → display label for common consumer authenticators. Not exhaustive — the full FIDO
+// Metadata Service is large and network-fetched; this covers the platform + password-manager
+// authenticators most users present. Values from the community "passkey-authenticator-aaguids" list.
+// Unknown/absent AAGUIDs fall back to transport-based labelling below.
+const AAGUID_LABELS: Record<string, string> = {
+  "fbfc3007-154e-4ecc-8c0b-6e020557d7bd": "iCloud Keychain",
+  "08987058-cadc-4b81-b6e1-30de50dcbe96": "Windows Hello",
+  "9ddd1817-af5a-4672-a2b9-3e3dd95000a9": "Windows Hello",
+  "6028b017-b1d4-4c02-b4b3-afcdafc96bb2": "Windows Hello",
+  "ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4": "Google Password Manager",
+  "adce0002-35bc-c60a-648b-0b25f1f05503": "Chrome on Mac",
+};
+
+/** Resolve a display label from stored authenticator metadata (never sent to clients). Prefers a
+ *  known authenticator model by AAGUID, then falls back to the transport class. */
+function resolveDefaultPasskeyLabel(aaguid: string | null, transports: string | null): string | null {
+  const known = aaguid ? AAGUID_LABELS[aaguid.toLowerCase()] : undefined;
+  if (known) return known;
   const parts = transports?.split(",").map((s) => s.trim()) ?? [];
   if (parts.some((t) => t === "hybrid")) return "Mobile Passkey";
-  if (parts.some((t) => t === "ble" || t === "bluetooth")) return "Bluetooth Passkey";
+  if (parts.some((t) => t === "ble")) return "Bluetooth Passkey";
   if (parts.some((t) => t === "usb")) return "USB Passkey";
   if (parts.some((t) => t === "nfc")) return "NFC Passkey";
   if (parts.includes("internal")) return "Built-In Passkey";

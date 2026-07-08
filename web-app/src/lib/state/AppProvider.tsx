@@ -87,6 +87,7 @@ import {
   enableLogin,
   requestRegistrationOtp,
   requestRecoveryOtp,
+  revokePasskey as apiRevokePasskey,
   updatePasskeyLabel,
   verifyLoginOtp,
   verifyRecoveryOtp,
@@ -315,6 +316,7 @@ export interface AppApi {
   addDevice: () => void;
   addDeviceByEmail: () => void;
   renamePasskey: (id: string, label: string) => void;
+  revokePasskey: (id: string) => void;
   toggleTheme: () => void;
   /** Set the signing method for one action. */
   setSigning: (action: SignAction, method: SignMethod) => void;
@@ -689,6 +691,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ...s,
             passkeys: s.passkeys.map((pk) => (pk.id === id ? passkey : pk)),
           }));
+        })
+        .catch((e: Error) => notify(e.message));
+    },
+    [notify],
+  );
+
+  const revokePasskey = useCallback(
+    (id: string) => {
+      if (typeof window !== "undefined" && !window.confirm("Remove this passkey? The device will lose access immediately.")) {
+        return;
+      }
+      if (isMockOnly()) {
+        setState((s) => ({ ...s, passkeys: s.passkeys.filter((pk) => pk.id !== id) }));
+        return;
+      }
+      void apiRevokePasskey(id)
+        .then(() => listPasskeys())
+        .then((passkeys) => {
+          setState((s) => ({ ...s, passkeys }));
+          notify("Passkey removed.");
         })
         .catch((e: Error) => notify(e.message));
     },
@@ -2111,6 +2133,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addDevice,
     addDeviceByEmail,
     renamePasskey,
+    revokePasskey,
     toggleTheme,
     setSigning,
     setPostSigning,
