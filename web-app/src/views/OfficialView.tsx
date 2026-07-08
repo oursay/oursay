@@ -20,10 +20,10 @@ import {
 import {
   authorPath,
   districtPath,
-  officialPath,
   personaHintPath,
   postPath,
   postPathForId,
+  profilePath,
 } from "@/lib/routes";
 import { districtName } from "@/lib/mock";
 import { useApp } from "@/lib/state";
@@ -79,17 +79,19 @@ export function OfficialView({ handle }: { handle: string }) {
     (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
   );
   const activity = profile.activity.filter((a) => profileTypes.includes(a.kind));
-  const support = profile.support;
-  const showSupport =
-    support != null && support.agrees + support.disagrees > 0;
+  const support = profile.support ?? {
+    agrees: 0,
+    disagrees: 0,
+    statements: 0,
+    comments: 0,
+  };
+  const showSupport = support.agrees + support.disagrees > 0;
+  const claimedUserHandle = profile.claimedUserHandle ?? profile.handle;
 
   const representativeRow = profile.claimed ? (
     <button
       type="button"
-      onClick={() => {
-        const path = officialPath(profile.seatHandle);
-        if (path) router.push(path);
-      }}
+      onClick={() => router.push(profilePath(claimedUserHandle))}
       className="flex min-w-0 max-w-full items-center gap-1.5 text-left text-xs font-medium text-brand-700 hover:text-brand-800"
     >
       <User size={13} className="shrink-0" aria-hidden />
@@ -109,7 +111,11 @@ export function OfficialView({ handle }: { handle: string }) {
       <header className="rounded-xl border border-border bg-surface px-3 pt-3 pb-3">
         <div className="flex items-center gap-3">
           {profile.claimed ? (
-            <Avatar name={profile.seatTitle} seed={profile.seatHandle} size="lg" />
+            <Avatar
+              name={profile.representativeName}
+              seed={claimedUserHandle}
+              size="lg"
+            />
           ) : (
             <span
               className="inline-flex size-13 shrink-0 items-center justify-center rounded-full bg-brand-300"
@@ -137,7 +143,7 @@ export function OfficialView({ handle }: { handle: string }) {
           </p>
         ) : null}
 
-        {profile.claimed && showSupport && support ? (
+        {profile.claimed && showSupport ? (
           <div className="mt-3">
             <ProfileSupportBar
               {...support}

@@ -227,11 +227,12 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
 
 /** Map a comment-node wire row (recursive). */
 export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
+  const official = Boolean(raw.official);
   const node: CommentNode = {
     ...(typeof raw.id === "string" ? { id: raw.id } : {}),
     author: String(raw.author),
     handle: mapWireHandle(raw.handle),
-    tier: tokenToTier(String(raw.tier)),
+    tier: tokenToTier(String(raw.tier), official),
     ts: String(raw.ts),
     body: (raw.body as string[]) ?? [],
     up: (raw.up as number) ?? 0,

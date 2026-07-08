@@ -62,6 +62,7 @@ const commentNodeSchema = {
     author: { type: "string" },
     handle: { type: "string" },
     tier: { type: "string", enum: KYC_TIERS },
+    official: { type: "boolean" },
     authorGeo: authorGeoSchema,
     ts: { type: "string" },
     edits: { type: "integer" },
@@ -74,7 +75,7 @@ const commentNodeSchema = {
     identity: identitySchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
-  required: ["id", "author", "handle", "tier", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
+  required: ["id", "author", "handle", "tier", "official", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
 const detailSchema = {

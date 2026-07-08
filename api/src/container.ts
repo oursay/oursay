@@ -325,7 +325,6 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const recordDetailService = new RecordDetailService({ recordStore, identityReadService });
   const recordStateService = new RecordStateService({ recordStore });
   const personaPageService = new PersonaPageService({ recordStore, identityReadService });
-  const officialPageService = new OfficialPageService({ geoStore });
   const profilePageService = new ProfilePageService({
     recordStore,
     userRepo: repos.user,
@@ -335,6 +334,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     identityReadService,
     publicFeedService,
   });
+  const officialPageService = new OfficialPageService({ geoStore, profilePageService });
 
   // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
   // (same `jurisdictions` list registered above). Official electoral boundaries only.

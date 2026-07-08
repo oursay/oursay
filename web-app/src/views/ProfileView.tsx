@@ -109,7 +109,7 @@ export function ProfileView({
               <VerificationPill tier={displayTier} align="right" />
             </div>
             <p className="truncate text-sm text-muted">{displayHandle(profile.handle)}</p>
-            {displayTier === 3 ? (
+            {displayTier === 3 && displayRole !== "Official" ? (
               <p className="mt-0.5 truncate text-xs text-ink-soft">{displayRole}</p>
             ) : null}
           </div>

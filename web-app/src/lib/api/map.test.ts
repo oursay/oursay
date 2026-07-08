@@ -209,4 +209,30 @@ describe("mapCommentNode", () => {
     expect(node.replies).toHaveLength(1);
     expect(node.replies[0].body).toEqual(["reply"]);
   });
+
+  it("maps official flag to tier 3", () => {
+    const node = mapCommentNode({
+      author: "Alberta Assembly",
+      handle: "ableg",
+      tier: "residency_verified",
+      official: true,
+      authorGeo: "jurisdiction",
+      ts: "2026-01-01T00:00:00Z",
+      edits: 0,
+      signTier: 0,
+      body: ["official comment"],
+      up: 0,
+      down: 0,
+      identity: {
+        display: "Alberta Assembly",
+        handle: "ableg",
+        isPersona: false,
+        isSelf: false,
+        seed: "ableg",
+        threadId: "t1",
+      },
+      replies: [],
+    });
+    expect(node.tier).toBe(3);
+  });
 });
