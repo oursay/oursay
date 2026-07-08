@@ -62,6 +62,7 @@ export interface ActivityItemDto {
   icon?: string;
   text: string;
   meta: string;
+  jurisdictionId: string;
   recordId?: string;
 }
 
@@ -146,15 +147,24 @@ export class ProfilePageService {
       limit: limit + 1,
     });
     const page = rows.slice(0, limit);
-    const items: ActivityItemDto[] = [];
-    for (const row of page) {
-      const item = await this.mapActivity(row);
-      if (!item) continue;
-      if (query.kinds && query.kinds.length > 0 && !query.kinds.includes(item.kind)) continue;
-      items.push(item);
-    }
+    const items = await this.mapAuthorActivityRows(page, query.kinds);
     const nextCursor = rows.length > limit ? String(page[page.length - 1].seq) : null;
     return { items, nextCursor };
+  }
+
+  /** Map record_tx author-activity rows to profile/persona activity items. */
+  async mapAuthorActivityRows(
+    rows: AuthorActivityRow[],
+    kinds?: ActivityKind[],
+  ): Promise<ActivityItemDto[]> {
+    const items: ActivityItemDto[] = [];
+    for (const row of rows) {
+      const item = await this.mapActivity(row);
+      if (!item) continue;
+      if (kinds && kinds.length > 0 && !kinds.includes(item.kind)) continue;
+      items.push(item);
+    }
+    return items;
   }
 
   private async requireVisible(handleRaw: string, viewer: ApiViewer): Promise<ProfileCtx> {
@@ -290,7 +300,8 @@ export class ProfilePageService {
         kind,
         icon: "#ic-edit",
         text: row.type === "comment" ? `Edited a comment on “${rootTitle}”` : `Edited “${rootTitle}”`,
-        meta: relMeta(row.createdAt, jurisdiction),
+        meta: relMeta(row.createdAt),
+        jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
     }
@@ -299,7 +310,8 @@ export class ProfilePageService {
       return {
         kind: "comment",
         text: `Commented on “${rootTitle}”`,
-        meta: relMeta(row.createdAt, jurisdiction),
+        meta: relMeta(row.createdAt),
+        jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
     }
@@ -310,7 +322,8 @@ export class ProfilePageService {
         kind: "reaction",
         icon: agreed ? "#ic-check" : "#ic-x",
         text: `${agreed ? "Agreed" : "Disagreed"} with “${rootTitle}”`,
-        meta: relMeta(row.createdAt, jurisdiction),
+        meta: relMeta(row.createdAt),
+        jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
     }
@@ -318,7 +331,8 @@ export class ProfilePageService {
       return {
         kind: "poll",
         text: `Voted in “${rootTitle}”`,
-        meta: relMeta(row.createdAt, jurisdiction),
+        meta: relMeta(row.createdAt),
+        jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
     }
@@ -326,7 +340,8 @@ export class ProfilePageService {
       return {
         kind: "petition",
         text: `Signed “${rootTitle}”`,
-        meta: relMeta(row.createdAt, jurisdiction),
+        meta: relMeta(row.createdAt),
+        jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
     }
@@ -335,7 +350,8 @@ export class ProfilePageService {
       return {
         kind: activityKindForType(row.type),
         text: `Posted “${title}”`,
-        meta: relMeta(row.createdAt, jurisdiction),
+        meta: relMeta(row.createdAt),
+        jurisdictionId: jurisdiction,
         recordId: row.entityId,
       };
     }
@@ -344,7 +360,8 @@ export class ProfilePageService {
       return {
         kind: "statement",
         text: `Posted “${title}”`,
-        meta: relMeta(row.createdAt, jurisdiction),
+        meta: relMeta(row.createdAt),
+        jurisdictionId: jurisdiction,
         recordId: row.entityId,
       };
     }
@@ -424,10 +441,9 @@ function formatAgeLabel(createdAt: string): string {
   return `${years} ${years === 1 ? "year" : "years"}`;
 }
 
-function relMeta(iso: string, jurisdiction: string): string {
+function relMeta(iso: string): string {
   const days = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
-  const rel = days === 0 ? "today" : `${days}d`;
-  return jurisdiction === DEFAULT_JURISDICTION ? rel : `${rel} · ${jurisdiction}`;
+  return days === 0 ? "today" : `${days}d`;
 }
 
 function activityKindForType(type: RecordType): ActivityKind {

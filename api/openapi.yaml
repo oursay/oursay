@@ -5077,6 +5077,34 @@ paths:
                         - down
                         - identity
                         - replies
+                  activity:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind:
+                          type: string
+                          enum:
+                            - statement
+                            - comment
+                            - petition
+                            - poll
+                            - reaction
+                        icon:
+                          type: string
+                        text:
+                          type: string
+                        meta:
+                          type: string
+                        jurisdictionId:
+                          type: string
+                        recordId:
+                          type: string
+                      required:
+                        - kind
+                        - text
+                        - meta
+                        - jurisdictionId
                 required:
                   - name
                   - threadId
@@ -5085,6 +5113,7 @@ paths:
                   - tier
                   - isRootAuthor
                   - comments
+                  - activity
         "404":
           description: Default Response
           content:
@@ -5614,12 +5643,15 @@ paths:
                           type: string
                         meta:
                           type: string
+                        jurisdictionId:
+                          type: string
                         recordId:
                           type: string
                       required:
                         - kind
                         - text
                         - meta
+                        - jurisdictionId
                   nextCursor:
                     type: string
                     nullable: true

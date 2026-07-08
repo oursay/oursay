@@ -63,9 +63,10 @@ const activityItemSchema = {
     icon: { type: "string" },
     text: { type: "string" },
     meta: { type: "string" },
+    jurisdictionId: { type: "string" },
     recordId: { type: "string" },
   },
-  required: ["kind", "text", "meta"],
+  required: ["kind", "text", "meta", "jurisdictionId"],
 } as const;
 
 const profileHeaderSchema = {

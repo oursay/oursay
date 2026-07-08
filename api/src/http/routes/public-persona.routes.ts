@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
 import { KYC_TIERS } from "../../types/kyc.js";
 import { errorSchema } from "../schemas.js";
+import { ACTIVITY_KINDS } from "../../services/profile-page.service.js";
 
 const identitySchema = {
   type: "object",
@@ -42,6 +43,19 @@ const commentNodeSchema = {
   required: ["id", "author", "handle", "tier", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
+const activityItemSchema = {
+  type: "object",
+  properties: {
+    kind: { type: "string", enum: [...ACTIVITY_KINDS] },
+    icon: { type: "string" },
+    text: { type: "string" },
+    meta: { type: "string" },
+    jurisdictionId: { type: "string" },
+    recordId: { type: "string" },
+  },
+  required: ["kind", "text", "meta", "jurisdictionId"],
+} as const;
+
 export function registerPublicPersonaRoutes(app: FastifyInstance, services: Services): void {
   app.get(
     "/v1/public/personas/:name",
@@ -66,8 +80,9 @@ export function registerPublicPersonaRoutes(app: FastifyInstance, services: Serv
               tier: { type: "string", enum: KYC_TIERS },
               isRootAuthor: { type: "boolean" },
               comments: { type: "array", items: commentNodeSchema },
+              activity: { type: "array", items: activityItemSchema },
             },
-            required: ["name", "threadId", "jurisdiction", "identity", "tier", "isRootAuthor", "comments"],
+            required: ["name", "threadId", "jurisdiction", "identity", "tier", "isRootAuthor", "comments", "activity"],
           },
           404: errorSchema,
         },

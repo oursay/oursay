@@ -11,6 +11,7 @@ import {
 import { ServiceError } from "../errors.js";
 import type { AuthorIdentityDto, IdentityReadService, ReadResolution, ThreadGeoContext } from "./identity-read.service.js";
 import type { CommentNodeDto } from "./record-detail.service.js";
+import type { ActivityItemDto, ProfilePageService } from "./profile-page.service.js";
 import type { ApiViewer } from "./viewer-context.service.js";
 import type { KycTier } from "../types/kyc.js";
 
@@ -22,11 +23,13 @@ export interface PersonaPageDto {
   tier: KycTier;
   isRootAuthor: boolean;
   comments: CommentNodeDto[];
+  activity: ActivityItemDto[];
 }
 
 export interface PersonaPageServiceDeps {
   recordStore: PrivateStore;
   identityReadService: IdentityReadService;
+  profilePageService: ProfilePageService;
 }
 
 export class PersonaPageService {
@@ -46,6 +49,8 @@ export class PersonaPageService {
     const tree = await this.collectTree(resolved.threadId, 1);
     const editCounts = tree.length > 0 ? await this.d.recordStore.getEditCounts(collectIds(tree)) : new Map();
     const comments = await this.collectAuthoredComments(tree, resolved.pubkey, res, ctx, editCounts);
+    const activityRows = await this.d.recordStore.listAuthorActivity([resolved.pubkey], { limit: 100 });
+    const activity = await this.d.profilePageService.mapAuthorActivityRows(activityRows);
 
     return {
       name,
@@ -55,6 +60,7 @@ export class PersonaPageService {
       tier: author.tier,
       isRootAuthor: root.authorPubkey === resolved.pubkey,
       comments,
+      activity,
     };
   }
 

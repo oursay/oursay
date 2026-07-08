@@ -248,6 +248,40 @@ describe("mapPersonaProfile", () => {
       comments: 1,
     });
   });
+
+  it("maps activity rows from the persona page wire payload", () => {
+    const profile = mapPersonaProfile(
+      {
+        name: "Reactor77",
+        threadId: "thread-1",
+        isRootAuthor: false,
+        tier: "identity_verified",
+        comments: [],
+        activity: [
+          {
+            kind: "reaction",
+            icon: "#ic-check",
+            text: 'Agreed with "Topic"',
+            meta: "2d",
+            jurisdictionId: "ab-ca-gov",
+            recordId: "thread-1",
+          },
+        ],
+      },
+      "statement",
+      "Topic",
+    );
+    expect(profile.activity).toEqual([
+      {
+        kind: "reaction",
+        icon: "#ic-check",
+        text: 'Agreed with "Topic"',
+        meta: "2d",
+        jurisdictionId: "ab-ca-gov",
+        recordId: "thread-1",
+      },
+    ]);
+  });
 });
 
 describe("mapCommentNode", () => {

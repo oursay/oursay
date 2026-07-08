@@ -39,6 +39,8 @@ export interface ActivityItem {
   icon?: string;
   text: string;
   meta: string;
+  /** Jurisdiction the acted-on record belongs to — drives the linked label in the meta row. */
+  jurisdictionId?: string;
   /** Mock navigation target — the record this activity refers to. */
   recordId?: string;
 }

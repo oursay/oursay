@@ -8,10 +8,8 @@ import type { ActivityKind, PublicProfile } from "@/lib/types";
 import { Avatar, FeedCard, VerificationPill } from "@/components";
 import { Button } from "@/components/ui";
 import {
-  activityRowGlyph,
-  ACTIVITY_REACTION_TONE,
+  ActivityRow,
   ProfileSupportBar,
-  REACTION_GLYPH,
   RoleTag,
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
@@ -269,46 +267,17 @@ export function ProfileView({
           {activity.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No activity matches the filters.</p>
           ) : (
-            activity.map((a, i) => {
-            const glyph = activityRowGlyph(a);
-            return (
-              <li key={i}>
-                <button
-                  type="button"
-                  // TODO(entityId): route to the acted-on record by id.
-                  onClick={() =>
-                    router.push(
-                      postPathForId(a.recordId ?? activityToRecordId(a.kind)),
-                    )
-                  }
-                  className="flex w-full items-start gap-3 rounded-lg border border-border bg-surface p-3 text-left hover:bg-surface-muted"
-                >
-                  {glyph.type === "reaction" ? (
-                    <span
-                      aria-hidden
-                      className={`mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-sm font-bold leading-none ${
-                        glyph.alt
-                          ? ACTIVITY_REACTION_TONE.alt
-                          : ACTIVITY_REACTION_TONE.default
-                      }`}
-                    >
-                      {REACTION_GLYPH[glyph.dir]}
-                    </span>
-                  ) : (
-                    <glyph.icon
-                      size={16}
-                      className="mt-0.5 shrink-0 text-brand-600"
-                      aria-hidden
-                    />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm text-ink">{a.text}</span>
-                    <span className="block text-xs text-muted">{a.meta}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })
+            activity.map((a, i) => (
+              <ActivityRow
+                key={i}
+                item={a}
+                onOpen={() =>
+                  router.push(
+                    postPathForId(a.recordId ?? activityToRecordId(a.kind)),
+                  )
+                }
+              />
+            ))
           )}
         </ul>
       ) : null}

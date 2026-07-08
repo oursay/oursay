@@ -103,4 +103,25 @@ describe("27 persona page: thread-scoped identity + authored comments", () => {
     expect(res.json().identity.isSelf).to.equal(true);
     expect(res.json().identity.handle).to.equal("self");
   });
+
+  it("includes thread-scoped activity from record_tx (reactions, comments, posts)", async () => {
+    const svc = seeder(w);
+    const post = await svc.create({ type: "post", author: "pk-p", content: { title: "Topic", body: "b" } });
+    const commenter = await makeAccount(w, { handle: "@react", displayName: "Reactor" });
+    await w.services.repos.profile.setVisibility(commenter.userId, "anonymous");
+    const personaName = await link(w, "pk-react", commenter.userId, post.entityId);
+    await svc.create({
+      type: "comment",
+      author: "pk-react",
+      content: { body: "hi" },
+      parent: { type: "post", id: post.entityId },
+    });
+    await svc.react("pk-react", { type: "post", id: post.entityId }, "check");
+
+    const res = await personaPage(w, personaName!);
+    expect(res.statusCode).to.equal(200, res.body);
+    const kinds = (res.json() as any).activity.map((i: any) => i.kind);
+    expect(kinds).to.include("comment");
+    expect(kinds).to.include("reaction");
+  });
 });

@@ -8,10 +8,8 @@ import type { PersonaProfile } from "@/lib/api";
 import { relTime, useNow } from "@/lib/read-model";
 import { Avatar, CommentCard, VerificationPill } from "@/components";
 import {
-  activityRowGlyph,
-  ACTIVITY_REACTION_TONE,
+  ActivityRow,
   ProfileSupportBar,
-  REACTION_GLYPH,
   RECORD_TYPE_ICON,
 } from "@/components/content";
 import { authorPath, postPathForId } from "@/lib/routes";
@@ -168,41 +166,13 @@ export function PersonaView({ personaName }: { personaName: string }) {
               No other activity in this thread.
             </p>
           ) : (
-            profile.activity.map((a, i) => {
-              const glyph = activityRowGlyph(a);
-              return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(postPathForId(a.recordId ?? profile.threadId))}
-                    className="flex w-full items-start gap-3 rounded-lg border border-border bg-surface p-3 text-left hover:bg-surface-muted"
-                  >
-                    {glyph.type === "reaction" ? (
-                      <span
-                        aria-hidden
-                        className={`mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-sm font-bold leading-none ${
-                          glyph.alt
-                            ? ACTIVITY_REACTION_TONE.alt
-                            : ACTIVITY_REACTION_TONE.default
-                        }`}
-                      >
-                        {REACTION_GLYPH[glyph.dir]}
-                      </span>
-                    ) : (
-                      <glyph.icon
-                        size={16}
-                        className="mt-0.5 shrink-0 text-brand-600"
-                        aria-hidden
-                      />
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-ink">{a.text}</span>
-                      <span className="block text-xs text-muted">{a.meta}</span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })
+            profile.activity.map((a, i) => (
+              <ActivityRow
+                key={i}
+                item={a}
+                onOpen={() => router.push(postPathForId(a.recordId ?? profile.threadId))}
+              />
+            ))
           )}
         </ul>
       ) : null}

@@ -1,4 +1,4 @@
-import { DETAIL_BY_ID, person } from "@/lib/mock";
+import { DETAIL_BY_ID, getProfileByHandle, person } from "@/lib/mock";
 import { hashSeed } from "@/lib/mock/comment-utils";
 import type {
   ActivityItem,
@@ -83,6 +83,7 @@ function generateThreadActivity(
   threadId: string,
   threadKind: RecordKind,
   threadTitle: string,
+  jurisdictionId: string,
   isAuthor: boolean,
   editedComments: number,
 ): ActivityItem[] {
@@ -95,6 +96,7 @@ function generateThreadActivity(
       kind: threadKind === "result" ? "statement" : threadKind,
       text: `Posted "${title}"`,
       meta: `${1 + (seed % 6)}d`,
+      jurisdictionId,
       recordId: threadId,
     });
   }
@@ -104,6 +106,7 @@ function generateThreadActivity(
       icon: "#ic-edit",
       text: `Edited a comment on "${title}"`,
       meta: `${1 + ((seed + i) % 5)}d`,
+      jurisdictionId,
       recordId: threadId,
     });
   }
@@ -112,6 +115,7 @@ function generateThreadActivity(
       kind: "petition",
       text: `Signed "${title}"`,
       meta: `${2 + (seed % 5)}d`,
+      jurisdictionId,
       recordId: threadId,
     });
   } else if (threadKind === "poll") {
@@ -119,6 +123,7 @@ function generateThreadActivity(
       kind: "poll",
       text: `Voted in "${title}"`,
       meta: `${2 + (seed % 5)}d`,
+      jurisdictionId,
       recordId: threadId,
     });
   } else if (!isAuthor) {
@@ -127,6 +132,7 @@ function generateThreadActivity(
       icon: seed % 3 === 0 ? "#ic-x" : "#ic-check",
       text: `${seed % 3 === 0 ? "Disagreed" : "Agreed"} with "${title}"`,
       meta: `${2 + (seed % 5)}d`,
+      jurisdictionId,
       recordId: threadId,
     });
   }
@@ -173,6 +179,16 @@ function generateThreadMentions(
   return items;
 }
 
+function threadActivityForPersona(
+  handle: string,
+  threadId: string,
+  fallback: ActivityItem[],
+): ActivityItem[] {
+  const profile = getProfileByHandle(handle);
+  const scoped = (profile?.activity ?? []).filter((a) => a.recordId === threadId);
+  return scoped.length > 0 ? scoped : fallback;
+}
+
 async function getPersonaProfileMock(
   personaName: string,
   viewer: ViewerContext,
@@ -214,13 +230,18 @@ async function getPersonaProfileMock(
       comments: comments.length,
     },
     comments,
-    activity: generateThreadActivity(
-      personaName,
+    activity: threadActivityForPersona(
+      handle,
       threadId,
-      entry.post.kind,
-      entry.post.title,
-      isAuthor,
-      comments.filter((c) => (c.edits ?? 0) > 0).length,
+      generateThreadActivity(
+        personaName,
+        threadId,
+        entry.post.kind,
+        entry.post.title,
+        entry.post.jurisdiction,
+        isAuthor,
+        comments.filter((c) => (c.edits ?? 0) > 0).length,
+      ),
     ),
     mentions: generateThreadMentions(
       personaName,

@@ -302,6 +302,7 @@ export function mapActivityItem(raw: Record<string, unknown>): ActivityItem {
     icon: raw.icon as string | undefined,
     text: String(raw.text),
     meta: String(raw.meta),
+    jurisdictionId: raw.jurisdictionId != null ? String(raw.jurisdictionId) : undefined,
     recordId: raw.recordId as string | undefined,
   };
 }
@@ -449,15 +450,8 @@ export function mapPersonaProfile(
       comments: comments.length,
     },
     comments,
-    activity: isAuthor
-      ? [
-          {
-            kind: threadKind === "result" ? "statement" : threadKind,
-            text: `Posted "${threadTitle.length > 42 ? `${threadTitle.slice(0, 42)}…` : threadTitle}"`,
-            meta: "",
-            recordId: String(raw.threadId),
-          },
-        ]
+    activity: Array.isArray(raw.activity)
+      ? raw.activity.map((row) => mapActivityItem(row as Record<string, unknown>))
       : [],
     mentions: [],
   };

@@ -377,9 +377,12 @@ function truncateTitle(title: string, max = 42): string {
 
 const REL_TIME_LABELS = ["1d", "2d", "3d", "4d", "5d", "6d", "1w", "2w", "3w"];
 
-function relMeta(days: number, jurisdiction?: string): string {
-  const label = REL_TIME_LABELS[days % REL_TIME_LABELS.length];
-  return jurisdiction ? `${label} · ${jurisdiction}` : label;
+function relMeta(days: number): string {
+  return REL_TIME_LABELS[days % REL_TIME_LABELS.length];
+}
+
+function activityMeta(days: number, jurisdictionId: string): Pick<ActivityItem, "meta" | "jurisdictionId"> {
+  return { meta: relMeta(days), jurisdictionId };
 }
 
 function activityKindForPost(kind: FeedItem["kind"]): ActivityKind | null {
@@ -403,7 +406,7 @@ function generateProfileActivity(
     items.push({
       kind,
       text: `Posted “${truncateTitle(p.title)}”`,
-      meta: relMeta(i + 1, p.jurisdiction),
+      ...activityMeta(i + 1, p.jurisdiction),
       recordId: p.id,
     });
   }
@@ -443,7 +446,7 @@ function generateProfileActivity(
       kind: t.kind,
       icon: t.icon,
       text: t.text(p),
-      meta: relMeta((seed + i) % REL_TIME_LABELS.length, p.jurisdiction),
+      ...activityMeta((seed + i) % REL_TIME_LABELS.length, p.jurisdiction),
       recordId: p.id,
     });
   }

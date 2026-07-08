@@ -327,7 +327,6 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const publicFeedService = new PublicFeedService({ recordStore, identityReadService });
   const recordDetailService = new RecordDetailService({ recordStore, identityReadService });
   const recordStateService = new RecordStateService({ recordStore });
-  const personaPageService = new PersonaPageService({ recordStore, identityReadService });
   const profilePageService = new ProfilePageService({
     recordStore,
     userRepo: repos.user,
@@ -337,6 +336,11 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     geoStore,
     identityReadService,
     publicFeedService,
+  });
+  const personaPageService = new PersonaPageService({
+    recordStore,
+    identityReadService,
+    profilePageService,
   });
   const officialPageService = new OfficialPageService({ geoStore, profilePageService });
   const officialSeatClaimService = new OfficialSeatClaimService({
