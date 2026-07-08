@@ -27,7 +27,7 @@ export function districtSeatHandle(jurisdictionId: string, districtSlug: string)
   return `${jurShort}-${districtShortSlug(districtSlug)}`;
 }
 
-const CLAIMED_SEAT_HANDLES = new Set(["global-platform"]);
+const CLAIMED_SEAT_HANDLES = new Set(["global-platform", "ab-premier", "ab-bro_med_hat"]);
 
 export function isSeatClaimed(seatHandle: string): boolean {
   return CLAIMED_SEAT_HANDLES.has(seatHandle.replace(/^@/, "").toLowerCase());

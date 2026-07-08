@@ -11,7 +11,7 @@ import { ingestBoundaries, ingestOfficialSeats, oursayGlobalStewardSeat, Shapefi
 import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
 import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
-import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
+import { buildSeedWorld, clearPasskeyDir, applySeedSeatClaims } from "./seed-helpers.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 
@@ -94,6 +94,9 @@ async function main(): Promise<void> {
   await ensureGeoBoundaries(world);
 
   const { people, posts } = await runSeedOrchestrator(world, defaultSeedRng);
+
+  console.log("Applying official seat claims…");
+  await applySeedSeatClaims(world);
 
   const feed = await world.app.inject({ method: "GET", url: "/v1/public/feed?limit=80" });
   const feedCount =

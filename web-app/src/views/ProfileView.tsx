@@ -12,10 +12,21 @@ import {
   ACTIVITY_REACTION_TONE,
   ProfileSupportBar,
   REACTION_GLYPH,
+  RoleTag,
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
 import { displayHandle, wireHandle } from "@/lib/handle";
-import { authorPath, districtPath, postPath, postPathForId, profilePath, personaHintPath } from "@/lib/routes";
+import {
+  authorPath,
+  districtPath,
+  jurisdictionPath,
+  officialPath,
+  postPath,
+  postPathForId,
+  profilePath,
+  personaHintPath,
+} from "@/lib/routes";
+import type { ProfileRoleTag } from "@/lib/types";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
 import { isMockOnly } from "@/lib/api/client";
@@ -43,6 +54,7 @@ export function ProfileView({
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [tab, setTab] = useState<Tab>("posts");
+  const [rolesExpanded, setRolesExpanded] = useState(false);
   const wireHandleParam = wireHandle(handle) ?? handle;
 
   const selectTab = (t: Tab) => {
@@ -84,13 +96,39 @@ export function ProfileView({
   const verified = app.effectiveVerified;
   // Self mode reflects the live session tier so Validate ID updates the pill.
   const displayTier = self ? app.state.kycTier : profile.tier;
-  // The role line is an official title, shown only on Official accounts. The
-  // self account's seeded role says "Member", so derive its title from the
-  // home riding when the demo tier reaches Official.
-  const displayRole =
+  const displayRoles: ProfileRoleTag[] =
     self && displayTier === 3
-      ? `MLA · ${districtName(MY_DISTRICTS[0])}`
-      : profile.role;
+      ? [
+          {
+            roleLabel: "MLA",
+            placeLabel: districtName(MY_DISTRICTS[0]),
+            jurisdictionId: "ab-ca-gov",
+            districtSlug: MY_DISTRICTS[0],
+            seatHandle: null,
+            placeKind: "district",
+          },
+        ]
+      : profile.roles?.length
+        ? profile.roles
+        : profile.role && profile.role !== "Official" && profile.role !== "Member"
+          ? parseLegacyRole(profile.role)
+          : [];
+  const multiRole = displayRoles.length > 1;
+  const roleClick = (tag: ProfileRoleTag) => {
+    if (tag.seatHandle) {
+      const path = officialPath(tag.seatHandle);
+      if (path) router.push(path);
+      return;
+    }
+    router.push(profilePath(profile.handle));
+  };
+  const placeClick = (tag: ProfileRoleTag) => {
+    if (tag.placeKind === "district" && tag.districtSlug) {
+      router.push(districtPath(tag.districtSlug, { jurisdictionId: tag.jurisdictionId }));
+      return;
+    }
+    router.push(jurisdictionPath(tag.jurisdictionId));
+  };
   const posts = profile.posts.filter(
     (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
   );
@@ -109,8 +147,27 @@ export function ProfileView({
               <VerificationPill tier={displayTier} align="right" />
             </div>
             <p className="truncate text-sm text-muted">{displayHandle(profile.handle)}</p>
-            {displayTier === 3 && displayRole !== "Official" ? (
-              <p className="mt-0.5 truncate text-xs text-ink-soft">{displayRole}</p>
+            {displayTier === 3 && displayRoles.length > 0 ? (
+              <div className="mt-0.5 min-w-0">
+                <RoleTag
+                  roles={displayRoles}
+                  expanded={rolesExpanded}
+                  onExpandToggle={() => setRolesExpanded((v) => !v)}
+                  onRoleClick={roleClick}
+                  onPlaceClick={placeClick}
+                  part={rolesExpanded && multiRole ? "head" : "all"}
+                />
+                {rolesExpanded && multiRole ? (
+                  <RoleTag
+                    roles={displayRoles}
+                    expanded
+                    onExpandToggle={() => setRolesExpanded(false)}
+                    onRoleClick={roleClick}
+                    onPlaceClick={placeClick}
+                    part="tail"
+                  />
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>
@@ -293,4 +350,30 @@ export function ProfileView({
       ) : null}
     </div>
   );
+}
+
+function parseLegacyRole(role: string): ProfileRoleTag[] {
+  const idx = role.indexOf(" · ");
+  if (idx === -1) {
+    return [
+      {
+        roleLabel: role,
+        placeLabel: "",
+        jurisdictionId: "ab-ca-gov",
+        districtSlug: null,
+        seatHandle: null,
+        placeKind: "jurisdiction",
+      },
+    ];
+  }
+  return [
+    {
+      roleLabel: role.slice(0, idx),
+      placeLabel: role.slice(idx + 3),
+      jurisdictionId: "ab-ca-gov",
+      districtSlug: null,
+      seatHandle: null,
+      placeKind: "jurisdiction",
+    },
+  ];
 }

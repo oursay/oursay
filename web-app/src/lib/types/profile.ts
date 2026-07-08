@@ -1,5 +1,6 @@
 import type { AuthorIdentity } from "./identity";
 import type { FeedItem } from "./records";
+import type { ProfileRoleTag } from "./role-tag";
 import type { VerificationTier } from "./verification";
 
 /**
@@ -64,8 +65,10 @@ export type ProfilePost = FeedItem;
 export interface PublicProfile {
   name: string;
   handle: string;
-  /** Role line, e.g. "MLA · Edmonton-Strathcona". */
+  /** Role line, e.g. "MLA · Edmonton-Strathcona" (first tag; legacy compat). */
   role: string;
+  /** Structured official role tags for collapsible profile display. */
+  roles: ProfileRoleTag[];
   tier: VerificationTier;
   /** Short freeform bio shown at the top of the profile. */
   bio: string;

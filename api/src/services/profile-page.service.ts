@@ -10,6 +10,7 @@ import { ServiceError } from "../errors.js";
 import { displayNameFor, normalizeHandle } from "../helpers/handle.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
+import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import type { KycTier } from "../types/kyc.js";
 import { normalizeTier } from "../types/kyc.js";
@@ -34,11 +35,21 @@ export interface ProfileSupportDto {
   comments: number;
 }
 
+export interface ProfileRoleTagDto {
+  roleLabel: string;
+  placeLabel: string;
+  jurisdictionId: string;
+  districtSlug: string | null;
+  seatHandle: string | null;
+  placeKind: "jurisdiction" | "district";
+}
+
 export interface ProfileHeaderDto {
   name: string;
   /** Wire handle without the leading `@` (PublicProfile shape). */
   handle: string;
   role: string;
+  roles: ProfileRoleTagDto[];
   tier: KycTier;
   official: boolean;
   bio: string;
@@ -69,6 +80,7 @@ export interface ProfileActivityQuery {
 export interface ProfilePageServiceDeps {
   recordStore: PrivateStore;
   userRepo: UserRepo;
+  profileRepo: ProfileRepo;
   kycRepo: KycRepo;
   membershipRepo: MembershipRepo;
   geoStore: GeoStore;
@@ -88,10 +100,14 @@ export class ProfilePageService {
     ]);
     const tier = normalizeTier(tierRaw);
     const official = memberships.some((m) => m.role === "official");
+    const roles = await this.buildRoleTags(ctx.userId, ctx.handleWire, memberships);
     return {
       name: ctx.displayName,
       handle: ctx.handleWire,
-      role: await this.formatRole(memberships),
+      role:
+        roleLineFromTags(roles) ??
+        (official ? "Official" : "Member"),
+      roles,
       tier,
       official,
       bio: "",
@@ -170,14 +186,65 @@ export class ProfilePageService {
     };
   }
 
-  private async formatRole(memberships: Awaited<ReturnType<MembershipRepo["listForUser"]>>): Promise<string> {
-    const official = memberships.find((m) => m.role === "official" && m.representedDistrictSlug);
-    if (!official?.representedDistrictSlug) {
-      return memberships.some((m) => m.role === "official") ? "Official" : "Member";
+  private async formatRole(
+    userId: string,
+    handle: string,
+    memberships: Awaited<ReturnType<MembershipRepo["listForUser"]>>,
+  ): Promise<string> {
+    const roles = await this.buildRoleTags(userId, handle, memberships);
+    return roleLineFromTags(roles) ?? "Member";
+  }
+
+  private async buildRoleTags(
+    userId: string,
+    handle: string,
+    memberships: Awaited<ReturnType<MembershipRepo["listForUser"]>>,
+  ): Promise<ProfileRoleTagDto[]> {
+    if (handle) {
+      const seats = await this.d.geoStore.listOfficialSeatsByClaimedUserHandle(handle);
+      if (seats.length > 0) {
+        return seats
+          .map((seat) => seatToRoleTag(seat))
+          .sort((a, b) => seatSortRank(a) - seatSortRank(b));
+      }
     }
-    const districts = await this.d.geoStore.listDistrictsAsOf(official.jurisdictionId, new Date());
-    const name = districts.find((d) => d.districtSlug === official.representedDistrictSlug)?.name;
-    return name ? `MLA · ${name}` : `MLA · ${official.representedDistrictSlug}`;
+
+    const official = memberships.find((m) => m.role === "official");
+    if (!official) return [];
+
+    if (official.representedDistrictSlug) {
+      const districts = await this.d.geoStore.listDistrictsAsOf(official.jurisdictionId, new Date());
+      const name =
+        districts.find((d) => d.districtSlug === official.representedDistrictSlug)?.name ??
+        official.representedDistrictSlug;
+      const seat = await this.d.geoStore.getOfficialSeatForDistrict(
+        official.jurisdictionId,
+        official.representedDistrictSlug,
+      );
+      return [
+        {
+          roleLabel: "MLA",
+          placeLabel: name,
+          jurisdictionId: official.jurisdictionId,
+          districtSlug: official.representedDistrictSlug,
+          seatHandle: seat?.seatHandle ?? null,
+          placeKind: "district",
+        },
+      ];
+    }
+
+    const profile = userId ? await this.d.profileRepo.getByUserId(userId) : null;
+    const customTitle = profile?.memo?.trim();
+    return [
+      {
+        roleLabel: customTitle && !customTitle.includes("\n") ? customTitle : "Official",
+        placeLabel: jurisdictionLabelFor(official.jurisdictionId),
+        jurisdictionId: official.jurisdictionId,
+        districtSlug: null,
+        seatHandle: null,
+        placeKind: "jurisdiction",
+      },
+    ];
   }
 
   private async computeSupport(pubkeys: string[]): Promise<ProfileSupportDto> {
@@ -286,6 +353,48 @@ interface ProfileCtx {
   displayName: string;
   createdAt: string;
   pubkeys: string[];
+}
+
+function parseRoleLine(role: string): { roleLabel: string; placeLabel: string } {
+  const idx = role.indexOf(" · ");
+  if (idx === -1) return { roleLabel: role, placeLabel: "" };
+  return { roleLabel: role.slice(0, idx), placeLabel: role.slice(idx + 3) };
+}
+
+function jurisdictionLabelFor(jurisdictionId: string): string {
+  if (jurisdictionId === "ab-ca-gov") return "Alberta";
+  if (jurisdictionId === "oursay-global") return "OurSay Global";
+  return jurisdictionId;
+}
+
+function seatToRoleTag(seat: {
+  role: string;
+  jurisdictionId: string;
+  districtSlug: string | null;
+  seatHandle: string;
+  seatKind: "jurisdiction_leader" | "district_mla";
+}): ProfileRoleTagDto {
+  const { roleLabel, placeLabel } = parseRoleLine(seat.role);
+  return {
+    roleLabel,
+    placeLabel,
+    jurisdictionId: seat.jurisdictionId,
+    districtSlug: seat.districtSlug,
+    seatHandle: seat.seatHandle,
+    placeKind: seat.seatKind === "district_mla" ? "district" : "jurisdiction",
+  };
+}
+
+function seatSortRank(tag: ProfileRoleTagDto): number {
+  if (tag.roleLabel.toLowerCase().startsWith("premier")) return 0;
+  if (tag.roleLabel.toLowerCase().startsWith("platform")) return 0;
+  return 1;
+}
+
+function roleLineFromTags(tags: ProfileRoleTagDto[]): string | null {
+  const first = tags[0];
+  if (!first) return null;
+  return first.placeLabel ? `${first.roleLabel} · ${first.placeLabel}` : first.roleLabel;
 }
 
 function clampLimit(limit: number | undefined): number {

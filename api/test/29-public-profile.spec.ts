@@ -64,6 +64,7 @@ describe("29 public profile: visibility gate, posts, activity", () => {
     expect(body.name).to.equal("Public User");
     expect(body.handle).to.equal("public");
     expect(body.role).to.equal("Member");
+    expect(body.roles).to.be.an("array").that.is.empty;
   });
 
   it("404 (not 403) for an anonymous account viewed by a stranger", async () => {
@@ -165,5 +166,28 @@ describe("29 public profile: visibility gate, posts, activity", () => {
     expect(kinds).to.include("statement");
     expect(kinds).to.include("comment");
     expect(kinds).to.include("reaction");
+  });
+
+  it("returns custom jurisdiction-wide official roles from profile memo", async () => {
+    const author = await makeAccount(w, { handle: "@ableg", displayName: "Alberta Assembly" });
+    await w.services.repos.profile.setVisibility(author.userId, "public");
+    await w.services.repos.profile.update(author.userId, { memo: "Legislature" });
+    await w.services.repos.membership.setRole(author.userId, "ab-ca-gov", "official", null);
+    await w.services.kycService.attest(author.userId, "residency_verified");
+
+    const res = await profile(w, "ableg");
+    expect(res.statusCode).to.equal(200, res.body);
+    const body = res.json() as any;
+    expect(body.role).to.equal("Legislature · Alberta");
+    expect(body.roles).to.deep.equal([
+      {
+        roleLabel: "Legislature",
+        placeLabel: "Alberta",
+        jurisdictionId: "ab-ca-gov",
+        districtSlug: null,
+        seatHandle: null,
+        placeKind: "jurisdiction",
+      },
+    ]);
   });
 });

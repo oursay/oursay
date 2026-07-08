@@ -7,6 +7,16 @@ export const RAE_NGUYEN_PROFILE: PublicProfile = {
   name: "Rae Nguyen",
   handle: "raenguyen",
   role: "MLA · Edmonton-Strathcona",
+  roles: [
+    {
+      roleLabel: "MLA",
+      placeLabel: "Edmonton-Strathcona",
+      jurisdictionId: ALBERTA_ID,
+      districtSlug: "edmonton-strathcona",
+      seatHandle: "ab-edm_strth",
+      placeKind: "district",
+    },
+  ],
   tier: 3,
   bio: "MLA for Edmonton-Strathcona. Focused on the ravine review, transit, and keeping constituents in the loop.",
   ageLabel: "4 years",
@@ -115,6 +125,7 @@ export const ALEX_MORGAN_PROFILE: PublicProfile = {
   name: MY_NAME,
   handle: MY_HANDLE,
   role: "Member · Edmonton-Strathcona",
+  roles: [],
   tier: 2,
   bio: "Strathcona resident posting about safer streets, libraries, and local budgets.",
   ageLabel: "8 months",
@@ -174,6 +185,16 @@ export const PREMIER_PROFILE: PublicProfile = {
   name: "Hon. A. Premier",
   handle: "premier",
   role: "Premier · Alberta",
+  roles: [
+    {
+      roleLabel: "Premier",
+      placeLabel: "Alberta",
+      jurisdictionId: ALBERTA_ID,
+      districtSlug: null,
+      seatHandle: "ab-premier",
+      placeKind: "jurisdiction",
+    },
+  ],
   tier: 3,
   bio: "Premier of Alberta and MLA for Calgary-Lougheed. Sharing provincial priorities and consultation updates.",
   ageLabel: "6 years",
@@ -185,5 +206,48 @@ export const PREMIER_PROFILE: PublicProfile = {
   ],
   mentions: [
     { author: "Priya Anand", handle: "priya", text: "Thanks @premier for opening budget consultation", meta: "2d", recordId: "stmt-premier-budget" },
+  ],
+};
+
+/** Hand-crafted profile for Danielle Smith (Premier + Brooks-Medicine Hat MLA). */
+export const DANIELLE_SMITH_PROFILE: PublicProfile = {
+  name: "Danielle Smith",
+  handle: "danielle_smith",
+  role: "Premier · Alberta",
+  roles: [
+    {
+      roleLabel: "Premier",
+      placeLabel: "Alberta",
+      jurisdictionId: ALBERTA_ID,
+      districtSlug: null,
+      seatHandle: "ab-premier",
+      placeKind: "jurisdiction",
+    },
+    {
+      roleLabel: "MLA",
+      placeLabel: "Brooks-Medicine Hat",
+      jurisdictionId: ALBERTA_ID,
+      districtSlug: "brooks-medicine-hat",
+      seatHandle: "ab-bro_med_hat",
+      placeKind: "district",
+    },
+  ],
+  tier: 3,
+  bio: "Premier of Alberta and MLA for Brooks-Medicine Hat. Sharing provincial priorities and consultation updates.",
+  ageLabel: "6 years",
+  support: { agrees: 5400, disagrees: 1290, statements: 24, comments: 38 },
+  posts: [],
+  activity: [
+    { kind: "statement", text: "Posted “Budget 2027 consultation now open”", meta: "3d · Alberta", recordId: "stmt-premier-budget" },
+    { kind: "comment", text: "Commented on river-valley path poll", meta: "1d", recordId: "poll-river-path" },
+  ],
+  mentions: [
+    {
+      author: "Priya Anand",
+      handle: "priya",
+      text: "Thanks @danielle_smith for opening budget consultation",
+      meta: "2d",
+      recordId: "stmt-premier-budget",
+    },
   ],
 };

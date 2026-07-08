@@ -74,6 +74,21 @@ const profileHeaderSchema = {
     name: { type: "string" },
     handle: { type: "string" },
     role: { type: "string" },
+    roles: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          roleLabel: { type: "string" },
+          placeLabel: { type: "string" },
+          jurisdictionId: { type: "string" },
+          districtSlug: { type: ["string", "null"] },
+          seatHandle: { type: ["string", "null"] },
+          placeKind: { type: "string", enum: ["jurisdiction", "district"] },
+        },
+        required: ["roleLabel", "placeLabel", "jurisdictionId", "districtSlug", "seatHandle", "placeKind"],
+      },
+    },
     tier: { type: "string", enum: KYC_TIERS },
     official: { type: "boolean" },
     bio: { type: "string" },
@@ -89,7 +104,7 @@ const profileHeaderSchema = {
       required: ["agrees", "disagrees", "statements", "comments"],
     },
   },
-  required: ["name", "handle", "role", "tier", "official", "bio", "ageLabel", "support"],
+  required: ["name", "handle", "role", "roles", "tier", "official", "bio", "ageLabel", "support"],
 } as const;
 
 const typesQuery = {

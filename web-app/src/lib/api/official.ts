@@ -34,6 +34,8 @@ export interface OfficialProfile {
 
 const CLAIMED_SEATS: Record<string, string> = {
   "global-platform": "oursay",
+  "ab-premier": "danielle_smith",
+  "ab-bro_med_hat": "danielle_smith",
 };
 
 function autoBio(name: string): string {

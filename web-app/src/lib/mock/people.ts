@@ -19,7 +19,14 @@ const EXTRA_PEOPLE: MockPerson[] = [
   { name: "Priya Anand", handle: "priya", tier: 1, visibility: "id_verified" },
   { name: "Marcus Lee", handle: "mlee", tier: 1, visibility: "my_jurisdiction" },
   { name: "Hon. A. Premier", handle: "premier", tier: 3, role: "Premier · Alberta" },
-  { name: "Alberta Assembly", handle: "ableg", tier: 3, role: "Alberta Assembly" },
+  {
+    name: "Danielle Smith",
+    handle: "danielle_smith",
+    tier: 3,
+    role: "Premier · Alberta",
+    districts: ["brooks-medicine-hat"],
+  },
+  { name: "Alberta Assembly", handle: "ableg", tier: 3, role: "Legislature · Alberta" },
   {
     name: "Jordan Vance",
     handle: "jvance",

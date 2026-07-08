@@ -6,6 +6,7 @@
 
 import type { AuthorIdentity } from "@/lib/types/identity";
 import type { ActivityItem, PublicProfile } from "@/lib/types/profile";
+import type { ProfileRoleTag } from "@/lib/types/role-tag";
 import type {
   AttachedPoll,
   CanonicalRecordType,
@@ -258,10 +259,23 @@ export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
 export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
   const official = Boolean(raw.official);
   const supportRaw = raw.support as Record<string, number> | undefined;
+  const rolesRaw = Array.isArray(raw.roles) ? raw.roles : [];
+  const roles: ProfileRoleTag[] = rolesRaw.map((row) => {
+    const tag = row as Record<string, unknown>;
+    return {
+      roleLabel: String(tag.roleLabel ?? ""),
+      placeLabel: String(tag.placeLabel ?? ""),
+      jurisdictionId: String(tag.jurisdictionId ?? ""),
+      districtSlug: tag.districtSlug == null ? null : String(tag.districtSlug),
+      seatHandle: tag.seatHandle == null ? null : String(tag.seatHandle),
+      placeKind: tag.placeKind === "district" ? "district" : "jurisdiction",
+    };
+  });
   return {
     name: String(raw.name),
     handle: mapWireHandle(raw.handle),
     role: String(raw.role ?? ""),
+    roles,
     tier: tokenToTier(String(raw.tier), official),
     bio: String(raw.bio ?? ""),
     ageLabel: String(raw.ageLabel ?? ""),

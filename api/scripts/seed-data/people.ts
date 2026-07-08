@@ -20,6 +20,8 @@ export interface SeedPerson {
   visibility?: SeedVisibility;
   /** When set, user gets official role in ab-ca-gov (needed for Alberta polls). */
   officialDistrict?: string | null;
+  /** Custom jurisdiction-wide official title (stored in profile memo), e.g. "Legislature". */
+  officialTitle?: string;
   /** Jurisdiction-wide official in oursay-global (platform leader). */
   globalOfficial?: boolean;
   jurisdictions?: string[];
@@ -82,6 +84,16 @@ export const SEED_ANCHORS: readonly SeedPerson[] = [
     visibility: "public",
     jurisdictions: [ALBERTA_ID],
     officialDistrict: null,
+    officialTitle: "Legislature",
+  },
+  {
+    handle: "danielle_smith",
+    name: "Danielle Smith",
+    tier: 3,
+    visibility: "public",
+    jurisdictions: [ALBERTA_ID],
+    districts: ["brooks-medicine-hat"],
+    officialDistrict: "brooks-medicine-hat",
   },
   {
     handle: "raenguyen",

@@ -32,9 +32,11 @@ import { MY_HANDLE } from "./constants";
 import { PEOPLE_BY_HANDLE, person, personDistricts } from "./people";
 import {
   ALEX_MORGAN_PROFILE,
+  DANIELLE_SMITH_PROFILE,
   PREMIER_PROFILE,
   RAE_NGUYEN_PROFILE,
 } from "./profiles-seed";
+import { mockRoleLine, mockRoleTagsFor } from "./role-tags";
 import { WIREFRAME_POSTS } from "./wireframe-posts";
 
 /** Hand-crafted record id -> comment thread (wireframe samples). */
@@ -529,7 +531,7 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       slug: "alberta",
       name: "Alberta",
       level: "province",
-      leader: { name: "Danielle Smith", handle: "ab-premier", claimed: false, leaderRole: "premier" },
+      leader: { name: "Danielle Smith", handle: "ab-premier", claimed: true, leaderRole: "premier" },
       gates: JURISDICTION_GATES[ALBERTA_ID],
       rules: [
         "Ladder policy — levels graduate upward.",
@@ -607,6 +609,7 @@ function buildProfiles(
   const byHandle: Record<string, PublicProfile> = {
     raenguyen: RAE_NGUYEN_PROFILE,
     premier: PREMIER_PROFILE,
+    danielle_smith: DANIELLE_SMITH_PROFILE,
     [MY_HANDLE]: ALEX_MORGAN_PROFILE,
   };
 
@@ -625,6 +628,13 @@ function buildProfiles(
       name: riding.mla.name,
       handle,
       role: `MLA · ${riding.name}`,
+      roles: mockRoleTagsFor(handle, {
+        name: riding.mla.name,
+        handle,
+        tier: 3,
+        districts: [riding.slug],
+        role: `MLA · ${riding.name}`,
+      }),
       tier: 3,
       bio: generateBio(handle, `MLA · ${riding.name}`),
       ageLabel: profileAgeLabel(handle),
@@ -654,7 +664,8 @@ function buildProfiles(
     byHandle[handle] = {
       name: p.name,
       handle,
-      role: p.role ?? "Member",
+      role: p.role ?? mockRoleLine(mockRoleTagsFor(handle, p)),
+      roles: mockRoleTagsFor(handle, p),
       tier: p.tier,
       bio: generateBio(handle, p.role ?? "Member"),
       ageLabel: profileAgeLabel(handle),

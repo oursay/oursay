@@ -272,8 +272,18 @@ export class GeoStore {
     userHandle: string,
     asOf: Date = new Date(),
   ): Promise<OfficialSeatRow | null> {
+    const seats = await this.listOfficialSeatsByClaimedUserHandle(userHandle, asOf);
+    return seats[0] ?? null;
+  }
+
+  /** Every distinct seat claimed by a user at `asOf` (one row per seat_handle). */
+  async listOfficialSeatsByClaimedUserHandle(
+    userHandle: string,
+    asOf: Date = new Date(),
+  ): Promise<OfficialSeatRow[]> {
     const r = await this.pool.query(
-      `SELECT id,
+      `SELECT DISTINCT ON (seat_handle)
+              id,
               jurisdiction_id,
               seat_kind,
               title,
@@ -289,11 +299,10 @@ export class GeoStore {
               source
          FROM geo.official_seats
         WHERE claimed_user_handle = $1 AND effective_date <= $2
-        ORDER BY effective_date DESC
-        LIMIT 1`,
+        ORDER BY seat_handle, effective_date DESC`,
       [userHandle, asOf.toISOString().slice(0, 10)],
     );
-    return r.rows[0] ? mapOfficialSeatRow(r.rows[0]) : null;
+    return r.rows.map((row) => mapOfficialSeatRow(row));
   }
 
   /** Official MLA seat for a district slug at `asOf`, if any. */

@@ -72,6 +72,7 @@ export const DISTRICT_POINTS: Record<string, { lon: number; lat: number }> = {
   "edmonton-strathcona": { lon: -113.52, lat: 53.52 },
   "edmonton-city-centre": { lon: -113.5065, lat: 53.5333 },
   "calgary-elbow": { lon: -114.07, lat: 51.04 },
+  "brooks-medicine-hat": { lon: -111.89, lat: 50.57 },
 };
 
 export function signModeFor(jurisdiction: string): SignMode {
@@ -132,7 +133,7 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
     province: person.districts?.length ? "AB" : null,
     postalCode: null,
     country: "CA",
-    memo: null,
+    memo: person.officialTitle ?? null,
     over18: true,
     visibility,
     email,
@@ -191,6 +192,39 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
   });
 
   return { userId, token: session.token, handle: person.handle, client, passkey };
+}
+
+/** Wire claimed official seats after seed users exist. */
+export async function applySeedSeatClaims(world: SeedWorld): Promise<void> {
+  const claims: { seatHandle: string; claimedUserHandle: string }[] = [
+    { seatHandle: "global-platform", claimedUserHandle: "oursay" },
+    { seatHandle: "ab-premier", claimedUserHandle: "danielle_smith" },
+    { seatHandle: "ab-bro_med_hat", claimedUserHandle: "danielle_smith" },
+  ];
+
+  for (const claim of claims) {
+    const seat = await world.services.geoStore.getOfficialSeatByHandle(claim.seatHandle);
+    if (!seat) {
+      console.warn(`  seat claim skipped (not found): ${claim.seatHandle}`);
+      continue;
+    }
+    await world.services.geoStore.upsertOfficialSeat({
+      id: seat.id,
+      jurisdictionId: seat.jurisdictionId,
+      seatKind: seat.seatKind,
+      title: seat.title,
+      seatHandle: seat.seatHandle,
+      districtSlug: seat.districtSlug,
+      districtShortSlug: seat.districtShortSlug,
+      leaderRole: seat.leaderRole,
+      effectiveDate: seat.effectiveDate,
+      boundaryYear: seat.boundaryYear,
+      role: seat.role,
+      representativeName: seat.representativeName,
+      claimedUserHandle: claim.claimedUserHandle,
+      source: seat.source,
+    });
+  }
 }
 
 export async function createPostFromTemplate(

@@ -328,6 +328,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const profilePageService = new ProfilePageService({
     recordStore,
     userRepo: repos.user,
+    profileRepo: repos.profile,
     kycRepo: repos.kyc,
     membershipRepo: repos.membership,
     geoStore,
