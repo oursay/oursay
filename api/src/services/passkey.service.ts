@@ -270,11 +270,12 @@ function normalizePasskeyLabel(raw: string | null | undefined): string | null {
 
 /** Resolve a display label from stored authenticator metadata (never sent to clients). */
 function resolveDefaultPasskeyLabel(_aaguid: string | null, transports: string | null): string | null {
-  // Future: FIDO Metadata Service lookup by _aaguid.
   const parts = transports?.split(",").map((s) => s.trim()) ?? [];
-  if (parts.some((t) => t === "usb" || t === "nfc")) return "Security key";
-  if (parts.some((t) => t === "hybrid" || t === "ble")) return "Phone passkey";
-  if (parts.includes("internal")) return "Built-in passkey";
+  if (parts.some((t) => t === "hybrid")) return "Mobile Passkey";
+  if (parts.some((t) => t === "ble" || t === "bluetooth")) return "Bluetooth Passkey";
+  if (parts.some((t) => t === "usb")) return "USB Passkey";
+  if (parts.some((t) => t === "nfc")) return "NFC Passkey";
+  if (parts.includes("internal")) return "Built-In Passkey";
   return null;
 }
 

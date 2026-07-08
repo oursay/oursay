@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, IdCardLanyard, User } from "lucide-react";
 import { getOfficialProfile, type OfficialProfile } from "@/lib/api/official";
@@ -22,7 +22,7 @@ import {
   profilePath,
 } from "@/lib/routes";
 import { districtName } from "@/lib/mock";
-import { useApp } from "@/lib/state";
+import { useApp, useHydrateRecordState } from "@/lib/state";
 import type { ActivityKind } from "@/lib/types";
 import { DEFERRED_CLAIM_PROFILE, DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 import { recordShareTarget } from "@/lib/share";
@@ -54,6 +54,22 @@ export function OfficialView({ handle }: { handle: string }) {
     getOfficialProfile(handle).then(setProfile);
   }, [handle]);
 
+  const verified = app.effectiveVerified;
+  const { profileTypes } = app.state;
+  const postIds = useMemo(
+    () =>
+      profile?.posts
+        ?.filter(
+          (p) =>
+            profile.claimed &&
+            profileTypes.includes(p.kind as ActivityKind) &&
+            p.tier >= verified,
+        )
+        .map((p) => p.id) ?? [],
+    [profile, profileTypes, verified],
+  );
+  useHydrateRecordState(postIds);
+
   const selectTab = (t: Tab) => {
     if (t === "mentions" && !isMockOnly()) {
       app.notify(DEFERRED_MENTIONS);
@@ -69,8 +85,6 @@ export function OfficialView({ handle }: { handle: string }) {
     return <p className="p-6 text-center text-sm text-muted">Official profile not found.</p>;
   }
 
-  const verified = app.effectiveVerified;
-  const { profileTypes } = app.state;
   const posts = profile.posts.filter(
     (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
   );

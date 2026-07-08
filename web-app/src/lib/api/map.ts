@@ -422,15 +422,17 @@ export function mapPersonaProfile(
   threadKind: RecordKind,
   threadTitle: string,
   rootReactions?: { up: number; down: number },
+  rootPost?: FeedItem,
+  jurisdiction = "oursay-global",
 ): PersonaProfile {
   const name = String(raw.name);
   const comments = Array.isArray(raw.comments)
     ? raw.comments.map((c) => mapCommentNode(c as Record<string, unknown>))
     : [];
-  const isAuthor = Boolean(raw.isRootAuthor);
+  const isRootAuthor = Boolean(raw.isRootAuthor);
   let agrees = comments.reduce((n, c) => n + c.up, 0);
   let disagrees = comments.reduce((n, c) => n + c.down, 0);
-  if (isAuthor && rootReactions) {
+  if (isRootAuthor && rootReactions) {
     agrees += rootReactions.up;
     disagrees += rootReactions.down;
   }
@@ -440,6 +442,7 @@ export function mapPersonaProfile(
     threadId: String(raw.threadId),
     threadKind,
     threadTitle,
+    jurisdiction,
     tier: tokenToTier(String(raw.tier)),
     bio: PERSONA_BIO,
     ageLabel: "this thread",
@@ -450,6 +453,8 @@ export function mapPersonaProfile(
       comments: comments.length,
     },
     comments,
+    isRootAuthor,
+    rootPost,
     activity: Array.isArray(raw.activity)
       ? raw.activity.map((row) => mapActivityItem(row as Record<string, unknown>))
       : [],

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Pencil } from "lucide-react";
 import { getProfile } from "@/lib/api";
@@ -25,8 +25,8 @@ import {
   personaHintPath,
 } from "@/lib/routes";
 import type { ProfileRoleTag } from "@/lib/types";
-import { recordShareTarget } from "@/lib/share";
-import { useApp } from "@/lib/state";
+import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
+import { useApp, useHydrateRecordState } from "@/lib/state";
 import { isMockOnly } from "@/lib/api/client";
 import { DEFERRED_EDIT_HISTORY, DEFERRED_EDIT_PROFILE, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 
@@ -86,12 +86,24 @@ export function ProfileView({
     }
   }, [profile, wireHandleParam, router, self]);
 
+  const verified = app.effectiveVerified;
+  const { profileTypes } = app.state;
+  const postIds = useMemo(
+    () =>
+      profile?.posts
+        .filter(
+          (p) =>
+            profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
+        )
+        .map((p) => p.id) ?? [],
+    [profile, profileTypes, verified],
+  );
+  useHydrateRecordState(postIds);
+
   if (!profile) {
     return <p className="p-6 text-center text-sm text-muted">Profile not found.</p>;
   }
 
-  const { profileTypes } = app.state;
-  const verified = app.effectiveVerified;
   // Self mode reflects the live session tier so Validate ID updates the pill.
   const displayTier = self ? app.state.kycTier : profile.tier;
   const displayRoles: ProfileRoleTag[] =

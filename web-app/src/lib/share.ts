@@ -32,6 +32,27 @@ export function commentKey(
   return `${recordId}::c::${node.handle}::${node.ts}`;
 }
 
+/** Reaction / record-state lookup key for a comment (entity id when known). */
+export function commentReactionKey(
+  threadId: string,
+  node: Pick<CommentNode, "id" | "handle" | "ts">,
+): string {
+  return node.id ?? commentKey(threadId, node);
+}
+
+/** Collect stable comment entity ids from a (possibly nested) comment list. */
+export function collectCommentIds(nodes: CommentNode[]): string[] {
+  const ids: string[] = [];
+  const walk = (list: CommentNode[]): void => {
+    for (const node of list) {
+      if (node.id) ids.push(node.id);
+      walk(node.replies);
+    }
+  };
+  walk(nodes);
+  return ids;
+}
+
 /** Build a share target from a feed row or a full record detail. */
 export function recordShareTarget(item: FeedItem | RecordDetail): ShareTarget {
   return {

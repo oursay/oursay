@@ -3,8 +3,10 @@ import { hashSeed } from "@/lib/mock/comment-utils";
 import type {
   ActivityItem,
   CommentNode,
+  FeedItem,
   MentionItem,
   ProfileSupport,
+  RecordDetail,
   RecordKind,
   VerificationTier,
   ViewerContext,
@@ -16,7 +18,7 @@ import {
   personaMapForThread,
   resolveAuthorIdentity,
 } from "./identity";
-import { mapPersonaProfile, wireTypeToKind } from "./map";
+import { mapPersonaProfile, mapRecordDetail, wireTypeToKind } from "./map";
 
 /**
  * A persona's profile — the anonymous mirror of PublicProfile, scoped to one
@@ -29,6 +31,8 @@ export interface PersonaProfile {
   threadId: string;
   threadKind: RecordKind;
   threadTitle: string;
+  /** Thread jurisdiction — drives comment reaction writes. */
+  jurisdiction: string;
   /** Verification tier stays visible (civic signal, not identity). */
   tier: VerificationTier;
   bio: string;
@@ -37,6 +41,10 @@ export interface PersonaProfile {
   support: ProfileSupport;
   /** Their comments within this thread (authors rewritten to the persona). */
   comments: CommentNode[];
+  /** True when this persona authored the thread root. */
+  isRootAuthor: boolean;
+  /** Thread root as a feed card when {@link isRootAuthor}. */
+  rootPost?: FeedItem;
   /** Non-comment thread activity: the root post, edits, reactions, votes. */
   activity: ActivityItem[];
   /** In-thread mentions of this persona by other participants. */
@@ -48,6 +56,45 @@ const PERSONA_BIO =
 
 function truncateTitle(title: string, max = 42): string {
   return title.length <= max ? title : `${title.slice(0, max)}…`;
+}
+
+/** Feed-card shape for a persona-authored thread root (identity rewritten to the persona). */
+function toPersonaRootPost(
+  post: RecordDetail,
+  personaName: string,
+  threadId: string,
+  commentCount: number,
+): FeedItem {
+  return {
+    id: post.id,
+    kind: post.kind,
+    jurisdiction: post.jurisdiction,
+    tier: post.tier,
+    districts: post.districts,
+    authorDistricts: post.authorDistricts,
+    authorGeo: post.authorGeo,
+    author: personaName,
+    handle: personaName,
+    title: post.title,
+    body: post.body,
+    up: post.up,
+    down: post.down,
+    sig: post.sig,
+    goal: post.goal,
+    options: post.options,
+    comments: commentCount,
+    edits: post.edits,
+    signTier: post.signTier,
+    attachedPoll: post.attachedPoll,
+    identity: {
+      display: personaName,
+      handle: null,
+      isPersona: true,
+      isSelf: false,
+      seed: personaName,
+      threadId,
+    },
+  };
 }
 
 function collectComments(
@@ -220,6 +267,7 @@ async function getPersonaProfileMock(
     threadId,
     threadKind: entry.post.kind,
     threadTitle: entry.post.title,
+    jurisdiction: entry.post.jurisdiction,
     tier,
     bio: PERSONA_BIO,
     ageLabel: "this thread",
@@ -230,6 +278,10 @@ async function getPersonaProfileMock(
       comments: comments.length,
     },
     comments,
+    isRootAuthor: isAuthor,
+    rootPost: isAuthor
+      ? toPersonaRootPost(entry.post, personaName, threadId, entry.comments.length)
+      : undefined,
     activity: threadActivityForPersona(
       handle,
       threadId,
@@ -275,8 +327,25 @@ async function getPersonaProfileLive(
         down: Number(record.detail.down ?? 0),
       }
     : undefined;
+  const isRootAuthor = Boolean(raw.isRootAuthor);
+  const rootPost =
+    isRootAuthor && record?.detail
+      ? toPersonaRootPost(
+          mapRecordDetail(record.detail),
+          String(raw.name),
+          threadId,
+          Array.isArray(raw.comments) ? raw.comments.length : 0,
+        )
+      : undefined;
 
-  return mapPersonaProfile(raw, threadKind, threadTitle, rootReactions);
+  return mapPersonaProfile(
+    raw,
+    threadKind,
+    threadTitle,
+    rootReactions,
+    rootPost,
+    String(raw.jurisdiction ?? record?.detail?.jurisdiction ?? "oursay-global"),
+  );
 }
 
 /**

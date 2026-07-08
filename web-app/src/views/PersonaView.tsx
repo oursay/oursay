@@ -5,15 +5,18 @@ import { useRouter } from "next/navigation";
 import { VenetianMask } from "lucide-react";
 import { getPersonaProfile } from "@/lib/api";
 import type { PersonaProfile } from "@/lib/api";
+import type { CommentNode } from "@/lib/types";
 import { relTime, useNow } from "@/lib/read-model";
-import { Avatar, CommentCard, VerificationPill } from "@/components";
+import { Avatar, CommentCard, FeedCard, VerificationPill } from "@/components";
 import {
   ActivityRow,
   ProfileSupportBar,
   RECORD_TYPE_ICON,
 } from "@/components/content";
-import { authorPath, postPathForId } from "@/lib/routes";
-import { useApp } from "@/lib/state";
+import { districtName } from "@/lib/mock";
+import { authorPath, districtPath, postPath, postPathForId } from "@/lib/routes";
+import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
+import { useApp, useHydrateRecordState } from "@/lib/state";
 import { isMockOnly } from "@/lib/api/client";
 import { DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 
@@ -50,6 +53,11 @@ export function PersonaView({ personaName }: { personaName: string }) {
     getPersonaProfile(personaName, app.viewer).then(setProfile);
   }, [personaName, app.viewer]);
 
+  useHydrateRecordState([
+    ...(profile?.rootPost ? [profile.rootPost.id] : []),
+    ...collectCommentIds(profile?.comments ?? []),
+  ]);
+
   if (profile === undefined) {
     return <p className="p-6 text-center text-sm text-muted">Loading…</p>;
   }
@@ -62,6 +70,19 @@ export function PersonaView({ personaName }: { personaName: string }) {
     profile.threadTitle.length > 42
       ? `${profile.threadTitle.slice(0, 42)}…`
       : profile.threadTitle;
+
+  const verified = app.effectiveVerified;
+
+  const commentReactionTarget = (node: CommentNode) => ({
+    id: node.id!,
+    threadId: profile.threadId,
+    parentType: "comment" as const,
+    jurisdiction: profile.jurisdiction,
+    title: profile.threadTitle,
+    up: node.up,
+    down: node.down,
+    districts: profile.rootPost?.districts ?? [],
+  });
 
   return (
     <div className="space-y-1 p-3">
@@ -123,39 +144,76 @@ export function PersonaView({ personaName }: { personaName: string }) {
       </div>
 
       {tab === "comments" ? (
-        <div className="max-h-[62vh] space-y-4 overflow-y-auto overscroll-auto rounded-lg border border-border bg-surface p-3 pr-2">
-          {profile.comments.length === 0 ? (
+        <div className="max-h-[62vh] space-y-3 overflow-y-auto overscroll-auto pr-1 pb-1">
+          {profile.rootPost ? (
+            <FeedCard
+              item={{
+                ...profile.rootPost,
+                sig: app.petitionSigFor(profile.rootPost),
+                ...app.reactionCountsFor(profile.rootPost),
+              }}
+              viewer={app.viewer}
+              tierMin={verified}
+              resolveDistrict={districtName}
+              onTitleClick={() =>
+                router.push(postPath(profile.rootPost!.kind, profile.rootPost!.id))
+              }
+              onCommentsClick={() =>
+                router.push(
+                  postPath(profile.rootPost!.kind, profile.rootPost!.id, { comments: true }),
+                )
+              }
+              onShare={() => app.openShare(recordShareTarget(profile.rootPost!))}
+              shareCount={app.shareCountFor(profile.rootPost.id)}
+              shared={app.hasShared(profile.rootPost.id)}
+              onReact={(dir) => app.react(profile.rootPost!, dir)}
+              selectedReaction={app.reactionFor(profile.rootPost.id)}
+              selectedVote={app.voteFor(profile.rootPost.id)}
+              signedPetition={app.hasSignedPetition(profile.rootPost.id)}
+              onVote={(label) => app.votePoll(profile.rootPost!, label)}
+              onSignPetition={() => app.signPetition(profile.rootPost!)}
+              onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
+              onDistrictClick={(s) => router.push(districtPath(s))}
+            />
+          ) : null}
+          {profile.comments.length > 0 ? (
+            <div className="space-y-4 rounded-lg border border-border bg-surface p-3 pr-2">
+              {profile.comments.map((node, i) => (
+                <CommentCard
+                  key={node.id ?? i}
+                  author={node.author}
+                  tier={node.tier}
+                  signTier={node.signTier}
+                  identity={node.identity}
+                  timestamp={relTime(node.ts, now)}
+                  body={
+                    <>
+                      {node.body.map((line, li) => (
+                        <p key={li}>{line}</p>
+                      ))}
+                    </>
+                  }
+                  up={node.id ? app.reactionCountsFor(commentReactionTarget(node)).up : node.up}
+                  down={node.id ? app.reactionCountsFor(commentReactionTarget(node)).down : node.down}
+                  selectedReaction={app.reactionFor(commentReactionKey(profile.threadId, node))}
+                  edits={node.edits}
+                  onReact={(dir) => {
+                    if (!node.id) {
+                      app.notify("Comment id missing — refresh and try again.");
+                      return;
+                    }
+                    app.react(commentReactionTarget(node), dir);
+                  }}
+                  onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {!profile.rootPost && profile.comments.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">
               No comments in this thread.
             </p>
-          ) : (
-            profile.comments.map((node, i) => (
-              <CommentCard
-                key={i}
-                author={node.author}
-                tier={node.tier}
-                signTier={node.signTier}
-                identity={node.identity}
-                timestamp={relTime(node.ts, now)}
-                body={
-                  <>
-                    {node.body.map((line, li) => (
-                      <p key={li}>{line}</p>
-                    ))}
-                  </>
-                }
-                up={node.up}
-                down={node.down}
-                edits={node.edits}
-                onReact={() =>
-                  app.requireAuth(() => app.notify("Reaction recorded (demo)."))
-                }
-                onEditsClick={() =>
-                  app.notify(DEFERRED_EDIT_HISTORY)
-                }
-              />
-            ))
-          )}
+          ) : null}
         </div>
       ) : null}
 
