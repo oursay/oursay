@@ -8,20 +8,27 @@ interface OtpVerifyProps {
   open: boolean;
   onClose: () => void;
   email?: string;
+  mode?: "registration" | "login" | "recovery";
   /** Registers this device's passkey and signs in. */
   onRegisterPasskey?: (code: string) => void;
   onResend?: () => void;
 }
 
-/** OTP entry + Register Passkey step (registration page 2 / recovery). */
+/** OTP entry + passkey registration/re-enrollment step. */
 export function OtpVerify({
   open,
   onClose,
   email = "jane@example.ca",
+  mode = "registration",
   onRegisterPasskey,
   onResend,
 }: OtpVerifyProps) {
   const [code, setCode] = useState("");
+
+  const helperText =
+    mode === "recovery"
+      ? "Re-enrolls this device&apos;s passkey, then you&apos;ll be prompted to sign in. Dev: read the code from the API server console."
+      : "Registers this device&apos;s passkey and signs you in. Dev: read the code from the API server console.";
 
   return (
     <Modal
@@ -51,8 +58,7 @@ export function OtpVerify({
           Register Passkey
         </Button>
         <p className="text-center text-xs text-muted">
-          Registers this device&apos;s passkey and signs you in. Dev: read the
-          code from the API server console.
+          {helperText}
         </p>
         <button
           type="button"

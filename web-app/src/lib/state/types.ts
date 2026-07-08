@@ -142,8 +142,13 @@ export interface AppState {
   loginOpen: boolean;
   /** Wireframe state.loginOtpWindow — shows the email-OTP login path. */
   loginOtpWindow: boolean;
+  /** Wireframe state.recoveryOtpWindow — shows the email-OTP recovery path. */
+  recoveryOtpWindow: boolean;
   profileOpen: boolean;
   addJurOpen: boolean;
+
+  /** Step 1 — recovery email-only request modal. */
+  recoverOpen: boolean;
 
   // Compose flow.
   composeOpen: boolean;

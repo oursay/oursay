@@ -19,6 +19,7 @@ import {
   LoginChooser,
   OtpVerify,
   ProfileModal,
+  RecoverForm,
   RegisterForm,
   SafeFooter,
   ShareModal,
@@ -39,6 +40,7 @@ import {
   viewFromPathname,
 } from "@/lib/routes";
 import { isMockOnly } from "@/lib/api/client";
+import { requestLoginOtp, requestRecoveryOtp, requestRegistrationOtp } from "@/lib/api/auth";
 import {
   DEFERRED_EDIT_PROFILE,
   DEFERRED_JURISDICTIONS_SETTINGS,
@@ -56,6 +58,45 @@ export function AppShell({ children }: { children: ReactNode }) {
   const handledOtpEmailRef = useRef<string | null>(null);
   const view = viewFromPathname(pathname);
   const account = accountIdentity(state);
+  const otpMode = state.recoveryOtpWindow
+    ? "recovery"
+    : state.loginOtpWindow
+      ? "login"
+      : "registration";
+
+  const resendOtp = () => {
+    const email = state.authEmail?.trim();
+    if (!email) {
+      app.notify("Email was lost — close this dialog and try again.");
+      return;
+    }
+
+    if (isMockOnly()) {
+      app.notify("A new code has been sent (demo).");
+      return;
+    }
+
+    void (async () => {
+      try {
+        if (state.recoveryOtpWindow) {
+          await requestRecoveryOtp(email);
+          app.notify("A new recovery code has been sent — check API server console in dev.");
+          return;
+        }
+        if (state.loginOtpWindow) {
+          await requestLoginOtp(email);
+          app.notify("A new sign-in code has been sent — check API server console in dev.");
+          return;
+        }
+        await requestRegistrationOtp(email);
+        app.notify("A new verification code has been sent — check API server console in dev.");
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error ? e.message : "Resend failed.";
+        app.notify(msg);
+      }
+    })();
+  };
 
   const title = pageTitle(pathname);
   const hasCardList =
@@ -291,6 +332,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         onLogin={app.goLogin}
         onRecover={app.recover}
       />
+      <RecoverForm
+        open={state.recoverOpen}
+        onClose={() => app.closeAuth()}
+        onSubmit={app.submitRecovery}
+        email={state.authEmail}
+      />
       <RegisterForm
         open={state.registerOpen}
         onClose={() => app.closeAuth()}
@@ -301,7 +348,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={() => app.closeAuth()}
         email={state.authEmail}
         onRegisterPasskey={app.completeOtp}
-        onResend={() => app.notify("A new code has been sent (demo).")}
+        mode={otpMode}
+        onResend={resendOtp}
       />
       <LoginChooser
         open={state.loginOpen}

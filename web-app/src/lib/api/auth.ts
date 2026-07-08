@@ -62,6 +62,17 @@ export interface VerifyLoginResult {
   session: SessionInfo;
 }
 
+export interface EnableRecoveryResult {
+  status: "sent";
+  expiresAt?: string;
+}
+
+export interface VerifyRecoveryResult {
+  status: "passkey_reenroll";
+  userId: string;
+  session: SessionInfo;
+}
+
 export async function requestRegistrationOtp(email: string): Promise<void> {
   await apiPost("/v1/auth/otp/request", { email, purpose: "registration" });
 }
@@ -103,6 +114,34 @@ export async function enableLogin(): Promise<EnableLoginResult> {
 }
 
 /**
+ * Unified OTP send for recovery.
+ *
+ * This uses the unified OTP endpoint with `purpose:"recovery"`, then the
+ * client redeems the code at `/v1/auth/recovery/verify`.
+ */
+export async function requestRecoveryOtp(email: string): Promise<EnableRecoveryResult> {
+  const body = await apiPost<EnableRecoveryResult>("/v1/auth/otp/request", {
+    email,
+    purpose: "recovery",
+  });
+  if (!body) throw new Error("recovery otp request returned empty body");
+  return body;
+}
+
+/**
+ * Optional: resend a gated cross-device login OTP while the trusted-device
+ * window is open.
+ */
+export async function requestLoginOtp(email: string): Promise<EnableLoginResult> {
+  const body = await apiPost<EnableLoginResult>("/v1/auth/otp/request", {
+    email,
+    purpose: "login",
+  });
+  if (!body) throw new Error("login otp request returned empty body");
+  return body;
+}
+
+/**
  * New-device redemption of gated login OTP.
  *
  * Sets a limited `login` session (enroll-only). The caller should then
@@ -114,6 +153,15 @@ export async function verifyLoginOtp(
 ): Promise<VerifyLoginResult> {
   const body = await apiPost<VerifyLoginResult>("/v1/auth/login/verify", { email, code });
   if (!body) throw new Error("login verify returned empty body");
+  return body;
+}
+
+export async function verifyRecoveryOtp(
+  email: string,
+  code: string,
+): Promise<VerifyRecoveryResult> {
+  const body = await apiPost<VerifyRecoveryResult>("/v1/auth/recovery/verify", { email, code });
+  if (!body) throw new Error("recovery verify returned empty body");
   return body;
 }
 

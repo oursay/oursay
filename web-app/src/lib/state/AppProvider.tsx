@@ -86,8 +86,10 @@ import {
   logout as apiLogout,
   enableLogin,
   requestRegistrationOtp,
+  requestRecoveryOtp,
   updatePasskeyLabel,
   verifyLoginOtp,
+  verifyRecoveryOtp,
   verifyRegistrationOtp,
   type AuthPasskey,
 } from "@/lib/api/auth";
@@ -105,7 +107,6 @@ import {
   putThreadVisibility,
 } from "@/lib/api/me";
 import type { AddressFormData } from "@/components/chrome/ChangeAddressModal";
-import { DEFERRED_PASSKEY_RECOVERY } from "@/lib/api/deferred";
 import { writeThreadVisibility } from "./cookies";
 import {
   clearRegistrationDraft,
@@ -197,8 +198,10 @@ export const INITIAL_APP_STATE: AppState = {
   otpOpen: false,
   loginOpen: false,
   loginOtpWindow: false,
+  recoveryOtpWindow: false,
   profileOpen: false,
   addJurOpen: false,
+  recoverOpen: false,
 
   composeOpen: false,
   composeStep: "where",
@@ -304,6 +307,7 @@ export interface AppApi {
   openLoginOtpWindowByEmail: (email: string) => void;
   toggleLoginOtpWindow: () => void;
   recover: () => void;
+  submitRecovery: (data?: { email: string }) => void;
   openProfile: () => void;
   closeProfile: () => void;
 
@@ -531,6 +535,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       registerOpen: false,
       otpOpen: false,
       loginOpen: false,
+      loginOtpWindow: false,
+      recoveryOtpWindow: false,
+      recoverOpen: false,
       profileOpen: false,
       addJurOpen: false,
     });
@@ -551,6 +558,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         otpOpen: false,
         loginOpen: false,
         loginOtpWindow: false,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
         subscriptions: hasAlberta
           ? s.subscriptions
           : [...s.subscriptions, { id: ALBERTA_ID, included: true }],
@@ -579,6 +588,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         otpOpen: false,
         loginOpen: false,
         loginOtpWindow: false,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
       }));
       if (!isMockOnly()) {
         void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
@@ -605,6 +616,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountDisplayName: undefined,
         profileOpen: false,
         loginOtpWindow: false,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
         passkeys: isMockOnly() ? MOCK_PASSKEYS : [],
       }));
       notify("Signed out.");
@@ -734,6 +747,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       registerOpen: false,
       otpOpen: false,
       loginOpen: false,
+      loginOtpWindow: false,
+      recoveryOtpWindow: false,
+      recoverOpen: false,
     });
   }, [set]);
 
@@ -967,17 +983,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
         registerOpen: false,
         otpOpen: false,
         loginOpen: false,
+        loginOtpWindow: false,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
       }),
     [set],
   );
   const goRegister = useCallback(
-    () => set({ authOpen: false, registerOpen: true }),
+    () =>
+      set({
+        authOpen: false,
+        registerOpen: true,
+        otpOpen: false,
+        loginOpen: false,
+        loginOtpWindow: false,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
+      }),
     [set],
   );
   const submitRegister = useCallback(
     (data?: RegisterFormData) => {
       if (isMockOnly() || !data) {
-        set({ registerOpen: false, otpOpen: true });
+        set({
+          registerOpen: false,
+          otpOpen: true,
+          loginOtpWindow: false,
+          recoveryOtpWindow: false,
+          recoverOpen: false,
+        });
         if (isMockOnly()) {
           notify(
             "Mock mode — no OTP was sent. Set NEXT_PUBLIC_MOCK_ONLY=0 in repo-root .env and restart the web-app.",
@@ -1004,6 +1038,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             registerOpen: false,
             otpOpen: true,
             authEmail: payload.email,
+            loginOtpWindow: false,
+            recoveryOtpWindow: false,
           });
           notify("Code sent — check the API server console in dev.");
         })
@@ -1018,6 +1054,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
           if (process.env.NODE_ENV === "development") {
             console.error("[auth] requestRegistrationOtp failed:", e);
           }
+        });
+    },
+    [set, notify],
+  );
+
+  const submitRecovery = useCallback(
+    (data?: { email: string }) => {
+      const trimmed = data?.email.trim();
+      if (!trimmed) return;
+      if (!isValidEmailFormat(trimmed)) {
+        notify("Enter a valid email address.");
+        return;
+      }
+
+      if (isMockOnly()) {
+        set({
+          recoverOpen: false,
+          otpOpen: true,
+          authEmail: trimmed,
+          recoveryOtpWindow: true,
+          loginOtpWindow: false,
+          loginOpen: false,
+          authOpen: false,
+        });
+        notify(
+          "Mock mode — no OTP was sent. Set NEXT_PUBLIC_MOCK_ONLY=0 in repo-root .env and restart the web-app.",
+        );
+        return;
+      }
+
+      void requestRecoveryOtp(trimmed)
+        .then(() => {
+          set({
+            recoverOpen: false,
+            otpOpen: true,
+            authEmail: trimmed,
+            recoveryOtpWindow: true,
+            loginOtpWindow: false,
+            loginOpen: false,
+            authOpen: false,
+          });
+          notify("Code sent — check the API server console in dev.");
+        })
+        .catch((e: unknown) => {
+          const msg =
+            e instanceof ApiError
+              ? e.message
+              : e instanceof Error
+                ? e.message
+                : "Recovery OTP request failed.";
+          notify(msg);
         });
     },
     [set, notify],
@@ -1053,6 +1140,55 @@ export function AppProvider({ children }: { children: ReactNode }) {
             if (process.env.NODE_ENV === "development") {
               console.error("[auth] verifyLoginOtp failed:", e);
             }
+          }
+        })();
+        return;
+      }
+
+      // Recovery OTP path (lost passkey → recovery-scoped session → re-enroll):
+      if (state.recoveryOtpWindow) {
+        const email = state.authEmail?.trim();
+        if (!email) {
+          notify("Recovery email was lost — close this dialog and try again.");
+          return;
+        }
+
+        if (isMockOnly()) {
+          set({
+            otpOpen: false,
+            recoveryOtpWindow: false,
+            loginOpen: true,
+            loginOtpWindow: false,
+            recoverOpen: false,
+            authEmail: undefined,
+            authOpen: false,
+          });
+          notify("Recovery complete — now log in with your passkey.");
+          return;
+        }
+
+        void (async () => {
+          try {
+            await verifyRecoveryOtp(email, code);
+            await enrollPasskey();
+            set({
+              otpOpen: false,
+              recoveryOtpWindow: false,
+              loginOpen: true,
+              loginOtpWindow: false,
+              recoverOpen: false,
+              authEmail: undefined,
+              authOpen: false,
+            });
+            notify("Recovered — now log in with your passkey.");
+          } catch (e: unknown) {
+            const msg =
+              e instanceof ApiError
+                ? e.message
+                : e instanceof Error
+                  ? e.message
+                  : "Recovery failed.";
+            notify(msg);
           }
         })();
         return;
@@ -1101,10 +1237,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       })();
     },
-    [demoLogin, applyAccount, notify, state.loginOtpWindow, state.authEmail],
+    [
+      demoLogin,
+      applyAccount,
+      enrollPasskey,
+      notify,
+      requestRecoveryOtp,
+      state.loginOtpWindow,
+      state.recoveryOtpWindow,
+      state.authEmail,
+      verifyRecoveryOtp,
+      set,
+    ],
   );
   const goLogin = useCallback(
-    () => set({ authOpen: false, loginOpen: true, loginOtpWindow: false }),
+    () =>
+      set({
+        authOpen: false,
+        loginOpen: true,
+        otpOpen: false,
+        loginOtpWindow: false,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
+      }),
     [set],
   );
   const loginPasskey = useCallback(() => {
@@ -1127,6 +1282,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         otpOpen: true,
         authEmail: email.trim(),
         loginOtpWindow: true,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
       }),
     [set],
   );
@@ -1141,6 +1298,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           loginOpen: false,
           authEmail: trimmed,
           loginOtpWindow: true,
+          recoveryOtpWindow: false,
+          recoverOpen: false,
         });
         return;
       }
@@ -1151,21 +1310,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loginOpen: true,
         authEmail: trimmed,
         loginOtpWindow: true,
+        recoveryOtpWindow: false,
+        recoverOpen: false,
       });
     },
     [set],
   );
   const toggleLoginOtpWindow = useCallback(() => {
-    setState((s) => ({ ...s, loginOtpWindow: !s.loginOtpWindow }));
+    setState((s) => ({
+      ...s,
+      loginOtpWindow: !s.loginOtpWindow,
+      recoveryOtpWindow: false,
+      recoverOpen: false,
+    }));
   }, []);
   const recover = useCallback(
     () =>
-      notify(
-        isMockOnly()
-          ? "Account recovery is not built in this demo."
-          : DEFERRED_PASSKEY_RECOVERY,
-      ),
-    [notify],
+      set({
+        authOpen: false,
+        registerOpen: false,
+        otpOpen: false,
+        loginOpen: false,
+        loginOtpWindow: false,
+        recoveryOtpWindow: false,
+        recoverOpen: true,
+      }),
+    [set],
   );
   const openProfile = useCallback(() => {
     set({ profileOpen: true });
@@ -1931,6 +2101,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     openLoginOtpWindowByEmail,
     toggleLoginOtpWindow,
     recover,
+    submitRecovery,
     openProfile,
     closeProfile,
     addDevice,
