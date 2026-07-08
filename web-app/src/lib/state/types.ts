@@ -13,6 +13,7 @@ import type {
   VerificationTier,
 } from "@/lib/types";
 import type { ComposeStep, SignKind } from "@/components";
+import type { AuthModal } from "./authModal";
 
 /**
  * A viewer's own reaction on a record/comment. `signTier` records the action
@@ -102,8 +103,6 @@ export interface AppState {
   accountHandle?: string;
   /** Live-session display name from `/v1/profile`. */
   accountDisplayName?: string;
-  /** Registration email in flight (OTP step subtitle). */
-  authEmail?: string;
   /** Account-default profile visibility (persisted; docs/09 cascade base). */
   accountVisibility: AuthorVisibility;
   /** Enrolled account-login passkeys (live API or mock wireframe). */
@@ -136,19 +135,10 @@ export interface AppState {
   jurSelectorOpen: boolean;
 
   // Modal flags.
-  authOpen: boolean;
-  registerOpen: boolean;
-  otpOpen: boolean;
-  loginOpen: boolean;
-  /** Wireframe state.loginOtpWindow — shows the email-OTP login path. */
-  loginOtpWindow: boolean;
-  /** Wireframe state.recoveryOtpWindow — shows the email-OTP recovery path. */
-  recoveryOtpWindow: boolean;
+  /** The single open auth dialog (chooser/register/login/recover/otp) — one at a time. */
+  authModal: AuthModal;
   profileOpen: boolean;
   addJurOpen: boolean;
-
-  /** Step 1 — recovery email-only request modal. */
-  recoverOpen: boolean;
 
   // Compose flow.
   composeOpen: boolean;

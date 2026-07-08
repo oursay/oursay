@@ -30,7 +30,7 @@ import { jurisdictionLabel as labelForJurisdiction } from "@/lib/mock";
 import { GLOBAL_ID } from "@/lib/types";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import { jurisdictionWidePost, resolveGeography } from "@/lib/read-model";
-import { accountIdentity, scopedFeedFilterFromState, useApp } from "@/lib/state";
+import { accountIdentity, authEmailOf, scopedFeedFilterFromState, useApp } from "@/lib/state";
 import type { RecordKind } from "@/lib/types";
 import {
   jurisdictionPath,
@@ -58,14 +58,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const handledOtpEmailRef = useRef<string | null>(null);
   const view = viewFromPathname(pathname);
   const account = accountIdentity(state);
-  const otpMode = state.recoveryOtpWindow
-    ? "recovery"
-    : state.loginOtpWindow
-      ? "login"
-      : "registration";
+  const authModal = state.authModal;
+  const otpMode = authModal.kind === "otp" ? authModal.flow : "registration";
 
   const resendOtp = () => {
-    const email = state.authEmail?.trim();
+    const email = authEmailOf(authModal)?.trim();
     if (!email) {
       app.notify("Email was lost — close this dialog and try again.");
       return;
@@ -78,12 +75,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     void (async () => {
       try {
-        if (state.recoveryOtpWindow) {
+        if (otpMode === "recovery") {
           await requestRecoveryOtp(email);
           app.notify("A new recovery code has been sent — check API server console in dev.");
           return;
         }
-        if (state.loginOtpWindow) {
+        if (otpMode === "login") {
           await requestLoginOtp(email);
           app.notify("A new sign-in code has been sent — check API server console in dev.");
           return;
@@ -326,36 +323,36 @@ export function AppShell({ children }: { children: ReactNode }) {
       </AppFrame>
 
       <AuthChooser
-        open={state.authOpen}
+        open={authModal.kind === "chooser"}
         onClose={app.closeAuth}
         onRegister={app.goRegister}
         onLogin={app.goLogin}
         onRecover={app.recover}
       />
       <RecoverForm
-        open={state.recoverOpen}
+        open={authModal.kind === "recover"}
         onClose={() => app.closeAuth()}
         onSubmit={app.submitRecovery}
-        email={state.authEmail}
+        email={authEmailOf(authModal)}
       />
       <RegisterForm
-        open={state.registerOpen}
+        open={authModal.kind === "register"}
         onClose={() => app.closeAuth()}
         onSubmit={app.submitRegister}
       />
       <OtpVerify
-        open={state.otpOpen}
+        open={authModal.kind === "otp"}
         onClose={() => app.closeAuth()}
-        email={state.authEmail}
+        email={authEmailOf(authModal)}
         onRegisterPasskey={app.completeOtp}
         mode={otpMode}
         onResend={resendOtp}
       />
       <LoginChooser
-        open={state.loginOpen}
+        open={authModal.kind === "login"}
         onClose={() => app.closeAuth()}
-        otpWindow={state.loginOtpWindow}
-        email={state.authEmail}
+        otpWindow={authModal.kind === "login" && authModal.otp}
+        email={authEmailOf(authModal)}
         onPasskeyLogin={app.loginPasskey}
         onVerifyEmail={app.loginVerifyEmail}
         onRecover={app.recover}

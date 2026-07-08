@@ -116,6 +116,16 @@ import {
   saveRegistrationDraft,
 } from "./registration-draft";
 import { isValidEmailFormat } from "@/lib/email";
+import {
+  authChooser,
+  authLogin,
+  authLoginByEmail,
+  authNone,
+  authOtp,
+  authRecover,
+  authRegister,
+  toggleLoginOtp,
+} from "./authModal";
 import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
@@ -194,15 +204,9 @@ export const INITIAL_APP_STATE: AppState = {
   filterOpen: false,
   jurSelectorOpen: false,
 
-  authOpen: false,
-  registerOpen: false,
-  otpOpen: false,
-  loginOpen: false,
-  loginOtpWindow: false,
-  recoveryOtpWindow: false,
+  authModal: authNone,
   profileOpen: false,
   addJurOpen: false,
-  recoverOpen: false,
 
   composeOpen: false,
   composeStep: "where",
@@ -393,21 +397,6 @@ export interface AppApi {
   dismissToast: () => void;
 }
 
-/**
- * Every auth-modal flag cleared. Spread into each auth flow so the reset lives in
- * one place; flows that end on a specific modal override the one flag after the
- * spread (e.g. `{ ...AUTH_MODALS_CLOSED, loginOpen: true }`).
- */
-const AUTH_MODALS_CLOSED = {
-  authOpen: false,
-  registerOpen: false,
-  otpOpen: false,
-  loginOpen: false,
-  loginOtpWindow: false,
-  recoveryOtpWindow: false,
-  recoverOpen: false,
-} as const;
-
 const AppContext = createContext<AppApi | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -547,7 +536,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.signing, state.loggedIn, notify]);
 
   const closeAllModals = useCallback(() => {
-    set({ ...AUTH_MODALS_CLOSED, profileOpen: false, addJurOpen: false });
+    set({ authModal: authNone, profileOpen: false, addJurOpen: false });
   }, [set]);
 
   // --- Session -------------------------------------------------------------
@@ -560,7 +549,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...s,
         loggedIn: true,
         viewerDistricts: s.kycTier >= 2 ? MY_DISTRICTS : [],
-        ...AUTH_MODALS_CLOSED,
+        authModal: authNone,
         subscriptions: hasAlberta
           ? s.subscriptions
           : [...s.subscriptions, { id: ALBERTA_ID, included: true }],
@@ -584,7 +573,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
-        ...AUTH_MODALS_CLOSED,
+        authModal: authNone,
       }));
       if (!isMockOnly()) {
         void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
@@ -609,10 +598,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         viewerDistricts: [],
         accountHandle: undefined,
         accountDisplayName: undefined,
+        authModal: authNone,
         profileOpen: false,
-        loginOtpWindow: false,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
         passkeys: isMockOnly() ? MOCK_PASSKEYS : [],
       }));
       notify("Signed out.");
@@ -761,7 +748,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [applyAccount, notify]);
 
   const openAuth = useCallback(() => {
-    set({ ...AUTH_MODALS_CLOSED, authOpen: true });
+    set({ authModal: authChooser });
   }, [set]);
 
   const requireAuth = useCallback(
@@ -987,24 +974,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   // --- Auth flow -----------------------------------------------------------
-  const closeAuth = useCallback(
-    () => set({ ...AUTH_MODALS_CLOSED }),
-    [set],
-  );
+  const closeAuth = useCallback(() => set({ authModal: authNone }), [set]);
   const goRegister = useCallback(
-    () => set({ ...AUTH_MODALS_CLOSED, registerOpen: true }),
+    () => set({ authModal: authRegister }),
     [set],
   );
   const submitRegister = useCallback(
     (data?: RegisterFormData) => {
       if (isMockOnly() || !data) {
-        set({
-          registerOpen: false,
-          otpOpen: true,
-          loginOtpWindow: false,
-          recoveryOtpWindow: false,
-          recoverOpen: false,
-        });
+        set({ authModal: authOtp("registration") });
         if (isMockOnly()) {
           notify(
             "Mock mode — no OTP was sent. Set NEXT_PUBLIC_MOCK_ONLY=0 in repo-root .env and restart the web-app.",
@@ -1027,13 +1005,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       saveRegistrationDraft(payload);
       void requestRegistrationOtp(payload.email)
         .then(() => {
-          set({
-            registerOpen: false,
-            otpOpen: true,
-            authEmail: payload.email,
-            loginOtpWindow: false,
-            recoveryOtpWindow: false,
-          });
+          set({ authModal: authOtp("registration", payload.email) });
           notify("Code sent — check the API server console in dev.");
         })
         .catch((e: unknown) => {
@@ -1062,15 +1034,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       if (isMockOnly()) {
-        set({
-          recoverOpen: false,
-          otpOpen: true,
-          authEmail: trimmed,
-          recoveryOtpWindow: true,
-          loginOtpWindow: false,
-          loginOpen: false,
-          authOpen: false,
-        });
+        set({ authModal: authOtp("recovery", trimmed) });
         notify(
           "Mock mode — no OTP was sent. Set NEXT_PUBLIC_MOCK_ONLY=0 in repo-root .env and restart the web-app.",
         );
@@ -1079,15 +1043,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       void requestRecoveryOtp(trimmed)
         .then(() => {
-          set({
-            recoverOpen: false,
-            otpOpen: true,
-            authEmail: trimmed,
-            recoveryOtpWindow: true,
-            loginOtpWindow: false,
-            loginOpen: false,
-            authOpen: false,
-          });
+          set({ authModal: authOtp("recovery", trimmed) });
           notify("Code sent — check the API server console in dev.");
         })
         .catch((e: unknown) => {
@@ -1119,15 +1075,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const completeOtp = useCallback(
     (code?: string) => {
       if (!code || code.length < 6) return;
+      const modal = state.authModal;
+      const otpEmail = modal.kind === "otp" ? modal.email?.trim() : undefined;
 
       // Login OTP path (gated cross-device login):
       //   OTP verifies a limited `login` session → enroll a passkey → passkey login for full access.
-      if (state.loginOtpWindow) {
+      if (modal.kind === "otp" && modal.flow === "login") {
         if (isMockOnly()) {
           demoLogin();
           return;
         }
-        const email = state.authEmail?.trim();
+        const email = otpEmail;
         if (!email) {
           notify("Login email was lost — close this dialog and try again.");
           return;
@@ -1148,15 +1106,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       // Recovery OTP path (lost passkey → recovery-scoped session → re-enroll):
-      if (state.recoveryOtpWindow) {
-        const email = state.authEmail?.trim();
+      if (modal.kind === "otp" && modal.flow === "recovery") {
+        const email = otpEmail;
         if (!email) {
           notify("Recovery email was lost — close this dialog and try again.");
           return;
         }
 
         if (isMockOnly()) {
-          set({ ...AUTH_MODALS_CLOSED, loginOpen: true, authEmail: undefined });
+          set({ authModal: authLogin() });
           notify("Recovery complete — now log in with your passkey.");
           return;
         }
@@ -1165,7 +1123,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           try {
             await verifyRecoveryOtp(email, code);
             await enrollPasskey();
-            set({ ...AUTH_MODALS_CLOSED, loginOpen: true, authEmail: undefined });
+            set({ authModal: authLogin() });
             notify("Recovered — now log in with your passkey.");
           } catch (e: unknown) {
             const msg =
@@ -1194,7 +1152,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (handleErr) {
         clearRegistrationDraft();
         notify(`${handleErr} Go back and register with a valid handle.`);
-        set({ otpOpen: false, registerOpen: true });
+        set({ authModal: authRegister });
         return;
       }
       authDraftRef.current = draft;
@@ -1223,18 +1181,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       finishPasskeyLogin,
       enrollPasskey,
       notify,
-      requestRecoveryOtp,
-      state.loginOtpWindow,
-      state.recoveryOtpWindow,
-      state.authEmail,
+      state.authModal,
       verifyRecoveryOtp,
       set,
     ],
   );
-  const goLogin = useCallback(
-    () => set({ ...AUTH_MODALS_CLOSED, loginOpen: true }),
-    [set],
-  );
+  const goLogin = useCallback(() => set({ authModal: authLogin() }), [set]);
   const loginPasskey = useCallback(() => {
     if (isMockOnly()) {
       demoLogin();
@@ -1249,40 +1201,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch((e: Error) => notify(e.message));
   }, [demoLogin, applyAccount, notify]);
   const loginVerifyEmail = useCallback(
-    (email: string) =>
-      set({
-        loginOpen: false,
-        otpOpen: true,
-        authEmail: email.trim(),
-        loginOtpWindow: true,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
-      }),
+    (email: string) => set({ authModal: authOtp("login", email.trim()) }),
     [set],
   );
   const openLoginOtpWindowByEmail = useCallback(
     (email: string) => {
       const trimmed = email.trim();
-      if (isValidEmailFormat(trimmed)) {
-        set({ ...AUTH_MODALS_CLOSED, otpOpen: true, loginOtpWindow: true, authEmail: trimmed });
-        return;
-      }
-      set({ ...AUTH_MODALS_CLOSED, loginOpen: true, loginOtpWindow: true, authEmail: trimmed });
+      set({ authModal: authLoginByEmail(trimmed, isValidEmailFormat(trimmed)) });
     },
     [set],
   );
   const toggleLoginOtpWindow = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      loginOtpWindow: !s.loginOtpWindow,
-      recoveryOtpWindow: false,
-      recoverOpen: false,
-    }));
+    setState((s) => ({ ...s, authModal: toggleLoginOtp(s.authModal) }));
   }, []);
-  const recover = useCallback(
-    () => set({ ...AUTH_MODALS_CLOSED, recoverOpen: true }),
-    [set],
-  );
+  const recover = useCallback(() => set({ authModal: authRecover() }), [set]);
   const openProfile = useCallback(() => {
     set({ profileOpen: true });
     if (!isMockOnly()) {
