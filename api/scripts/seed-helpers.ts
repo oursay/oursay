@@ -115,7 +115,7 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
   const handle = normalizeHandle(person.handle);
   if (!handle) throw new Error(`invalid seed handle: ${person.handle}`);
   const visibility =
-    person.officialDistrict !== undefined || person.globalOfficial
+    (person.seatClaims?.length ?? 0) > 0 || person.legislatureOfficial
       ? "public"
       : (person.visibility ?? "public");
   await world.services.repos.user.create({
@@ -144,16 +144,8 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
   for (const j of person.jurisdictions ?? []) {
     if (j !== GLOBAL_ID) await world.services.repos.membership.add(userId, j);
   }
-  if (person.officialDistrict !== undefined) {
-    await world.services.repos.membership.setRole(
-      userId,
-      ALBERTA_ID,
-      "official",
-      person.officialDistrict,
-    );
-  }
-  if (person.globalOfficial) {
-    await world.services.repos.membership.setRole(userId, GLOBAL_ID, "official", null);
+  if (person.legislatureOfficial) {
+    await world.services.repos.membership.setRole(userId, ALBERTA_ID, "official", null);
   }
 
   if (person.tier >= 1) {
@@ -194,36 +186,21 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
   return { userId, token: session.token, handle: person.handle, client, passkey };
 }
 
-/** Wire claimed official seats after seed users exist. */
-export async function applySeedSeatClaims(world: SeedWorld): Promise<void> {
-  const claims: { seatHandle: string; claimedUserHandle: string }[] = [
-    { seatHandle: "global-platform", claimedUserHandle: "oursay" },
-    { seatHandle: "ab-premier", claimedUserHandle: "danielle_smith" },
-    { seatHandle: "ab-bro_med_hat", claimedUserHandle: "danielle_smith" },
-  ];
-
-  for (const claim of claims) {
-    const seat = await world.services.geoStore.getOfficialSeatByHandle(claim.seatHandle);
-    if (!seat) {
-      console.warn(`  seat claim skipped (not found): ${claim.seatHandle}`);
-      continue;
+/** Wire claimed official seats after seed users exist (via OfficialSeatClaimService). */
+export async function applySeedSeatClaims(
+  world: SeedWorld,
+  people: readonly SeedPerson[],
+  members: Map<string, SeedMember>,
+): Promise<void> {
+  for (const person of people) {
+    for (const seatHandle of person.seatClaims ?? []) {
+      const member = members.get(person.handle);
+      if (!member) {
+        console.warn(`  seat claim skipped (no member): ${person.handle} → ${seatHandle}`);
+        continue;
+      }
+      await world.services.officialSeatClaimService.claimSeat(member.userId, seatHandle);
     }
-    await world.services.geoStore.upsertOfficialSeat({
-      id: seat.id,
-      jurisdictionId: seat.jurisdictionId,
-      seatKind: seat.seatKind,
-      title: seat.title,
-      seatHandle: seat.seatHandle,
-      districtSlug: seat.districtSlug,
-      districtShortSlug: seat.districtShortSlug,
-      leaderRole: seat.leaderRole,
-      effectiveDate: seat.effectiveDate,
-      boundaryYear: seat.boundaryYear,
-      role: seat.role,
-      representativeName: seat.representativeName,
-      claimedUserHandle: claim.claimedUserHandle,
-      source: seat.source,
-    });
   }
 }
 

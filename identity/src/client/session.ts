@@ -23,8 +23,8 @@ import { DELETE_MARKER } from "@oursay/public-record/schema/types";
 import type { TxEnvelope } from "@oursay/public-record/schema/types";
 import type { DeviceThreadSigner } from "@oursay/public-record/identity/device";
 import type { ThreadBindingInputs } from "@oursay/public-record/identity/binding";
-import type { UnlockedSession } from "./connector";
-import type { Intent, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types";
+import type { UnlockedSession } from "./connector.js";
+import type { Intent, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
 
 export class IdentitySession {
   constructor(private readonly s: UnlockedSession) {}

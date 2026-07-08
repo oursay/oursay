@@ -4,8 +4,8 @@
 // /walk/identity.js). Everything here imports only @noble + DOM APIs + public-record's pure-crypto
 // subpaths, so it carries no node:* or server (pg/dotenv) dependency.
 
-export { WebPasskeyConnector, OURSAY_PRF_SALT } from "./web-connector";
-export type { WebPasskeyOptions } from "./web-connector";
+export { WebPasskeyConnector, OURSAY_PRF_SALT } from "./web-connector.js";
+export type { WebPasskeyOptions } from "./web-connector.js";
 export {
   saveCustodyBinding,
   loadCustodyBinding,
@@ -14,16 +14,16 @@ export {
   savePrfRootSession,
   loadPrfRootSession,
   clearPrfRootSession,
-} from "./custody-binding";
-export type { CustodyBinding, CustodyUnlockSource } from "./custody-binding";
-export { ThreadPasskeyStore } from "./thread-passkey-store";
-export type { ThreadCredentialRecord, ThreadStoreBackend } from "./thread-passkey-store";
-export { WebCryptoMasterStore, IndexedDbKeyStore, MemoryKeyStore } from "./secure-store";
-export type { SecureMasterStore, KeyStore, WrappedMaster } from "./secure-store";
-export { IdentitySession } from "./session";
-export { CivicHttpClient, CivicHttpError } from "./civic-http-client";
-export type { CivicHttpClientOptions, SubmitRef, CivicDeviceView } from "./civic-http-client";
-export type { PasskeyConnector, DeviceCredential, UnlockedSession } from "./connector";
+} from "./custody-binding.js";
+export type { CustodyBinding, CustodyUnlockSource } from "./custody-binding.js";
+export { ThreadPasskeyStore } from "./thread-passkey-store.js";
+export type { ThreadCredentialRecord, ThreadStoreBackend } from "./thread-passkey-store.js";
+export { WebCryptoMasterStore, IndexedDbKeyStore, MemoryKeyStore } from "./secure-store.js";
+export type { SecureMasterStore, KeyStore, WrappedMaster } from "./secure-store.js";
+export { IdentitySession } from "./session.js";
+export { CivicHttpClient, CivicHttpError } from "./civic-http-client.js";
+export type { CivicHttpClientOptions, SubmitRef, CivicDeviceView } from "./civic-http-client.js";
+export type { PasskeyConnector, DeviceCredential, UnlockedSession } from "./connector.js";
 
 // Shared DTOs convenient for client callers.
 export type {
@@ -37,4 +37,4 @@ export type {
   DeviceEnrollment,
   ThreadRegistration,
   JoinThreadResponse,
-} from "../shared/types";
+} from "../shared/types.js";

@@ -35,6 +35,7 @@ import {
   type SeededComment,
   type SeededPost,
 } from "./seed-helpers.js";
+import { ThreadRef } from "@oursay/identity/client";
 
 const GENERATED_USER_COUNT = 14;
 
@@ -115,7 +116,7 @@ function canAuthorPoll(person: SeedPerson, template: PostTemplate, jurisdiction:
   if (template.kind !== "poll") return true;
   if (jurisdiction !== ALBERTA_ID) return true;
   // Alberta polls require the platform official role (see ab-ca-gov gates.poll).
-  return person.officialDistrict !== undefined;
+  return Boolean(person.seatClaims?.length || person.legislatureOfficial);
 }
 
 function resolveScope(template: PostTemplate, rng: Rng): string {

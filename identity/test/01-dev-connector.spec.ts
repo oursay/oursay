@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { bytesToHex } from "@noble/hashes/utils";
-import { DevPasskeyConnector } from "../src/client/dev-connector";
+import { DevPasskeyConnector } from "../src/client/dev-connector.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 

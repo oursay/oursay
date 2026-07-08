@@ -6597,6 +6597,12 @@ paths:
                         type: string
                       handle:
                         type: string
+                      claimed:
+                        type: boolean
+                      claimedUserHandle:
+                        type:
+                          - "null"
+                          - string
                     required:
                       - name
                       - handle
@@ -6713,6 +6719,14 @@ paths:
                         seatHandle:
                           type: string
                           description: Same as leaderHandle — stable seat key for /official/{handle}.
+                        claimedUserHandle:
+                          type:
+                            - "null"
+                            - string
+                          description: User handle when the seat is claimed.
+                        leaderClaimed:
+                          type: boolean
+                          description: True when claimedUserHandle is set.
                         geometry:
                           type: object
                           additionalProperties: true
@@ -6824,6 +6838,12 @@ paths:
                     type:
                       - "null"
                       - string
+                  claimedUserHandle:
+                    type:
+                      - "null"
+                      - string
+                  leaderClaimed:
+                    type: boolean
                   about:
                     type:
                       - "null"

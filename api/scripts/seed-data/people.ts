@@ -18,12 +18,12 @@ export interface SeedPerson {
   tier: 0 | 1 | 2 | 3;
   districts?: string[];
   visibility?: SeedVisibility;
-  /** When set, user gets official role in ab-ca-gov (needed for Alberta polls). */
-  officialDistrict?: string | null;
+  /** Roster seat handles to claim after accounts exist (links geo.official_seats + membership). */
+  seatClaims?: readonly string[];
+  /** Jurisdiction-wide official without a roster seat (e.g. Legislature showcase account). */
+  legislatureOfficial?: boolean;
   /** Custom jurisdiction-wide official title (stored in profile memo), e.g. "Legislature". */
   officialTitle?: string;
-  /** Jurisdiction-wide official in oursay-global (platform leader). */
-  globalOfficial?: boolean;
   jurisdictions?: string[];
 }
 
@@ -37,7 +37,7 @@ export const SEED_ANCHORS: readonly SeedPerson[] = [
     name: "OurSay Stewards",
     tier: 3,
     visibility: "public",
-    globalOfficial: true,
+    seatClaims: ["global-platform"],
   },
   {
     handle: "strathcona_local",
@@ -83,7 +83,7 @@ export const SEED_ANCHORS: readonly SeedPerson[] = [
     tier: 3,
     visibility: "public",
     jurisdictions: [ALBERTA_ID],
-    officialDistrict: null,
+    legislatureOfficial: true,
     officialTitle: "Legislature",
   },
   {
@@ -93,16 +93,25 @@ export const SEED_ANCHORS: readonly SeedPerson[] = [
     visibility: "public",
     jurisdictions: [ALBERTA_ID],
     districts: ["brooks-medicine-hat"],
-    officialDistrict: "brooks-medicine-hat",
+    seatClaims: ["ab-premier", "ab-bro_med_hat"],
   },
   {
-    handle: "raenguyen",
-    name: "Rae Nguyen MLA",
+    handle: "naheed_nenshi",
+    name: "Naheed K. Nenshi",
     tier: 3,
-    districts: ["edmonton-strathcona"],
     visibility: "public",
     jurisdictions: [ALBERTA_ID],
-    officialDistrict: "edmonton-strathcona",
+    districts: ["edmonton-strathcona"],
+    seatClaims: ["ab-edm_strth"],
+  },
+  {
+    handle: "david_shepherd",
+    name: "David Shepherd",
+    tier: 3,
+    visibility: "public",
+    jurisdictions: [ALBERTA_ID],
+    districts: ["edmonton-city-centre"],
+    seatClaims: ["ab-edm_city_cen"],
   },
 ];
 

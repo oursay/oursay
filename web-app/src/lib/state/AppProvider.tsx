@@ -394,6 +394,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Skip the mount-time session write so it can't clobber the cookie before
   // the persisted values are hydrated in.
   const sessionHydrated = useRef(false);
+  const subsHydrated = useRef(false);
 
   const set = useCallback((patch: Partial<AppState>) => {
     setState((s) => ({ ...s, ...patch }));
@@ -465,7 +466,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     writeSigning(state.signing);
   }, [state.signing]);
+  // Skip the mount-time write so it can't clobber the cookie before hydration.
   useEffect(() => {
+    if (!subsHydrated.current) {
+      subsHydrated.current = true;
+      return;
+    }
     writeSubscriptions(state.subscriptions);
   }, [state.subscriptions]);
   useEffect(() => {

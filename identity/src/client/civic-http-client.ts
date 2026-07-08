@@ -9,8 +9,8 @@
 // material (pubkeys, the opaque commitment, signed envelopes) ever crosses to the server.
 
 import type { CommentContent, PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
-import type { IdentitySession } from "./session";
-import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types";
+import type { IdentitySession } from "./session.js";
+import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
 
 export interface CivicHttpClientOptions {
   /** API origin, e.g. "https://api.oursay.org" or "http://localhost". No trailing slash. */

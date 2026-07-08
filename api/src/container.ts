@@ -62,6 +62,7 @@ import { RecordDetailService } from "./services/record-detail.service.js";
 import { RecordStateService } from "./services/record-state.service.js";
 import { PersonaPageService } from "./services/persona-page.service.js";
 import { OfficialPageService } from "./services/official-page.service.js";
+import { OfficialSeatClaimService } from "./services/official-seat-claim.service.js";
 import { ProfilePageService } from "./services/profile-page.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
 import { RegistrationService } from "./services/registration.service.js";
@@ -146,6 +147,8 @@ export interface Services {
   personaPageService: PersonaPageService;
   /** Auto-generated official seat pages (jurisdiction leaders; MLA catalog later). */
   officialPageService: OfficialPageService;
+  /** Platform-only seat claims (roster seat ↔ official membership). */
+  officialSeatClaimService: OfficialSeatClaimService;
   /** Account-level public profile surface (P4/P5). */
   profilePageService: ProfilePageService;
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
@@ -336,6 +339,11 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     publicFeedService,
   });
   const officialPageService = new OfficialPageService({ geoStore, profilePageService });
+  const officialSeatClaimService = new OfficialSeatClaimService({
+    geoStore,
+    membershipRepo: repos.membership,
+    userRepo: repos.user,
+  });
 
   // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
   // (same `jurisdictions` list registered above). Official electoral boundaries only.
@@ -370,6 +378,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     recordStateService,
     personaPageService,
     officialPageService,
+    officialSeatClaimService,
     profilePageService,
     areaCatalogService,
     recordStore,

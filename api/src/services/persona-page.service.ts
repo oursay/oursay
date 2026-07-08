@@ -106,6 +106,7 @@ export class PersonaPageService {
       author: author.author,
       handle: author.handle,
       tier: author.tier,
+      official: author.official,
       authorGeo: author.authorGeo,
       ts: node.state.createdAt,
       edits: editCounts.get(node.state.entityId) ?? 0,

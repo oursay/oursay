@@ -88,10 +88,10 @@ async function main(): Promise<void> {
 
   await ensureGeoBoundaries(world);
 
-  const { people, posts } = await runSeedOrchestrator(world, defaultSeedRng);
+  const { people, posts, members } = await runSeedOrchestrator(world, defaultSeedRng);
 
   console.log("Applying official seat claims…");
-  await applySeedSeatClaims(world);
+  await applySeedSeatClaims(world, people, members);
 
   const feed = await world.app.inject({ method: "GET", url: "/v1/public/feed?limit=80" });
   const feedCount =
