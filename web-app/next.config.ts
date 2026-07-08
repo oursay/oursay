@@ -31,7 +31,7 @@ const extensionAlias = {
 };
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@oursay/identity", "@oursay/public-record"],
+  transpilePackages: ["@oursay/identity", "@oursay/public-record", "@oursay/slugs"],
   // Workspace packages use Node/Bundler ESM specifiers (import "./foo.js" → foo.ts).
   // Webpack resolves these via extensionAlias; Turbopack (Next 16 dev default) does not yet.
   experimental: {

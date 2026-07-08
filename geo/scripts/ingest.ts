@@ -65,7 +65,7 @@ async function main(): Promise<void> {
   const result = await ingestBoundaries(store, source(set));
   const boundarySource = source(set);
 
-  const { ingestOfficialSeats, oursayGlobalStewardSeat } = await import("../src/ingest/official-seats.js");
+  const { ingestOfficialSeats, oursayGlobalPlatformSeat } = await import("../src/ingest/official-seats.js");
   const seatResult = await ingestOfficialSeats(
     store,
     {
@@ -81,7 +81,7 @@ async function main(): Promise<void> {
       jurisdictionId: "oursay-global",
       effectiveDate: boundarySource.effectiveDate,
       boundaryYear: boundarySource.boundaryYear,
-      extraSeats: [oursayGlobalStewardSeat()],
+      extraSeats: [oursayGlobalPlatformSeat()],
     },
     paths.repoRoot,
   );

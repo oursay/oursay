@@ -1,4 +1,6 @@
-/** ESM copy of lib/slugs.ts for the pull script (no tsx dependency at runtime). */
+/** Node-ESM MIRROR of @oursay/slugs (the shared source of truth) for the pull script, which runs
+ *  under plain node and cannot import the TypeScript package. Keep in sync with @oursay/slugs;
+ *  web-app/src/lib/mock/slug.test.ts guards the algorithm against drift. */
 const COMBINING_MARKS = new RegExp("[\\u0300-\\u036f]", "g");
 
 export function districtSlug(name) {

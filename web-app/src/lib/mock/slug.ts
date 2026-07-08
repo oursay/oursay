@@ -1,35 +1,11 @@
-const COMBINING_MARKS = /[\u0300-\u036f]/g;
-
-/** Matches @oursay/geo districtSlug — year-less riding key from a display name. */
-export function districtSlug(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(COMBINING_MARKS, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-/** Compact district key for official seat handles — mirrors @oursay/jurisdiction-data. */
-export function districtShortSlug(districtSlugValue: string): string {
-  const parts = districtSlugValue.split("-");
-  return parts
-    .map((part, index) => abbrevSegment(part, index === parts.length - 1))
-    .join("_");
-}
-
-function abbrevSegment(part: string, isLast: boolean): string {
-  if (part.length <= 4) return part;
-  const head = part.slice(0, 3);
-  if (!isLast || part.length <= 7) return head;
-  const tail = part.slice(3).replace(/[aeiou]/gi, "").slice(0, 2);
-  return head + tail;
-}
-
-export function districtSeatHandle(jurisdictionShortSlug: string, districtSlugValue: string): string {
-  return `${jurisdictionShortSlug}-${districtShortSlug(districtSlugValue)}`;
-}
-
-export function jurisdictionLeaderSeatHandle(jurisdictionShortSlug: string, role: string): string {
-  return `${jurisdictionShortSlug}-${role}`;
-}
+// Slug + seat-handle primitives now come from the shared @oursay/slugs package (single source of
+// truth across geo, jurisdiction-data, and web-app). Re-exported here to preserve existing import
+// paths. TODO(slug-promotion): this module lives under lib/mock/ for historical reasons but holds
+// real utilities, not mock data — promote it (and other genuine helpers) out of mock/ into lib/
+// proper. See plan R8 follow-up + the TODO(slug-promotion) marker in ../official-seat.ts.
+export {
+  districtSlug,
+  districtShortSlug,
+  districtSeatHandle,
+  jurisdictionLeaderSeatHandle,
+} from "@oursay/slugs";

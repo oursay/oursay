@@ -25,10 +25,12 @@ export function OtpVerify({
 }: OtpVerifyProps) {
   const [code, setCode] = useState("");
 
-  const helperText =
+  let helperText =
     mode === "recovery"
-      ? "Re-enrolls this device&apos;s passkey, then you&apos;ll be prompted to sign in. Dev: read the code from the API server console."
-      : "Registers this device&apos;s passkey and signs you in. Dev: read the code from the API server console.";
+      ? "Re-enrolls this device's passkey, then you'll be prompted to sign in."
+      : "Registers this device's passkey and signs you in.";
+
+  if (process.env.NODE_ENV === "development") helperText += " Dev: read the code from the API server console."
 
   return (
     <Modal

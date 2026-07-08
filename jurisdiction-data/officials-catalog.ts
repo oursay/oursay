@@ -19,4 +19,4 @@ export function allOfficialSeats(): OfficialSeatRecord[] {
 }
 
 export { abCaGovOfficialSeats, abCaGovJurisdictionLeader } from "./ab-ca-gov/officials.js";
-export { oursayGlobalPlatformSeat, oursayGlobalStewardSeat } from "./oursay-global/steward-seat.js";
+export { oursayGlobalPlatformSeat } from "./oursay-global/steward-seat.js";

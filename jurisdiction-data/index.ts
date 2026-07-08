@@ -16,7 +16,6 @@ export {
   allOfficialSeats,
   officialSeatCatalogs,
   oursayGlobalPlatformSeat,
-  oursayGlobalStewardSeat,
 } from "./officials-catalog.js";
 export type { OfficialSeatRecord, OfficialSeatsCatalog } from "./lib/official-seats.js";
 export {

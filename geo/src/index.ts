@@ -32,7 +32,6 @@ export {
   ingestOfficialSeats,
   loadOfficialSeatCatalog,
   oursayGlobalPlatformSeat,
-  oursayGlobalStewardSeat,
 } from "./ingest/official-seats.js";
 export type {
   OfficialSeatCatalogEntry,

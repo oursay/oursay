@@ -12,7 +12,8 @@
     "pull:leaders": "node scripts/pull-opennorth-ab.mjs"
   },
   "dependencies": {
-    "@oursay/public-record": "*"
+    "@oursay/public-record": "*",
+    "@oursay/slugs": "*"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",

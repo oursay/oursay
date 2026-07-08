@@ -4,7 +4,7 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ingestBoundaries, ingestOfficialSeats, oursayGlobalStewardSeat, ShapefileSource, paths } from "@oursay/geo";
+import { ingestBoundaries, ingestOfficialSeats, oursayGlobalPlatformSeat, ShapefileSource, paths } from "@oursay/geo";
 import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
 import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
@@ -62,7 +62,7 @@ async function ensureGeoBoundaries(world: Awaited<ReturnType<typeof buildSeedWor
       jurisdictionId: "oursay-global",
       effectiveDate: "2019-04-16",
       boundaryYear: 2019,
-      extraSeats: [oursayGlobalStewardSeat()],
+      extraSeats: [oursayGlobalPlatformSeat()],
     },
     paths.repoRoot,
   );

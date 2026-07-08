@@ -6,6 +6,7 @@
 
 import { open } from "shapefile";
 import type { Feature, Geometry, MultiPolygon, Polygon } from "geojson";
+import { districtSlug } from "@oursay/slugs";
 import type { DistrictUpsert, GeoStore } from "../store.js";
 
 /** One district's CRS-native geometry + the source's identity fields. */
@@ -35,17 +36,9 @@ export interface IngestResult {
   count: number;
 }
 
-/** Slug a district name into a year-less logical-seat key: strip diacritics, lowercase, collapse
- *  non-alphanumerics to single dashes. "Lac Ste. Anne-Parkland" → "lac-ste-anne-parkland". */
-const COMBINING_MARKS = new RegExp("[\\u0300-\\u036f]", "g"); // accents after NFD decomposition
-export function districtSlug(name: string): string {
-  return name
-    .normalize("NFD")
-    .replace(COMBINING_MARKS, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+// districtSlug now lives in @oursay/slugs (the monorepo dependency floor) so geo, jurisdiction-data,
+// and web-app share one implementation. Re-exported here to preserve @oursay/geo's public surface.
+export { districtSlug };
 
 /**
  * Ingest every district from a source. For each, computes the district slug, allocates a stable revision

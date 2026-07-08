@@ -5,6 +5,9 @@ import { writeFileSync } from "fs";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const AB = "ab";
 
+// districtShortSlug below is a node-ESM MIRROR of @oursay/slugs (the shared source of truth); this
+// build script runs under plain node and cannot import the TypeScript package. Keep in sync with
+// @oursay/slugs; src/lib/mock/slug.test.ts guards the algorithm against drift.
 function districtShortSlug(districtSlugValue) {
   const parts = districtSlugValue.split("-");
   return parts

@@ -659,8 +659,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
     void enableLogin()
       .then((res) => {
+        const expiry = new Date(res.expiresAt);
+        const expiresCopy = Number.isNaN(expiry.getTime())
+          ? ""
+          : ` (expires ${expiry.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`;
         notify(
-          `Email login enabled — OTP sent for ${res.expiresAt} (check API server console in dev).`,
+          `Email login enabled — OTP sent${expiresCopy}.${process.env.NODE_ENV === "development" ? " Dev: read the code from the API server console." : ""}`,
         );
       })
       .catch((e: Error) => notify(e.message));

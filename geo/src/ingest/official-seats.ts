@@ -3,6 +3,7 @@
 
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { GLOBAL_PLATFORM_SEAT, seatTitle as sharedSeatTitle } from "@oursay/slugs";
 import type { GeoStore, OfficialSeatUpsert } from "../store.js";
 
 export interface OfficialSeatCatalogEntry {
@@ -37,11 +38,7 @@ export interface IngestOfficialSeatsOptions {
 }
 
 function seatTitle(entry: OfficialSeatCatalogEntry): string {
-  if (entry.title) return entry.title;
-  if (entry.seatKind === "district_mla") return "District MLA";
-  if (entry.leaderRole === "premier") return "Alberta Premier";
-  if (entry.leaderRole === "platform") return "Platform · Global";
-  return "Jurisdiction Leader";
+  return entry.title ?? sharedSeatTitle(entry);
 }
 
 function seatRevisionId(seatHandle: string, boundaryYear: number): string {
@@ -108,25 +105,21 @@ export async function ingestOfficialSeats(
   return { jurisdictionId: opts.jurisdictionId, count: entries.length };
 }
 
-/** Global jurisdiction platform leader seat for oursay-global (manual roster). */
+/** Global jurisdiction platform leader seat for oursay-global (manual roster). Identity comes from
+ *  the shared {@link GLOBAL_PLATFORM_SEAT} constants; geo adds its ingest-entry-specific fields. */
 export function oursayGlobalPlatformSeat(): OfficialSeatCatalogEntry {
   return {
-    seatHandle: "global-platform",
-    seatKind: "jurisdiction_leader",
-    jurisdictionId: "oursay-global",
-    jurisdictionShortSlug: "global",
-    title: "Platform · Global",
-    name: "OurSay Stewards",
-    role: "Platform · Global",
-    leaderRole: "platform",
+    seatHandle: GLOBAL_PLATFORM_SEAT.seatHandle,
+    seatKind: GLOBAL_PLATFORM_SEAT.seatKind,
+    jurisdictionId: GLOBAL_PLATFORM_SEAT.jurisdictionId,
+    jurisdictionShortSlug: GLOBAL_PLATFORM_SEAT.jurisdictionShortSlug,
+    title: GLOBAL_PLATFORM_SEAT.title,
+    name: GLOBAL_PLATFORM_SEAT.name,
+    role: GLOBAL_PLATFORM_SEAT.role,
+    leaderRole: GLOBAL_PLATFORM_SEAT.leaderRole,
     districtSlug: null,
     districtShortSlug: null,
     source: "manual",
-    claimedUserHandle: "oursay",
+    claimedUserHandle: GLOBAL_PLATFORM_SEAT.claimedUserHandle,
   };
-}
-
-/** @deprecated Use {@link oursayGlobalPlatformSeat}. */
-export function oursayGlobalStewardSeat(): OfficialSeatCatalogEntry {
-  return oursayGlobalPlatformSeat();
 }

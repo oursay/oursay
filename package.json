@@ -18,6 +18,7 @@
     "public-record",
     "passkey-test",
     "identity",
+    "slugs",
     "geo",
     "jurisdiction-data",
     "api"

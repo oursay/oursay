@@ -1,25 +1,14 @@
+// TODO(slug-promotion): districtShortSlug is a real slug utility, not mock data — it currently
+// lives under lib/mock/ for historical reasons. Promote it (and the other genuine helpers in
+// lib/mock/) out of mock/ into lib proper, and ultimately into a shared zero-dep @oursay/slugs
+// package consumed by web-app + geo + jurisdiction-data. See plan R8 follow-up.
+import { districtShortSlug } from "@/lib/mock/slug";
 import type { OfficialLeaderRole } from "@/lib/types/jurisdiction";
 
 const JURISDICTION_SHORT: Record<string, string> = {
   "ab-ca-gov": "ab",
   "oursay-global": "global",
 };
-
-function districtShortSlug(districtSlug: string): string {
-  const parts = districtSlug.split("-");
-  return parts
-    .map((part, index) => {
-      if (part.length <= 4) return part;
-      const head = part.slice(0, 3);
-      if (index !== parts.length - 1 || part.length <= 7) return head;
-      const tail = part
-        .slice(3)
-        .replace(/[aeiou]/gi, "")
-        .slice(0, 2);
-      return head + tail;
-    })
-    .join("_");
-}
 
 /** Derive the district MLA seat handle when the API omits it (matches jurisdiction-data slugs). */
 export function districtSeatHandle(jurisdictionId: string, districtSlug: string): string {

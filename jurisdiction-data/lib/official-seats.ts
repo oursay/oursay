@@ -1,6 +1,8 @@
 /** Official seat profile — a public office seat, not a user account. Unclaimed seats use
  *  {@link seatHandle}; once claimed, the holder's user handle is shown instead. */
 
+import { seatTitle } from "@oursay/slugs";
+
 export type OfficialSeatKind = "jurisdiction_leader" | "district_mla";
 
 export interface OfficialSeatRecord {
@@ -49,10 +51,7 @@ export function seatsByHandle(catalog: OfficialSeatsCatalog): Map<string, Offici
 }
 
 export function seatTitleFor(seat: Pick<OfficialSeatRecord, "seatKind" | "leaderRole" | "jurisdictionId">): string {
-  if (seat.seatKind === "district_mla") return "District MLA";
-  if (seat.leaderRole === "premier") return "Alberta Premier";
-  if (seat.leaderRole === "platform") return "Platform · Global";
-  return "Jurisdiction Leader";
+  return seatTitle(seat);
 }
 
 export function seatForDistrict(
