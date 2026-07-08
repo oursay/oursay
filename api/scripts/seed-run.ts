@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { ingestBoundaries, ingestOfficialSeats, oursayGlobalStewardSeat, ShapefileSource, paths } from "@oursay/geo";
 import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
-import { buildSeedWorld, clearPasskeyDir, applySeedSeatClaims } from "./seed-helpers.js";
+import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 
@@ -89,9 +89,6 @@ async function main(): Promise<void> {
   await ensureGeoBoundaries(world);
 
   const { people, posts, members } = await runSeedOrchestrator(world, defaultSeedRng);
-
-  console.log("Applying official seat claims…");
-  await applySeedSeatClaims(world, people, members);
 
   const feed = await world.app.inject({ method: "GET", url: "/v1/public/feed?limit=80" });
   const feedCount =

@@ -24,6 +24,7 @@ import {
   type SeedVisibility,
 } from "./seed-data/people.js";
 import {
+  applySeedSeatClaims,
   createPostFromTemplate,
   createSeedMember,
   pickRandom,
@@ -112,11 +113,16 @@ function canReactTo(post: SeededPost): boolean {
   return post.kind === "statement";
 }
 
-function canAuthorPoll(person: SeedPerson, template: PostTemplate, jurisdiction: string): boolean {
+async function canAuthorPoll(
+  world: SeedWorld,
+  member: SeedMember,
+  template: PostTemplate,
+  jurisdiction: string,
+): Promise<boolean> {
   if (template.kind !== "poll") return true;
   if (jurisdiction !== ALBERTA_ID) return true;
-  // Alberta polls require the platform official role (see ab-ca-gov gates.poll).
-  return Boolean(person.seatClaims?.length || person.legislatureOfficial);
+  // Alberta polls require the official role in ab-ca-gov (see gates.poll) — seat claims set this at claim time.
+  return world.services.repos.membership.hasRole(member.userId, ALBERTA_ID, "official");
 }
 
 function resolveScope(template: PostTemplate, rng: Rng): string {
@@ -137,6 +143,10 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
   }
   console.log(" done");
 
+  console.log("Applying official seat claims…");
+  await applySeedSeatClaims(world, people, members);
+  console.log(" done");
+
   const posts: SeededPost[] = [];
   const comments: SeededComment[] = [];
   const postReactions = new Set<string>();
@@ -149,13 +159,15 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
   const templateQueue = [...templates];
   const specificCommentUsed = new Map<string, Set<number>>();
 
-  function takeTemplate(member: SeedPerson): PostTemplate | undefined {
+  async function takeTemplate(
+    member: SeedMember,
+  ): Promise<{ template: PostTemplate; jurisdiction: string } | undefined> {
     for (let i = 0; i < templateQueue.length; i++) {
       const t = templateQueue[i]!;
       const jurisdiction = resolveScope(t, rng);
-      if (!canAuthorPoll(member, t, jurisdiction)) continue;
+      if (!(await canAuthorPoll(world, member, t, jurisdiction))) continue;
       templateQueue.splice(i, 1);
-      return t;
+      return { template: t, jurisdiction };
     }
     return undefined;
   }
@@ -210,9 +222,9 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
     const member = members.get(person.handle)!;
     const postCount = 1 + Math.floor(rng() * 3);
     for (let i = 0; i < postCount; i++) {
-      const template = takeTemplate(person);
-      if (!template) break;
-      const jurisdiction = resolveScope(template, rng);
+      const picked = await takeTemplate(member);
+      if (!picked) break;
+      const { template, jurisdiction } = picked;
       const id = seedUuid(template.slug);
       const post = await createPostFromTemplate(member, template, id, jurisdiction);
       posts.push(post);
@@ -337,9 +349,9 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
 
     const extraPosts = Math.floor(rng() * 3) + 1;
     for (let i = 0; i < extraPosts; i++) {
-      const template = takeTemplate(person);
-      if (!template) break;
-      const jurisdiction = resolveScope(template, rng);
+      const picked = await takeTemplate(member);
+      if (!picked) break;
+      const { template, jurisdiction } = picked;
       const id = seedUuid(`${template.slug}-x-${person.handle}-${i}`);
       posts.push(await createPostFromTemplate(member, template, id, jurisdiction));
     }

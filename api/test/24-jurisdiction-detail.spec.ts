@@ -58,6 +58,8 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(global.body.leader).to.deep.equal({
       name: "OurSay Stewards",
       handle: "global-platform",
+      claimed: true,
+      claimedUserHandle: "oursay",
     });
     expect(global.body.rulesCopy).to.be.an("array").with.length.greaterThan(0);
     expect(global.body.gates.vote.signMin).to.equal("quick");
