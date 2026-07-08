@@ -5255,6 +5255,37 @@ paths:
                     type: string
                   role:
                     type: string
+                  roles:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        roleLabel:
+                          type: string
+                        placeLabel:
+                          type: string
+                        jurisdictionId:
+                          type: string
+                        districtSlug:
+                          type:
+                            - "null"
+                            - string
+                        seatHandle:
+                          type:
+                            - "null"
+                            - string
+                        placeKind:
+                          type: string
+                          enum:
+                            - jurisdiction
+                            - district
+                      required:
+                        - roleLabel
+                        - placeLabel
+                        - jurisdictionId
+                        - districtSlug
+                        - seatHandle
+                        - placeKind
                   tier:
                     type: string
                     enum:
@@ -5288,6 +5319,7 @@ paths:
                   - name
                   - handle
                   - role
+                  - roles
                   - tier
                   - official
                   - bio

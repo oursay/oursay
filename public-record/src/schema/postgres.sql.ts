@@ -95,15 +95,7 @@ CREATE TABLE IF NOT EXISTS jurisdiction_master_keys (
   PRIMARY KEY (user_id, jurisdiction)
 );
 
--- thread_keys / thread_bindings / thread_signers / thread_civic_credentials are reshaped (level →
--- jurisdiction; dropped thread_bindings.region; persona/signer split under WebAuthn — mvp-a5b).
--- They carry no durable production data yet, so DROP+CREATE keeps the shape deterministic across a
--- reused dev volume. level_master_keys was renamed to jurisdiction_master_keys (created fresh above);
--- drop the legacy table if it lingers.
-DROP TABLE IF EXISTS thread_civic_credentials CASCADE;
-DROP TABLE IF EXISTS thread_signers CASCADE;
-DROP TABLE IF EXISTS thread_bindings CASCADE;
-DROP TABLE IF EXISTS thread_keys CASCADE;
+-- Legacy rename: level_master_keys → jurisdiction_master_keys (one-time drop on reused dev volumes).
 DROP TABLE IF EXISTS level_master_keys CASCADE;
 
 -- Per-thread persona key Pₜ. pubkey is the stable PUBLIC author identity that appears on EVERY
@@ -111,7 +103,7 @@ DROP TABLE IF EXISTS level_master_keys CASCADE;
 -- the persona/signer split (mvp-a5b, docs/08 §5.4 Method 3 on WebAuthn) each of the user's devices
 -- enrolls its OWN per-thread WebAuthn credential as a signer in thread_civic_credentials, but they
 -- all share this single Pₜ as authorPubkey. UNIQUE(user_id, thread_id) enforces first-wins at the DB.
-CREATE TABLE thread_keys (
+CREATE TABLE IF NOT EXISTS thread_keys (
   id           UUID PRIMARY KEY,
   user_id      UUID NOT NULL REFERENCES users(id),
   thread_id    TEXT NOT NULL,
@@ -191,7 +183,7 @@ CREATE INDEX IF NOT EXISTS thread_signers_user_thread ON thread_signers (user_id
 -- path) accepts a submission when:
 --   getThreadCredential(env.signerPubkey).persona_pubkey === env.authorPubkey
 --   AND not revoked AND credential_sig re-verifies against the same fields.
-CREATE TABLE thread_civic_credentials (
+CREATE TABLE IF NOT EXISTS thread_civic_credentials (
   credential_pubkey TEXT PRIMARY KEY,             -- = signerPubkey; compressed SEC1 P-256, hex
   persona_pubkey    TEXT NOT NULL REFERENCES thread_keys(pubkey),  -- = Pₜ (authorPubkey on the envelope)
   user_id           UUID NOT NULL REFERENCES users(id),

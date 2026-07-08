@@ -55,7 +55,10 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(global.body.level).to.equal("federal");
     expect(global.body.label).to.equal("OurSay Global");
     expect(global.body.graduationThreshold).to.equal(100);
-    expect(global.body.leader).to.deep.equal({ name: "OurSay Stewards", handle: "oursay" });
+    expect(global.body.leader).to.deep.equal({
+      name: "OurSay Stewards",
+      handle: "global-platform",
+    });
     expect(global.body.rulesCopy).to.be.an("array").with.length.greaterThan(0);
     expect(global.body.gates.vote.signMin).to.equal("quick");
     expect(global.body).to.not.have.any.keys("rules", "counts", "privacy", "contentLimits");
@@ -65,7 +68,7 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(ab.body.label).to.equal("Alberta");
     expect(ab.body.labels.district).to.equal("riding");
     expect(ab.body.graduationThreshold).to.equal(null);
-    expect(ab.body.leader.name).to.equal("Hon. A. Premier");
+    expect(ab.body.leader.name).to.equal("Danielle Smith");
     expect(ab.body.gates.poll.act).to.deep.equal({ role: "official" });
   });
 
@@ -84,8 +87,9 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(body.boundaryYear).to.equal(2019);
     expect(body.effectiveDate).to.equal("2019-10-01");
     expect(body.sourceName).to.be.a("string").and.not.empty;
-    expect(body.leader).to.equal(null);
-    expect(body.leaderHandle).to.equal(null);
+    expect(body.leader).to.equal("David Shepherd");
+    expect(body.leaderHandle).to.equal("ab-edm_city_cen");
+    expect(body.leaderClaimed).to.equal(false);
     expect(body.about).to.equal(null);
   });
 

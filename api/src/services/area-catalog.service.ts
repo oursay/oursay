@@ -35,6 +35,9 @@ export interface DistrictListItem extends DistrictCatalogRow {
   /** Official seat handle for the district MLA (links to /official/{handle}). */
   leaderHandle?: string;
   seatHandle?: string;
+  /** User handle when the seat is claimed (avatar seed + profile link). */
+  claimedUserHandle?: string | null;
+  leaderClaimed?: boolean;
 }
 
 export interface DistrictDirectory {
@@ -51,7 +54,13 @@ export interface JurisdictionDetail {
   labels?: JurisdictionLabels;
   gates: JurisdictionGates;
   graduationThreshold: number | null;
-  leader?: { name: string; handle: string };
+  leader?: {
+    name: string;
+    handle: string;
+    claimed?: boolean;
+    claimedUserHandle?: string | null;
+    leaderRole?: string;
+  };
   rulesCopy?: string[];
 }
 
@@ -65,6 +74,8 @@ export interface DistrictDetail {
   sourceName?: string;
   leader: string | null;
   leaderHandle: string | null;
+  claimedUserHandle?: string | null;
+  leaderClaimed?: boolean;
   about: string | null;
 }
 
@@ -97,8 +108,28 @@ export class AreaCatalogService {
   }
 
   /** Public jurisdiction detail (P7). Unknown id ⇒ 404. */
-  getJurisdiction(jurisdictionId: string): JurisdictionDetail {
+  async getJurisdiction(jurisdictionId: string): Promise<JurisdictionDetail> {
     const j = this.requireJurisdictionConfig(jurisdictionId);
+    let leader = j.leader;
+    if (leader?.handle) {
+      const dbSeat = await this.geoStore.getOfficialSeatByHandle(leader.handle);
+      const fileSeat = (this.seatsByJurisdiction.get(jurisdictionId) ?? []).find(
+        (entry) => entry.seatHandle === leader!.handle,
+      );
+      const claimedUserHandle =
+        dbSeat?.claimedUserHandle?.replace(/^@/, "").trim() ??
+        fileSeat?.claimedUserHandle?.replace(/^@/, "").trim() ??
+        null;
+      if (dbSeat || fileSeat) {
+        leader = {
+          name: dbSeat?.representativeName ?? fileSeat?.name ?? leader.name,
+          handle: leader.handle,
+          ...(claimedUserHandle
+            ? { claimedUserHandle, claimed: true }
+            : { claimed: false, claimedUserHandle: null }),
+        };
+      }
+    }
     return {
       id: j.id,
       level: j.level,
@@ -106,7 +137,7 @@ export class AreaCatalogService {
       ...(j.labels !== undefined ? { labels: j.labels } : {}),
       gates: j.gates ?? DEFAULT_GATES,
       graduationThreshold: graduationThreshold(j),
-      ...(j.leader !== undefined ? { leader: j.leader } : {}),
+      ...(leader !== undefined ? { leader } : {}),
       ...(j.rulesCopy !== undefined ? { rulesCopy: j.rulesCopy } : {}),
     };
   }
@@ -220,6 +251,7 @@ async function mapDistrictDetail(
   );
   const representativeName = dbSeat?.representativeName ?? fileSeat?.name ?? null;
   const seatHandle = dbSeat?.seatHandle ?? fileSeat?.seatHandle ?? null;
+  const claimedUserHandle = dbSeat?.claimedUserHandle?.replace(/^@/, "").trim() ?? null;
   return {
     name: row.name,
     slug: row.districtSlug,
@@ -229,6 +261,8 @@ async function mapDistrictDetail(
     ...(row.source ? { sourceName: row.source } : {}),
     leader: representativeName,
     leaderHandle: seatHandle,
+    claimedUserHandle,
+    leaderClaimed: Boolean(claimedUserHandle),
     about: null,
   };
 }
@@ -246,9 +280,17 @@ async function enrichDistrictListItem(
   );
   const leader = dbSeat?.representativeName ?? fileSeat?.name;
   const seatHandle = dbSeat?.seatHandle ?? fileSeat?.seatHandle;
+  const claimedUserHandle = dbSeat?.claimedUserHandle?.replace(/^@/, "").trim() ?? null;
   return {
     ...row,
     ...(leader != null ? { leader } : {}),
-    ...(seatHandle != null ? { leaderHandle: seatHandle, seatHandle } : {}),
+    ...(seatHandle != null
+      ? {
+          leaderHandle: seatHandle,
+          seatHandle,
+          claimedUserHandle,
+          leaderClaimed: Boolean(claimedUserHandle),
+        }
+      : {}),
   };
 }

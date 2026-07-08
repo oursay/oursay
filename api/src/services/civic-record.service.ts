@@ -245,7 +245,37 @@ export class CivicRecordService {
     // creates carry one; updates that change the stake are platform-governance territory (later).
     if (envelope.op === "create" && isRootType(envelope.type) && root?.entityId === envelope.entityId) {
       const rows = await this.resolveAudience(jurisdictionId, rootRules, now);
+      await this.assertAudienceInJurisdiction(jurisdictionId, rows, rootRules);
       if (rows.length > 0) await this.d.store.replaceEntityAudience(envelope.entityId, jurisdictionId, rows);
+    }
+  }
+
+  /** Reject district stakes that reference seats outside the thread's jurisdiction. */
+  private async assertAudienceInJurisdiction(
+    jurisdictionId: string,
+    rows: { districtSlug: string; revisionId: string }[],
+    rules: { appliesToDistrictIds?: string[] },
+  ): Promise<void> {
+    for (const row of rows) {
+      const owner = await this.d.geoStore.districtJurisdiction(row.revisionId);
+      if (owner !== jurisdictionId) {
+        throw new ServiceError(
+          "validation",
+          `district ${row.districtSlug} is not in jurisdiction ${jurisdictionId}`,
+        );
+      }
+    }
+    for (const entry of rules.appliesToDistrictIds ?? []) {
+      const slug = /^(.+)-(\d{4})$/.exec(entry)?.[1] ?? entry;
+      const revisionId = rows.find((r) => r.districtSlug === slug)?.revisionId;
+      if (!revisionId) continue;
+      const owner = await this.d.geoStore.districtJurisdiction(revisionId);
+      if (owner !== jurisdictionId) {
+        throw new ServiceError(
+          "validation",
+          `district ${slug} is not in jurisdiction ${jurisdictionId}`,
+        );
+      }
     }
   }
 
@@ -275,7 +305,10 @@ export class CivicRecordService {
     for (const slug of slugs) {
       if (explicit.has(slug)) continue;
       const revisionId = await this.d.geoStore.districtIdBySlugAsOf(jurisdictionId, slug, asOf);
-      if (revisionId) rows.push({ districtSlug: slug, revisionId });
+      if (!revisionId) {
+        throw new ServiceError("validation", `unknown district ${slug} in jurisdiction ${jurisdictionId}`);
+      }
+      rows.push({ districtSlug: slug, revisionId });
     }
     return rows;
   }

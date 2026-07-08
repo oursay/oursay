@@ -74,6 +74,7 @@ export function DistrictView({
         }
         leaderName={detail.leader}
         leaderHandle={detail.leaderHandle}
+        claimedUserHandle={detail.claimedUserHandle}
         claimed={detail.leaderClaimed ?? isSeatClaimed(detail.leaderHandle)}
         leaderRole="mla"
         onLeaderClick={() => {

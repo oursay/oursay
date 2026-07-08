@@ -408,17 +408,20 @@ export class PrivateStore {
     }
     if (q.jurisdictions && q.jurisdictions.length > 0) {
       params.push(q.jurisdictions, q.defaultJurisdiction);
-      where += ` AND COALESCE(tk.jurisdiction, $${params.length}) = ANY($${params.length - 1})`;
+      where += ` AND COALESCE(tk.jurisdiction, ea.jurisdiction_id, $${params.length}) = ANY($${params.length - 1})`;
     }
     const r = await this.pool.query(
       `SELECT es.*,
-              tk.jurisdiction AS thread_jurisdiction,
+              COALESCE(tk.jurisdiction, ea.jurisdiction_id) AS thread_jurisdiction,
               fc.first_created_at
        FROM entity_state es
        LEFT JOIN LATERAL (
          -- thread_id is TEXT while entity ids are UUID; cast for the column-to-column compare.
          SELECT jurisdiction FROM thread_keys WHERE thread_id = es.entity_id::text ORDER BY jurisdiction ASC LIMIT 1
        ) tk ON true
+       LEFT JOIN LATERAL (
+         SELECT jurisdiction_id FROM entity_audience WHERE entity_id = es.entity_id::text LIMIT 1
+       ) ea ON true
        LEFT JOIN LATERAL (
          SELECT MIN(created_at) AS first_created_at FROM record_tx WHERE entity_id = es.entity_id AND op = 'create'
        ) fc ON true
@@ -1277,6 +1280,15 @@ export class PrivateStore {
       [entityId],
     );
     return r.rows.map((row) => ({ districtSlug: row.district_slug, revisionId: row.revision_id }));
+  }
+
+  /** Jurisdiction id from the entity_audience projection (null when jurisdiction-wide or absent). */
+  async getEntityAudienceJurisdiction(entityId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT jurisdiction_id FROM entity_audience WHERE entity_id = $1 LIMIT 1`,
+      [entityId],
+    );
+    return (r.rows[0]?.jurisdiction_id as string | undefined) ?? null;
   }
 
   /** Write the relationship snapshot for one submitted civic tx (C6 + [mvp-c4-action-snapshots]).

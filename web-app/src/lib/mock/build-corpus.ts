@@ -514,7 +514,13 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       slug: "global",
       name: "Global",
       level: "global",
-      leader: { name: "OurSay Stewards", handle: "global-platform", claimed: true, leaderRole: "platform" },
+      leader: {
+        name: "OurSay Stewards",
+        handle: "global-platform",
+        claimed: true,
+        claimedUserHandle: "oursay",
+        leaderRole: "platform",
+      },
       gates: JURISDICTION_GATES[GLOBAL_ID],
       rules: [
         "Open policy — any member may post any root type.",
@@ -531,7 +537,13 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       slug: "alberta",
       name: "Alberta",
       level: "province",
-      leader: { name: "Danielle Smith", handle: "ab-premier", claimed: true, leaderRole: "premier" },
+      leader: {
+        name: "Danielle Smith",
+        handle: "ab-premier",
+        claimed: true,
+        claimedUserHandle: "danielle_smith",
+        leaderRole: "premier",
+      },
       gates: JURISDICTION_GATES[ALBERTA_ID],
       rules: [
         "Ladder policy — levels graduate upward.",
@@ -547,6 +559,9 @@ function buildJurData(): Record<string, JurisdictionSummary> {
         slug: r.slug,
         leader: r.mla.name,
         leaderHandle: r.mla.seatHandle,
+        ...(r.mla.seatHandle === "ab-bro_med_hat"
+          ? { claimedUserHandle: "danielle_smith", leaderClaimed: true }
+          : {}),
       })),
     },
   };

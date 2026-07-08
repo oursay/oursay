@@ -73,6 +73,8 @@ export interface JurisdictionLeader {
   /** Official seat handle, e.g. ab-premier or global-platform. */
   handle: string;
   claimed?: boolean;
+  /** User handle when the seat is claimed — avatar seed + profile link. */
+  claimedUserHandle?: string | null;
   leaderRole?: OfficialLeaderRole;
 }
 
@@ -85,6 +87,8 @@ export interface DistrictSummary {
   leader: string;
   /** Official seat handle for the riding MLA. */
   leaderHandle: string;
+  /** User handle when the seat is claimed. */
+  claimedUserHandle?: string | null;
   leaderClaimed?: boolean;
 }
 
@@ -122,6 +126,7 @@ export interface DistrictDetail {
   leader: string;
   /** Official seat handle for the riding MLA. */
   leaderHandle: string;
+  claimedUserHandle?: string | null;
   leaderClaimed?: boolean;
   boundaryYear: number;
   source: string;

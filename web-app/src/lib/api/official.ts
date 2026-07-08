@@ -1,5 +1,6 @@
 import { ALBERTA_RIDINGS } from "@/lib/mock/alberta-ridings";
 import { getProfileByHandle, JUR_DATA } from "@/lib/mock";
+import { claimedUserHandleForSeat } from "@/lib/official-seat";
 import type {
   ActivityItem,
   MentionItem,
@@ -32,12 +33,6 @@ export interface OfficialProfile {
   ageLabel?: string;
 }
 
-const CLAIMED_SEATS: Record<string, string> = {
-  "global-platform": "oursay",
-  "ab-premier": "danielle_smith",
-  "ab-bro_med_hat": "danielle_smith",
-};
-
 function autoBio(name: string): string {
   return `This profile is generated from public record. ${name} has not endorsed this platform and may not be aware of this profile.`;
 }
@@ -62,7 +57,7 @@ function getOfficialMock(handleRaw: string): OfficialProfile | null {
     const leader = summary.leader;
     if (!leader?.name.trim()) continue;
     const seatHandle = leader.handle.replace(/^@/, "").toLowerCase();
-    const claimedUserHandle = CLAIMED_SEATS[seatHandle];
+    const claimedUserHandle = claimedUserHandleForSeat(seatHandle);
     const matches =
       needle === seatHandle || (claimedUserHandle != null && needle === claimedUserHandle);
     if (!matches) continue;

@@ -27,10 +27,21 @@ export function districtSeatHandle(jurisdictionId: string, districtSlug: string)
   return `${jurShort}-${districtShortSlug(districtSlug)}`;
 }
 
-const CLAIMED_SEAT_HANDLES = new Set(["global-platform", "ab-premier", "ab-bro_med_hat"]);
+/** Demo + seeded official seats mapped to the holder's user handle (avatar seed). */
+const CLAIMED_SEAT_USERS: Record<string, string> = {
+  "global-platform": "oursay",
+  "ab-premier": "danielle_smith",
+  "ab-bro_med_hat": "danielle_smith",
+};
 
 export function isSeatClaimed(seatHandle: string): boolean {
-  return CLAIMED_SEAT_HANDLES.has(seatHandle.replace(/^@/, "").toLowerCase());
+  return seatHandle.replace(/^@/, "").toLowerCase() in CLAIMED_SEAT_USERS;
+}
+
+/** User handle for a claimed seat — stable avatar seed across duplicate office rows. */
+export function claimedUserHandleForSeat(seatHandle: string | undefined | null): string | null {
+  if (!seatHandle) return null;
+  return CLAIMED_SEAT_USERS[seatHandle.replace(/^@/, "").toLowerCase()] ?? null;
 }
 
 export function inferLeaderRole(opts: {

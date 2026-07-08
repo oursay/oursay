@@ -72,6 +72,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
         title={summary.name}
         leaderName={summary.leader.name}
         leaderHandle={summary.leader.handle}
+        claimedUserHandle={summary.leader.claimedUserHandle}
         claimed={summary.leader.claimed ?? isSeatClaimed(summary.leader.handle)}
         leaderRole={
           summary.leader.leaderRole ??
@@ -129,6 +130,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
                     title={d.name}
                     leaderName={d.leader}
                     leaderHandle={d.leaderHandle}
+                    claimedUserHandle={d.claimedUserHandle}
                     claimed={d.leaderClaimed ?? isSeatClaimed(d.leaderHandle)}
                     leaderRole="mla"
                     variant="row"

@@ -6,8 +6,10 @@ import type { OfficialLeaderRole } from "@/lib/types/jurisdiction";
 interface TitleLeaderRowProps {
   title: string;
   leaderName: string;
-  /** Leader's handle — avatar seed. */
+  /** Official seat handle — routing key. */
   leaderHandle?: string;
+  /** Claimed holder's user handle — avatar seed when claimed. */
+  claimedUserHandle?: string | null;
   onLeaderClick: () => void;
   onTitleClick?: () => void;
   variant?: "header" | "row";
@@ -20,6 +22,7 @@ export function TitleLeaderRow({
   title,
   leaderName,
   leaderHandle,
+  claimedUserHandle,
   onLeaderClick,
   onTitleClick,
   variant = "row",
@@ -56,6 +59,7 @@ export function TitleLeaderRow({
         <LeaderProfileLink
           name={leaderName}
           handle={leaderHandle}
+          claimedUserHandle={claimedUserHandle}
           size={variant === "row" ? "sm" : "md"}
           claimed={claimed}
           leaderRole={leaderRole}

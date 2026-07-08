@@ -1,17 +1,20 @@
 "use client";
 
-import { Gavel } from "lucide-react";
+import { IdCardLanyard } from "lucide-react";
 import { Avatar } from "@/components/ui";
+import { claimedUserHandleForSeat } from "@/lib/official-seat";
 import type { OfficialLeaderRole } from "@/lib/types/jurisdiction";
 
 interface LeaderProfileLinkProps {
   name: string;
-  /** Leader's handle — the identity-stable avatar seed. */
+  /** Official seat handle — used for routing, not the avatar seed when claimed. */
   handle?: string;
+  /** Claimed holder's user handle — the identity-stable avatar seed. */
+  claimedUserHandle?: string | null;
   onClick: () => void;
   /** Header title bar vs compact riding row. */
   size?: "md" | "sm";
-  /** When false, show gavel + role label instead of avatar + name. */
+  /** When false, show id-card icon instead of avatar. */
   claimed?: boolean;
   leaderRole?: OfficialLeaderRole;
 }
@@ -22,10 +25,11 @@ function roleLabel(role: OfficialLeaderRole): string {
   return "MLA";
 }
 
-/** Avatar + full name, right-aligned — wireframe leaderLink(). Unclaimed seats use gavel + role. */
+/** Avatar + representative name, right-aligned. Unclaimed seats use id-card + name from roster. */
 export function LeaderProfileLink({
   name,
   handle,
+  claimedUserHandle,
   onClick,
   size = "md",
   claimed = true,
@@ -33,7 +37,10 @@ export function LeaderProfileLink({
 }: LeaderProfileLinkProps) {
   const textClass =
     size === "sm" ? "text-[11px] font-medium text-ink" : "text-xs font-medium text-ink";
-  const displayName = claimed ? name : roleLabel(leaderRole);
+  const displayName = name.trim() || roleLabel(leaderRole);
+  const avatarSeed = claimed
+    ? (claimedUserHandle ?? claimedUserHandleForSeat(handle) ?? handle)
+    : undefined;
   const iconSize = size === "sm" ? 14 : 16;
 
   return (
@@ -43,13 +50,13 @@ export function LeaderProfileLink({
       className="flex shrink-0 items-center gap-1.5 hover:opacity-80"
     >
       {claimed ? (
-        <Avatar name={name} seed={handle} size="sm" />
+        <Avatar name={displayName} seed={avatarSeed} size="sm" />
       ) : (
         <span
           className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-300"
           aria-hidden
         >
-          <Gavel size={iconSize} className="text-ink" />
+          <IdCardLanyard size={iconSize} className="text-ink" />
         </span>
       )}
       <span className={`whitespace-nowrap ${textClass}`}>{displayName}</span>

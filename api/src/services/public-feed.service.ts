@@ -157,7 +157,8 @@ export class PublicFeedService {
 
   /** The per-row resolution the tier filter needs (author + audience), before metric queries run. */
   private async resolveRow(row: FeedRootRow, res: ReadResolution): Promise<Resolved> {
-    const jurisdiction = row.jurisdiction ?? DEFAULT_JURISDICTION;
+    const audienceJur = await this.d.recordStore.getEntityAudienceJurisdiction(row.entityId);
+    const jurisdiction = row.jurisdiction ?? audienceJur ?? DEFAULT_JURISDICTION;
     const audience = await this.d.recordStore.getEntityAudience(row.entityId);
     const appliesToDistrictIds = audience.map((a) => a.districtSlug);
     const author = await res.resolveAuthor(row.authorPubkey, {

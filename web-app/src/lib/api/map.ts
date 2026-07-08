@@ -25,7 +25,12 @@ import type {
   JurisdictionSummary,
   SignFloor,
 } from "@/lib/types/jurisdiction";
-import { districtSeatHandle, inferLeaderRole, isSeatClaimed } from "@/lib/official-seat";
+import {
+  claimedUserHandleForSeat,
+  districtSeatHandle,
+  inferLeaderRole,
+  isSeatClaimed,
+} from "@/lib/official-seat";
 import type { CommentNode } from "@/lib/types/comments";
 import type { SignTier } from "@/lib/types/sign-tier";
 import type {
@@ -313,9 +318,17 @@ export function mapJurisdictionSummary(
 ): JurisdictionSummary {
   const id = String(detail.id);
   const leaderRaw = detail.leader as
-    | { name: string; handle: string; claimed?: boolean; leaderRole?: string }
+    | {
+        name: string;
+        handle: string;
+        claimed?: boolean;
+        claimedUserHandle?: string | null;
+        leaderRole?: string;
+      }
     | undefined;
   const seatHandle = leaderRaw?.handle ?? "";
+  const claimedUserHandle =
+    leaderRaw?.claimedUserHandle ?? claimedUserHandleForSeat(seatHandle);
   return {
     id,
     slug: jurisdictionSlugForId(id),
@@ -326,6 +339,7 @@ export function mapJurisdictionSummary(
           name: leaderRaw.name,
           handle: seatHandle,
           claimed: leaderRaw.claimed ?? isSeatClaimed(seatHandle),
+          claimedUserHandle,
           leaderRole: inferLeaderRole({
             jurisdictionId: id,
             leaderRole: leaderRaw.leaderRole,
@@ -345,20 +359,26 @@ export function mapDistrictSummary(
   jurisdictionId?: string,
 ): DistrictSummary {
   const slug = String(raw.districtSlug ?? raw.slug);
-  const fromApi = String(raw.seatHandle ?? raw.leaderHandle ?? "").trim();
+  const seatFromApi = String(raw.seatHandle ?? raw.leaderHandle ?? "").trim();
   const leaderHandle =
-    fromApi || (jurisdictionId ? districtSeatHandle(jurisdictionId, slug) : "");
+    seatFromApi || (jurisdictionId ? districtSeatHandle(jurisdictionId, slug) : "");
+  const claimedFromApi =
+    raw.claimedUserHandle == null ? null : String(raw.claimedUserHandle).replace(/^@/, "");
+  const claimedUserHandle = claimedFromApi ?? claimedUserHandleForSeat(leaderHandle);
   return {
     name: String(raw.name),
     slug,
     leader: String(raw.leader ?? raw.representativeName ?? ""),
     leaderHandle,
+    claimedUserHandle,
     leaderClaimed:
       raw.leaderClaimed != null
         ? Boolean(raw.leaderClaimed)
-        : leaderHandle
-          ? isSeatClaimed(leaderHandle)
-          : undefined,
+        : claimedUserHandle
+          ? true
+          : leaderHandle
+            ? isSeatClaimed(leaderHandle)
+            : undefined,
   };
 }
 
@@ -366,20 +386,26 @@ export function mapDistrictDetail(raw: Record<string, unknown>): DistrictDetail 
   const about = raw.about;
   const slug = String(raw.slug);
   const jur = String(raw.jur);
-  const fromApi = String(raw.seatHandle ?? raw.leaderHandle ?? "").trim();
-  const leaderHandle = fromApi || districtSeatHandle(jur, slug);
+  const seatFromApi = String(raw.seatHandle ?? raw.leaderHandle ?? "").trim();
+  const leaderHandle = seatFromApi || districtSeatHandle(jur, slug);
+  const claimedFromApi =
+    raw.claimedUserHandle == null ? null : String(raw.claimedUserHandle).replace(/^@/, "");
+  const claimedUserHandle = claimedFromApi ?? claimedUserHandleForSeat(leaderHandle);
   return {
     name: String(raw.name),
     slug,
     jur,
     leader: String(raw.leader ?? raw.representativeName ?? ""),
     leaderHandle,
+    claimedUserHandle,
     leaderClaimed:
       raw.leaderClaimed != null
         ? Boolean(raw.leaderClaimed)
-        : leaderHandle
-          ? isSeatClaimed(leaderHandle)
-          : undefined,
+        : claimedUserHandle
+          ? true
+          : leaderHandle
+            ? isSeatClaimed(leaderHandle)
+            : undefined,
     boundaryYear: (raw.boundaryYear as number) ?? 0,
     source: String(raw.sourceName ?? raw.source ?? ""),
     about: Array.isArray(about) ? (about as string[]) : about ? [String(about)] : [],

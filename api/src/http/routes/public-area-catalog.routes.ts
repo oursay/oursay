@@ -27,6 +27,8 @@ const districtItemSchema = {
     leader: { type: "string", description: "District MLA name from public record, when roster is ingested." },
     leaderHandle: { type: "string", description: "Official seat handle for the MLA (e.g. ab-edm_strth)." },
     seatHandle: { type: "string", description: "Same as leaderHandle — stable seat key for /official/{handle}." },
+    claimedUserHandle: { type: ["string", "null"], description: "User handle when the seat is claimed." },
+    leaderClaimed: { type: "boolean", description: "True when claimedUserHandle is set." },
     geometry: {
       type: "object",
       additionalProperties: true,
@@ -205,6 +207,8 @@ const jurisdictionDetailResponse = {
       properties: {
         name: { type: "string" },
         handle: { type: "string" },
+        claimed: { type: "boolean" },
+        claimedUserHandle: { type: ["string", "null"] },
       },
       required: ["name", "handle"],
     },
@@ -233,6 +237,8 @@ const districtDetailResponse = {
     sourceName: { type: "string" },
     leader: { type: ["string", "null"] },
     leaderHandle: { type: ["string", "null"] },
+    claimedUserHandle: { type: ["string", "null"] },
+    leaderClaimed: { type: "boolean" },
     about: { type: ["string", "null"] },
   },
   required: ["name", "slug", "jur", "boundaryYear", "effectiveDate", "leader", "leaderHandle", "about"],

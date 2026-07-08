@@ -6,8 +6,10 @@ interface PlaceHeaderProps {
   title: string;
   subtitle?: ReactNode;
   leaderName: string;
-  /** Leader's handle — avatar seed. */
+  /** Official seat handle — routing key. */
   leaderHandle?: string;
+  /** Claimed holder's user handle — avatar seed when claimed. */
+  claimedUserHandle?: string | null;
   onLeaderClick: () => void;
   claimed?: boolean;
   leaderRole?: OfficialLeaderRole;
@@ -19,6 +21,7 @@ export function PlaceHeader({
   subtitle,
   leaderName,
   leaderHandle,
+  claimedUserHandle,
   onLeaderClick,
   claimed = true,
   leaderRole = "mla",
@@ -29,6 +32,7 @@ export function PlaceHeader({
         title={title}
         leaderName={leaderName}
         leaderHandle={leaderHandle}
+        claimedUserHandle={claimedUserHandle}
         onLeaderClick={onLeaderClick}
         claimed={claimed}
         leaderRole={leaderRole}

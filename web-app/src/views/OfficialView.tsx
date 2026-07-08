@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, Gavel, User } from "lucide-react";
+import { BadgeCheck, IdCardLanyard, User } from "lucide-react";
 import { getOfficialProfile, type OfficialProfile } from "@/lib/api/official";
 import { isMockOnly } from "@/lib/api/client";
 import {
@@ -121,7 +121,7 @@ export function OfficialView({ handle }: { handle: string }) {
               className="inline-flex size-13 shrink-0 items-center justify-center rounded-full bg-brand-300"
               aria-hidden
             >
-              <Gavel size={28} className="text-ink" />
+              <IdCardLanyard size={28} className="text-ink" />
             </span>
           )}
           <div className="min-w-0 flex-1">
