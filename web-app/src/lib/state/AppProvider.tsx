@@ -393,6 +393,21 @@ export interface AppApi {
   dismissToast: () => void;
 }
 
+/**
+ * Every auth-modal flag cleared. Spread into each auth flow so the reset lives in
+ * one place; flows that end on a specific modal override the one flag after the
+ * spread (e.g. `{ ...AUTH_MODALS_CLOSED, loginOpen: true }`).
+ */
+const AUTH_MODALS_CLOSED = {
+  authOpen: false,
+  registerOpen: false,
+  otpOpen: false,
+  loginOpen: false,
+  loginOtpWindow: false,
+  recoveryOtpWindow: false,
+  recoverOpen: false,
+} as const;
+
 const AppContext = createContext<AppApi | null>(null);
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -532,17 +547,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [state.signing, state.loggedIn, notify]);
 
   const closeAllModals = useCallback(() => {
-    set({
-      authOpen: false,
-      registerOpen: false,
-      otpOpen: false,
-      loginOpen: false,
-      loginOtpWindow: false,
-      recoveryOtpWindow: false,
-      recoverOpen: false,
-      profileOpen: false,
-      addJurOpen: false,
-    });
+    set({ ...AUTH_MODALS_CLOSED, profileOpen: false, addJurOpen: false });
   }, [set]);
 
   // --- Session -------------------------------------------------------------
@@ -555,13 +560,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...s,
         loggedIn: true,
         viewerDistricts: s.kycTier >= 2 ? MY_DISTRICTS : [],
-        authOpen: false,
-        registerOpen: false,
-        otpOpen: false,
-        loginOpen: false,
-        loginOtpWindow: false,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
+        ...AUTH_MODALS_CLOSED,
         subscriptions: hasAlberta
           ? s.subscriptions
           : [...s.subscriptions, { id: ALBERTA_ID, included: true }],
@@ -585,13 +584,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
-        authOpen: false,
-        registerOpen: false,
-        otpOpen: false,
-        loginOpen: false,
-        loginOtpWindow: false,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
+        ...AUTH_MODALS_CLOSED,
       }));
       if (!isMockOnly()) {
         void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
@@ -768,15 +761,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [applyAccount, notify]);
 
   const openAuth = useCallback(() => {
-    set({
-      authOpen: true,
-      registerOpen: false,
-      otpOpen: false,
-      loginOpen: false,
-      loginOtpWindow: false,
-      recoveryOtpWindow: false,
-      recoverOpen: false,
-    });
+    set({ ...AUTH_MODALS_CLOSED, authOpen: true });
   }, [set]);
 
   const requireAuth = useCallback(
@@ -1003,29 +988,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // --- Auth flow -----------------------------------------------------------
   const closeAuth = useCallback(
-    () =>
-      set({
-        authOpen: false,
-        registerOpen: false,
-        otpOpen: false,
-        loginOpen: false,
-        loginOtpWindow: false,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
-      }),
+    () => set({ ...AUTH_MODALS_CLOSED }),
     [set],
   );
   const goRegister = useCallback(
-    () =>
-      set({
-        authOpen: false,
-        registerOpen: true,
-        otpOpen: false,
-        loginOpen: false,
-        loginOtpWindow: false,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
-      }),
+    () => set({ ...AUTH_MODALS_CLOSED, registerOpen: true }),
     [set],
   );
   const submitRegister = useCallback(
@@ -1189,15 +1156,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
 
         if (isMockOnly()) {
-          set({
-            otpOpen: false,
-            recoveryOtpWindow: false,
-            loginOpen: true,
-            loginOtpWindow: false,
-            recoverOpen: false,
-            authEmail: undefined,
-            authOpen: false,
-          });
+          set({ ...AUTH_MODALS_CLOSED, loginOpen: true, authEmail: undefined });
           notify("Recovery complete — now log in with your passkey.");
           return;
         }
@@ -1206,15 +1165,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           try {
             await verifyRecoveryOtp(email, code);
             await enrollPasskey();
-            set({
-              otpOpen: false,
-              recoveryOtpWindow: false,
-              loginOpen: true,
-              loginOtpWindow: false,
-              recoverOpen: false,
-              authEmail: undefined,
-              authOpen: false,
-            });
+            set({ ...AUTH_MODALS_CLOSED, loginOpen: true, authEmail: undefined });
             notify("Recovered — now log in with your passkey.");
           } catch (e: unknown) {
             const msg =
@@ -1281,15 +1232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ],
   );
   const goLogin = useCallback(
-    () =>
-      set({
-        authOpen: false,
-        loginOpen: true,
-        otpOpen: false,
-        loginOtpWindow: false,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
-      }),
+    () => set({ ...AUTH_MODALS_CLOSED, loginOpen: true }),
     [set],
   );
   const loginPasskey = useCallback(() => {
@@ -1321,28 +1264,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (email: string) => {
       const trimmed = email.trim();
       if (isValidEmailFormat(trimmed)) {
-        set({
-          authOpen: false,
-          registerOpen: false,
-          otpOpen: true,
-          loginOpen: false,
-          authEmail: trimmed,
-          loginOtpWindow: true,
-          recoveryOtpWindow: false,
-          recoverOpen: false,
-        });
+        set({ ...AUTH_MODALS_CLOSED, otpOpen: true, loginOtpWindow: true, authEmail: trimmed });
         return;
       }
-      set({
-        authOpen: false,
-        registerOpen: false,
-        otpOpen: false,
-        loginOpen: true,
-        authEmail: trimmed,
-        loginOtpWindow: true,
-        recoveryOtpWindow: false,
-        recoverOpen: false,
-      });
+      set({ ...AUTH_MODALS_CLOSED, loginOpen: true, loginOtpWindow: true, authEmail: trimmed });
     },
     [set],
   );
@@ -1355,16 +1280,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
   const recover = useCallback(
-    () =>
-      set({
-        authOpen: false,
-        registerOpen: false,
-        otpOpen: false,
-        loginOpen: false,
-        loginOtpWindow: false,
-        recoveryOtpWindow: false,
-        recoverOpen: true,
-      }),
+    () => set({ ...AUTH_MODALS_CLOSED, recoverOpen: true }),
     [set],
   );
   const openProfile = useCallback(() => {
