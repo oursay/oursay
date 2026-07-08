@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   kindToWireType,
+  mapActivityItem,
   mapCommentNode,
   mapDistrictSummary,
   mapFeedItem,
@@ -281,6 +282,39 @@ describe("mapPersonaProfile", () => {
         recordId: "thread-1",
       },
     ]);
+  });
+});
+
+describe("mapActivityItem", () => {
+  it("carries the served ISO `ts` through (the client formats relative time live)", () => {
+    const item = mapActivityItem({
+      kind: "reaction",
+      icon: "#ic-check",
+      text: 'Agreed with "Topic"',
+      ts: "2026-07-01T00:00:00Z",
+      jurisdictionId: "ab-ca-gov",
+      recordId: "thread-1",
+    });
+    expect(item).toEqual({
+      kind: "reaction",
+      icon: "#ic-check",
+      text: 'Agreed with "Topic"',
+      ts: "2026-07-01T00:00:00Z",
+      meta: undefined,
+      jurisdictionId: "ab-ca-gov",
+      recordId: "thread-1",
+    });
+  });
+
+  it("falls back to the pre-formatted `meta` string when no `ts` is present (mock/demo rows)", () => {
+    const item = mapActivityItem({
+      kind: "comment",
+      text: "Commented",
+      meta: "2d",
+      jurisdictionId: "ab-ca-gov",
+    });
+    expect(item.ts).toBeUndefined();
+    expect(item.meta).toBe("2d");
   });
 });
 

@@ -8,20 +8,7 @@ import { KYC_TIERS } from "../../types/kyc.js";
 import { errorSchema } from "../schemas.js";
 import { ROOT_TYPES } from "../../services/public-feed.service.js";
 import { ACTIVITY_KINDS, PROFILE_POST_TYPES } from "../../services/profile-page.service.js";
-
-const identitySchema = {
-  type: "object",
-  properties: {
-    display: { type: "string" },
-    handle: { type: "string", nullable: true },
-    isPersona: { type: "boolean" },
-    isSelf: { type: "boolean" },
-    seed: { type: "string" },
-    threadId: { type: "string" },
-    seenByOthersAs: { type: "string" },
-  },
-  required: ["display", "handle", "isPersona", "isSelf", "seed", "threadId"],
-} as const;
+import { activityItemSchema, identitySchema } from "./public-page.schemas.js";
 
 const feedItemSchema = {
   type: "object",
@@ -54,19 +41,6 @@ const feedItemSchema = {
     "id", "type", "jurisdiction", "tier", "official", "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "comments", "edits", "ts",
   ],
-} as const;
-
-const activityItemSchema = {
-  type: "object",
-  properties: {
-    kind: { type: "string", enum: [...ACTIVITY_KINDS] },
-    icon: { type: "string" },
-    text: { type: "string" },
-    meta: { type: "string" },
-    jurisdictionId: { type: "string" },
-    recordId: { type: "string" },
-  },
-  required: ["kind", "text", "meta", "jurisdictionId"],
 } as const;
 
 const profileHeaderSchema = {

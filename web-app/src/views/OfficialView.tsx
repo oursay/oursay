@@ -22,6 +22,7 @@ import {
   profilePath,
 } from "@/lib/routes";
 import { districtName } from "@/lib/mock";
+import { useNow } from "@/lib/read-model";
 import { useApp, useHydrateRecordState } from "@/lib/state";
 import type { ActivityKind } from "@/lib/types";
 import { DEFERRED_CLAIM_PROFILE, DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
@@ -45,6 +46,7 @@ export function OfficialView({ handle }: { handle: string }) {
   const router = useRouter();
   const [profile, setProfile] = useState<OfficialProfile | null | undefined>();
   const [tab, setTab] = useState<Tab>("posts");
+  const now = useNow();
 
   useEffect(() => {
     setPageJurisdiction(null);
@@ -258,6 +260,7 @@ export function OfficialView({ handle }: { handle: string }) {
               <ActivityRow
                 key={i}
                 item={a}
+                now={now}
                 onOpen={() =>
                   router.push(
                     postPathForId(a.recordId ?? activityToRecordId(a.kind)),

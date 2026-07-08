@@ -10,11 +10,13 @@ import { ActivityRowMeta } from "./ActivityRowMeta";
 
 interface ActivityRowProps {
   item: ActivityItem;
+  /** Shared clock for live relative-time formatting (pass one `useNow()` per view, not per row). */
+  now: Date;
   onOpen: () => void;
 }
 
 /** Profile/persona/official activity list row — record title and jurisdiction link stay separate interactives. */
-export function ActivityRow({ item, onOpen }: ActivityRowProps) {
+export function ActivityRow({ item, now, onOpen }: ActivityRowProps) {
   const glyph = activityRowGlyph(item);
 
   return (
@@ -36,7 +38,7 @@ export function ActivityRow({ item, onOpen }: ActivityRowProps) {
           <button type="button" onClick={onOpen} className="block w-full text-left text-sm text-ink">
             {item.text}
           </button>
-          <ActivityRowMeta item={item} />
+          <ActivityRowMeta item={item} now={now} />
         </div>
       </div>
     </li>

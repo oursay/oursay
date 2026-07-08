@@ -13,6 +13,7 @@ import {
   RoleTag,
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
+import { useNow } from "@/lib/read-model";
 import { displayHandle, wireHandle } from "@/lib/handle";
 import {
   authorPath,
@@ -53,6 +54,7 @@ export function ProfileView({
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [tab, setTab] = useState<Tab>("posts");
   const [rolesExpanded, setRolesExpanded] = useState(false);
+  const now = useNow();
   const wireHandleParam = wireHandle(handle) ?? handle;
 
   const selectTab = (t: Tab) => {
@@ -283,6 +285,7 @@ export function ProfileView({
               <ActivityRow
                 key={i}
                 item={a}
+                now={now}
                 onOpen={() =>
                   router.push(
                     postPathForId(a.recordId ?? activityToRecordId(a.kind)),

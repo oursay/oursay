@@ -38,7 +38,11 @@ export interface ActivityItem {
   /** Optional glyph id override (e.g. "#ic-edit", "#ic-check", "#ic-x", "#ic-check-alt"). */
   icon?: string;
   text: string;
-  meta: string;
+  /** ISO timestamp of the action (served by the API). When present the client formats relative time
+   *  via `relTime` so it ticks live and matches comment vocabulary. */
+  ts?: string;
+  /** Pre-formatted relative-time string — mock/demo fallback only, used when `ts` is absent. */
+  meta?: string;
   /** Jurisdiction the acted-on record belongs to — drives the linked label in the meta row. */
   jurisdictionId?: string;
   /** Mock navigation target — the record this activity refers to. */

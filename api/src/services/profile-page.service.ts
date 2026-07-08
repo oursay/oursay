@@ -61,7 +61,9 @@ export interface ActivityItemDto {
   kind: ActivityKind;
   icon?: string;
   text: string;
-  meta: string;
+  /** ISO timestamp of the action. The client formats relative time (single source: relTime) so it
+   *  ticks live and matches comment vocabulary — the server no longer bakes a display string. */
+  ts: string;
   jurisdictionId: string;
   recordId?: string;
 }
@@ -196,14 +198,6 @@ export class ProfilePageService {
     };
   }
 
-  private async formatRole(
-    userId: string,
-    handle: string,
-    memberships: Awaited<ReturnType<MembershipRepo["listForUser"]>>,
-  ): Promise<string> {
-    const roles = await this.buildRoleTags(userId, handle, memberships);
-    return roleLineFromTags(roles) ?? "Member";
-  }
 
   private async buildRoleTags(
     userId: string,
@@ -300,7 +294,7 @@ export class ProfilePageService {
         kind,
         icon: "#ic-edit",
         text: row.type === "comment" ? `Edited a comment on “${rootTitle}”` : `Edited “${rootTitle}”`,
-        meta: relMeta(row.createdAt),
+        ts: row.createdAt,
         jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
@@ -310,7 +304,7 @@ export class ProfilePageService {
       return {
         kind: "comment",
         text: `Commented on “${rootTitle}”`,
-        meta: relMeta(row.createdAt),
+        ts: row.createdAt,
         jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
@@ -322,7 +316,7 @@ export class ProfilePageService {
         kind: "reaction",
         icon: agreed ? "#ic-check" : "#ic-x",
         text: `${agreed ? "Agreed" : "Disagreed"} with “${rootTitle}”`,
-        meta: relMeta(row.createdAt),
+        ts: row.createdAt,
         jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
@@ -331,7 +325,7 @@ export class ProfilePageService {
       return {
         kind: "poll",
         text: `Voted in “${rootTitle}”`,
-        meta: relMeta(row.createdAt),
+        ts: row.createdAt,
         jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
@@ -340,7 +334,7 @@ export class ProfilePageService {
       return {
         kind: "petition",
         text: `Signed “${rootTitle}”`,
-        meta: relMeta(row.createdAt),
+        ts: row.createdAt,
         jurisdictionId: jurisdiction,
         recordId: row.rootEntityId,
       };
@@ -350,7 +344,7 @@ export class ProfilePageService {
       return {
         kind: activityKindForType(row.type),
         text: `Posted “${title}”`,
-        meta: relMeta(row.createdAt),
+        ts: row.createdAt,
         jurisdictionId: jurisdiction,
         recordId: row.entityId,
       };
@@ -360,7 +354,7 @@ export class ProfilePageService {
       return {
         kind: "statement",
         text: `Posted “${title}”`,
-        meta: relMeta(row.createdAt),
+        ts: row.createdAt,
         jurisdictionId: jurisdiction,
         recordId: row.entityId,
       };
@@ -441,11 +435,6 @@ function formatAgeLabel(createdAt: string): string {
   return `${years} ${years === 1 ? "year" : "years"}`;
 }
 
-function relMeta(iso: string): string {
-  const days = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
-  return days === 0 ? "today" : `${days}d`;
-}
-
 function activityKindForType(type: RecordType): ActivityKind {
   if (type === "post" || type === "result") return "statement";
   if (type === "petition") return "petition";
@@ -453,7 +442,7 @@ function activityKindForType(type: RecordType): ActivityKind {
   return "comment";
 }
 
-function rootTitleOf(type: RecordType, content: unknown, withheld: boolean): string {
+export function rootTitleOf(type: RecordType, content: unknown, withheld: boolean): string {
   if (withheld || content == null) return "Untitled";
   const c = content as Record<string, unknown>;
   if (type === "petition") return truncate(str(c.title));

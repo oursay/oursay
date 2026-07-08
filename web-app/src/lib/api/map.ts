@@ -301,7 +301,8 @@ export function mapActivityItem(raw: Record<string, unknown>): ActivityItem {
     kind: raw.kind as ActivityItem["kind"],
     icon: raw.icon as string | undefined,
     text: String(raw.text),
-    meta: String(raw.meta),
+    ts: raw.ts != null ? String(raw.ts) : undefined,
+    meta: raw.meta != null ? String(raw.meta) : undefined,
     jurisdictionId: raw.jurisdictionId != null ? String(raw.jurisdictionId) : undefined,
     recordId: raw.recordId as string | undefined,
   };

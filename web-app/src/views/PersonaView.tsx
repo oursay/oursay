@@ -228,6 +228,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
               <ActivityRow
                 key={i}
                 item={a}
+                now={now}
                 onOpen={() => router.push(postPathForId(a.recordId ?? profile.threadId))}
               />
             ))

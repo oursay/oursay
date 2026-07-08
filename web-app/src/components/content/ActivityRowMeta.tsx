@@ -2,20 +2,24 @@
 
 import Link from "next/link";
 import { jurisdictionLabel } from "@/lib/mock";
+import { relTime } from "@/lib/read-model";
 import { jurisdictionPath } from "@/lib/routes";
 import type { ActivityItem } from "@/lib/types";
 
-/** Relative time plus an optional underlined jurisdiction link for activity rows. */
-export function ActivityRowMeta({ item }: { item: ActivityItem }) {
+/** Relative time plus an optional underlined jurisdiction link for activity rows. Prefers the served
+ *  ISO `ts` (formatted live via relTime so it ticks + matches comment vocabulary); falls back to the
+ *  pre-formatted `meta` string for mock/demo rows that carry no timestamp. */
+export function ActivityRowMeta({ item, now }: { item: ActivityItem; now: Date }) {
   const jurId = item.jurisdictionId;
+  const when = item.ts ? relTime(item.ts, now) : (item.meta ?? "");
 
   if (!jurId) {
-    return <span className="block text-xs text-muted">{item.meta}</span>;
+    return <span className="block text-xs text-muted">{when}</span>;
   }
 
   return (
     <span className="block text-xs text-muted">
-      {item.meta}
+      {when}
       {" · "}
       <Link
         href={jurisdictionPath(jurId)}

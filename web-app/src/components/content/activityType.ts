@@ -43,39 +43,20 @@ export const ACTIVITY_REACTION_TONE = {
   alt: "text-brand-300",
 } as const;
 
-function reactionUsesAltTone(item: ActivityItem): boolean {
-  if (item.icon === "#ic-check-alt") return true;
-  return /\bretract/.test(item.text.toLowerCase());
-}
-
-function reactionDirFromText(text: string): "up" | "down" | null {
-  const lower = text.toLowerCase();
-  if (/\bretract/.test(lower)) return "up";
-  if (/\b(disagree|disagreed|changed to disagree)\b/.test(lower)) return "down";
-  if (/\b(agree|agreed)\b/.test(lower)) return "up";
-  return null;
-}
-
-/** Row glyph for a profile Activity item (wireframe `activityRow` icon map). */
+/** Row glyph for a profile Activity item. Reaction direction/tone comes from the server- (or mock-)
+ *  set `item.icon` id — never re-derived from the display text. Every producer stamps `item.icon`
+ *  (`#ic-check` agree · `#ic-x` disagree · `#ic-check-alt` retract · `#ic-edit`), so the old
+ *  text-regex fallback was dead and brittle (broke on any copy change / non-English text). */
 export function activityRowGlyph(item: ActivityItem): ActivityRowGlyph {
   if (item.icon === "#ic-edit") return { type: "icon", icon: SquarePen };
   if (item.icon === "#ic-check") return { type: "reaction", dir: "up" };
   if (item.icon === "#ic-check-alt") return { type: "reaction", dir: "up", alt: true };
   if (item.icon === "#ic-x") return { type: "reaction", dir: "down" };
 
-  if (item.kind === "reaction") {
-    const dir = reactionDirFromText(item.text);
-    if (dir) {
-      return {
-        type: "reaction",
-        dir,
-        alt: reactionUsesAltTone(item),
-      };
-    }
-    return { type: "icon", icon: CheckCircle };
-  }
-
   switch (item.kind) {
+    case "reaction":
+      // Reaction with no recognized icon id — shouldn't happen (all producers set one); neutral glyph.
+      return { type: "icon", icon: CheckCircle };
     case "comment":
       return { type: "icon", icon: MessageSquare };
     case "petition":
