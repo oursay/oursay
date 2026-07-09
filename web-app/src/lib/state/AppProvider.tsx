@@ -131,6 +131,10 @@ import {
 } from "./authModal";
 import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
 import type { PasskeyBusyAnchor, PasskeyBusyPhase } from "./passkeyBusy";
+import {
+  hasLocalThreadCredential,
+  setCivicPasskeyPhaseListener,
+} from "@/lib/api/civic-passkey-phase";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 const ALL_ACTIVITY: ActivityKind[] = [
@@ -1312,8 +1316,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const commit = pendingCommit.current;
       if (!commit) return;
       if (sign === "passkey" && !isMockOnly()) {
-        beginPasskeyBusy("choose", "signing");
+        const threadId = state.signingConfirm?.threadId;
+        const userId = userIdRef.current;
+        let initialPhase: PasskeyBusyPhase = "signing";
+        if (threadId && userId && !hasLocalThreadCredential(userId, threadId)) {
+          initialPhase = "creating";
+        }
+        beginPasskeyBusy("choose", initialPhase);
+        setCivicPasskeyPhaseListener(setPasskeyPhase);
         void Promise.resolve(commit(sign)).finally(() => {
+          setCivicPasskeyPhaseListener(null);
           pendingCommit.current = null;
           endPasskeyBusy();
           set({ signingConfirm: null });
@@ -1324,11 +1336,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       set({ signingConfirm: null });
       void Promise.resolve(commit(sign));
     },
-    [set, beginPasskeyBusy, endPasskeyBusy],
+    [set, state.signingConfirm, beginPasskeyBusy, setPasskeyPhase, endPasskeyBusy],
   );
 
   const closeSigningConfirm = useCallback(() => {
     pendingCommit.current = null;
+    setCivicPasskeyPhaseListener(null);
     endPasskeyBusy();
     set({ signingConfirm: null });
   }, [set, endPasskeyBusy]);
@@ -1388,7 +1401,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ),
       );
       openSigningConfirm(
-        { wysiwys, showQuickSign: method === "ask" },
+        {
+          wysiwys,
+          showQuickSign: method === "ask",
+          threadId: wysiwysInput.input.threadId,
+        },
         commit,
       );
     },

@@ -47,6 +47,11 @@ export class IdentitySession {
     return this.s.devicePubkey;
   }
 
+  /** Whether this device already has a local per-thread WebAuthn passkey for `threadId`. */
+  hasThreadCredential(threadId: string): boolean {
+    return this.s.threadSigningPubkey(threadId) != null;
+  }
+
   /**
    * This device's per-thread WebAuthn passkey pubkey — the envelope's `signerPubkey`. Creates the
    * credential on first use (at join / first append) and returns its pubkey thereafter. The

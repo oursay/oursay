@@ -19,8 +19,15 @@ import { parentTypeForKind, type CivicSignMode } from "./civic-helpers";
 import { loadCustodySession, clearCachedCustodySession } from "./civic-custody";
 import { getRecordStates } from "./me";
 import { CivicHttpError } from "@oursay/identity/client/browser";
+import { notifyCivicPasskeyPhase } from "./civic-passkey-phase";
 
 export type { CivicSignMode } from "./civic-helpers";
+
+function passkeyAppendOpts(sign: CivicSignMode) {
+  return sign === "passkey"
+    ? { sign, onThreadPasskeyPhase: notifyCivicPasskeyPhase }
+    : { sign };
+}
 
 let civicPromise: Promise<{
   client: import("@oursay/identity/client/browser").CivicHttpClient;
@@ -107,10 +114,10 @@ export async function civicReaction(
     client.append(
       t,
       { op: "update", type: "reaction", entityId: entityId!, content },
-      { sign },
+      passkeyAppendOpts(sign),
     );
 
-  const createReaction = () => client.addReaction(t, parent, content, { sign });
+  const createReaction = () => client.addReaction(t, parent, content, passkeyAppendOpts(sign));
 
   if (entityId) {
     try {
@@ -144,7 +151,7 @@ export async function civicVote(
 ): Promise<void> {
   const { client } = await getCivicClient(userId);
   const content: VoteContent = { option };
-  await client.castVote(t, { id: pollId, type: "poll" }, content, { sign });
+  await client.castVote(t, { id: pollId, type: "poll" }, content, passkeyAppendOpts(sign));
 }
 
 export async function civicComment(
@@ -161,7 +168,7 @@ export async function civicComment(
     t,
     { id: parentId, type: parentType },
     content,
-    { sign },
+    passkeyAppendOpts(sign),
   );
   return client.personaDisplayName(t);
 }
@@ -182,7 +189,7 @@ export async function civicSignPetition(
       parent: { type: "petition", id: petitionId },
       content: {},
     },
-    { sign },
+    passkeyAppendOpts(sign),
   );
 }
 
@@ -210,9 +217,9 @@ export async function civicCompose(
       ? await client.append(
           t,
           { op: "create", type: "post", entityId: t.threadId, content },
-          { sign },
+          passkeyAppendOpts(sign),
         )
-      : await client.createPost(t, { title: payload.title, body: payload.body }, { sign });
+      : await client.createPost(t, { title: payload.title, body: payload.body }, passkeyAppendOpts(sign));
     return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }
   if (kind === "petition") {
@@ -224,7 +231,7 @@ export async function civicCompose(
     const ref = await client.append(
       t,
       { op: "create", type: "petition", entityId: t.threadId, content },
-      { sign },
+      passkeyAppendOpts(sign),
     );
     return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }
@@ -238,7 +245,7 @@ export async function civicCompose(
     const ref = await client.append(
       t,
       { op: "create", type: "poll", entityId: t.threadId, content },
-      { sign },
+      passkeyAppendOpts(sign),
     );
     return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }

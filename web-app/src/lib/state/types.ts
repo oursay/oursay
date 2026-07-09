@@ -36,6 +36,8 @@ export interface SigningConfirmRequest {
   wysiwys: WysiwysPayload;
   /** False when effective method is passkey-only (Quick Sign hidden). */
   showQuickSign: boolean;
+  /** Thread id for passkey busy-phase pre-check (per-device thread credential). */
+  threadId: string;
 }
 
 /**

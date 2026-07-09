@@ -38,10 +38,12 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
     await c.enrollDevice({ userId: "u1", deviceId: "d1" });
     const unlocked = await c.unlock({ userId: "u1", deviceId: "d1" });
     const sess = new IdentitySession(unlocked);
+    expect(sess.hasThreadCredential(thread.threadId)).to.equal(false);
     expect(unlocked.threadSigningPubkey(thread.threadId)).to.equal(null); // not created yet
     const signer = await sess.signingPubkey(thread);
     expect(signer).to.match(/^0[23][0-9a-f]{64}$/); // compressed SEC1 P-256
     expect(await sess.signingPubkey(thread)).to.equal(signer); // idempotent
+    expect(sess.hasThreadCredential(thread.threadId)).to.equal(true);
     expect(unlocked.threadSigningPubkey(thread.threadId)).to.equal(signer);
     expect(unlocked.threadPersonaPubkey(thread.threadId)).to.equal(null); // Pₜ not yet remembered
     sess.rememberPersona(thread, signer); // simulate first-device join: Pₜ = this device's signer

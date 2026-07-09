@@ -12,6 +12,13 @@ import type { CommentContent, PostContent, ReactionContent, VoteContent } from "
 import type { IdentitySession } from "./session.js";
 import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
 
+export type ThreadPasskeyPhase = "creating" | "signing";
+
+export interface CivicAppendOptions {
+  sign?: SignMode;
+  onThreadPasskeyPhase?: (phase: ThreadPasskeyPhase) => void;
+}
+
 export interface CivicHttpClientOptions {
   /** API origin, e.g. "https://api.oursay.org" or "http://localhost". No trailing slash. */
   baseUrl: string;
@@ -207,14 +214,18 @@ export class CivicHttpClient {
    * only where the jurisdiction's floor for the action is `quick`, else the server 403s
    * `passkey_required`.
    */
-  async append(t: ThreadRef, intent: Intent, opts: { sign?: SignMode } = {}): Promise<SubmitRef> {
+  async append(t: ThreadRef, intent: Intent, opts: CivicAppendOptions = {}): Promise<SubmitRef> {
     if (opts.sign === "quick") {
       await this.ensureQuickSigner(t);
       const prep = await this.prepare(t, intent);
       return this.submit(this.session.buildQuickSigned(t, prep, intent));
     }
+    if (!this.session.hasThreadCredential(t.threadId)) {
+      opts.onThreadPasskeyPhase?.("creating");
+    }
     await this.ensurePasskeySigner(t);
     const prep = await this.prepare(t, intent);
+    opts.onThreadPasskeyPhase?.("signing");
     const signed = await this.session.buildSigned(t, prep, intent);
     return this.submit(signed);
   }
@@ -222,22 +233,22 @@ export class CivicHttpClient {
   // ── Convenience intents ───────────────────────────────────────────────────────────────────
 
   /** Create the thread's root post (`entityId === threadId`). */
-  async createPost(t: ThreadRef, content: PostContent, opts: { sign?: SignMode } = {}): Promise<SubmitRef> {
+  async createPost(t: ThreadRef, content: PostContent, opts: CivicAppendOptions = {}): Promise<SubmitRef> {
     return this.append(t, { op: "create", type: "post", entityId: t.threadId, content }, opts);
   }
 
   /** Comment on a parent entity (post/petition/poll/comment; depth ≤ 3 enforced server-side). */
-  async createComment(t: ThreadRef, parent: ParentRef, content: CommentContent, opts: { entityId?: string; sign?: SignMode } = {}): Promise<SubmitRef> {
+  async createComment(t: ThreadRef, parent: ParentRef, content: CommentContent, opts: CivicAppendOptions & { entityId?: string } = {}): Promise<SubmitRef> {
     return this.append(t, { op: "create", type: "comment", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   /** React to a parent entity (singleton per author+parent). */
-  async addReaction(t: ThreadRef, parent: ParentRef, content: ReactionContent, opts: { entityId?: string; sign?: SignMode } = {}): Promise<SubmitRef> {
+  async addReaction(t: ThreadRef, parent: ParentRef, content: ReactionContent, opts: CivicAppendOptions & { entityId?: string } = {}): Promise<SubmitRef> {
     return this.append(t, { op: "create", type: "reaction", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   /** Cast a vote on a parent poll (singleton per author+parent). */
-  async castVote(t: ThreadRef, parent: ParentRef, content: VoteContent, opts: { entityId?: string; sign?: SignMode } = {}): Promise<SubmitRef> {
+  async castVote(t: ThreadRef, parent: ParentRef, content: VoteContent, opts: CivicAppendOptions & { entityId?: string } = {}): Promise<SubmitRef> {
     return this.append(t, { op: "create", type: "vote", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
