@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Key, Mail, MailCheck } from "lucide-react";
 import { Button, CollapsibleSection, Modal, ModalField } from "@/components/ui";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface LoginChooserProps {
   open: boolean;
@@ -14,6 +15,7 @@ interface LoginChooserProps {
   onPasskeyLogin?: () => void;
   onVerifyEmail?: (email: string) => void;
   onRecover?: () => void;
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 /** Returning-user login (the wireframe's loginModal / buildLoginInner). */
@@ -25,6 +27,7 @@ export function LoginChooser({
   onPasskeyLogin,
   onVerifyEmail,
   onRecover,
+  passkeyBusy = null,
 }: LoginChooserProps) {
   const [emailOpen, setEmailOpen] = useState(Boolean(otpWindow));
   const [draftEmail, setDraftEmail] = useState(email ?? "");
@@ -36,7 +39,7 @@ export function LoginChooser({
   }, [otpWindow, email]);
 
   return (
-    <Modal open={open} onClose={onClose} title="Log In" headerAlign="center">
+    <Modal open={open} onClose={onClose} title="Log In" headerAlign="center" passkeyBusy={passkeyBusy}>
       <div className="space-y-3">
         <p className="text-center text-sm text-muted">Use your passkey to sign in</p>
         <Button variant="primary" fullWidth icon={Key} onClick={onPasskeyLogin}>

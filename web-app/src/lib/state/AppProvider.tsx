@@ -127,6 +127,7 @@ import {
   toggleLoginOtp,
 } from "./authModal";
 import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
+import type { PasskeyBusyAnchor, PasskeyBusyPhase } from "./passkeyBusy";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 const ALL_ACTIVITY: ActivityKind[] = [
@@ -161,7 +162,7 @@ export interface CommentWriteContext {
   body: string;
 }
 
-type SignedCommit = (sign: CivicSignMode) => void;
+type SignedCommit = (sign: CivicSignMode) => void | Promise<void>;
 
 function mockPasskey(label: string, id?: string): AuthPasskey {
   return {
@@ -237,6 +238,7 @@ export const INITIAL_APP_STATE: AppState = {
   postDistricts: null,
 
   toast: null,
+  passkeyBusy: null,
 };
 
 /** Geography resolution against the state's post context (see resolveGeography). */
@@ -413,6 +415,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const set = useCallback((patch: Partial<AppState>) => {
     setState((s) => ({ ...s, ...patch }));
   }, []);
+
+  const beginPasskeyBusy = useCallback(
+    (anchor: PasskeyBusyAnchor, phase: PasskeyBusyPhase) => {
+      set({ passkeyBusy: { anchor, phase } });
+    },
+    [set],
+  );
+
+  const setPasskeyPhase = useCallback((phase: PasskeyBusyPhase) => {
+    setState((s) =>
+      s.passkeyBusy ? { ...s, passkeyBusy: { ...s.passkeyBusy, phase } } : s,
+    );
+  }, []);
+
+  const endPasskeyBusy = useCallback(() => {
+    set({ passkeyBusy: null });
+  }, [set]);
 
   // Load persisted subscriptions + session on mount. Live mode hydrates from API.
   useEffect(() => {
@@ -634,14 +653,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       notify("Passkey added to this device (demo).");
       return;
     }
+    beginPasskeyBusy("profile", "creating");
     void enrollPasskey()
       .then(() => listPasskeys())
       .then((passkeys) => {
         setState((s) => ({ ...s, passkeys }));
         notify("Passkey added to this device.");
       })
-      .catch((e: Error) => notify(e.message));
-  }, [notify]);
+      .catch((e: Error) => notify(e.message))
+      .finally(() => endPasskeyBusy());
+  }, [notify, beginPasskeyBusy, endPasskeyBusy]);
 
   // Wireframe addDeviceEmailBtn: opens the account's OTP-login window so a
   // new device can sign in by email and register its own passkey.
@@ -1075,14 +1096,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // sequence; only the login-email hint and the success copy differ).
   const finishPasskeyLogin = useCallback(
     async (successMsg: string, email?: string) => {
-      await enrollPasskey();
-      const login = await loginWithPasskey(email);
-      userIdRef.current = login.userId;
-      const account = await fetchAccountContext();
-      applyAccount(account);
-      notify(successMsg);
+      beginPasskeyBusy("otp", "creating");
+      try {
+        await enrollPasskey();
+        setPasskeyPhase("authorizing");
+        const login = await loginWithPasskey(email);
+        userIdRef.current = login.userId;
+        const account = await fetchAccountContext();
+        applyAccount(account);
+        notify(successMsg);
+      } finally {
+        endPasskeyBusy();
+      }
     },
-    [applyAccount, notify],
+    [applyAccount, notify, beginPasskeyBusy, setPasskeyPhase, endPasskeyBusy],
   );
   const completeOtp = useCallback(
     (code?: string) => {
@@ -1134,9 +1161,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void (async () => {
           try {
             await verifyRecoveryOtp(email, code);
-            await enrollPasskey();
-            set({ authModal: authLogin() });
-            notify("Recovered — now log in with your passkey.");
+            beginPasskeyBusy("otp", "creating");
+            try {
+              await enrollPasskey();
+              set({ authModal: authLogin() });
+              notify("Recovered — now log in with your passkey.");
+            } finally {
+              endPasskeyBusy();
+            }
           } catch (e: unknown) {
             const msg =
               e instanceof ApiError
@@ -1191,7 +1223,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       demoLogin,
       finishPasskeyLogin,
-      enrollPasskey,
+      beginPasskeyBusy,
+      endPasskeyBusy,
       notify,
       state.authModal,
       verifyRecoveryOtp,
@@ -1204,14 +1237,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       demoLogin();
       return;
     }
+    beginPasskeyBusy("login", "authorizing");
     void loginWithPasskey()
       .then(async (res) => {
         userIdRef.current = res.userId;
         applyAccount(await fetchAccountContext());
         notify("Signed in.");
       })
-      .catch((e: Error) => notify(e.message));
-  }, [demoLogin, applyAccount, notify]);
+      .catch((e: Error) => notify(e.message))
+      .finally(() => endPasskeyBusy());
+  }, [demoLogin, applyAccount, notify, beginPasskeyBusy, endPasskeyBusy]);
   const loginVerifyEmail = useCallback(
     (email: string) => set({ authModal: authOtp("login", email.trim()) }),
     [set],
@@ -1276,15 +1311,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const confirmSign = useCallback(() => {
     const commit = pendingCommit.current;
-    pendingCommit.current = null;
-    set({ sign: null });
-    commit?.("passkey");
-  }, [set]);
+    if (!commit) return;
+    if (isMockOnly()) {
+      pendingCommit.current = null;
+      set({ sign: null });
+      void Promise.resolve(commit("passkey"));
+      return;
+    }
+    beginPasskeyBusy("sign", "signing");
+    void Promise.resolve(commit("passkey")).finally(() => {
+      pendingCommit.current = null;
+      endPasskeyBusy();
+      set({ sign: null });
+    });
+  }, [set, beginPasskeyBusy, endPasskeyBusy]);
 
   const closeSign = useCallback(() => {
     pendingCommit.current = null;
+    endPasskeyBusy();
     set({ sign: null });
-  }, [set]);
+  }, [set, endPasskeyBusy]);
 
   const openChoose = useCallback(
     (req: ChooseSignRequest, commit: SignedCommit) => {
@@ -1294,17 +1340,31 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [set],
   );
 
-  const confirmChoose = useCallback((sign: CivicSignMode) => {
-    const commit = pendingCommit.current;
-    pendingCommit.current = null;
-    set({ choose: null });
-    commit?.(sign);
-  }, [set]);
+  const confirmChoose = useCallback(
+    (sign: CivicSignMode) => {
+      const commit = pendingCommit.current;
+      if (!commit) return;
+      if (sign === "passkey" && !isMockOnly()) {
+        beginPasskeyBusy("choose", "signing");
+        void Promise.resolve(commit(sign)).finally(() => {
+          pendingCommit.current = null;
+          endPasskeyBusy();
+          set({ choose: null });
+        });
+        return;
+      }
+      pendingCommit.current = null;
+      set({ choose: null });
+      void Promise.resolve(commit(sign));
+    },
+    [set, beginPasskeyBusy, endPasskeyBusy],
+  );
 
   const closeChoose = useCallback(() => {
     pendingCommit.current = null;
+    endPasskeyBusy();
     set({ choose: null });
-  }, [set]);
+  }, [set, endPasskeyBusy]);
 
   /**
    * Gate a civic action behind its effective signing method:
@@ -1481,8 +1541,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               state.kycTier >= 2 &&
               outsideMyDistricts(target, state.viewerDistricts),
           },
-          (sign) => {
-            void runCivicWrite(
+          (sign) =>
+            runCivicWrite(
               "vote",
               target.jurisdiction,
               sign,
@@ -1497,8 +1557,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 );
               },
               () => setVote(target, option),
-            );
-          },
+            ),
         );
       });
     },
@@ -1557,8 +1616,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               state.kycTier >= 2 &&
               outsideMyDistricts(target, state.viewerDistricts),
           },
-          (sign) => {
-            void runCivicWrite(
+          (sign) =>
+            runCivicWrite(
               "signature",
               target.jurisdiction,
               sign,
@@ -1572,8 +1631,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 );
               },
               () => commitSign(target),
-            );
-          },
+            ),
         );
       });
     },
@@ -1709,8 +1767,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         showResidencyNotice: state.kycTier < 2,
         showAffectedNotice: false,
       },
-      (sign) => {
-        void runCivicWrite(
+      (sign) =>
+        runCivicWrite(
           composeAction,
           jur,
           sign,
@@ -1737,8 +1795,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             return result.personaName;
           },
           finish,
-        );
-      },
+        ),
     );
   }, [
     state.composeJur,
@@ -1893,8 +1950,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
             showResidencyNotice: false,
             showAffectedNotice: false,
           },
-          (sign) => {
-            void runCivicWrite(
+          (sign) =>
+            runCivicWrite(
               "comment",
               ctx.jurisdiction,
               sign,
@@ -1910,8 +1967,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 );
               },
               (personaName) => done(personaName ?? undefined),
-            );
-          },
+            ),
         );
       });
     },

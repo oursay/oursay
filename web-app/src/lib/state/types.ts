@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types";
 import type { ComposeStep, SignKind } from "@/components";
 import type { AuthModal } from "./authModal";
+import type { PasskeyBusy } from "./passkeyBusy";
 
 /**
  * A viewer's own reaction on a record/comment. `signTier` records the action
@@ -184,4 +185,7 @@ export interface AppState {
 
   // Transient "not built" toast.
   toast: string | null;
+
+  /** In-modal passkey busy overlay (dim/spinner while WebAuthn is open). */
+  passkeyBusy: PasskeyBusy | null;
 }

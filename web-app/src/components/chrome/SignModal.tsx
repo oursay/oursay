@@ -2,6 +2,7 @@
 
 import { AlertTriangle, Key } from "lucide-react";
 import { Button, Modal, NoticeBox } from "@/components/ui";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 export type SignKind =
   | "petition"
@@ -35,6 +36,7 @@ interface SignModalProps {
   /** Residency-verified but outside the record's districts. */
   showAffectedNotice?: boolean;
   onConfirm?: () => void;
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 function title(kind: SignKind): string {
@@ -106,11 +108,12 @@ export function SignModal({
   showResidencyNotice = false,
   showAffectedNotice = false,
   onConfirm,
+  passkeyBusy = null,
 }: SignModalProps) {
   const what = kind === "petition" ? "signatures" : "votes";
 
   return (
-    <Modal open={open} onClose={onClose} title={title(kind)} headerAlign="center">
+    <Modal open={open} onClose={onClose} title={title(kind)} headerAlign="center" passkeyBusy={passkeyBusy}>
       <div className="space-y-3">
         <div className="rounded-lg border border-border bg-surface-muted p-4 text-center text-sm leading-relaxed text-ink">
           {statementLines(

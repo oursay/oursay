@@ -60,6 +60,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const account = accountIdentity(state);
   const authModal = state.authModal;
   const otpMode = authModal.kind === "otp" ? authModal.flow : "registration";
+  const passkeyBusy = state.passkeyBusy;
+  const otpPasskeyBusy = passkeyBusy?.anchor === "otp" ? passkeyBusy.phase : null;
+  const loginPasskeyBusy = passkeyBusy?.anchor === "login" ? passkeyBusy.phase : null;
+  const profilePasskeyBusy = passkeyBusy?.anchor === "profile" ? passkeyBusy.phase : null;
+  const signPasskeyBusy = passkeyBusy?.anchor === "sign" ? passkeyBusy.phase : null;
+  const choosePasskeyBusy = passkeyBusy?.anchor === "choose" ? passkeyBusy.phase : null;
 
   const resendOtp = () => {
     const email = authEmailOf(authModal)?.trim();
@@ -347,6 +353,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onRegisterPasskey={app.completeOtp}
         mode={otpMode}
         onResend={resendOtp}
+        passkeyBusy={otpPasskeyBusy}
       />
       <LoginChooser
         open={authModal.kind === "login"}
@@ -356,6 +363,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onPasskeyLogin={app.loginPasskey}
         onVerifyEmail={app.loginVerifyEmail}
         onRecover={app.recover}
+        passkeyBusy={loginPasskeyBusy}
       />
       <ProfileModal
         open={state.profileOpen}
@@ -404,6 +412,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           }
           app.notify(`${label} is not built in this demo.`);
         }}
+        passkeyBusy={profilePasskeyBusy}
       />
       <ComposeFlow
         open={state.composeOpen}
@@ -445,6 +454,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         showResidencyNotice={state.sign?.showResidencyNotice ?? false}
         showAffectedNotice={state.sign?.showAffectedNotice ?? false}
         onConfirm={app.confirmSign}
+        passkeyBusy={signPasskeyBusy}
       />
       <ChooseSignModal
         open={state.choose !== null}
@@ -453,6 +463,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         lines={state.choose?.lines ?? []}
         onQuickSign={() => app.confirmChoose("quick")}
         onPasskeySign={() => app.confirmChoose("passkey")}
+        passkeyBusy={choosePasskeyBusy}
       />
       <AddJurisdictionModal
         open={state.addJurOpen}

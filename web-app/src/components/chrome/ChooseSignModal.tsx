@@ -2,6 +2,7 @@
 
 import { Key, Signature } from "lucide-react";
 import { Button, Modal } from "@/components/ui";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface ChooseSignModalProps {
   open: boolean;
@@ -14,6 +15,7 @@ interface ChooseSignModalProps {
   onQuickSign?: () => void;
   /** WebAuthn passkey sign. */
   onPasskeySign?: () => void;
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 /**
@@ -28,6 +30,7 @@ export function ChooseSignModal({
   lines,
   onQuickSign,
   onPasskeySign,
+  passkeyBusy = null,
 }: ChooseSignModalProps) {
   return (
     <Modal
@@ -35,6 +38,7 @@ export function ChooseSignModal({
       onClose={onClose}
       title="How do you want to sign?"
       headerAlign="center"
+      passkeyBusy={passkeyBusy}
     >
       <div className="space-y-3">
         <div className="rounded-lg border border-border bg-surface-muted p-4 text-center text-sm leading-relaxed text-ink">

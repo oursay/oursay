@@ -38,6 +38,7 @@ import {
   SIGN_METHODS,
   VISIBILITY_LABEL,
 } from "@/lib/types";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface ProfileModalProps {
   open: boolean;
@@ -71,6 +72,7 @@ interface ProfileModalProps {
   onRevokePasskey?: (id: string) => void;
   /** Deferred account-settings destinations (wireframe no-ops → toast). */
   onOpenSetting?: (label: string) => void;
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 /** Wireframe KYC_TIERS — the account's own ladder, not the author pill labels. */
@@ -344,6 +346,7 @@ export function ProfileModal({
   onRenamePasskey,
   onRevokePasskey,
   onOpenSetting,
+  passkeyBusy = null,
 }: ProfileModalProps) {
   const KycIcon = KYC_ICON[kycTier];
   const [passkeysExpanded, setPasskeysExpanded] = useState(false);
@@ -355,7 +358,7 @@ export function ProfileModal({
     : passkeys.slice(0, PASSKEYS_SHOWN);
 
   return (
-    <Modal open={open} onClose={onClose} variant="sheet" title="Profile" mobileFull>
+    <Modal open={open} onClose={onClose} variant="sheet" title="Profile" mobileFull passkeyBusy={passkeyBusy}>
       <div className="space-y-5">
         <div className="border-b border-border pb-4">
           <button

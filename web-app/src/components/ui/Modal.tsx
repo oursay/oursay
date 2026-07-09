@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { swallowNextPointerClick } from "@/components/utils";
+import { PasskeyBusyOverlay } from "./PasskeyBusyOverlay";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 type Variant = "center" | "sheet";
 type Size = "picker" | "compact" | "dialog" | "wide";
@@ -28,6 +30,8 @@ interface ModalProps {
   headerAlign?: "left" | "center";
   /** Full-bleed on mobile: pinned left with a small right gap for the close button; reverts to centered on ≥sm. */
   mobileFull?: boolean;
+  /** When set, dims the panel and shows a passkey spinner (blocks dismiss). */
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 const SIZES: Record<Size, string> = {
@@ -59,22 +63,24 @@ export function Modal({
   subtitle,
   headerAlign = "left",
   mobileFull = false,
+  passkeyBusy = null,
   children,
 }: ModalProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const [mounted, setMounted] = useState(false);
+  const busy = passkeyBusy != null;
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || busy) return;
     closeRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, onClose, busy]);
 
   if (!open || !mounted) return null;
 
@@ -103,6 +109,7 @@ export function Modal({
     <div
       className={`fixed inset-0 z-50 flex overflow-y-auto bg-black/45 ${vertical} ${horizontal}`}
       onPointerUp={(e) => {
+        if (busy) return;
         if (e.target === e.currentTarget) {
           e.preventDefault();
           e.stopPropagation();
@@ -131,20 +138,25 @@ export function Modal({
             ) : null}
           </div>
         ) : null}
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="absolute -right-3 -top-3 z-10 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-ink text-paper shadow-sm hover:bg-ink-soft focus:outline-none focus-visible:rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-        >
-          <X size={14} aria-hidden />
-        </button>
+        {!busy ? (
+          <button
+            ref={closeRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="absolute -right-3 -top-3 z-10 flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-ink text-paper shadow-sm hover:bg-ink-soft focus:outline-none focus-visible:rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+          >
+            <X size={14} aria-hidden />
+          </button>
+        ) : null}
         {/* -mx-5 + px-5 lets the scroll gutter sit in the panel's padding at the
             edge, while the content keeps the same inset as the header. */}
-        <div className="-mx-5 min-h-0 min-w-0 flex-1 overflow-y-auto px-5">
+        <div
+          className={`-mx-5 min-h-0 min-w-0 flex-1 overflow-y-auto px-5${busy ? " pointer-events-none" : ""}`}
+        >
           {children}
         </div>
+        {passkeyBusy ? <PasskeyBusyOverlay phase={passkeyBusy} /> : null}
       </div>
     </div>,
     document.body,

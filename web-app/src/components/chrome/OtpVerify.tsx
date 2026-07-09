@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Key } from "lucide-react";
 import { Button, Modal } from "@/components/ui";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface OtpVerifyProps {
   open: boolean;
@@ -12,6 +13,7 @@ interface OtpVerifyProps {
   /** Registers this device's passkey and signs in. */
   onRegisterPasskey?: (code: string) => void;
   onResend?: () => void;
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 /** OTP entry + passkey registration/re-enrollment step. */
@@ -22,6 +24,7 @@ export function OtpVerify({
   mode = "registration",
   onRegisterPasskey,
   onResend,
+  passkeyBusy = null,
 }: OtpVerifyProps) {
   const [code, setCode] = useState("");
 
@@ -39,6 +42,7 @@ export function OtpVerify({
       title="Verify Your Email"
       subtitle={`Enter the 6-digit code sent to ${email}`}
       headerAlign="center"
+      passkeyBusy={passkeyBusy}
     >
       <div className="space-y-4">
         <input
