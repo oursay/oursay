@@ -535,8 +535,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void patchSigningPrefs(state.signing).catch((e: Error) => notify(e.message));
   }, [state.signing, state.loggedIn, notify]);
 
+  // Canonical closer for the top-level chrome surfaces: the auth dialog, the
+  // profile / add-jurisdiction modals, and both header popovers. Opening any one
+  // of these routes through here first so only one is ever open. (Deliberately
+  // does NOT touch compose / sign / choose / share — deferred; those can stack on
+  // content — nor the secondary profile/address modals, which manage each other.)
   const closeAllModals = useCallback(() => {
-    set({ authModal: authNone, profileOpen: false, addJurOpen: false });
+    set({
+      authModal: authNone,
+      profileOpen: false,
+      addJurOpen: false,
+      filterOpen: false,
+      jurSelectorOpen: false,
+    });
   }, [set]);
 
   // --- Session -------------------------------------------------------------
@@ -748,8 +759,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [applyAccount, notify]);
 
   const openAuth = useCallback(() => {
+    closeAllModals();
     set({ authModal: authChooser });
-  }, [set]);
+  }, [closeAllModals, set]);
 
   const requireAuth = useCallback(
     (action: () => void) => {
@@ -920,10 +932,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const openAddJur = useCallback(
-    () => set({ addJurOpen: true, jurSelectorOpen: false }),
-    [set],
-  );
+  const openAddJur = useCallback(() => {
+    closeAllModals();
+    set({ addJurOpen: true });
+  }, [closeAllModals, set]);
   const closeAddJur = useCallback(() => set({ addJurOpen: false }), [set]);
 
   const syncMemberships = useCallback((subs: JurisdictionMembership[]) => {
@@ -1216,13 +1228,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
   const recover = useCallback(() => set({ authModal: authRecover() }), [set]);
   const openProfile = useCallback(() => {
+    closeAllModals();
     set({ profileOpen: true });
     if (!isMockOnly()) {
       void listPasskeys()
         .then((passkeys) => setState((s) => ({ ...s, passkeys })))
         .catch((e: Error) => notify(e.message));
     }
-  }, [set, notify]);
+  }, [closeAllModals, set, notify]);
   const closeProfile = useCallback(() => set({ profileOpen: false }), [set]);
 
   // --- Sign modal ----------------------------------------------------------
