@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { encodeUuidV4Base59 } from "@oursay/encode";
 import { ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
 import { buildWysiwysForAction } from "./wysiwys-builders";
 
@@ -72,5 +73,65 @@ describe("buildWysiwysForAction", () => {
     const scheme = payload.technicalRows.find((r) => r.label === "Sign scheme");
     expect(scheme?.value).toBe("Quick or Passkey");
     expect(scheme?.wireTag).toBe("p256|webauthn-es256+uv");
+  });
+
+  it("shows ThreadID as Base59 with raw UUID in the wire tag", () => {
+    const threadId = "550e8400-e29b-41d4-a716-446655440000";
+    const payload = buildWysiwysForAction(
+      {
+        action: "vote",
+        input: {
+          threadId,
+          pollId: "poll-1",
+          pollTitle: "Budget vote",
+          option: "Yes",
+        },
+      },
+      baseCtx,
+    );
+    const thread = payload.technicalRows.find((r) => r.label === "ThreadID");
+    expect(thread?.value).toBe(encodeUuidV4Base59(threadId));
+    expect(thread?.wireTag).toBe(threadId);
+  });
+
+  it("keeps mock thread ids as a single visible value without a duplicate tag", () => {
+    const payload = buildWysiwysForAction(
+      {
+        action: "comment",
+        input: {
+          threadId: "pet-sam-109st",
+          parentId: "p-1",
+          parentType: "post",
+          targetTitle: "My post",
+          body: "Hello",
+        },
+      },
+      baseCtx,
+    );
+    const thread = payload.technicalRows.find((r) => r.label === "ThreadID");
+    expect(thread?.value).toBe("pet-sam-109st");
+    expect(thread?.wireTag).toBe("pet-sam-109st");
+  });
+
+  it("shows Parent title with Base59 slug instead of raw UUID", () => {
+    const parentId = "550e8400-e29b-41d4-a716-446655440000";
+    const payload = buildWysiwysForAction(
+      {
+        action: "reaction",
+        input: {
+          threadId: parentId,
+          parentId,
+          parentType: "post",
+          targetTitle: "Budget petition",
+          direction: "up",
+          wireKind: "check",
+        },
+      },
+      baseCtx,
+    );
+    const parent = payload.technicalRows.find((r) => r.label === "Parent");
+    expect(parent?.value).toBe("Budget petition");
+    expect(parent?.wireTag).toBe(encodeUuidV4Base59(parentId));
+    expect(parent?.wireTag).not.to.include("-");
   });
 });

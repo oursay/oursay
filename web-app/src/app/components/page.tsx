@@ -506,7 +506,7 @@ export default function ComponentGallery() {
             { label: "Jurisdiction", value: "Alberta", wireTag: ALBERTA_ID },
             { label: "Sign scheme", value: "Passkey", wireTag: "webauthn-es256+uv" },
             { label: "Entity type", value: "petition_signature", wireTag: "petition_signature" },
-            { label: "ThreadID", value: "", wireTag: "fc3a2539-293d-4575-9dc9-ba49d0bc3609" },
+            { label: "ThreadID", value: "2NDRfCiXy7ib3LfD2GQGzD", wireTag: "fc3a2539-293d-4575-9dc9-ba49d0bc3609" },
           ],
           warnings: [
             {

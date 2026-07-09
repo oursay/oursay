@@ -1,4 +1,5 @@
 import { RECORD_TYPE_LABEL } from "@/components/content";
+import { encodeEntityIdForUrl } from "@/lib/entity-id";
 import type { SignAction } from "@/lib/types";
 import { signSchemeDisplay } from "./sign-scheme";
 import { warningsForAction } from "./warning-eligibility";
@@ -46,9 +47,13 @@ function baseTechnicalRows(
   ];
 }
 
-/** ThreadID row — rendered purely as a wire tag (no plain-text value). */
+/** ThreadID row — human slug in value, canonical id in the wire tag for signing. */
 function threadRow(threadId: string): TechnicalRow {
-  return { label: "ThreadID", value: "", wireTag: threadId };
+  return {
+    label: "ThreadID",
+    value: encodeEntityIdForUrl(threadId),
+    wireTag: threadId,
+  };
 }
 
 function buildVote(input: VoteWysiwysInput, ctx: WysiwysBuilderContext): WysiwysPayload {
@@ -149,7 +154,7 @@ function buildComment(input: CommentWysiwysInput, ctx: WysiwysBuilderContext): W
     title: "Posting a Comment",
     technicalRows: [
       { label: "Comment", value: input.body, variant: "paragraph" },
-      { label: "Parent", value: input.targetTitle, wireTag: input.parentId, variant: "paragraph" },
+      parentRow(input.targetTitle, input.parentId),
       ...baseTechnicalRows(ctx, "comment", [
         threadRow(input.threadId),
         { label: "Parent type", value: input.parentType, wireTag: input.parentType },
@@ -165,6 +170,16 @@ function reactionDirectionLabel(direction: "up" | "down"): string {
   return direction === "up" ? "Agree" : "Disagree";
 }
 
+/** Parent row — human title plus Base59 slug (or mock id) in the wire tag. */
+function parentRow(targetTitle: string, parentId: string): TechnicalRow {
+  return {
+    label: "Parent",
+    value: targetTitle,
+    wireTag: encodeEntityIdForUrl(parentId),
+    variant: "paragraph",
+  };
+}
+
 function buildReaction(input: ReactionWysiwysInput, ctx: WysiwysBuilderContext): WysiwysPayload {
   const warnings = warningsForAction(ctx.jurisdictionId, "reaction", {
     kycTier: ctx.kycTier,
@@ -175,7 +190,7 @@ function buildReaction(input: ReactionWysiwysInput, ctx: WysiwysBuilderContext):
   return {
     title: "Recording a Reaction",
     technicalRows: [
-      { label: "Parent", value: input.targetTitle, wireTag: input.parentId, variant: "paragraph" },
+      parentRow(input.targetTitle, input.parentId),
       ...baseTechnicalRows(ctx, "reaction", [
         threadRow(input.threadId),
         { label: "Parent type", value: input.parentType, wireTag: input.parentType },

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { DETAIL_BY_ID } from "@/lib/mock";
 import { isMockOnly } from "@/lib/api/client";
+import { resolveEntityIdFromUrl } from "@/lib/entity-id";
 import type { RecordKind } from "@/lib/types";
 import { PostView } from "@/views/PostView";
 
@@ -11,7 +12,8 @@ export function createRecordPage(kind: RecordKind) {
   }: {
     params: Promise<{ id: string }>;
   }) {
-    const { id } = await params;
+    const { id: urlId } = await params;
+    const id = resolveEntityIdFromUrl(urlId);
     // Mock corpus ids only exist offline; live records are resolved in PostView.
     if (isMockOnly()) {
       const entry = DETAIL_BY_ID[id];

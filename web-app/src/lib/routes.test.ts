@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { districtPath, officialPath, profilePath, personaHintPath } from "./routes";
+import { encodeUuidV4Base59 } from "@oursay/encode";
+import { districtPath, officialPath, postPath, profilePath, personaHintPath } from "./routes";
+
+const SAMPLE_UUID = "550e8400-e29b-41d4-a716-446655440000";
+
+describe("postPath", () => {
+  it("uses Base59 for UUID v4 record ids", () => {
+    const slug = encodeUuidV4Base59(SAMPLE_UUID);
+    expect(postPath("statement", SAMPLE_UUID)).toBe(`/statement/${slug}`);
+    expect(postPath("poll", SAMPLE_UUID, { comments: true })).toBe(
+      `/poll/${slug}#comments`,
+    );
+  });
+
+  it("keeps mock corpus slugs in the URL", () => {
+    expect(postPath("petition", "pet-wei-path")).toBe("/petition/pet-wei-path");
+  });
+});
 
 describe("districtPath", () => {
   it("uses an explicit jurisdiction slug for districts outside the mock registry", () => {

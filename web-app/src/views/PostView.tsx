@@ -113,9 +113,13 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   }, [id]);
 
   useEffect(() => {
-    if (!detail || detail.kind === kind) return;
-    router.replace(postPath(detail.kind, detail.id));
-  }, [detail, kind, router]);
+    if (!detail) return;
+    const expected = postPath(detail.kind, detail.id);
+    const currentPath = window.location.pathname;
+    if (currentPath !== expected) {
+      router.replace(expected + window.location.hash);
+    }
+  }, [detail, router]);
 
   useEffect(() => {
     if (!detail) return;

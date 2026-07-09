@@ -1,4 +1,5 @@
 import type { AuthorIdentity, RecordKind } from "@/lib/types";
+import { encodeEntityIdForUrl } from "@/lib/entity-id";
 import { DETAIL_BY_ID, DISTRICT_BY_SLUG, jurisdictionById } from "@/lib/mock";
 import { wireHandle } from "@/lib/handle";
 import { COMMENTS_SECTION_ID } from "./scroll";
@@ -98,13 +99,13 @@ export function personaHintPath(identity: AuthorIdentity | undefined): string | 
 /** The signed-in account's own public profile (static segment beats [handle]). */
 export const SELF_PROFILE_PATH = "/profile/self";
 
-/** Route to a record detail page: /{kind}/{id}. */
+/** Route to a record detail page: /{kind}/{base59-or-slug-id}. */
 export function postPath(
   kind: RecordKind,
   id: string,
   opts?: { comments?: boolean },
 ): string {
-  const base = `/${kind}/${id}`;
+  const base = `/${kind}/${encodeEntityIdForUrl(id)}`;
   return opts?.comments ? `${base}#${COMMENTS_SECTION_ID}` : base;
 }
 

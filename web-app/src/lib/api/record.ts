@@ -1,4 +1,5 @@
 import { DETAIL_BY_ID } from "@/lib/mock";
+import { resolveEntityIdFromUrl } from "@/lib/entity-id";
 import { commentKeep } from "@/lib/read-model";
 import {
   ANON_VIEWER,
@@ -95,8 +96,9 @@ export async function getRecordDetail(
   id: string,
   opts: GetRecordDetailOptions = {},
 ): Promise<RecordDetailResult | null> {
-  if (isMockOnly()) return getRecordDetailMock(id, opts);
-  return getRecordDetailLive(id, opts);
+  const canonicalId = resolveEntityIdFromUrl(id);
+  if (isMockOnly()) return getRecordDetailMock(canonicalId, opts);
+  return getRecordDetailLive(canonicalId, opts);
 }
 
 /** All mock record ids (feed + profile-only + graduation chain). */

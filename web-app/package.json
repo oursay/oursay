@@ -16,6 +16,7 @@
   "dependencies": {
     "@dicebear/core": "^10.3.0",
     "@dicebear/styles": "^10.2.0",
+    "@oursay/encode": "*",
     "@oursay/identity": "*",
     "@oursay/slugs": "*",
     "@simplewebauthn/browser": "^13.1.0",
