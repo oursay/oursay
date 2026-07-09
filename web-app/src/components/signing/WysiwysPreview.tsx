@@ -8,7 +8,9 @@ import { WYSIWYS_LEARN_MORE_URL } from "@/lib/signing/constants";
 import type { TechnicalRow, WysiwysPayload, WysiwysWarning } from "@/lib/signing/wysiwys-types";
 
 function WireTag({ tag }: { tag: string }) {
-  return <span className="ml-0.5 font-mono text-[11px] text-muted">&lt;{tag}&gt;</span>;
+  return (
+    <span className="wysiwys-wire-tag ml-0.5 font-mono text-[11px]">&lt;{tag}&gt;</span>
+  );
 }
 
 /** Inline metadata row — stays on one line; the group scrolls horizontally as a whole. */
@@ -155,7 +157,7 @@ export function WysiwysPreview({ technicalRows, warnings }: WysiwysPreviewProps)
         </ul>
       ) : null}
 
-      <div className="scrollbar-thin @container max-h-48 overflow-auto rounded-lg bg-brand-200 px-3 pt-3">
+      <div className="wysiwys-tech-panel scrollbar-thin @container max-h-48 overflow-auto rounded-lg px-3 pt-3">
         {/* Single scroll surface: paragraphs and inline rows translate together. */}
         <div className="w-max min-w-full space-y-1.5">
           {paragraphRows.map((row) => (
