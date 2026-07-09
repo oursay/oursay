@@ -60,6 +60,7 @@ function warningIcon(w: WysiwysWarning): LucideIcon {
     case "irrevocable":
       return Lock;
     case "blocker":
+    case "already-acted":
       return OctagonX;
     case "affected":
       return MapPinCheck;
@@ -69,7 +70,9 @@ function warningIcon(w: WysiwysWarning): LucideIcon {
 }
 
 function warningTone(w: WysiwysWarning): WarningTone {
-  if (w.kind === "irrevocable" || w.kind === "blocker") return "danger";
+  if (w.kind === "irrevocable" || w.kind === "blocker" || w.kind === "already-acted") {
+    return "danger";
+  }
   if (w.kind === "count-floor") return "notice";
   return "info";
 }
@@ -89,6 +92,13 @@ function warningCopy(w: WysiwysWarning): ReactNode {
         <>
           <span className="font-semibold">Cannot participate.</span> {jur}{" "}
           {w.reason ?? "restricts this action"}.
+        </>
+      );
+    case "already-acted":
+      return (
+        <>
+          <span className="font-semibold">Already done.</span>{" "}
+          {w.reason ?? "You've already completed this action."}
         </>
       );
     case "count-floor":
@@ -137,6 +147,14 @@ export function WysiwysPreview({ technicalRows, warnings }: WysiwysPreviewProps)
   const inlineRows = technicalRows.filter((r) => r.variant !== "paragraph");
   return (
     <div className="space-y-3">
+      {warnings.length > 0 ? (
+        <ul className="space-y-2">
+          {warnings.map((w, i) => (
+            <WarningBullet key={`${w.kind}-${i}`} warning={w} />
+          ))}
+        </ul>
+      ) : null}
+
       <div className="scrollbar-thin @container max-h-48 overflow-auto rounded-lg bg-brand-200 px-3 pt-3">
         {/* Single scroll surface: paragraphs and inline rows translate together. */}
         <div className="w-max min-w-full space-y-1.5">
@@ -148,14 +166,6 @@ export function WysiwysPreview({ technicalRows, warnings }: WysiwysPreviewProps)
           ))}
         </div>
       </div>
-
-      {warnings.length > 0 ? (
-        <ul className="space-y-2">
-          {warnings.map((w, i) => (
-            <WarningBullet key={`${w.kind}-${i}`} warning={w} />
-          ))}
-        </ul>
-      ) : null}
 
       <p className="text-center text-sm text-ink">
         I agree — I am authorizing this specific signed append to the public record.

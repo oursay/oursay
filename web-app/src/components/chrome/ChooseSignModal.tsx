@@ -3,7 +3,7 @@
 import { Key, Signature } from "lucide-react";
 import { WysiwysPreview } from "@/components/signing";
 import { Button, Modal } from "@/components/ui";
-import type { WysiwysPayload } from "@/lib/signing";
+import { warningBlocksSigning, type WysiwysPayload } from "@/lib/signing";
 import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface ChooseSignModalProps {
@@ -31,8 +31,9 @@ export function ChooseSignModal({
   onPasskeySign,
   passkeyBusy = null,
 }: ChooseSignModalProps) {
-  // A blocker warning means the viewer cannot participate — signing is disabled.
-  const blocked = wysiwys.warnings.some((w) => w.kind === "blocker");
+  // A blocking warning (gate or already-acted) means the viewer cannot participate —
+  // signing is disabled.
+  const blocked = wysiwys.warnings.some((w) => warningBlocksSigning(w.kind));
   return (
     <Modal
       open={open}

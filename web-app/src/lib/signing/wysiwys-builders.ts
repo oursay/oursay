@@ -55,6 +55,7 @@ function buildVote(input: VoteWysiwysInput, ctx: WysiwysBuilderContext): Wysiwys
   const warnings = warningsForAction(ctx.jurisdictionId, "vote", {
     kycTier: ctx.kycTier,
     outsideAffectedDistricts: ctx.outsideAffectedDistricts,
+    alreadyActed: ctx.alreadyActed,
   });
   return {
     title: "Casting a Vote",
@@ -76,6 +77,7 @@ function buildSignature(
   const warnings = warningsForAction(ctx.jurisdictionId, "signature", {
     kycTier: ctx.kycTier,
     outsideAffectedDistricts: ctx.outsideAffectedDistricts,
+    alreadyActed: ctx.alreadyActed,
   });
   return {
     title: "Signing a Petition",
@@ -104,6 +106,7 @@ function buildCompose(
   const warnings = warningsForAction(ctx.jurisdictionId, action, {
     kycTier: ctx.kycTier,
     outsideAffectedDistricts: ctx.outsideAffectedDistricts,
+    alreadyActed: ctx.alreadyActed,
   });
   const paragraphs: TechnicalRow[] = [
     { label: "Title", value: input.title, variant: "paragraph" },
@@ -140,6 +143,7 @@ function buildComment(input: CommentWysiwysInput, ctx: WysiwysBuilderContext): W
   const warnings = warningsForAction(ctx.jurisdictionId, "comment", {
     kycTier: ctx.kycTier,
     outsideAffectedDistricts: ctx.outsideAffectedDistricts,
+    alreadyActed: ctx.alreadyActed,
   });
   return {
     title: "Posting a Comment",
@@ -165,6 +169,7 @@ function buildReaction(input: ReactionWysiwysInput, ctx: WysiwysBuilderContext):
   const warnings = warningsForAction(ctx.jurisdictionId, "reaction", {
     kycTier: ctx.kycTier,
     outsideAffectedDistricts: ctx.outsideAffectedDistricts,
+    alreadyActed: ctx.alreadyActed,
   });
   const dirLabel = reactionDirectionLabel(input.direction);
   return {

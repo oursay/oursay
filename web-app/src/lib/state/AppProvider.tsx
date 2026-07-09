@@ -1337,6 +1337,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     jurisdiction: string,
     opts: { signMode?: CivicSignMode; pendingSignChoice?: boolean },
     outsideAffected: boolean,
+    alreadyActed: boolean,
   ): WysiwysBuilderContext {
     return {
       jurisdictionId: jurisdiction,
@@ -1345,6 +1346,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       outsideAffectedDistricts: outsideAffected,
       signMode: opts.signMode,
       pendingSignChoice: opts.pendingSignChoice,
+      alreadyActed,
     };
   }
 
@@ -1361,6 +1363,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       wysiwysInput: WysiwysActionInput,
       outsideAffected: boolean,
       commit: SignedCommit,
+      alreadyActed = false,
     ) => {
       const jurReq = jurisdictionSignRequirement(jurisdiction, action);
       const method = effectiveSignMethod(state.signing[action], jurReq);
@@ -1381,6 +1384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
             ? { pendingSignChoice: true }
             : { signMode: "passkey" },
           outsideAffected,
+          alreadyActed,
         ),
       );
       openSigningConfirm(
@@ -1523,13 +1527,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Alberta mandates passkey for votes → ledger-final: no changing once cast.
         const isFinal =
           jurisdictionSignRequirement(target.jurisdiction, "vote") === "passkey";
-        if (isFinal && current) return;
+        // Already cast an irreversible vote → open the confirm to show the gate.
+        const alreadyActed = isFinal && current !== null;
         const next = current === option ? null : option;
-        // Clearing a vote isn't a signed civic act — just drop it.
-        if (next === null) {
+        // Clearing a vote isn't a signed civic act — only changeable votes can clear.
+        if (!alreadyActed && next === null) {
           setVote(target, null);
           return;
         }
+        const shown = alreadyActed && current ? current : option;
         runSigned(
           "vote",
           target.jurisdiction,
@@ -1539,7 +1545,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               threadId: target.threadId ?? target.id,
               pollId: target.id,
               pollTitle: target.title,
-              option,
+              option: shown,
             },
           },
           state.kycTier >= 2 &&
@@ -1561,6 +1567,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               },
               () => setVote(target, option),
             ),
+          alreadyActed,
         );
       });
     },
@@ -1636,10 +1643,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
               },
               () => commitSign(target),
             ),
+          hasSignedPetition(target.id),
         );
       });
     },
-    [requireAuth, runSigned, runCivicWrite, commitSign, state.kycTier, state.viewerDistricts],
+    [
+      requireAuth,
+      runSigned,
+      runCivicWrite,
+      commitSign,
+      hasSignedPetition,
+      state.kycTier,
+      state.viewerDistricts,
+    ],
   );
 
   // --- Compose flow --------------------------------------------------------

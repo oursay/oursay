@@ -3,9 +3,10 @@ import { ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
 import { warningsForAction } from "./warning-eligibility";
 
 describe("warningsForAction", () => {
-  const ctx = (kycTier: number, outside = false) => ({
+  const ctx = (kycTier: number, outside = false, alreadyActed = false) => ({
     kycTier: kycTier as 0 | 1 | 2,
     outsideAffectedDistricts: outside,
+    alreadyActed,
   });
 
   it("Alberta vote: hard blocker when unverified (residency required to act)", () => {
@@ -46,5 +47,21 @@ describe("warningsForAction", () => {
     const w = warningsForAction(ALBERTA_ID, "vote", ctx(2, true));
     expect(w.map((x) => x.kind)).toContain("irrevocable");
     expect(w.map((x) => x.kind)).toContain("affected");
+  });
+
+  it("Alberta vote: already-acted gate supersedes when re-voting a cast ballot", () => {
+    const w = warningsForAction(ALBERTA_ID, "vote", ctx(2, false, true));
+    expect(w.map((x) => x.kind)).toEqual(["already-acted"]);
+    expect(w[0].reason).toContain("already cast");
+  });
+
+  it("Alberta signature: already-acted gate when re-signing", () => {
+    const w = warningsForAction(ALBERTA_ID, "signature", ctx(2, false, true));
+    expect(w.map((x) => x.kind)).toEqual(["already-acted"]);
+  });
+
+  it("Global vote: no already-acted gate (changeable, not irrevocable)", () => {
+    const w = warningsForAction(GLOBAL_ID, "vote", ctx(2, false, true));
+    expect(w.map((x) => x.kind)).not.toContain("already-acted");
   });
 });

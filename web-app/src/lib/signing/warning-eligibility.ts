@@ -100,12 +100,20 @@ export function actionIsIrrevocable(
 export interface WarningEligibilityContext {
   kycTier: VerificationTier;
   outsideAffectedDistricts: boolean;
+  /** True when the viewer already completed this one-per-user action (vote/signature). */
+  alreadyActed?: boolean;
 }
 
 function irrevocableNoun(action: SignAction): string | undefined {
   if (action === "vote") return "ballots";
   if (action === "signature") return "petition signatures";
   return undefined;
+}
+
+function alreadyActedReason(action: SignAction): string {
+  if (action === "vote") return "You've already cast your vote on this poll.";
+  if (action === "signature") return "You've already signed this petition.";
+  return "You've already completed this action.";
 }
 
 /**
@@ -119,6 +127,19 @@ export function warningsForAction(
 ): WysiwysWarning[] {
   const label = jurisdictionLabel(jurisdictionId);
   const gate = gateFor(jurisdictionId, gatedActionForSignAction(action));
+
+  // Already completed an irreversible one-per-user action → cannot do it again.
+  // Supersedes every other notice — show it alone.
+  if (ctx.alreadyActed && actionIsIrrevocable(jurisdictionId, action)) {
+    return [
+      {
+        kind: "already-acted",
+        jurisdictionId,
+        jurisdictionLabel: label,
+        reason: alreadyActedReason(action),
+      },
+    ];
+  }
 
   // Hard block: the viewer fails the action's `act` gate and cannot participate at
   // all. When present it supersedes the softer notices — show it alone.

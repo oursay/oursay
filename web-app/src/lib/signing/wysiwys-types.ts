@@ -9,7 +9,17 @@ export interface TechnicalRow {
   variant?: "inline" | "paragraph";
 }
 
-export type WysiwysWarningKind = "irrevocable" | "count-floor" | "affected" | "blocker";
+export type WysiwysWarningKind =
+  | "irrevocable"
+  | "count-floor"
+  | "affected"
+  | "blocker"
+  | "already-acted";
+
+/** Warning kinds that make the action impossible — signing must be disabled. */
+export function warningBlocksSigning(kind: WysiwysWarningKind): boolean {
+  return kind === "blocker" || kind === "already-acted";
+}
 
 export interface WysiwysWarning {
   kind: WysiwysWarningKind;
@@ -41,6 +51,8 @@ export interface WysiwysBuilderContext {
   signMode?: CivicSignMode;
   /** True when Ask mode — signer picks Quick or Passkey on the same modal. */
   pendingSignChoice?: boolean;
+  /** True when the viewer already completed this one-per-user action (vote/signature). */
+  alreadyActed?: boolean;
 }
 
 export interface VoteWysiwysInput {
