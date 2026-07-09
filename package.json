@@ -19,6 +19,7 @@
     "passkey-test",
     "identity",
     "slugs",
+    "encode",
     "geo",
     "jurisdiction-data",
     "api"
