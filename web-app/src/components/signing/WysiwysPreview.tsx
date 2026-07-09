@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle } from "lucide-react";
+import { IdCard, Lock, MapPinCheck, OctagonX, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { NoticeBox } from "@/components/ui";
+import type { ReactNode } from "react";
 import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
 import { WYSIWYS_LEARN_MORE_URL } from "@/lib/signing/constants";
 import type { TechnicalRow, WysiwysPayload, WysiwysWarning } from "@/lib/signing/wysiwys-types";
@@ -36,48 +36,93 @@ function ParagraphRowView({ row }: { row: TechnicalRow }) {
   );
 }
 
-function WarningBox({ warning }: { warning: WysiwysWarning }) {
-  const Icon = jurisdictionIconForId(warning.jurisdictionId);
-  const jur = warning.jurisdictionLabel;
-
-  if (warning.kind === "irrevocable") {
-    const noun = warning.irrevocableNoun ?? "actions";
-    return (
-      <NoticeBox
-        tone="danger"
-        icon={<AlertTriangle size={16} aria-hidden />}
-        lines={[
-          `${jur} does not allow ${noun} to be revoked or changed after submission.`,
-          "This action is permanent on the public record.",
-        ]}
-      />
-    );
-  }
-
-  if (warning.kind === "residency") {
-    return (
-      <NoticeBox
-        tone="notice"
-        icon={<Icon size={16} aria-hidden />}
-        lines={[
-          `OurSay official counts for ${jur}`,
-          "only include verified residents —",
-          "this action may not count toward official totals until you verify residency.",
-        ]}
-      />
-    );
-  }
-
+/** Region label with its jurisdiction glyph inline (Globe / Landmark). */
+function JurLabel({ id, label }: { id: string; label: string }) {
+  const Icon = jurisdictionIconForId(id);
   return (
-    <NoticeBox
-      tone="info"
-      icon={<Icon size={16} aria-hidden />}
-      lines={[
-        "Officials can filter results to exclude",
-        "unaffected users, even though OurSay",
-        "includes you in the official count.",
-      ]}
-    />
+    <span className="inline-flex items-baseline gap-1 font-medium">
+      <Icon size={12} aria-hidden className="translate-y-px" />
+      {label}
+    </span>
+  );
+}
+
+type WarningTone = "danger" | "notice" | "info";
+
+const WARNING_TONE: Record<WarningTone, string> = {
+  danger: "text-danger-700",
+  notice: "text-notice-700",
+  info: "text-ink-soft",
+};
+
+function warningIcon(w: WysiwysWarning): LucideIcon {
+  switch (w.kind) {
+    case "irrevocable":
+      return Lock;
+    case "blocker":
+      return OctagonX;
+    case "affected":
+      return MapPinCheck;
+    case "count-floor":
+      return w.countBasis === "identity" ? IdCard : MapPinCheck;
+  }
+}
+
+function warningTone(w: WysiwysWarning): WarningTone {
+  if (w.kind === "irrevocable" || w.kind === "blocker") return "danger";
+  if (w.kind === "count-floor") return "notice";
+  return "info";
+}
+
+function warningCopy(w: WysiwysWarning): ReactNode {
+  const jur = <JurLabel id={w.jurisdictionId} label={w.jurisdictionLabel} />;
+  switch (w.kind) {
+    case "irrevocable":
+      return (
+        <>
+          Permanent — {jur} does not allow {w.irrevocableNoun ?? "actions"} to be changed or
+          revoked after signing.
+        </>
+      );
+    case "blocker":
+      return (
+        <>
+          <span className="font-semibold">Cannot participate.</span> {jur}{" "}
+          {w.reason ?? "restricts this action"}.
+        </>
+      );
+    case "count-floor":
+      return w.countBasis === "identity" ? (
+        <>
+          {jur} official counts require ID verification — this may not count officially until
+          you verify your ID.
+        </>
+      ) : (
+        <>
+          {jur} official counts include verified residents only — this may not count officially
+          until you verify residency.
+        </>
+      );
+    case "affected":
+      return (
+        <>
+          You&apos;re outside the affected districts — officials may filter you out, though OurSay
+          still includes you in the {jur} count.
+        </>
+      );
+  }
+}
+
+/** Icon-led warning bullet — glyph signals the category at a glance. */
+function WarningBullet({ warning }: { warning: WysiwysWarning }) {
+  const Icon = warningIcon(warning);
+  return (
+    <li
+      className={`flex items-start gap-2 text-xs leading-relaxed ${WARNING_TONE[warningTone(warning)]}`}
+    >
+      <Icon size={15} aria-hidden className="mt-0.5 shrink-0" />
+      <span>{warningCopy(warning)}</span>
+    </li>
   );
 }
 
@@ -104,9 +149,13 @@ export function WysiwysPreview({ technicalRows, warnings }: WysiwysPreviewProps)
         </div>
       </div>
 
-      {warnings.map((w, i) => (
-        <WarningBox key={`${w.kind}-${i}`} warning={w} />
-      ))}
+      {warnings.length > 0 ? (
+        <ul className="space-y-2">
+          {warnings.map((w, i) => (
+            <WarningBullet key={`${w.kind}-${i}`} warning={w} />
+          ))}
+        </ul>
+      ) : null}
 
       <p className="text-center text-sm text-ink">
         I agree — I am authorizing this specific signed append to the public record.

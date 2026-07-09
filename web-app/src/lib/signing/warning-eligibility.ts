@@ -1,6 +1,5 @@
 import { gateFor } from "@/lib/mock/gates";
 import type {
-  ActionGate,
   GateActor,
   GatedAction,
   JurisdictionId,
@@ -53,20 +52,33 @@ function meetsActor(actor: GateActor, kycTier: VerificationTier): boolean {
   return true;
 }
 
-function officialCountActor(gate: ActionGate): GateActor | undefined {
-  return gate.officialCount ?? gate.act;
+type ActorRequirement = "identity" | "residency";
+
+/**
+ * Whether an unmet actor gate reads as an ID (identity) or residency requirement.
+ * `residencyIn`, or a tier set whose floor is residency-verified (≥ 2), ⇒ residency;
+ * a lower tier floor (identity-verified) ⇒ identity.
+ */
+function actorRequirement(actor: GateActor): ActorRequirement {
+  if (typeof actor === "string") return "identity";
+  if ("residencyIn" in actor) return "residency";
+  if ("tiers" in actor) return Math.min(...actor.tiers) >= 2 ? "residency" : "identity";
+  return "identity";
 }
 
-/** True when the viewer is below the official-count floor for this gate. */
+function requirementPhrase(req: ActorRequirement): string {
+  return req === "residency" ? "requires verified residency" : "requires ID verification";
+}
+
+/** True when the viewer fails the action's official-count floor (soft — they can still act). */
 export function belowOfficialCountFloor(
   jurisdictionId: JurisdictionId,
   action: SignAction,
   kycTier: VerificationTier,
 ): boolean {
   const gate = gateFor(jurisdictionId, gatedActionForSignAction(action));
-  const actor = officialCountActor(gate);
-  if (!actor) return false;
-  return !meetsActor(actor, kycTier);
+  if (!gate.officialCount) return false;
+  return !meetsActor(gate.officialCount, kycTier);
 }
 
 /** Actions that may show residency / official-count eligibility warnings. */
@@ -106,6 +118,21 @@ export function warningsForAction(
   ctx: WarningEligibilityContext,
 ): WysiwysWarning[] {
   const label = jurisdictionLabel(jurisdictionId);
+  const gate = gateFor(jurisdictionId, gatedActionForSignAction(action));
+
+  // Hard block: the viewer fails the action's `act` gate and cannot participate at
+  // all. When present it supersedes the softer notices — show it alone.
+  if (!meetsActor(gate.act, ctx.kycTier)) {
+    return [
+      {
+        kind: "blocker",
+        jurisdictionId,
+        jurisdictionLabel: label,
+        reason: requirementPhrase(actorRequirement(gate.act)),
+      },
+    ];
+  }
+
   const warnings: WysiwysWarning[] = [];
 
   if (actionIsIrrevocable(jurisdictionId, action)) {
@@ -120,14 +147,18 @@ export function warningsForAction(
     }
   }
 
+  // Soft official-count floor: the viewer can act, but it won't count officially
+  // until they clear an ID or residency requirement.
   if (
     actionShowsResidencyWarning(action) &&
-    belowOfficialCountFloor(jurisdictionId, action, ctx.kycTier)
+    gate.officialCount &&
+    !meetsActor(gate.officialCount, ctx.kycTier)
   ) {
     warnings.push({
-      kind: "residency",
+      kind: "count-floor",
       jurisdictionId,
       jurisdictionLabel: label,
+      countBasis: actorRequirement(gate.officialCount),
     });
   }
 

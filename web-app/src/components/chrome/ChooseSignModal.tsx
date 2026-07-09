@@ -31,6 +31,8 @@ export function ChooseSignModal({
   onPasskeySign,
   passkeyBusy = null,
 }: ChooseSignModalProps) {
+  // A blocker warning means the viewer cannot participate — signing is disabled.
+  const blocked = wysiwys.warnings.some((w) => w.kind === "blocker");
   return (
     <Modal
       open={open}
@@ -43,11 +45,17 @@ export function ChooseSignModal({
         <WysiwysPreview {...wysiwys} />
 
         {showQuickSign ? (
-          <Button fullWidth variant="outline" icon={Signature} onClick={onQuickSign}>
+          <Button
+            fullWidth
+            variant="outline"
+            icon={Signature}
+            onClick={onQuickSign}
+            disabled={blocked}
+          >
             Quick Sign
           </Button>
         ) : null}
-        <Button fullWidth icon={Key} onClick={onPasskeySign}>
+        <Button fullWidth icon={Key} onClick={onPasskeySign} disabled={blocked}>
           Sign with Passkey
         </Button>
       </div>

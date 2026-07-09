@@ -9,7 +9,7 @@ export interface TechnicalRow {
   variant?: "inline" | "paragraph";
 }
 
-export type WysiwysWarningKind = "irrevocable" | "residency" | "affected";
+export type WysiwysWarningKind = "irrevocable" | "count-floor" | "affected" | "blocker";
 
 export interface WysiwysWarning {
   kind: WysiwysWarningKind;
@@ -17,6 +17,10 @@ export interface WysiwysWarning {
   jurisdictionLabel: string;
   /** Action-specific noun for irrevocability copy (e.g. "ballots", "petition signatures"). */
   irrevocableNoun?: string;
+  /** count-floor: whether the official-count floor is an ID (identity) or residency requirement. */
+  countBasis?: "identity" | "residency";
+  /** blocker: short phrase describing the unmet requirement (e.g. "requires verified residency"). */
+  reason?: string;
 }
 
 /** Presentation payload for the WysiwysPreview component. */

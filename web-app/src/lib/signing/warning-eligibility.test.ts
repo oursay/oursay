@@ -8,19 +8,21 @@ describe("warningsForAction", () => {
     outsideAffectedDistricts: outside,
   });
 
-  it("Alberta vote: irrevocable + residency when unverified", () => {
+  it("Alberta vote: hard blocker when unverified (residency required to act)", () => {
     const w = warningsForAction(ALBERTA_ID, "vote", ctx(0));
-    expect(w.map((x) => x.kind)).toEqual(["irrevocable", "residency"]);
+    expect(w.map((x) => x.kind)).toEqual(["blocker"]);
+    expect(w[0].reason).toBe("requires verified residency");
   });
 
-  it("Alberta petition signature: irrevocable + residency when unverified", () => {
+  it("Alberta petition signature: irrevocable + residency count-floor when unverified", () => {
     const w = warningsForAction(ALBERTA_ID, "signature", ctx(0));
-    expect(w.map((x) => x.kind)).toEqual(["irrevocable", "residency"]);
+    expect(w.map((x) => x.kind)).toEqual(["irrevocable", "count-floor"]);
+    expect(w[1].countBasis).toBe("residency");
   });
 
-  it("Alberta petition compose: residency only, no irrevocable", () => {
+  it("Alberta petition compose: hard blocker (tier-2 required to act)", () => {
     const w = warningsForAction(ALBERTA_ID, "post.petition", ctx(0));
-    expect(w.map((x) => x.kind)).toEqual(["residency"]);
+    expect(w.map((x) => x.kind)).toEqual(["blocker"]);
   });
 
   it("Alberta statement compose: no warnings", () => {
@@ -28,9 +30,10 @@ describe("warningsForAction", () => {
     expect(w).toEqual([]);
   });
 
-  it("Global vote: residency when unverified, no irrevocable", () => {
+  it("Global vote: identity count-floor when unverified, no irrevocable", () => {
     const w = warningsForAction(GLOBAL_ID, "vote", ctx(0));
-    expect(w.map((x) => x.kind)).toEqual(["residency"]);
+    expect(w.map((x) => x.kind)).toEqual(["count-floor"]);
+    expect(w[0].countBasis).toBe("identity");
   });
 
   it("comment and reaction: no warnings", () => {
