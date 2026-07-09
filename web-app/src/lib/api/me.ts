@@ -12,6 +12,7 @@ import { wireHandle } from "@/lib/handle";
 import { ALBERTA_ID, DEFAULT_SIGNING, GLOBAL_ID } from "@/lib/types";
 import type { SignAction, SignMethod } from "@/lib/types";
 import { ApiError, apiGet, apiPatch, apiPost, apiPut, buildQuery } from "./client";
+import { MY_DISTRICTS } from "@/lib/mock";
 import { tokenToTier } from "./map";
 
 export interface AccountContext {
@@ -48,7 +49,6 @@ const KYC_CYCLE: Array<{ tier: VerificationTier; token: string }> = [
   { tier: 0, token: "unverified" },
   { tier: 1, token: "identity_verified" },
   { tier: 2, token: "residency_verified" },
-  { tier: 3, token: "residency_verified" },
 ];
 
 export function mapSigningPrefs(raw: Record<string, string>): SigningPrefs {
@@ -118,12 +118,36 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
   };
 }
 
-/** Dev KYC attest (`POST /v1/dev/kyc/attest`) — cycles identity → residency. */
+/** Dev official role assign/revoke (`POST /v1/dev/official/role`). */
+export async function devSetOfficialRole(assign: boolean): Promise<void> {
+  await apiPost("/v1/dev/official/role", {
+    assign,
+    jurisdictionId: ALBERTA_ID,
+    districtSlug: MY_DISTRICTS[0],
+  });
+}
+
+/**
+ * Dev Validate ID cycle (`POST /v1/dev/kyc/attest` + official role):
+ *   0 → 1 → 2 → 3 (official role) → 0 (revoke official + unverified).
+ */
 export async function devAttestKyc(currentTier: VerificationTier): Promise<VerificationTier> {
   const next = ((currentTier + 1) % 4) as VerificationTier;
+
+  if (currentTier === 2 && next === 3) {
+    await devSetOfficialRole(true);
+    return 3;
+  }
+
+  if (currentTier === 3 && next === 0) {
+    await devSetOfficialRole(false);
+    await apiPost("/v1/dev/kyc/attest", { tier: "unverified" });
+    return 0;
+  }
+
   const entry = KYC_CYCLE[next] ?? KYC_CYCLE[0];
   await apiPost("/v1/dev/kyc/attest", { tier: entry.token });
-  return next === 3 ? 3 : entry.tier;
+  return entry.tier;
 }
 
 /** Sync jurisdiction subscriptions to the server. */

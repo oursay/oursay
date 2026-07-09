@@ -204,4 +204,32 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     const res = await w.app.inject({ method: "GET", url: "/v1/me/jurisdictions", headers: bearer(token) });
     expect(res.statusCode).to.equal(403);
   });
+
+  it("POST /v1/dev/official/role assigns and revokes the platform official role", async () => {
+    const { userId, token } = await fullSessionAccount(w, "devofficial@example.com");
+
+    const assign = await w.app.inject({
+      method: "POST",
+      url: "/v1/dev/official/role",
+      headers: bearer(token),
+      payload: { assign: true },
+    });
+    expect(assign.statusCode).to.equal(200, assign.body);
+    expect(assign.json()).to.deep.equal({ official: true, jurisdictionId: "ab-ca-gov" });
+    const row = await w.services.repos.membership.get(userId, "ab-ca-gov");
+    expect(row?.role).to.equal("official");
+    expect(row?.representedDistrictSlug).to.equal("edmonton-strathcona");
+
+    const revoke = await w.app.inject({
+      method: "POST",
+      url: "/v1/dev/official/role",
+      headers: bearer(token),
+      payload: { assign: false },
+    });
+    expect(revoke.statusCode).to.equal(200, revoke.body);
+    expect(revoke.json()).to.deep.equal({ official: false, jurisdictionId: "ab-ca-gov" });
+    const cleared = await w.services.repos.membership.get(userId, "ab-ca-gov");
+    expect(cleared?.role).to.equal(null);
+    expect(cleared?.representedDistrictSlug).to.equal(null);
+  });
 });

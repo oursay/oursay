@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyRecordStates,
   attestResidency,
+  devAttestKyc,
+  devSetOfficialRole,
   getRecordStates,
   mapSigningPrefs,
   patchAccountVisibility,
@@ -189,5 +191,59 @@ describe("live /v1/me adapters", () => {
     });
     await attestResidency();
     expect(calls).toBe(2);
+  });
+
+  it("devAttestKyc awards official role from residency without re-attesting KYC", async () => {
+    mockFetch((url, init) => {
+      expect(url).toContain("/v1/dev/official/role");
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toContain("\"assign\":true");
+      return Promise.resolve(
+        new Response(JSON.stringify({ official: true, jurisdictionId: "ab-ca-gov" }), {
+          status: 200,
+        }),
+      );
+    });
+    const next = await devAttestKyc(2);
+    expect(next).toBe(3);
+  });
+
+  it("devAttestKyc revokes official role and attests unverified from official", async () => {
+    const urls: string[] = [];
+    mockFetch((url, init) => {
+      urls.push(url);
+      expect(init?.method).toBe("POST");
+      if (url.includes("/v1/dev/official/role")) {
+        expect(init?.body).toContain("\"assign\":false");
+        return Promise.resolve(
+          new Response(JSON.stringify({ official: false, jurisdictionId: "ab-ca-gov" }), {
+            status: 200,
+          }),
+        );
+      }
+      expect(url).toContain("/v1/dev/kyc/attest");
+      expect(init?.body).toContain("unverified");
+      return Promise.resolve(
+        new Response(JSON.stringify({ tier: "unverified" }), { status: 200 }),
+      );
+    });
+    const next = await devAttestKyc(3);
+    expect(next).toBe(0);
+    expect(urls.some((u) => u.includes("/v1/dev/official/role"))).toBe(true);
+    expect(urls.some((u) => u.includes("/v1/dev/kyc/attest"))).toBe(true);
+  });
+
+  it("devSetOfficialRole POSTs assign payload with Alberta district", async () => {
+    mockFetch((url, init) => {
+      expect(url).toContain("/v1/dev/official/role");
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toContain("edmonton-strathcona");
+      return Promise.resolve(
+        new Response(JSON.stringify({ official: true, jurisdictionId: "ab-ca-gov" }), {
+          status: 200,
+        }),
+      );
+    });
+    await devSetOfficialRole(true);
   });
 });
