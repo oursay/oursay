@@ -12,9 +12,10 @@ import type {
   SignedFilterLevel,
   VerificationTier,
 } from "@/lib/types";
-import type { ComposeStep, SignKind } from "@/components";
+import type { ComposeStep } from "@/components";
 import type { AuthModal } from "./authModal";
 import type { PasskeyBusy } from "./passkeyBusy";
+import type { WysiwysPayload } from "@/lib/signing";
 
 /**
  * A viewer's own reaction on a record/comment. `signTier` records the action
@@ -28,36 +29,13 @@ export interface ViewerReaction {
 }
 
 /**
- * A pending "Ask" signing choice (Quick Sign vs Sign with Passkey). Raised when
- * the effective method for an action is `ask` and the jurisdiction doesn't
- * mandate passkey. The commit is held in a ref; this only carries the copy.
+ * Pending unified civic signing confirmation. The commit is held in a ref;
+ * this carries the WYSIWYS payload and which sign buttons to show.
  */
-export interface ChooseSignRequest {
-  /** Bold summary line, e.g. "Cast your vote". */
-  title: string;
-  /** Supporting lines naming the target/option. */
-  lines: string[];
-}
-
-/**
- * A pending Alberta WYSIWYS confirmation. The commit itself is held in a ref (a
- * closure over the target), so this only carries what the SignModal renders.
- */
-export interface SignRequest {
-  kind: SignKind;
-  targetTitle: string;
-  /** Poll: the option being cast. */
-  option?: string;
-  /** Compose: the record type label being published. */
-  composeTypeLabel?: string;
-  /** Below-residency signer — their action won't count officially yet. */
-  showResidencyNotice: boolean;
-  /** Residency-verified but outside the record's districts. */
-  showAffectedNotice: boolean;
-  /** Ledger-final (jurisdiction-mandated passkey) vs a standing passkey pref. */
-  isFinal?: boolean;
-  /** Jurisdiction name for the modal copy. */
-  jurisdiction?: string;
+export interface SigningConfirmRequest {
+  wysiwys: WysiwysPayload;
+  /** False when effective method is passkey-only (Quick Sign hidden). */
+  showQuickSign: boolean;
 }
 
 /**
@@ -155,10 +133,8 @@ export interface AppState {
   /** Affected district slugs for the draft post ([] = whole jurisdiction). */
   composeDistricts: string[];
 
-  // Alberta sign confirmation (null when closed).
-  sign: SignRequest | null;
-  // Quick-vs-Passkey chooser for "Ask" actions (null when closed).
-  choose: ChooseSignRequest | null;
+  // Unified civic signing confirmation (null when closed).
+  signingConfirm: SigningConfirmRequest | null;
   // Share sheet target (null when closed).
   share: ShareTarget | null;
 

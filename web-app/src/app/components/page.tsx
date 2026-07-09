@@ -44,7 +44,7 @@ import {
   RegisterForm,
   ResultOutcome,
   ScopeTag,
-  SignModal,
+  ChooseSignModal,
   VerificationPill,
   SignedPill,
   AuthorBadgeGroup,
@@ -496,13 +496,30 @@ export default function ComponentGallery() {
         onChangeType={() => setComposeStep("type")}
         onPost={() => setComposeOpen(false)}
       />
-      <SignModal
+      <ChooseSignModal
         open={signOpen}
         onClose={() => setSignOpen(false)}
-        kind="petition"
-        signerName={MY_NAME}
-        targetTitle={POST_PETITION.title}
-        onConfirm={() => setSignOpen(false)}
+        wysiwys={{
+          title: "Signing a Petition",
+          leadLines: [`“${POST_PETITION.title}”`],
+          technicalRows: [
+            { label: "Jurisdiction", value: "Alberta", wireTag: ALBERTA_ID },
+            { label: "Sign scheme", value: "Passkey", wireTag: "webauthn-es256+uv" },
+            { label: "Entity type", value: "petition_signature", wireTag: "petition_signature" },
+          ],
+          warnings: [
+            {
+              kind: "irrevocable",
+              jurisdictionId: ALBERTA_ID,
+              jurisdictionLabel: "Alberta",
+              irrevocableNoun: "petition signatures",
+            },
+          ],
+          jurisdictionId: ALBERTA_ID,
+          jurisdictionLabel: "Alberta",
+        }}
+        showQuickSign={false}
+        onPasskeySign={() => setSignOpen(false)}
       />
       <AddJurisdictionModal
         open={addJurOpen}

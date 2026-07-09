@@ -1,33 +1,32 @@
 "use client";
 
 import { Key, Signature } from "lucide-react";
+import { WysiwysPreview } from "@/components/signing";
 import { Button, Modal } from "@/components/ui";
+import type { WysiwysPayload } from "@/lib/signing";
 import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface ChooseSignModalProps {
   open: boolean;
   onClose: () => void;
-  /** Bold summary line, e.g. "Cast your vote". */
-  title: string;
-  /** Supporting lines naming the target/option. */
-  lines: string[];
-  /** Derived-key quick sign (no authenticator prompt). */
+  /** WYSIWYS preview payload (title used as modal header). */
+  wysiwys: WysiwysPayload;
+  /** When false, only Sign with Passkey is shown (jurisdiction or account mandates passkey). */
+  showQuickSign: boolean;
   onQuickSign?: () => void;
-  /** WebAuthn passkey sign. */
   onPasskeySign?: () => void;
   passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 /**
- * "Ask" signing chooser — shown when an action's effective method is `ask`
- * (the account default is Ask and the jurisdiction doesn't mandate passkey).
- * The signer picks Quick Sign or Sign with Passkey; either completes the action.
+ * Unified civic signing confirmation — embeds WYSIWYS and offers Quick Sign
+ * and/or Sign with Passkey depending on the effective signing method.
  */
 export function ChooseSignModal({
   open,
   onClose,
-  title,
-  lines,
+  wysiwys,
+  showQuickSign,
   onQuickSign,
   onPasskeySign,
   passkeyBusy = null,
@@ -36,28 +35,27 @@ export function ChooseSignModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="How do you want to sign?"
+      title={wysiwys.title}
       headerAlign="center"
       passkeyBusy={passkeyBusy}
     >
       <div className="space-y-3">
-        <div className="rounded-lg border border-border bg-surface-muted p-4 text-center text-sm leading-relaxed text-ink">
-          <p className="font-semibold">{title}</p>
-          {lines.map((line, i) => (
-            <p key={i}>{line}</p>
-          ))}
-        </div>
+        <WysiwysPreview {...wysiwys} />
 
-        <Button fullWidth variant="outline" icon={Signature} onClick={onQuickSign}>
-          Quick Sign
-        </Button>
+        {showQuickSign ? (
+          <Button fullWidth variant="outline" icon={Signature} onClick={onQuickSign}>
+            Quick Sign
+          </Button>
+        ) : null}
         <Button fullWidth icon={Key} onClick={onPasskeySign}>
           Sign with Passkey
         </Button>
 
-        <p className="text-center text-xs text-muted">
-          Quick signs instantly (no authenticator prompt) · Passkey prompts your authenticator.
-        </p>
+        {showQuickSign ? (
+          <p className="text-center text-xs text-muted">
+            Quick signs instantly (no authenticator prompt) · Passkey prompts your authenticator.
+          </p>
+        ) : null}
       </div>
     </Modal>
   );

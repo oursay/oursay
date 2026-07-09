@@ -23,7 +23,6 @@ import {
   RegisterForm,
   SafeFooter,
   ShareModal,
-  SignModal,
 } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
 import { jurisdictionLabel as labelForJurisdiction } from "@/lib/mock";
@@ -64,7 +63,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const otpPasskeyBusy = passkeyBusy?.anchor === "otp" ? passkeyBusy.phase : null;
   const loginPasskeyBusy = passkeyBusy?.anchor === "login" ? passkeyBusy.phase : null;
   const profilePasskeyBusy = passkeyBusy?.anchor === "profile" ? passkeyBusy.phase : null;
-  const signPasskeyBusy = passkeyBusy?.anchor === "sign" ? passkeyBusy.phase : null;
   const choosePasskeyBusy = passkeyBusy?.anchor === "choose" ? passkeyBusy.phase : null;
 
   const resendOtp = () => {
@@ -441,28 +439,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         onComposePollOptionsChange={app.setComposePollOptions}
         onPost={app.submitCompose}
       />
-      <SignModal
-        open={state.sign !== null}
-        onClose={app.closeSign}
-        kind={state.sign?.kind ?? "petition"}
-        signerName={account?.name ?? "You"}
-        targetTitle={state.sign?.targetTitle ?? ""}
-        option={state.sign?.option}
-        composeTypeLabel={state.sign?.composeTypeLabel}
-        isFinal={state.sign?.isFinal ?? false}
-        jurisdiction={state.sign?.jurisdiction}
-        showResidencyNotice={state.sign?.showResidencyNotice ?? false}
-        showAffectedNotice={state.sign?.showAffectedNotice ?? false}
-        onConfirm={app.confirmSign}
-        passkeyBusy={signPasskeyBusy}
-      />
       <ChooseSignModal
-        open={state.choose !== null}
-        onClose={app.closeChoose}
-        title={state.choose?.title ?? ""}
-        lines={state.choose?.lines ?? []}
-        onQuickSign={() => app.confirmChoose("quick")}
-        onPasskeySign={() => app.confirmChoose("passkey")}
+        open={state.signingConfirm !== null}
+        onClose={app.closeSigningConfirm}
+        wysiwys={
+          state.signingConfirm?.wysiwys ?? {
+            title: "",
+            leadLines: [],
+            technicalRows: [],
+            warnings: [],
+            jurisdictionId: GLOBAL_ID,
+            jurisdictionLabel: "",
+          }
+        }
+        showQuickSign={state.signingConfirm?.showQuickSign ?? false}
+        onQuickSign={() => app.confirmSigning("quick")}
+        onPasskeySign={() => app.confirmSigning("passkey")}
         passkeyBusy={choosePasskeyBusy}
       />
       <AddJurisdictionModal

@@ -7,7 +7,6 @@ export * from "./LoginChooser";
 export * from "./ProfileModal";
 export * from "./RecoverForm";
 export * from "./ComposeFlow";
-export * from "./SignModal";
 export * from "./ChooseSignModal";
 export * from "./AddJurisdictionModal";
 export * from "./AffectedDistrictsSelector";

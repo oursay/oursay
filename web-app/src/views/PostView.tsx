@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRecordDetail, personaShownToOthers } from "@/lib/api";
 import {
-  ALBERTA_ID,
   COMMENT_MAX_DEPTH,
   VISIBILITY_LABEL,
   type AuthorVisibility,
@@ -12,6 +11,7 @@ import {
   type RecordDetail,
   type RecordKind,
 } from "@/lib/types";
+import { jurisdictionAllowsVoteChange } from "@/lib/signing";
 import { relTime, useNow } from "@/lib/read-model";
 import {
   GRADUATION_CHAIN,
@@ -150,7 +150,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const reactions = app.reactionCountsFor(target);
   const displayDetail: RecordDetail =
     detail.kind === "petition" ? { ...detail, sig } : detail;
-  const isFinal = detail.jurisdiction === ALBERTA_ID;
+  const isFinal = !jurisdictionAllowsVoteChange(detail.jurisdiction);
   const tierMin = app.effectiveVerified;
   // Effective anonymity for anything the viewer posts in this thread.
   const threadVis = threadVisibility ?? app.state.accountVisibility;

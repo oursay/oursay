@@ -95,6 +95,7 @@ export async function civicReaction(
   parentType: "post" | "petition" | "poll" | "comment",
   kind: "check" | "cross",
   existingEntityId?: string,
+  sign: CivicSignMode = "quick",
 ): Promise<string> {
   const { client } = await getCivicClient(userId);
   const content: ReactionContent = { kind };
@@ -106,10 +107,10 @@ export async function civicReaction(
     client.append(
       t,
       { op: "update", type: "reaction", entityId: entityId!, content },
-      { sign: "quick" },
+      { sign },
     );
 
-  const createReaction = () => client.addReaction(t, parent, content, { sign: "quick" });
+  const createReaction = () => client.addReaction(t, parent, content, { sign });
 
   if (entityId) {
     try {

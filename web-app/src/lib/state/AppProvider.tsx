@@ -27,7 +27,6 @@ import {
   GLOBAL_ID,
   POST_SUB_ACTIONS,
   effectiveSignMethod,
-  postActionForKind,
 } from "@/lib/types";
 import {
   MY_DISTRICTS,
@@ -44,16 +43,20 @@ import {
 } from "@/lib/read-model";
 import type { ResolvedGeography } from "@/lib/read-model";
 import { RECORD_TYPE_LABEL } from "@/components/content";
-import type { SignKind } from "@/components";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import { nextGeoFilterMode } from "@/lib/types";
 import { shareBaseCount } from "@/lib/share";
 import type {
   AppState,
-  ChooseSignRequest,
   ShareTarget,
-  SignRequest,
+  SigningConfirmRequest,
 } from "./types";
+import {
+  buildWysiwysForAction,
+  composeActionForKind,
+  type WysiwysActionInput,
+  type WysiwysBuilderContext,
+} from "@/lib/signing";
 import {
   feedFilterFromState,
   scopedFeedFilterFromState,
@@ -219,8 +222,7 @@ export const INITIAL_APP_STATE: AppState = {
   composePollOptions: ["", ""],
   composeDistricts: [],
 
-  sign: null,
-  choose: null,
+  signingConfirm: null,
   share: null,
 
   reactions: {},
@@ -358,13 +360,9 @@ export interface AppApi {
   submitCompose: () => void;
   closeCompose: () => void;
 
-  // Alberta sign confirmation.
-  confirmSign: () => void;
-  closeSign: () => void;
-
-  // "Ask" Quick-vs-Passkey chooser.
-  confirmChoose: (sign: CivicSignMode) => void;
-  closeChoose: () => void;
+  // Unified civic signing confirmation.
+  confirmSigning: (sign: CivicSignMode) => void;
+  closeSigningConfirm: () => void;
 
   // Post reply composer.
   startReply: () => void;
@@ -1301,46 +1299,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [notify, state.signing],
   );
 
-  const openSign = useCallback(
-    (req: SignRequest, commit: SignedCommit) => {
+  const openSigningConfirm = useCallback(
+    (req: SigningConfirmRequest, commit: SignedCommit) => {
       pendingCommit.current = commit;
-      set({ sign: req });
+      set({ signingConfirm: req });
     },
     [set],
   );
 
-  const confirmSign = useCallback(() => {
-    const commit = pendingCommit.current;
-    if (!commit) return;
-    if (isMockOnly()) {
-      pendingCommit.current = null;
-      set({ sign: null });
-      void Promise.resolve(commit("passkey"));
-      return;
-    }
-    beginPasskeyBusy("sign", "signing");
-    void Promise.resolve(commit("passkey")).finally(() => {
-      pendingCommit.current = null;
-      endPasskeyBusy();
-      set({ sign: null });
-    });
-  }, [set, beginPasskeyBusy, endPasskeyBusy]);
-
-  const closeSign = useCallback(() => {
-    pendingCommit.current = null;
-    endPasskeyBusy();
-    set({ sign: null });
-  }, [set, endPasskeyBusy]);
-
-  const openChoose = useCallback(
-    (req: ChooseSignRequest, commit: SignedCommit) => {
-      pendingCommit.current = commit;
-      set({ choose: req });
-    },
-    [set],
-  );
-
-  const confirmChoose = useCallback(
+  const confirmSigning = useCallback(
     (sign: CivicSignMode) => {
       const commit = pendingCommit.current;
       if (!commit) return;
@@ -1349,58 +1316,79 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void Promise.resolve(commit(sign)).finally(() => {
           pendingCommit.current = null;
           endPasskeyBusy();
-          set({ choose: null });
+          set({ signingConfirm: null });
         });
         return;
       }
       pendingCommit.current = null;
-      set({ choose: null });
+      set({ signingConfirm: null });
       void Promise.resolve(commit(sign));
     },
     [set, beginPasskeyBusy, endPasskeyBusy],
   );
 
-  const closeChoose = useCallback(() => {
+  const closeSigningConfirm = useCallback(() => {
     pendingCommit.current = null;
     endPasskeyBusy();
-    set({ choose: null });
+    set({ signingConfirm: null });
   }, [set, endPasskeyBusy]);
+
+  function wysiwysContext(
+    jurisdiction: string,
+    opts: { signMode?: CivicSignMode; pendingSignChoice?: boolean },
+    outsideAffected: boolean,
+  ): WysiwysBuilderContext {
+    return {
+      jurisdictionId: jurisdiction,
+      jurisdictionLabel: jurisdictionLabel(jurisdiction),
+      kycTier: state.kycTier,
+      outsideAffectedDistricts: outsideAffected,
+      signMode: opts.signMode,
+      pendingSignChoice: opts.pendingSignChoice,
+    };
+  }
 
   /**
    * Gate a civic action behind its effective signing method:
-   *   ask     → Quick-vs-Passkey chooser (only when passkey isn't mandated)
-   *   passkey → Alberta WYSIWYS modal when the jurisdiction mandates it, else
-   *             a standing preference that completes immediately
-   *   quick   → completes immediately
-   * `passkeyReq` is the WYSIWYS payload for the mandated case (null for actions
-   * a jurisdiction never makes ledger-final, e.g. comments/reactions).
+   *   quick   → completes immediately (no WYSIWYS modal)
+   *   ask     → unified modal with WYSIWYS + Quick + Passkey
+   *   passkey → unified modal with WYSIWYS + Passkey only
    */
   const runSigned = useCallback(
     (
       action: SignAction,
       jurisdiction: string,
-      choose: ChooseSignRequest,
-      passkeyReq: SignRequest | null,
+      wysiwysInput: WysiwysActionInput,
+      outsideAffected: boolean,
       commit: SignedCommit,
     ) => {
       const jurReq = jurisdictionSignRequirement(jurisdiction, action);
       const method = effectiveSignMethod(state.signing[action], jurReq);
-      if (method === "ask") {
-        openChoose(choose, commit);
+      if (method === "quick") {
+        // Route 3 (quick + WYSIWYS warnings): no jurisdiction matches today.
+        // if (requiresWysiwysForQuickSign(jurisdiction, action)) {
+        //   openSigningConfirm({ wysiwys: build..., showQuickSign: true }, commit);
+        //   return;
+        // }
+        commit("quick");
         return;
       }
-      if (method === "passkey" && passkeyReq) {
-        const isFinal = jurReq === "passkey";
-        openSign(
-          { ...passkeyReq, isFinal, jurisdiction: jurisdictionLabel(jurisdiction) },
-          commit,
-        );
-        return;
-      }
-      const sign: CivicSignMode = method === "quick" ? "quick" : "passkey";
-      commit(sign);
+      const wysiwys = buildWysiwysForAction(
+        wysiwysInput,
+        wysiwysContext(
+          jurisdiction,
+          method === "ask"
+            ? { pendingSignChoice: true }
+            : { signMode: "passkey" },
+          outsideAffected,
+        ),
+      );
+      openSigningConfirm(
+        { wysiwys, showQuickSign: method === "ask" },
+        commit,
+      );
     },
-    [state.signing, openChoose, openSign],
+    [state.signing, state.kycTier, openSigningConfirm],
   );
 
   // --- Civic interactions --------------------------------------------------
@@ -1461,23 +1449,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
           target.parentType ?? (target.kind ? parentTypeForKind(target.kind) : "post");
         const threadId = target.threadId ?? target.id;
 
-        // Reactions are always quick-signed — no passkey floor, no chooser, no WYSIWYS.
-        void runCivicWrite(
+        runSigned(
           "reaction",
           target.jurisdiction,
-          "quick",
-          async () => {
-            const civic = await import("@/lib/api/civic");
-            return civic.civicReaction(
-              userIdRef.current!,
-              civic.threadRef(threadId, target.jurisdiction),
-              target.id,
+          {
+            action: "reaction",
+            input: {
+              threadId,
+              parentId: target.id,
               parentType,
-              reactionKindForDir(dir),
-              existingEntityId,
-            );
+              targetTitle: target.title,
+              direction: dir,
+              wireKind: reactionKindForDir(dir),
+            },
           },
-          (entityId) => commitLocal(entityId),
+          false,
+          (sign) =>
+            runCivicWrite(
+              "reaction",
+              target.jurisdiction,
+              sign,
+              async () => {
+                const civic = await import("@/lib/api/civic");
+                return civic.civicReaction(
+                  userIdRef.current!,
+                  civic.threadRef(threadId, target.jurisdiction),
+                  target.id,
+                  parentType,
+                  reactionKindForDir(dir),
+                  existingEntityId,
+                  sign,
+                );
+              },
+              (entityId) => commitLocal(entityId),
+            ),
         );
       });
     },
@@ -1529,18 +1534,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           "vote",
           target.jurisdiction,
           {
-            title: "Cast your vote",
-            lines: [`“${option}” on`, `“${target.title}”`],
+            action: "vote",
+            input: {
+              threadId: target.threadId ?? target.id,
+              pollId: target.id,
+              pollTitle: target.title,
+              option,
+            },
           },
-          {
-            kind: "poll",
-            targetTitle: target.title,
-            option,
-            showResidencyNotice: state.kycTier < 2,
-            showAffectedNotice:
-              state.kycTier >= 2 &&
-              outsideMyDistricts(target, state.viewerDistricts),
-          },
+          state.kycTier >= 2 &&
+            outsideMyDistricts(target, state.viewerDistricts),
           (sign) =>
             runCivicWrite(
               "vote",
@@ -1607,15 +1610,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         runSigned(
           "signature",
           target.jurisdiction,
-          { title: "Sign the petition", lines: [`“${target.title}”`] },
           {
-            kind: "petition",
-            targetTitle: target.title,
-            showResidencyNotice: state.kycTier < 2,
-            showAffectedNotice:
-              state.kycTier >= 2 &&
-              outsideMyDistricts(target, state.viewerDistricts),
+            action: "signature",
+            input: {
+              threadId: target.threadId ?? target.id,
+              petitionId: target.id,
+              petitionTitle: target.title,
+            },
           },
+          state.kycTier >= 2 &&
+            outsideMyDistricts(target, state.viewerDistricts),
           (sign) =>
             runCivicWrite(
               "signature",
@@ -1755,18 +1759,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
               }.`,
       );
     };
-    const composeAction = postActionForKind(kind);
+    const composeAction = composeActionForKind(kind);
     runSigned(
       composeAction,
       jur,
-      { title: `Publish your ${label}`, lines: [`in ${jurisdictionLabel(jur)}`] },
       {
-        kind: "compose" as SignKind,
-        targetTitle: label,
-        composeTypeLabel: label,
-        showResidencyNotice: state.kycTier < 2,
-        showAffectedNotice: false,
+        action: composeAction,
+        input: {
+          threadId,
+          kind,
+          title,
+          body,
+          pollOptions: state.composePollOptions,
+          districtSlugs:
+            state.composeDistricts.length > 0
+              ? state.composeDistricts
+              : undefined,
+        },
       },
+      false,
       (sign) =>
         runCivicWrite(
           composeAction,
@@ -1943,13 +1954,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         runSigned(
           "comment",
           ctx.jurisdiction,
-          { title: "Post your comment", lines: [`on “${ctx.targetTitle}”`] },
           {
-            kind: "comment",
-            targetTitle: ctx.targetTitle,
-            showResidencyNotice: false,
-            showAffectedNotice: false,
+            action: "comment",
+            input: {
+              threadId: ctx.threadId,
+              parentId: ctx.parentId,
+              parentType: ctx.parentType,
+              targetTitle: ctx.targetTitle,
+              body,
+            },
           },
+          false,
           (sign) =>
             runCivicWrite(
               "comment",
@@ -2080,10 +2095,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setComposeDistricts,
     submitCompose,
     closeCompose,
-    confirmSign,
-    closeSign,
-    confirmChoose,
-    closeChoose,
+    confirmSigning,
+    closeSigningConfirm,
     startReply,
     closeReply,
     openShare,

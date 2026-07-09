@@ -1,5 +1,5 @@
 export type PasskeyBusyPhase = "creating" | "authorizing" | "signing";
-export type PasskeyBusyAnchor = "otp" | "login" | "profile" | "sign" | "choose";
+export type PasskeyBusyAnchor = "otp" | "login" | "profile" | "choose";
 
 export type PasskeyBusy = { phase: PasskeyBusyPhase; anchor: PasskeyBusyAnchor };
 
