@@ -445,7 +445,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         wysiwys={
           state.signingConfirm?.wysiwys ?? {
             title: "",
-            leadLines: [],
             technicalRows: [],
             warnings: [],
             jurisdictionId: GLOBAL_ID,

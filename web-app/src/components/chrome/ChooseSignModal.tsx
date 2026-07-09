@@ -50,12 +50,6 @@ export function ChooseSignModal({
         <Button fullWidth icon={Key} onClick={onPasskeySign}>
           Sign with Passkey
         </Button>
-
-        {showQuickSign ? (
-          <p className="text-center text-xs text-muted">
-            Quick signs instantly (no authenticator prompt) · Passkey prompts your authenticator.
-          </p>
-        ) : null}
       </div>
     </Modal>
   );

@@ -145,4 +145,21 @@ body {
     border: 1px solid var(--pill-chrome-color, var(--color-ink));
     box-shadow: 2px 2px 0 0 var(--pill-chrome-color, var(--color-ink));
   }
+
+  /* Thin, discreet scrollbars for compact scroll panels (e.g. the WYSIWYS details box). */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border-radius: 9999px;
+  }
 }

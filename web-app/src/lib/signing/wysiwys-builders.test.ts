@@ -25,8 +25,12 @@ describe("buildWysiwysForAction", () => {
       baseCtx,
     );
     expect(payload.title).toBe("Casting a Vote");
-    expect(payload.leadLines[0]).toContain("Yes");
-    expect(payload.leadLines[1]).toContain("Budget vote");
+    const option = payload.technicalRows.find((r) => r.label === "Option");
+    const poll = payload.technicalRows.find((r) => r.label === "Poll");
+    expect(option?.value).toBe("Yes");
+    expect(option?.variant).toBe("paragraph");
+    expect(poll?.value).toBe("Budget vote");
+    expect(poll?.variant).toBe("paragraph");
   });
 
   it("technical rows include jurisdiction id and sign scheme", () => {
@@ -47,7 +51,9 @@ describe("buildWysiwysForAction", () => {
     const scheme = payload.technicalRows.find((r) => r.label === "Sign scheme");
     expect(jur?.wireTag).toBe(GLOBAL_ID);
     expect(scheme?.wireTag).toBe("p256");
-    expect(payload.leadLines[0]).toBe("Hello world");
+    const comment = payload.technicalRows.find((r) => r.label === "Comment");
+    expect(comment?.value).toBe("Hello world");
+    expect(comment?.variant).toBe("paragraph");
   });
 
   it("ask mode shows pending sign scheme row", () => {

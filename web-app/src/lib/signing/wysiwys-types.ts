@@ -5,6 +5,8 @@ export interface TechnicalRow {
   label: string;
   value: string;
   wireTag?: string;
+  /** "paragraph" wraps the value onto its own lines; "inline" (default) stays on one line. */
+  variant?: "inline" | "paragraph";
 }
 
 export type WysiwysWarningKind = "irrevocable" | "residency" | "affected";
@@ -20,7 +22,6 @@ export interface WysiwysWarning {
 /** Presentation payload for the WysiwysPreview component. */
 export interface WysiwysPayload {
   title: string;
-  leadLines: string[];
   technicalRows: TechnicalRow[];
   warnings: WysiwysWarning[];
   jurisdictionId: string;

@@ -46,6 +46,11 @@ function baseTechnicalRows(
   ];
 }
 
+/** ThreadID row — rendered purely as a wire tag (no plain-text value). */
+function threadRow(threadId: string): TechnicalRow {
+  return { label: "ThreadID", value: "", wireTag: threadId };
+}
+
 function buildVote(input: VoteWysiwysInput, ctx: WysiwysBuilderContext): WysiwysPayload {
   const warnings = warningsForAction(ctx.jurisdictionId, "vote", {
     kycTier: ctx.kycTier,
@@ -53,12 +58,11 @@ function buildVote(input: VoteWysiwysInput, ctx: WysiwysBuilderContext): Wysiwys
   });
   return {
     title: "Casting a Vote",
-    leadLines: [`“${input.option}”`, `on “${input.pollTitle}”`],
-    technicalRows: baseTechnicalRows(ctx, "vote", [
-      { label: "Thread", value: input.threadId, wireTag: input.threadId },
-      { label: "Poll", value: input.pollTitle, wireTag: input.pollId },
-      { label: "Option", value: input.option, wireTag: input.option },
-    ]),
+    technicalRows: [
+      { label: "Poll", value: input.pollTitle, variant: "paragraph" },
+      { label: "Option", value: input.option, variant: "paragraph" },
+      ...baseTechnicalRows(ctx, "vote", [threadRow(input.threadId)]),
+    ],
     warnings,
     jurisdictionId: ctx.jurisdictionId,
     jurisdictionLabel: ctx.jurisdictionLabel,
@@ -75,18 +79,17 @@ function buildSignature(
   });
   return {
     title: "Signing a Petition",
-    leadLines: [`“${input.petitionTitle}”`],
-    technicalRows: baseTechnicalRows(ctx, "petition_signature", [
-      { label: "Thread", value: input.threadId, wireTag: input.threadId },
-      { label: "Petition", value: input.petitionTitle, wireTag: input.petitionId },
-    ]),
+    technicalRows: [
+      { label: "Petition", value: input.petitionTitle, variant: "paragraph" },
+      ...baseTechnicalRows(ctx, "petition_signature", [threadRow(input.threadId)]),
+    ],
     warnings,
     jurisdictionId: ctx.jurisdictionId,
     jurisdictionLabel: ctx.jurisdictionLabel,
   };
 }
 
-function composeTitle(action: SignAction, kindLabel: string): string {
+function composeTitle(action: SignAction): string {
   if (action === "post.petition") return "Posting a New Petition";
   if (action === "post.poll") return "Posting a New Poll";
   return "Posting a New Statement";
@@ -102,13 +105,16 @@ function buildCompose(
     kycTier: ctx.kycTier,
     outsideAffectedDistricts: ctx.outsideAffectedDistricts,
   });
-  const leadLines = [`“${input.title}”`, input.body];
+  const paragraphs: TechnicalRow[] = [
+    { label: "Title", value: input.title, variant: "paragraph" },
+    { label: "Body", value: input.body, variant: "paragraph" },
+  ];
   if (input.kind === "poll" && input.pollOptions?.length) {
     const options = input.pollOptions.filter((o) => o.trim()).join(" · ");
-    if (options) leadLines.push(`Options: ${options}`);
+    if (options) paragraphs.push({ label: "Options", value: options, variant: "paragraph" });
   }
   const extras: TechnicalRow[] = [
-    { label: "Thread", value: input.threadId, wireTag: input.threadId },
+    threadRow(input.threadId),
     { label: "Record type", value: kindLabel, wireTag: entityTypeTag(action, input.kind) },
   ];
   if (input.districtSlugs?.length) {
@@ -119,9 +125,11 @@ function buildCompose(
     });
   }
   return {
-    title: composeTitle(action, kindLabel),
-    leadLines,
-    technicalRows: baseTechnicalRows(ctx, entityTypeTag(action, input.kind), extras),
+    title: composeTitle(action),
+    technicalRows: [
+      ...paragraphs,
+      ...baseTechnicalRows(ctx, entityTypeTag(action, input.kind), extras),
+    ],
     warnings,
     jurisdictionId: ctx.jurisdictionId,
     jurisdictionLabel: ctx.jurisdictionLabel,
@@ -135,12 +143,14 @@ function buildComment(input: CommentWysiwysInput, ctx: WysiwysBuilderContext): W
   });
   return {
     title: "Posting a Comment",
-    leadLines: [input.body, `on “${input.targetTitle}”`],
-    technicalRows: baseTechnicalRows(ctx, "comment", [
-      { label: "Thread", value: input.threadId, wireTag: input.threadId },
-      { label: "Parent type", value: input.parentType, wireTag: input.parentType },
-      { label: "Parent", value: input.targetTitle, wireTag: input.parentId },
-    ]),
+    technicalRows: [
+      { label: "Comment", value: input.body, variant: "paragraph" },
+      { label: "Parent", value: input.targetTitle, wireTag: input.parentId, variant: "paragraph" },
+      ...baseTechnicalRows(ctx, "comment", [
+        threadRow(input.threadId),
+        { label: "Parent type", value: input.parentType, wireTag: input.parentType },
+      ]),
+    ],
     warnings,
     jurisdictionId: ctx.jurisdictionId,
     jurisdictionLabel: ctx.jurisdictionLabel,
@@ -159,13 +169,14 @@ function buildReaction(input: ReactionWysiwysInput, ctx: WysiwysBuilderContext):
   const dirLabel = reactionDirectionLabel(input.direction);
   return {
     title: "Recording a Reaction",
-    leadLines: [`${dirLabel} on “${input.targetTitle}”`],
-    technicalRows: baseTechnicalRows(ctx, "reaction", [
-      { label: "Thread", value: input.threadId, wireTag: input.threadId },
-      { label: "Parent type", value: input.parentType, wireTag: input.parentType },
-      { label: "Parent", value: input.targetTitle, wireTag: input.parentId },
-      { label: "Reaction", value: dirLabel, wireTag: input.wireKind },
-    ]),
+    technicalRows: [
+      { label: "Parent", value: input.targetTitle, wireTag: input.parentId, variant: "paragraph" },
+      ...baseTechnicalRows(ctx, "reaction", [
+        threadRow(input.threadId),
+        { label: "Parent type", value: input.parentType, wireTag: input.parentType },
+        { label: "Reaction", value: dirLabel, wireTag: input.wireKind },
+      ]),
+    ],
     warnings,
     jurisdictionId: ctx.jurisdictionId,
     jurisdictionLabel: ctx.jurisdictionLabel,
