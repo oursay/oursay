@@ -35,6 +35,11 @@
 import { hkdf } from "@noble/hashes/hkdf";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
+import {
+  encodeEntityIdForDisplay,
+  formatThreadPasskeyDisplayName,
+  formatThreadPasskeyUserName,
+} from "@oursay/encode";
 import { p256 } from "@noble/curves/p256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
@@ -121,7 +126,11 @@ export class WebPasskeyConnector implements PasskeyConnector {
     const cred = (await navigator.credentials.create({
       publicKey: {
         rp: { id: this.rpId, name: this.rpName },
-        user: { id: userHandle as BufferSource, name: o.userId, displayName: o.label ?? o.userId },
+        user: {
+          id: userHandle as BufferSource,
+          name: encodeEntityIdForDisplay(o.userId),
+          displayName: o.label ?? encodeEntityIdForDisplay(o.userId),
+        },
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         pubKeyCredParams: [
           { type: "public-key", alg: -7 }, // ES256 / P-256 (required)
@@ -232,7 +241,11 @@ export class WebPasskeyConnector implements PasskeyConnector {
     const cred = (await navigator.credentials.create({
       publicKey: {
         rp: { id: this.rpId, name: this.rpName },
-        user: { id: userHandle as BufferSource, name: `${userId}:${threadId}`, displayName: `OurSay thread ${threadId}` },
+        user: {
+          id: userHandle as BufferSource,
+          name: formatThreadPasskeyUserName(userId, threadId),
+          displayName: formatThreadPasskeyDisplayName(threadId),
+        },
         challenge: crypto.getRandomValues(new Uint8Array(32)),
         pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256 / P-256 only
         authenticatorSelection: { residentKey: "required", userVerification: "required" },

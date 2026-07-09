@@ -19,6 +19,7 @@ import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
 import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
 import { registerKycDevRoutes } from "./routes/kyc-dev.routes.js";
+import { registerMembershipDevRoutes } from "./routes/membership-dev.routes.js";
 import { registerKycRoutes } from "./routes/kyc.routes.js";
 import { registerProfileRoutes } from "./routes/profile.routes.js";
 import { registerMeRoutes } from "./routes/me.routes.js";
@@ -109,6 +110,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   if (!isProduction) {
     registerWalkRoutes(app);
     registerKycDevRoutes(app, services);
+    registerMembershipDevRoutes(app, services);
   }
 
   await app.ready();

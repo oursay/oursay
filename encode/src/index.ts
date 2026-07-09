@@ -37,3 +37,10 @@ export {
   uuidPayloadHexToBigInt,
   uuidToHex,
 } from "./uuid-base59.js";
+
+export { encodeEntityIdForDisplay } from "./entity-id.js";
+
+export {
+  formatThreadPasskeyDisplayName,
+  formatThreadPasskeyUserName,
+} from "./passkey-labels.js";
