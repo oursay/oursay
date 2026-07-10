@@ -199,6 +199,11 @@ npm run dev    --workspace @oursay/api        # civic HTTP POOLS writes under it
 npm run worker --workspace public-record      # settles + anchors WORKER_CHAIN_IDS (incl. ab-ca-gov)
 ```
 
+Or set `AUTO_START_WORKER=1` in `public-record/.env` (or the environment) so `npm run db:up` /
+`db:prod:up` also starts the settlement worker **container** (compose profile `worker`). Anchors are
+bind-mounted to `public-record/.anchors` on the host. Do not also run a host `npm run worker` against
+the same stack (single proposer per chain).
+
 **The zero-config story:** civic HTTP (the API) pools every civic write under **one** chain — its
 `CHAIN_ID`, default **`ab-ca-gov`** (the launch jurisdiction). The worker settles
 **`WORKER_CHAIN_IDS`**, default **`oursay-global,ab-ca-gov`** — `oursay-global` (the universal record)

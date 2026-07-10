@@ -49,6 +49,37 @@ services:
       retries: 20
       start_period: 3s
 
+  # Settlement worker — opt-in via compose profile `worker` (AUTO_START_WORKER=1 on db:up).
+  # Single proposer per chain; do not also run `npm run worker` on the host against the same stack.
+  worker:
+    profiles: ["worker"]
+    build:
+      context: ..
+      dockerfile: public-record/Dockerfile.worker
+    container_name: oursay-dev-public-record-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: oursay
+      PGPASSWORD: oursay
+      PGDATABASE: oursay_public_record
+      IMMUDB_PG_HOST: immudb
+      IMMUDB_PG_PORT: "5432"
+      IMMUDB_PG_USER: immudb
+      IMMUDB_PG_PASSWORD: immudb
+      IMMUDB_PG_DATABASE: defaultdb
+      FILE_ANCHOR_DIR: /repo/public-record/.anchors
+      WORKER_CHAIN_IDS: oursay-global,ab-ca-gov
+    volumes:
+      # Persist anchors on the host (not container-ephemeral).
+      - ./.anchors:/repo/public-record/.anchors
+    restart: unless-stopped
+
 volumes:
   immudb-data:
     name: oursay_dev_public_record_immudb
