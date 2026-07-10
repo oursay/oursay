@@ -147,9 +147,16 @@ Destructive npm scripts (`db:down`, `seed`, `reset`) and `PrivateStore.reset()` 
 `NODE_ENV=production`. Raw `docker compose down -v` is not gated — production hosts must not expose
 the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` §11).
 
-Host ports are offset from `immudb-test` (immudb pg-wire **5433**, postgres **5432**) and the
-integration-test stack (**5444** / **5445**) so all three can run at once. No `.env` is needed;
-defaults match `docker-compose.dev.yml`.
+Host ports so stacks can run side-by-side:
+
+| Stack | Compose file | Postgres | immudb | console |
+|-------|--------------|----------|--------|---------|
+| dev | `docker-compose.dev.yml` | **5442** | **5443** | **8082** |
+| test | `docker-compose.test.yml` | **5444** | **5445** | **8083** |
+| prod | `docker-compose.prod.yml` | **5446** | **5447** | **8084** |
+
+No `.env` is needed for local dev; package defaults match `docker-compose.dev.yml`. Prod app
+config: repo-root `.env.prod.example`.
 
 **PostGIS.** The Postgres service runs the **`postgis/postgis:16`** image (a superset of `postgres:16`)
 so [`@oursay/geo`](../geo/README.md) can `CREATE EXTENSION postgis` for district-boundary geometry. If

@@ -31,7 +31,7 @@ function secret(name: string, devFallback: string): string {
 }
 
 /**
- * Postgres — the SAME private store @oursay/public-record uses (defaults match its docker-compose).
+ * Postgres — the SAME private store @oursay/public-record uses (defaults match docker-compose.dev.yml).
  * @oursay/api adds its own `auth` schema in this database and FKs `public.users`.
  */
 export const pgConfig: PgConfig = {
