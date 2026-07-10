@@ -207,23 +207,37 @@ is ever exposed. See [REGION-MODEL § Discussion-scoped stake filtering](../docs
 ## Dev cycle
 
 ```bash
-# 1. Shared Postgres (also brings up immudb for public-record). Ensures public.* schema exists.
-npm run db:up -w @oursay/public-record       # or: npm run db:up -w @oursay/api (delegates)
+# Option A — full Docker stack (API + public-record Postgres/immudb; optional worker)
+# Compose project matches public-record so DBs are shared, not duplicated.
+npm run up -w @oursay/api                    # API :8080, dumps openapi.yaml then serves
+# AUTO_START_WORKER=1 also starts the settlement worker container (compose profile `worker`)
+npm run logs -w @oursay/api                  # follow API logs
+# Swagger UI: http://localhost:8080/docs  ·  walk harness: http://localhost:8080/walk
 
-# 2. Run the API (Swagger UI at http://localhost:8080/docs, spec at /openapi.json,
-#    dev walk harness at http://localhost:8080/walk)
+# Option B — DBs in Docker, API on the host (hot-reload with tsx)
+npm run db:up -w @oursay/api                 # delegates to public-record
 cp api/.env.example api/.env                 # optional; dev defaults work out of the box
 npm run dev -w @oursay/api
 
-# 3. Seed the dev corpus (mock wireframe → real civic writes)
+# Seed the dev corpus (mock wireframe → real civic writes; host process against :5442)
 npm run seed -w @oursay/api
 
-# 4. Tests (integration; auto-start the isolated test stack via pretest — dev seed is untouched)
+# Tests (integration; auto-start the isolated test DBs via pretest — dev seed is untouched)
 npm test -w @oursay/api
+# Optional: containerized test API on :8081 → npm run test:up -w @oursay/api
 
-# 5. Regenerate the committed human-readable spec after changing routes
+# Regenerate the committed human-readable spec after changing routes
 npm run openapi:dump -w @oursay/api          # writes api/openapi.yaml
+# (also runs automatically on container start before the HTTP service)
 ```
+
+Host ports so stacks can run side-by-side (same offsets as public-record):
+
+| Stack | Compose file | API | Postgres | immudb | console |
+|-------|--------------|-----|----------|--------|---------|
+| dev | `docker-compose.dev.yml` | **8080** | **5442** | **5443** | **8082** |
+| test | `docker-compose.test.yml` | **8081** | **5444** | **5445** | **8083** |
+| prod | `docker-compose.prod.yml` | **8085** | **5446** | **5447** | **8084** |
 
 `npm run seed -w @oursay/api` wipes auth + record rows (not production), ingests Alberta districts
 when `geo.districts` is empty, creates ~21 accounts with mixed visibility (`public`, `my_district`,

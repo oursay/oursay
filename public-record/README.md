@@ -200,9 +200,12 @@ npm run worker --workspace public-record      # settles + anchors WORKER_CHAIN_I
 ```
 
 Or set `AUTO_START_WORKER=1` in `public-record/.env` (or the environment) so `npm run db:up` /
-`db:prod:up` also starts the settlement worker **container** (compose profile `worker`). Anchors are
-bind-mounted to `public-record/.anchors` on the host. Do not also run a host `npm run worker` against
-the same stack (single proposer per chain).
+`db:prod:up` (or `npm run up` / `prod:up` from `@oursay/api`) also starts the settlement worker
+**container** (compose profile `worker`). Anchors are bind-mounted to `public-record/.anchors` on
+the host. Do not also run a host `npm run worker` against the same stack (single proposer per chain).
+
+The HTTP API can be started as a container on the same compose project via
+`npm run up -w @oursay/api` (includes this stack; see [`api/README.md`](../api/README.md)).
 
 **The zero-config story:** civic HTTP (the API) pools every civic write under **one** chain — its
 `CHAIN_ID`, default **`ab-ca-gov`** (the launch jurisdiction). The worker settles
@@ -216,7 +219,8 @@ env vars (see `.env.example`).
 **Single proposer:** the settler is not concurrency-safe per chain, so run **exactly one** worker per
 chain. To scale, partition `WORKER_CHAIN_IDS` across worker processes (one chain each) — never two
 workers on the same chain. Leader election / HA for a single chain is a stage-2 consensus concern.
-(Containerizing the worker is future — dev runs it as a plain `tsx` Node process beside `db:up`.)
+(Containerizing the worker is done — compose profile `worker` on `db:up` / `db:prod:up`, or via
+`npm run up -w @oursay/api` which includes this stack.)
 
 **What ships today:** `FileAnchorTarget` writes append-only local files for development and
 testing. An **offline verifier** checks a block, a single entry, or the whole chain against a root

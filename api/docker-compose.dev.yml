@@ -1,0 +1,54 @@
+# API local/dev stack — includes public-record (Postgres + immudb + optional worker).
+#
+# Compose project: oursay-dev-public-record (same as public-record db:up so stacks share
+# containers; `npm run up -w @oursay/api` starts DBs if needed, then the API).
+# Host API port :8080 (matches api/.env.example). Immudb console remains :8082.
+include:
+  - path: ../public-record/docker-compose.dev.yml
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    container_name: oursay-dev-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: development
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: oursay
+      PGPASSWORD: oursay
+      PGDATABASE: oursay_public_record
+      IMMUDB_PG_HOST: immudb
+      IMMUDB_PG_PORT: "5432"
+      IMMUDB_PG_USER: immudb
+      IMMUDB_PG_PASSWORD: immudb
+      IMMUDB_PG_DATABASE: defaultdb
+      WEBAUTHN_RP_ID: localhost
+      WEBAUTHN_ORIGIN: http://localhost:8080
+      CHAIN_ID: ab-ca-gov
+      JURISDICTION_ID: ab-ca-gov
+    # Dump OpenAPI snapshot, then run the dev server (tsx, non-production).
+    command: ["sh", "-c", "npm run openapi:dump -w @oursay/api && npm run dev -w @oursay/api"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped

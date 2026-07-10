@@ -1,0 +1,55 @@
+# API integration-test stack — includes public-record test DBs (isolated from dev).
+#
+# Compose project: oursay-test-public-record (same as public-record db:test:up).
+# Host API port :8081 so it can run beside the dev API on :8080.
+include:
+  - path: ../public-record/docker-compose.test.yml
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    container_name: oursay-test-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+    ports:
+      - "8081:8080"
+    environment:
+      NODE_ENV: test
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: oursay
+      PGPASSWORD: oursay
+      PGDATABASE: oursay_test
+      IMMUDB_PG_HOST: immudb
+      IMMUDB_PG_PORT: "5432"
+      IMMUDB_PG_USER: immudb
+      IMMUDB_PG_PASSWORD: immudb
+      IMMUDB_PG_DATABASE: defaultdb
+      WEBAUTHN_RP_ID: localhost
+      WEBAUTHN_ORIGIN: http://localhost:8081
+      WEBAUTHN_REQUIRE_UV: "false"
+      CHAIN_ID: ab-ca-gov
+      JURISDICTION_ID: ab-ca-gov
+      PUBLIC_COUNTS_K_ANONYMITY_MIN: "0"
+      PUBLIC_COUNTS_K_ANONYMITY_DEFAULT: "0"
+    command: ["sh", "-c", "npm run openapi:dump -w @oursay/api && npm run dev -w @oursay/api"]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
