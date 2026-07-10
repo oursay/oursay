@@ -1,3 +1,5 @@
+"use client";
+
 import { scaleSocial } from "@/lib/read-model";
 import type { VerificationTier } from "@/lib/types";
 import { formatCount } from "@/components/utils";
@@ -11,6 +13,8 @@ interface ReactionCountPillProps {
   selected?: "up" | "down" | null;
   /** When no selected side, fill both segments (share preview fallback). */
   highlightBoth?: boolean;
+  /** Share preview — either segment toggles between my-reaction and both. */
+  onToggleHighlight?: () => void;
   className?: string;
 }
 
@@ -25,6 +29,7 @@ export function ReactionCountPill({
   tierMin = 0,
   selected = null,
   highlightBoth = false,
+  onToggleHighlight,
   className = "",
 }: ReactionCountPillProps) {
   const shown = (n: number) => scaleSocial(n, tierMin);
@@ -36,13 +41,16 @@ export function ReactionCountPill({
 
   const segment = (dir: "up" | "down", count: number) => {
     const active = segmentActive(dir);
-    const tone = active
-      ? dir === "up"
-        ? "bg-verify-100 font-bold text-verify-700"
-        : "bg-danger-200 font-bold text-danger-700"
-      : "text-ink-soft";
-    return (
-      <span className={`inline-flex items-center gap-0.5 px-2 ${tone}`}>
+    const upStyles = active
+      ? "bg-verify-100 font-bold text-verify-700"
+      : "text-ink-soft hover:bg-verify-100/60";
+    const downStyles = active
+      ? "bg-danger-200 font-bold text-danger-700"
+      : "text-ink-soft hover:bg-danger-200/60";
+    const tone = dir === "up" ? upStyles : downStyles;
+
+    const glyph = (
+      <>
         <span
           aria-hidden
           className={`text-xs leading-none ${active ? "font-bold" : ""}`}
@@ -50,6 +58,25 @@ export function ReactionCountPill({
           {dir === "up" ? "✓" : "✗"}
         </span>
         {formatCount(shown(count))}
+      </>
+    );
+
+    if (onToggleHighlight) {
+      return (
+        <button
+          type="button"
+          onClick={onToggleHighlight}
+          aria-label="Toggle reaction preview emphasis"
+          className={`inline-flex h-5 flex-1 items-center justify-center gap-0.5 px-2 text-xs transition-colors cursor-pointer ${tone}`}
+        >
+          {glyph}
+        </button>
+      );
+    }
+
+    return (
+      <span className={`inline-flex items-center gap-0.5 px-2 ${tone}`}>
+        {glyph}
       </span>
     );
   };
@@ -62,7 +89,7 @@ export function ReactionCountPill({
     </>
   );
 
-  if (hasHighlight) {
+  if (hasHighlight || onToggleHighlight) {
     return (
       <span
         role="group"

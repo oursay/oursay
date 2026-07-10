@@ -33,6 +33,8 @@ interface CommentCardProps {
   readOnly?: boolean;
   /** Read-only share preview — highlight _my, else fill both segments. */
   highlightReactionPill?: boolean;
+  /** Share preview — toggle my-reaction vs both-segment emphasis. */
+  onShareReactionToggle?: () => void;
 }
 
 /** One comment row — header · body · footer (no comment pill). */
@@ -59,6 +61,7 @@ export function CommentCard({
   shared,
   readOnly = false,
   highlightReactionPill = false,
+  onShareReactionToggle,
 }: CommentCardProps) {
   return (
     <div>
@@ -90,6 +93,7 @@ export function CommentCard({
           shared={shared}
           readOnly={readOnly}
           highlightReactionPill={highlightReactionPill}
+          onShareReactionToggle={onShareReactionToggle}
         />
       </div>
     </div>

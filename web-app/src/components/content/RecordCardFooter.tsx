@@ -42,6 +42,8 @@ interface RecordCardFooterProps {
   highlightReactionPill?: boolean;
   /** Read-only share preview — purple comment pill accent. */
   highlightCommentPill?: boolean;
+  /** Share preview — toggle my-reaction vs both-segment emphasis. */
+  onShareReactionToggle?: () => void;
 }
 
 /**
@@ -71,6 +73,7 @@ export function RecordCardFooter({
   readOnly = false,
   highlightReactionPill = false,
   highlightCommentPill = false,
+  onShareReactionToggle,
 }: RecordCardFooterProps) {
   const isComment = kind === "comment";
   const hasReactions = kind === "statement" || kind === "result" || isComment;
@@ -87,6 +90,7 @@ export function RecordCardFooter({
             tierMin={tierMin}
             selected={selectedReaction}
             highlightBoth={highlightReactionPill}
+            onToggleHighlight={onShareReactionToggle}
           />
         ) : (
           <ReactionButtons

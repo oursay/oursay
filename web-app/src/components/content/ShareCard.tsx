@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { jurisdictionAllowsVoteChange } from "@/lib/signing";
 import { relTime, useNow } from "@/lib/read-model";
 import type { FeedItem } from "@/lib/types";
@@ -25,6 +26,23 @@ export function ShareCard({
   selectedReaction = null,
 }: ShareCardProps) {
   const now = useNow();
+  const [reactionEmphasis, setReactionEmphasis] = useState<"both" | "my">(
+    () => (selectedReaction ? "my" : "both"),
+  );
+
+  useEffect(() => {
+    setReactionEmphasis(selectedReaction ? "my" : "both");
+  }, [selectedReaction, preview]);
+
+  const toggleReactionEmphasis = () =>
+    setReactionEmphasis((mode) => (mode === "both" ? "my" : "both"));
+
+  const shareReactionProps = {
+    selectedReaction:
+      reactionEmphasis === "my" ? selectedReaction : null,
+    highlightReactionPill: reactionEmphasis === "both",
+    onShareReactionToggle: toggleReactionEmphasis,
+  };
 
   if (preview.variant === "comment") {
     const { node, depth } = preview;
@@ -48,23 +66,29 @@ export function ShareCard({
         down={node.down}
         edits={node.edits}
         readOnly
-        selectedReaction={selectedReaction}
-        highlightReactionPill
+        {...shareReactionProps}
       />
     );
   }
 
   return (
-    <ShareRecordCard item={preview.item} selectedReaction={selectedReaction} />
+    <ShareRecordCard
+      item={preview.item}
+      shareReactionProps={shareReactionProps}
+    />
   );
 }
 
 function ShareRecordCard({
   item,
-  selectedReaction,
+  shareReactionProps,
 }: {
   item: FeedItem;
-  selectedReaction: "up" | "down" | null;
+  shareReactionProps: {
+    selectedReaction: "up" | "down" | null;
+    highlightReactionPill: boolean;
+    onShareReactionToggle: () => void;
+  };
 }) {
   return (
     <RecordCard
@@ -129,9 +153,8 @@ function ShareRecordCard({
           comments={item.comments}
           edits={item.edits}
           readOnly
-          selectedReaction={selectedReaction}
-          highlightReactionPill
           highlightCommentPill
+          {...shareReactionProps}
         />
       }
     />
