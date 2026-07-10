@@ -136,9 +136,9 @@ npm run seed    --workspace public-record   # hands-on dev DB: prints folded sta
 npm run db:down --workspace public-record   # tear down dev stack (wipes volumes; blocked when NODE_ENV=production)
 ```
 
-Integration tests use a **separate Docker stack** (`docker-compose.test.yml`: `oursay-test-pg` on
-**5444**, `oursay-test-immudb` on **5445**) so `TRUNCATE` isolation does not wipe the dev seed on
-**5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test`, so dev
+Integration tests use a **separate Docker stack** (`docker-compose.test.yml`: `oursay-test-public-record-pg` on
+**5444**, `oursay-test-public-record-immudb` on **5445**) so `TRUNCATE` isolation does not wipe the dev seed on
+**5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test-public-record`, so dev
 and test stacks do not replace each other); tear it down with
 `npm run db:test:down --workspace public-record`. Mocha loads repo-root `.env.test` before package
 config (see `scripts/load-test-env.ts`).
@@ -149,7 +149,7 @@ the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` 
 
 Host ports are offset from `immudb-test` (immudb pg-wire **5433**, postgres **5432**) and the
 integration-test stack (**5444** / **5445**) so all three can run at once. No `.env` is needed;
-defaults match `docker-compose.yml`.
+defaults match `docker-compose.dev.yml`.
 
 **PostGIS.** The Postgres service runs the **`postgis/postgis:16`** image (a superset of `postgres:16`)
 so [`@oursay/geo`](../geo/README.md) can `CREATE EXTENSION postgis` for district-boundary geometry. If
