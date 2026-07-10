@@ -19,6 +19,13 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+    # Browser origin for WebAuthn (web-app :3000), NOT the API listen port. Override via
+    # api/.env / host env. Use http://localhost:8080 only when walking /walk on the API itself.
+    env_file:
+      - path: .env
+        required: false
+      - path: ../.env
+        required: false
     environment:
       NODE_ENV: development
       PORT: "8080"
@@ -33,8 +40,8 @@ services:
       IMMUDB_PG_USER: immudb
       IMMUDB_PG_PASSWORD: immudb
       IMMUDB_PG_DATABASE: defaultdb
-      WEBAUTHN_RP_ID: localhost
-      WEBAUTHN_ORIGIN: http://localhost:8080
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-http://localhost:3000}
       CHAIN_ID: ab-ca-gov
       JURISDICTION_ID: ab-ca-gov
     # Dump OpenAPI snapshot, then run the dev server (tsx, non-production).

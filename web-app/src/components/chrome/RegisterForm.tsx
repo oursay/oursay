@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, IdCard, Mail, ShieldCheck } from "lucide-react";
+import { isValidEmailFormat } from "@/lib/email";
 import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
 import { Button, Modal, ModalField } from "@/components/ui";
 
@@ -55,6 +56,7 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
   const [province, setProvince] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [handleError, setHandleError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   const submit = () => {
     const err = handleValidationError(handle);
@@ -65,7 +67,11 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
     setHandleError(null);
     const h = normalizeHandleBody(handle)!;
     const e = email.trim();
-    if (!e) return;
+    if (!e || !isValidEmailFormat(e)) {
+      setEmailError("Enter a valid email address.");
+      return;
+    }
+    setEmailError(null);
 
     const trimmedFirst = firstName.trim();
     const trimmedLast = lastName.trim();
@@ -125,8 +131,16 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
           label="Email"
           placeholder="jane@example.ca"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (emailError) setEmailError(null);
+          }}
         />
+        {emailError ? (
+          <p className="text-sm text-danger-700" role="alert">
+            {emailError}
+          </p>
+        ) : null}
 
         <label className="flex items-center gap-2 pt-1 text-sm text-ink">
           <input

@@ -236,7 +236,8 @@ export interface WebAuthnConfig {
 export const webauthnConfig: WebAuthnConfig = {
   rpID: env("WEBAUTHN_RP_ID", "localhost"),
   rpName: env("WEBAUTHN_RP_NAME", "OurSay"),
-  origin: env("WEBAUTHN_ORIGIN", "http://localhost:8080"),
+  // Browser page origin (web-app :3000), not the API listen port. /walk on the API needs :8080.
+  origin: env("WEBAUTHN_ORIGIN", "http://localhost:3000"),
   requireUserVerification: isProduction ? true : env("WEBAUTHN_REQUIRE_UV", "true") === "true",
 };
 

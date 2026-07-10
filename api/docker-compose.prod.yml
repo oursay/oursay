@@ -35,8 +35,9 @@ services:
       IMMUDB_PG_USER: immudb
       IMMUDB_PG_PASSWORD: immudb
       IMMUDB_PG_DATABASE: defaultdb
-      WEBAUTHN_RP_ID: localhost
-      WEBAUTHN_ORIGIN: http://localhost:8085
+      # Browser origin for WebAuthn (web-app), NOT the API publish port (:8085).
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-http://localhost:3000}
       CHAIN_ID: ab-ca-gov
       JURISDICTION_ID: ab-ca-gov
       # Required in production (no committed defaults) — set in the host env or a gitignored .env:
