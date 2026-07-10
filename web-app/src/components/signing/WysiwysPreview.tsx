@@ -85,15 +85,15 @@ function warningCopy(w: WysiwysWarning): ReactNode {
     case "irrevocable":
       return (
         <>
-          Permanent — {jur} does not allow {w.irrevocableNoun ?? "actions"} to be changed or
-          revoked after signing.
+          Permanent — OurSay&apos;s rules for {jur} don&apos;t allow{" "}
+          {w.irrevocableNoun ?? "actions"} to be changed or revoked after signing.
         </>
       );
     case "blocker":
       return (
         <>
-          <span className="font-semibold">Cannot participate.</span> {jur}{" "}
-          {w.reason ?? "restricts this action"}.
+          <span className="font-semibold">Cannot participate.</span> OurSay&apos;s rules for {jur}{" "}
+          {w.reason ?? "restrict this action"}.
         </>
       );
     case "already-acted":
@@ -106,13 +106,13 @@ function warningCopy(w: WysiwysWarning): ReactNode {
     case "count-floor":
       return w.countBasis === "identity" ? (
         <>
-          {jur} &nbsp;platform counts require ID verification — this won&apos;t be included in the
-          verified totals until you verify your ID.
+          OurSay&apos;s {jur} &nbsp;platform counts require ID verification — this won&apos;t be
+          included in the verified totals until you verify your ID.
         </>
       ) : (
         <>
-          {jur} &nbsp;platform counts include verified residents only — this won&apos;t be included in
-          the verified totals until you verify residency.
+          OurSay&apos;s {jur} &nbsp;platform counts include verified residents only — this
+          won&apos;t be included in the verified totals until you verify residency.
         </>
       );
     case "affected":

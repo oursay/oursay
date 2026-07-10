@@ -498,7 +498,7 @@ function buildDistrictMap(): Record<string, DistrictDetail> {
       boundaryYear: 2019,
       source: "Elections Alberta",
       about: [
-        "Part of Alberta — provincial (ladder) rules apply.",
+        "Part of Alberta — OurSay's provincial (ladder) rules apply.",
         "District-scoped posts use appliesToRegion: district.",
         "Platform counts include residency-verified residents only.",
         "Boundary: 2019 revision (Elections Alberta).",

@@ -67,7 +67,8 @@ function actorRequirement(actor: GateActor): ActorRequirement {
 }
 
 function requirementPhrase(req: ActorRequirement): string {
-  return req === "residency" ? "requires verified residency" : "requires ID verification";
+  // Plural verb — rendered after "OurSay's rules for {jurisdiction} …" in WysiwysPreview.
+  return req === "residency" ? "require verified residency" : "require ID verification";
 }
 
 /** True when the viewer fails the action's platform-count floor (soft — they can still act). */

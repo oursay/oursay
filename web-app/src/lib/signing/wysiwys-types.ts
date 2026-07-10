@@ -29,7 +29,7 @@ export interface WysiwysWarning {
   irrevocableNoun?: string;
   /** count-floor: whether the official-count floor is an ID (identity) or residency requirement. */
   countBasis?: "identity" | "residency";
-  /** blocker: short phrase describing the unmet requirement (e.g. "requires verified residency"). */
+  /** blocker: short phrase describing the unmet requirement (e.g. "require verified residency"). */
   reason?: string;
 }
 

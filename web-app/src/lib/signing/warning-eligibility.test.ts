@@ -12,7 +12,7 @@ describe("warningsForAction", () => {
   it("Alberta vote: hard blocker when unverified (residency required to act)", () => {
     const w = warningsForAction(ALBERTA_ID, "vote", ctx(0));
     expect(w.map((x) => x.kind)).toEqual(["blocker"]);
-    expect(w[0].reason).toBe("requires verified residency");
+    expect(w[0].reason).toBe("require verified residency");
   });
 
   it("Alberta petition signature: irrevocable + residency count-floor when unverified", () => {

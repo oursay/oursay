@@ -53,7 +53,7 @@ interface PollOptionsProps {
   selectedVote?: string | null;
   /** Result mode: immutable final tallies, no vote wiring. */
   frozen?: boolean;
-  /** Alberta votes are final once cast — locks the control and shows a notice. */
+  /** OurSay's rules make votes final in some jurisdictions (e.g. Alberta) — locks the control and shows a notice. */
   isFinalJurisdiction?: boolean;
   /** Active Verified filter — drives the additive "+N unverified votes" note. */
   tierMin?: VerificationTier;

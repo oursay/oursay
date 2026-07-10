@@ -107,6 +107,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
         open={rulesOpen}
         onToggle={() => setRulesOpen((v) => !v)}
       >
+        <p className="mb-2 text-xs text-muted">
+          Set by OurSay for this jurisdiction — platform rules, not government rules.
+        </p>
         <ul className="space-y-1 text-sm text-ink-soft">
           {summary.rules.map((rule) => (
             <li key={rule}>{rule}</li>

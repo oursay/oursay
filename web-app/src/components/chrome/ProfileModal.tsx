@@ -271,8 +271,8 @@ function SigningOptionsPanel({
   return (
     <div className="space-y-2 rounded-lg border border-border bg-surface-muted p-2">
       <p className="px-1 text-xs text-muted">
-        How each action is signed. A jurisdiction may require a stronger method —
-        e.g. Alberta always requires a passkey.
+        How each action is signed. OurSay&apos;s rules for a jurisdiction may require a stronger
+        method — e.g. in Alberta a passkey is always required.
       </p>
       <SigningMethodRow label="Post" value={postCommon} onChange={onSetPostSigning} />
       <div className="space-y-1.5 border-l border-border pl-1.5">

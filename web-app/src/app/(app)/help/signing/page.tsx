@@ -47,10 +47,10 @@ export default function SigningHelpPage() {
         <p>
           Signed civic actions are appended to a public, independently auditable record. Appends
           are permanent: the record is designed so history cannot be silently edited or erased —
-          that is what makes its counts trustworthy. Some jurisdictions on the platform (including
-          Alberta&apos;s configuration) also make votes and petition signatures final: they cannot
-          be changed or revoked after signing. The confirmation screen warns you whenever an
-          action is final.
+          that is what makes its counts trustworthy. In some jurisdictions, OurSay&apos;s rules
+          (including our Alberta configuration) also make votes and petition signatures final:
+          they cannot be changed or revoked after signing. The confirmation screen warns you
+          whenever an action is final.
         </p>
         <p>
           Think of confirming with your passkey the way you&apos;d think of signing a document,
@@ -75,9 +75,10 @@ export default function SigningHelpPage() {
 
       <HelpSection title="Platform counts">
         <p>
-          Anyone a jurisdiction&apos;s rules admit can participate. The <strong>platform
-          count</strong> — the number that settles a poll or petition — includes only participants
-          who meet that jurisdiction&apos;s verification floor (for Alberta: residency-verified).
+          OurSay sets the participation rules for each jurisdiction on the platform. The{" "}
+          <strong>platform count</strong> — the number that settles a poll or petition — includes
+          only participants who meet the verification floor OurSay sets for that jurisdiction
+          (for Alberta: residency-verified).
           Actions below the floor are recorded and shown separately as unverified counts, and are
           included in the platform count once you verify. Platform counts are OurSay&apos;s own
           tallies; they are not official results of any government process.
