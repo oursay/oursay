@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { Copy, Flag, Link as LinkIcon, Mail, MessageCircle } from "lucide-react";
+import { Copy, Flag, ImageDown, Link as LinkIcon, Mail } from "lucide-react";
 import { Modal } from "@/components/ui";
 import { ShareCard } from "@/components/content";
 import { useApp, type ShareTarget } from "@/lib/state";
 import { viewerReactionForShare } from "@/lib/share";
+import { downloadShareCardImage, shareImageFilename } from "@/lib/share/image";
 import { getPublicSharePreview, type SharePreview } from "@/lib/share/preview";
 
 interface ShareModalProps {
@@ -122,8 +123,10 @@ export function ShareModal({
   onReport,
 }: ShareModalProps) {
   const { reactionFor } = useApp();
+  const previewRef = useRef<HTMLDivElement>(null);
   const [preview, setPreview] = useState<SharePreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [imageDownloading, setImageDownloading] = useState(false);
 
   const selectedReaction = useMemo(
     () => (target ? viewerReactionForShare(target, preview, reactionFor) : null),
@@ -187,8 +190,21 @@ export function ShareModal({
     onClose();
   };
 
-  const actions: ShareAction[] = [
-    // Row 1 — socials.
+  const downloadImage = async () => {
+    const node = previewRef.current;
+    if (!preview || !node) {
+      onNotify("Image unavailable — preview not ready.");
+      return;
+    }
+
+    setImageDownloading(true);
+    const ok = await downloadShareCardImage(node, shareImageFilename(target.shareKey));
+    if (ok) onShared();
+    onNotify(ok ? "Image saved." : "Image download failed.");
+    setImageDownloading(false);
+  };
+
+  const socialActions: ShareAction[] = [
     {
       key: "facebook",
       label: "Facebook",
@@ -228,7 +244,15 @@ export function ShareModal({
       // TikTok has no web share intent — copy the shareable text for the app.
       onClick: () => copy(copyText, "Text"),
     },
-    // Row 2 — utilities.
+  ];
+
+  const utilityActions: ShareAction[] = [
+    {
+      key: "download-image",
+      label: "Save image",
+      icon: <ImageDown size={18} aria-hidden />,
+      onClick: () => void downloadImage(),
+    },
     {
       key: "copy-text",
       label: "Copy text",
@@ -253,12 +277,6 @@ export function ShareModal({
         ),
     },
     {
-      key: "sms",
-      label: "SMS",
-      icon: <MessageCircle size={18} aria-hidden />,
-      onClick: () => openExternal(`sms:?&body=${enc(`${messageText} ${linkUrl}`)}`),
-    },
-    {
       key: "report",
       label: "Report",
       icon: <Flag size={18} aria-hidden />,
@@ -272,7 +290,9 @@ export function ShareModal({
       <div className="space-y-4">
         {/* Preview of the card being shared — public anonymous projection. */}
         {preview ? (
-          <ShareCard preview={preview} selectedReaction={selectedReaction} />
+          <div ref={previewRef}>
+            <ShareCard preview={preview} selectedReaction={selectedReaction} />
+          </div>
         ) : (
           <div
             className="rounded-xl border border-border bg-surface p-3 shadow-sm"
@@ -286,27 +306,35 @@ export function ShareModal({
 
         {/* Share destinations. */}
         <div className="grid grid-cols-5 gap-x-2 gap-y-3">
-          {actions.map((action) => (
-            <button
-              key={action.key}
-              type="button"
-              onClick={action.onClick}
-              className="flex flex-col items-center gap-1.5 text-center"
-            >
-              <span
-                className={`inline-flex size-11 items-center justify-center rounded-full border transition-colors ${
-                  action.danger
-                    ? "border-danger-200 bg-danger-50 text-danger-700 hover:bg-danger-100"
-                    : "border-border bg-surface text-ink-soft hover:bg-surface-muted"
-                }`}
+          {[...socialActions, ...utilityActions].map((action) => {
+            const disabled =
+              action.key === "download-image" &&
+              (imageDownloading || previewLoading || !preview);
+
+            return (
+              <button
+                key={action.key}
+                type="button"
+                onClick={action.onClick}
+                disabled={disabled}
+                aria-busy={action.key === "download-image" && imageDownloading}
+                className="flex flex-col items-center gap-1.5 text-center disabled:pointer-events-none"
               >
-                {action.icon}
-              </span>
-              <span className="text-[11px] leading-tight text-muted">
-                {action.label}
-              </span>
-            </button>
-          ))}
+                <span
+                  className={`inline-flex size-11 items-center justify-center rounded-full border transition-colors ${
+                    action.danger
+                      ? "border-danger-200 bg-danger-50 text-danger-700 hover:bg-danger-100"
+                      : "border-border bg-surface text-ink-soft hover:bg-surface-muted"
+                  }`}
+                >
+                  {action.icon}
+                </span>
+                <span className="text-[11px] leading-tight text-muted">
+                  {action.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
     </Modal>
