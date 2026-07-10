@@ -22,8 +22,9 @@ import type { ThreadRef } from "@oursay/identity";
 import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount } from "./helpers/account.js";
+import { openGates } from "./helpers/gates.js";
 
-const ADULT_DOB = "1990-06-15";
 const JURISDICTION = "ab-ca-gov";
 const ASOF = new Date("2020-01-01"); // after the 2019-04-16 effective date below.
 
@@ -65,18 +66,6 @@ interface Member {
   t: ThreadRef;
 }
 
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
-}
-
 /** Unlock a signing session and join a fresh thread through the SDK (creates the device's thread
  *  passkey + registers its signer under Pₜ). Mirrors api/test/12-civic-record.spec.ts. */
 async function enrolledMember(w: World, email: string, seed: string): Promise<Member> {
@@ -108,11 +97,17 @@ describe("15 participant-geo: civic participant → private point → district r
 
   // Ingest the real 2019 Alberta boundaries ONCE (Db.reset() truncates geo.districts). Tests below use
   // fresh random users/threads and read-only resolution, so they don't reset the world per-test.
+  let restoreGates: () => void;
   before(async function () {
     this.timeout(60000);
     w = await resetWorld();
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
+    // Fixture seam: participants here vote/post BEFORE their point is seeded (or never get one) —
+    // drift-only states the real ab-ca-gov write gates forbid; gates are covered in 20-gates.spec.ts.
+    restoreGates = openGates(JURISDICTION);
   });
+
+  after(() => restoreGates());
 
   it("resolves a posting participant (authorPubkey/Pₜ, no nullifier) to their seeded riding", async () => {
     const m = await enrolledMember(w, "pg-edm@example.com", "edm");

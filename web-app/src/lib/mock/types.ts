@@ -4,6 +4,9 @@ export interface AlbertaRiding {
   slug: string;
   mla: {
     name: string;
+    /** Official seat handle (unclaimed). */
+    seatHandle: string;
+    /** Demo user handle for authored corpus content. */
     handle: string;
   };
 }

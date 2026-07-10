@@ -81,7 +81,10 @@ export function PollOptions({
       {options.map((o) => {
         const mine = selectedVote === o.label;
         const pct = Math.max(4, Math.round((o.v / total) * 100));
-        const extra = civicExtra(o.v, tierMin);
+        // Real below-floor tally (sign now, counts once you verify) when the
+        // corpus carries a live count; otherwise the filter-driven demo estimate.
+        const extra =
+          o.live != null && o.live > o.v ? o.live - o.v : civicExtra(o.v, tierMin);
         return (
           <div key={o.label}>
             <button

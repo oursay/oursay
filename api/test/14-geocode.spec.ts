@@ -6,8 +6,6 @@ import { expect } from "chai";
 import { hashAddress, normalizeAddress } from "../src/helpers/address.js";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 
-const ADULT_DOB = "1990-06-15";
-
 interface RegisterResult {
   userId: string;
   token: string;
@@ -28,7 +26,7 @@ async function register(w: World, address: Record<string, unknown> | undefined):
   const res = await w.app.inject({
     method: "POST",
     url: "/v1/auth/otp/verify",
-    payload: { email, code, profile: { birthdate: ADULT_DOB, ...(address ? { address } : {}) } },
+    payload: { email, code, profile: { handle: `@geo${emailSeq}`, over18: true, ...(address ? { address } : {}) } },
   });
   expect(res.statusCode).to.equal(201);
   const body = res.json();
@@ -164,12 +162,14 @@ describe("14 geocode: best-effort private point cache (current + append-only his
   });
 
   it("never exposes coordinates on GET /v1/profile", async () => {
-    const { token } = await register(w, { province: "AB", postalCode: "t2p1h9", country: "ca" });
+    const { userId } = await register(w, { province: "AB", postalCode: "t2p1h9", country: "ca" });
+    // /v1/profile is full-scope; the registration session is enroll-only, so mint a full session.
+    const session = await w.services.authService.issue(userId, "full", "test");
 
     const res = await w.app.inject({
       method: "GET",
       url: "/v1/profile",
-      headers: { authorization: `Bearer ${token}` },
+      headers: { authorization: `Bearer ${session.token}` },
     });
     expect(res.statusCode).to.equal(200);
     const keys = allKeys(res.json());

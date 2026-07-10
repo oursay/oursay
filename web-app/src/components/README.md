@@ -58,6 +58,13 @@ re-exports everything.
 - **Comment depth** — `CommentThread` nests to `COMMENT_MAX_DEPTH` (3); a reply
   beyond that flattens to a sibling seeded with the replyee's leading `@handle`.
 
+### Participation pills (interactive vs display)
+
+- **Interactive:** `ReactionButtons` — feed, post, and comment footers with handlers.
+- **Display:** `ReactionCountPill` — share preview and other read-only tallies (same chrome as
+  `ProfileSupportBar` reaction strip, full opacity).
+- **Roadmap:** unified `ParticipationPill` in `[participation-pill-unify]`.
+
 ## Stubbed / owned by later phases
 
 - Routing between records/profiles/jurisdictions — Phase D3 (callbacks are stubs).

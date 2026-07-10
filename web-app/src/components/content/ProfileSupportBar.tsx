@@ -6,7 +6,7 @@ import type { ProfileSupport } from "@/lib/types";
 interface ProfileSupportBarProps extends ProfileSupport {
   /** Rough account age, e.g. "3 years" — rendered after "over". */
   ageLabel: string;
-  /** Show the ✓/✗ agree-disagree totals pill (official accounts). */
+  /** Show the ✓/✗ agree-disagree totals pill beside the content counts. */
   showReactions?: boolean;
   /** Count pill contents: statements + comments, or comments only (personas). */
   pill?: "full" | "comments";

@@ -8,7 +8,12 @@ import { expiryFrom } from "../helpers/otp.js";
 import { hashToken, newSessionToken } from "../helpers/tokens.js";
 import type { SessionRepo, SessionRecord } from "../repo/session.repo.js";
 
-export type SessionScope = "full" | "recovery" | "login";
+/** Session scopes. Non-'full' scopes are LIMITED (passkey-enroll only):
+ *  'registration' — issued at OTP registration ([code-registration-scope]); full access comes from
+ *                   the subsequent passkey login.
+ *  'recovery'     — issued by recovery OTP (lost passkey); recovery revokes all prior sessions.
+ *  'login'        — issued by the gated cross-device login OTP (docs/08). */
+export type SessionScope = "full" | "registration" | "recovery" | "login";
 
 export interface IssuedSession {
   token: string;

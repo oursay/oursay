@@ -1,3 +1,5 @@
+import { isMockOnly } from "@/lib/api/client";
+import { wireHandle } from "@/lib/handle";
 import { MY_HANDLE } from "@/lib/mock/constants";
 import { JUR_DATA } from "@/lib/mock";
 import type { FeedFilterParams, SignedFilterLevel, ViewerContext } from "@/lib/types";
@@ -10,7 +12,10 @@ export function viewerFromState(state: AppState): ViewerContext {
     loggedIn: state.loggedIn,
     kycTier: state.kycTier,
     viewerDistricts: state.viewerDistricts,
-    selfHandle: state.loggedIn ? MY_HANDLE : undefined,
+    role: state.kycTier === 3 ? "official" : undefined,
+    selfHandle: state.loggedIn
+      ? (wireHandle(state.accountHandle) ?? (isMockOnly() ? MY_HANDLE : undefined))
+      : undefined,
     selfVisibility: state.accountVisibility,
   };
 }
@@ -48,13 +53,13 @@ export function feedFilterFromState(state: AppState): FeedFilterParams {
  * filter gates off there (it would mirror Verified: Residency).
  */
 function jurisdictionDistrictsFromState(state: AppState): string[] | undefined {
-  const names = state.pageJurisdiction
+  const ids = state.pageJurisdiction
     ? [state.pageJurisdiction]
-    : state.subscriptions.filter((s) => s.included).map((s) => s.name);
-  if (names.length === 0) return undefined;
+    : state.subscriptions.filter((s) => s.included).map((s) => s.id);
+  if (ids.length === 0) return undefined;
   const slugs: string[] = [];
-  for (const name of names) {
-    const districts = JUR_DATA[name]?.districts ?? [];
+  for (const id of ids) {
+    const districts = JUR_DATA[id]?.districts ?? [];
     if (districts.length === 0) return undefined;
     for (const d of districts) slugs.push(d.slug);
   }

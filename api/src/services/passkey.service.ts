@@ -42,6 +42,7 @@ export interface PasskeyLoginResult {
 /** Public view of an enrolled account-login passkey. No key material — just management metadata. */
 export interface PasskeyView {
   id: string;
+  /** User override when set; otherwise a server-resolved default from aaguid/transports. */
   label: string | null;
   transports: string | null;
   createdAt: string;
@@ -118,7 +119,7 @@ export class PasskeyService {
       counter: credential.counter,
       transports: credential.transports?.join(",") ?? null,
       aaguid: aaguid ?? null,
-      label: input.label ?? null,
+      label: normalizePasskeyLabel(input.label),
     });
     return { credentialId: credential.id };
   }
@@ -128,26 +129,50 @@ export class PasskeyService {
   /** List the caller's enrolled account-login passkeys (one per device). Metadata only. */
   async list(userId: string): Promise<PasskeyView[]> {
     const creds = await this.d.passkeyRepo.listByUserId(userId);
-    return creds.map((c) => ({
-      id: c.id,
-      label: c.label,
-      transports: c.transports,
-      createdAt: c.createdAt,
-      lastUsedAt: c.lastUsedAt,
-    }));
+    return creds.map(toPasskeyView);
+  }
+
+  /** Rename one of the caller's passkeys (user-facing device label). */
+  async updateLabel(input: { userId: string; id: string; label: string | null }): Promise<PasskeyView> {
+    const creds = await this.d.passkeyRepo.listByUserId(input.userId);
+    const cred = creds.find((c) => c.id === input.id);
+    if (!cred) {
+      throw new ServiceError("not_found", "No such passkey for this account");
+    }
+
+    const normalized = normalizePasskeyLabel(input.label);
+    const defaultLabel = resolveDefaultPasskeyLabel(cred.aaguid, cred.transports);
+    const toStore =
+      normalized == null || (defaultLabel != null && normalized === defaultLabel)
+        ? null
+        : normalized;
+
+    const updated = await this.d.passkeyRepo.updateLabel(input.userId, input.id, toStore);
+    if (!updated) {
+      throw new ServiceError("not_found", "No such passkey for this account");
+    }
+    return toPasskeyView({ ...cred, label: toStore });
   }
 
   /** Remove one of the caller's OWN passkeys ("kick a compromised/retired device"). 404 when it isn't
-   *  theirs (no cross-account info). Refuses to remove the LAST passkey — that would lock the account
-   *  out of normal login; the user must use recovery instead. Also revokes the sessions that passkey
-   *  established, so a kicked device loses access immediately. */
-  async revoke(input: { userId: string; id: string }): Promise<void> {
+   *  theirs (no cross-account info). Refuses to remove the LAST passkey (422) — that would lock the
+   *  account out of normal login; the user must use recovery instead. Then refuses to remove the
+   *  passkey that established the caller's current session (422) — sign out or kick another device
+   *  instead. Also revokes the sessions that passkey established, so a kicked device loses access
+   *  immediately. */
+  async revoke(input: { userId: string; id: string; sessionCredentialId?: string | null }): Promise<void> {
     const creds = await this.d.passkeyRepo.listByUserId(input.userId);
     if (!creds.some((c) => c.id === input.id)) {
       throw new ServiceError("not_found", "No such passkey for this account");
     }
     if (creds.length <= 1) {
-      throw new ServiceError("forbidden", "Cannot remove your last passkey; use recovery to reset access");
+      throw new ServiceError("unprocessable", "Cannot remove your last passkey; use recovery to reset access");
+    }
+    if (input.sessionCredentialId && input.sessionCredentialId === input.id) {
+      throw new ServiceError(
+        "unprocessable",
+        "Cannot remove the passkey for this session; sign out first or remove another device",
+      );
     }
     await this.d.authService.revokeSessionsForCredential(input.id);
     await this.d.passkeyRepo.deleteByIdForUser(input.userId, input.id);
@@ -240,6 +265,59 @@ export class PasskeyService {
 function splitTransports(csv: string | null): ("ble" | "hybrid" | "internal" | "nfc" | "usb" | "cable" | "smart-card")[] | undefined {
   if (!csv) return undefined;
   return csv.split(",").map((s) => s.trim()).filter(Boolean) as any;
+}
+
+const PASSKEY_LABEL_MAX = 80;
+
+function normalizePasskeyLabel(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  return trimmed.length > PASSKEY_LABEL_MAX ? trimmed.slice(0, PASSKEY_LABEL_MAX) : trimmed;
+}
+
+// Curated AAGUID → display label for common consumer authenticators. Not exhaustive — the full FIDO
+// Metadata Service is large and network-fetched; this covers the platform + password-manager
+// authenticators most users present. Values from the community "passkey-authenticator-aaguids" list.
+// Unknown/absent AAGUIDs fall back to transport-based labelling below.
+const AAGUID_LABELS: Record<string, string> = {
+  "fbfc3007-154e-4ecc-8c0b-6e020557d7bd": "iCloud Keychain",
+  "08987058-cadc-4b81-b6e1-30de50dcbe96": "Windows Hello",
+  "9ddd1817-af5a-4672-a2b9-3e3dd95000a9": "Windows Hello",
+  "6028b017-b1d4-4c02-b4b3-afcdafc96bb2": "Windows Hello",
+  "ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4": "Google Password Manager",
+  "adce0002-35bc-c60a-648b-0b25f1f05503": "Chrome on Mac",
+};
+
+/** Resolve a display label from stored authenticator metadata (never sent to clients). Prefers a
+ *  known authenticator model by AAGUID, then falls back to the transport class. */
+function resolveDefaultPasskeyLabel(aaguid: string | null, transports: string | null): string | null {
+  const known = aaguid ? AAGUID_LABELS[aaguid.toLowerCase()] : undefined;
+  if (known) return known;
+  const parts = transports?.split(",").map((s) => s.trim()) ?? [];
+  if (parts.some((t) => t === "hybrid")) return "Mobile Passkey";
+  if (parts.some((t) => t === "ble")) return "Bluetooth Passkey";
+  if (parts.some((t) => t === "usb")) return "USB Passkey";
+  if (parts.some((t) => t === "nfc")) return "NFC Passkey";
+  if (parts.includes("internal")) return "Built-In Passkey";
+  return null;
+}
+
+function toPasskeyView(cred: {
+  id: string;
+  label: string | null;
+  aaguid: string | null;
+  transports: string | null;
+  createdAt: string;
+  lastUsedAt: string | null;
+}): PasskeyView {
+  return {
+    id: cred.id,
+    label: normalizePasskeyLabel(cred.label) ?? resolveDefaultPasskeyLabel(cred.aaguid, cred.transports),
+    transports: cred.transports,
+    createdAt: cred.createdAt,
+    lastUsedAt: cred.lastUsedAt,
+  };
 }
 
 /** Pull the base64url challenge the authenticator signed out of clientDataJSON. */

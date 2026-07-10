@@ -184,17 +184,10 @@ export class RecordService {
     // yet — reject rather than silently accepting an unverified proof-looking field.
     if (envelope.proof !== undefined) throw new Error("appendSigned: ZK membership proof not yet supported");
 
-    // Signing-scheme policy + shape. The scheme is `p256` unless declared `webauthn-es256`.
+    // Signing-scheme SHAPE checks. The scheme is `p256` unless declared `webauthn-es256`. The
+    // jurisdiction signing POLICY (per-action signMin floor) is enforced below, after the thread key
+    // lookup resolves the action's jurisdiction — gates are per-jurisdiction, not platform-wide.
     const scheme = envelope.signScheme ?? "p256";
-    // Jurisdiction policy (hard override for vote/petition_signature → webauthn-es256). Resolved by
-    // record type; applies to create/update/delete alike. Fail-closed by default; engine-capability
-    // tests of the raw p256 path may disable it.
-    if (this.enforceSigningPolicy) {
-      const need = requiredSignScheme(envelope.type);
-      if (need && need !== scheme) {
-        throw new Error(`appendSigned: ${envelope.type} requires ${need} signatures`);
-      }
-    }
     if (scheme === "webauthn-es256") {
       // mvp-a5b persona/signer split: authorPubkey = Pₜ (stable thread persona), signerPubkey =
       // this device's per-thread WebAuthn passkey pubkey (REQUIRED — was forbidden on A5). The
@@ -235,6 +228,18 @@ export class RecordService {
     const tk = await this.store.getThreadKey(envelope.authorPubkey);
     if (!tk) throw new Error("appendSigned: unknown thread key");
 
+    // Jurisdiction signing policy ([align-w3-gates-schema]): the per-action signMin floor of the
+    // THREAD's jurisdiction. `passkey` floors require a UV-verified webauthn-es256 assertion (UV is
+    // enforced inside verifyWebauthnAssertion); `quick` floors accept p256. Applies to
+    // create/update/delete alike (resolved by type). Fail-closed by default; engine-capability tests
+    // of the raw p256 path may disable it.
+    if (this.enforceSigningPolicy) {
+      const need = requiredSignScheme(envelope.type, tk.jurisdiction);
+      if (need && need !== scheme) {
+        throw new Error(`appendSigned: ${envelope.type} requires ${need} signatures in ${tk.jurisdiction}`);
+      }
+    }
+
     if (scheme === "webauthn-es256") {
       // mvp-a5b persona/signer split: the device's signerPubkey must be a registered, non-revoked
       // credential UNDER the same Pₜ that signed the envelope (FK persona_pubkey === authorPubkey),
@@ -242,40 +247,25 @@ export class RecordService {
       // in depth, same philosophy as binding_sig re-check) so a DB-modified row cannot escalate.
       const signerPubkey = envelope.signerPubkey;
       if (!signerPubkey) throw new Error("appendSigned: webauthn-es256 envelope is missing signerPubkey");
-      const cred = await this.store.getThreadCredential(signerPubkey);
-      if (!cred) throw new Error("appendSigned: device credential is not registered for this thread");
-      if (cred.revoked) throw new Error("appendSigned: device credential is revoked");
-      if (cred.personaPubkey !== envelope.authorPubkey) {
-        throw new Error("appendSigned: device credential's persona does not match authorPubkey");
-      }
-      if (cred.userId !== tk.userId) throw new Error("appendSigned: device credential is not the author's");
-      if (cred.threadId !== tk.threadId) throw new Error("appendSigned: device credential is not scoped to this thread");
-      const binding = await this.store.getThreadBinding(cred.personaPubkey);
-      if (!binding) throw new Error("appendSigned: thread persona binding not found");
-      const credentialAuthOk = verifyCredentialAuth(
-        {
-          domain: "credential-auth-v1",
-          personaPubkey: cred.personaPubkey,
-          credentialPubkey: signerPubkey,
-          threadId: cred.threadId,
-          jurisdiction: cred.jurisdiction,
-          commitment: binding.commitment,
-        },
-        cred.credentialSig,
-        this.platformPubKeyHex!,
-      );
-      if (!credentialAuthOk) throw new Error("appendSigned: device credential attestation failed to verify");
+      await this.verifyCivicCredential(signerPubkey, envelope.authorPubkey, tk);
     } else if (envelope.signerPubkey) {
-      // Device-signer authorization (Method 3 §5.4, legacy p256 path): when the envelope is signed by
-      // a thread-scoped device key, that signer must belong to the SAME verified user as the persona
-      // (the dedupe / authorization boundary) AND be scoped to the SAME thread (no cross-thread signer
-      // reuse). Any enrolled, non-revoked device of that user may thus act for the persona — including
-      // editing content first written from another device (cross-device edit, §5.4 rule 6).
-      const sgn = await this.store.getThreadSigner(envelope.signerPubkey);
-      if (!sgn) throw new Error("appendSigned: signer is not a registered device for this thread");
-      if (sgn.revoked) throw new Error("appendSigned: signer (or its device) is revoked");
-      if (sgn.userId !== tk.userId) throw new Error("appendSigned: signer is not enrolled to the author's user");
-      if (sgn.threadId !== tk.threadId) throw new Error("appendSigned: signer is not scoped to this thread");
+      // p256 path ([align-w3-gates-schema] quick floor): the SAME mvp-a5b credential authorization as
+      // webauthn — a quick-signing device enrolls its per-thread software key as a civic credential at
+      // join, and the software signature (already checked by verifyEnvelope against signerPubkey)
+      // stands in for the assertion. Falls back to the legacy Method-3 thread_signers table so
+      // pre-a5b device-signed envelopes keep verifying.
+      const cred = await this.store.getThreadCredential(envelope.signerPubkey);
+      if (cred) {
+        await this.verifyCivicCredential(envelope.signerPubkey, envelope.authorPubkey, tk);
+      } else {
+        // Legacy device-signer authorization (Method 3 §5.4): the signer must belong to the SAME
+        // verified user as the persona AND be scoped to the SAME thread (no cross-thread reuse).
+        const sgn = await this.store.getThreadSigner(envelope.signerPubkey);
+        if (!sgn) throw new Error("appendSigned: signer is not a registered device for this thread");
+        if (sgn.revoked) throw new Error("appendSigned: signer (or its device) is revoked");
+        if (sgn.userId !== tk.userId) throw new Error("appendSigned: signer is not enrolled to the author's user");
+        if (sgn.threadId !== tk.threadId) throw new Error("appendSigned: signer is not scoped to this thread");
+      }
     }
 
     const parent =
@@ -283,7 +273,7 @@ export class RecordService {
 
     if (envelope.op === "create") {
       if (envelope.prevHash !== null) throw new Error("appendSigned: a create must have prevHash=null");
-      const r = await this.validateCreate({ type: envelope.type, author: envelope.authorPubkey, content, parent, entityId: envelope.entityId });
+      const r = await this.validateCreate({ type: envelope.type, author: envelope.authorPubkey, content, parent, entityId: envelope.entityId, jurisdictionId: tk.jurisdiction });
       if (tk.threadId !== r.rootEntityId) {
         throw new Error("appendSigned: thread key is not scoped to this action's root entity");
       }
@@ -319,8 +309,8 @@ export class RecordService {
       // author-match (proven by the signature over authorPubkey) + governance + op rules.
       const v =
         envelope.op === "update"
-          ? await this.validateUpdate(envelope.entityId, envelope.authorPubkey, content)
-          : await this.validateDelete(envelope.entityId, envelope.authorPubkey);
+          ? await this.validateUpdate(envelope.entityId, envelope.authorPubkey, content, tk.jurisdiction)
+          : await this.validateDelete(envelope.entityId, envelope.authorPubkey, tk.jurisdiction);
       if (tk.threadId !== v.rootEntityId) {
         throw new Error("appendSigned: thread key is not scoped to this action's root entity");
       }
@@ -350,6 +340,40 @@ export class RecordService {
     return { txId: envelope.txId, entityId: envelope.entityId, txHash };
   }
 
+  /** mvp-a5b credential authorization, shared by the webauthn AND p256 quick paths: the signer must
+   *  be a registered, non-revoked civic credential under the envelope's persona, bound to the same
+   *  (user, thread) as Pₜ, with the platform credential_sig re-verified (defense in depth — a
+   *  DB-modified row cannot escalate). */
+  private async verifyCivicCredential(
+    signerPubkey: string,
+    authorPubkey: string,
+    tk: { userId: string; threadId: string },
+  ): Promise<void> {
+    const cred = await this.store.getThreadCredential(signerPubkey);
+    if (!cred) throw new Error("appendSigned: device credential is not registered for this thread");
+    if (cred.revoked) throw new Error("appendSigned: device credential is revoked");
+    if (cred.personaPubkey !== authorPubkey) {
+      throw new Error("appendSigned: device credential's persona does not match authorPubkey");
+    }
+    if (cred.userId !== tk.userId) throw new Error("appendSigned: device credential is not the author's");
+    if (cred.threadId !== tk.threadId) throw new Error("appendSigned: device credential is not scoped to this thread");
+    const binding = await this.store.getThreadBinding(cred.personaPubkey);
+    if (!binding) throw new Error("appendSigned: thread persona binding not found");
+    const credentialAuthOk = verifyCredentialAuth(
+      {
+        domain: "credential-auth-v1",
+        personaPubkey: cred.personaPubkey,
+        credentialPubkey: signerPubkey,
+        threadId: cred.threadId,
+        jurisdiction: cred.jurisdiction,
+        commitment: binding.commitment,
+      },
+      cred.credentialSig,
+      this.platformPubKeyHex!,
+    );
+    if (!credentialAuthOk) throw new Error("appendSigned: device credential attestation failed to verify");
+  }
+
   // ── Shared validation (used by the unsigned dev path AND the signed path) ────────────────
 
   /** Validate a CREATE intent and resolve the server-derived fields. Throws on any rule violation.
@@ -360,9 +384,11 @@ export class RecordService {
     content: unknown;
     parent?: ParentRef;
     entityId: string;
+    /** The acting thread's jurisdiction (per-jurisdiction content caps); absent ⇒ deployment default. */
+    jurisdictionId?: string;
   }): Promise<{ parentRevisionHash?: string; parentRevisionTxId?: string; rootEntityId: string; isSingleton: boolean }> {
     if (!opAllowed(i.type, "create")) throw new Error(`create not allowed for ${i.type}`);
-    validateContent(i.type, "create", i.content);
+    validateContent(i.type, "create", i.content, i.jurisdictionId);
     let parentRevisionHash: string | undefined;
     let parentRevisionTxId: string | undefined;
     let rootEntityId = i.entityId;
@@ -417,7 +443,7 @@ export class RecordService {
   /** Validate an UPDATE against the entity's head (shared by the unsigned + signed paths). `actor`
    *  is the claimed author (unsigned) or the signed `authorPubkey` (signed, where the signature
    *  PROVES control). Throws on any rule violation; returns the head + the root entity. */
-  private async validateUpdate(entityId: string, actor: string, content?: unknown): Promise<{ head: StoredTx; rootEntityId: string }> {
+  private async validateUpdate(entityId: string, actor: string, content?: unknown, jurisdictionId?: string): Promise<{ head: StoredTx; rootEntityId: string }> {
     const head = await this.store.getHeadTx(entityId);
     if (!head) throw new Error(`entity ${entityId} not found`);
     if (head.op === "delete") throw new Error(`entity ${entityId} is deleted`);
@@ -426,10 +452,10 @@ export class RecordService {
     // Content-model + length caps on edits (the type is known only after we fetch the head). Skipped
     // when no content is supplied (e.g. a prepare that only wants prevHash); the authoritative
     // appendSigned/update() paths always pass it.
-    if (content !== undefined) validateContent(head.type, "update", content);
+    if (content !== undefined) validateContent(head.type, "update", content, jurisdictionId);
     if (head.type === "vote") {
       if (!head.parentId) throw new Error("vote has no parent poll");
-      if (!(await canChangeVote(this.store, head.parentId))) {
+      if (!(await canChangeVote(this.store, head.parentId, new Date(), jurisdictionId))) {
         throw new Error(`vote change not permitted for poll ${head.parentId} (rules/deadline)`);
       }
     }
@@ -437,7 +463,7 @@ export class RecordService {
   }
 
   /** Validate a DELETE against the entity's head (shared by the unsigned + signed paths). */
-  private async validateDelete(entityId: string, actor: string): Promise<{ head: StoredTx; rootEntityId: string }> {
+  private async validateDelete(entityId: string, actor: string, jurisdictionId?: string): Promise<{ head: StoredTx; rootEntityId: string }> {
     const head = await this.store.getHeadTx(entityId);
     if (!head) throw new Error(`entity ${entityId} not found`);
     if (head.op === "delete") throw new Error(`entity ${entityId} already deleted`);
@@ -445,7 +471,7 @@ export class RecordService {
     this.assertAuthor(head.authorPubkey, actor, entityId);
     if (head.type === "petition_signature") {
       if (!head.parentId) throw new Error("signature has no parent petition");
-      if (!(await canRevokeSignature(this.store, head.parentId))) {
+      if (!(await canRevokeSignature(this.store, head.parentId, new Date(), jurisdictionId))) {
         throw new Error(`signature revoke not permitted for petition ${head.parentId} (rules/deadline)`);
       }
     }

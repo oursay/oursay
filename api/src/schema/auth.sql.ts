@@ -30,7 +30,14 @@ CREATE TABLE IF NOT EXISTS auth.profiles (
   postal_code     TEXT,
   country         TEXT NOT NULL DEFAULT 'CA',
   address_memo    TEXT,                 -- jurisdiction-specific extra field
-  birthdate       DATE NOT NULL,        -- age gate enforced at registration (service layer)
+  over_18         BOOLEAN NOT NULL DEFAULT false, -- self-attested at registration; KYC re-verifies.
+                                        -- The age gate stores ONLY this boolean — no date of birth
+                                        -- is retained ([code-over-18], C3).
+  visibility      TEXT NOT NULL DEFAULT 'anonymous',
+                                        -- account-default author visibility (C4; docs/09) — the FULL
+                                        -- web-app enum; CHECK is (re)applied below so the allow-list
+                                        -- can widen idempotently. Effective value cascades
+                                        -- thread ?? account ?? anonymous.
   email           TEXT NOT NULL,        -- as the user typed it
   email_canonical TEXT NOT NULL UNIQUE, -- normalized; uniqueness + all lookups use this form
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -38,6 +45,24 @@ CREATE TABLE IF NOT EXISTS auth.profiles (
 -- Idempotent migrations for a persistent dev DB created before these columns existed.
 ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS first_name TEXT;
 ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS last_name TEXT;
+ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS over_18 BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE auth.profiles ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'anonymous';
+-- [align-w4-api-surface] C4: the visibility enum widens to the full web-app set. Migrate the legacy
+-- 'officials' spelling forward, then (re)apply the widened allow-list (drop + re-add is the
+-- idempotent CHECK-widening pattern used for sessions/email_otp above).
+UPDATE auth.profiles SET visibility = 'all_officials' WHERE visibility = 'officials';
+ALTER TABLE auth.profiles DROP CONSTRAINT IF EXISTS profiles_visibility_check;
+ALTER TABLE auth.profiles ADD CONSTRAINT profiles_visibility_check
+  CHECK (visibility IN ('anonymous','my_officials','all_officials','my_district','my_jurisdiction','id_verified','public'));
+-- [code-over-18]: the stored date of birth is DISCARDED. Rows that predate the boolean carry a
+-- birthdate that passed the 18+ registration gate — mark them over_18 before dropping the column.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'auth' AND table_name = 'profiles' AND column_name = 'birthdate') THEN
+    UPDATE auth.profiles SET over_18 = true;
+    ALTER TABLE auth.profiles DROP COLUMN birthdate;
+  END IF;
+END $$;
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns
              WHERE table_schema = 'auth' AND table_name = 'profiles' AND column_name = 'region')
@@ -91,7 +116,7 @@ CREATE TABLE IF NOT EXISTS auth.sessions (
   id            UUID PRIMARY KEY,
   user_id       UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   token_hash    TEXT NOT NULL UNIQUE,
-  scope         TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','recovery','login')),
+  scope         TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','registration','recovery','login')),
   credential_id UUID REFERENCES auth.passkey_credentials(id) ON DELETE SET NULL,
   user_agent    TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -99,10 +124,10 @@ CREATE TABLE IF NOT EXISTS auth.sessions (
   revoked_at    TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON auth.sessions (user_id);
--- Widen the scope CHECK on a persistent dev DB created before 'login' existed (constraint is the
--- table-name-derived auto name). Idempotent: drop then re-add the current allow-list.
+-- Widen the scope CHECK on a persistent dev DB created before 'login'/'registration' existed
+-- (constraint is the table-name-derived auto name). Idempotent: drop then re-add the allow-list.
 ALTER TABLE auth.sessions DROP CONSTRAINT IF EXISTS sessions_scope_check;
-ALTER TABLE auth.sessions ADD CONSTRAINT sessions_scope_check CHECK (scope IN ('full','recovery','login'));
+ALTER TABLE auth.sessions ADD CONSTRAINT sessions_scope_check CHECK (scope IN ('full','registration','recovery','login'));
 -- Add the passkey pairing column on a persistent dev DB created before it existed (BEFORE the index
 -- below, which depends on it).
 ALTER TABLE auth.sessions ADD COLUMN IF NOT EXISTS credential_id UUID REFERENCES auth.passkey_credentials(id) ON DELETE SET NULL;
@@ -170,4 +195,59 @@ CREATE TABLE IF NOT EXISTS auth.profile_geocode_history (
 );
 CREATE INDEX IF NOT EXISTS profile_geocode_history_geom_gix ON auth.profile_geocode_history USING GIST (geom);
 CREATE INDEX IF NOT EXISTS profile_geocode_history_user_time_idx ON auth.profile_geocode_history (user_id, recorded_at);
+
+-- ── [align-w3-gates-schema] account-scoped tables (WEB-APP-GAPS Part 2) ──────────────────────────
+
+-- Jurisdiction subscriptions ([mvp-c10b-membership]); every account is auto-subscribed to
+-- oursay-global at registration. 'role' is the platform-assigned, revocable authority role
+-- ('official' today; never a KYC tier — Part 5 #7). 'represented_district_slug' is set with the
+-- role: an official's in-district logic is forced to the REPRESENTED district, never the home
+-- address (Part 6 #5).
+CREATE TABLE IF NOT EXISTS auth.jurisdiction_memberships (
+  user_id                   UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  jurisdiction_id           TEXT NOT NULL,
+  role                      TEXT CHECK (role IN ('official')),
+  represented_district_slug TEXT,
+  created_at                TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, jurisdiction_id)
+);
+CREATE INDEX IF NOT EXISTS jurisdiction_memberships_jur ON auth.jurisdiction_memberships (jurisdiction_id);
+
+-- C1: per-action signing preferences (quick | ask | passkey per SignAction). The gate floor is
+-- enforced server-side regardless; prefs only pick the method ABOVE the floor. JSONB keeps the
+-- action keyset a client concern (e.g. { "post": "ask", "vote": "passkey" }).
+CREATE TABLE IF NOT EXISTS auth.signing_prefs (
+  user_id    UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+  prefs      JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- C4: optional per-jurisdiction visibility layer (kept per docs/09; no UI yet — the MVP cascade is
+-- thread ?? account ?? anonymous, this middle layer is future MAY).
+CREATE TABLE IF NOT EXISTS auth.visibility_overrides (
+  user_id         UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  jurisdiction_id TEXT NOT NULL,
+  visibility      TEXT NOT NULL,
+  PRIMARY KEY (user_id, jurisdiction_id)
+);
+-- [align-w4-api-surface] C4: widen to the full web-app enum (same pattern as auth.profiles above).
+UPDATE auth.visibility_overrides SET visibility = 'all_officials' WHERE visibility = 'officials';
+ALTER TABLE auth.visibility_overrides DROP CONSTRAINT IF EXISTS visibility_overrides_visibility_check;
+ALTER TABLE auth.visibility_overrides ADD CONSTRAINT visibility_overrides_visibility_check
+  CHECK (visibility IN ('anonymous','my_officials','all_officials','my_district','my_jurisdiction','id_verified','public'));
+
+-- Hosted KYC session tracking (Didit). No decision payload — vendor PII stays at the provider.
+CREATE TABLE IF NOT EXISTS auth.kyc_sessions (
+  id                   UUID PRIMARY KEY,
+  user_id              UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  provider             TEXT NOT NULL,
+  provider_session_id  TEXT NOT NULL UNIQUE,
+  workflow_kind        TEXT NOT NULL CHECK (workflow_kind IN ('identity', 'poa')),
+  status               TEXT NOT NULL,
+  attested_at          TIMESTAMPTZ,
+  last_polled_at       TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS kyc_sessions_user ON auth.kyc_sessions (user_id);
 `;

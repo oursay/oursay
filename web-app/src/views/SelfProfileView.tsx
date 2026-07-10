@@ -2,8 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui";
-import { MY_HANDLE } from "@/lib/mock";
-import { readSession, useApp } from "@/lib/state";
+import { accountIdentity, readSession, useApp } from "@/lib/state";
 import { ProfileView } from "./ProfileView";
 
 /**
@@ -15,6 +14,7 @@ export function SelfProfileView() {
   const app = useApp();
   const { loggedIn } = app.state;
   const { openAuth, setPageJurisdiction } = app;
+  const identity = accountIdentity(app.state);
 
   // Ref-guarded so the modal pops only on arrival — logging out while on the
   // page must not re-open it. state.loggedIn is stale-false until the
@@ -39,5 +39,13 @@ export function SelfProfileView() {
     );
   }
 
-  return <ProfileView handle={MY_HANDLE} self />;
+  if (!identity) {
+    return (
+      <div className="flex flex-col items-center gap-3 p-10 text-center">
+        <p className="text-sm text-muted">Loading profile…</p>
+      </div>
+    );
+  }
+
+  return <ProfileView handle={identity.handle} self />;
 }

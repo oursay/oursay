@@ -568,3 +568,19 @@ _Action plan + agent prompts: [`WEB-APP-ALIGNMENT-PROMPTS.md`](./WEB-APP-ALIGNME
   optional + helper), graduation forced/manual + deadline-only closing + threshold shapes,
   official-count record + deferred tier-in-record, root-only audience DTO fields, .agents refs
   moved into HTML comments, riding_slug references purged outside the GLOSSARY legacy row.
+- **Bridge MVP code landed 2026-07-05/06** (Phases 1–6 of the alignment plan): W2 mock/DTO alignment,
+  W3 gates config + idempotent schema + fail-closed write enforcement (table-driven gate matrix,
+  `20-gates.spec.ts`), W4 public + `/v1/me` API surface (P1–P9, A1–A7), W5 web-app wired to the live
+  API through the Next `/v1/*` proxy (mock path kept behind `NEXT_PUBLIC_MOCK_ONLY`), the dev DB seed
+  (`npm run seed -w @oursay/api`), and the Didit KYC provider (+ Postmark OTP). Phase 6 adds the e2e
+  smoke `api/test/35-e2e-smoke.spec.ts` — one ordered journey over the live HTTP surface (register →
+  dev-attest identity → subscribe AB → passkey statement → quick-sign comment → vote act-blocked
+  pre-residency → address + platform residency attest → passkey vote lands → persona page → private
+  profile 404 → seeded feed) against the real 2019 Alberta boundaries. `npm test -w @oursay/api` =
+  206 passing / 3 pending (the 3 = live Didit specs, skipped without sandbox creds / cached artifact).
+- **Deferred (2026-07-06) — Didit hosted UI wiring (gap A):** the Didit backend is complete and proven
+  against the sandbox (`POST /v1/kyc/didit/session`, throttled poll, HMAC webhook, idempotent award),
+  but `web-app/src/lib/api/me.ts` still only calls dev-attest + platform residency — it never opens a
+  Didit hosted session. Under `KYC_PROVIDER=didit` the dev "Get Verified" button 403s (gap B: didit
+  declines direct `verify()`). Dev default stays dev-attest; the web-app end-to-end walk uses
+  `KYC_PROVIDER=stub`. Tracked in ROADMAP.md and API-GAPS-AND-ROADMAP.md.

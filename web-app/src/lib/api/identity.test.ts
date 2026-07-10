@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ALBERTA_ID } from "@/lib/types";
 import { MY_HANDLE, MY_NAME } from "@/lib/mock";
 import type {
   CommentNode,
@@ -25,7 +26,7 @@ function item(handle: string, author: string, id = "stmt-x"): FeedItem {
   return {
     id,
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 1,
     districts: [],
     author,

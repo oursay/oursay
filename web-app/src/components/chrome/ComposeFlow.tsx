@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Check, ChevronDown } from "lucide-react";
-import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
+import { BarChart3, Check, ChevronDown, VenetianMask } from "lucide-react";
+import { listDistricts } from "@/lib/api";
+import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
+import { jurisdictionLabel } from "@/lib/mock";
 import {
   composeTypeLockReason,
   rootTypesForJurisdiction,
 } from "@/lib/compose-eligibility";
+import type { ComposeViewer } from "@/lib/compose-eligibility";
 import {
   Button,
   CollapsibleSection,
@@ -16,8 +19,10 @@ import {
   PollComposeBody,
 } from "@/components/ui";
 import { AnonymityDropdown } from "@/components/identity";
+import { AffectedDistrictsSelector } from "./AffectedDistrictsSelector";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
-import type { AuthorVisibility, RecordKind, VerificationTier } from "@/lib/types";
+import { ALBERTA_ID } from "@/lib/types";
+import type { AuthorVisibility, DistrictSummary, RecordKind, VerificationTier } from "@/lib/types";
 
 export type ComposeStep = "where" | "type" | "compose";
 
@@ -25,11 +30,14 @@ interface ComposeFlowProps {
   open: boolean;
   onClose: () => void;
   step: ComposeStep;
-  /** Jurisdictions the viewer can post in (the "where" step, skipped with one). */
+  /** Jurisdiction ids the viewer can post in (the "where" step, skipped with one). */
   jurisdictions: string[];
   kycTier: VerificationTier;
+  /** Viewer's official role (orthogonal to KYC tier) — gates officials-only polls. */
+  role?: "official";
+  /** Selected jurisdiction id. */
   selectedJurisdiction?: string;
-  onSelectJurisdiction: (name: string) => void;
+  onSelectJurisdiction: (id: string) => void;
   /** Root types allowed in the selected jurisdiction. */
   allowedTypes: RecordKind[];
   selectedType?: RecordKind;
@@ -42,6 +50,14 @@ interface ComposeFlowProps {
   /** Per-post visibility override (unset = account default; may widen or narrow). */
   composeVisibility?: AuthorVisibility;
   onSelectVisibility?: (v: AuthorVisibility) => void;
+  composeDistricts?: string[];
+  onComposeDistrictsChange?: (slugs: string[]) => void;
+  composeTitle?: string;
+  composeBody?: string;
+  composePollOptions?: string[];
+  onComposeTitleChange?: (v: string) => void;
+  onComposeBodyChange?: (v: string) => void;
+  onComposePollOptionsChange?: (v: string[]) => void;
   /** Submits (Global) or opens the passkey confirmation (Alberta). */
   onPost?: () => void;
 }
@@ -65,6 +81,7 @@ export function ComposeFlow({
   step,
   jurisdictions,
   kycTier,
+  role,
   selectedJurisdiction,
   onSelectJurisdiction,
   allowedTypes,
@@ -75,26 +92,50 @@ export function ComposeFlow({
   accountVisibility = "anonymous",
   composeVisibility,
   onSelectVisibility,
+  composeDistricts = [],
+  onComposeDistrictsChange,
+  composeTitle = "",
+  composeBody = "",
+  composePollOptions = ["", ""],
+  onComposeTitleChange,
+  onComposeBodyChange,
+  onComposePollOptionsChange,
   onPost,
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
-  // Wireframe state.pollOptions — starts at the 2-option minimum.
-  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
-  // Alberta petition: optional attached poll (Alberta has no poll root type).
   const [petitionPollOpen, setPetitionPollOpen] = useState(false);
+  const [districtOptions, setDistrictOptions] = useState<DistrictSummary[]>([]);
+  const pollOptions = composePollOptions;
+  const setPollOptions = onComposePollOptionsChange ?? (() => {});
   const effectiveVisibility = composeVisibility ?? accountVisibility;
+  const viewer: ComposeViewer = { kycTier, role };
 
   useEffect(() => {
     if (!open) {
       setJurMenuOpen(false);
-      setPollOptions(["", ""]);
       setPetitionPollOpen(false);
     }
   }, [open]);
 
+  useEffect(() => {
+    if (!open || step !== "compose" || !selectedJurisdiction) {
+      setDistrictOptions([]);
+      return;
+    }
+    let active = true;
+    listDistricts(selectedJurisdiction).then((rows) => {
+      if (active) setDistrictOptions(rows);
+    });
+    return () => {
+      active = false;
+    };
+  }, [open, step, selectedJurisdiction]);
+
+  const showDistrictPicker = districtOptions.length > 0;
+
   const picker = step === "where" || step === "type";
   const JurIcon = selectedJurisdiction
-    ? jurisdictionIconForName(selectedJurisdiction)
+    ? jurisdictionIconForId(selectedJurisdiction)
     : null;
 
   const ComposeTypeIcon = selectedType ? RECORD_TYPE_ICON[selectedType] : null;
@@ -142,7 +183,7 @@ export function ComposeFlow({
           "Pick a jurisdiction"
         ) : step === "type" ? (
           <span>
-            In {selectedJurisdiction}
+            In {selectedJurisdiction ? jurisdictionLabel(selectedJurisdiction) : ""}
             {jurisdictions.length > 1 && onChangeJurisdiction ? (
               <button
                 type="button"
@@ -165,14 +206,14 @@ export function ComposeFlow({
     >
       {step === "where" ? (
         <div className="space-y-2">
-          {jurisdictions.map((name) => {
-            const Icon = jurisdictionIconForName(name);
+          {jurisdictions.map((id) => {
+            const Icon = jurisdictionIconForId(id);
             return (
               <ModalOptionRow
-                key={name}
-                label={name}
+                key={id}
+                label={jurisdictionLabel(id)}
                 icon={<Icon size={18} aria-hidden />}
-                onClick={() => onSelectJurisdiction(name)}
+                onClick={() => onSelectJurisdiction(id)}
               />
             );
           })}
@@ -185,9 +226,9 @@ export function ComposeFlow({
             const Icon = RECORD_TYPE_ICON[kind];
             const lockReason =
               selectedJurisdiction !== undefined
-                ? composeTypeLockReason(selectedJurisdiction, kind, kycTier)
+                ? composeTypeLockReason(selectedJurisdiction, kind, viewer)
                 : undefined;
-            const locked = lockReason !== undefined && lockReason !== "type N/A";
+            const locked = lockReason !== undefined;
             return (
               <ModalOptionRow
                 key={kind}
@@ -218,7 +259,9 @@ export function ComposeFlow({
                 className="mt-1 flex min-h-10 w-full items-center gap-2 rounded-lg border border-border bg-surface-muted px-3 text-sm font-medium text-ink hover:bg-surface"
               >
                 <JurIcon size={18} className="shrink-0 text-ink-soft" aria-hidden />
-                <span className="flex-1 text-left">{selectedJurisdiction}</span>
+                <span className="flex-1 text-left">
+                  {selectedJurisdiction ? jurisdictionLabel(selectedJurisdiction) : ""}
+                </span>
                 <ChevronDown
                   size={16}
                   className={`shrink-0 text-muted transition-transform ${jurMenuOpen ? "rotate-180" : ""}`}
@@ -231,21 +274,21 @@ export function ComposeFlow({
                   aria-label="Posting jurisdiction"
                   className="absolute inset-x-0 top-full z-10 mt-1 overflow-hidden rounded-lg border border-border-strong bg-surface py-1 shadow-lg"
                 >
-                  {jurisdictions.map((name) => {
-                    const Icon = jurisdictionIconForName(name);
+                  {jurisdictions.map((id) => {
+                    const Icon = jurisdictionIconForId(id);
                     const lockReason = selectedType
-                      ? composeTypeLockReason(name, selectedType, kycTier)
+                      ? composeTypeLockReason(id, selectedType, viewer)
                       : undefined;
                     const eligible = lockReason === undefined;
-                    const selected = name === selectedJurisdiction;
+                    const selected = id === selectedJurisdiction;
                     return (
-                      <li key={name} role="option" aria-selected={selected}>
+                      <li key={id} role="option" aria-selected={selected}>
                         <button
                           type="button"
                           disabled={!eligible}
                           onClick={() => {
                             if (!eligible) return;
-                            onSelectJurisdiction(name);
+                            onSelectJurisdiction(id);
                             setJurMenuOpen(false);
                           }}
                           className={`flex min-h-9 w-full items-center gap-2 px-3 text-left text-sm ${
@@ -259,7 +302,7 @@ export function ComposeFlow({
                             className={eligible ? "text-ink-soft" : "text-muted"}
                             aria-hidden
                           />
-                          <span className="flex-1">{name}</span>
+                          <span className="flex-1">{jurisdictionLabel(id)}</span>
                           {lockReason ? (
                             <span className="shrink-0 text-[10px] text-muted">
                               {lockReason}
@@ -276,13 +319,25 @@ export function ComposeFlow({
             </div>
           ) : null}
             <div className="w-[42%] shrink-0">
+              <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted">
+                Anonymity
+                <VenetianMask size={12} aria-hidden />
+              </div>
               <AnonymityDropdown
-                label="Anonymity"
+                showButtonIcon={false}
                 value={effectiveVisibility}
                 onChange={(v) => onSelectVisibility?.(v)}
               />
             </div>
           </div>
+
+          {showDistrictPicker ? (
+            <AffectedDistrictsSelector
+              districts={districtOptions}
+              value={composeDistricts}
+              onChange={(slugs) => onComposeDistrictsChange?.(slugs)}
+            />
+          ) : null}
 
           {selectedType === "poll" ? (
             <PollComposeBody options={pollOptions} onChange={setPollOptions} />
@@ -295,6 +350,8 @@ export function ComposeFlow({
                     ? "What are you calling for?"
                     : "A clear headline…"
                 }
+                value={composeTitle}
+                onChange={(e) => onComposeTitleChange?.(e.target.value)}
               />
               <ModalField
                 label="Details"
@@ -305,6 +362,8 @@ export function ComposeFlow({
                 }
                 multiline
                 rows={4}
+                value={composeBody}
+                onChange={(e) => onComposeBodyChange?.(e.target.value)}
               />
             </>
           )}
@@ -318,7 +377,7 @@ export function ComposeFlow({
             />
           ) : null}
 
-          {selectedType === "petition" && selectedJurisdiction === "Alberta" ? (
+          {selectedType === "petition" && selectedJurisdiction === ALBERTA_ID ? (
             <CollapsibleSection
               icon={BarChart3}
               label="Add a Poll (optional)"

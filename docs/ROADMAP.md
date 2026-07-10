@@ -13,7 +13,7 @@ Petition, Poll, Result; district label `riding`).
 
 ## Current — landed (per `git log`)
 
-The civic engine and read/write seams exist; there is no end-user web app yet.
+The civic engine, read/write seams, and the web app (wired to the live API) all exist.
 
 - **Account auth** — email-OTP registration, account-login passkeys, recovery, gated cross-device login, private profile.
 - **Civic identity & signing** — stable per-thread persona Pₜ, per-device WebAuthn (`webauthn-es256`) signing plus the `p256` quick-sign path (both production methods), browser custody (PRF + secure-storage fallback).
@@ -21,6 +21,7 @@ The civic engine and read/write seams exist; there is no end-user web app yet.
 - **Civic writes** — join → prepare → submit for all record types; `@oursay/identity` client SDK.
 - **Public reads** — browse / detail / counts for the civic record.
 - **Geography (Phase C, `geo-foundation`)** — PostGIS district boundaries (AB 2019 + 2023), `@oursay/geo` Region model + resolver, best-effort address geocoding into a private point cache, `ParticipantGeoService`, geo `scope` + KYC `tier` (set membership, stub provider) on counts, k-anonymity floor, per-jurisdiction count exposure gating (`countGating`), public area catalog.
+- **Web app (Bridge MVP)** — Next.js app wired to the live API through a same-origin `/v1/*` proxy (mock corpus kept behind `NEXT_PUBLIC_MOCK_ONLY`); dev DB seed (`npm run seed`); e2e smoke over the live HTTP surface (`api/test/35-e2e-smoke.spec.ts`). **Deferred:** Didit hosted-session KYC in the UI (backend done + sandbox-proven; Get-Verified still dev-attest — gaps A/B, tracked in API-GAPS-AND-ROADMAP.md); dev default stays dev-attest.
 
 ## MVP — to launch (Alberta)
 

@@ -131,17 +131,36 @@ text).
 # from the repo root
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + PostGIS (postgres 16)
-npm run test    --workspace public-record   # 53 tests (11 suites)
+npm run test    --workspace public-record   # 53 tests (11 suites); pretest starts test stack
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
-npm run db:down --workspace public-record   # tear down (wipes volumes; blocked when NODE_ENV=production)
+npm run db:down --workspace public-record   # tear down dev stack (wipes volumes; blocked when NODE_ENV=production)
 ```
+
+Integration tests use a **separate Docker stack** (`docker-compose.test.yml`: `oursay-test-public-record-pg` on
+**5444**, `oursay-test-public-record-immudb` on **5445**) so `TRUNCATE` isolation does not wipe the dev seed on
+**5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test-public-record`, so dev
+and test stacks do not replace each other); tear it down with
+`npm run db:test:down --workspace public-record`. Mocha loads repo-root `.env.test` before package
+config (see `scripts/load-test-env.ts`).
 
 Destructive npm scripts (`db:down`, `seed`, `reset`) and `PrivateStore.reset()` refuse to run when
 `NODE_ENV=production`. Raw `docker compose down -v` is not gated — production hosts must not expose
 the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` §11).
 
-Host ports are offset from `immudb-test` (immudb pg-wire **5443**, postgres **5442**) so both
-stacks can run at once. No `.env` is needed; defaults match `docker-compose.yml`.
+Host ports so stacks can run side-by-side:
+
+| Stack | Compose file | Postgres | immudb | console |
+|-------|--------------|----------|--------|---------|
+| dev | `docker-compose.dev.yml` | **5442** | **5443** | **8082** |
+| test | `docker-compose.test.yml` | **5444** | **5445** | **8083** |
+| prod | `docker-compose.prod.yml` | *(internal only)* | *(internal only)* | *(none)* |
+
+Prod does **not** publish Postgres/immudb to the host — only containers on the compose
+network (API / worker) can connect. Dev/test keep host ports for local tooling and
+host-run tests/seed.
+
+No `.env` is needed for local dev; package defaults match `docker-compose.dev.yml`. Prod app
+config: repo-root `.env.prod.example`.
 
 **PostGIS.** The Postgres service runs the **`postgis/postgis:16`** image (a superset of `postgres:16`)
 so [`@oursay/geo`](../geo/README.md) can `CREATE EXTENSION postgis` for district-boundary geometry. If
@@ -184,6 +203,14 @@ npm run dev    --workspace @oursay/api        # civic HTTP POOLS writes under it
 npm run worker --workspace public-record      # settles + anchors WORKER_CHAIN_IDS (incl. ab-ca-gov)
 ```
 
+Or set `AUTO_START_WORKER=1` in `public-record/.env` (or the environment) so `npm run db:up` /
+`db:prod:up` (or `npm run up` / `prod:up` from `@oursay/api`) also starts the settlement worker
+**container** (compose profile `worker`). Anchors are bind-mounted to `public-record/.anchors` on
+the host. Do not also run a host `npm run worker` against the same stack (single proposer per chain).
+
+The HTTP API can be started as a container on the same compose project via
+`npm run up -w @oursay/api` (includes this stack; see [`api/README.md`](../api/README.md)).
+
 **The zero-config story:** civic HTTP (the API) pools every civic write under **one** chain — its
 `CHAIN_ID`, default **`ab-ca-gov`** (the launch jurisdiction). The worker settles
 **`WORKER_CHAIN_IDS`**, default **`oursay-global,ab-ca-gov`** — `oursay-global` (the universal record)
@@ -196,7 +223,8 @@ env vars (see `.env.example`).
 **Single proposer:** the settler is not concurrency-safe per chain, so run **exactly one** worker per
 chain. To scale, partition `WORKER_CHAIN_IDS` across worker processes (one chain each) — never two
 workers on the same chain. Leader election / HA for a single chain is a stage-2 consensus concern.
-(Containerizing the worker is future — dev runs it as a plain `tsx` Node process beside `db:up`.)
+(Containerizing the worker is done — compose profile `worker` on `db:up` / `db:prod:up`, or via
+`npm run up -w @oursay/api` which includes this stack.)
 
 **What ships today:** `FileAnchorTarget` writes append-only local files for development and
 testing. An **offline verifier** checks a block, a single entry, or the whole chain against a root

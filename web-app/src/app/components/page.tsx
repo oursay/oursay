@@ -9,7 +9,7 @@ import type {
   VerificationTier,
   ViewerContext,
 } from "@/lib/types";
-import { nextGeoFilterMode } from "@/lib/types";
+import { nextGeoFilterMode, ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import {
   COMMENTS_STATEMENT,
@@ -28,6 +28,7 @@ import {
   AuthChooser,
   Avatar,
   Button,
+  CommentPill,
   CommentThread,
   ComposeFlow,
   Fab,
@@ -40,11 +41,12 @@ import {
   PollOptions,
   ProfileModal,
   ReactionButtons,
+  ReactionCountPill,
   RecordTypeSection,
   RegisterForm,
   ResultOutcome,
   ScopeTag,
-  SignModal,
+  ChooseSignModal,
   VerificationPill,
   SignedPill,
   AuthorBadgeGroup,
@@ -252,8 +254,15 @@ export default function ComponentGallery() {
           ) : null}
         </Section>
 
-        <Section title="Reaction buttons">
+        <Section title="Reaction pills">
+          <p className="mb-2 text-xs text-ink-soft">
+            Display, share preview (_my or both), selected display, and interactive.
+          </p>
           <Row>
+            <ReactionCountPill up={132} down={7} />
+            <ReactionCountPill up={132} down={7} highlightBoth />
+            <ReactionCountPill up={132} down={7} selected="up" />
+            <CommentPill count={42} highlighted />
             <ReactionButtons
               up={132}
               down={7}
@@ -367,7 +376,7 @@ export default function ComponentGallery() {
             ) : null}
             {jurOpen ? (
               <JurisdictionSelector
-                subscriptions={[{ name: "Global", included: true }]}
+                subscriptions={[{ id: GLOBAL_ID, included: true }]}
                 onToggleInclude={() => {}}
                 onAllJurisdictions={() => {}}
                 onSelectOnly={() => {}}
@@ -480,14 +489,14 @@ export default function ComponentGallery() {
         open={composeOpen}
         onClose={() => setComposeOpen(false)}
         step={composeStep}
-        jurisdictions={["Global", "Alberta"]}
+        jurisdictions={[GLOBAL_ID, ALBERTA_ID]}
         kycTier={VIEWER.kycTier}
         selectedJurisdiction={composeJur}
         onSelectJurisdiction={(name) => {
           setComposeJur(name);
           setComposeStep(composeStep === "compose" ? "compose" : "type");
         }}
-        allowedTypes={rootTypesForJurisdiction(composeJur ?? "Global")}
+        allowedTypes={rootTypesForJurisdiction(composeJur ?? GLOBAL_ID)}
         selectedType={composeType}
         onSelectType={(k) => {
           setComposeType(k);
@@ -496,18 +505,36 @@ export default function ComponentGallery() {
         onChangeType={() => setComposeStep("type")}
         onPost={() => setComposeOpen(false)}
       />
-      <SignModal
+      <ChooseSignModal
         open={signOpen}
         onClose={() => setSignOpen(false)}
-        kind="petition"
-        signerName={MY_NAME}
-        targetTitle={POST_PETITION.title}
-        onConfirm={() => setSignOpen(false)}
+        wysiwys={{
+          title: "Signing a Petition",
+          technicalRows: [
+            { label: "Petition", value: POST_PETITION.title, variant: "paragraph" },
+            { label: "Jurisdiction", value: "Alberta", wireTag: ALBERTA_ID },
+            { label: "Sign scheme", value: "Passkey", wireTag: "webauthn-es256+uv" },
+            { label: "Entity type", value: "petition_signature", wireTag: "petition_signature" },
+            { label: "ThreadID", value: "2NDRfCiXy7ib3LfD2GQGzD", wireTag: "fc3a2539-293d-4575-9dc9-ba49d0bc3609" },
+          ],
+          warnings: [
+            {
+              kind: "irrevocable",
+              jurisdictionId: ALBERTA_ID,
+              jurisdictionLabel: "Alberta",
+              irrevocableNoun: "petition signatures",
+            },
+          ],
+          jurisdictionId: ALBERTA_ID,
+          jurisdictionLabel: "Alberta",
+        }}
+        showQuickSign={false}
+        onPasskeySign={() => setSignOpen(false)}
       />
       <AddJurisdictionModal
         open={addJurOpen}
         onClose={() => setAddJurOpen(false)}
-        subscriptions={[{ name: "Global", included: true }]}
+        subscriptions={[{ id: GLOBAL_ID, included: true }]}
       />
     </main>
   );

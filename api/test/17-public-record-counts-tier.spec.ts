@@ -22,8 +22,8 @@ import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
 import type { KycTier } from "../src/types/kyc.js";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount } from "./helpers/account.js";
 
-const ADULT_DOB = "1990-06-15";
 const JURISDICTION = "ab-ca-gov";
 
 // Known lon/lat points and the 2019 riding that contains them (verified by @oursay/geo; see spec 16).
@@ -58,18 +58,6 @@ interface Member {
   userId: string;
   sess: IdentitySession;
   client: CivicHttpClient;
-}
-
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
 }
 
 /** Enroll a device + join the GIVEN shared thread `t` (so many members participate on one root). */
@@ -119,10 +107,11 @@ describe("17 public-record counts: KYC tier resolution (set membership) + combin
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
     // C9 count-exposure gating is OFF for these TIER-FILTER tests: re-register ab-ca-gov with PERMISSIVE
     // counts so the tier FILTER (which participants count) is isolated from the exposure GATE (whether the
-    // scalar is disclosed at all). The real tier-gated exposure policy is exercised in spec 18. Restored
-    // in after().
+    // scalar is disclosed at all). The real tier-gated exposure policy is exercised in spec 18. Act gates
+    // are ALSO stripped (fixture seam): fixtures include unverified/no-point voters the real write gates
+    // forbid; gate enforcement is covered in 20-gates.spec.ts. Restored in after().
     abCaGovOriginal = getJurisdiction(JURISDICTION);
-    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true } });
+    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true }, gates: undefined });
   });
 
   after(() => {
@@ -164,7 +153,7 @@ describe("17 public-record counts: KYC tier resolution (set membership) + combin
     // No tier ⇒ raw: all four voters.
     const all = await counts(w, "polls", t.threadId, "?scope=all-public");
     expect(optionCount(all.results, "yes")!.count).to.equal(4);
-    expect(all.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(all.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
     expect(all.filters.kAnonymityFloor).to.equal(null);
 
     // ?tier=identity_verified ⇒ ONLY the identity-verified voter — NOT residency/electoral (set

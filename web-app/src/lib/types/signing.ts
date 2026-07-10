@@ -98,34 +98,6 @@ export function postActionForKind(kind: RecordKind): SignAction {
 }
 
 /**
- * Actions that a "final" jurisdiction (Alberta) writes to the public ledger and
- * therefore mandates passkey (WYSIWYS) signing for — the compose acts, petition
- * signatures and poll votes. Comments/reactions are never ledger-final, so they
- * always follow the account default even in Alberta.
- */
-const LEDGER_FINAL_ACTIONS: SignAction[] = [
-  "post.statement",
-  "post.petition",
-  "post.poll",
-  "signature",
-  "vote",
-];
-
-/**
- * The signing method a jurisdiction *requires at minimum* for an action, in the
- * same scale as the account preference. Alberta mandates `passkey` for its
- * ledger-final acts; otherwise there's no floor (`quick`).
- */
-export function jurisdictionSignRequirement(
-  jurisdiction: string,
-  action: SignAction,
-): SignMethod {
-  return jurisdiction === "Alberta" && LEDGER_FINAL_ACTIONS.includes(action)
-    ? "passkey"
-    : "quick";
-}
-
-/**
  * The signing method actually in force: the strongest of the account preference
  * and the jurisdiction's requirement (passkey > ask > quick). The account can
  * always opt *up*, and the jurisdiction can raise a weaker preference — neither

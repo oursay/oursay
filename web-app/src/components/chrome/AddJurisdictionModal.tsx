@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { jurisdictionIconForName } from "@/lib/jurisdiction-icon";
-import { ALL_JURISDICTIONS } from "@/lib/mock/jurisdictions";
+import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
+import { ALL_JURISDICTIONS, jurisdictionLabel } from "@/lib/mock";
 import type { JurisdictionMembership } from "@/lib/types";
 import { Modal, ModalOptionRow } from "@/components/ui";
 
@@ -11,8 +11,10 @@ interface AddJurisdictionModalProps {
   open: boolean;
   onClose: () => void;
   subscriptions: JurisdictionMembership[];
-  onJoin?: (name: string) => void;
-  onDelete?: (name: string) => void;
+  /** Join a jurisdiction by id. */
+  onJoin?: (id: string) => void;
+  /** Leave a jurisdiction by id. */
+  onDelete?: (id: string) => void;
 }
 
 /** Add-jurisdiction spotlight — search all jurisdictions, join or leave. */
@@ -30,15 +32,15 @@ export function AddJurisdictionModal({
   }, [open]);
 
   const subscribed = useMemo(
-    () => new Set(subscriptions.map((sub) => sub.name)),
+    () => new Set(subscriptions.map((sub) => sub.id)),
     [subscriptions],
   );
 
   const results = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return ALL_JURISDICTIONS;
-    return ALL_JURISDICTIONS.filter((name) =>
-      name.toLowerCase().includes(needle),
+    return ALL_JURISDICTIONS.filter((id) =>
+      jurisdictionLabel(id).toLowerCase().includes(needle),
     );
   }, [query]);
 
@@ -67,20 +69,20 @@ export function AddJurisdictionModal({
         </div>
         <div className="my-3 border-t border-border" />
         <div className="space-y-2">
-          {results.map((name) => {
-            const Icon = jurisdictionIconForName(name);
-            const isSubscribed = subscribed.has(name);
+          {results.map((id) => {
+            const Icon = jurisdictionIconForId(id);
+            const isSubscribed = subscribed.has(id);
             const isLastSub = isSubscribed && subscriptions.length <= 1;
             return (
               <ModalOptionRow
-                key={name}
-                label={name}
+                key={id}
+                label={jurisdictionLabel(id)}
                 icon={<Icon size={18} aria-hidden />}
                 trailing={isSubscribed ? "Delete ✕" : "Join ›"}
                 trailingTone={isSubscribed ? "destructive" : "default"}
                 disabled={isLastSub}
                 onClick={() =>
-                  isSubscribed ? onDelete?.(name) : onJoin?.(name)
+                  isSubscribed ? onDelete?.(id) : onJoin?.(id)
                 }
               />
             );

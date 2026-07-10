@@ -5,18 +5,20 @@ import { useRouter } from "next/navigation";
 import { VenetianMask } from "lucide-react";
 import { getPersonaProfile } from "@/lib/api";
 import type { PersonaProfile } from "@/lib/api";
-import { NOW } from "@/lib/mock";
-import { relTime } from "@/lib/read-model";
-import { Avatar, CommentCard, VerificationPill } from "@/components";
+import type { CommentNode } from "@/lib/types";
+import { relTime, useNow } from "@/lib/read-model";
+import { Avatar, CommentCard, FeedCard, VerificationPill } from "@/components";
 import {
-  activityRowGlyph,
-  ACTIVITY_REACTION_TONE,
+  ActivityRow,
   ProfileSupportBar,
-  REACTION_GLYPH,
   RECORD_TYPE_ICON,
 } from "@/components/content";
-import { authorPath, postPathForId } from "@/lib/routes";
-import { useApp } from "@/lib/state";
+import { districtName } from "@/lib/mock";
+import { authorPath, districtPath, postPath, postPathForId } from "@/lib/routes";
+import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
+import { useApp, useHydrateRecordState } from "@/lib/state";
+import { isMockOnly } from "@/lib/api/client";
+import { DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 
 type Tab = "comments" | "activity" | "mentions";
 
@@ -28,11 +30,20 @@ type Tab = "comments" | "activity" | "mentions";
  * existence, docs/09 §3).
  */
 export function PersonaView({ personaName }: { personaName: string }) {
+  const now = useNow();
   const app = useApp();
   const { setPageJurisdiction } = app;
   const router = useRouter();
   const [profile, setProfile] = useState<PersonaProfile | null | undefined>();
   const [tab, setTab] = useState<Tab>("comments");
+
+  const selectTab = (t: Tab) => {
+    if (t === "mentions" && !isMockOnly()) {
+      app.notify(DEFERRED_MENTIONS);
+      return;
+    }
+    setTab(t);
+  };
 
   useEffect(() => {
     setPageJurisdiction(null);
@@ -41,6 +52,11 @@ export function PersonaView({ personaName }: { personaName: string }) {
   useEffect(() => {
     getPersonaProfile(personaName, app.viewer).then(setProfile);
   }, [personaName, app.viewer]);
+
+  useHydrateRecordState([
+    ...(profile?.rootPost ? [profile.rootPost.id] : []),
+    ...collectCommentIds(profile?.comments ?? []),
+  ]);
 
   if (profile === undefined) {
     return <p className="p-6 text-center text-sm text-muted">Loading…</p>;
@@ -54,6 +70,19 @@ export function PersonaView({ personaName }: { personaName: string }) {
     profile.threadTitle.length > 42
       ? `${profile.threadTitle.slice(0, 42)}…`
       : profile.threadTitle;
+
+  const verified = app.effectiveVerified;
+
+  const commentReactionTarget = (node: CommentNode) => ({
+    id: node.id!,
+    threadId: profile.threadId,
+    parentType: "comment" as const,
+    jurisdiction: profile.jurisdiction,
+    title: profile.threadTitle,
+    up: node.up,
+    down: node.down,
+    districts: profile.rootPost?.districts ?? [],
+  });
 
   return (
     <div className="space-y-1 p-3">
@@ -84,12 +113,13 @@ export function PersonaView({ personaName }: { personaName: string }) {
             </button>
           </div>
         </div>
-        <p className="mt-3 text-center text-sm text-ink-soft">{profile.bio}</p>
+        <p className="mt-3 text-center text-sm italic text-ink-soft">{profile.bio}</p>
         {profile.support.agrees + profile.support.disagrees > 0 ? (
           <div className="mt-3">
             <ProfileSupportBar
               {...profile.support}
               ageLabel={profile.ageLabel}
+              showReactions
               pill="comments"
             />
           </div>
@@ -101,7 +131,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => selectTab(t)}
             className={`flex-1 rounded-md py-1 text-sm capitalize ${
               tab === t
                 ? "font-semibold text-ink underline decoration-2 underline-offset-4"
@@ -114,39 +144,76 @@ export function PersonaView({ personaName }: { personaName: string }) {
       </div>
 
       {tab === "comments" ? (
-        <div className="max-h-[62vh] space-y-4 overflow-y-auto overscroll-auto rounded-lg border border-border bg-surface p-3 pr-2">
-          {profile.comments.length === 0 ? (
+        <div className="max-h-[62vh] space-y-3 overflow-y-auto overscroll-auto pr-1 pb-1">
+          {profile.rootPost ? (
+            <FeedCard
+              item={{
+                ...profile.rootPost,
+                sig: app.petitionSigFor(profile.rootPost),
+                ...app.reactionCountsFor(profile.rootPost),
+              }}
+              viewer={app.viewer}
+              tierMin={verified}
+              resolveDistrict={districtName}
+              onTitleClick={() =>
+                router.push(postPath(profile.rootPost!.kind, profile.rootPost!.id))
+              }
+              onCommentsClick={() =>
+                router.push(
+                  postPath(profile.rootPost!.kind, profile.rootPost!.id, { comments: true }),
+                )
+              }
+              onShare={() => app.openShare(recordShareTarget(profile.rootPost!))}
+              shareCount={app.shareCountFor(profile.rootPost.id)}
+              shared={app.hasShared(profile.rootPost.id)}
+              onReact={(dir) => app.react(profile.rootPost!, dir)}
+              selectedReaction={app.reactionFor(profile.rootPost.id)}
+              selectedVote={app.voteFor(profile.rootPost.id)}
+              signedPetition={app.hasSignedPetition(profile.rootPost.id)}
+              onVote={(label) => app.votePoll(profile.rootPost!, label)}
+              onSignPetition={() => app.signPetition(profile.rootPost!)}
+              onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
+              onDistrictClick={(s) => router.push(districtPath(s))}
+            />
+          ) : null}
+          {profile.comments.length > 0 ? (
+            <div className="space-y-4 rounded-lg border border-border bg-surface p-3 pr-2">
+              {profile.comments.map((node, i) => (
+                <CommentCard
+                  key={node.id ?? i}
+                  author={node.author}
+                  tier={node.tier}
+                  signTier={node.signTier}
+                  identity={node.identity}
+                  timestamp={relTime(node.ts, now)}
+                  body={
+                    <>
+                      {node.body.map((line, li) => (
+                        <p key={li}>{line}</p>
+                      ))}
+                    </>
+                  }
+                  up={node.id ? app.reactionCountsFor(commentReactionTarget(node)).up : node.up}
+                  down={node.id ? app.reactionCountsFor(commentReactionTarget(node)).down : node.down}
+                  selectedReaction={app.reactionFor(commentReactionKey(profile.threadId, node))}
+                  edits={node.edits}
+                  onReact={(dir) => {
+                    if (!node.id) {
+                      app.notify("Comment id missing — refresh and try again.");
+                      return;
+                    }
+                    app.react(commentReactionTarget(node), dir);
+                  }}
+                  onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
+                />
+              ))}
+            </div>
+          ) : null}
+          {!profile.rootPost && profile.comments.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">
               No comments in this thread.
             </p>
-          ) : (
-            profile.comments.map((node, i) => (
-              <CommentCard
-                key={i}
-                author={node.author}
-                tier={node.tier}
-                signTier={node.signTier}
-                identity={node.identity}
-                timestamp={relTime(node.ts, NOW)}
-                body={
-                  <>
-                    {node.body.map((line, li) => (
-                      <p key={li}>{line}</p>
-                    ))}
-                  </>
-                }
-                up={node.up}
-                down={node.down}
-                edits={node.edits}
-                onReact={() =>
-                  app.requireAuth(() => app.notify("Reaction recorded (demo)."))
-                }
-                onEditsClick={() =>
-                  app.notify("Edit history is not built in this demo.")
-                }
-              />
-            ))
-          )}
+          ) : null}
         </div>
       ) : null}
 
@@ -157,41 +224,14 @@ export function PersonaView({ personaName }: { personaName: string }) {
               No other activity in this thread.
             </p>
           ) : (
-            profile.activity.map((a, i) => {
-              const glyph = activityRowGlyph(a);
-              return (
-                <li key={i}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(postPathForId(a.recordId ?? profile.threadId))}
-                    className="flex w-full items-start gap-3 rounded-lg border border-border bg-surface p-3 text-left hover:bg-surface-muted"
-                  >
-                    {glyph.type === "reaction" ? (
-                      <span
-                        aria-hidden
-                        className={`mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-sm font-bold leading-none ${
-                          glyph.alt
-                            ? ACTIVITY_REACTION_TONE.alt
-                            : ACTIVITY_REACTION_TONE.default
-                        }`}
-                      >
-                        {REACTION_GLYPH[glyph.dir]}
-                      </span>
-                    ) : (
-                      <glyph.icon
-                        size={16}
-                        className="mt-0.5 shrink-0 text-brand-600"
-                        aria-hidden
-                      />
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm text-ink">{a.text}</span>
-                      <span className="block text-xs text-muted">{a.meta}</span>
-                    </span>
-                  </button>
-                </li>
-              );
-            })
+            profile.activity.map((a, i) => (
+              <ActivityRow
+                key={i}
+                item={a}
+                now={now}
+                onOpen={() => router.push(postPathForId(a.recordId ?? profile.threadId))}
+              />
+            ))
           )}
         </ul>
       ) : null}

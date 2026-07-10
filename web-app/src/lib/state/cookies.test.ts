@@ -1,10 +1,43 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { DEFAULT_SESSION, readSession, writeSession } from "./cookies";
+import {
+  DEFAULT_SESSION,
+  DEFAULT_SUBSCRIPTIONS,
+  readSession,
+  readSubscriptions,
+  writeSession,
+  writeSubscriptions,
+} from "./cookies";
+import { ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
 
 /** Minimal cookie-jar stand-in (node env has no document). */
 function stubDocument() {
   (globalThis as { document?: { cookie: string } }).document = { cookie: "" };
 }
+
+describe("subscription cookie round-trip", () => {
+  beforeEach(stubDocument);
+  afterEach(() => {
+    delete (globalThis as { document?: unknown }).document;
+  });
+
+  it("persists jurisdiction ids and include flags", () => {
+    const subs = [
+      { id: GLOBAL_ID, included: false },
+      { id: ALBERTA_ID, included: true },
+    ];
+    writeSubscriptions(subs);
+    expect(readSubscriptions()).toEqual(subs);
+  });
+
+  it("falls back to Global-only when no cookie is set", () => {
+    expect(readSubscriptions()).toEqual(DEFAULT_SUBSCRIPTIONS);
+  });
+
+  it("falls back to Global-only on a malformed cookie", () => {
+    document.cookie = "oursay-subs=not-json";
+    expect(readSubscriptions()).toEqual(DEFAULT_SUBSCRIPTIONS);
+  });
+});
 
 describe("session cookie round-trip", () => {
   beforeEach(stubDocument);

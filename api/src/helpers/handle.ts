@@ -1,29 +1,41 @@
-// Handle + display-name helpers. A `handle` is a unique, optional @username (public profile only):
-// a leading `@` followed by 1–30 of [A-Za-z0-9_], no spaces. A `display_name` is optional free-text
-// public display; when absent it defaults to the handle WITHOUT the leading `@`. Legal name
-// (first/last) is private PII and lives in auth.profiles, never here. See docs/01 §6.0 / the name
-// model in the plan.
+// Handle + display-name helpers. A `handle` is a unique @username (public profile only):
+// stored in wire form (no leading `@`) — 1–30 of [A-Za-z0-9_-]. Display layers add `@`.
+// A `display_name` is optional free-text public display; when absent it defaults to the wire
+// handle. Legal name (first/last) is private PII and lives in auth.profiles, never here.
+// See docs/01 §6.0 / web-app/src/lib/handle.ts (kept in sync).
 
-export const HANDLE_PATTERN = "^@[A-Za-z0-9_]{1,30}$";
-const HANDLE_RE = new RegExp(HANDLE_PATTERN);
+/** Regex for the wire handle stored in DB and used in URLs (`/profile/{handle}`). */
+export const HANDLE_WIRE_PATTERN = "^[A-Za-z0-9_-]{1,30}$";
+const HANDLE_WIRE_RE = new RegExp(HANDLE_WIRE_PATTERN);
+
+/** @deprecated Use HANDLE_WIRE_PATTERN — kept for OpenAPI callers that referenced the old @-prefixed pattern. */
+export const HANDLE_PATTERN = HANDLE_WIRE_PATTERN;
 
 /**
- * Normalize a raw handle: trim, treat empty as absent, prepend `@` if missing. Returns null when
- * nothing was supplied. Throws nothing — validity is checked separately with {@link isValidHandle}.
+ * Normalize user/API input to the canonical wire handle (trim, strip a leading `@`).
+ * Returns null when empty. Does not validate charset — use {@link isValidHandle}.
  */
 export function normalizeHandle(raw: string | null | undefined): string | null {
   if (raw == null) return null;
-  const t = raw.trim();
-  if (t.length === 0) return null;
-  return t.startsWith("@") ? t : `@${t}`;
+  const body = raw.trim().replace(/^@/, "");
+  return body.length > 0 ? body : null;
 }
 
-/** True if `handle` is a well-formed @username. */
+/** True if `handle` is a well-formed wire username (no `@`). */
 export function isValidHandle(handle: string): boolean {
-  return HANDLE_RE.test(handle);
+  return HANDLE_WIRE_RE.test(handle);
 }
 
-/** The effective public display name: explicit value, else the handle without its `@`, else null. */
+/** Fail fast when a handle is not canonical wire form. Accepts optional leading `@` on input. */
+export function requireValidHandle(handle: string): string {
+  const wire = normalizeHandle(handle);
+  if (!wire || !isValidHandle(wire)) {
+    throw new Error(`Invalid handle (expected ${HANDLE_WIRE_PATTERN}): ${JSON.stringify(handle)}`);
+  }
+  return wire;
+}
+
+/** The effective public display name: explicit value, else the wire handle, else null. */
 export function displayNameFor(handle: string | null, displayName: string | null): string | null {
   if (displayName && displayName.trim().length > 0) return displayName.trim();
   return handle ? handle.replace(/^@/, "") : null;

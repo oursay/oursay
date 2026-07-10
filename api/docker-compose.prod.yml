@@ -1,0 +1,63 @@
+# API production stack — includes public-record (Postgres + immudb + optional worker).
+#
+# Compose project: oursay-public-record (same as public-record db:prod:up).
+# Host publishes only the API (:8085). Postgres + immudb stay on the compose network
+# (no host ports) — seed and host DB clients cannot reach them by design.
+# Production secrets (SESSION_SECRET, PLATFORM_BINDING_PRIVKEY, mailer, …) MUST be supplied
+# via the environment or an env_file — compose does not ship defaults for them.
+include:
+  - path: ../public-record/docker-compose.prod.yml
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: api/Dockerfile
+    container_name: oursay-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+    ports:
+      - "8085:8080"
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: oursay
+      PGPASSWORD: oursay
+      PGDATABASE: oursay_public_record
+      IMMUDB_PG_HOST: immudb
+      IMMUDB_PG_PORT: "5432"
+      IMMUDB_PG_USER: immudb
+      IMMUDB_PG_PASSWORD: immudb
+      IMMUDB_PG_DATABASE: defaultdb
+      WEBAUTHN_RP_ID: localhost
+      WEBAUTHN_ORIGIN: http://localhost:8085
+      CHAIN_ID: ab-ca-gov
+      JURISDICTION_ID: ab-ca-gov
+      # Required in production (no committed defaults) — set in the host env or a gitignored .env:
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      PLATFORM_BINDING_PRIVKEY: ${PLATFORM_BINDING_PRIVKEY:-}
+    # Dockerfile CMD already runs openapi:dump then `npm run start` (NODE_ENV=production).
+    env_file:
+      - path: .env
+        required: false
+      - path: ../.env
+        required: false
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
+    restart: unless-stopped

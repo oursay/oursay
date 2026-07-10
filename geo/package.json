@@ -9,10 +9,12 @@
   },
   "scripts": {
     "ingest": "tsx scripts/ingest.ts",
+    "pretest": "npm run db:test:up -w @oursay/public-record",
     "test": "mocha",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@oursay/slugs": "*",
     "dotenv": "^16.4.7",
     "pg": "^8.13.1",
     "shapefile": "^0.6.6"

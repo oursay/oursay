@@ -19,11 +19,18 @@ From the repo root:
 
 ```bash
 npm install
-npm run dev -w @oursay/web-app       # http://localhost:3000
+npm run dev -w @oursay/web-app       # http://localhost:3000 (mock corpus; no backend)
+npm run up  -w @oursay/web-app       # full live stack: API compose + Next (MOCK_ONLY=0)
+npm run down -w @oursay/web-app      # tear down API/DB compose volumes
 npm run build -w @oursay/web-app     # production build
 npm run test -w @oursay/web-app      # Vitest (read-model + API unit tests)
 npm run typecheck -w @oursay/web-app # tsc --noEmit
 ```
+
+`npm run up` starts `@oursay/api`'s Docker stack (Postgres + immudb + API on
+**:8080**, optional settlement worker via `AUTO_START_WORKER=1`), then runs Next
+on **:3000** in live mode. Ctrl+C stops Next only; `npm run down` tears down the
+compose stack.
 
 The marketing site (`@oursay/site`, Astro) runs on its own port, so the two dev
 servers don't collide.
@@ -96,11 +103,48 @@ gated exactly as production will be.
 | Edit history, account settings, recovery | Toast "not built" | Real screens |
 | Navigation targets | Representative sample per `kind` / `handle` / `slug` | Route by real `entityId` |
 
-### `NEXT_PUBLIC_MOCK_ONLY`
+### `NEXT_PUBLIC_MOCK_ONLY` — mock vs. live
 
-The app is mock-only today, so no flag is required to run it. When the API module
-swaps to live `fetch('/v1/public/...')` calls, keep `NEXT_PUBLIC_MOCK_ONLY=true`
-(the default) to force the mock path and unset it to hit the real endpoints.
+The web-app runs in two modes. The flag defaults to mock, so `npm run dev` with no
+env is the offline demo.
+
+**Mock mode (default — no backend needed):**
+
+```bash
+npm run dev -w @oursay/web-app        # http://localhost:3000, mock corpus
+```
+
+`NEXT_PUBLIC_MOCK_ONLY` unset / `1` / `true` → the `src/lib/api/*` layer reads the
+ported mock corpus. No API, no Postgres. Auth, KYC, and civic writes are stubbed.
+
+**Live mode (against `@oursay/api`):**
+
+```bash
+# One command — API compose (:8080) + Next live (:3000)
+npm run up -w @oursay/web-app
+
+# Optional: seed the civic corpus (separate; wipes auth/record rows on the dev DB)
+npm run seed -w @oursay/api
+
+# Or split across terminals:
+npm run up  -w @oursay/api                              # Docker: API + DBs
+NEXT_PUBLIC_MOCK_ONLY=0 npm run dev -w @oursay/web-app  # host Next
+```
+
+`NEXT_PUBLIC_MOCK_ONLY=0` (or `false`) → every `src/lib/api/*` function hits the real
+API. Next's `rewrites()` proxies `/v1/*` → `http://localhost:8080` same-origin (override
+with `OURSAY_API_URL`), so the session cookie flows without CORS. Register with a real
+email OTP (the API container logs OTP codes), enroll a passkey, then browse the seeded
+corpus and post/comment/vote for real.
+
+> **KYC in dev:** keep `KYC_PROVIDER=stub` in `api/.env` for the web-app walk — the dev
+> "Get Verified" button uses `POST /v1/dev/kyc/attest`, which awards a tier offline. The
+> Didit provider (`KYC_PROVIDER=didit`) is wired on the backend and sandbox-proven, but the
+> hosted-session flow is not yet called from the UI (see the repo's ROADMAP gaps A/B); under
+> `didit` the dev attest button 403s by design. Validate Didit separately via the api specs.
+
+Re-run `npm run seed -w @oursay/api` after running the api test suite — the tests share the
+dev DB on 5442 and truncate it.
 
 ## Folder map
 

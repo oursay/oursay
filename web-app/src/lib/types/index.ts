@@ -5,6 +5,7 @@ export * from "./records";
 export * from "./comments";
 export * from "./jurisdiction";
 export * from "./profile";
+export * from "./role-tag";
 export * from "./viewer";
 export * from "./visibility";
 export * from "./identity";

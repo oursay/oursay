@@ -31,10 +31,13 @@ flowchart LR
 | Tag | Task | Session ID |
 |-----|------|------------|
 | `[align-w1-docs]` | Docs sweep — un-deprecations, gates, visibility, registration | ✅ done 2026-07-04 (33 docs; see WEB-APP-GAPS changelog) |
-| `[align-w2-mock-dto]` | Web-app mock + DTO alignment to backend shapes | |
-| `[align-w3-gates-schema]` | Jurisdiction gates config + Postgres migrations + write gates | |
-| `[align-w4-api-surface]` | Public + `/v1/me` read surface (whole API surface) | |
-| `[align-w5-wire]` | Swap web-app mock → live API (BFF proxy, demo fallback) | |
+| `[align-w2-mock-dto]` | Web-app mock + DTO alignment to backend shapes | ✅ done 2026-07-05 (Phase 1a) |
+| `[align-w3-gates-schema]` | Jurisdiction gates config + Postgres migrations + write gates | ✅ done 2026-07-05 (Phase 1b/1c) |
+| `[align-w4-api-surface]` | Public + `/v1/me` read surface (whole API surface) | ✅ done 2026-07-05 (Phase 2) |
+| `[align-w5-wire]` | Swap web-app mock → live API (BFF proxy, demo fallback) | ✅ done 2026-07-06 (Phase 5) |
+| Phase 3 | Didit KYC plugin (+ Postmark OTP) | ✅ done + audited 2026-07-06 (`8ad54e8`) — UI wiring deferred, see gaps A/B |
+| Phase 4 | Dev DB seed (port mock corpus) | ✅ done 2026-07-05 (`cc6c007`) |
+| Phase 6 | e2e smoke + docs + session logs | ✅ done 2026-07-06 — `api/test/35-e2e-smoke.spec.ts` (full civic journey over live HTTP), run docs, gaps A/B recorded |
 
 ---
 

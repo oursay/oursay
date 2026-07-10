@@ -1,13 +1,18 @@
 import { Globe, Landmark, Newspaper, type LucideIcon } from "lucide-react";
+import { GLOBAL_ID } from "@/lib/types";
 
-/** Lucide glyph for a subscribed jurisdiction name (Global vs provincial). */
-export function jurisdictionIconForName(name: string): LucideIcon {
-  return name === "Global" ? Globe : Landmark;
+/** Lucide glyph for a jurisdiction id (Global vs provincial). */
+export function jurisdictionIconForId(id: string): LucideIcon {
+  return id === GLOBAL_ID ? Globe : Landmark;
 }
 
-/** Icon for the header jurisdiction pill — single jurisdiction shows its glyph. */
+/**
+ * Icon for the header jurisdiction pill. `label` is display text (not a logic
+ * key): the single-jurisdiction pill shows its glyph, aggregates show generic
+ * glyphs.
+ */
 export function jurisdictionPillIcon(label: string): LucideIcon {
   if (label === "All Jurisdictions") return Newspaper;
   if (label === "None" || label.endsWith(" Jurisdictions")) return Globe;
-  return jurisdictionIconForName(label);
+  return label === "Global" ? Globe : Landmark;
 }

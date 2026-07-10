@@ -1,4 +1,5 @@
 import type { FeedItem } from "@/lib/types";
+import { ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
 
 /**
  * The wireframe POSTS[] sample corpus (16 rows), ported verbatim with a stable
@@ -17,7 +18,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-dana-transit",
     kind: "statement",
-    jurisdiction: "Global",
+    jurisdiction: GLOBAL_ID,
     tier: 0,
     districts: [],
     author: "Dana Whitecloud",
@@ -36,7 +37,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "poll-oursay-rcv",
     kind: "poll",
-    jurisdiction: "Global",
+    jurisdiction: GLOBAL_ID,
     tier: 3,
     districts: [],
     author: "OurSay Stewards",
@@ -56,7 +57,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "pet-priya-oss",
     kind: "petition",
-    jurisdiction: "Global",
+    jurisdiction: GLOBAL_ID,
     tier: 1,
     districts: [],
     author: "Priya Anand",
@@ -74,7 +75,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-marcus-votingage",
     kind: "statement",
-    jurisdiction: "Global",
+    jurisdiction: GLOBAL_ID,
     tier: 1,
     districts: [],
     author: "Marcus Lee",
@@ -91,7 +92,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "res-oursay-name",
     kind: "result",
-    jurisdiction: "Global",
+    jurisdiction: GLOBAL_ID,
     tier: 3,
     districts: [],
     author: "OurSay Stewards",
@@ -114,7 +115,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-rae-ravine",
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 3,
     districts: ["edmonton-strathcona"],
     author: "Rae Nguyen",
@@ -132,7 +133,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-premier-budget",
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 3,
     districts: [],
     author: "Hon. A. Premier",
@@ -150,7 +151,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "poll-ableg-budget",
     kind: "poll",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 3,
     districts: [],
     author: "Alberta Assembly",
@@ -171,7 +172,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "res-ableg-bill12",
     kind: "result",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 3,
     districts: [],
     author: "Alberta Assembly",
@@ -194,7 +195,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-jordan-bikelanes",
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 0,
     districts: ["edmonton-strathcona"],
     author: "Jordan Vance",
@@ -211,7 +212,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-priti-rink",
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 1,
     districts: ["calgary-elbow"],
     author: "Priti Shah",
@@ -229,7 +230,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-hana-ravine",
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 2,
     districts: ["edmonton-strathcona"],
     author: "Hana Okafor",
@@ -248,7 +249,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "pet-sam-109st",
     kind: "petition",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 2,
     districts: ["edmonton-strathcona"],
     author: "Sam Driver",
@@ -265,7 +266,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "pet-rosa-greenline",
     kind: "petition",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 2,
     districts: ["calgary-elbow"],
     author: "Rosa Klein",
@@ -285,7 +286,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "pet-wei-path",
     kind: "petition",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 2,
     districts: ["edmonton-strathcona", "edmonton-city-centre"],
     author: "Wei Chen",
@@ -308,7 +309,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
   {
     id: "stmt-dale-snow",
     kind: "statement",
-    jurisdiction: "Alberta",
+    jurisdiction: ALBERTA_ID,
     tier: 1,
     districts: ["calgary-elbow", "calgary-mountain-view", "calgary-forest-lawn"],
     author: "Dale Friesen",

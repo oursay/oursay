@@ -3,9 +3,8 @@
  * boundaries) — run `node scripts/generate-alberta-ridings.mjs` to regenerate.
  *
  * Invariants the demo relies on:
- *   - Exactly 12 ridings, each with a unique MLA name and handle.
- *   - The Premier (handle "premier") is the sitting MLA for Calgary-Lougheed,
- *     so the province leader is also a district representative.
+ *   - Exactly 12 ridings, each with a unique MLA name and official seat handle.
+ *   - The Premier seat (ab-premier) is separate from the Calgary-Lougheed MLA seat.
  *   - Ridings referenced elsewhere in the corpus stay present so no district,
  *     profile, or persona link dangles: edmonton-strathcona, edmonton-city-centre,
  *     calgary-elbow, calgary-mountain-view, calgary-forest-lawn.
@@ -18,7 +17,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "banff-kananaskis",
     "mla": {
       "name": "Priya Wilson",
-      "handle": "banffkananaskmla"
+      "handle": "banffkananaskmla",
+      "seatHandle": "ab-ban_kanns"
     }
   },
   {
@@ -26,7 +26,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "calgary-bow",
     "mla": {
       "name": "Rosa Whitecloud",
-      "handle": "calgarybowmla"
+      "handle": "calgarybowmla",
+      "seatHandle": "ab-cal_bow"
     }
   },
   {
@@ -34,7 +35,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "calgary-elbow",
     "mla": {
       "name": "Tom Berg",
-      "handle": "tomberg"
+      "handle": "tomberg",
+      "seatHandle": "ab-cal_elb"
     }
   },
   {
@@ -42,7 +44,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "calgary-forest-lawn",
     "mla": {
       "name": "Nadia Rees",
-      "handle": "calgaryforestmla"
+      "handle": "calgaryforestmla",
+      "seatHandle": "ab-cal_for_lawn"
     }
   },
   {
@@ -50,7 +53,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "calgary-lougheed",
     "mla": {
       "name": "Hon. A. Premier",
-      "handle": "premier"
+      "handle": "premier",
+      "seatHandle": "ab-cal_lough"
     }
   },
   {
@@ -58,7 +62,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "calgary-mountain-view",
     "mla": {
       "name": "Joss Ferns",
-      "handle": "jossferns"
+      "handle": "jossferns",
+      "seatHandle": "ab-cal_mou_view"
     }
   },
   {
@@ -66,7 +71,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "edmonton-city-centre",
     "mla": {
       "name": "Lena Park",
-      "handle": "lenapark"
+      "handle": "lenapark",
+      "seatHandle": "ab-edm_city_cen"
     }
   },
   {
@@ -74,7 +80,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "edmonton-glenora",
     "mla": {
       "name": "Lucas Driver",
-      "handle": "edmontonglenomla"
+      "handle": "edmontonglenomla",
+      "seatHandle": "ab-edm_gle"
     }
   },
   {
@@ -82,7 +89,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "edmonton-strathcona",
     "mla": {
       "name": "Rae Nguyen",
-      "handle": "raenguyen"
+      "handle": "raenguyen",
+      "seatHandle": "ab-edm_strth"
     }
   },
   {
@@ -90,7 +98,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "grande-prairie",
     "mla": {
       "name": "Joss Hall",
-      "handle": "grandeprairiemla"
+      "handle": "grandeprairiemla",
+      "seatHandle": "ab-gra_pra"
     }
   },
   {
@@ -98,7 +107,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "lethbridge-west",
     "mla": {
       "name": "Finley Nguyen",
-      "handle": "lethbridgewesmla"
+      "handle": "lethbridgewesmla",
+      "seatHandle": "ab-let_west"
     }
   },
   {
@@ -106,7 +116,8 @@ export const ALBERTA_RIDINGS: AlbertaRiding[] = [
     "slug": "red-deer-south",
     "mla": {
       "name": "Owen Rivera",
-      "handle": "reddeersouthmla"
+      "handle": "reddeersouthmla",
+      "seatHandle": "ab-red_deer_sou"
     }
   }
 ];

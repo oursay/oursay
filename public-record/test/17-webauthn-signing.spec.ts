@@ -14,7 +14,7 @@ import {
 } from "../src/identity/webauthn.js";
 import { buildThreadBindingInputs } from "../src/identity/binding.js";
 import { signBinding, signCredentialAuth } from "../src/identity/platform-binding.js";
-import { requiredSignScheme } from "../src/jurisdiction.js";
+import { DEFAULT_GATES, registerJurisdiction, requiredSignScheme } from "../src/jurisdiction.js";
 import { PublicChain } from "../src/ledger/chain.js";
 import type { PrivateStore } from "../src/private/store.js";
 import { RecordService } from "../src/record.js";
@@ -131,11 +131,30 @@ describe("17 webauthn signing — verifier, policy (pure)", () => {
     expect(verifyEnvelope(envelope)).to.equal(true);
   });
 
-  it("requiredSignScheme: vote & petition_signature are forced to webauthn-es256; others unconstrained", () => {
-    expect(requiredSignScheme("vote")).to.equal("webauthn-es256");
-    expect(requiredSignScheme("petition_signature")).to.equal("webauthn-es256");
-    for (const t of ["post", "comment", "reaction", "poll", "petition"] as RecordType[]) {
-      expect(requiredSignScheme(t)).to.equal(null);
+  it("requiredSignScheme is GATE-driven: passkey floors force webauthn-es256; quick floors accept any", () => {
+    // The platform-wide vote/petition_signature hard override is retired ([align-w3-gates-schema]):
+    // per-action signMin floors come from the jurisdiction's gates.
+    registerJurisdiction({
+      id: "test-17-gated",
+      level: "provincial",
+      rules: {},
+      gates: {
+        ...DEFAULT_GATES,
+        vote: { act: "anyone", signMin: "passkey" },
+        petition_signature: { act: "anyone", signMin: "passkey" },
+        post: { act: "anyone", signMin: "passkey" },
+      },
+    });
+    expect(requiredSignScheme("vote", "test-17-gated")).to.equal("webauthn-es256");
+    expect(requiredSignScheme("petition_signature", "test-17-gated")).to.equal("webauthn-es256");
+    expect(requiredSignScheme("post", "test-17-gated")).to.equal("webauthn-es256");
+    for (const t of ["comment", "reaction", "poll", "petition", "result"] as RecordType[]) {
+      expect(requiredSignScheme(t, "test-17-gated")).to.equal(null);
+    }
+    // A jurisdiction registered without gates has no forced scheme on any type (quick platform default).
+    registerJurisdiction({ id: "test-17-ungated", level: "provincial", rules: {} });
+    for (const t of ["vote", "petition_signature", "post"] as RecordType[]) {
+      expect(requiredSignScheme(t, "test-17-ungated")).to.equal(null);
     }
   });
 });

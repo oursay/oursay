@@ -9,7 +9,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { deriveNullifierSecret, threadNullifier, verifyEnvelope } from "@oursay/public-record";
+import { deriveDeviceThreadSigner, deriveNullifierSecret, threadNullifier, verifyEnvelope } from "@oursay/public-record";
 import { DevPasskeyConnector } from "../src/client/dev-connector.js";
 import { IdentitySession } from "../src/client/session.js";
 import type { CreateIntent, PreparedAppend, ThreadRef } from "../src/shared/types.js";
@@ -38,10 +38,12 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
     await c.enrollDevice({ userId: "u1", deviceId: "d1" });
     const unlocked = await c.unlock({ userId: "u1", deviceId: "d1" });
     const sess = new IdentitySession(unlocked);
+    expect(sess.hasThreadCredential(thread.threadId)).to.equal(false);
     expect(unlocked.threadSigningPubkey(thread.threadId)).to.equal(null); // not created yet
     const signer = await sess.signingPubkey(thread);
     expect(signer).to.match(/^0[23][0-9a-f]{64}$/); // compressed SEC1 P-256
     expect(await sess.signingPubkey(thread)).to.equal(signer); // idempotent
+    expect(sess.hasThreadCredential(thread.threadId)).to.equal(true);
     expect(unlocked.threadSigningPubkey(thread.threadId)).to.equal(signer);
     expect(unlocked.threadPersonaPubkey(thread.threadId)).to.equal(null); // Pₜ not yet remembered
     sess.rememberPersona(thread, signer); // simulate first-device join: Pₜ = this device's signer
@@ -78,6 +80,66 @@ describe("02 session: per-thread WebAuthn envelopes verify; nullifier agrees wit
     const { envelope } = await sess.buildSigned(thread, prep, intent);
     expect(envelope.nullifier).to.equal(sess.nullifier(thread, parentId));
     expect(verifyEnvelope(envelope)).to.equal(true);
+  });
+
+  it("quickSigningPubkey: a stable soft P-256 key, distinct from the WebAuthn signer, no ceremony", async () => {
+    const { unlocked, sess } = await session();
+    const quick = sess.quickSigningPubkey(thread);
+    expect(quick).to.match(/^0[23][0-9a-f]{64}$/); // compressed SEC1 P-256
+    expect(sess.quickSigningPubkey(thread)).to.equal(quick); // stable
+    expect(quick).to.not.equal(await sess.signingPubkey(thread)); // separate credential
+    // Agrees with the shared public-record KDF over the device root (the server-contract derivation).
+    const expected = deriveDeviceThreadSigner({ deviceRoot: unlocked.deviceRoot, threadId: thread.threadId, jurisdiction }).signerPubkey;
+    expect(quick).to.equal(expected);
+  });
+
+  it("bindingInputs: the quick binding offers the soft pubkey but commits to the SAME opening", async () => {
+    const { sess } = await session();
+    const passkey = await sess.bindingInputs(thread);
+    const quick = await sess.bindingInputs(thread, { signer: "quick" });
+    expect(quick.binding.thread_pubkey).to.equal(sess.quickSigningPubkey(thread));
+    expect(quick.binding.thread_pubkey).to.not.equal(passkey.binding.thread_pubkey);
+    // Signer-independent commitment — what lets the server enroll the soft key under the same Pₜ.
+    expect(quick.binding.commitment).to.equal(passkey.binding.commitment);
+    expect(quick.opening).to.deep.equal(passkey.opening);
+  });
+
+  it("buildQuickSigned: authorPubkey = Pₜ, signerPubkey = soft key, signScheme absent (⇒ p256), verifies", async () => {
+    const { sess } = await session();
+    const entityId = randomUUID();
+    const intent: CreateIntent = { op: "create", type: "post", entityId, content: { title: "Test post", body: "v1" } };
+    const prep: PreparedAppend = { prevHash: null, rootEntityId: entityId };
+    const { envelope } = sess.buildQuickSigned(thread, prep, intent);
+    expect(envelope.authorPubkey).to.equal(sess.personaPubkey(thread));
+    expect(envelope.signerPubkey).to.equal(sess.quickSigningPubkey(thread));
+    expect(envelope.signScheme).to.equal(undefined); // absent ⇒ "p256"
+    expect(envelope.webauthn).to.equal(undefined);
+    expect(envelope.signature).to.match(/^[0-9a-f]{128}$/); // compact ECDSA, not empty
+    expect(verifyEnvelope(envelope)).to.equal(true);
+  });
+
+  it("buildQuickSigned: a singleton create carries the SAME nullifier as the passkey path", async () => {
+    const { sess } = await session();
+    const parentId = randomUUID();
+    const intent: CreateIntent = { op: "create", type: "vote", entityId: randomUUID(), parent: { type: "poll", id: parentId }, content: { option: "yes" } };
+    const prep: PreparedAppend = { prevHash: null, rootEntityId: parentId, nullifierParentId: parentId };
+    const { envelope } = sess.buildQuickSigned(thread, prep, intent);
+    // Shared per-(user, jurisdiction) nullifier root ⇒ cross-scheme singleton dedupe holds.
+    expect(envelope.nullifier).to.equal(sess.nullifier(thread, parentId));
+    const passkeyEnvelope = (await sess.buildSigned(thread, prep, intent)).envelope;
+    expect(envelope.nullifier).to.equal(passkeyEnvelope.nullifier);
+    expect(verifyEnvelope(envelope)).to.equal(true);
+  });
+
+  it("buildQuickSigned throws if rememberPersona has not been called for this thread", async () => {
+    const c = new DevPasskeyConnector({ rootDir: tmp(), seed: "sess4" });
+    await c.enrollDevice({ userId: "u1", deviceId: "d1" });
+    const sess = new IdentitySession(await c.unlock({ userId: "u1", deviceId: "d1" }));
+    const entityId = randomUUID();
+    const prep: PreparedAppend = { prevHash: null, rootEntityId: entityId };
+    expect(() => sess.buildQuickSigned(thread, prep, { op: "create", type: "post", entityId, content: { title: "T", body: "v1" } })).to.throw(
+      /persona|join/i,
+    );
   });
 
   it("buildSigned throws if rememberPersona has not been called for this thread", async () => {

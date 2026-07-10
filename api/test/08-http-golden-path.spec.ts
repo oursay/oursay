@@ -8,8 +8,6 @@ import { sessionConfig, webauthnConfig } from "../src/config.js";
 import { SoftAuthenticator } from "./fixtures/webauthn/soft-authenticator.js";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 
-const ADULT_DOB = "1990-06-15";
-
 function newAuthenticator(): SoftAuthenticator {
   return new SoftAuthenticator(webauthnConfig.rpID, webauthnConfig.origin);
 }
@@ -31,7 +29,7 @@ describe("08 golden path: HTTP register → enroll → logout → login → prof
     const email = "golden@example.com";
     const auth = newAuthenticator();
 
-    // 1. Request a registration code, then verify it with a profile → full session.
+    // 1. Request a registration code, then verify it with the slim profile → LIMITED enroll-only session.
     const req = await w.app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { email, purpose: "registration" } });
     expect(req.statusCode).to.equal(202);
     const code = codeFromLastMail(w.mail, email);
@@ -39,12 +37,16 @@ describe("08 golden path: HTTP register → enroll → logout → login → prof
     const reg = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
-      payload: { email, code, profile: { displayName: "Golden User", birthdate: ADULT_DOB } },
+      payload: { email, code, profile: { handle: "@golden", over18: true } },
     });
     expect(reg.statusCode).to.equal(201);
     const regBody = reg.json() as { userId: string; session: { token: string; scope: string } };
-    expect(regBody.session.scope).to.equal("full");
+    expect(regBody.session.scope).to.equal("registration");
     const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
+
+    // The registration session cannot read full-scope resources — enrollment only.
+    const early = await w.app.inject({ method: "GET", url: "/v1/profile", headers: bearer(regBody.session.token) });
+    expect(early.statusCode).to.equal(403);
 
     // 2. Enroll a passkey over HTTP (authenticated with the registration session).
     const regOpts = await w.app.inject({
@@ -96,7 +98,7 @@ describe("08 golden path: HTTP register → enroll → logout → login → prof
     const reg = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
-      payload: { email, code, profile: { displayName: "Cookie User", birthdate: ADULT_DOB } },
+      payload: { email, code, profile: { handle: "@cookie", over18: true } },
     });
     expect(reg.statusCode).to.equal(201);
     const userId = (reg.json() as { userId: string }).userId;

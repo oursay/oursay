@@ -125,11 +125,11 @@ body {
   color: var(--color-brand-900);
 }
 
-/* Consistent, visible focus for keyboard users (accessibility). */
+/* Consistent, visible focus for keyboard users (accessibility). Outline only —
+   do not override border-radius (it squares rounded-full controls like modal close). */
 :where(a, button, input, textarea, select, summary):focus-visible {
   outline: 2px solid var(--color-brand-600);
   outline-offset: 2px;
-  border-radius: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -144,5 +144,37 @@ body {
   .pill-chrome {
     border: 1px solid var(--pill-chrome-color, var(--color-ink));
     box-shadow: 2px 2px 0 0 var(--pill-chrome-color, var(--color-ink));
+  }
+
+  /* Thin, discreet scrollbars for compact scroll panels (e.g. the WYSIWYS details box). */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: var(--color-border-strong);
+    border-radius: 9999px;
+  }
+
+  /* WYSIWYS technical-details panel — lavender tint in light, deep violet in dark. */
+  .wysiwys-tech-panel {
+    background-color: var(--color-brand-200);
+  }
+  html.dark .wysiwys-tech-panel {
+    background-color: color-mix(in srgb, var(--color-brand-900) 35%, var(--color-paper));
+  }
+
+  .wysiwys-wire-tag {
+    color: var(--color-muted);
+  }
+  html.dark .wysiwys-wire-tag {
+    color: var(--color-brand-300);
   }
 }

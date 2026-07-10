@@ -19,25 +19,26 @@ process.env.OURSAY_DEV_PASSKEY = "1"; // dev passkey custody is env-guarded; set
 
 import { CivicHttpClient, DevPasskeyConnector, IdentitySession } from "@oursay/identity/client";
 import type { Intent, ThreadRef } from "@oursay/identity";
+import { registerJurisdiction, type JurisdictionGates } from "@oursay/public-record";
+import { civicConfig } from "../src/config.js";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount, limitedSessionAccount } from "./helpers/account.js";
 
-const ADULT_DOB = "1990-06-15";
-const JURISDICTION = "ab-ca-gov";
+// This spec tests the WRITE-PATH MECHANICS (persona/signer split, cross-device, revocation, signing
+// floors) — not act-gate policy (that's 20-gates.spec.ts). It runs in its own registered jurisdiction
+// whose gates admit ANYONE but put a PASSKEY floor on every action, so unverified test accounts can
+// author while the webauthn-es256 enforcement paths stay fully exercised.
+const JURISDICTION = "test-12-passkey";
+const PASSKEY_ALL = Object.fromEntries(
+  ["post", "petition", "poll", "result", "comment", "reaction", "vote", "petition_signature"].map((a) => [
+    a,
+    { act: "anyone", signMin: "passkey" },
+  ]),
+) as JurisdictionGates;
+registerJurisdiction({ id: JURISDICTION, level: "test", rules: {}, gates: PASSKEY_ALL });
 const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 const validJoin = () => ({ threadId: randomUUID(), jurisdiction: JURISDICTION, signerPubkey: "02".padEnd(66, "a"), commitment: "a".repeat(64) });
-
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
-}
 
 interface Member {
   userId: string;
@@ -100,7 +101,9 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
     // authorPubkey on the appended row is Pₜ (= the session's persona for this thread).
     expect(head!.authorPubkey).to.equal(m.sess.personaPubkey(m.t));
 
-    const pool = await w.services.recordStore.getPendingPoolStats(JURISDICTION);
+    // The outbox is keyed by the DEPLOYMENT chain id (one chain per process), not the thread's
+    // jurisdiction, so the pool assertion uses civicConfig.chainId.
+    const pool = await w.services.recordStore.getPendingPoolStats(civicConfig.chainId);
     expect(pool.count).to.be.greaterThan(0);
   });
 
@@ -130,7 +133,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
     expect((await prepare(tooManyOptions)).statusCode).to.equal(400);
   });
 
-  it("join returns 200 + { personaPubkey } (not 204) and the canonical Pₜ", async () => {
+  it("join returns 200 + { personaPubkey, personaName } (not 204) and the canonical Pₜ", async () => {
     const { userId, token } = await fullSessionAccount(w, "civic-200@example.com");
     const passkey = new DevPasskeyConnector({ rootDir: mkdtempSync(join(tmpdir(), "oursay-civic-")), seed: "p200" });
     await passkey.enrollDevice({ userId, deviceId: "A" });
@@ -143,8 +146,10 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
       payload: { threadId: t.threadId, jurisdiction: t.jurisdiction, signerPubkey: binding.thread_pubkey, commitment: binding.commitment },
     });
     expect(res.statusCode).to.equal(200);
-    const body = res.json() as { personaPubkey: string };
+    const body = res.json() as { personaPubkey: string; personaName: string };
     expect(body.personaPubkey).to.equal(binding.thread_pubkey); // first device wins ⇒ persona = its signer
+    const stored = await w.services.recordStore.getPersonaName(body.personaPubkey);
+    expect(body.personaName).to.equal(stored);
   });
 
   it("second device join returns the SAME Pₜ as the first device", async () => {
@@ -226,14 +231,7 @@ describe("12 civic record: join → prepare → WebAuthn-sign → submit (mvp-a5
   });
 
   it("rejects join from a limited (recovery) session (403)", async () => {
-    const userId = randomUUID();
-    await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-    await w.services.repos.profile.insert({
-      userId, firstName: null, lastName: null,
-      line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-      memo: null, birthdate: ADULT_DOB, email: "civic-rec@example.com", emailCanonical: "civic-rec@example.com",
-    });
-    const limited = await w.services.authService.issue(userId, "recovery", "test");
+    const limited = await limitedSessionAccount(w, "civic-rec@example.com", "recovery");
     const res = await w.app.inject({ method: "POST", url: "/v1/civic/threads/join", headers: bearer(limited.token), payload: validJoin() });
     expect(res.statusCode).to.equal(403);
   });

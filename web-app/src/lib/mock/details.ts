@@ -1,4 +1,5 @@
 import type { CommentNode, RecordDetail, RecordKind } from "@/lib/types";
+import { ALBERTA_ID } from "@/lib/types";
 
 /**
  * Post-detail samples: one representative record per kind, plus its comment
@@ -17,7 +18,7 @@ export const POST_STATEMENT: RecordDetail = {
   author: "Hana Okafor",
   handle: "hanao",
   tier: 2,
-  jurisdiction: "Alberta",
+  jurisdiction: ALBERTA_ID,
   districts: ["edmonton-strathcona"],
   ts: "2026-06-22T10:15:00", // >6d old -> shows the absolute date "2026-06-22"
   edits: 3,
@@ -128,7 +129,7 @@ export const POST_PETITION: RecordDetail = {
   author: "Wei Chen",
   handle: "weichen",
   tier: 2,
-  jurisdiction: "Alberta",
+  jurisdiction: ALBERTA_ID,
   districts: ["edmonton-strathcona", "edmonton-city-centre"],
   ts: "2026-06-18T08:00:00",
   edits: 0,
@@ -250,7 +251,7 @@ export const POST_POLL: RecordDetail = {
   author: "Alberta Assembly",
   handle: "ableg",
   tier: 3,
-  jurisdiction: "Alberta",
+  jurisdiction: ALBERTA_ID,
   districts: [],
   ts: "2026-06-15T09:00:00",
   edits: 0,
@@ -261,8 +262,8 @@ export const POST_POLL: RecordDetail = {
     "province-wide, since this draws on the general budget.",
   ],
   options: [
-    { label: "Yes — fund it in 2027", v: 5413 },
-    { label: "No — defer to a later budget", v: 1206 },
+    { label: "Yes — fund it in 2027", v: 5413, live: 6742 },
+    { label: "No — defer to a later budget", v: 1206, live: 1498 },
   ],
   _vote: null,
   signTier: 1,
@@ -315,7 +316,7 @@ export const POST_RESULT: RecordDetail = {
   author: "Alberta Assembly",
   handle: "ableg",
   tier: 3,
-  jurisdiction: "Alberta",
+  jurisdiction: ALBERTA_ID,
   districts: [],
   ts: "2026-06-30T07:00:00",
   edits: 0,

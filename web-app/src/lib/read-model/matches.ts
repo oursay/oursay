@@ -4,6 +4,7 @@ import type {
   FeedScope,
   ViewerContext,
 } from "@/lib/types";
+import { GLOBAL_ID } from "@/lib/types";
 import { passesSignedFilter } from "@/lib/types/sign-tier";
 import {
   inMyDistricts,
@@ -61,7 +62,7 @@ export function matches(
 
   if (scope === "feed") {
     if (filter.jurisdictions) {
-      const sub = filter.jurisdictions.find((s) => s.name === item.jurisdiction);
+      const sub = filter.jurisdictions.find((s) => s.id === item.jurisdiction);
       if (!sub || !sub.included) return false;
     }
     if (myMode === "inclusive" && inMyDistricts(item, ctx.viewerDistricts)) {
@@ -73,7 +74,7 @@ export function matches(
     if (!passesRefine) return false;
     if (
       myMode === "exclusive" &&
-      item.jurisdiction !== "Global" &&
+      item.jurisdiction !== GLOBAL_ID &&
       !inMyDistricts(item, ctx.viewerDistricts)
     ) {
       return false;

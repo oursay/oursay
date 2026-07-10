@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { assertDestructiveAllowed } from "../../../scripts/destructive-guard.js";
 import type { PgConfig } from "../config.js";
+import { personaNameForPubkey } from "../identity/persona-name.js";
 import type { ChainRow } from "../ledger/connector.js";
 import { POSTGRES_DDL } from "../schema/postgres.sql.js";
 import type { Op, RecordType } from "../schema/types.js";
@@ -79,6 +80,13 @@ export interface EntityState {
   parentRevisionHash: string | null;
   headTxId: string;
   headTxHash: string;
+  /** The head transaction's timestamp (bumps on update/delete — recency, not creation time). */
+  createdAt: string;
+  /** The head transaction's global event-log seq — the stable recency/cursor key. */
+  headSeq: number;
+  /** Read-surface signing-tier projection (C1): 0 = quick (software p256 / unsigned dev path),
+   *  1 = passkey (UV-verified webauthn-es256); 2/3 (biometric) are future. */
+  signTier: number;
   isDeleted: boolean;
   isRedacted: boolean;
   isErased: boolean;
@@ -127,6 +135,53 @@ export interface ReactionCount {
  *  unchanged so existing callers are untouched. */
 export interface RootEntityRow extends EntityState {
   createdAt: string;
+}
+
+/** A unified-feed root row ([align-w4-api-surface] P1): the folded state plus the ORIGINAL create
+ *  time (display `ts`; `createdAt` is the head tx's and bumps on edit) and the thread's audience
+ *  jurisdiction (from the thread-key bindings; null when no persona has joined — callers default). */
+export interface FeedRootRow extends EntityState {
+  firstCreatedAt: string;
+  jurisdiction: string | null;
+}
+
+/** Unified-feed query options. `types` restricts root types (absent ⇒ all four); `jurisdictions`
+ *  restricts by thread audience jurisdiction (rows with no binding count as `defaultJurisdiction`);
+ *  `signedMin` floors the projected sign tier; `beforeSeq` is the exclusive cursor (head seq). */
+export interface FeedRootsQuery {
+  types?: RecordType[];
+  jurisdictions?: string[];
+  /** The jurisdiction unbound threads belong to for filtering (the deployment default). */
+  defaultJurisdiction: string;
+  signedMin?: number;
+  beforeSeq?: number;
+  limit: number;
+}
+
+/** Profile posts query ([align-w4-api-surface] P5): LIVE roots authored by any of the user's
+ *  per-thread persona pubkeys. Results are excluded — a Result is a system outcome, not a user post. */
+export interface AuthorRootsQuery {
+  pubkeys: string[];
+  types?: RecordType[];
+  beforeSeq?: number;
+  limit: number;
+  offset?: number;
+}
+
+/** One row in a profile activity feed ([align-w4-api-surface] P5): a single record_tx event authored
+ *  by one of the user's persona pubkeys, with the thread root id for navigation. */
+export interface AuthorActivityRow {
+  seq: number;
+  entityId: string;
+  type: RecordType;
+  op: Op;
+  parentId: string | null;
+  parentType: string | null;
+  authorPubkey: string;
+  createdAt: string;
+  content: unknown;
+  /** The thread root entity id (walk parent_id until null). */
+  rootEntityId: string;
 }
 
 /**
@@ -330,6 +385,198 @@ export class PrivateStore {
     return r.rows.map(mapRootEntityRow);
   }
 
+  /**
+   * Unified feed page ([align-w4-api-surface] P1): LIVE roots across the four root types, newest
+   * head first (head_seq DESC — an edited root bumps, matching the per-type lists' recency). Each
+   * row carries the ORIGINAL create time and the thread's audience jurisdiction. Cursor pagination
+   * is `beforeSeq` (exclusive) over the same ordering key, so pages never skip or repeat across
+   * concurrent writes. Filters compose: type set, jurisdiction set (unbound threads count as
+   * `defaultJurisdiction`), and the projected sign-tier floor.
+   */
+  async listFeedRoots(q: FeedRootsQuery): Promise<FeedRootRow[]> {
+    const types = q.types && q.types.length > 0 ? q.types : ["post", "petition", "poll", "result"];
+    const params: unknown[] = [types, q.limit];
+    let where =
+      `es.type = ANY($1) AND es.parent_id IS NULL AND NOT es.is_deleted`;
+    if (q.signedMin != null && q.signedMin > 0) {
+      params.push(q.signedMin);
+      where += ` AND es.sign_tier >= $${params.length}`;
+    }
+    if (q.beforeSeq != null) {
+      params.push(q.beforeSeq);
+      where += ` AND es.head_seq < $${params.length}`;
+    }
+    if (q.jurisdictions && q.jurisdictions.length > 0) {
+      params.push(q.jurisdictions, q.defaultJurisdiction);
+      where += ` AND COALESCE(tk.jurisdiction, ea.jurisdiction_id, $${params.length}) = ANY($${params.length - 1})`;
+    }
+    const r = await this.pool.query(
+      `SELECT es.*,
+              COALESCE(tk.jurisdiction, ea.jurisdiction_id) AS thread_jurisdiction,
+              fc.first_created_at
+       FROM entity_state es
+       LEFT JOIN LATERAL (
+         -- thread_id is TEXT while entity ids are UUID; cast for the column-to-column compare.
+         SELECT jurisdiction FROM thread_keys WHERE thread_id = es.entity_id::text ORDER BY jurisdiction ASC LIMIT 1
+       ) tk ON true
+       LEFT JOIN LATERAL (
+         SELECT jurisdiction_id FROM entity_audience WHERE entity_id = es.entity_id::text LIMIT 1
+       ) ea ON true
+       LEFT JOIN LATERAL (
+         SELECT MIN(created_at) AS first_created_at FROM record_tx WHERE entity_id = es.entity_id AND op = 'create'
+       ) fc ON true
+       WHERE ${where}
+       ORDER BY es.head_seq DESC
+       LIMIT $2`,
+      params,
+    );
+    return r.rows.map(mapFeedRootRow);
+  }
+
+  /** Every (pubkey, threadId) persona key registered for one account. Empty when the user has never
+   *  joined a thread — profile posts/activity are then empty, not an error. Account-surface callers
+   *  must filter these by per-thread reveal before querying authored rows (docs/09 §2 — a thread's
+   *  anonymous override severs the account↔thread link in both directions). */
+  async listThreadKeysForUser(userId: string): Promise<{ pubkey: string; threadId: string }[]> {
+    const r = await this.pool.query(`SELECT pubkey, thread_id FROM thread_keys WHERE user_id = $1`, [userId]);
+    return r.rows.map((x) => ({ pubkey: x.pubkey as string, threadId: x.thread_id as string }));
+  }
+
+  /** LIVE roots authored by any of the supplied persona pubkeys, newest head first. */
+  async listAuthorRoots(q: AuthorRootsQuery): Promise<FeedRootRow[]> {
+    if (q.pubkeys.length === 0) return [];
+    const types = q.types && q.types.length > 0 ? q.types : ["post", "petition", "poll", "result"];
+    const params: unknown[] = [q.pubkeys, types, q.limit];
+    let where = `es.author_pubkey = ANY($1) AND es.type = ANY($2) AND es.parent_id IS NULL AND NOT es.is_deleted`;
+    if (q.beforeSeq != null) {
+      params.push(q.beforeSeq);
+      where += ` AND es.head_seq < $${params.length}`;
+    }
+    const offset = q.offset ?? 0;
+    if (offset > 0) {
+      params.push(offset);
+    }
+    const offsetClause = offset > 0 ? ` OFFSET $${params.length}` : "";
+    const r = await this.pool.query(
+      `SELECT es.*,
+              tk.jurisdiction AS thread_jurisdiction,
+              fc.first_created_at
+       FROM entity_state es
+       LEFT JOIN LATERAL (
+         SELECT jurisdiction FROM thread_keys WHERE thread_id = es.entity_id::text ORDER BY jurisdiction ASC LIMIT 1
+       ) tk ON true
+       LEFT JOIN LATERAL (
+         SELECT MIN(created_at) AS first_created_at FROM record_tx WHERE entity_id = es.entity_id AND op = 'create'
+       ) fc ON true
+       WHERE ${where}
+       ORDER BY es.head_seq DESC
+       LIMIT $3${offsetClause}`,
+      params,
+    );
+    return r.rows.map(mapFeedRootRow);
+  }
+
+  /** Every record_tx row authored by any of the supplied persona pubkeys, newest seq first — the raw
+   *  material for the profile Activity tab (posts, comments, edits, reactions, votes, signatures). */
+  async listAuthorActivity(
+    pubkeys: string[],
+    opts: { limit: number; offset?: number; beforeSeq?: number },
+  ): Promise<AuthorActivityRow[]> {
+    if (pubkeys.length === 0) return [];
+    const params: unknown[] = [pubkeys, opts.limit];
+    let where = `t.author_pubkey = ANY($1)`;
+    if (opts.beforeSeq != null) {
+      params.push(opts.beforeSeq);
+      where += ` AND t.seq < $${params.length}`;
+    }
+    const offset = opts.offset ?? 0;
+    if (offset > 0) {
+      params.push(offset);
+    }
+    const offsetClause = offset > 0 ? ` OFFSET $${params.length}` : "";
+    const r = await this.pool.query(
+      `SELECT t.seq, t.entity_id, t.type, t.op, t.parent_id, t.parent_type, t.author_pubkey,
+              t.created_at, t.content,
+              COALESCE(
+                (WITH RECURSIVE chain(entity_id, parent_id) AS (
+                   SELECT es.entity_id, es.parent_id FROM entity_state es WHERE es.entity_id = t.entity_id
+                   UNION ALL
+                   SELECT es.entity_id, es.parent_id FROM entity_state es
+                     JOIN chain c ON es.entity_id = c.parent_id
+                 )
+                 SELECT entity_id FROM chain WHERE parent_id IS NULL LIMIT 1),
+                t.entity_id
+              ) AS root_entity_id
+       FROM record_tx t
+       WHERE ${where}
+       ORDER BY t.seq DESC
+       LIMIT $2${offsetClause}`,
+      params,
+    );
+    return r.rows.map(mapAuthorActivityRow);
+  }
+
+  /** LIVE comments authored by any of the supplied persona pubkeys (all nesting depths). */
+  async countAuthoredComments(pubkeys: string[]): Promise<number> {
+    if (pubkeys.length === 0) return 0;
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS count FROM entity_state
+        WHERE author_pubkey = ANY($1) AND type = 'comment' AND NOT is_deleted`,
+      [pubkeys],
+    );
+    return Number(r.rows[0]?.count ?? 0);
+  }
+
+  /** Agree/disagree reaction totals on LIVE comments authored by the supplied persona pubkeys. */
+  async sumAuthoredCommentReactionCounts(
+    pubkeys: string[],
+  ): Promise<{ agrees: number; disagrees: number }> {
+    if (pubkeys.length === 0) return { agrees: 0, disagrees: 0 };
+    const r = await this.pool.query(
+      `SELECT r.kind, COALESCE(SUM(r.count), 0)::int AS count
+         FROM entity_state es
+         JOIN reaction_counts_by_entity r ON r.parent_id = es.entity_id
+        WHERE es.author_pubkey = ANY($1) AND es.type = 'comment' AND NOT es.is_deleted
+        GROUP BY r.kind`,
+      [pubkeys],
+    );
+    return {
+      agrees: Number(r.rows.find((x) => x.kind === "check")?.count ?? 0),
+      disagrees: Number(r.rows.find((x) => x.kind === "cross")?.count ?? 0),
+    };
+  }
+
+  /** Revision counts (`op = 'update'` transactions) for a batch of entities. Entities with no
+   *  updates are absent from the map — callers default to 0. */
+  async getEditCounts(entityIds: string[]): Promise<Map<string, number>> {
+    if (entityIds.length === 0) return new Map();
+    const r = await this.pool.query(
+      `SELECT entity_id, COUNT(*)::int AS count FROM record_tx
+       WHERE op = 'update' AND entity_id = ANY($1) GROUP BY entity_id`,
+      [entityIds],
+    );
+    return new Map(r.rows.map((x) => [x.entity_id as string, Number(x.count)]));
+  }
+
+  /** LIVE comment counts (all nesting depths) for a batch of ROOT entities, via a recursive walk of
+   *  the non-deleted comment tree. Roots with no comments are absent — callers default to 0. */
+  async getCommentCounts(rootIds: string[]): Promise<Map<string, number>> {
+    if (rootIds.length === 0) return new Map();
+    const r = await this.pool.query(
+      `WITH RECURSIVE tree(entity_id, root_id) AS (
+         SELECT es.entity_id, es.parent_id FROM entity_state es
+          WHERE es.type = 'comment' AND NOT es.is_deleted AND es.parent_id = ANY($1)
+         UNION ALL
+         SELECT es.entity_id, t.root_id FROM entity_state es
+           JOIN tree t ON es.parent_id = t.entity_id
+          WHERE es.type = 'comment' AND NOT es.is_deleted
+       )
+       SELECT root_id, COUNT(*)::int AS count FROM tree GROUP BY root_id`,
+      [rootIds],
+    );
+    return new Map(r.rows.map((x) => [x.root_id as string, Number(x.count)]));
+  }
+
   /** Count of LIVE root entities of one type — matches `listRootEntities`' filter so a list's
    *  `total` agrees with what it pages over. */
   async countRootEntities(type: RecordType): Promise<number> {
@@ -454,6 +701,20 @@ export class PrivateStore {
     return r.rows.map((x) => ({ option: x.option, count: Number(x.count) }));
   }
 
+  /** Interlink: the LIVE result entity that published a given poll (result.content.sourcePollId =
+   *  pollId), or null. The graduation chain links forward petition→poll→result; only the poll→result
+   *  edge needs a reverse lookup (petition→poll and result→poll are carried inline in content). One
+   *  result per poll is expected; the oldest live match wins if a poll were ever re-published. */
+  async findResultForPoll(pollId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT entity_id FROM entity_state
+       WHERE type = 'result' AND NOT is_deleted AND content->>'sourcePollId' = $1
+       ORDER BY created_at ASC LIMIT 1`,
+      [pollId],
+    );
+    return r.rows[0]?.entity_id ?? null;
+  }
+
   // ── Participant-level enumeration (for geo/tier-scoped counts) ─────────────────────────────
   // The aggregate getters above answer "how many?"; these answer "which participants?" so a caller
   // (api ParticipantGeoService) can resolve each to a region and re-aggregate only those in scope.
@@ -537,10 +798,19 @@ export class PrivateStore {
     );
   }
 
-  async putUser(u: { id: string; handle?: string }): Promise<void> {
+  /** Upsert a user row. handle/display_name are NOT NULL (C4): absent inputs synthesize a stable
+   *  handle from the id (and the display name from the handle) on INSERT; on UPDATE an absent input
+   *  never clobbers an existing value. */
+  async putUser(u: { id: string; handle?: string; displayName?: string }): Promise<void> {
+    const defaultHandle = `u${u.id.replace(/-/g, "").slice(0, 8)}`;
+    const handle = (u.handle ?? defaultHandle).replace(/^@/, "");
+    const displayName = u.displayName ?? handle;
     await this.pool.query(
-      `INSERT INTO users(id, handle) VALUES($1,$2) ON CONFLICT (id) DO UPDATE SET handle = EXCLUDED.handle`,
-      [u.id, u.handle ?? null],
+      `INSERT INTO users(id, handle, display_name) VALUES($1,$2,$3)
+       ON CONFLICT (id) DO UPDATE SET
+         handle = COALESCE($4, users.handle),
+         display_name = COALESCE($5, users.display_name)`,
+      [u.id, handle, displayName, u.handle ?? null, u.displayName ?? null],
     );
   }
 
@@ -571,10 +841,11 @@ export class PrivateStore {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      const personaName = await this.freePersonaName(client, input.threadPubkey);
       await client.query(
-        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey, persona_name) VALUES($1,$2,$3,$4,$5,$6)
          ON CONFLICT (user_id, thread_id) DO NOTHING`,
-        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.threadPubkey],
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.threadPubkey, personaName],
       );
       await client.query(
         `INSERT INTO thread_bindings(thread_pubkey, thread_id, jurisdiction, kyc_tier, commitment, binding_sig)
@@ -636,11 +907,15 @@ export class PrivateStore {
         await client.query("COMMIT");
         return personaPubkey;
       }
+      // Mint the persona's public display name (C7): deterministic from Pₜ, retry-on-collision by
+      // widening the numeric suffix. Checked inside this transaction; the UNIQUE constraint is the
+      // last-resort guard against a concurrent-join race (the losing join simply retries).
+      const personaName = await this.freePersonaName(client, input.proposedPubkey);
       const inserted = await client.query(
-        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey) VALUES($1,$2,$3,$4,$5)
+        `INSERT INTO thread_keys(id, user_id, thread_id, jurisdiction, pubkey, persona_name) VALUES($1,$2,$3,$4,$5,$6)
          ON CONFLICT (user_id, thread_id) DO NOTHING
          RETURNING pubkey`,
-        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.proposedPubkey],
+        [randomUUID(), input.userId, input.threadId, input.jurisdiction, input.proposedPubkey, personaName],
       );
       let personaPubkey: string;
       if (inserted.rows.length > 0) {
@@ -937,6 +1212,172 @@ export class PrivateStore {
     );
   }
 
+  // ── [align-w3-gates-schema] persona names, visibility, projections ─────────────────────
+
+  /** The first free persona name for `personaPubkey`, widening the numeric suffix on collision. */
+  private async freePersonaName(client: pg.PoolClient, personaPubkey: string): Promise<string> {
+    for (let digits = 2; digits <= 8; digits++) {
+      const candidate = personaNameForPubkey(personaPubkey, digits);
+      const clash = await client.query(`SELECT 1 FROM thread_keys WHERE persona_name = $1`, [candidate]);
+      if (clash.rows.length === 0) return candidate;
+    }
+    // 8 suffix digits colliding is astronomically unlikely; fall back to an unambiguous unique name.
+    return `Persona${personaPubkey.slice(0, 12)}`;
+  }
+
+  /** Resolve a persona by its PUBLIC display name (the persona page key). Returns only what the
+   *  persona surface may show — pubkey + thread scope; NEVER the user id (P6 anonymity). */
+  async getPersonaByName(personaName: string): Promise<{ pubkey: string; threadId: string; jurisdiction: string } | null> {
+    const r = await this.pool.query(
+      `SELECT pubkey, thread_id, jurisdiction FROM thread_keys WHERE persona_name = $1`,
+      [personaName],
+    );
+    const row = r.rows[0];
+    return row ? { pubkey: row.pubkey, threadId: row.thread_id, jurisdiction: row.jurisdiction } : null;
+  }
+
+  /** The public persona display name for a persona pubkey (null for pre-minting rows). */
+  async getPersonaName(personaPubkey: string): Promise<string | null> {
+    const r = await this.pool.query(`SELECT persona_name FROM thread_keys WHERE pubkey = $1`, [personaPubkey]);
+    return r.rows[0]?.persona_name ?? null;
+  }
+
+  /** Set (or clear with null) the caller's per-thread visibility OVERRIDE (C4). Keyed by the
+   *  caller's own (user, thread) binding; returns false when the user has no persona in the thread. */
+  async setThreadVisibility(userId: string, threadId: string, visibility: string | null): Promise<boolean> {
+    const r = await this.pool.query(
+      `UPDATE thread_bindings b SET visibility = $3
+       FROM thread_keys t
+       WHERE b.thread_pubkey = t.pubkey AND t.user_id = $1 AND t.thread_id = $2`,
+      [userId, threadId, visibility],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** The caller's per-thread visibility override, or null (= account default applies). */
+  async getThreadVisibility(userId: string, threadId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT b.visibility FROM thread_bindings b
+       JOIN thread_keys t ON b.thread_pubkey = t.pubkey
+       WHERE t.user_id = $1 AND t.thread_id = $2`,
+      [userId, threadId],
+    );
+    return r.rows[0]?.visibility ?? null;
+  }
+
+  /** Replace a root's district-audience projection (C2, `entity_audience`). Empty rows = the root
+   *  applies jurisdiction-wide (no rows stored). */
+  async replaceEntityAudience(
+    entityId: string,
+    jurisdictionId: string,
+    rows: { districtSlug: string; revisionId: string }[],
+  ): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM entity_audience WHERE entity_id = $1`, [entityId]);
+      for (const row of rows) {
+        await client.query(
+          `INSERT INTO entity_audience(entity_id, jurisdiction_id, district_slug, revision_id)
+           VALUES($1,$2,$3,$4) ON CONFLICT (entity_id, district_slug) DO UPDATE SET revision_id = EXCLUDED.revision_id`,
+          [entityId, jurisdictionId, row.districtSlug, row.revisionId],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /** The district-slug audience projection for a root entity ([] = jurisdiction-wide). */
+  async getEntityAudience(entityId: string): Promise<{ districtSlug: string; revisionId: string }[]> {
+    const r = await this.pool.query(
+      `SELECT district_slug, revision_id FROM entity_audience WHERE entity_id = $1 ORDER BY district_slug`,
+      [entityId],
+    );
+    return r.rows.map((row) => ({ districtSlug: row.district_slug, revisionId: row.revision_id }));
+  }
+
+  /** Jurisdiction id from the entity_audience projection (null when jurisdiction-wide or absent). */
+  async getEntityAudienceJurisdiction(entityId: string): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT jurisdiction_id FROM entity_audience WHERE entity_id = $1 LIMIT 1`,
+      [entityId],
+    );
+    return (r.rows[0]?.jurisdiction_id as string | undefined) ?? null;
+  }
+
+  /** Write the relationship snapshot for one submitted civic tx (C6 + [mvp-c4-action-snapshots]).
+   *  Idempotent per tx. Flags + tier only — never a point, and district_slug stays NULL unless a
+   *  policy explicitly needs an official district breakdown. */
+  async putRecordActionGeo(input: {
+    txId: string;
+    entityId: string;
+    inAffected: boolean;
+    inJurisdiction: boolean;
+    tierAtAction: string;
+    districtSlug?: string | null;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO record_action_geo(tx_id, entity_id, in_affected, in_jurisdiction, tier_at_action, district_slug)
+       VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT (tx_id) DO NOTHING`,
+      [input.txId, input.entityId, input.inAffected, input.inJurisdiction, input.tierAtAction, input.districtSlug ?? null],
+    );
+  }
+
+  /** The relationship snapshot for a tx, or null (pre-W3 rows / snapshot write failed). */
+  async getRecordActionGeo(txId: string): Promise<{
+    entityId: string;
+    inAffected: boolean;
+    inJurisdiction: boolean;
+    tierAtAction: string;
+    districtSlug: string | null;
+  } | null> {
+    const r = await this.pool.query(
+      `SELECT entity_id, in_affected, in_jurisdiction, tier_at_action, district_slug
+       FROM record_action_geo WHERE tx_id = $1`,
+      [txId],
+    );
+    const row = r.rows[0];
+    if (!row) return null;
+    return {
+      entityId: row.entity_id,
+      inAffected: row.in_affected,
+      inJurisdiction: row.in_jurisdiction,
+      tierAtAction: row.tier_at_action,
+      districtSlug: row.district_slug,
+    };
+  }
+
+  /** Mark a share (once per account per target). Returns true when this call created the mark. */
+  async addShareMark(userId: string, shareKey: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `INSERT INTO share_marks(user_id, share_key) VALUES($1,$2)
+       ON CONFLICT (user_id, share_key) DO NOTHING`,
+      [userId, shareKey],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  /** Distinct accounts that shared a target. */
+  async shareCount(shareKey: string): Promise<number> {
+    const r = await this.pool.query(`SELECT COUNT(*)::int AS n FROM share_marks WHERE share_key = $1`, [shareKey]);
+    return r.rows[0]?.n ?? 0;
+  }
+
+  /** Whether each of `shareKeys` has been shared by `userId` (the A5 record-state read). */
+  async sharedByUser(userId: string, shareKeys: string[]): Promise<Set<string>> {
+    if (shareKeys.length === 0) return new Set();
+    const r = await this.pool.query(
+      `SELECT share_key FROM share_marks WHERE user_id = $1 AND share_key = ANY($2)`,
+      [userId, shareKeys],
+    );
+    return new Set(r.rows.map((row) => row.share_key as string));
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
   }
@@ -956,6 +1397,9 @@ function mapEntityState(row: pg.QueryResultRow): EntityState {
     parentRevisionHash: row.parent_revision_hash,
     headTxId: row.head_tx_id,
     headTxHash: row.head_tx_hash,
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+    headSeq: Number(row.head_seq),
+    signTier: Number(row.sign_tier ?? 0),
     isDeleted: row.is_deleted,
     isRedacted: row.is_redacted,
     isErased: row.is_erased,
@@ -966,6 +1410,36 @@ function mapRootEntityRow(row: pg.QueryResultRow): RootEntityRow {
   return {
     ...mapEntityState(row),
     createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+  };
+}
+
+function mapFeedRootRow(row: pg.QueryResultRow): FeedRootRow {
+  return {
+    ...mapEntityState(row),
+    firstCreatedAt:
+      row.first_created_at == null
+        ? typeof row.created_at === "string"
+          ? row.created_at
+          : new Date(row.created_at).toISOString()
+        : typeof row.first_created_at === "string"
+          ? row.first_created_at
+          : new Date(row.first_created_at).toISOString(),
+    jurisdiction: row.thread_jurisdiction ?? null,
+  };
+}
+
+function mapAuthorActivityRow(row: pg.QueryResultRow): AuthorActivityRow {
+  return {
+    seq: Number(row.seq),
+    entityId: row.entity_id,
+    type: row.type,
+    op: row.op,
+    parentId: row.parent_id,
+    parentType: row.parent_type,
+    authorPubkey: row.author_pubkey,
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+    content: row.content,
+    rootEntityId: row.root_entity_id,
   };
 }
 

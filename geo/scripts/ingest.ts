@@ -63,10 +63,37 @@ async function main(): Promise<void> {
 
   console.log(`geo: ingesting set ${set} …`);
   const result = await ingestBoundaries(store, source(set));
+  const boundarySource = source(set);
+
+  const { ingestOfficialSeats, oursayGlobalPlatformSeat } = await import("../src/ingest/official-seats.js");
+  const seatResult = await ingestOfficialSeats(
+    store,
+    {
+      jurisdictionId: boundarySource.jurisdictionId,
+      effectiveDate: boundarySource.effectiveDate,
+      boundaryYear: boundarySource.boundaryYear,
+    },
+    paths.repoRoot,
+  );
+  await ingestOfficialSeats(
+    store,
+    {
+      jurisdictionId: "oursay-global",
+      effectiveDate: boundarySource.effectiveDate,
+      boundaryYear: boundarySource.boundaryYear,
+      extraSeats: [oursayGlobalPlatformSeat()],
+    },
+    paths.repoRoot,
+  );
+
   const total = await store.countDistricts(result.jurisdictionId);
+  const seatTotal = await store.countOfficialSeats();
   console.log(
     `geo: ingested ${result.count} districts (${result.jurisdictionId}, year ${result.boundaryYear}, ` +
       `effective ${result.effectiveDate}); ${total} total in jurisdiction.`,
+  );
+  console.log(
+    `geo: ingested ${seatResult.count} official seats for ${seatResult.jurisdictionId}; ${seatTotal} total official seats.`,
   );
   await store.close();
 }

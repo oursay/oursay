@@ -166,3 +166,31 @@ extends an existing resource or is net-new, and a priority note.
 Mocks fill all of the above today. Each entry is a concrete proposal the API team
 can implement; field-addition gaps (7, 11, 12, 13) are the cheapest and unblock the
 most UI.
+
+## Part 3 — W2 mock/DTO alignment decisions (2026-07-05)
+
+W2 (`docs/temp/WEB-APP-GAPS.md` C8 + Part 6) re-shaped the mock layer to match the backend so the W5 fetch swap is mechanical. The load-bearing decisions the fetch adapters must honor:
+
+### Jurisdiction: id in logic, label at render (M1)
+- Every field that previously held a jurisdiction **name** (`"Global"` / `"Alberta"`) now holds a jurisdiction **id**: `oursay-global` / `ab-ca-gov`. This covers  `FeedItem.jurisdiction`, `RecordDetail.jurisdiction`, `JurisdictionMembership.id`, subscription cookies, and every comparison in `read-model` / `geo-scope` / filters.
+- Display labels resolve at render time from `JUR_DATA` via `jurisdictionLabel(id)` (`@/lib/mock`); the icon via `jurisdictionIconForId(id)`. **No `"Global"`/`"Alberta"` string keys remain in logic.** The served config (P7/P8) carries `id`, `slug`, `level`, `name` (label), and `gates`; the adapter passes ids through unchanged.
+- `JurisdictionSummary` now carries `id` / `slug` / `level` / `gates` alongside `name`.
+
+### Gates config (M2/M3)
+- `web-app/src/lib/mock/gates.ts` mirrors the backend `JurisdictionGates` (`public-record/src/jurisdiction.ts` `ActionGate`) **exactly** in shape: `{ act, signMin, officialCount?, deny? }`, keyed by CANONICAL action type (`post`, not `statement`). `GateActor` = `"anyone" | {tiers} | {residencyIn} | {role}`.
+- **Tier encoding differs by layer** and the adapter maps between them: the mock uses numeric `VerificationTier` in `{tiers:[…]}` (identity=1, residency=2); the backend uses `KycTier` strings (`identity_verified` / `residency_verified`). P7's served `gates` should carry the string form; the fetch adapter maps strings → numeric tiers.
+- Compose eligibility (`compose-eligibility.ts`) is config-driven off these gates (`actorAdmits`): Alberta polls are **offered but officials-only**; `residencyIn` is approximated client-side as `kycTier >= 2`. W5 keeps prepare/submit fail-closed on the server — the client gate is a UX pre-filter only.
+
+### District field naming (C2) — documented mapping, NOT renamed
+- The mock keeps the internal field name **`districts`** (the slugs a record affects) rather than physically renaming ~230 occurrences. The served DTO field is **`appliesToDistrictIds`**. **W5's fetch adapter maps `appliesToDistrictIds → districts`.** This was the explicitly-allowed W2 alternative to a physical rename.
+- `FeedItem.authorDistricts` / `RecordDetail.authorDistricts` stay **server-internal** (mock corpus + read-model filtering only). The API strips them and serves the resolved `authorGeo` relation instead; W5 deletes the client-side authorGeo pass.
+
+### Official vs live tallies (M4)
+- `RecordOption` gains `live?: number` — the count including below-floor participants ("sign now, counts once you verify") alongside `v` (the official count that meets the gate's `officialCount` bar). Absent ⇒ live === official. Populated on the open Alberta poll today; `PollOptions` surfaces `live - v` as the "+N unverified votes" note when present, falling back to the filter-driven `civicExtra` demo estimate otherwise.
+- **Petition live count** (below-floor signatures) has no field yet — petitions expose only `sig` / `goal`. Deferred; add a `liveSig` sibling when the served counts resource distinguishes them.
+
+### signTier floors (M8)
+- Corpus rows are stamped with `deriveSignTier(jur, action, hint)` so a row's `signTier` never sits below its jurisdiction's `signMin` floor (Alberta ledger-final roots ⇒ ≥1). The served read surfaces (gap 13) carry `signTier` directly; the adapter passes through.
+
+### Unchanged
+- Personas (thread-scoped, `AdjectiveAnimalNN`) and the `authorGeo` relation shape are unchanged by W2. Visibility already ships the 4 picker values (`anonymous | all_officials | my_district | public`); the corpus retains future values for the de-anon demo.

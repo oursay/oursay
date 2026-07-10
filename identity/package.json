@@ -13,6 +13,7 @@
   },
   "scripts": {
     "serve": "tsx web/server.ts",
+    "pretest": "npm run db:test:up -w @oursay/public-record",
     "test": "mocha",
     "typecheck": "tsc --noEmit",
     "reset": "tsx scripts/reset.ts"
@@ -20,6 +21,7 @@
   "dependencies": {
     "@noble/curves": "^1.8.1",
     "@noble/hashes": "^1.7.1",
+    "@oursay/encode": "*",
     "@oursay/public-record": "*"
   },
   "devDependencies": {

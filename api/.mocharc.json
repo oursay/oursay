@@ -1,6 +1,6 @@
 {
   "extension": ["ts"],
-  "spec": "test/**/*.spec.ts",
+  "require": ["test/setup-env.ts"],
   "node-option": ["import=tsx", "no-warnings"],
   "timeout": 60000,
   "slow": 5000,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ANON_VIEWER, type FeedFilterParams } from "@/lib/types";
+import { ALBERTA_ID, ANON_VIEWER, GLOBAL_ID, type FeedFilterParams } from "@/lib/types";
 import { listFeedItems } from "./feed";
 import { getRecordDetail } from "./record";
 
@@ -17,8 +17,8 @@ describe("API-resolved My Jurisdiction universe", () => {
       filter: {
         ...jurOnly,
         jurisdictions: [
-          { name: "Global", included: false },
-          { name: "Alberta", included: true },
+          { id: GLOBAL_ID, included: false },
+          { id: ALBERTA_ID, included: true },
         ],
       },
     });
@@ -34,8 +34,8 @@ describe("API-resolved My Jurisdiction universe", () => {
       filter: {
         ...jurOnly,
         jurisdictions: [
-          { name: "Global", included: true },
-          { name: "Alberta", included: true },
+          { id: GLOBAL_ID, included: true },
+          { id: ALBERTA_ID, included: true },
         ],
       },
     });
@@ -46,7 +46,7 @@ describe("API-resolved My Jurisdiction universe", () => {
     const rows = await listFeedItems({
       scope: "jurisdiction",
       viewer: ANON_VIEWER,
-      filter: { ...jurOnly, jurisdiction: "Alberta" },
+      filter: { ...jurOnly, jurisdiction: ALBERTA_ID },
     });
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.some((p) => p.id === "pet-rural-broadband")).toBe(false);

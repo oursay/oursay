@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ALBERTA_ID } from "@/lib/types";
 import {
   COMMENTS_PETITION,
   COMMENTS_STATEMENT,
@@ -49,7 +50,7 @@ describe("commentKeep — Signed filter ladder", () => {
 
 describe("commentKeep — My Jurisdiction (author residence, post page)", () => {
   const openPost = POST_PETITION; // Alberta, two Edmonton ridings affected
-  const albertaSlugs = JUR_DATA.Alberta.districts.map((d) => d.slug);
+  const albertaSlugs = JUR_DATA[ALBERTA_ID].districts.map((d) => d.slug);
   const filter = (myJurisdiction: "inclusive" | "exclusive"): FeedFilterParams => ({
     tierMin: 0,
     geography: {

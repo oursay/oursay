@@ -6,15 +6,26 @@ import { Info, Map, Newspaper } from "lucide-react";
 import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
-import { districtName } from "@/lib/mock";
-import { authorPath, postPath, profilePath, jurisdictionPath } from "@/lib/routes";
+import { districtName, jurisdictionIdFromSlug, jurisdictionLabel } from "@/lib/mock";
+import { isSeatClaimed } from "@/lib/official-seat";
+import { authorPath, personaHintPath, postPath, officialPath, jurisdictionPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
-export function DistrictView({ slug }: { slug: string }) {
+export function DistrictView({
+  slug,
+  jurisdictionSlug,
+}: {
+  slug: string;
+  jurisdictionSlug?: string;
+}) {
   const app = useApp();
   const { setPageJurisdiction, feedFilter, viewer } = app;
   const router = useRouter();
+  const jurisdictionId = jurisdictionSlug
+    ? (jurisdictionIdFromSlug(jurisdictionSlug) ?? jurisdictionSlug)
+    : undefined;
 
   const [detail, setDetail] = useState<DistrictDetail | null>(null);
   const [items, setItems] = useState<FeedItem[] | null>(null);
@@ -23,8 +34,8 @@ export function DistrictView({ slug }: { slug: string }) {
   const [feedOpen, setFeedOpen] = useState(true);
 
   useEffect(() => {
-    getDistrict(slug).then(setDetail);
-  }, [slug]);
+    getDistrict(slug, jurisdictionId ? { jurisdictionId } : undefined).then(setDetail);
+  }, [slug, jurisdictionId]);
 
   useEffect(() => {
     if (detail) setPageJurisdiction(detail.jur);
@@ -58,12 +69,18 @@ export function DistrictView({ slug }: { slug: string }) {
             onClick={() => router.push(jurisdictionPath(detail.jur))}
             className="underline underline-offset-2 hover:text-ink-soft"
           >
-            {detail.jur}
+            {jurisdictionLabel(detail.jur)}
           </button>
         }
         leaderName={detail.leader}
         leaderHandle={detail.leaderHandle}
-        onLeaderClick={() => router.push(profilePath(detail.leaderHandle))}
+        claimedUserHandle={detail.claimedUserHandle}
+        claimed={detail.leaderClaimed ?? isSeatClaimed(detail.leaderHandle)}
+        leaderRole="mla"
+        onLeaderClick={() => {
+          const path = officialPath(detail.leaderHandle);
+          if (path) router.push(path);
+        }}
       />
 
       <CollapsibleSection
@@ -106,7 +123,9 @@ export function DistrictView({ slug }: { slug: string }) {
               No records match the current filters.
             </p>
           ) : (
-            items.map((item) => (
+            items.map((item) => {
+              const personaHint = personaHintPath(item.identity);
+              return (
               <FeedCard
                 key={item.id}
                 item={{
@@ -120,6 +139,9 @@ export function DistrictView({ slug }: { slug: string }) {
                 hideDistrict
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+                onPersonaClick={
+                  personaHint ? () => router.push(personaHint) : undefined
+                }
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
@@ -134,10 +156,11 @@ export function DistrictView({ slug }: { slug: string }) {
                 onVote={(label) => app.votePoll(item, label)}
                 onSignPetition={() => app.signPetition(item)}
                 onEditsClick={() =>
-                  app.notify("Edit history is not built in this demo.")
+                  app.notify(DEFERRED_EDIT_HISTORY)
                 }
               />
-            ))
+              );
+            })
           )}
         </div>
       </CollapsibleSection>

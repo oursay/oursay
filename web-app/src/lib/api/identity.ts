@@ -4,6 +4,8 @@ import {
   personDistricts,
   THREAD_VISIBILITY_OVERRIDES,
 } from "@/lib/mock";
+import { wireHandle } from "@/lib/handle";
+import { isMockOnly } from "./client";
 import { jurisdictionSlugs } from "./geo-scope";
 import type { PostTypeEntry } from "@/lib/mock";
 import {
@@ -110,6 +112,16 @@ export function personaFor(handle: string, threadId: string): string {
   return name;
 }
 
+/** The persona name out-of-scope viewers see in `threadId`. Mock: handle-seeded; live: prefer server hints. */
+export function personaShownToOthers(
+  handle: string,
+  threadId: string,
+  serverHint?: string | null,
+): string {
+  if (!isMockOnly() && serverHint) return serverHint;
+  return personaFor(handle, threadId);
+}
+
 /** Resolve a persona name back to its (handle, thread) — persona-page lookup. */
 export function lookupPersona(
   personaName: string,
@@ -130,17 +142,20 @@ export function resolveAuthorIdentity(
   threadId: string,
   viewer: ViewerContext,
 ): AuthorIdentity {
-  if (viewer.selfHandle && handle.toLowerCase() === viewer.selfHandle.toLowerCase()) {
+  if (
+    viewer.selfHandle &&
+    wireHandle(handle)?.toLowerCase() === viewer.selfHandle.toLowerCase()
+  ) {
     const ownVisibility = resolveVisibility(
       viewer.selfVisibility ?? "anonymous",
       THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle],
     );
     return {
       display: displayName,
-      handle,
+      handle: wireHandle(handle) ?? handle,
       isPersona: false,
       isSelf: true,
-      seed: handle,
+      seed: wireHandle(handle) ?? handle,
       threadId,
       seenByOthersAs:
         ownVisibility === "public" ? undefined : personaFor(handle, threadId),
@@ -153,12 +168,13 @@ export function resolveAuthorIdentity(
     viewer,
   );
   if (revealed) {
+    const wire = wireHandle(handle) ?? handle;
     return {
       display: displayName,
-      handle,
+      handle: wire,
       isPersona: false,
       isSelf: false,
-      seed: handle,
+      seed: wire,
       threadId,
     };
   }

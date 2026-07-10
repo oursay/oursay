@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { jurisdictionAllowsVoteChange } from "@/lib/signing";
 import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
 import { Button } from "@/components/ui";
 import { ScopeTag } from "./ScopeTag";
@@ -20,6 +21,7 @@ interface FeedCardProps {
   hideDistrict?: boolean;
   resolveDistrict?: (slug: string) => string;
   onAuthorClick?: () => void;
+  onPersonaClick?: () => void;
   onTitleClick?: () => void;
   onCommentsClick?: () => void;
   onShare?: () => void;
@@ -45,6 +47,7 @@ export function FeedCard({
   hideDistrict = false,
   resolveDistrict,
   onAuthorClick,
+  onPersonaClick,
   onTitleClick,
   onCommentsClick,
   onShare,
@@ -85,6 +88,7 @@ export function FeedCard({
           signTier={item.signTier}
           authorGeo={item.authorGeo}
           onAuthorClick={onAuthorClick}
+          onPersonaClick={onPersonaClick}
           scopeSlot={
             <ScopeTag
               {...scopeProps}
@@ -142,7 +146,7 @@ export function FeedCard({
               <PollOptions
                 options={item.options}
                 selectedVote={selectedVote}
-                isFinalJurisdiction={item.jurisdiction === "Alberta"}
+                isFinalJurisdiction={!jurisdictionAllowsVoteChange(item.jurisdiction)}
                 tierMin={tierMin}
                 onVote={onVote}
               />

@@ -24,8 +24,8 @@ import { getJurisdiction, registerJurisdiction } from "@oursay/public-record";
 import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount } from "./helpers/account.js";
 
-const ADULT_DOB = "1990-06-15";
 const JURISDICTION = "ab-ca-gov";
 
 // Known lon/lat points and the 2019 riding revisions that contain them (verified by @oursay/geo).
@@ -61,18 +61,6 @@ interface Member {
   userId: string;
   sess: IdentitySession;
   client: CivicHttpClient;
-}
-
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
 }
 
 /** Enroll a device + join the GIVEN shared thread `t` (so many members participate on one root). */
@@ -116,9 +104,11 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     await ingestBoundaries(w.services.geoStore, alberta2019Source());
     // C9 count-exposure gating is OFF for these GEO-filter tests: re-register ab-ca-gov with PERMISSIVE
     // counts so raw/filtered signature/vote scalars stay visible and we isolate the geo dimension. The
-    // real tier-gated policy is exercised in spec 18. Restored in after().
+    // real tier-gated policy is exercised in spec 18. Act gates are ALSO stripped (fixture seam): these
+    // fixtures include drift-only states (votes from users without points) the real write gates forbid;
+    // gate enforcement itself is covered in 20-gates.spec.ts. Restored in after().
     abCaGovOriginal = getJurisdiction(JURISDICTION);
-    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true } });
+    registerJurisdiction({ ...abCaGovOriginal, counts: { votes: true, signatures: true }, gates: undefined });
   });
 
   after(() => {
@@ -166,7 +156,7 @@ describe("16 public-record counts: geo scope resolution + k-anonymity", () => {
     const pub = await counts(w, "polls", t.threadId, "?scope=all-public");
     expect(optionCount(pub.results, "yes")!.count).to.equal(3);
     expect(optionCount(pub.results, "no")!.count).to.equal(1);
-    expect(pub.filters.applied).to.deep.equal({ geo: false, tier: false, date: false });
+    expect(pub.filters.applied).to.deep.equal({ geo: false, tier: false, official: false, date: false });
     expect(pub.filters.kAnonymityFloor).to.equal(null);
 
     // impacted-region (Edmonton riding only): the 2 Edmonton voters; Calgary + no-point excluded.

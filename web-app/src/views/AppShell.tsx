@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { User } from "lucide-react";
 import {
   AddJurisdictionModal,
@@ -10,6 +10,7 @@ import {
   AppHeader,
   AuthChooser,
   Avatar,
+  ChangeAddressModal,
   ChooseSignModal,
   ComposeFlow,
   Fab,
@@ -18,16 +19,17 @@ import {
   LoginChooser,
   OtpVerify,
   ProfileModal,
+  RecoverForm,
   RegisterForm,
   SafeFooter,
   ShareModal,
-  SignModal,
 } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
-import { MY_HANDLE, MY_NAME } from "@/lib/mock";
+import { jurisdictionLabel as labelForJurisdiction } from "@/lib/mock";
+import { GLOBAL_ID } from "@/lib/types";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import { jurisdictionWidePost, resolveGeography } from "@/lib/read-model";
-import { scopedFeedFilterFromState } from "@/lib/state";
+import { accountIdentity, authEmailOf, scopedFeedFilterFromState, useApp } from "@/lib/state";
 import type { RecordKind } from "@/lib/types";
 import {
   jurisdictionPath,
@@ -36,14 +38,66 @@ import {
   SELF_PROFILE_PATH,
   viewFromPathname,
 } from "@/lib/routes";
-import { useApp } from "@/lib/state";
+import { isMockOnly } from "@/lib/api/client";
+import { requestLoginOtp, requestRecoveryOtp, requestRegistrationOtp } from "@/lib/api/auth";
+import {
+  DEFERRED_EDIT_PROFILE,
+  DEFERRED_JURISDICTIONS_SETTINGS,
+  DEFERRED_LEGAL,
+  DEFERRED_PASSKEY_RECOVERY,
+} from "@/lib/api/deferred";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const app = useApp();
   const { state } = app;
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const otpEmailParam = searchParams.get("otpEmail");
+  const handledOtpEmailRef = useRef<string | null>(null);
   const view = viewFromPathname(pathname);
+  const account = accountIdentity(state);
+  const authModal = state.authModal;
+  const otpMode = authModal.kind === "otp" ? authModal.flow : "registration";
+  const passkeyBusy = state.passkeyBusy;
+  const otpPasskeyBusy = passkeyBusy?.anchor === "otp" ? passkeyBusy.phase : null;
+  const loginPasskeyBusy = passkeyBusy?.anchor === "login" ? passkeyBusy.phase : null;
+  const profilePasskeyBusy = passkeyBusy?.anchor === "profile" ? passkeyBusy.phase : null;
+  const choosePasskeyBusy = passkeyBusy?.anchor === "choose" ? passkeyBusy.phase : null;
+
+  const resendOtp = () => {
+    const email = authEmailOf(authModal)?.trim();
+    if (!email) {
+      app.notify("Email was lost — close this dialog and try again.");
+      return;
+    }
+
+    if (isMockOnly()) {
+      app.notify("A new code has been sent (demo).");
+      return;
+    }
+
+    void (async () => {
+      try {
+        if (otpMode === "recovery") {
+          await requestRecoveryOtp(email);
+          app.notify("A new recovery code has been sent — check API server console in dev.");
+          return;
+        }
+        if (otpMode === "login") {
+          await requestLoginOtp(email);
+          app.notify("A new sign-in code has been sent — check API server console in dev.");
+          return;
+        }
+        await requestRegistrationOtp(email);
+        app.notify("A new verification code has been sent — check API server console in dev.");
+      } catch (e: unknown) {
+        const msg =
+          e instanceof Error ? e.message : "Resend failed.";
+        app.notify(msg);
+      }
+    })();
+  };
 
   const title = pageTitle(pathname);
   const hasCardList =
@@ -53,6 +107,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.title = `OurSay — ${title}`;
   }, [title]);
+
+  // Deep-link: valid `?otpEmail=...` opens Verify Your Email; invalid opens login with prefill.
+  useEffect(() => {
+    if (!otpEmailParam) return;
+    if (state.loggedIn) return;
+    if (handledOtpEmailRef.current === otpEmailParam) return;
+
+    handledOtpEmailRef.current = otpEmailParam;
+    app.openLoginOtpWindowByEmail(otpEmailParam);
+
+    const next = new URLSearchParams(searchParams.toString());
+    next.delete("otpEmail");
+    const qs = next.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+  }, [otpEmailParam, pathname, router, searchParams, state.loggedIn, app]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;
@@ -66,19 +135,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [app]);
 
-  const includedSubs = state.subscriptions
+  const includedSubIds = state.subscriptions
     .filter((s) => s.included)
-    .map((s) => s.name);
+    .map((s) => s.id);
+  const includedSubLabels = includedSubIds.map(labelForJurisdiction);
 
   let jurisdictionLabel = jurisdictionPillLabel(
-    includedSubs,
+    includedSubLabels,
     state.subscriptions.length,
   );
   if (
     (view === "jurisdiction" || view === "district" || view === "post") &&
     state.pageJurisdiction
   ) {
-    jurisdictionLabel = state.pageJurisdiction;
+    jurisdictionLabel = labelForJurisdiction(state.pageJurisdiction);
   }
 
   const filterActive =
@@ -117,7 +187,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         !jurisdictionWidePost(openPostBearing.districts, jurisdictionDistricts)
       : hasCardList);
 
-  const composeJur = state.composeJur ?? "Global";
+  const composeJur = state.composeJur ?? GLOBAL_ID;
   const allowedComposeTypes = rootTypesForJurisdiction(composeJur);
 
   // The single jurisdiction the top bar currently displays, if any: an open
@@ -127,8 +197,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     (view === "jurisdiction" || view === "district" || view === "post") &&
     state.pageJurisdiction
       ? state.pageJurisdiction
-      : includedSubs.length === 1
-        ? includedSubs[0]
+      : includedSubIds.length === 1
+        ? includedSubIds[0]
         : undefined;
 
   const accountSlot = state.loggedIn ? (
@@ -139,7 +209,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       onClick={app.openProfile}
       className="inline-flex size-10 items-center justify-center overflow-hidden rounded-full border border-border-strong shadow-sm hover:opacity-90"
     >
-      <Avatar name={MY_NAME} seed={MY_HANDLE} size="sm" className="size-10!" />
+      <Avatar
+        name={account?.name ?? "Account"}
+        seed={account?.handle ?? "account"}
+        size="sm"
+        className="size-10!"
+      />
     </button>
   ) : (
     <button
@@ -252,36 +327,47 @@ export function AppShell({ children }: { children: ReactNode }) {
       </AppFrame>
 
       <AuthChooser
-        open={state.authOpen}
+        open={authModal.kind === "chooser"}
         onClose={app.closeAuth}
         onRegister={app.goRegister}
         onLogin={app.goLogin}
         onRecover={app.recover}
       />
+      <RecoverForm
+        open={authModal.kind === "recover"}
+        onClose={() => app.closeAuth()}
+        onSubmit={app.submitRecovery}
+        email={authEmailOf(authModal)}
+      />
       <RegisterForm
-        open={state.registerOpen}
+        open={authModal.kind === "register"}
         onClose={() => app.closeAuth()}
         onSubmit={app.submitRegister}
       />
       <OtpVerify
-        open={state.otpOpen}
+        open={authModal.kind === "otp"}
         onClose={() => app.closeAuth()}
+        email={authEmailOf(authModal)}
         onRegisterPasskey={app.completeOtp}
-        onResend={() => app.notify("A new code has been sent (demo).")}
+        mode={otpMode}
+        onResend={resendOtp}
+        passkeyBusy={otpPasskeyBusy}
       />
       <LoginChooser
-        open={state.loginOpen}
+        open={authModal.kind === "login"}
         onClose={() => app.closeAuth()}
-        otpWindow={state.loginOtpWindow}
+        otpWindow={authModal.kind === "login" && authModal.otp}
+        email={authEmailOf(authModal)}
         onPasskeyLogin={app.loginPasskey}
         onVerifyEmail={app.loginVerifyEmail}
         onRecover={app.recover}
+        passkeyBusy={loginPasskeyBusy}
       />
       <ProfileModal
         open={state.profileOpen}
         onClose={app.closeProfile}
-        name={MY_NAME}
-        handle={MY_HANDLE}
+        name={account?.name ?? "Account"}
+        handle={account?.handle ?? ""}
         kycTier={state.kycTier}
         accountVisibility={state.accountVisibility}
         onChangeVisibility={app.setAccountVisibility}
@@ -291,22 +377,48 @@ export function AppShell({ children }: { children: ReactNode }) {
         }}
         onValidateId={app.cycleKyc}
         onLogout={app.logout}
-        devices={state.devices}
+        passkeys={state.passkeys}
         onAddDevice={app.addDevice}
         onAddDeviceByEmail={app.addDeviceByEmail}
+        onRenamePasskey={app.renamePasskey}
+        onRevokePasskey={app.revokePasskey}
         theme={state.theme}
         onToggleTheme={app.toggleTheme}
         signing={state.signing}
         onSetSigning={app.setSigning}
         onSetPostSigning={app.setPostSigning}
-        onOpenSetting={(label) => app.notify(`${label} is not built in this demo.`)}
+        onOpenSetting={(label) => {
+          if (label === "Change Address") {
+            app.openChangeAddress();
+            return;
+          }
+          if (label === "Edit Profile") {
+            app.notify(isMockOnly() ? `${label} is not built in this demo.` : DEFERRED_EDIT_PROFILE);
+            return;
+          }
+          if (label === "Jurisdictions") {
+            app.notify(
+              isMockOnly()
+                ? `${label} is not built in this demo.`
+                : DEFERRED_JURISDICTIONS_SETTINGS,
+            );
+            return;
+          }
+          if (label === "Terms of Service" || label === "Privacy Policy") {
+            app.notify(DEFERRED_LEGAL(label));
+            return;
+          }
+          app.notify(`${label} is not built in this demo.`);
+        }}
+        passkeyBusy={profilePasskeyBusy}
       />
       <ComposeFlow
         open={state.composeOpen}
         onClose={app.closeCompose}
         step={state.composeStep}
-        jurisdictions={state.subscriptions.map((s) => s.name)}
+        jurisdictions={state.subscriptions.map((s) => s.id)}
         kycTier={state.kycTier}
+        role={app.viewer.role}
         selectedJurisdiction={state.composeJur}
         onSelectJurisdiction={app.selectComposeJurisdiction}
         allowedTypes={allowedComposeTypes}
@@ -317,29 +429,32 @@ export function AppShell({ children }: { children: ReactNode }) {
         accountVisibility={state.accountVisibility}
         composeVisibility={state.composeVisibility}
         onSelectVisibility={app.setComposeVisibility}
+        composeDistricts={state.composeDistricts}
+        onComposeDistrictsChange={app.setComposeDistricts}
+        composeTitle={state.composeTitle}
+        composeBody={state.composeBody}
+        composePollOptions={state.composePollOptions}
+        onComposeTitleChange={app.setComposeTitle}
+        onComposeBodyChange={app.setComposeBody}
+        onComposePollOptionsChange={app.setComposePollOptions}
         onPost={app.submitCompose}
       />
-      <SignModal
-        open={state.sign !== null}
-        onClose={app.closeSign}
-        kind={state.sign?.kind ?? "petition"}
-        signerName={MY_NAME}
-        targetTitle={state.sign?.targetTitle ?? ""}
-        option={state.sign?.option}
-        composeTypeLabel={state.sign?.composeTypeLabel}
-        isFinal={state.sign?.isFinal ?? false}
-        jurisdiction={state.sign?.jurisdiction}
-        showResidencyNotice={state.sign?.showResidencyNotice ?? false}
-        showAffectedNotice={state.sign?.showAffectedNotice ?? false}
-        onConfirm={app.confirmSign}
-      />
       <ChooseSignModal
-        open={state.choose !== null}
-        onClose={app.closeChoose}
-        title={state.choose?.title ?? ""}
-        lines={state.choose?.lines ?? []}
-        onQuickSign={app.confirmChoose}
-        onPasskeySign={app.confirmChoose}
+        open={state.signingConfirm !== null}
+        onClose={app.closeSigningConfirm}
+        wysiwys={
+          state.signingConfirm?.wysiwys ?? {
+            title: "",
+            technicalRows: [],
+            warnings: [],
+            jurisdictionId: GLOBAL_ID,
+            jurisdictionLabel: "",
+          }
+        }
+        showQuickSign={state.signingConfirm?.showQuickSign ?? false}
+        onQuickSign={() => app.confirmSigning("quick")}
+        onPasskeySign={() => app.confirmSigning("passkey")}
+        passkeyBusy={choosePasskeyBusy}
       />
       <AddJurisdictionModal
         open={state.addJurOpen}
@@ -360,6 +475,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           app.closeShare();
           app.notify("Report submitted — our team will review it (demo).");
         }}
+      />
+
+      <ChangeAddressModal
+        open={state.addressOpen}
+        onClose={app.closeChangeAddress}
+        onSubmit={app.submitAddress}
+        attestResidency={!isMockOnly()}
       />
 
       {state.toast ? (

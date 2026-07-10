@@ -66,14 +66,24 @@ CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enq
 -- KMS milestone) are intentionally NOT here yet — see the Track A plan's roadmap.
 CREATE TABLE IF NOT EXISTS users (
   id           UUID PRIMARY KEY,
-  handle       TEXT,                  -- optional, UNIQUE @username (public profile); no spaces. NULL until claimed.
-  display_name TEXT,                  -- optional public display text; defaults to handle without its '@'
+  handle       TEXT NOT NULL,         -- UNIQUE wire username (no @); required at registration (C4)
+  display_name TEXT NOT NULL,         -- public display text; falls back to the handle without its '@'
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
--- Idempotent migration for a persistent dev DB created before display_name existed.
+-- Idempotent migrations for a persistent dev DB created before display_name / the NOT NULL
+-- constraints existed: add the column, backfill (handle from the user id; display name from the
+-- handle), then tighten. Safe to re-run — the UPDATEs match only NULL rows.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
--- handle is unique when present (Postgres treats NULLs as distinct, so unclaimed accounts are fine).
+UPDATE users SET handle = 'u' || replace(left(id::text, 8), '-', '') WHERE handle IS NULL;
+UPDATE users SET display_name = COALESCE(NULLIF(display_name, ''), handle) WHERE display_name IS NULL OR display_name = '';
+-- Legacy rows stored with a leading @; wire form is canonical (matches URLs + web-app).
+UPDATE users SET handle = ltrim(handle, '@') WHERE handle LIKE '@%';
+ALTER TABLE users ALTER COLUMN handle SET NOT NULL;
+ALTER TABLE users ALTER COLUMN display_name SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_handle_unique ON users (handle);
+-- Wire username: 1–30 [A-Za-z0-9_-] (C4; mirrors api/src/helpers/handle.ts).
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_handle_format;
+ALTER TABLE users ADD CONSTRAINT users_handle_format CHECK (handle ~ '^[A-Za-z0-9_-]{1,30}$');
 
 -- Jurisdiction-scoped master PUBLIC keys: one per (user, jurisdiction); the root a client derives
 -- per-thread keys from on-device (HKDF). The platform stores only the public master.
@@ -85,15 +95,7 @@ CREATE TABLE IF NOT EXISTS jurisdiction_master_keys (
   PRIMARY KEY (user_id, jurisdiction)
 );
 
--- thread_keys / thread_bindings / thread_signers / thread_civic_credentials are reshaped (level →
--- jurisdiction; dropped thread_bindings.region; persona/signer split under WebAuthn — mvp-a5b).
--- They carry no durable production data yet, so DROP+CREATE keeps the shape deterministic across a
--- reused dev volume. level_master_keys was renamed to jurisdiction_master_keys (created fresh above);
--- drop the legacy table if it lingers.
-DROP TABLE IF EXISTS thread_civic_credentials CASCADE;
-DROP TABLE IF EXISTS thread_signers CASCADE;
-DROP TABLE IF EXISTS thread_bindings CASCADE;
-DROP TABLE IF EXISTS thread_keys CASCADE;
+-- Legacy rename: level_master_keys → jurisdiction_master_keys (one-time drop on reused dev volumes).
 DROP TABLE IF EXISTS level_master_keys CASCADE;
 
 -- Per-thread persona key Pₜ. pubkey is the stable PUBLIC author identity that appears on EVERY
@@ -101,18 +103,21 @@ DROP TABLE IF EXISTS level_master_keys CASCADE;
 -- the persona/signer split (mvp-a5b, docs/08 §5.4 Method 3 on WebAuthn) each of the user's devices
 -- enrolls its OWN per-thread WebAuthn credential as a signer in thread_civic_credentials, but they
 -- all share this single Pₜ as authorPubkey. UNIQUE(user_id, thread_id) enforces first-wins at the DB.
-CREATE TABLE thread_keys (
+CREATE TABLE IF NOT EXISTS thread_keys (
   id           UUID PRIMARY KEY,
   user_id      UUID NOT NULL REFERENCES users(id),
   thread_id    TEXT NOT NULL,
   jurisdiction TEXT NOT NULL,
   pubkey       TEXT NOT NULL UNIQUE,          -- compressed SEC1 P-256 (Pₜ), hex
-  claimed    BOOLEAN NOT NULL DEFAULT false,  -- user has publicly claimed this thread (R8; future)
-  claimed_at TIMESTAMPTZ,                     -- nullable; claim may be undone (R9; future)
+  persona_name TEXT UNIQUE,                   -- public persona display name (C7); minted at join,
+                                              -- deterministic from Pₜ with retry-on-collision
+  claimed    BOOLEAN NOT NULL DEFAULT false,  -- deprecated pending the reveal model (V1)
+  claimed_at TIMESTAMPTZ,                     -- deprecated pending the reveal model (V1)
   UNIQUE (user_id, thread_id)
 );
 CREATE INDEX IF NOT EXISTS thread_keys_pubkey ON thread_keys (pubkey);
 CREATE INDEX IF NOT EXISTS thread_keys_user_thread ON thread_keys (user_id, thread_id);
+CREATE INDEX IF NOT EXISTS thread_keys_persona_name ON thread_keys (persona_name);
 
 -- Private platform registration binding (NEVER published). Commits the thread key to one opaque
 -- account commitment; the platform signs over the binding fields. salt_t escrow / at-rest encryption
@@ -126,6 +131,9 @@ CREATE TABLE IF NOT EXISTS thread_bindings (
   kyc_tier      TEXT,                          -- nullable; omitted from the signed binding when absent
   commitment    TEXT NOT NULL,                -- opaque H(user_id, salt_t, thread_id, jurisdiction), hex
   binding_sig   TEXT NOT NULL,                -- platform P-256 signature over the binding, hex
+  visibility    TEXT,                          -- per-(user,thread) visibility OVERRIDE (C4); the private
+                                              -- side of the join — never on any public row. NULL = use
+                                              -- the account default (cascade thread ?? account ?? anonymous)
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 -- Migration for deployments created before kyc_tier became optional (idempotent: a no-op once the
@@ -175,7 +183,7 @@ CREATE INDEX IF NOT EXISTS thread_signers_user_thread ON thread_signers (user_id
 -- path) accepts a submission when:
 --   getThreadCredential(env.signerPubkey).persona_pubkey === env.authorPubkey
 --   AND not revoked AND credential_sig re-verifies against the same fields.
-CREATE TABLE thread_civic_credentials (
+CREATE TABLE IF NOT EXISTS thread_civic_credentials (
   credential_pubkey TEXT PRIMARY KEY,             -- = signerPubkey; compressed SEC1 P-256, hex
   persona_pubkey    TEXT NOT NULL REFERENCES thread_keys(pubkey),  -- = Pₜ (authorPubkey on the envelope)
   user_id           UUID NOT NULL REFERENCES users(id),
@@ -217,6 +225,42 @@ CREATE TABLE IF NOT EXISTS nullifier_attestations (
 -- Idempotent migration for a persistent dev DB created before the membership_proof column existed.
 ALTER TABLE nullifier_attestations ADD COLUMN IF NOT EXISTS membership_proof TEXT;
 
+-- ── [align-w3-gates-schema] projection + relationship tables (WEB-APP-GAPS Part 2) ─────────
+
+-- C2: the district-id projection of a root's appliesToRegion/appliesToDistrictIds. Server-projected
+-- at root create (and refreshed on governance rules updates); [] rows absent = jurisdiction-wide.
+CREATE TABLE IF NOT EXISTS entity_audience (
+  entity_id       TEXT NOT NULL,
+  jurisdiction_id TEXT NOT NULL,
+  district_slug   TEXT NOT NULL,               -- stable seat key (year-less)
+  revision_id     TEXT NOT NULL,               -- boundary revision in force when projected
+  projected_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (entity_id, district_slug)
+);
+CREATE INDEX IF NOT EXISTS entity_audience_district ON entity_audience (jurisdiction_id, district_slug);
+
+-- C6 + [mvp-c4-action-snapshots]: RELATIONSHIP snapshot at civic submit — flags, never points.
+-- district_slug is ONLY populated where policy needs it (official district breakdowns); default
+-- NULL — privileged-view resolution goes through a live geocode join, never this table.
+CREATE TABLE IF NOT EXISTS record_action_geo (
+  tx_id           TEXT PRIMARY KEY,
+  entity_id       TEXT NOT NULL,
+  in_affected     BOOLEAN NOT NULL,            -- author point ∈ root's affectedRegion at action time
+  in_jurisdiction BOOLEAN NOT NULL,            -- author point ∈ jurisdiction at action time
+  tier_at_action  TEXT NOT NULL,
+  district_slug   TEXT
+);
+CREATE INDEX IF NOT EXISTS record_action_geo_entity ON record_action_geo (entity_id);
+
+-- Share tallies (once per account per target; the count is the only public output).
+CREATE TABLE IF NOT EXISTS share_marks (
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  share_key  TEXT NOT NULL,                    -- record id or comment key
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, share_key)
+);
+CREATE INDEX IF NOT EXISTS share_marks_key ON share_marks (share_key);
+
 -- ── Fold-on-read projections (the "get latest state" views) ─────────────────────────────
 
 -- Recreate the view tree from scratch so this DDL stays idempotent as the projection columns
@@ -241,6 +285,11 @@ SELECT DISTINCT ON (entity_id)
   tx_id                     AS head_tx_id,
   tx_hash                   AS head_tx_hash,
   created_at,
+  seq                       AS head_seq,
+  -- sign_tier (C1, read-surface projection): 0 = quick (software p256 / unsigned dev path),
+  -- 1 = passkey (UV-verified webauthn-es256). 2/3 (biometric) are future. Derived from the stored
+  -- canonical envelope so the write path stays untouched.
+  (CASE WHEN envelope::jsonb ->> 'signScheme' = 'webauthn-es256' THEN 1 ELSE 0 END) AS sign_tier,
   (op = 'delete')           AS is_deleted,
   (redacted_at IS NOT NULL) AS is_redacted,
   (erased_at IS NOT NULL)   AS is_erased

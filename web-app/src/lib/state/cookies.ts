@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types";
 import {
   DEFAULT_SIGNING,
+  GLOBAL_ID,
   SIGN_ACTIONS,
   SIGN_METHODS,
   VISIBILITY_VALUES,
@@ -24,7 +25,7 @@ const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
 /** Logged-out default — Global only (works without an account, like the wireframe). */
 export const DEFAULT_SUBSCRIPTIONS: JurisdictionMembership[] = [
-  { name: "Global", included: true },
+  { id: GLOBAL_ID, included: true },
 ];
 
 /** Read persisted subscriptions, or Global-only when no cookie is set. */
@@ -36,7 +37,13 @@ export function readSubscriptions(): JurisdictionMembership[] {
   if (!match) return DEFAULT_SUBSCRIPTIONS;
   try {
     const parsed = JSON.parse(decodeURIComponent(match.slice(COOKIE.length + 1)));
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    // Require the id-keyed shape; a legacy name-keyed cookie falls back to the
+    // default set (the W2 id migration changed the subscription key).
+    if (
+      Array.isArray(parsed) &&
+      parsed.length > 0 &&
+      parsed.every((s) => typeof s?.id === "string")
+    ) {
       return parsed as JurisdictionMembership[];
     }
   } catch {

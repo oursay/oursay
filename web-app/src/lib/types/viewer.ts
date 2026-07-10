@@ -12,6 +12,8 @@ export interface ViewerContext {
   kycTier: VerificationTier;
   /** The viewer's home riding slug(s), used by the My Districts geography filter. */
   viewerDistricts: string[];
+  /** Platform-assigned official role (orthogonal to KYC tier); gates officials-only compose. */
+  role?: "official";
   /** Demo signed-in account handle; the viewer's own content always reveals to self. */
   selfHandle?: string;
   /** The viewer's own account-default visibility (drives the "seen as <persona>" hint). */

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
 import { JUR_DATA, POSTS } from "@/lib/mock";
 import {
   ANON_VIEWER,
@@ -15,8 +16,8 @@ const RESIDENT: ViewerContext = {
 };
 
 const ALL_SUBS: JurisdictionMembership[] = [
-  { name: "Global", included: true },
-  { name: "Alberta", included: true },
+  { id: GLOBAL_ID, included: true },
+  { id: ALBERTA_ID, included: true },
 ];
 
 function feed(filter: FeedFilterParams) {
@@ -53,11 +54,11 @@ describe("matches — jurisdiction filter", () => {
   it("feed excludes de-selected subscriptions", () => {
     const globalOnly = feed({
       jurisdictions: [
-        { name: "Global", included: true },
-        { name: "Alberta", included: false },
+        { id: GLOBAL_ID, included: true },
+        { id: ALBERTA_ID, included: false },
       ],
     });
-    expect(globalOnly.every((p) => p.jurisdiction === "Global")).toBe(true);
+    expect(globalOnly.every((p) => p.jurisdiction === GLOBAL_ID)).toBe(true);
   });
 });
 
@@ -105,7 +106,7 @@ describe("matches — My Districts modes (feed)", () => {
     expect(
       results.every(
         (p) =>
-          p.jurisdiction === "Global" ||
+          p.jurisdiction === GLOBAL_ID ||
           p.districts.includes("edmonton-strathcona"),
       ),
     ).toBe(true);
@@ -176,10 +177,10 @@ describe("matches — district scope", () => {
 
 describe("matches — My Jurisdiction (author residence)", () => {
   const ALBERTA_ONLY: JurisdictionMembership[] = [
-    { name: "Global", included: false },
-    { name: "Alberta", included: true },
+    { id: GLOBAL_ID, included: false },
+    { id: ALBERTA_ID, included: true },
   ];
-  const albertaSlugs = JUR_DATA.Alberta.districts.map((d) => d.slug);
+  const albertaSlugs = JUR_DATA[ALBERTA_ID].districts.map((d) => d.slug);
   const jurFilter = (
     myJurisdiction: "inclusive" | "exclusive",
     tierMin: 0 | 1 | 2 | 3 = 0,
@@ -254,7 +255,7 @@ describe("matches — My Jurisdiction (author residence)", () => {
   });
 
   it("applies on district scope too (posts about a district by outside authors drop)", () => {
-    const broadbandDistrict = JUR_DATA.Alberta.districts[0].slug; // riding 0 is in the broadband petition
+    const broadbandDistrict = JUR_DATA[ALBERTA_ID].districts[0].slug; // riding 0 is in the broadband petition
     const kept = POSTS.filter((p) =>
       matches(p, "district", ANON_VIEWER, {
         districtSlug: broadbandDistrict,

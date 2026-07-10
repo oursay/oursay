@@ -3,8 +3,18 @@
 export type { PasskeyConnector, DeviceCredential, UnlockedSession } from "./connector.js";
 export { DevPasskeyConnector, defaultDevDir } from "./dev-connector.js";
 export type { DevPasskeyOptions } from "./dev-connector.js";
-export { WebPasskeyConnector } from "./web-connector.js";
+export { WebPasskeyConnector, OURSAY_PRF_SALT } from "./web-connector.js";
 export type { WebPasskeyOptions } from "./web-connector.js";
+export {
+  saveCustodyBinding,
+  loadCustodyBinding,
+  clearCustodyBinding,
+  custodyBindingStorageKey,
+  savePrfRootSession,
+  loadPrfRootSession,
+  clearPrfRootSession,
+} from "./custody-binding.js";
+export type { CustodyBinding, CustodyUnlockSource } from "./custody-binding.js";
 export { ThreadPasskeyStore } from "./thread-passkey-store.js";
 export type { ThreadCredentialRecord, ThreadStoreBackend } from "./thread-passkey-store.js";
 export { WebCryptoMasterStore, IndexedDbKeyStore, MemoryKeyStore } from "./secure-store.js";
@@ -22,6 +32,7 @@ export type {
   MutateIntent,
   PreparedAppend,
   SignedSubmission,
+  SignMode,
   DeviceEnrollment,
   ThreadRegistration,
   JoinThreadResponse,

@@ -31,7 +31,7 @@ function secret(name: string, devFallback: string): string {
 }
 
 /**
- * Postgres — the SAME private store @oursay/public-record uses (defaults match its docker-compose).
+ * Postgres — the SAME private store @oursay/public-record uses (defaults match docker-compose.dev.yml).
  * @oursay/api adds its own `auth` schema in this database and FKs `public.users`.
  */
 export const pgConfig: PgConfig = {
@@ -124,12 +124,21 @@ export const geocodeConfig: GeocodeConfig = {
   nominatimUrl: env("GEOCODE_NOMINATIM_URL", ""),
 };
 
-export type KycProviderName = "stub" | "equifax";
+export type KycProviderName = "stub" | "didit" | "equifax";
+
+export interface DiditConfig {
+  apiKey: string;
+  webhookSecret: string;
+  baseUrl: string;
+  workflowId: string;
+  poaWorkflowId: string;
+  callbackUrl: string;
+}
 
 export interface KycConfig {
-  /** Provider selection: 'stub' (default; deterministic, no network, awards the requested tier).
-   *  'equifax' is a reserved slot that is NOT implemented (fails fast in the factory). */
+  /** Provider selection: 'stub' (default), 'didit' (hosted sessions), or 'equifax' (reserved). */
   provider: KycProviderName;
+  didit: DiditConfig;
 }
 
 /**
@@ -139,6 +148,14 @@ export interface KycConfig {
  */
 export const kycConfig: KycConfig = {
   provider: env("KYC_PROVIDER", "stub") as KycProviderName,
+  didit: {
+    apiKey: process.env.DIDIT_API_KEY?.trim() || "",
+    webhookSecret: env("DIDIT_WEBHOOK_SECRET", ""),
+    baseUrl: env("DIDIT_BASE_URL", "https://verification.didit.me"),
+    workflowId: env("DIDIT_WORKFLOW_ID", ""),
+    poaWorkflowId: env("DIDIT_POA_WORKFLOW_ID", ""),
+    callbackUrl: env("DIDIT_CALLBACK_URL", ""),
+  },
 };
 
 export interface CivicConfig {
@@ -241,14 +258,27 @@ function vendors(raw: string): MailerVendor[] {
     .filter((s): s is MailerVendor => s === "postmark" || s === "smtp" || s === "ses" || s === "noop");
 }
 
+/** Postmark server API token — official name POSTMARK_SERVER_TOKEN; POSTMARK_TOKEN is a legacy alias. */
+function postmarkToken(): string {
+  return process.env.POSTMARK_SERVER_TOKEN?.trim() || process.env.POSTMARK_TOKEN?.trim() || "";
+}
+
+/** OTP mail roles (registration, recovery, login). MAILER_OTP_USE_POSTMARK=true forces Postmark for all three. */
+function otpRoleVendors(roleEnv: string): MailerVendor[] {
+  if (env("MAILER_OTP_USE_POSTMARK", "false") === "true") {
+    return ["postmark"];
+  }
+  return vendors(env(roleEnv, "noop"));
+}
+
 export const mailerConfig: MailerConfig = {
   from: env("MAILER_FROM", "OurSay <no-reply@oursay.ca>"),
   roles: {
-    registration: vendors(env("MAILER_REGISTRATION_VENDORS", "noop")),
-    recovery: vendors(env("MAILER_RECOVERY_VENDORS", "noop")),
-    login: vendors(env("MAILER_LOGIN_VENDORS", "noop")),
+    registration: otpRoleVendors("MAILER_REGISTRATION_VENDORS"),
+    recovery: otpRoleVendors("MAILER_RECOVERY_VENDORS"),
+    login: otpRoleVendors("MAILER_LOGIN_VENDORS"),
   },
-  postmark: { token: env("POSTMARK_TOKEN", "") },
+  postmark: { token: postmarkToken() },
   smtp: {
     host: env("SMTP_HOST", ""),
     port: Number(env("SMTP_PORT", "587")),

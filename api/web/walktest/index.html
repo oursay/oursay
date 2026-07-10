@@ -15,6 +15,9 @@
       .badge.err { color: #b3261e; border-color: #e3a9a4; background: #fbeae9; }
       label { display: block; font-size: 0.9rem; margin: 0.5rem 0 0.15rem; }
       input { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid #999; border-radius: 6px; width: 100%; box-sizing: border-box; }
+      input[type="checkbox"] { width: auto; margin-right: 0.4rem; }
+      details { margin-top: 0.6rem; }
+      details summary { cursor: pointer; font-size: 0.9rem; color: #444; }
       .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 0.8rem; }
       button { font: inherit; padding: 0.5rem 0.9rem; margin: 0.7rem 0.4rem 0 0; cursor: pointer; border: 1px solid #888; border-radius: 6px; background: #f6f6f6; }
       button:disabled { opacity: 0.45; cursor: default; }
@@ -43,17 +46,29 @@
 
     <fieldset>
       <legend><h2>1 · Profile</h2> <span class="badge" id="b-profile">todo</span></legend>
-      <p class="muted">Fill the profile <em>first</em>; it's submitted together with the OTP at step&nbsp;3 (18+ required).</p>
+      <p class="muted">
+        Least-resistance registration (C3): a unique <strong>@handle</strong> and the <strong>18+
+        checkbox</strong> are all that's required — no date of birth. Name/address are optional here
+        (the KYC step collects what's missing later). Submitted with the OTP at step&nbsp;3.
+      </p>
       <div class="grid">
-        <div><label>Display name</label><input id="displayName" value="Walk Tester" /></div>
+        <div><label>Handle (required)</label><input id="handle" placeholder="@walk_tester" value="@walk_tester" /></div>
         <div><label>Email</label><input id="email" type="email" placeholder="you@example.com" /></div>
-        <div><label>Birthdate (YYYY-MM-DD)</label><input id="birthdate" value="1990-06-15" /></div>
-        <div><label>City</label><input id="city" value="Calgary" /></div>
-        <div><label>Region</label><input id="region" value="AB" /></div>
-        <div><label>Postal code</label><input id="postalCode" value="T2P 1H9" /></div>
-        <div><label>Country</label><input id="country" value="CA" /></div>
-        <div><label>Line 1</label><input id="line1" value="" /></div>
+        <div><label>Display name (optional; falls back to the handle)</label><input id="displayName" value="" /></div>
+        <div><label style="margin-top:1.55rem"><input id="over18" type="checkbox" checked />I attest I am 18 or older</label></div>
       </div>
+      <details>
+        <summary>Add name &amp; address now (optional — the KYC step asks later otherwise)</summary>
+        <div class="grid">
+          <div><label>First name</label><input id="firstName" value="" /></div>
+          <div><label>Last name</label><input id="lastName" value="" /></div>
+          <div><label>Line 1</label><input id="line1" value="" /></div>
+          <div><label>City</label><input id="city" value="" /></div>
+          <div><label>Region</label><input id="region" value="" placeholder="AB" /></div>
+          <div><label>Postal code</label><input id="postalCode" value="" placeholder="T2P 1H9" /></div>
+          <div><label>Country</label><input id="country" value="" placeholder="CA" /></div>
+        </div>
+      </details>
       <button id="saveProfile">Save profile</button>
       <pre id="out-profile">(fill in and save)</pre>
     </fieldset>
@@ -66,6 +81,11 @@
 
     <fieldset>
       <legend><h2>3 · Verify code + create account</h2> <span class="badge" id="b-verify">todo</span></legend>
+      <p class="muted">
+        Registration issues an <strong>enroll-only <code>registration</code> session</strong>: it can
+        do nothing but enroll a passkey (step&nbsp;4). Full access comes from the passkey login
+        (step&nbsp;7) — profile and civic actions stay 403 until then.
+      </p>
       <label>OTP code (from server console)</label><input id="otpCode" placeholder="123456" />
       <button id="verifyOtp" disabled>Verify + register</button>
       <pre id="out-verify">(needs an OTP request)</pre>
@@ -94,30 +114,25 @@
       <legend><h2>5 · Civic golden path (real SDK)</h2> <span class="badge" id="b-civic">todo</span></legend>
       <p class="muted">
         Drives the production <strong>@oursay/identity</strong> SDK in the browser (bundled at
-        <code>/walk/identity.js</code>), <strong>Option A</strong>: unlock account custody → join an
-        <code>ab-ca-gov</code> thread, which <strong>creates that thread's own WebAuthn passkey</strong>
-        (its public key is the author) → create a post, signed by a <strong>fresh user-verifying
-        assertion</strong>. Every civic action re-prompts. The platform receives only <strong>public
-        keys, an opaque commitment, and the signed envelope</strong>; the result shows the custody source.
+        <code>/walk/identity.js</code>). Account-login passkey (step 7) seeds civic custody; passkey-signed
+        actions create a per-thread WebAuthn credential; <strong>quick reactions</strong> need no extra
+        prompt when PRF was probed at login.
       </p>
       <p class="note">
-        The per-thread civic passkeys are <strong>separate</strong> from the step-4 account-login passkey
-        (docs/08 §5.4) — expect a passkey prompt to create the thread credential and one
-        <em>per civic action</em>.
+        Log in with your account passkey before civic steps. The deprecated <code>/v1/civic/devices</code>
+        registry is no longer part of the client golden path.
       </p>
       <button id="enrollCivic" disabled>Run civic golden path</button>
-      <button id="listCivic" disabled>List my civic devices</button>
-      <pre id="out-civic">(needs a full session)</pre>
+      <pre id="out-civic">(needs a full session + passkey login)</pre>
 
       <hr style="margin:1.1rem 0 0.6rem; border:none; border-top:1px solid #ddd" />
       <legend style="padding:0"><h2 style="font-size:0.98rem">Granular sub-steps</h2> <span class="badge" id="b-civicsub">todo</span></legend>
       <p class="muted">
         The one-click golden path above is the smoke test. These sub-steps run the same flow phase by
-        phase for human QA — run them <strong>in order 5a → 5e</strong>. <strong>5a</strong> unlocks
-        account custody (one WebAuthn prompt — it seeds the nullifier root); <strong>5b</strong> creates
-        the thread passkey; <strong>5c–5e each prompt for user verification</strong> — one assertion
-        per action (Option A, docs/08 §5.4). Each button stays disabled until its prerequisite exists.
-        Re-running 5a keeps the same thread.
+        phase for human QA — run them <strong>in order 5a → 5e</strong>. <strong>5a</strong> loads
+        account custody (silent when PRF warmed at login); <strong>5b</strong> enrolls the passkey
+        thread signer; <strong>5c–5d</strong> passkey-sign with UV per action; <strong>5e</strong> quick-reacts
+        with no extra prompt. Re-running 5a keeps the same thread.
       </p>
       <button id="civicUnlock" disabled>5a · Unlock civic custody</button>
       <button id="civicJoin" disabled>5b · Join thread</button>

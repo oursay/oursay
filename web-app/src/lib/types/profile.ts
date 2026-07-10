@@ -1,5 +1,6 @@
 import type { AuthorIdentity } from "./identity";
 import type { FeedItem } from "./records";
+import type { ProfileRoleTag } from "./role-tag";
 import type { VerificationTier } from "./verification";
 
 /**
@@ -37,7 +38,13 @@ export interface ActivityItem {
   /** Optional glyph id override (e.g. "#ic-edit", "#ic-check", "#ic-x", "#ic-check-alt"). */
   icon?: string;
   text: string;
-  meta: string;
+  /** ISO timestamp of the action (served by the API). When present the client formats relative time
+   *  via `relTime` so it ticks live and matches comment vocabulary. */
+  ts?: string;
+  /** Pre-formatted relative-time string — mock/demo fallback only, used when `ts` is absent. */
+  meta?: string;
+  /** Jurisdiction the acted-on record belongs to — drives the linked label in the meta row. */
+  jurisdictionId?: string;
   /** Mock navigation target — the record this activity refers to. */
   recordId?: string;
 }
@@ -64,8 +71,10 @@ export type ProfilePost = FeedItem;
 export interface PublicProfile {
   name: string;
   handle: string;
-  /** Role line, e.g. "MLA · Edmonton-Strathcona". */
+  /** Role line, e.g. "MLA · Edmonton-Strathcona" (first tag; legacy compat). */
   role: string;
+  /** Structured official role tags for collapsible profile display. */
+  roles: ProfileRoleTag[];
   tier: VerificationTier;
   /** Short freeform bio shown at the top of the profile. */
   bio: string;

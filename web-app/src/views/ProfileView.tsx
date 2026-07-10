@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Pencil } from "lucide-react";
 import { getProfile } from "@/lib/api";
@@ -8,15 +8,28 @@ import type { ActivityKind, PublicProfile } from "@/lib/types";
 import { Avatar, FeedCard, VerificationPill } from "@/components";
 import { Button } from "@/components/ui";
 import {
-  activityRowGlyph,
-  ACTIVITY_REACTION_TONE,
+  ActivityRow,
   ProfileSupportBar,
-  REACTION_GLYPH,
+  RoleTag,
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
-import { authorPath, districtPath, postPath, postPathForId, profilePath } from "@/lib/routes";
-import { recordShareTarget } from "@/lib/share";
-import { useApp } from "@/lib/state";
+import { useNow } from "@/lib/read-model";
+import { displayHandle, wireHandle } from "@/lib/handle";
+import {
+  authorPath,
+  districtPath,
+  jurisdictionPath,
+  officialPath,
+  postPath,
+  postPathForId,
+  profilePath,
+  personaHintPath,
+} from "@/lib/routes";
+import type { ProfileRoleTag } from "@/lib/types";
+import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
+import { useApp, useHydrateRecordState } from "@/lib/state";
+import { isMockOnly } from "@/lib/api/client";
+import { DEFERRED_EDIT_HISTORY, DEFERRED_EDIT_PROFILE, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 
 type Tab = "posts" | "activity" | "mentions";
 
@@ -40,38 +53,94 @@ export function ProfileView({
   const router = useRouter();
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [tab, setTab] = useState<Tab>("posts");
+  const [rolesExpanded, setRolesExpanded] = useState(false);
+  const now = useNow();
+  const wireHandleParam = wireHandle(handle) ?? handle;
+
+  const selectTab = (t: Tab) => {
+    if (t === "mentions" && !isMockOnly()) {
+      app.notify(DEFERRED_MENTIONS);
+      return;
+    }
+    setTab(t);
+  };
 
   useEffect(() => {
     setPageJurisdiction(null);
   }, [setPageJurisdiction]);
 
   useEffect(() => {
-    // Viewer-scoped: out-of-visibility profiles resolve null (hide existence),
-    // and the reveal set updates live as the demo KYC tier cycles.
-    getProfile(handle, { viewer: app.viewer }).then(setProfile);
-  }, [handle, app.viewer]);
+    if (self) return;
+    if (wireHandleParam && handle !== wireHandleParam) {
+      router.replace(profilePath(wireHandleParam));
+    }
+  }, [handle, wireHandleParam, router, self]);
 
   useEffect(() => {
-    if (!self && profile && handle !== profile.handle) {
+    // Viewer-scoped: out-of-visibility profiles resolve null (hide existence),
+    // and the reveal set updates live as the demo KYC tier cycles.
+    getProfile(wireHandleParam, { viewer: app.viewer }).then(setProfile);
+  }, [wireHandleParam, app.viewer]);
+
+  useEffect(() => {
+    if (!self && profile && wireHandleParam !== profile.handle) {
       router.replace(profilePath(profile.handle));
     }
-  }, [profile, handle, router, self]);
+  }, [profile, wireHandleParam, router, self]);
+
+  const verified = app.effectiveVerified;
+  const { profileTypes } = app.state;
+  const postIds = useMemo(
+    () =>
+      profile?.posts
+        .filter(
+          (p) =>
+            profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
+        )
+        .map((p) => p.id) ?? [],
+    [profile, profileTypes, verified],
+  );
+  useHydrateRecordState(postIds);
 
   if (!profile) {
     return <p className="p-6 text-center text-sm text-muted">Profile not found.</p>;
   }
 
-  const { profileTypes } = app.state;
-  const verified = app.effectiveVerified;
   // Self mode reflects the live session tier so Validate ID updates the pill.
   const displayTier = self ? app.state.kycTier : profile.tier;
-  // The role line is an official title, shown only on Official accounts. The
-  // self account's seeded role says "Member", so derive its title from the
-  // home riding when the demo tier reaches Official.
-  const displayRole =
+  const displayRoles: ProfileRoleTag[] =
     self && displayTier === 3
-      ? `MLA · ${districtName(MY_DISTRICTS[0])}`
-      : profile.role;
+      ? [
+          {
+            roleLabel: "MLA",
+            placeLabel: districtName(MY_DISTRICTS[0]),
+            jurisdictionId: "ab-ca-gov",
+            districtSlug: MY_DISTRICTS[0],
+            seatHandle: null,
+            placeKind: "district",
+          },
+        ]
+      : profile.roles?.length
+        ? profile.roles
+        : profile.role && profile.role !== "Official" && profile.role !== "Member"
+          ? parseLegacyRole(profile.role)
+          : [];
+  const multiRole = displayRoles.length > 1;
+  const roleClick = (tag: ProfileRoleTag) => {
+    if (tag.seatHandle) {
+      const path = officialPath(tag.seatHandle);
+      if (path) router.push(path);
+      return;
+    }
+    router.push(profilePath(profile.handle));
+  };
+  const placeClick = (tag: ProfileRoleTag) => {
+    if (tag.placeKind === "district" && tag.districtSlug) {
+      router.push(districtPath(tag.districtSlug, { jurisdictionId: tag.jurisdictionId }));
+      return;
+    }
+    router.push(jurisdictionPath(tag.jurisdictionId));
+  };
   const posts = profile.posts.filter(
     (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
   );
@@ -89,9 +158,28 @@ export function ProfileView({
               <p className="truncate font-bold text-ink">{profile.name}</p>
               <VerificationPill tier={displayTier} align="right" />
             </div>
-            <p className="truncate text-sm text-muted">@{profile.handle}</p>
-            {displayTier === 3 ? (
-              <p className="mt-0.5 truncate text-xs text-ink-soft">{displayRole}</p>
+            <p className="truncate text-sm text-muted">{displayHandle(profile.handle)}</p>
+            {displayTier === 3 && displayRoles.length > 0 ? (
+              <div className="mt-0.5 min-w-0">
+                <RoleTag
+                  roles={displayRoles}
+                  expanded={rolesExpanded}
+                  onExpandToggle={() => setRolesExpanded((v) => !v)}
+                  onRoleClick={roleClick}
+                  onPlaceClick={placeClick}
+                  part={rolesExpanded && multiRole ? "head" : "all"}
+                />
+                {rolesExpanded && multiRole ? (
+                  <RoleTag
+                    roles={displayRoles}
+                    expanded
+                    onExpandToggle={() => setRolesExpanded(false)}
+                    onRoleClick={roleClick}
+                    onPlaceClick={placeClick}
+                    part="tail"
+                  />
+                ) : null}
+              </div>
             ) : null}
           </div>
         </div>
@@ -103,7 +191,7 @@ export function ProfileView({
             <ProfileSupportBar
               {...profile.support}
               ageLabel={profile.ageLabel}
-              showReactions={!self && displayTier === 3}
+              showReactions
             />
           </div>
         ) : null}
@@ -113,7 +201,7 @@ export function ProfileView({
               size="sm"
               variant="outline"
               icon={Pencil}
-              onClick={() => app.notify("Edit Profile is not built in this demo.")}
+              onClick={() => app.notify(isMockOnly() ? "Edit Profile is not built in this demo." : DEFERRED_EDIT_PROFILE)}
             >
               Edit Profile
             </Button>
@@ -129,7 +217,7 @@ export function ProfileView({
           <button
             key={t}
             type="button"
-            onClick={() => setTab(t)}
+            onClick={() => selectTab(t)}
             className={`flex-1 rounded-md py-1 text-sm capitalize ${
               tab === t
                 ? "font-semibold text-ink underline decoration-2 underline-offset-4"
@@ -146,7 +234,9 @@ export function ProfileView({
           {posts.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No posts match the filters.</p>
           ) : (
-            posts.map((item) => (
+            posts.map((item) => {
+              const personaHint = personaHintPath(item.identity);
+              return (
               // TODO(entityId): representative-target nav — route by record/profile id.
               <FeedCard
                 key={item.id}
@@ -159,6 +249,9 @@ export function ProfileView({
                 tierMin={verified}
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+                onPersonaClick={
+                  personaHint ? () => router.push(personaHint) : undefined
+                }
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
@@ -173,11 +266,12 @@ export function ProfileView({
                 onVote={(label) => app.votePoll(item, label)}
                 onSignPetition={() => app.signPetition(item)}
                 onEditsClick={() =>
-                  app.notify("Edit history is not built in this demo.")
+                  app.notify(DEFERRED_EDIT_HISTORY)
                 }
                 onDistrictClick={(s) => router.push(districtPath(s))}
               />
-            ))
+              );
+            })
           )}
         </div>
       ) : null}
@@ -187,46 +281,18 @@ export function ProfileView({
           {activity.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No activity matches the filters.</p>
           ) : (
-            activity.map((a, i) => {
-            const glyph = activityRowGlyph(a);
-            return (
-              <li key={i}>
-                <button
-                  type="button"
-                  // TODO(entityId): route to the acted-on record by id.
-                  onClick={() =>
-                    router.push(
-                      postPathForId(a.recordId ?? activityToRecordId(a.kind)),
-                    )
-                  }
-                  className="flex w-full items-start gap-3 rounded-lg border border-border bg-surface p-3 text-left hover:bg-surface-muted"
-                >
-                  {glyph.type === "reaction" ? (
-                    <span
-                      aria-hidden
-                      className={`mt-0.5 inline-flex size-4 shrink-0 items-center justify-center text-sm font-bold leading-none ${
-                        glyph.alt
-                          ? ACTIVITY_REACTION_TONE.alt
-                          : ACTIVITY_REACTION_TONE.default
-                      }`}
-                    >
-                      {REACTION_GLYPH[glyph.dir]}
-                    </span>
-                  ) : (
-                    <glyph.icon
-                      size={16}
-                      className="mt-0.5 shrink-0 text-brand-600"
-                      aria-hidden
-                    />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm text-ink">{a.text}</span>
-                    <span className="block text-xs text-muted">{a.meta}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })
+            activity.map((a, i) => (
+              <ActivityRow
+                key={i}
+                item={a}
+                now={now}
+                onOpen={() =>
+                  router.push(
+                    postPathForId(a.recordId ?? activityToRecordId(a.kind)),
+                  )
+                }
+              />
+            ))
           )}
         </ul>
       ) : null}
@@ -268,4 +334,30 @@ export function ProfileView({
       ) : null}
     </div>
   );
+}
+
+function parseLegacyRole(role: string): ProfileRoleTag[] {
+  const idx = role.indexOf(" · ");
+  if (idx === -1) {
+    return [
+      {
+        roleLabel: role,
+        placeLabel: "",
+        jurisdictionId: "ab-ca-gov",
+        districtSlug: null,
+        seatHandle: null,
+        placeKind: "jurisdiction",
+      },
+    ];
+  }
+  return [
+    {
+      roleLabel: role.slice(0, idx),
+      placeLabel: role.slice(idx + 3),
+      jurisdictionId: "ab-ca-gov",
+      districtSlug: null,
+      seatHandle: null,
+      placeKind: "jurisdiction",
+    },
+  ];
 }

@@ -2,6 +2,7 @@
 
 import type { RecordKind, VerificationTier } from "@/lib/types";
 import { ReactionButtons } from "./ReactionButtons";
+import { ReactionCountPill } from "./ReactionCountPill";
 import { EditCountLink } from "./EditCountLink";
 import { CommentPill } from "./CommentPill";
 import { SharePill } from "./SharePill";
@@ -35,6 +36,18 @@ interface RecordCardFooterProps {
   onShare?: () => void;
   /** Opens the full post (feed cards — same as title / …more). */
   onOpenPost?: () => void;
+  /** Informational preview — pills render but do not accept input. */
+  readOnly?: boolean;
+  /** Read-only share preview — highlight _my, else fill both segments. */
+  highlightReactionPill?: boolean;
+  /** Read-only share preview — purple comment pill accent. */
+  highlightCommentPill?: boolean;
+  /** Read-only share preview — purple signature pill accent (petitions). */
+  highlightSignaturePill?: boolean;
+  /** Read-only share preview — purple vote pill accent (polls). */
+  highlightVotePill?: boolean;
+  /** Share preview — toggle my-reaction vs both-segment emphasis. */
+  onShareReactionToggle?: () => void;
 }
 
 /**
@@ -61,42 +74,64 @@ export function RecordCardFooter({
   onCommentsClick,
   onShare,
   onOpenPost,
+  readOnly = false,
+  highlightReactionPill = false,
+  highlightCommentPill = false,
+  highlightSignaturePill = false,
+  highlightVotePill = false,
+  onShareReactionToggle,
 }: RecordCardFooterProps) {
   const isComment = kind === "comment";
   const hasReactions = kind === "statement" || kind === "result" || isComment;
   const showComments = !isComment && comments !== undefined;
+  const interactive = !readOnly;
 
   return (
     <div className="flex items-center gap-2">
       {hasReactions ? (
-        <ReactionButtons
-          up={up}
-          down={down}
-          selected={selectedReaction}
-          tierMin={tierMin}
-          onReact={onReact}
-        />
+        readOnly ? (
+          <ReactionCountPill
+            up={up}
+            down={down}
+            tierMin={tierMin}
+            selected={selectedReaction}
+            highlightBoth={highlightReactionPill}
+            onToggleHighlight={onShareReactionToggle}
+          />
+        ) : (
+          <ReactionButtons
+            up={up}
+            down={down}
+            selected={selectedReaction}
+            tierMin={tierMin}
+            onReact={onReact}
+          />
+        )
       ) : null}
-      {kind === "petition" && sig !== undefined ? (
+      {kind === "petition" ? (
         <SignaturePill
-          count={sig}
-          participated={signedPetition}
-          onClick={onOpenPost}
+          count={sig ?? 0}
+          participated={interactive ? signedPetition : false}
+          highlighted={!interactive && highlightSignaturePill}
+          onClick={interactive ? onOpenPost : undefined}
         />
       ) : null}
-      {kind === "poll" && voteTotal !== undefined ? (
+      {kind === "poll" ? (
         <VotePill
-          count={voteTotal}
-          participated={votedPoll}
-          onClick={onOpenPost}
+          count={voteTotal ?? 0}
+          participated={interactive ? votedPoll : false}
+          highlighted={!interactive && highlightVotePill}
+          onClick={interactive ? onOpenPost : undefined}
         />
       ) : null}
-      {onReply ? <ReplyLink onClick={onReply} /> : null}
-      <EditCountLink count={edits} onClick={onEditsClick} />
+      {interactive && onReply ? <ReplyLink onClick={onReply} /> : null}
+      {interactive ? (
+        <EditCountLink count={edits} onClick={onEditsClick} />
+      ) : null}
       {/* Comments: a single right-justified share pill on the reply line.
           Records: the share pill sits beside the comment-count pill, right-aligned. */}
       {isComment ? (
-        onShare ? (
+        interactive && onShare ? (
           <SharePill
             count={shareCount}
             shared={shared}
@@ -104,12 +139,16 @@ export function RecordCardFooter({
             className="ml-auto"
           />
         ) : null
-      ) : showComments || onShare ? (
+      ) : showComments || (interactive && onShare) ? (
         <div className="ml-auto flex items-center gap-2">
           {showComments ? (
-            <CommentPill count={comments ?? 0} onClick={onCommentsClick} />
+            <CommentPill
+              count={comments ?? 0}
+              onClick={interactive ? onCommentsClick : undefined}
+              highlighted={!interactive && highlightCommentPill}
+            />
           ) : null}
-          {onShare ? (
+          {interactive && onShare ? (
             <SharePill count={shareCount} shared={shared} onClick={onShare} />
           ) : null}
         </div>

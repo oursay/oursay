@@ -22,6 +22,7 @@ interface RecordCardHeaderProps {
   /** Viewer-resolved author identity (persona / self affordances). */
   identity?: AuthorIdentity;
   onAuthorClick?: () => void;
+  onPersonaClick?: () => void;
 }
 
 /** Record / comment identity header — wraps AuthorRow with the right layout. */
@@ -38,6 +39,7 @@ export function RecordCardHeader({
   scopeContinuationSlot,
   identity,
   onAuthorClick,
+  onPersonaClick,
 }: RecordCardHeaderProps) {
   const surface = variant === "comment" ? "comment" : "post";
   const { signedMode, kycMode } = authorBadgeModes(surface, depth);
@@ -59,6 +61,7 @@ export function RecordCardHeader({
         variant === "record" ? scopeContinuationSlot : undefined
       }
       onAuthorClick={onAuthorClick}
+      onPersonaClick={onPersonaClick}
     />
   );
 }

@@ -1,3 +1,4 @@
+import type { AuthPasskey } from "@/lib/api/auth";
 import type {
   ActivityKind,
   AuthorGeoRelation,
@@ -11,7 +12,10 @@ import type {
   SignedFilterLevel,
   VerificationTier,
 } from "@/lib/types";
-import type { ComposeStep, SignKind } from "@/components";
+import type { ComposeStep } from "@/components";
+import type { AuthModal } from "./authModal";
+import type { PasskeyBusy } from "./passkeyBusy";
+import type { WysiwysPayload } from "@/lib/signing";
 
 /**
  * A viewer's own reaction on a record/comment. `signTier` records the action
@@ -20,39 +24,20 @@ import type { ComposeStep, SignKind } from "@/components";
 export interface ViewerReaction {
   dir: "up" | "down";
   signTier?: SignTier;
+  /** Civic singleton entity id — used to update rather than recreate reactions. */
+  entityId?: string;
 }
 
 /**
- * A pending "Ask" signing choice (Quick Sign vs Sign with Passkey). Raised when
- * the effective method for an action is `ask` and the jurisdiction doesn't
- * mandate passkey. The commit is held in a ref; this only carries the copy.
+ * Pending unified civic signing confirmation. The commit is held in a ref;
+ * this carries the WYSIWYS payload and which sign buttons to show.
  */
-export interface ChooseSignRequest {
-  /** Bold summary line, e.g. "Cast your vote". */
-  title: string;
-  /** Supporting lines naming the target/option. */
-  lines: string[];
-}
-
-/**
- * A pending Alberta WYSIWYS confirmation. The commit itself is held in a ref (a
- * closure over the target), so this only carries what the SignModal renders.
- */
-export interface SignRequest {
-  kind: SignKind;
-  targetTitle: string;
-  /** Poll: the option being cast. */
-  option?: string;
-  /** Compose: the record type label being published. */
-  composeTypeLabel?: string;
-  /** Below-residency signer — their action won't count officially yet. */
-  showResidencyNotice: boolean;
-  /** Residency-verified but outside the record's districts. */
-  showAffectedNotice: boolean;
-  /** Ledger-final (jurisdiction-mandated passkey) vs a standing passkey pref. */
-  isFinal?: boolean;
-  /** Jurisdiction name for the modal copy. */
-  jurisdiction?: string;
+export interface SigningConfirmRequest {
+  wysiwys: WysiwysPayload;
+  /** False when effective method is passkey-only (Quick Sign hidden). */
+  showQuickSign: boolean;
+  /** Thread id for passkey busy-phase pre-check (per-device thread credential). */
+  threadId: string;
 }
 
 /**
@@ -83,6 +68,8 @@ export interface ShareTarget {
   timestamp?: string;
   /** Comments: nesting depth (drives badge modes in the preview header). */
   depth?: number;
+  /** Comments: stable entity id — used to resolve the public preview when handle differs. */
+  commentId?: string;
 }
 
 /**
@@ -95,10 +82,14 @@ export interface AppState {
   loggedIn: boolean;
   kycTier: VerificationTier;
   viewerDistricts: string[];
+  /** Live-session wire handle (no leading @). */
+  accountHandle?: string;
+  /** Live-session display name from `/v1/profile`. */
+  accountDisplayName?: string;
   /** Account-default profile visibility (persisted; docs/09 cascade base). */
   accountVisibility: AuthorVisibility;
-  /** Registered passkey/device labels (wireframe deviceCount). */
-  devices: string[];
+  /** Enrolled account-login passkeys (live API or mock wireframe). */
+  passkeys: AuthPasskey[];
   /** Light/dark preference — drives the `dark` class on <html> (see global.css). */
   theme: "light" | "dark";
   /** Per-action signing method (Ask/Quick/Passkey); jurisdiction may raise it. */
@@ -127,12 +118,8 @@ export interface AppState {
   jurSelectorOpen: boolean;
 
   // Modal flags.
-  authOpen: boolean;
-  registerOpen: boolean;
-  otpOpen: boolean;
-  loginOpen: boolean;
-  /** Wireframe state.loginOtpWindow — shows the email-OTP login path. */
-  loginOtpWindow: boolean;
+  /** The single open auth dialog (chooser/register/login/recover/otp) — one at a time. */
+  authModal: AuthModal;
   profileOpen: boolean;
   addJurOpen: boolean;
 
@@ -143,11 +130,15 @@ export interface AppState {
   composeType?: RecordKind;
   /** Per-post visibility override (defaults to accountVisibility; may widen or narrow); cleared on close. */
   composeVisibility?: AuthorVisibility;
+  /** Compose editor draft (cleared on close). */
+  composeTitle: string;
+  composeBody: string;
+  composePollOptions: string[];
+  /** Affected district slugs for the draft post ([] = whole jurisdiction). */
+  composeDistricts: string[];
 
-  // Alberta sign confirmation (null when closed).
-  sign: SignRequest | null;
-  // Quick-vs-Passkey chooser for "Ask" actions (null when closed).
-  choose: ChooseSignRequest | null;
+  // Unified civic signing confirmation (null when closed).
+  signingConfirm: SigningConfirmRequest | null;
   // Share sheet target (null when closed).
   share: ShareTarget | null;
 
@@ -160,8 +151,11 @@ export interface AppState {
   petitionSig: Record<string, number>;
   /** Records/comments the account has shared (once per account; bumps the count). */
   shared: Record<string, true>;
+  /** Server-reported share totals (live mode; keyed by shareKey). */
+  shareCounts: Record<string, number>;
 
-  // Post reply composer.
+  // Address editor (live settings).
+  addressOpen: boolean;
   replyOpen: boolean;
 
   // View coordination (set by the active view for the shared chrome).
@@ -171,4 +165,7 @@ export interface AppState {
 
   // Transient "not built" toast.
   toast: string | null;
+
+  /** In-modal passkey busy overlay (dim/spinner while WebAuthn is open). */
+  passkeyBusy: PasskeyBusy | null;
 }

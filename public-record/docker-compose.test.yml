@@ -1,0 +1,49 @@
+# Integration-test stack — isolated from the dev public-record stack so test TRUNCATE
+# does not wipe the dev seed corpus. Uses compose project name `oursay-test-public-record`
+# so `docker compose up` on docker-compose.dev.yml and this file can run side-by-side
+# without replacing each other.
+#
+#   immudb    -> public append-only chain (PostgreSQL wire protocol, immudb 1.11.0)
+#   postgres  -> private mutable store (record_tx + auth + geo) — truncated by tests
+services:
+  immudb:
+    image: codenotary/immudb:1.11.0
+    container_name: oursay-test-public-record-immudb
+    environment:
+      IMMUDB_ADDRESS: "0.0.0.0"
+      IMMUDB_PGSQL_SERVER: "true"
+    ports:
+      - "5445:5432" # PostgreSQL wire protocol
+      - "8083:8080" # web console
+    volumes:
+      - immudb-data:/var/lib/immudb
+    healthcheck:
+      test: ["CMD", "immuadmin", "status"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: oursay-test-public-record-pg
+    environment:
+      POSTGRES_USER: oursay
+      POSTGRES_PASSWORD: oursay
+      POSTGRES_DB: oursay_test
+    ports:
+      - "5444:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oursay -d oursay_test"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+volumes:
+  immudb-data:
+    name: oursay_test_public_record_immudb
+  pg-data:
+    name: oursay_test_public_record_pg

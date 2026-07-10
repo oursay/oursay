@@ -25,8 +25,9 @@ import { getJurisdiction, registerJurisdiction } from "@oursay/public-record";
 import type { KycTier } from "../src/types/kyc.js";
 import { injectFetch } from "./helpers/inject-fetch.js";
 import { resetWorld, type World } from "./helpers/world.js";
+import { fullSessionAccount } from "./helpers/account.js";
+import { openGates } from "./helpers/gates.js";
 
-const ADULT_DOB = "1990-06-15";
 const OURSAY_GLOBAL = "oursay-global"; // permissive (open sandbox)
 const AB_CA_GOV = "ab-ca-gov"; //         tier-gated (verified tiers only)
 const WITHHELD = "test-cg-withheld"; //   ad-hoc: votes/signatures never exposed
@@ -35,18 +36,6 @@ interface Member {
   userId: string;
   sess: IdentitySession;
   client: CivicHttpClient;
-}
-
-async function fullSessionAccount(w: World, email: string): Promise<{ userId: string; token: string }> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: `@u${userId.slice(0, 8)}` });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: ADULT_DOB, email, emailCanonical: email.toLowerCase(),
-  });
-  const session = await w.services.authService.issue(userId, "full", "test");
-  return { userId, token: session.token };
 }
 
 /** Enroll a device + join the GIVEN shared thread `t` (so many members participate on one root). */
@@ -103,15 +92,21 @@ async function seedPetition(w: World, jurisdiction: string, tag: string, residen
 
 describe("18 public-record counts: per-jurisdiction exposure gating (countGating)", () => {
   let w: World;
+  let restoreGates: () => void;
 
   before(async function () {
     this.timeout(60000);
     w = await resetWorld();
     // Make the suite order-independent: (re)register the packaged jurisdictions (oursay-global permissive,
-    // ab-ca-gov tier-gated) and an ad-hoc fully-withheld jurisdiction.
+    // ab-ca-gov tier-gated) and an ad-hoc fully-withheld jurisdiction. ab-ca-gov's act GATES are then
+    // stripped (fixture seam): the seeds sign tier-gated petitions with unverified users to isolate the
+    // count-EXPOSURE policy under test; write-gate enforcement is covered in 20-gates.spec.ts.
     for (const j of jurisdictions) registerJurisdiction(j);
     registerJurisdiction({ id: WITHHELD, level: "test", rules: {}, counts: { votes: false, signatures: false } });
+    restoreGates = openGates(AB_CA_GOV);
   });
+
+  after(() => restoreGates());
 
   afterEach(() => {
     delete process.env.PUBLIC_COUNTS_K_ANONYMITY_MIN;
@@ -122,9 +117,11 @@ describe("18 public-record counts: per-jurisdiction exposure gating (countGating
     process.env.PUBLIC_COUNTS_K_ANONYMITY_DEFAULT = "0";
   }
 
-  it("sanity: the packaged ab-ca-gov policy is tier-gated and excludes electoral_validated", () => {
+  it("sanity: the packaged ab-ca-gov policy is tier-gated to residency (the official-count floor)", () => {
     const policy = getJurisdiction(AB_CA_GOV).counts;
-    expect(policy).to.deep.equal({ votes: true, signatures: true, minTier: ["identity_verified", "residency_verified"] });
+    // Part 3 gate matrix: AB official counts floor at residency_verified — identity_verified
+    // participates but doesn't count; electoral_validated stays excluded (unshipped tier).
+    expect(policy).to.deep.equal({ votes: true, signatures: true, minTier: ["residency_verified"] });
     expect(getJurisdiction(OURSAY_GLOBAL).counts).to.deep.equal({ votes: true, signatures: true });
   });
 

@@ -17,7 +17,9 @@ export type ErrorCode =
   | "challenge_invalid"
   | "passkey_verification_failed"
   | "kyc_reverification_required"
-  | "conflict";
+  | "not_implemented"
+  | "conflict"
+  | "unprocessable";
 
 export class ServiceError extends Error {
   constructor(

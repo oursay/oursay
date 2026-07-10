@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getRecordDetail, personaFor } from "@/lib/api";
+import { getRecordDetail, personaShownToOthers } from "@/lib/api";
 import {
   COMMENT_MAX_DEPTH,
   VISIBILITY_LABEL,
@@ -11,8 +11,14 @@ import {
   type RecordDetail,
   type RecordKind,
 } from "@/lib/types";
-import { relTime } from "@/lib/read-model";
-import { GRADUATION_CHAIN, MY_HANDLE, NOW, districtName } from "@/lib/mock";
+import { jurisdictionAllowsVoteChange } from "@/lib/signing";
+import { relTime, useNow } from "@/lib/read-model";
+import {
+  GRADUATION_CHAIN,
+  MY_HANDLE,
+  districtName,
+  jurisdictionLabel,
+} from "@/lib/mock";
 import {
   AnonymityConfirmModal,
   AnonymityDropdown,
@@ -29,23 +35,26 @@ import {
   ResultOutcome,
   ScopeTag,
 } from "@/components";
-import { authorPath, postPath, districtPath } from "@/lib/routes";
+import { authorPath, postPath, districtPath, personaHintPath } from "@/lib/routes";
+import { wireHandle } from "@/lib/handle";
 import { commentKey, commentShareTarget, recordShareTarget } from "@/lib/share";
+import { civicCommentParentForReply } from "@/lib/comment-tree";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
   readThreadVisibilities,
   useApp,
-  writeThreadVisibility,
 } from "@/lib/state";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 function countNodes(nodes: CommentNode[]): number {
   return nodes.reduce((n, node) => n + 1 + countNodes(node.replies), 0);
 }
 
 export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
+  const now = useNow();
   const app = useApp();
   const router = useRouter();
-  const { setPageJurisdiction, setPostDistricts, viewer, feedFilter } = app;
+  const { setPageJurisdiction, setPostDistricts, viewer, feedFilter, hydrateRecordState } = app;
 
   const [detail, setDetail] = useState<RecordDetail | null>(null);
   const [fullComments, setFullComments] = useState<CommentNode[]>([]);
@@ -59,6 +68,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const [pendingVisibility, setPendingVisibility] = useState<AuthorVisibility | null>(null);
   // Inline comment reply composers, keyed by node path — several open at once.
   const [openReplies, setOpenReplies] = useState<Set<string>>(new Set());
+  const [rootReplyText, setRootReplyText] = useState("");
 
   const toggleCommentReply = (nodePath: string) => {
     setOpenReplies((prev) => {
@@ -69,33 +79,47 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     });
   };
 
-  useEffect(() => {
-    setDetail(null);
-    setFullComments([]);
-    setShownComments([]);
-    let active = true;
-    Promise.all([
-      // The unfiltered fetch still carries the viewer — identity anonymization
-      // applies to every read, only the comment refinements are skipped.
+  const reloadDetail = useCallback(() => {
+    return Promise.all([
       getRecordDetail(id, { viewer }),
       getRecordDetail(id, { viewer, filter: feedFilter }),
     ]).then(([full, filtered]) => {
-      if (!active || !full) return;
+      if (!full) return;
       setDetail(full.detail);
       setFullComments(full.comments);
       setShownComments(filtered?.comments ?? []);
       setPostDistricts(full.detail.districts);
+      const ids = [
+        full.detail.id,
+        ...full.comments.flatMap(function collect(n: CommentNode): string[] {
+          return [n.id, ...n.replies.flatMap(collect)].filter(Boolean) as string[];
+        }),
+      ];
+      hydrateRecordState(ids);
     });
-    return () => {
-      active = false;
-    };
-  }, [id, viewer, feedFilter, setPostDistricts]);
+  }, [id, viewer, feedFilter, setPostDistricts, hydrateRecordState]);
+
+  useEffect(() => {
+    setDetail(null);
+    setFullComments([]);
+    setShownComments([]);
+    void reloadDetail();
+  }, [reloadDetail]);
 
   // Restore this post's remembered thread anonymity (demo cookie memory).
   useEffect(() => {
     setPendingVisibility(null);
     setThreadVisibility(readThreadVisibilities()[id]);
   }, [id]);
+
+  useEffect(() => {
+    if (!detail) return;
+    const expected = postPath(detail.kind, detail.id);
+    const currentPath = window.location.pathname;
+    if (currentPath !== expected) {
+      router.replace(expected + window.location.hash);
+    }
+  }, [detail, router]);
 
   useEffect(() => {
     if (!detail) return;
@@ -130,7 +154,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const reactions = app.reactionCountsFor(target);
   const displayDetail: RecordDetail =
     detail.kind === "petition" ? { ...detail, sig } : detail;
-  const isFinal = detail.jurisdiction === "Alberta";
+  const isFinal = !jurisdictionAllowsVoteChange(detail.jurisdiction);
   const tierMin = app.effectiveVerified;
   // Effective anonymity for anything the viewer posts in this thread.
   const threadVis = threadVisibility ?? app.state.accountVisibility;
@@ -138,16 +162,34 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);
 
-  // Comment reactions reuse the record reaction machinery, keyed by a stable
-  // per-comment id so counts/selection survive re-fetches and filter reordering.
-  const commentTarget = (node: CommentNode) => ({
-    id: commentKey(detail.id, node),
+  // Comment reactions reuse the record reaction machinery. Civic writes require the
+  // server-assigned comment entity id — never the synthetic commentKey fallback.
+  const commentReactionTarget = (node: CommentNode) => ({
+    id: node.id!,
+    threadId: detail.id,
+    parentType: "comment" as const,
     jurisdiction: detail.jurisdiction,
     title: detail.title,
     up: node.up,
     down: node.down,
     districts: detail.districts,
   });
+
+  const reactionKeyFor = (node: CommentNode) => node.id ?? commentKey(detail.id, node);
+
+  const postCommentDone = (message: string, onClose?: () => void) => {
+    onClose?.();
+    void reloadDetail().then(() => app.notify(message));
+  };
+
+  const replyPostedMessage = (serverPersona?: string | null) => {
+    if (threadVis === "public") return "Reply posted.";
+    const handle = wireHandle(app.state.accountHandle) ?? MY_HANDLE;
+    const hint =
+      serverPersona ??
+      (detail.identity?.isSelf ? detail.identity.seenByOthersAs : null);
+    return `Reply posted — shown as ${personaShownToOthers(handle, detail.id, hint)}.`;
+  };
 
   const chainPetition = GRADUATION_CHAIN.petition;
   const chainPoll = GRADUATION_CHAIN.poll;
@@ -194,6 +236,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             signTier={detail.signTier}
             authorGeo={detail.authorGeo}
             onAuthorClick={() => router.push(authorPath(detail.identity, detail.handle))}
+            onPersonaClick={
+              personaHintPath(detail.identity)
+                ? () => router.push(personaHintPath(detail.identity)!)
+                : undefined
+            }
             scopeSlot={
               detail.districts.length > 0 ? (
                 <ScopeTag
@@ -213,7 +260,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           <>
             <div>
               <h1 className="text-lg font-bold text-ink">{detail.title}</h1>
-              <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, NOW)}</p>
+              <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, now)}</p>
             </div>
             <div className="mt-3 space-y-1 text-sm text-ink-soft">
               {detail.body.map((line, i) => (
@@ -280,7 +327,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             tierMin={tierMin}
             onReact={(dir) => app.react(target, dir)}
             onReply={app.startReply}
-            onEditsClick={() => app.notify("Edit history is not built in this demo.")}
+            onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
             onShare={() => app.openShare(recordShareTarget(detail))}
             shareCount={app.shareCountFor(detail.id)}
             shared={app.hasShared(detail.id)}
@@ -328,6 +375,8 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             <textarea
               rows={3}
               placeholder="Write a reply…"
+              value={rootReplyText}
+              onChange={(e) => setRootReplyText(e.target.value)}
               className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
             />
             <div className="flex items-center gap-2">
@@ -335,7 +384,10 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 variant="ghost"
                 size="sm"
                 className="ml-auto"
-                onClick={() => app.closeReply()}
+                onClick={() => {
+                  setRootReplyText("");
+                  app.closeReply();
+                }}
               >
                 Cancel
               </Button>
@@ -343,14 +395,20 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 size="sm"
                 className="rounded-full!"
                 onClick={() => {
-                  app.postComment(detail.jurisdiction, detail.title, () => {
-                    app.closeReply();
-                    app.notify(
-                      threadVis === "public"
-                        ? "Reply posted (demo)."
-                        : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
-                    );
-                  });
+                  app.postComment(
+                    {
+                      threadId: detail.id,
+                      jurisdiction: detail.jurisdiction,
+                      targetTitle: detail.title,
+                      parentId: detail.id,
+                      parentType: "post",
+                      body: rootReplyText,
+                    },
+                    (personaName) => {
+                      setRootReplyText("");
+                      postCommentDone(replyPostedMessage(personaName), () => app.closeReply());
+                    },
+                  );
                 }}
               >
                 Reply
@@ -367,7 +425,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           <CommentThread
             nodes={shownComments}
             viewer={app.viewer}
-            now={NOW}
+            now={now}
             tierMin={tierMin}
             onReply={(_node, nodePath) => {
               if (openReplies.has(nodePath)) {
@@ -385,36 +443,62 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                     }
                     autoFocus
                     onCancel={() => toggleCommentReply(nodePath)}
-                    onSubmit={() => {
-                      app.postComment(detail.jurisdiction, detail.title, () => {
-                        toggleCommentReply(nodePath);
-                        app.notify(
-                          threadVis === "public"
-                            ? "Reply posted (demo)."
-                            : `Reply posted (demo) — shown as ${personaFor(MY_HANDLE, detail.id)}.`,
-                        );
-                      });
+                    onSubmit={(text) => {
+                      const parentId = civicCommentParentForReply(
+                        node,
+                        nodePath,
+                        depth,
+                        fullComments,
+                      );
+                      if (!parentId) {
+                        app.notify("Comment id missing — refresh and try again.");
+                        return;
+                      }
+                      app.postComment(
+                        {
+                          threadId: detail.id,
+                          jurisdiction: detail.jurisdiction,
+                          targetTitle: detail.title,
+                          parentId,
+                          parentType: "comment",
+                          body: text,
+                        },
+                        (personaName) => {
+                          postCommentDone(
+                            replyPostedMessage(personaName),
+                            () => toggleCommentReply(nodePath),
+                          );
+                        },
+                      );
                     }}
                   />
                 </div>
               ) : null
             }
             onAuthorClick={(node) => router.push(authorPath(node.identity, node.handle))}
-            onReact={(node, dir) => app.react(commentTarget(node), dir)}
-            reactionCountsFor={(node) => app.reactionCountsFor(commentTarget(node))}
+            onReact={(node, dir) => {
+              if (!node.id) {
+                app.notify("Comment id missing — refresh and try again.");
+                return;
+              }
+              app.react(commentReactionTarget(node), dir);
+            }}
+            reactionCountsFor={(node) =>
+              node.id
+                ? app.reactionCountsFor(commentReactionTarget(node))
+                : { up: node.up, down: node.down }
+            }
             selectedReactionFor={(node) =>
-              app.reactionFor(commentKey(detail.id, node))
+              app.reactionFor(reactionKeyFor(node))
             }
-            onEditsClick={() =>
-              app.notify("Edit history is not built in this demo.")
-            }
+            onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
             onShare={(node, _path, depth) =>
               app.openShare(
                 commentShareTarget(
                   node,
                   detail.kind,
                   detail.id,
-                  relTime(node.ts, NOW),
+                  relTime(node.ts, now),
                   depth,
                 ),
               )
@@ -434,7 +518,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
         onConfirm={() => {
           if (pendingVisibility === null) return;
           setThreadVisibility(pendingVisibility);
-          writeThreadVisibility(detail.id, pendingVisibility);
+          app.setThreadVisibility(detail.id, pendingVisibility);
           setPendingVisibility(null);
           app.notify(
             `Thread anonymity set to ${VISIBILITY_LABEL[pendingVisibility]}.`,

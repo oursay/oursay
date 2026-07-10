@@ -95,8 +95,9 @@ membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI s
 
 | Gap | Notes |
 |-----|--------|
-| Web app (`app/` workspace) | No product UI; `/walk` is dev-only |
-| CORS / BFF | API has no CORS; browser app needs same-origin proxy or BFF |
+| Web app (`web-app/` workspace) | ✅ Bridge MVP landed — Next.js app wired to the live API; `/walk` remains the dev auth harness |
+| CORS / BFF | ✅ Same-origin `/v1/*` proxy via Next `rewrites()` → `:6173`; mock path behind `NEXT_PUBLIC_MOCK_ONLY` |
+| **Didit hosted KYC in the UI (gap A)** | Backend complete + sandbox-proven, but `web-app/src/lib/api/me.ts` never opens a Didit hosted session — Get-Verified only does dev-attest + platform residency. Under `KYC_PROVIDER=didit` the dev button 403s (gap B: didit declines direct `verify()`). Dev default stays dev-attest; UI walk uses `KYC_PROVIDER=stub`. ~1 web-app commit to close (needs a public provider flag). |
 | Production deploy, external anchors | Phase E |
 | Notifications, sponsorship, waitlist | Spec §14; no routes |
 
@@ -159,4 +160,4 @@ When the app lands:
 
 ---
 
-_Last updated: 2026-06-25 — public area catalog (c6): jurisdiction index + effective-dated district directory + official boundary geometry on branch `geo-foundation`._
+_Last updated: 2026-07-06 — Bridge MVP (Phases 1–6): web-app wired live through the `/v1/*` proxy, dev seed, Didit KYC provider (hosted-session UI deferred — gaps A/B), e2e smoke `api/test/35-e2e-smoke.spec.ts`._

@@ -3,6 +3,7 @@
 // logged or returned by the API). Each spec calls resetWorld() to truncate auth + account rows.
 
 import type { FastifyInstance } from "fastify";
+import { kycConfig } from "../../src/config.js";
 import { buildServices, type Services } from "../../src/container.js";
 import { Db } from "../../src/db.js";
 import { buildServer } from "../../src/http/server.js";
@@ -22,7 +23,13 @@ export async function getWorld(): Promise<World> {
   const db = new Db();
   await db.init();
   const mail = new NoopMailAdapter();
-  const services = await buildServices(db, { mailerOverrides: { noop: mail } });
+  // The shared world always runs the offline stub KYC provider so the suite is deterministic even when
+  // a developer has KYC_PROVIDER=didit in api/.env for a live walk. The live didit specs (33/34) build
+  // their own didit-backed world/client instead of relying on this one.
+  const services = await buildServices(db, {
+    mailerOverrides: { noop: mail },
+    kyc: { ...kycConfig, provider: "stub" },
+  });
   // Disable the HTTP rate-limiter for the shared test app — its in-memory counters would otherwise
   // accumulate across specs. The service-layer OTP rate limit (auth.otp_rate_limits) is still active
   // and is exercised directly in 01-otp / 06-ratelimit.

@@ -51,6 +51,42 @@ export interface RegionRow {
   hasGeom: boolean;
 }
 
+/** One official seat revision aligned to a boundary effective_date. */
+export interface OfficialSeatUpsert {
+  id: string;
+  jurisdictionId: string;
+  seatKind: "jurisdiction_leader" | "district_mla";
+  title: string;
+  seatHandle: string;
+  districtSlug: string | null;
+  districtShortSlug: string | null;
+  leaderRole: string | null;
+  effectiveDate: string;
+  boundaryYear: number;
+  role: string;
+  representativeName: string;
+  claimedUserHandle?: string | null;
+  source: string;
+}
+
+/** Public official seat metadata (no claim workflow internals). */
+export interface OfficialSeatRow {
+  id: string;
+  jurisdictionId: string;
+  seatKind: "jurisdiction_leader" | "district_mla";
+  title: string;
+  seatHandle: string;
+  districtSlug: string | null;
+  districtShortSlug: string | null;
+  leaderRole: string | null;
+  effectiveDate: string;
+  boundaryYear: number;
+  role: string;
+  representativeName: string;
+  claimedUserHandle: string | null;
+  source: string;
+}
+
 export class GeoStore {
   readonly pool: pg.Pool;
 
@@ -73,7 +109,7 @@ export class GeoStore {
   /** Wipe geo rows (test isolation). Guarded: refuses under NODE_ENV=production. */
   async reset(): Promise<void> {
     assertDestructiveAllowed("GeoStore.reset()");
-    await this.pool.query("TRUNCATE geo.regions, geo.districts");
+    await this.pool.query("TRUNCATE geo.regions, geo.official_seats, geo.districts");
   }
 
   async close(): Promise<void> {
@@ -133,6 +169,183 @@ export class GeoStore {
         d.srid,
       ],
     );
+  }
+
+  async upsertOfficialSeat(seat: OfficialSeatUpsert): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO geo.official_seats
+         (id, jurisdiction_id, seat_kind, title, seat_handle, district_slug, district_short_slug,
+          leader_role, effective_date, boundary_year, role, representative_name,
+          claimed_user_handle, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       ON CONFLICT (id) DO UPDATE SET
+          jurisdiction_id       = EXCLUDED.jurisdiction_id,
+          seat_kind             = EXCLUDED.seat_kind,
+          title                 = EXCLUDED.title,
+          seat_handle           = EXCLUDED.seat_handle,
+          district_slug         = EXCLUDED.district_slug,
+          district_short_slug   = EXCLUDED.district_short_slug,
+          leader_role           = EXCLUDED.leader_role,
+          effective_date        = EXCLUDED.effective_date,
+          boundary_year         = EXCLUDED.boundary_year,
+          role                  = EXCLUDED.role,
+          representative_name   = EXCLUDED.representative_name,
+          claimed_user_handle   = EXCLUDED.claimed_user_handle,
+          source                = EXCLUDED.source,
+          ingested_at           = now()`,
+      [
+        seat.id,
+        seat.jurisdictionId,
+        seat.seatKind,
+        seat.title,
+        seat.seatHandle,
+        seat.districtSlug,
+        seat.districtShortSlug,
+        seat.leaderRole,
+        seat.effectiveDate,
+        seat.boundaryYear,
+        seat.role,
+        seat.representativeName,
+        seat.claimedUserHandle ?? null,
+        seat.source,
+      ],
+    );
+  }
+
+  /** Official seats in force on `asOf`: one revision per seat_handle (latest effective_date <= asOf). */
+  async listOfficialSeatsAsOf(jurisdictionId: string, asOf: Date): Promise<OfficialSeatRow[]> {
+    const r = await this.pool.query(
+      `SELECT * FROM (
+         SELECT DISTINCT ON (seat_handle)
+                id,
+                jurisdiction_id,
+                seat_kind,
+                title,
+                seat_handle,
+                district_slug,
+                district_short_slug,
+                leader_role,
+                to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+                boundary_year,
+                role,
+                representative_name,
+                claimed_user_handle,
+                source
+           FROM geo.official_seats
+          WHERE jurisdiction_id = $1 AND effective_date <= $2
+          ORDER BY seat_handle, effective_date DESC
+       ) eff
+       ORDER BY title, seat_handle`,
+      [jurisdictionId, asOf.toISOString().slice(0, 10)],
+    );
+    return r.rows.map(mapOfficialSeatRow);
+  }
+
+  /** Resolve one seat by stable handle at `asOf` (any jurisdiction). */
+  async getOfficialSeatByHandle(seatHandle: string, asOf: Date = new Date()): Promise<OfficialSeatRow | null> {
+    const r = await this.pool.query(
+      `SELECT id,
+              jurisdiction_id,
+              seat_kind,
+              title,
+              seat_handle,
+              district_slug,
+              district_short_slug,
+              leader_role,
+              to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+              boundary_year,
+              role,
+              representative_name,
+              claimed_user_handle,
+              source
+         FROM geo.official_seats
+        WHERE seat_handle = $1 AND effective_date <= $2
+        ORDER BY effective_date DESC
+        LIMIT 1`,
+      [seatHandle, asOf.toISOString().slice(0, 10)],
+    );
+    return r.rows[0] ? mapOfficialSeatRow(r.rows[0]) : null;
+  }
+
+  /** Resolve a claimed seat by the holder's user handle at `asOf`. */
+  async getOfficialSeatByClaimedUserHandle(
+    userHandle: string,
+    asOf: Date = new Date(),
+  ): Promise<OfficialSeatRow | null> {
+    const seats = await this.listOfficialSeatsByClaimedUserHandle(userHandle, asOf);
+    return seats[0] ?? null;
+  }
+
+  /** Every distinct seat claimed by a user at `asOf` (one row per seat_handle). */
+  async listOfficialSeatsByClaimedUserHandle(
+    userHandle: string,
+    asOf: Date = new Date(),
+  ): Promise<OfficialSeatRow[]> {
+    const r = await this.pool.query(
+      `SELECT DISTINCT ON (seat_handle)
+              id,
+              jurisdiction_id,
+              seat_kind,
+              title,
+              seat_handle,
+              district_slug,
+              district_short_slug,
+              leader_role,
+              to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+              boundary_year,
+              role,
+              representative_name,
+              claimed_user_handle,
+              source
+         FROM geo.official_seats
+        WHERE claimed_user_handle = $1 AND effective_date <= $2
+        ORDER BY seat_handle, effective_date DESC`,
+      [userHandle, asOf.toISOString().slice(0, 10)],
+    );
+    return r.rows.map((row) => mapOfficialSeatRow(row));
+  }
+
+  /** Official MLA seat for a district slug at `asOf`, if any. */
+  async getOfficialSeatForDistrict(
+    jurisdictionId: string,
+    districtSlug: string,
+    asOf: Date = new Date(),
+  ): Promise<OfficialSeatRow | null> {
+    const r = await this.pool.query(
+      `SELECT id,
+              jurisdiction_id,
+              seat_kind,
+              title,
+              seat_handle,
+              district_slug,
+              district_short_slug,
+              leader_role,
+              to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+              boundary_year,
+              role,
+              representative_name,
+              claimed_user_handle,
+              source
+         FROM geo.official_seats
+        WHERE jurisdiction_id = $1
+          AND district_slug = $2
+          AND seat_kind = 'district_mla'
+          AND effective_date <= $3
+        ORDER BY effective_date DESC
+        LIMIT 1`,
+      [jurisdictionId, districtSlug, asOf.toISOString().slice(0, 10)],
+    );
+    return r.rows[0] ? mapOfficialSeatRow(r.rows[0]) : null;
+  }
+
+  async countOfficialSeats(jurisdictionId?: string): Promise<number> {
+    const args = jurisdictionId ? [jurisdictionId] : [];
+    const where = jurisdictionId ? "WHERE jurisdiction_id = $1" : "";
+    const r = await this.pool.query(
+      `SELECT count(*)::int AS n FROM geo.official_seats ${where}`,
+      args,
+    );
+    return r.rows[0].n as number;
   }
 
   // ---- resolution ------------------------------------------------------------
@@ -278,6 +491,26 @@ export class GeoStore {
     return r.rows[0]?.id ?? null;
   }
 
+  /** Reverse lookup by STABLE SEAT: the year-less `district_slug` whose in-force geometry (at
+   *  `asOf`) contains `point`, or null when the point is outside every seat. Same effective set as
+   *  {@link districtContaining} — this variant returns the slug the web-app DTOs key on
+   *  ([align-w4-api-surface] authorGeo/viewer-district resolution). */
+  async districtSlugContaining(jurisdictionId: string, point: LngLat, asOf: Date): Promise<string | null> {
+    const r = await this.pool.query(
+      `SELECT eff.district_slug
+         FROM (
+           SELECT DISTINCT ON (district_slug) district_slug, geom
+             FROM geo.districts
+            WHERE jurisdiction_id = $1 AND effective_date <= $2
+            ORDER BY district_slug, effective_date DESC
+         ) eff
+        WHERE ST_Contains(eff.geom, ST_SetSRID(ST_Point($3, $4), 4326))
+        LIMIT 1`,
+      [jurisdictionId, asOf.toISOString().slice(0, 10), point.lon, point.lat],
+    );
+    return r.rows[0]?.district_slug ?? null;
+  }
+
   /** Point-in-polygon over the UNION of the given district revisions. Empty set ⇒ false. */
   async districtsContain(districtIds: string[], point: LngLat): Promise<boolean> {
     if (districtIds.length === 0) return false;
@@ -320,4 +553,23 @@ export class GeoStore {
     );
     return r.rows[0]?.hit === true;
   }
+}
+
+function mapOfficialSeatRow(row: Record<string, unknown>): OfficialSeatRow {
+  return {
+    id: row.id as string,
+    jurisdictionId: row.jurisdiction_id as string,
+    seatKind: row.seat_kind as OfficialSeatRow["seatKind"],
+    title: row.title as string,
+    seatHandle: row.seat_handle as string,
+    districtSlug: (row.district_slug as string | null) ?? null,
+    districtShortSlug: (row.district_short_slug as string | null) ?? null,
+    leaderRole: (row.leader_role as string | null) ?? null,
+    effectiveDate: row.effective_date as string,
+    boundaryYear: row.boundary_year as number,
+    role: row.role as string,
+    representativeName: row.representative_name as string,
+    claimedUserHandle: (row.claimed_user_handle as string | null) ?? null,
+    source: row.source as string,
+  };
 }

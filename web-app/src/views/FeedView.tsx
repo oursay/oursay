@@ -6,13 +6,14 @@ import { listFeedItems } from "@/lib/api";
 import type { FeedItem } from "@/lib/types";
 import { FeedCard } from "@/components";
 import { districtName } from "@/lib/mock";
-import { authorPath, districtPath, jurisdictionPath, postPath } from "@/lib/routes";
+import { authorPath, districtPath, jurisdictionPath, personaHintPath, postPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function FeedView() {
   const app = useApp();
-  const { setPageJurisdiction, feedFilter, viewer } = app;
+  const { setPageJurisdiction, feedFilter, viewer, hydrateRecordState } = app;
   const router = useRouter();
   const [items, setItems] = useState<FeedItem[] | null>(null);
 
@@ -24,13 +25,16 @@ export function FeedView() {
     let active = true;
     listFeedItems({ scope: "feed", filter: feedFilter, viewer }).then(
       (rows) => {
-        if (active) setItems(rows);
+        if (active) {
+          setItems(rows);
+          hydrateRecordState(rows.map((r) => r.id));
+        }
       },
     );
     return () => {
       active = false;
     };
-  }, [feedFilter, viewer]);
+  }, [feedFilter, viewer, hydrateRecordState]);
 
   if (items === null) {
     return <p className="p-6 text-center text-sm text-muted">Loading feed…</p>;
@@ -48,7 +52,9 @@ export function FeedView() {
 
   return (
     <div className="space-y-3 px-3 py-3">
-      {items.map((item) => (
+      {items.map((item) => {
+        const personaHint = personaHintPath(item.identity);
+        return (
         // TODO(entityId): representative-target nav — route by record/profile id.
         <FeedCard
           key={item.id}
@@ -62,6 +68,9 @@ export function FeedView() {
           hideJur={hideJur}
           resolveDistrict={districtName}
           onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+          onPersonaClick={
+            personaHint ? () => router.push(personaHint) : undefined
+          }
           onTitleClick={() => router.push(postPath(item.kind, item.id))}
           onCommentsClick={() =>
             router.push(postPath(item.kind, item.id, { comments: true }))
@@ -75,13 +84,14 @@ export function FeedView() {
           signedPetition={app.hasSignedPetition(item.id)}
           onVote={(label) => app.votePoll(item, label)}
           onSignPetition={() => app.signPetition(item)}
-          onEditsClick={() => app.notify("Edit history is not built in this demo.")}
+          onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
           onJurisdictionClick={() =>
             router.push(jurisdictionPath(item.jurisdiction))
           }
           onDistrictClick={(slug) => router.push(districtPath(slug))}
         />
-      ))}
+        );
+      })}
     </div>
   );
 }

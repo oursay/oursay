@@ -15,6 +15,9 @@ describe("getPersonaProfile", () => {
     // Tier stays visible — civic signal, not identity.
     expect(profile!.tier).toBe(2);
     // The root post lands in activity ("Posted …"), not comments.
+    expect(profile!.isRootAuthor).toBe(true);
+    expect(profile!.rootPost).toBeDefined();
+    expect(profile!.rootPost!.title).toBeTruthy();
     expect(profile!.activity.some((a) => a.text.startsWith("Posted"))).toBe(true);
     expect(profile!.activity.every((a) => !a.text.startsWith("Commented"))).toBe(true);
     // Support pill is comment-count only.

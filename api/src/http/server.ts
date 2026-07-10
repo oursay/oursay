@@ -19,8 +19,16 @@ import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
 import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
 import { registerKycDevRoutes } from "./routes/kyc-dev.routes.js";
+import { registerMembershipDevRoutes } from "./routes/membership-dev.routes.js";
+import { registerKycRoutes } from "./routes/kyc.routes.js";
 import { registerProfileRoutes } from "./routes/profile.routes.js";
+import { registerMeRoutes } from "./routes/me.routes.js";
 import { registerPublicAreaCatalogRoutes } from "./routes/public-area-catalog.routes.js";
+import { registerPublicFeedRoutes } from "./routes/public-feed.routes.js";
+import { registerPublicRecordDetailRoutes } from "./routes/public-record-detail.routes.js";
+import { registerPublicOfficialRoutes } from "./routes/public-official.routes.js";
+import { registerPublicPersonaRoutes } from "./routes/public-persona.routes.js";
+import { registerPublicProfileRoutes } from "./routes/public-profile.routes.js";
 import { registerPublicRecordReadRoutes } from "./routes/public-record-read.routes.js";
 import { registerRecoveryRoutes } from "./routes/recovery.routes.js";
 import { registerRegistrationRoutes } from "./routes/registration.routes.js";
@@ -58,6 +66,8 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
         { name: "civic", description: "Civic signing device keys (public key only; separate from login passkeys)" },
         { name: "public", description: "Unauthenticated public reads: the civic record (browse/detail/counts) and the area catalog (jurisdictions + district boundaries)" },
         { name: "profile", description: "Private account profile" },
+        { name: "me", description: "Authenticated self-scoped account surface" },
+        { name: "kyc", description: "Identity and residency verification (Didit sessions, platform residency attest)" },
         { name: "meta", description: "Health & docs" },
       ],
       components: {
@@ -83,8 +93,15 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerCivicDeviceRoutes(app, services);
   registerCivicRecordRoutes(app, services);
   registerPublicRecordReadRoutes(app, services);
+  registerPublicFeedRoutes(app, services);
+  registerPublicRecordDetailRoutes(app, services);
+  registerPublicPersonaRoutes(app, services);
+  registerPublicOfficialRoutes(app, services);
+  registerPublicProfileRoutes(app, services);
   registerPublicAreaCatalogRoutes(app, services);
   registerProfileRoutes(app, services);
+  registerMeRoutes(app, services);
+  await registerKycRoutes(app, services);
 
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
 
@@ -93,6 +110,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   if (!isProduction) {
     registerWalkRoutes(app);
     registerKycDevRoutes(app, services);
+    registerMembershipDevRoutes(app, services);
   }
 
   await app.ready();

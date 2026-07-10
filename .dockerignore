@@ -1,0 +1,17 @@
+# Monorepo root — used when building public-record/Dockerfile.worker (context: ..).
+**/node_modules
+**/.git
+**/.next
+**/dist
+**/.astro
+**/.output
+**/.anchors
+**/.immudb-data
+**/.oursay-dev
+**/out
+**/*.log
+web-app/.next
+site/dist
+**/.env
+**/.env.*
+!**/.env.example

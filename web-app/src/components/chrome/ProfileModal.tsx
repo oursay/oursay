@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { displayHandle } from "@/lib/handle";
 import {
   ChevronRight,
   Eye,
@@ -17,10 +18,13 @@ import {
   Plus,
   ShieldCheck,
   Sun,
+  Trash2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Avatar, Button, Modal } from "@/components/ui";
 import { VisibilityPicker } from "@/components/identity";
+import type { AuthPasskey } from "@/lib/api/auth";
+import { passkeyDisplayLabel } from "@/lib/api/auth";
 import type {
   AuthorVisibility,
   SignAction,
@@ -34,6 +38,7 @@ import {
   SIGN_METHODS,
   VISIBILITY_LABEL,
 } from "@/lib/types";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface ProfileModalProps {
   open: boolean;
@@ -55,14 +60,19 @@ interface ProfileModalProps {
   onSetSigning?: (action: SignAction, method: SignMethod) => void;
   onSetPostSigning?: (method: SignMethod) => void;
   onLogout?: () => void;
-  /** Registered device / passkey labels. */
-  devices?: string[];
+  /** Enrolled account-login passkeys. */
+  passkeys?: AuthPasskey[];
   /** Registers a passkey on this device. */
   onAddDevice?: () => void;
   /** Opens the OTP window so a new device can log in by email. */
   onAddDeviceByEmail?: () => void;
+  /** Rename a passkey label (persisted in live mode). */
+  onRenamePasskey?: (id: string, label: string) => void;
+  /** Remove a passkey ("kick" a device). Hidden on the last remaining passkey. */
+  onRevokePasskey?: (id: string) => void;
   /** Deferred account-settings destinations (wireframe no-ops → toast). */
   onOpenSetting?: (label: string) => void;
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 /** Wireframe KYC_TIERS — the account's own ladder, not the author pill labels. */
@@ -87,8 +97,90 @@ const KYC_TIER_BG: Record<Exclude<VerificationTier, 0>, string> = {
   3: "bg-verify-tier-3", // Official — black
 };
 
-/** Only the first two devices are listed; the rest collapse to "+N more". */
-const DEVICES_SHOWN = 2;
+/** Only the first two passkeys are listed; the rest collapse to "+N more". */
+const PASSKEYS_SHOWN = 2;
+
+function PasskeyRow({
+  passkey,
+  onRename,
+  onRevoke,
+  canRevoke,
+}: {
+  passkey: AuthPasskey;
+  onRename?: (id: string, label: string) => void;
+  onRevoke?: (id: string) => void;
+  /** False for the last remaining passkey — the server refuses to remove it (use recovery). */
+  canRevoke?: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => passkeyDisplayLabel(passkey));
+  const inputRef = useRef<HTMLInputElement>(null);
+  const display = passkeyDisplayLabel(passkey);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  useEffect(() => {
+    if (!editing) setDraft(display);
+  }, [display, editing]);
+
+  const save = () => {
+    setEditing(false);
+    onRename?.(passkey.id, draft);
+  };
+
+  const cancel = () => {
+    setDraft(display);
+    setEditing(false);
+  };
+
+  return (
+    <li className="flex min-h-9 items-center gap-2 text-sm text-ink-soft">
+      <Key size={15} className="shrink-0" aria-hidden />
+      {editing ? (
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") cancel();
+          }}
+          onBlur={save}
+          className="min-w-0 flex-1 rounded border border-border bg-surface px-2 py-1 text-sm text-ink"
+          aria-label="Passkey name"
+        />
+      ) : (
+        <span className="min-w-0 flex-1 truncate">{display}</span>
+      )}
+      {!editing ? (
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          {onRename ? (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="shrink-0 rounded p-1 text-muted hover:bg-surface-muted hover:text-ink"
+              aria-label={`Rename ${display}`}
+            >
+              <Pencil size={14} aria-hidden />
+            </button>
+          ) : null}
+          {onRevoke && canRevoke ? (
+            <button
+              type="button"
+              onClick={() => onRevoke(passkey.id)}
+              className="shrink-0 rounded p-1 text-muted hover:bg-surface-muted hover:text-danger"
+              aria-label={`Remove ${display}`}
+            >
+              <Trash2 size={14} aria-hidden />
+            </button>
+          ) : null}
+        </span>
+      ) : null}
+    </li>
+  );
+}
 
 function SettingsRow({
   icon: Icon,
@@ -248,20 +340,25 @@ export function ProfileModal({
   onSetSigning,
   onSetPostSigning,
   onLogout,
-  devices = ["This device (passkey)"],
+  passkeys = [],
   onAddDevice,
   onAddDeviceByEmail,
+  onRenamePasskey,
+  onRevokePasskey,
   onOpenSetting,
+  passkeyBusy = null,
 }: ProfileModalProps) {
   const KycIcon = KYC_ICON[kycTier];
-  const [devicesExpanded, setDevicesExpanded] = useState(false);
+  const [passkeysExpanded, setPasskeysExpanded] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [signingOpen, setSigningOpen] = useState(false);
-  const hidden = devices.length - DEVICES_SHOWN;
-  const shownDevices = devicesExpanded ? devices : devices.slice(0, DEVICES_SHOWN);
+  const hidden = passkeys.length - PASSKEYS_SHOWN;
+  const shownPasskeys = passkeysExpanded
+    ? passkeys
+    : passkeys.slice(0, PASSKEYS_SHOWN);
 
   return (
-    <Modal open={open} onClose={onClose} variant="sheet" title="Profile" mobileFull>
+    <Modal open={open} onClose={onClose} variant="sheet" title="Profile" mobileFull passkeyBusy={passkeyBusy}>
       <div className="space-y-5">
         <div className="border-b border-border pb-4">
           <button
@@ -273,7 +370,7 @@ export function ProfileModal({
             <Avatar name={name} seed={handle} size="lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-ink">{name}</p>
-              <p className="truncate text-sm text-muted">@{handle}</p>
+              <p className="truncate text-sm text-muted">{displayHandle(handle)}</p>
             </div>
             <ChevronRight size={16} className="shrink-0 text-muted" aria-hidden />
           </button>
@@ -307,27 +404,27 @@ export function ProfileModal({
 
         <div>
           <p className="mb-2 text-sm font-semibold text-ink">
-            Devices &amp; Passkeys ({devices.length})
+            Devices &amp; Passkeys ({passkeys.length})
           </p>
           <ul className="space-y-1.5">
-            {shownDevices.map((d) => (
-              <li
-                key={d}
-                className="flex min-h-9 items-center gap-2 text-sm text-ink-soft"
-              >
-                <Key size={15} className="shrink-0" aria-hidden />
-                {d}
-              </li>
+            {shownPasskeys.map((pk) => (
+              <PasskeyRow
+                key={pk.id}
+                passkey={pk}
+                onRename={onRenamePasskey}
+                onRevoke={onRevokePasskey}
+                canRevoke={passkeys.length > 1}
+              />
             ))}
             {hidden > 0 ? (
               <li>
                 <button
                   type="button"
-                  onClick={() => setDevicesExpanded((v) => !v)}
-                  aria-expanded={devicesExpanded}
+                  onClick={() => setPasskeysExpanded((v) => !v)}
+                  aria-expanded={passkeysExpanded}
                   className="pl-6 text-sm text-muted underline underline-offset-2 hover:text-ink"
                 >
-                  {devicesExpanded ? "Show less" : `+${hidden} more`}
+                  {passkeysExpanded ? "Show less" : `+${hidden} more`}
                 </button>
               </li>
             ) : null}

@@ -17,12 +17,14 @@ interface AnonymityDropdownProps {
   size?: "field" | "compact";
   /** Menu edge the option list anchors to (and option text justification). */
   align?: "left" | "right";
+  /** Mask icon in the trigger button; off when the parent supplies a titled label. */
+  showButtonIcon?: boolean;
 }
 
 /**
- * Inline visibility selector — mask icon + current label + chevron opening a
- * plain option list (no descriptions; the ProfileModal picker documents the
- * tiers). Used beside POSTING IN in the compose editor and on the reply bar.
+ * Inline visibility selector — optional mask icon + current label + chevron.
+ * Compose uses an external "Anonymity" title; PostView reply bar keeps the icon
+ * in the trigger.
  */
 export function AnonymityDropdown({
   value,
@@ -31,6 +33,7 @@ export function AnonymityDropdown({
   label,
   size = "field",
   align = "right",
+  showButtonIcon = true,
 }: AnonymityDropdownProps) {
   const [open, setOpen] = useState(false);
   const floor = minVisibility ? VISIBILITY_NARROWNESS[minVisibility] : 0;
@@ -56,11 +59,13 @@ export function AnonymityDropdown({
             : "mt-1 min-h-10 px-3 text-sm font-medium"
         }`}
       >
-        <VenetianMask
-          size={compact ? 14 : 18}
-          className="shrink-0 text-ink-soft"
-          aria-hidden
-        />
+        {showButtonIcon ? (
+          <VenetianMask
+            size={compact ? 14 : 18}
+            className="shrink-0 text-ink-soft"
+            aria-hidden
+          />
+        ) : null}
         <span className="min-w-0 flex-1 truncate text-left">
           {VISIBILITY_LABEL[value]}
         </span>

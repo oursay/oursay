@@ -157,6 +157,7 @@ read this same table — one source of truth.
   never a vendor SDK directly (docs/01 §5.1):
   - `stub` *(default)* — deterministic, offline, no key: awards the requested tier (no real identity
     check). Used by CI/dev and the dev attestation route below.
+  - `didit` — hosted Didit sessions (`POST /v1/kyc/didit/session`); see [`docs/DIDIT-KYC-SETUP.md`](../docs/DIDIT-KYC-SETUP.md).
   - `equifax` — **reserved, not implemented**: selecting it fails fast at startup.
 - **Tiers are a SET, not a ladder.** On counts, `?tier=` is matched by **set membership**, not
   at-or-above: a participant is counted if their *current* tier is **in** the requested set. Tiers are
@@ -206,20 +207,46 @@ is ever exposed. See [REGION-MODEL § Discussion-scoped stake filtering](../docs
 ## Dev cycle
 
 ```bash
-# 1. Shared Postgres (also brings up immudb for public-record). Ensures public.* schema exists.
-npm run db:up -w @oursay/public-record       # or: npm run db:up -w @oursay/api (delegates)
+# Option A — full Docker stack (API + public-record Postgres/immudb; optional worker)
+# Compose project matches public-record so DBs are shared, not duplicated.
+npm run up -w @oursay/api                    # API :8080, dumps openapi.yaml then serves
+# AUTO_START_WORKER=1 also starts the settlement worker container (compose profile `worker`)
+npm run logs -w @oursay/api                  # follow API logs
+# Swagger UI: http://localhost:8080/docs  ·  walk harness: http://localhost:8080/walk
 
-# 2. Run the API (Swagger UI at http://localhost:8080/docs, spec at /openapi.json,
-#    dev walk harness at http://localhost:8080/walk)
+# Option B — DBs in Docker, API on the host (hot-reload with tsx)
+npm run db:up -w @oursay/api                 # delegates to public-record
 cp api/.env.example api/.env                 # optional; dev defaults work out of the box
 npm run dev -w @oursay/api
 
-# 3. Tests (integration; need the DB from step 1)
-npm test -w @oursay/api
+# Seed the dev corpus (mock wireframe → real civic writes; host process against :5442)
+npm run seed -w @oursay/api
 
-# 4. Regenerate the committed human-readable spec after changing routes
+# Tests (integration; auto-start the isolated test DBs via pretest — dev seed is untouched)
+npm test -w @oursay/api
+# Optional: containerized test API on :8081 → npm run test:up -w @oursay/api
+
+# Regenerate the committed human-readable spec after changing routes
 npm run openapi:dump -w @oursay/api          # writes api/openapi.yaml
+# (also runs automatically on container start before the HTTP service)
 ```
+
+Host ports so stacks can run side-by-side (same offsets as public-record):
+
+| Stack | Compose file | API | Postgres | immudb | console |
+|-------|--------------|-----|----------|--------|---------|
+| dev | `docker-compose.dev.yml` | **8080** | **5442** | **5443** | **8082** |
+| test | `docker-compose.test.yml` | **8081** | **5444** | **5445** | **8083** |
+| prod | `docker-compose.prod.yml` | **8085** | *(internal)* | *(internal)* | *(none)* |
+
+Prod publishes only the API; Postgres/immudb are compose-network-only.
+
+`npm run seed -w @oursay/api` wipes auth + record rows (not production), ingests Alberta districts
+when `geo.districts` is empty, creates ~21 accounts with mixed visibility (`public`, `my_district`,
+`anonymous`, …), and writes dozens of statements/petitions/polls through the civic SDK. See
+`api/.oursay-dev/seed-manifest.json` after seeding — includes a dev address for Edmonton-Strathcona
+residency so you can see `my_district` vs `public` comment authors. Pair with
+`NEXT_PUBLIC_MOCK_ONLY=0` in the web-app for a live feed.
 
 `npm run db:down` wipes Docker volumes — **destructive, dev-only**. The test reset and `db:down` are
 guarded by `scripts/destructive-guard.ts` and refuse to run under `NODE_ENV=production`.
@@ -283,9 +310,10 @@ npm run cli -w @oursay/api -- create-user "Jane" jane@example.com 1990-01-01
 
 See [`.env.example`](./.env.example). Notable keys: `SESSION_SECRET` (required in production),
 `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN`, OTP TTL + rate limits (`OTP_TTL_SEC` also bounds the gated-login
-window), `MIN_AGE_YEARS`, and per-role mailer vendor lists (`MAILER_REGISTRATION_VENDORS` /
-`MAILER_RECOVERY_VENDORS` / `MAILER_LOGIN_VENDORS`). PII is never logged; OTP codes are never logged
-or returned.
+window), `MIN_AGE_YEARS`, and mailer settings (`MAILER_OTP_USE_POSTMARK` or per-role vendor lists
+`MAILER_REGISTRATION_VENDORS` / `MAILER_RECOVERY_VENDORS` / `MAILER_LOGIN_VENDORS`). For production OTP
+delivery via Postmark, see [`docs/POSTMARK-OTP-SETUP.md`](../docs/POSTMARK-OTP-SETUP.md). PII is never
+logged; OTP codes are never logged or returned.
 
 ## Tests
 

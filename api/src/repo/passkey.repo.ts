@@ -74,6 +74,15 @@ export class PasskeyRepo {
     return (rowCount ?? 0) > 0;
   }
 
+  /** Owner-scoped label update; 404 when the passkey isn't theirs. */
+  async updateLabel(userId: string, id: string, label: string | null): Promise<boolean> {
+    const { rowCount } = await this.pool.query(
+      `UPDATE auth.passkey_credentials SET label = $3 WHERE id = $1 AND user_id = $2`,
+      [id, userId, label],
+    );
+    return (rowCount ?? 0) > 0;
+  }
+
   async updateCounter(credentialId: string, counter: number, lastUsedAt: Date): Promise<void> {
     await this.pool.query(
       `UPDATE auth.passkey_credentials SET counter = $2, last_used_at = $3 WHERE credential_id = $1`,

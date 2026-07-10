@@ -1,16 +1,21 @@
 "use client";
 
-import { KeyRound, Mail } from "lucide-react";
-import { Button, Modal, ModalField } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { Key, Mail, MailCheck } from "lucide-react";
+import { Button, CollapsibleSection, Modal, ModalField } from "@/components/ui";
+import type { PasskeyBusyPhase } from "@/lib/state/passkeyBusy";
 
 interface LoginChooserProps {
   open: boolean;
   onClose: () => void;
-  /** OTP-login window: off = passkey only; on = email-OTP or passkey. */
+  /** OTP-login window: off = passkey only; on = email login gate available. */
   otpWindow?: boolean;
+  /** Email prefill (e.g. from `?otpEmail=` deep-link). */
+  email?: string;
   onPasskeyLogin?: () => void;
-  onVerifyEmail?: () => void;
+  onVerifyEmail?: (email: string) => void;
   onRecover?: () => void;
+  passkeyBusy?: PasskeyBusyPhase | null;
 }
 
 /** Returning-user login (the wireframe's loginModal / buildLoginInner). */
@@ -18,49 +23,65 @@ export function LoginChooser({
   open,
   onClose,
   otpWindow = false,
+  email,
   onPasskeyLogin,
   onVerifyEmail,
   onRecover,
+  passkeyBusy = null,
 }: LoginChooserProps) {
+  const [emailOpen, setEmailOpen] = useState(Boolean(otpWindow));
+  const [draftEmail, setDraftEmail] = useState(email ?? "");
+
+  useEffect(() => {
+    setDraftEmail(email ?? "");
+    // Deep-links (or debug toggles) open the section so the user sees the email input.
+    setEmailOpen(Boolean(otpWindow || (email?.trim()?.length ?? 0) > 0));
+  }, [otpWindow, email]);
+
   return (
-    <Modal open={open} onClose={onClose} title="Log In" headerAlign="center">
+    <Modal open={open} onClose={onClose} title="Log In" headerAlign="center" passkeyBusy={passkeyBusy}>
       <div className="space-y-3">
-        {otpWindow ? (
-          <>
-            <ModalField label="Email" placeholder="jane@example.ca" />
-            <Button fullWidth icon={Mail} onClick={onVerifyEmail}>
-              Verify Email
-            </Button>
-            <div className="flex items-center gap-3 text-xs text-muted">
-              <span className="h-px flex-1 bg-border" />
-              or
-              <span className="h-px flex-1 bg-border" />
-            </div>
+        <p className="text-center text-sm text-muted">Use your passkey to sign in</p>
+        <Button variant="primary" fullWidth icon={Key} onClick={onPasskeyLogin}>
+          Log In With Passkey
+        </Button>
+
+        <CollapsibleSection
+          icon={Mail}
+          label="Trying to login using email?"
+          open={emailOpen}
+          onToggle={() => setEmailOpen((v) => !v)}
+          contentClassName="px-1 pt-1"
+        >
+          <div className="space-y-2">
+            <p className="text-[10px] text-muted text-center leading-snug">
+              Authorize email login from an existing device/passkey. Profile: &quot;Devices &amp; Passkeys&quot;
+              -&gt; &quot;+ Add by Email&quot; enables email login for 30 minutes.
+            </p>
+            <ModalField
+              label="Email"
+              placeholder="jane@example.ca"
+              value={draftEmail}
+              onChange={(e) => setDraftEmail(e.target.value)}
+            />
             <Button
               fullWidth
               variant="outline"
-              icon={KeyRound}
-              onClick={onPasskeyLogin}
+              icon={MailCheck}
+              onClick={() => onVerifyEmail?.(draftEmail.trim())}
+              disabled={draftEmail.trim().length === 0}
             >
-              Log In With Passkey
+              Verify Email
             </Button>
-          </>
-        ) : (
-          <>
-            <p className="text-center text-sm text-muted">
-              Use your passkey to sign in
-            </p>
-            <Button fullWidth icon={KeyRound} onClick={onPasskeyLogin}>
-              Log In With Passkey
-            </Button>
-          </>
-        )}
+          </div>
+        </CollapsibleSection>
+
         <button
           type="button"
           onClick={onRecover}
           className="block w-full text-center text-sm text-ink-soft underline underline-offset-2"
         >
-          Lost your passkey? Recover account
+          Lost or inaccessible device/passkey? Recover your account.
         </button>
       </div>
     </Modal>

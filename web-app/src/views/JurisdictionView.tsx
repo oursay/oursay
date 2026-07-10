@@ -12,22 +12,24 @@ import {
   PlaceHeader,
   TitleLeaderRow,
 } from "@/components";
-import { districtName } from "@/lib/mock";
+import { districtName, jurisdictionIdFromSlug } from "@/lib/mock";
+import { inferLeaderRole, isSeatClaimed } from "@/lib/official-seat";
 import {
   authorPath,
   districtPath,
-  jurisdictionNameFromSlug,
+  officialPath,
+  personaHintPath,
   postPath,
-  profilePath,
 } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function JurisdictionView({ slug }: { slug: string }) {
   const app = useApp();
   const { setPageJurisdiction, feedFilter, viewer } = app;
   const router = useRouter();
-  const name = jurisdictionNameFromSlug(slug);
+  const id = jurisdictionIdFromSlug(slug) ?? slug;
 
   const [summary, setSummary] = useState<JurisdictionSummary | null>(null);
   const [items, setItems] = useState<FeedItem[] | null>(null);
@@ -37,18 +39,18 @@ export function JurisdictionView({ slug }: { slug: string }) {
   const [feedOpen, setFeedOpen] = useState(true);
 
   useEffect(() => {
-    setPageJurisdiction(name);
-  }, [name, setPageJurisdiction]);
+    setPageJurisdiction(id);
+  }, [id, setPageJurisdiction]);
 
   useEffect(() => {
-    getJurisdiction(name).then(setSummary);
-  }, [name]);
+    getJurisdiction(id).then(setSummary);
+  }, [id]);
 
   useEffect(() => {
     let active = true;
     listFeedItems({
       scope: "jurisdiction",
-      filter: { ...feedFilter, jurisdiction: name },
+      filter: { ...feedFilter, jurisdiction: id },
       viewer,
     }).then((rows) => {
       if (active) setItems(rows);
@@ -56,7 +58,7 @@ export function JurisdictionView({ slug }: { slug: string }) {
     return () => {
       active = false;
     };
-  }, [feedFilter, viewer, name]);
+  }, [feedFilter, viewer, id]);
 
   if (!summary) {
     return <p className="p-6 text-center text-sm text-muted">Jurisdiction not found.</p>;
@@ -70,7 +72,19 @@ export function JurisdictionView({ slug }: { slug: string }) {
         title={summary.name}
         leaderName={summary.leader.name}
         leaderHandle={summary.leader.handle}
-        onLeaderClick={() => router.push(profilePath(summary.leader.handle))}
+        claimedUserHandle={summary.leader.claimedUserHandle}
+        claimed={summary.leader.claimed ?? isSeatClaimed(summary.leader.handle)}
+        leaderRole={
+          summary.leader.leaderRole ??
+          inferLeaderRole({
+            jurisdictionId: summary.id,
+            seatHandle: summary.leader.handle,
+          })
+        }
+        onLeaderClick={() => {
+          const path = officialPath(summary.leader.handle);
+          if (path) router.push(path);
+        }}
       />
 
       {hasRidings ? (
@@ -116,9 +130,17 @@ export function JurisdictionView({ slug }: { slug: string }) {
                     title={d.name}
                     leaderName={d.leader}
                     leaderHandle={d.leaderHandle}
+                    claimedUserHandle={d.claimedUserHandle}
+                    claimed={d.leaderClaimed ?? isSeatClaimed(d.leaderHandle)}
+                    leaderRole="mla"
                     variant="row"
-                    onTitleClick={() => router.push(districtPath(d.slug))}
-                    onLeaderClick={() => router.push(profilePath(d.leaderHandle))}
+                    onTitleClick={() =>
+                      router.push(districtPath(d.slug, { jurisdictionSlug: slug }))
+                    }
+                    onLeaderClick={() => {
+                      const path = officialPath(d.leaderHandle);
+                      if (path) router.push(path);
+                    }}
                   />
                 </div>
               </li>
@@ -142,7 +164,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
               No records match the current filters.
             </p>
           ) : (
-            items.map((item) => (
+            items.map((item) => {
+              const personaHint = personaHintPath(item.identity);
+              return (
               <FeedCard
                 key={item.id}
                 item={{
@@ -155,6 +179,9 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 hideJur
                 resolveDistrict={districtName}
                 onAuthorClick={() => router.push(authorPath(item.identity, item.handle))}
+                onPersonaClick={
+                  personaHint ? () => router.push(personaHint) : undefined
+                }
                 onTitleClick={() => router.push(postPath(item.kind, item.id))}
                 onCommentsClick={() =>
                   router.push(postPath(item.kind, item.id, { comments: true }))
@@ -169,11 +196,14 @@ export function JurisdictionView({ slug }: { slug: string }) {
                 onVote={(label) => app.votePoll(item, label)}
                 onSignPetition={() => app.signPetition(item)}
                 onEditsClick={() =>
-                  app.notify("Edit history is not built in this demo.")
+                  app.notify(DEFERRED_EDIT_HISTORY)
                 }
-                onDistrictClick={(s) => router.push(districtPath(s))}
+                onDistrictClick={(s) =>
+                  router.push(districtPath(s, { jurisdictionId: id }))
+                }
               />
-            ))
+              );
+            })
           )}
         </div>
       </CollapsibleSection>

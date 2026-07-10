@@ -5,16 +5,10 @@ import { randomUUID } from "node:crypto";
 import { expect } from "chai";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 import { expectServiceError } from "./helpers/expect.js";
+import { makeAccount as makeSharedAccount } from "./helpers/account.js";
 
 async function makeAccount(w: World, email: string): Promise<string> {
-  const userId = randomUUID();
-  await w.services.repos.user.create({ id: userId, handle: "@recoverable" });
-  await w.services.repos.profile.insert({
-    userId, firstName: null, lastName: null,
-    line1: null, line2: null, city: null, province: "AB", postalCode: null, country: "CA",
-    memo: null, birthdate: "1985-03-03", email, emailCanonical: email.toLowerCase(),
-  });
-  return userId;
+  return (await makeSharedAccount(w, { email })).userId;
 }
 
 describe("05 recovery: kyc_tier branch", () => {

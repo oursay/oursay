@@ -1,0 +1,17 @@
+{
+  "name": "@oursay/slugs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OurSay shared naming primitives: stable district slugs, compact seat-handle keys, official seat titles, and the global platform-seat identity. Zero runtime dependencies — the monorepo's dependency floor (below @oursay/geo), consumed upward by geo, public-record, jurisdiction-data, and web-app so slug/seat naming has ONE source of truth.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}

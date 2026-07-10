@@ -1,17 +1,34 @@
 import type { JurisdictionMembership } from "@/lib/types";
+import { ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
+import { apiGet, isMockOnly } from "./client";
+import { readSubscriptions } from "@/lib/state/cookies";
 
 /**
  * The viewer's subscribed jurisdictions (cookie-shaped, works logged-out).
- * Mirrors the wireframe's `state.subs` — Global is the default; Alberta is added
- * here so the sample corpus is visible in the unified feed.
- *
- * There is no server route today; persistence is a client cookie. See CONTRACT.md.
+ * Live mode merges server memberships with cookie include flags when logged in.
  */
 export async function getJurisdictionMembership(): Promise<
   JurisdictionMembership[]
 > {
-  return [
-    { name: "Global", included: true },
-    { name: "Alberta", included: true },
-  ];
+  if (isMockOnly()) {
+    return [
+      { id: GLOBAL_ID, included: true },
+      { id: ALBERTA_ID, included: true },
+    ];
+  }
+
+  const cookieSubs = readSubscriptions();
+  const server = await apiGet<{ jurisdictionIds: string[] }>(
+    "/v1/me/jurisdictions",
+  ).catch(() => null);
+
+  if (!server?.jurisdictionIds?.length) {
+    return cookieSubs;
+  }
+
+  const includedById = new Map(cookieSubs.map((s) => [s.id, s.included]));
+  return server.jurisdictionIds.map((id) => ({
+    id,
+    included: includedById.get(id) ?? id === GLOBAL_ID,
+  }));
 }

@@ -10,7 +10,14 @@
 
 import type { CommentContent, PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
 import type { IdentitySession } from "./session.js";
-import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, ThreadRef } from "../shared/types.js";
+import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
+
+export type ThreadPasskeyPhase = "creating" | "signing";
+
+export interface CivicAppendOptions {
+  sign?: SignMode;
+  onThreadPasskeyPhase?: (phase: ThreadPasskeyPhase) => void;
+}
 
 export interface CivicHttpClientOptions {
   /** API origin, e.g. "https://api.oursay.org" or "http://localhost". No trailing slash. */
@@ -58,9 +65,10 @@ export class CivicHttpClient {
   private readonly credentials?: RequestCredentials;
   private readonly fetchImpl: typeof fetch;
 
-  // In-memory orchestration state, so a long-lived client joins each thread at most once. Cheap dedupe
-  // — not a security boundary (the server re-checks ownership every call).
-  private readonly joined = new Set<string>();
+  // In-memory orchestration state — cheap dedupe, not a security boundary (the server re-checks).
+  private readonly personaKnown = new Set<string>();
+  private readonly quickEnrolled = new Set<string>();
+  private readonly passkeyEnrolled = new Set<string>();
 
   constructor(opts: CivicHttpClientOptions) {
     this.baseUrl = opts.baseUrl.replace(/\/+$/, "");
@@ -77,7 +85,10 @@ export class CivicHttpClient {
 
   // ── Low-level endpoint wrappers ───────────────────────────────────────────────────────────
 
-  /** Enrol this device's account-level public key (`public.device_keys`). */
+  /**
+   * @deprecated Client-deprecated — `public.device_keys` is not on the golden signing path.
+   * Kept for backward-compat tests of the HTTP registry only.
+   */
   async enrollDevice(label?: string): Promise<CivicDeviceView> {
     return this.request<CivicDeviceView>("POST", "/v1/civic/devices", {
       devicePubkey: this.session.devicePubkey,
@@ -107,8 +118,13 @@ export class CivicHttpClient {
       signerPubkey: binding.thread_pubkey,
       commitment: binding.commitment,
     });
-    this.session.rememberPersona(t, resp.personaPubkey);
+    this.session.rememberPersona(t, resp.personaPubkey, resp.personaName);
     return resp;
+  }
+
+  /** Server-minted persona display name for this `(user, thread)` after join. */
+  personaDisplayName(t: ThreadRef): string | null {
+    return this.session.personaDisplayName(t);
   }
 
   /** Prepare an append: fetch the server-derived fields the client must sign over. */
@@ -130,22 +146,86 @@ export class CivicHttpClient {
 
   // ── Orchestration ─────────────────────────────────────────────────────────────────────────
 
-  /** Ensure this thread is joined (once per client instance). */
-  async ensureJoined(t: ThreadRef): Promise<void> {
-    const key = `${t.jurisdiction}:${t.threadId}`;
-    if (this.joined.has(key)) return;
-    await this.joinThread(t);
-    this.joined.add(key);
+  private threadKey(t: ThreadRef): string {
+    return `${t.jurisdiction}:${t.threadId}`;
   }
 
   /**
-   * The full write path for one intent: ensure thread joined → prepare → WebAuthn-sign (via
-   * IdentitySession) → submit. Each append produces a fresh user-verifying passkey assertion
-   * (UV per action) — there is no silent "sign many" after a single unlock (Option A).
+   * Ensure this device's per-thread WebAuthn passkey is enrolled as a civic credential (once per
+   * client instance). Creates the local thread passkey on first use, then HTTP-joins the passkey
+   * signer under Pₜ even when a quick signer already joined the same thread.
    */
-  async append(t: ThreadRef, intent: Intent): Promise<SubmitRef> {
-    await this.ensureJoined(t);
+  async ensurePasskeySigner(t: ThreadRef): Promise<void> {
+    const key = this.threadKey(t);
+    await this.session.signingPubkey(t);
+    if (this.passkeyEnrolled.has(key)) return;
+    const { binding } = await this.session.bindingInputs(t);
+    const resp = await this.request<JoinThreadResponse>("POST", "/v1/civic/threads/join", {
+      threadId: t.threadId,
+      jurisdiction: t.jurisdiction,
+      signerPubkey: binding.thread_pubkey,
+      commitment: binding.commitment,
+    });
+    if (!this.personaKnown.has(key)) {
+      this.session.rememberPersona(t, resp.personaPubkey, resp.personaName);
+      this.personaKnown.add(key);
+    } else if (resp.personaPubkey !== this.session.personaPubkey(t)) {
+      throw new Error("ensurePasskeySigner: server returned a different persona than the thread's Pₜ");
+    }
+    this.passkeyEnrolled.add(key);
+  }
+
+  /** @deprecated Use {@link ensurePasskeySigner}. Alias for backward-compat tests. */
+  async ensureJoined(t: ThreadRef): Promise<void> {
+    await this.ensurePasskeySigner(t);
+  }
+
+  /**
+   * Ensure this device's SOFT quick signer is enrolled as a civic credential for this thread
+   * (once per client instance). Joins with the derived soft pubkey only — no per-thread WebAuthn
+   * credential ceremony. When the passkey path already joined, the commitment is signer-independent
+   * so the soft key lands as an ADDITIONAL `thread_civic_credentials` row under the same Pₜ.
+   * Idempotent server-side (credential upsert).
+   */
+  async ensureQuickSigner(t: ThreadRef): Promise<void> {
+    const key = this.threadKey(t);
+    if (this.quickEnrolled.has(key)) return;
+    const { binding } = await this.session.bindingInputs(t, { signer: "quick" });
+    const resp = await this.request<JoinThreadResponse>("POST", "/v1/civic/threads/join", {
+      threadId: t.threadId,
+      jurisdiction: t.jurisdiction,
+      signerPubkey: binding.thread_pubkey,
+      commitment: binding.commitment,
+    });
+    if (!this.personaKnown.has(key)) {
+      this.session.rememberPersona(t, resp.personaPubkey, resp.personaName);
+      this.personaKnown.add(key);
+    } else if (resp.personaPubkey !== this.session.personaPubkey(t)) {
+      throw new Error("ensureQuickSigner: server returned a different persona than the joined thread's Pₜ");
+    }
+    this.quickEnrolled.add(key);
+  }
+
+  /**
+   * The full write path for one intent: ensure thread joined → prepare → sign → submit. The default
+   * `sign: "passkey"` produces a fresh user-verifying WebAuthn assertion per append — there is no
+   * silent "sign many" after a single unlock (Option A). `sign: "quick"` signs with the soft
+   * per-thread P-256 key instead (no ceremony; enrolls it as a credential on first use) — accepted
+   * only where the jurisdiction's floor for the action is `quick`, else the server 403s
+   * `passkey_required`.
+   */
+  async append(t: ThreadRef, intent: Intent, opts: CivicAppendOptions = {}): Promise<SubmitRef> {
+    if (opts.sign === "quick") {
+      await this.ensureQuickSigner(t);
+      const prep = await this.prepare(t, intent);
+      return this.submit(this.session.buildQuickSigned(t, prep, intent));
+    }
+    if (!this.session.hasThreadCredential(t.threadId)) {
+      opts.onThreadPasskeyPhase?.("creating");
+    }
+    await this.ensurePasskeySigner(t);
     const prep = await this.prepare(t, intent);
+    opts.onThreadPasskeyPhase?.("signing");
     const signed = await this.session.buildSigned(t, prep, intent);
     return this.submit(signed);
   }
@@ -153,23 +233,23 @@ export class CivicHttpClient {
   // ── Convenience intents ───────────────────────────────────────────────────────────────────
 
   /** Create the thread's root post (`entityId === threadId`). */
-  async createPost(t: ThreadRef, content: PostContent): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "post", entityId: t.threadId, content });
+  async createPost(t: ThreadRef, content: PostContent, opts: CivicAppendOptions = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "post", entityId: t.threadId, content }, opts);
   }
 
   /** Comment on a parent entity (post/petition/poll/comment; depth ≤ 3 enforced server-side). */
-  async createComment(t: ThreadRef, parent: ParentRef, content: CommentContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "comment", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
+  async createComment(t: ThreadRef, parent: ParentRef, content: CommentContent, opts: CivicAppendOptions & { entityId?: string } = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "comment", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   /** React to a parent entity (singleton per author+parent). */
-  async addReaction(t: ThreadRef, parent: ParentRef, content: ReactionContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "reaction", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
+  async addReaction(t: ThreadRef, parent: ParentRef, content: ReactionContent, opts: CivicAppendOptions & { entityId?: string } = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "reaction", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   /** Cast a vote on a parent poll (singleton per author+parent). */
-  async castVote(t: ThreadRef, parent: ParentRef, content: VoteContent, opts: { entityId?: string } = {}): Promise<SubmitRef> {
-    return this.append(t, { op: "create", type: "vote", entityId: opts.entityId ?? crypto.randomUUID(), parent, content });
+  async castVote(t: ThreadRef, parent: ParentRef, content: VoteContent, opts: CivicAppendOptions & { entityId?: string } = {}): Promise<SubmitRef> {
+    return this.append(t, { op: "create", type: "vote", entityId: opts.entityId ?? crypto.randomUUID(), parent, content }, opts);
   }
 
   // ── Transport ─────────────────────────────────────────────────────────────────────────────

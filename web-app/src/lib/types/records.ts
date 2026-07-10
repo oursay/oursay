@@ -19,8 +19,17 @@ export function toCanonical(kind: RecordKind): CanonicalRecordType {
 /** A single poll/result option with its official (residency-verified) tally. */
 export interface RecordOption {
   label: string;
-  /** Official vote count for this option. */
+  /**
+   * Official vote count — participants who meet the gate's `officialCount` bar
+   * (residency-verified in Alberta). This is the tally that settles a record.
+   */
   v: number;
+  /**
+   * Live count including everyone who acted, incl. below-floor participants
+   * whose votes are recorded but do not yet count officially ("sign now, counts
+   * once you verify"). Absent ⇒ no distinction (live === official).
+   */
+  live?: number;
 }
 
 /**
@@ -42,10 +51,14 @@ export interface FeedItem {
   /** Stable synthetic id (the wireframe POSTS[] rows carry no id). */
   id: string;
   kind: RecordKind;
-  /** Jurisdiction name, e.g. "Global" | "Alberta". */
+  /** Jurisdiction id, e.g. "oursay-global" | "ab-ca-gov" (label resolves via JUR_DATA). */
   jurisdiction: string;
   tier: VerificationTier;
-  /** District slugs: [] jurisdiction-wide, [slug] one riding, [slug,...] several. */
+  /**
+   * District slugs the record AFFECTS: [] jurisdiction-wide, [slug] one riding,
+   * [slug,...] several. Served by the API as `appliesToDistrictIds`; the fetch
+   * adapter maps it back to this field name (see CONTRACT.md Part 3).
+   */
   districts: string[];
   /**
    * The AUTHOR's home riding slugs (their residence), distinct from `districts`

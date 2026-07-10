@@ -1,4 +1,10 @@
-import { adjectives, animals, uniqueNamesGenerator } from "unique-names-generator";
+import { 
+  adjectives, 
+  colors, 
+  animals, 
+  names, 
+  uniqueNamesGenerator 
+} from "unique-names-generator";
 import { hashSeed } from "@/lib/mock/comment-utils";
 
 /**
@@ -15,7 +21,10 @@ import { hashSeed } from "@/lib/mock/comment-utils";
 export function personaNameFor(handle: string, threadId: string, digits = 2): string {
   const key = `${handle}::${threadId}`;
   const words = uniqueNamesGenerator({
-    dictionaries: [adjectives, animals],
+    dictionaries: [
+      [...adjectives, ...colors].filter(word => word.length <= 7), 
+      [...animals, ...names].filter(word => word.length <= 7)
+    ],
     separator: "",
     style: "capital",
     seed: hashSeed(key),

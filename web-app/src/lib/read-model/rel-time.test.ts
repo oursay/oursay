@@ -8,11 +8,14 @@ function before(minutes: number): string {
 }
 
 describe("relTime", () => {
-  it("returns 'just now' under a minute", () => {
+  it("returns 'just now' under two minutes", () => {
     expect(relTime(before(0.5), NOW)).toBe("just now");
+    expect(relTime(before(1), NOW)).toBe("just now");
+    expect(relTime(before(1.9), NOW)).toBe("just now");
   });
 
   it("returns minutes under an hour", () => {
+    expect(relTime(before(2), NOW)).toBe("2m ago");
     expect(relTime(before(5), NOW)).toBe("5m ago");
     expect(relTime(before(59), NOW)).toBe("59m ago");
   });

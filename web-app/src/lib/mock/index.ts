@@ -1,4 +1,5 @@
 export * from "./constants";
+export * from "./gates";
 export * from "./build-corpus";
 export * from "./visibility-overrides";
 export { PEOPLE_BY_HANDLE, person, personDistricts } from "./people";

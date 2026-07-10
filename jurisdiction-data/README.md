@@ -33,7 +33,27 @@ surfaces (list, detail, `/counts`):
 
 Reaction tallies are never gated here (they stay publicly visible).
 
-## Public label
+## Official seat roster (Alberta)
+
+MLA and premier names are pulled from the [Open North Represent API](https://represent.opennorth.ca/)
+into working files — not fetched at runtime:
+
+```
+ab-ca-gov/leaders/opennorth/
+  manifest.json
+  raw/{date}.json
+  normalized/seats.json
+```
+
+Refresh when the roster changes:
+
+```powershell
+npm run pull:leaders -w @oursay/jurisdiction-data
+```
+
+Seat handles follow `{jurisdiction_short}-{role|district_short}` (e.g. `ab-premier`, `ab-edm_strth`).
+Unclaimed seats show the seat handle; claimed seats show the holder's user handle.
+
 
 Each config may set an optional `label` — the public DISPLAY name surfaced by the area catalog
 (`GET /v1/public/jurisdictions`), e.g. `ab-ca-gov` → `"Alberta"`, `oursay-global` → `"OurSay Global"`.

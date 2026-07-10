@@ -7,10 +7,12 @@ export type FeedScope = "feed" | "jurisdiction" | "district";
 
 /**
  * A subscribed jurisdiction and whether it's included in the unified feed.
- * Mirrors the wireframe's `state.subs[]` (persisted to a cookie, works logged-out).
+ * Mirrors the wireframe's `state.subs[]` (persisted to a cookie, works
+ * logged-out). Keyed by jurisdiction {@link JurisdictionId} — the display label
+ * is resolved from JUR_DATA at render time, never stored here.
  */
 export interface JurisdictionMembership {
-  name: string;
+  id: string;
   included: boolean;
 }
 
@@ -79,7 +81,7 @@ export interface FeedFilterParams {
    * signTier). Independent of tierMin and geography.
    */
   signedFilter?: SignedFilterLevel;
-  /** For jurisdiction scope: the jurisdiction name the view is pinned to. */
+  /** For jurisdiction scope: the jurisdiction id the view is pinned to. */
   jurisdiction?: string;
   /** For district scope: the district slug the view is pinned to. */
   districtSlug?: string;

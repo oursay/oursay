@@ -4,7 +4,7 @@
 // package builds the substrate for geo filtering; it does NOT wire any public /v1/public/… filter.
 
 export { GeoStore } from "./store.js";
-export type { LngLat, DistrictUpsert, DistrictCatalogRow, RegionRow } from "./store.js";
+export type { LngLat, DistrictUpsert, DistrictCatalogRow, RegionRow, OfficialSeatRow, OfficialSeatUpsert } from "./store.js";
 
 export { Region } from "./region.js";
 export type { RegionKind, RegionNode } from "./region.js";
@@ -27,6 +27,17 @@ export type {
   ShapefileFieldMap,
   ShapefileSourceOptions,
 } from "./ingest/source.js";
+
+export {
+  ingestOfficialSeats,
+  loadOfficialSeatCatalog,
+  oursayGlobalPlatformSeat,
+} from "./ingest/official-seats.js";
+export type {
+  OfficialSeatCatalogEntry,
+  OfficialSeatCatalogFile,
+  IngestOfficialSeatsOptions,
+} from "./ingest/official-seats.js";
 
 export { pgConfig, paths } from "./config.js";
 export type { PgConfig } from "./config.js";

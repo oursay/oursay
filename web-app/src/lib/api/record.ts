@@ -1,4 +1,5 @@
 import { DETAIL_BY_ID } from "@/lib/mock";
+import { resolveEntityIdFromUrl } from "@/lib/entity-id";
 import { commentKeep } from "@/lib/read-model";
 import {
   ANON_VIEWER,
@@ -8,8 +9,10 @@ import {
   type ViewerContext,
 } from "@/lib/types";
 import type { PostTypeEntry } from "@/lib/mock";
+import { apiGet, isMockOnly } from "./client";
 import { withPostJurisdictionDistricts } from "./geo-scope";
 import { anonymizeRecordEntry } from "./identity";
+import { mapCommentNode, mapRecordDetail } from "./map";
 
 /** getRecordDetail return shape: the record plus its (filtered) comment thread. */
 export interface RecordDetailResult {
@@ -40,19 +43,14 @@ function filterComments(
   return kept;
 }
 
-/**
- * A record's detail page + comment thread, resolved by stable mock record id.
- */
-export async function getRecordDetail(
+async function getRecordDetailMock(
   id: string,
-  opts: GetRecordDetailOptions = {},
+  opts: GetRecordDetailOptions,
 ): Promise<RecordDetailResult | null> {
   const entry: PostTypeEntry | undefined = DETAIL_BY_ID[id];
   if (!entry) return null;
 
   const viewer = opts.viewer ?? ANON_VIEWER;
-  // The My Jurisdiction universe for comment filtering is the POST's own
-  // jurisdiction, resolved server-side (the client never sends it).
   const comments = opts.filter
     ? filterComments(
         entry.comments,
@@ -62,12 +60,49 @@ export async function getRecordDetail(
       )
     : entry.comments;
 
-  // Author-identity enforcement: real handles never leave the API layer for
-  // authors whose visibility excludes this viewer (docs/09).
   return anonymizeRecordEntry(entry.post, comments, viewer);
+}
+
+async function getRecordDetailLive(
+  id: string,
+  opts: GetRecordDetailOptions,
+): Promise<RecordDetailResult | null> {
+  const viewer = opts.viewer ?? ANON_VIEWER;
+  const res = await apiGet<{
+    detail: Record<string, unknown>;
+    comments: Record<string, unknown>[];
+  }>(`/v1/public/records/${encodeURIComponent(id)}`);
+  if (!res) return null;
+
+  const detail = mapRecordDetail(res.detail);
+  let comments = res.comments.map(mapCommentNode);
+
+  if (opts.filter) {
+    comments = filterComments(
+      comments,
+      detail,
+      viewer,
+      withPostJurisdictionDistricts(opts.filter, detail.jurisdiction),
+    );
+  }
+
+  return { detail, comments };
+}
+
+/**
+ * A record's detail page + comment thread, resolved by stable record id.
+ */
+export async function getRecordDetail(
+  id: string,
+  opts: GetRecordDetailOptions = {},
+): Promise<RecordDetailResult | null> {
+  const canonicalId = resolveEntityIdFromUrl(id);
+  if (isMockOnly()) return getRecordDetailMock(canonicalId, opts);
+  return getRecordDetailLive(canonicalId, opts);
 }
 
 /** All mock record ids (feed + profile-only + graduation chain). */
 export async function listRecordIds(): Promise<string[]> {
-  return Object.keys(DETAIL_BY_ID);
+  if (isMockOnly()) return Object.keys(DETAIL_BY_ID);
+  return [];
 }

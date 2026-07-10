@@ -1,15 +1,18 @@
 import type { AuthorIdentity, RecordKind } from "@/lib/types";
-import { DETAIL_BY_ID } from "@/lib/mock";
+import { encodeEntityIdForUrl } from "@/lib/entity-id";
+import { DETAIL_BY_ID, DISTRICT_BY_SLUG, jurisdictionById } from "@/lib/mock";
+import { wireHandle } from "@/lib/handle";
 import { COMMENTS_SECTION_ID } from "./scroll";
 
-/** The civic views (five wireframe views + the per-thread persona surface). */
+/** The civic views (five wireframe views + persona + official surfaces). */
 export type AppView =
   | "feed"
   | "jurisdiction"
   | "district"
   | "profile"
   | "post"
-  | "persona";
+  | "persona"
+  | "official";
 
 export const RECORD_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 
@@ -20,29 +23,48 @@ const RECORD_KIND_LABEL: Record<RecordKind, string> = {
   result: "Result",
 };
 
-/** "Alberta" -> "alberta"; the inverse of jurisdictionNameFromSlug for our set. */
-export function jurisdictionSlug(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "-");
+/** Jurisdiction id -> URL slug (e.g. "ab-ca-gov" -> "alberta"; fallback = the id). */
+export function jurisdictionSlug(jurisdictionId: string): string {
+  return jurisdictionById(jurisdictionId)?.slug ?? jurisdictionId;
 }
 
-/** "alberta" -> "Alberta". Title-cases each hyphen segment (Global / Alberta). */
-export function jurisdictionNameFromSlug(slug: string): string {
-  return slug
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+/** Route to a jurisdiction view by id: /jurisdiction/{slug}. */
+export function jurisdictionPath(jurisdictionId: string): string {
+  return `/jurisdiction/${jurisdictionSlug(jurisdictionId)}`;
 }
 
-export function jurisdictionPath(name: string): string {
-  return `/jurisdiction/${jurisdictionSlug(name)}`;
+/**
+ * Route to a district by its slug — nested under the parent jurisdiction to
+ * avoid cross-jurisdiction slug collisions (Part 6 #12):
+ * `/jurisdiction/{jurSlug}/district/{districtSlug}`. When the parent is known
+ * (e.g. on the jurisdiction view), pass it via `opts`; otherwise it is resolved
+ * from the mock district registry.
+ */
+export function districtPath(
+  districtSlug: string,
+  opts?: { jurisdictionId?: string; jurisdictionSlug?: string },
+): string {
+  const jurSlug =
+    opts?.jurisdictionSlug ??
+    (opts?.jurisdictionId ? jurisdictionSlug(opts.jurisdictionId) : undefined) ??
+    (() => {
+      const jurId = DISTRICT_BY_SLUG[districtSlug]?.jur;
+      return jurId ? jurisdictionSlug(jurId) : "";
+    })();
+  return `/jurisdiction/${jurSlug}/district/${districtSlug}`;
 }
 
-export function districtPath(slug: string): string {
-  return `/district/${slug}`;
+/** Route to an auto-generated official seat page: /official/{handle}. Null when handle is missing. */
+export function officialPath(handle: string | null | undefined): string | null {
+  const wire = wireHandle(handle ?? "");
+  if (!wire) return null;
+  return `/official/${encodeURIComponent(wire)}`;
 }
 
+/** Public profile URL — wire handle only (no leading @). */
 export function profilePath(handle: string): string {
-  return `/profile/${handle}`;
+  const wire = wireHandle(handle) ?? handle.replace(/^@/, "");
+  return `/profile/${encodeURIComponent(wire)}`;
 }
 
 /**
@@ -68,16 +90,22 @@ export function authorPath(
   return profilePath(identity?.handle ?? fallbackHandle);
 }
 
+/** Persona page for the self "others see you as …" hint; null when not shown. */
+export function personaHintPath(identity: AuthorIdentity | undefined): string | null {
+  if (!identity?.seenByOthersAs) return null;
+  return personaPath(identity.seenByOthersAs);
+}
+
 /** The signed-in account's own public profile (static segment beats [handle]). */
 export const SELF_PROFILE_PATH = "/profile/self";
 
-/** Route to a record detail page: /{kind}/{id}. */
+/** Route to a record detail page: /{kind}/{base59-or-slug-id}. */
 export function postPath(
   kind: RecordKind,
   id: string,
   opts?: { comments?: boolean },
 ): string {
-  const base = `/${kind}/${id}`;
+  const base = `/${kind}/${encodeEntityIdForUrl(id)}`;
   return opts?.comments ? `${base}#${COMMENTS_SECTION_ID}` : base;
 }
 
@@ -92,10 +120,13 @@ export function postPathForId(
 
 /** Derive the active view from the pathname (drives shared chrome in AppShell). */
 export function viewFromPathname(pathname: string): AppView {
+  // District nests under jurisdiction (/jurisdiction/{slug}/district/{dslug}),
+  // so match the district segment BEFORE the jurisdiction prefix.
+  if (pathname.includes("/district/")) return "district";
   if (pathname.startsWith("/jurisdiction")) return "jurisdiction";
-  if (pathname.startsWith("/district")) return "district";
   if (pathname.startsWith("/profile")) return "profile";
   if (pathname.startsWith("/persona")) return "persona";
+  if (pathname.startsWith("/official")) return "official";
   if (RECORD_KINDS.some((kind) => pathname.startsWith(`/${kind}/`))) return "post";
   return "feed";
 }
@@ -116,6 +147,7 @@ export const VIEW_TITLE: Record<AppView, string> = {
   profile: "Profile",
   post: "Post",
   persona: "Anonymous",
+  official: "Official",
 };
 
 /** Label for the header jurisdiction pill on feed-like views (wireframe pillLabel). */

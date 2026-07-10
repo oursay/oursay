@@ -12,20 +12,26 @@
     "./identity/*": "./src/identity/*.ts"
   },
   "scripts": {
-    "db:up": "docker compose up -d --wait",
-    "db:down": "tsx ../scripts/destructive-guard.ts db:down && docker compose down -v",
-    "db:logs": "docker compose logs -f",
+    "db:up": "tsx scripts/compose-up.ts oursay-dev-public-record docker-compose.dev.yml",
+    "db:down": "tsx ../scripts/destructive-guard.ts db:down && docker compose -p oursay-dev-public-record -f docker-compose.dev.yml --profile worker down -v",
+    "db:test:up": "docker compose -p oursay-test-public-record -f docker-compose.test.yml up -d --wait",
+    "db:test:down": "tsx ../scripts/destructive-guard.ts db:test:down && docker compose -p oursay-test-public-record -f docker-compose.test.yml down -v",
+    "db:prod:up": "tsx scripts/compose-up.ts oursay-public-record docker-compose.prod.yml",
+    "db:prod:down": "tsx ../scripts/destructive-guard.ts db:prod:down && docker compose -p oursay-public-record -f docker-compose.prod.yml --profile worker down -v",
+    "db:logs": "docker compose -p oursay-dev-public-record -f docker-compose.dev.yml --profile worker logs -f",
+    "pretest": "npm run db:test:up",
     "seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/worker.ts",
     "test": "mocha",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@noble/hashes": "^1.7.1",
     "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1",
     "@oursay/geo": "*",
     "dotenv": "^16.4.7",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "unique-names-generator": "^4.7.1"
   },
   "devDependencies": {
     "@types/chai": "^5.0.1",
