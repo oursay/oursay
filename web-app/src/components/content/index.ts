@@ -5,6 +5,7 @@ export * from "./ActivityRowMeta";
 export * from "./ScopeTag";
 export * from "./RoleTag";
 export * from "./ReactionButtons";
+export * from "./ReactionCountPill";
 export * from "./PollOptions";
 export * from "./ResultOutcome";
 export * from "./ProfileSupportBar";

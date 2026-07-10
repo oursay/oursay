@@ -40,6 +40,7 @@ import {
   PollOptions,
   ProfileModal,
   ReactionButtons,
+  ReactionCountPill,
   RecordTypeSection,
   RegisterForm,
   ResultOutcome,
@@ -252,8 +253,12 @@ export default function ComponentGallery() {
           ) : null}
         </Section>
 
-        <Section title="Reaction buttons">
+        <Section title="Reaction pills">
+          <p className="mb-2 text-xs text-ink-soft">
+            Display (ReactionCountPill) vs interactive (ReactionButtons).
+          </p>
           <Row>
+            <ReactionCountPill up={132} down={7} />
             <ReactionButtons
               up={132}
               down={7}

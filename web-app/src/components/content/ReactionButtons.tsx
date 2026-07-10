@@ -15,6 +15,11 @@ interface ReactionButtonsProps {
   disabled?: boolean;
 }
 
+/**
+ * Interactive agree/disagree control for feed and post footers.
+ * Display-only tallies: ReactionCountPill. Target replacement: ParticipationPill
+ * ([participation-pill-unify]) — see .agents/PARTICIPATION-PILL-PROMPTS.md.
+ */
 /** Split ✓ agree | ✗ disagree capsule; exclusive selection, selected half filled. */
 export function ReactionButtons({
   up,

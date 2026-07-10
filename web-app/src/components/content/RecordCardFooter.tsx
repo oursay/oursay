@@ -2,6 +2,7 @@
 
 import type { RecordKind, VerificationTier } from "@/lib/types";
 import { ReactionButtons } from "./ReactionButtons";
+import { ReactionCountPill } from "./ReactionCountPill";
 import { EditCountLink } from "./EditCountLink";
 import { CommentPill } from "./CommentPill";
 import { SharePill } from "./SharePill";
@@ -73,14 +74,17 @@ export function RecordCardFooter({
   return (
     <div className="flex items-center gap-2">
       {hasReactions ? (
-        <ReactionButtons
-          up={up}
-          down={down}
-          selected={interactive ? selectedReaction : null}
-          tierMin={tierMin}
-          onReact={interactive ? onReact : undefined}
-          disabled={readOnly}
-        />
+        readOnly ? (
+          <ReactionCountPill up={up} down={down} tierMin={tierMin} />
+        ) : (
+          <ReactionButtons
+            up={up}
+            down={down}
+            selected={selectedReaction}
+            tierMin={tierMin}
+            onReact={onReact}
+          />
+        )
       ) : null}
       {kind === "petition" && sig !== undefined ? (
         <SignaturePill
