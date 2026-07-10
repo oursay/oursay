@@ -68,6 +68,8 @@ export interface ShareTarget {
   timestamp?: string;
   /** Comments: nesting depth (drives badge modes in the preview header). */
   depth?: number;
+  /** Comments: stable entity id — used to resolve the public preview when handle differs. */
+  commentId?: string;
 }
 
 /**

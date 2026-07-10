@@ -74,6 +74,36 @@ export function parseCommentShareKey(
   return { recordId: match[1], handle: match[2], ts: match[3] };
 }
 
+/**
+ * Locate a comment in a thread for share-preview resolution. Prefer stable
+ * entity id; fall back to handle+timestamp; then timestamp alone when the
+ * privileged viewer's handle differs from the public persona projection.
+ */
+export function findCommentForSharePreview(
+  nodes: CommentNode[],
+  lookup: { commentId?: string; handle?: string; ts?: string },
+  depth = 1,
+): { node: CommentNode; depth: number } | null {
+  for (const node of nodes) {
+    const idMatch =
+      lookup.commentId != null && node.id != null && node.id === lookup.commentId;
+    const handleTsMatch =
+      lookup.handle != null &&
+      lookup.ts != null &&
+      node.handle === lookup.handle &&
+      node.ts === lookup.ts;
+    const tsMatch = lookup.ts != null && node.ts === lookup.ts;
+
+    if (idMatch || handleTsMatch || (tsMatch && lookup.handle != null)) {
+      return { node, depth };
+    }
+
+    const nested = findCommentForSharePreview(node.replies, lookup, depth + 1);
+    if (nested) return nested;
+  }
+  return null;
+}
+
 /** Build a share target from a feed row or a full record detail. */
 export function recordShareTarget(item: FeedItem | RecordDetail): ShareTarget {
   return {
@@ -113,6 +143,7 @@ export function commentShareTarget(
     body: node.body,
     timestamp,
     depth,
+    ...(node.id ? { commentId: node.id } : {}),
   };
 }
 

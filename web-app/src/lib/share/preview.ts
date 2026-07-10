@@ -4,7 +4,7 @@ import { mapCommentNode, mapRecordDetail } from "@/lib/api/map";
 import type { ShareTarget } from "@/lib/state";
 import type { CommentNode, FeedItem, RecordDetail } from "@/lib/types";
 import { ANON_VIEWER } from "@/lib/types";
-import { parseCommentShareKey, recordIdFromShareTarget } from "@/lib/share";
+import { parseCommentShareKey, recordIdFromShareTarget, findCommentForSharePreview } from "@/lib/share";
 
 export type SharePreviewRecord = {
   variant: "record";
@@ -25,22 +25,6 @@ function countCommentNodes(nodes: CommentNode[]): number {
     total += 1 + countCommentNodes(node.replies);
   }
   return total;
-}
-
-function findCommentInThread(
-  nodes: CommentNode[],
-  handle: string,
-  ts: string,
-  depth = 1,
-): { node: CommentNode; depth: number } | null {
-  for (const node of nodes) {
-    if (node.handle === handle && node.ts === ts) {
-      return { node, depth };
-    }
-    const nested = findCommentInThread(node.replies, handle, ts, depth + 1);
-    if (nested) return nested;
-  }
-  return null;
 }
 
 function recordDetailToFeedItem(
@@ -86,7 +70,11 @@ function buildPreview(
   const parsed = parseCommentShareKey(target.shareKey);
   if (!parsed) return null;
 
-  const found = findCommentInThread(comments, parsed.handle, parsed.ts);
+  const found = findCommentForSharePreview(comments, {
+    commentId: target.commentId,
+    handle: parsed.handle,
+    ts: parsed.ts,
+  });
   if (!found) return null;
 
   return {
