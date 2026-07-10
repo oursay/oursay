@@ -8,8 +8,6 @@ function comment(
   overrides: Partial<CommentNode> & Pick<CommentNode, "handle" | "author">,
 ): CommentNode {
   return {
-    author: overrides.author,
-    handle: overrides.handle,
     tier: 2,
     ts: TS,
     body: ["hello"],
