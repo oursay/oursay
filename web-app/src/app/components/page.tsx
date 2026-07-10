@@ -28,6 +28,7 @@ import {
   AuthChooser,
   Avatar,
   Button,
+  CommentPill,
   CommentThread,
   ComposeFlow,
   Fab,
@@ -255,10 +256,13 @@ export default function ComponentGallery() {
 
         <Section title="Reaction pills">
           <p className="mb-2 text-xs text-ink-soft">
-            Display (ReactionCountPill) vs interactive (ReactionButtons).
+            Display, share preview (_my or both), selected display, and interactive.
           </p>
           <Row>
             <ReactionCountPill up={132} down={7} />
+            <ReactionCountPill up={132} down={7} highlightBoth />
+            <ReactionCountPill up={132} down={7} selected="up" />
+            <CommentPill count={42} highlighted />
             <ReactionButtons
               up={132}
               down={7}

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Copy, Flag, Link as LinkIcon, Mail, MessageCircle } from "lucide-react";
 import { Modal } from "@/components/ui";
 import { ShareCard } from "@/components/content";
+import { useApp, type ShareTarget } from "@/lib/state";
+import { viewerReactionForShare } from "@/lib/share";
 import { getPublicSharePreview, type SharePreview } from "@/lib/share/preview";
-import type { ShareTarget } from "@/lib/state";
 
 interface ShareModalProps {
   open: boolean;
@@ -120,8 +121,14 @@ export function ShareModal({
   onShared,
   onReport,
 }: ShareModalProps) {
+  const { reactionFor } = useApp();
   const [preview, setPreview] = useState<SharePreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+
+  const selectedReaction = useMemo(
+    () => (target ? viewerReactionForShare(target, preview, reactionFor) : null),
+    [target, preview, reactionFor],
+  );
 
   useEffect(() => {
     if (!open || !target) {
@@ -265,7 +272,7 @@ export function ShareModal({
       <div className="space-y-4">
         {/* Preview of the card being shared — public anonymous projection. */}
         {preview ? (
-          <ShareCard preview={preview} />
+          <ShareCard preview={preview} selectedReaction={selectedReaction} />
         ) : (
           <div
             className="rounded-xl border border-border bg-surface p-3 shadow-sm"

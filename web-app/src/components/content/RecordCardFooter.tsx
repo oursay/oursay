@@ -38,6 +38,10 @@ interface RecordCardFooterProps {
   onOpenPost?: () => void;
   /** Informational preview — pills render but do not accept input. */
   readOnly?: boolean;
+  /** Read-only share preview — highlight _my, else fill both segments. */
+  highlightReactionPill?: boolean;
+  /** Read-only share preview — purple comment pill accent. */
+  highlightCommentPill?: boolean;
 }
 
 /**
@@ -65,6 +69,8 @@ export function RecordCardFooter({
   onShare,
   onOpenPost,
   readOnly = false,
+  highlightReactionPill = false,
+  highlightCommentPill = false,
 }: RecordCardFooterProps) {
   const isComment = kind === "comment";
   const hasReactions = kind === "statement" || kind === "result" || isComment;
@@ -75,7 +81,13 @@ export function RecordCardFooter({
     <div className="flex items-center gap-2">
       {hasReactions ? (
         readOnly ? (
-          <ReactionCountPill up={up} down={down} tierMin={tierMin} />
+          <ReactionCountPill
+            up={up}
+            down={down}
+            tierMin={tierMin}
+            selected={selectedReaction}
+            highlightBoth={highlightReactionPill}
+          />
         ) : (
           <ReactionButtons
             up={up}
@@ -121,6 +133,7 @@ export function RecordCardFooter({
             <CommentPill
               count={comments ?? 0}
               onClick={interactive ? onCommentsClick : undefined}
+              highlighted={!interactive && highlightCommentPill}
             />
           ) : null}
           {interactive && onShare ? (

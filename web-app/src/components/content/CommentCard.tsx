@@ -31,6 +31,8 @@ interface CommentCardProps {
   shared?: boolean;
   /** Informational preview — footer pills render but do not accept input. */
   readOnly?: boolean;
+  /** Read-only share preview — highlight _my, else fill both segments. */
+  highlightReactionPill?: boolean;
 }
 
 /** One comment row — header · body · footer (no comment pill). */
@@ -56,6 +58,7 @@ export function CommentCard({
   shareCount,
   shared,
   readOnly = false,
+  highlightReactionPill = false,
 }: CommentCardProps) {
   return (
     <div>
@@ -86,6 +89,7 @@ export function CommentCard({
           shareCount={shareCount}
           shared={shared}
           readOnly={readOnly}
+          highlightReactionPill={highlightReactionPill}
         />
       </div>
     </div>

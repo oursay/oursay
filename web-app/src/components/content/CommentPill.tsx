@@ -6,17 +6,27 @@ import { formatCount } from "@/components/utils";
 interface CommentPillProps {
   count: number;
   onClick?: () => void;
+  /** Share preview emphasis — purple accent regardless of viewer participation. */
+  highlighted?: boolean;
   className?: string;
 }
 
 /** Compact comment-count capsule — shared by feed cards and record footers. */
-export function CommentPill({ count, onClick, className = "" }: CommentPillProps) {
+export function CommentPill({
+  count,
+  onClick,
+  highlighted = false,
+  className = "",
+}: CommentPillProps) {
+  const tone = highlighted
+    ? "bg-brand-100 font-bold text-brand-700"
+    : "bg-surface text-ink-soft hover:bg-surface-muted";
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      className={`pill-chrome inline-flex h-5 items-center gap-1 rounded-full bg-surface px-2 text-xs text-ink-soft hover:bg-surface-muted disabled:cursor-default ${className}`}
+      className={`pill-chrome inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs disabled:cursor-default ${tone} ${className}`}
     >
       <MessageSquare size={11} aria-hidden />
       {formatCount(count)}

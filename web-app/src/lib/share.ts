@@ -1,5 +1,6 @@
 import type { CommentNode, FeedItem, RecordDetail, RecordKind } from "@/lib/types";
 import type { ShareTarget } from "@/lib/state";
+import type { SharePreview } from "@/lib/share/preview";
 import { isMockOnly } from "@/lib/api/client";
 import { postPath } from "@/lib/routes";
 
@@ -113,4 +114,31 @@ export function commentShareTarget(
     timestamp,
     depth,
   };
+}
+
+/** Resolve the viewer's reaction for a share preview from client record-state. */
+export function viewerReactionForShare(
+  target: ShareTarget,
+  preview: SharePreview | null,
+  reactionFor: (id: string) => "up" | "down" | null,
+): "up" | "down" | null {
+  if (target.variant === "record") {
+    return reactionFor(target.shareKey);
+  }
+
+  const recordId = recordIdFromShareTarget(target);
+  if (preview?.variant === "comment") {
+    const byEntity = reactionFor(commentReactionKey(recordId, preview.node));
+    if (byEntity) return byEntity;
+    return reactionFor(commentKey(recordId, preview.node));
+  }
+
+  const parsed = parseCommentShareKey(target.shareKey);
+  if (parsed) {
+    return reactionFor(
+      commentKey(parsed.recordId, { handle: parsed.handle, ts: parsed.ts }),
+    );
+  }
+
+  return null;
 }

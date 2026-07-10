@@ -15,10 +15,15 @@ import { CommentCard } from "./CommentCard";
 
 interface ShareCardProps {
   preview: SharePreview;
+  /** Viewer's reaction — highlights one segment; both when unset. */
+  selectedReaction?: "up" | "down" | null;
 }
 
 /** Read-only feed-style card for the share modal preview. */
-export function ShareCard({ preview }: ShareCardProps) {
+export function ShareCard({
+  preview,
+  selectedReaction = null,
+}: ShareCardProps) {
   const now = useNow();
 
   if (preview.variant === "comment") {
@@ -43,14 +48,24 @@ export function ShareCard({ preview }: ShareCardProps) {
         down={node.down}
         edits={node.edits}
         readOnly
+        selectedReaction={selectedReaction}
+        highlightReactionPill
       />
     );
   }
 
-  return <ShareRecordCard item={preview.item} />;
+  return (
+    <ShareRecordCard item={preview.item} selectedReaction={selectedReaction} />
+  );
 }
 
-function ShareRecordCard({ item }: { item: FeedItem }) {
+function ShareRecordCard({
+  item,
+  selectedReaction,
+}: {
+  item: FeedItem;
+  selectedReaction: "up" | "down" | null;
+}) {
   return (
     <RecordCard
       header={
@@ -114,6 +129,9 @@ function ShareRecordCard({ item }: { item: FeedItem }) {
           comments={item.comments}
           edits={item.edits}
           readOnly
+          selectedReaction={selectedReaction}
+          highlightReactionPill
+          highlightCommentPill
         />
       }
     />
