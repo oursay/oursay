@@ -59,6 +59,20 @@ export async function apiGet<T>(path: string): Promise<T | null> {
   return (await res.json()) as T;
 }
 
+/** GET JSON without session cookies — anonymous public projection only. */
+export async function publicApiGet<T>(path: string): Promise<T | null> {
+  const res = await fetch(`${apiBase()}${path}`, {
+    credentials: "omit",
+    headers: { Accept: "application/json" },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw apiErrorFromResponse(res.status, body || res.statusText);
+  }
+  return (await res.json()) as T;
+}
+
 /** POST JSON; returns null on 204. Throws on other non-OK statuses. */
 export async function apiPost<T>(
   path: string,

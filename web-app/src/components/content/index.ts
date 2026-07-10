@@ -20,5 +20,6 @@ export * from "./RecordCardHeader";
 export * from "./RecordCardFooter";
 export * from "./CommentCard";
 export * from "./FeedCard";
+export * from "./ShareCard";
 export * from "./CommentThread";
 export * from "./RecordTypeSection";

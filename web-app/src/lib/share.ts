@@ -57,6 +57,22 @@ export function collectCommentIds(nodes: CommentNode[]): string[] {
   return ids;
 }
 
+/** Record id encoded in a comment share key (`recordId::c::handle::ts`). */
+export function recordIdFromShareTarget(target: ShareTarget): string {
+  if (target.variant === "record") return target.shareKey;
+  const parsed = parseCommentShareKey(target.shareKey);
+  return parsed?.recordId ?? target.shareKey.split("::c::")[0] ?? target.shareKey;
+}
+
+/** Parse the stable comment share key back into its parts. */
+export function parseCommentShareKey(
+  shareKey: string,
+): { recordId: string; handle: string; ts: string } | null {
+  const match = /^(.+)::c::([^:]+)::(.+)$/.exec(shareKey);
+  if (!match) return null;
+  return { recordId: match[1], handle: match[2], ts: match[3] };
+}
+
 /** Build a share target from a feed row or a full record detail. */
 export function recordShareTarget(item: FeedItem | RecordDetail): ShareTarget {
   return {

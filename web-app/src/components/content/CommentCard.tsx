@@ -29,6 +29,8 @@ interface CommentCardProps {
   onShare?: () => void;
   shareCount?: number;
   shared?: boolean;
+  /** Informational preview — footer pills render but do not accept input. */
+  readOnly?: boolean;
 }
 
 /** One comment row — header · body · footer (no comment pill). */
@@ -53,6 +55,7 @@ export function CommentCard({
   onShare,
   shareCount,
   shared,
+  readOnly = false,
 }: CommentCardProps) {
   return (
     <div>
@@ -82,6 +85,7 @@ export function CommentCard({
           onShare={onShare}
           shareCount={shareCount}
           shared={shared}
+          readOnly={readOnly}
         />
       </div>
     </div>

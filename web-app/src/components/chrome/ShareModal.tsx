@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Copy, Flag, Link as LinkIcon, Mail, MessageCircle } from "lucide-react";
 import { Modal } from "@/components/ui";
-import { RecordCardHeader } from "@/components/content";
+import { ShareCard } from "@/components/content";
+import { getPublicSharePreview, type SharePreview } from "@/lib/share/preview";
 import type { ShareTarget } from "@/lib/state";
 
 interface ShareModalProps {
@@ -118,6 +120,33 @@ export function ShareModal({
   onShared,
   onReport,
 }: ShareModalProps) {
+  const [preview, setPreview] = useState<SharePreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open || !target) {
+      setPreview(null);
+      return;
+    }
+
+    let cancelled = false;
+    setPreviewLoading(true);
+    void getPublicSharePreview(target)
+      .then((next) => {
+        if (!cancelled) setPreview(next);
+      })
+      .catch(() => {
+        if (!cancelled) setPreview(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, target]);
+
   if (!open || !target) return null;
 
   const isComment = target.variant === "comment";
@@ -234,49 +263,19 @@ export function ShareModal({
   return (
     <Modal open={open} onClose={onClose} title={`Share ${shareLabel}`} size="dialog">
       <div className="space-y-4">
-        {/* Preview of the card being shared. */}
-        <div className="rounded-xl border border-border bg-surface-muted p-3">
-          {isComment ? (
-            <>
-              <RecordCardHeader
-                author={target.author}
-                tier={target.tier}
-                signTier={target.signTier}
-                authorGeo={target.authorGeo}
-                identity={target.identity}
-                timestamp={target.timestamp}
-                depth={target.depth}
-                variant="comment"
-              />
-              <div className="mt-1 space-y-1 pl-8 text-sm text-ink-soft">
-                {target.body.map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <RecordCardHeader
-                author={target.author}
-                handle={target.handle}
-                tier={target.tier}
-                signTier={target.signTier}
-                authorGeo={target.authorGeo}
-                identity={target.identity}
-              />
-              {target.title ? (
-                <h3 className="mt-1 text-[15px] font-bold text-ink">
-                  {target.title}
-                </h3>
-              ) : null}
-              <div className="mt-1 line-clamp-4 space-y-1 text-sm text-ink-soft">
-                {target.body.map((line, i) => (
-                  <p key={i}>{line}</p>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
+        {/* Preview of the card being shared — public anonymous projection. */}
+        {preview ? (
+          <ShareCard preview={preview} />
+        ) : (
+          <div
+            className="rounded-xl border border-border bg-surface p-3 shadow-sm"
+            aria-busy={previewLoading}
+          >
+            <p className="text-sm text-muted">
+              {previewLoading ? "Loading preview…" : "Preview unavailable."}
+            </p>
+          </div>
+        )}
 
         {/* Share destinations. */}
         <div className="grid grid-cols-5 gap-x-2 gap-y-3">

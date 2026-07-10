@@ -35,6 +35,8 @@ interface RecordCardFooterProps {
   onShare?: () => void;
   /** Opens the full post (feed cards — same as title / …more). */
   onOpenPost?: () => void;
+  /** Informational preview — pills render but do not accept input. */
+  readOnly?: boolean;
 }
 
 /**
@@ -61,10 +63,12 @@ export function RecordCardFooter({
   onCommentsClick,
   onShare,
   onOpenPost,
+  readOnly = false,
 }: RecordCardFooterProps) {
   const isComment = kind === "comment";
   const hasReactions = kind === "statement" || kind === "result" || isComment;
   const showComments = !isComment && comments !== undefined;
+  const interactive = !readOnly;
 
   return (
     <div className="flex items-center gap-2">
@@ -72,31 +76,34 @@ export function RecordCardFooter({
         <ReactionButtons
           up={up}
           down={down}
-          selected={selectedReaction}
+          selected={interactive ? selectedReaction : null}
           tierMin={tierMin}
-          onReact={onReact}
+          onReact={interactive ? onReact : undefined}
+          disabled={readOnly}
         />
       ) : null}
       {kind === "petition" && sig !== undefined ? (
         <SignaturePill
           count={sig}
-          participated={signedPetition}
-          onClick={onOpenPost}
+          participated={interactive ? signedPetition : false}
+          onClick={interactive ? onOpenPost : undefined}
         />
       ) : null}
       {kind === "poll" && voteTotal !== undefined ? (
         <VotePill
           count={voteTotal}
-          participated={votedPoll}
-          onClick={onOpenPost}
+          participated={interactive ? votedPoll : false}
+          onClick={interactive ? onOpenPost : undefined}
         />
       ) : null}
-      {onReply ? <ReplyLink onClick={onReply} /> : null}
-      <EditCountLink count={edits} onClick={onEditsClick} />
+      {interactive && onReply ? <ReplyLink onClick={onReply} /> : null}
+      {interactive ? (
+        <EditCountLink count={edits} onClick={onEditsClick} />
+      ) : null}
       {/* Comments: a single right-justified share pill on the reply line.
           Records: the share pill sits beside the comment-count pill, right-aligned. */}
       {isComment ? (
-        onShare ? (
+        interactive && onShare ? (
           <SharePill
             count={shareCount}
             shared={shared}
@@ -104,12 +111,15 @@ export function RecordCardFooter({
             className="ml-auto"
           />
         ) : null
-      ) : showComments || onShare ? (
+      ) : showComments || (interactive && onShare) ? (
         <div className="ml-auto flex items-center gap-2">
           {showComments ? (
-            <CommentPill count={comments ?? 0} onClick={onCommentsClick} />
+            <CommentPill
+              count={comments ?? 0}
+              onClick={interactive ? onCommentsClick : undefined}
+            />
           ) : null}
-          {onShare ? (
+          {interactive && onShare ? (
             <SharePill count={shareCount} shared={shared} onClick={onShare} />
           ) : null}
         </div>
