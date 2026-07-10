@@ -19,11 +19,18 @@ From the repo root:
 
 ```bash
 npm install
-npm run dev -w @oursay/web-app       # http://localhost:3000
+npm run dev -w @oursay/web-app       # http://localhost:3000 (mock corpus; no backend)
+npm run up  -w @oursay/web-app       # full live stack: API compose + Next (MOCK_ONLY=0)
+npm run down -w @oursay/web-app      # tear down API/DB compose volumes
 npm run build -w @oursay/web-app     # production build
 npm run test -w @oursay/web-app      # Vitest (read-model + API unit tests)
 npm run typecheck -w @oursay/web-app # tsc --noEmit
 ```
+
+`npm run up` starts `@oursay/api`'s Docker stack (Postgres + immudb + API on
+**:8080**, optional settlement worker via `AUTO_START_WORKER=1`), then runs Next
+on **:3000** in live mode. Ctrl+C stops Next only; `npm run down` tears down the
+compose stack.
 
 The marketing site (`@oursay/site`, Astro) runs on its own port, so the two dev
 servers don't collide.
@@ -113,20 +120,22 @@ ported mock corpus. No API, no Postgres. Auth, KYC, and civic writes are stubbed
 **Live mode (against `@oursay/api`):**
 
 ```bash
-# 1. Backend (separate terminal) — Postgres + API on :6173
-npm run db:up -w @oursay/api
-npm run seed  -w @oursay/api          # ports the mock corpus through the real signed write path
-npm run dev   -w @oursay/api          # API on http://localhost:6173
+# One command — API compose (:8080) + Next live (:3000)
+npm run up -w @oursay/web-app
 
-# 2. Web-app in live mode
-NEXT_PUBLIC_MOCK_ONLY=0 npm run dev -w @oursay/web-app   # http://localhost:3000
+# Optional: seed the civic corpus (separate; wipes auth/record rows on the dev DB)
+npm run seed -w @oursay/api
+
+# Or split across terminals:
+npm run up  -w @oursay/api                              # Docker: API + DBs
+NEXT_PUBLIC_MOCK_ONLY=0 npm run dev -w @oursay/web-app  # host Next
 ```
 
 `NEXT_PUBLIC_MOCK_ONLY=0` (or `false`) → every `src/lib/api/*` function hits the real
-API. Next's `rewrites()` proxies `/v1/*` → `http://localhost:6173` same-origin (override
+API. Next's `rewrites()` proxies `/v1/*` → `http://localhost:8080` same-origin (override
 with `OURSAY_API_URL`), so the session cookie flows without CORS. Register with a real
-email OTP (the dev mailer prints the code to the API console), enroll a passkey, then
-browse the seeded corpus and post/comment/vote for real.
+email OTP (the API container logs OTP codes), enroll a passkey, then browse the seeded
+corpus and post/comment/vote for real.
 
 > **KYC in dev:** keep `KYC_PROVIDER=stub` in `api/.env` for the web-app walk — the dev
 > "Get Verified" button uses `POST /v1/dev/kyc/attest`, which awards a tier offline. The

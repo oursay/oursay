@@ -6,6 +6,8 @@
   "description": "OurSay civic web app (Next.js App Router). Recreates the mobile wireframe's read model in full colour. Mock-backed frontend API today; swappable for /v1/public/... later.",
   "scripts": {
     "dev": "next dev -p 3000 --webpack",
+    "up": "node scripts/stack-up.mjs",
+    "down": "npm run down -w @oursay/api",
     "build": "next build --webpack",
     "start": "next start -p 3000",
     "lint": "next lint",
