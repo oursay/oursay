@@ -41,7 +41,9 @@ export function ShareCard({
     selectedReaction:
       reactionEmphasis === "my" ? selectedReaction : null,
     highlightReactionPill: reactionEmphasis === "both",
-    onShareReactionToggle: toggleReactionEmphasis,
+    onShareReactionToggle: selectedReaction
+      ? toggleReactionEmphasis
+      : undefined,
   };
 
   if (preview.variant === "comment") {
@@ -87,7 +89,7 @@ function ShareRecordCard({
   shareReactionProps: {
     selectedReaction: "up" | "down" | null;
     highlightReactionPill: boolean;
-    onShareReactionToggle: () => void;
+    onShareReactionToggle?: () => void;
   };
 }) {
   return (
