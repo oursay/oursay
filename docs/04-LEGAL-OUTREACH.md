@@ -110,6 +110,9 @@ If you have an hour, I would be grateful for it.
 [Link to GitHub repository — optional, establishes credibility]
 
 ---
+*To stop receiving emails from OurSay.ca, reply to this email with "unsubscribe" in the body.*
+
+---
 
 ---
 
@@ -205,6 +208,54 @@ I want to be clear: OurSay is neutral. It will measure what Albertans think rega
 [Your name / OurSay.ca]
 [Contact email]
 [Link to GitHub repository — optional]
+
+---
+*To stop receiving emails from OurSay.ca, reply to this email with "unsubscribe" in the body.*
+
+---
+
+---
+
+# Second Round — Outreach With a Working Demo (July 2026)
+
+> **How to use this section:** Round one received no responses. Round two leads with what changed: there is now a working, publicly accessible demo, and the platform has executed a compliance sweep on its own initiative. The ask is sharper — react to something real, answer a shorter list of questions, and tell us what we got wrong. Reuse Email Versions A/B/C above for audience targeting, but swap in the refreshed pitch paragraph and question list below. Every outgoing email must carry the unsubscribe footer (CASL).
+
+## What Changed Since Round One
+
+The demo at **demo.oursay.ca** is a working preview of the Alberta launch experience: passkey-signed petitions and votes, a what-you-see-is-what-you-sign confirmation ceremony, verified-anonymity personas, district-aware filtering, and the civic content ladder (Statement → Petition → Poll → Result). The repository remains fully open source.
+
+Ahead of this second outreach we ran a legal-compliance sweep and implemented what we could without counsel:
+
+1. **Language.** All user-facing "official count / counts officially" phrasing was replaced with **platform count** and "verified totals"; the statutory term "elector" was removed from platform copy in favour of "resident"; the word "binding" no longer appears anywhere in product or marketing copy. Backend identifiers are scheduled for the same rename.
+2. **No real-person accounts.** Demo accounts portraying real office holders (with fabricated posts and statistics) were removed entirely. Real officials now appear only as **unclaimed roster seat pages** generated from public record, each carrying the disclaimer: "This profile is generated from public record. [Name] has not endorsed this platform and may not be aware of this profile." Unclaimed seats display no verification badge.
+3. **Non-affiliation disclaimers in-app.** A persistent banner on every screen states the platform is independent and not affiliated with any government, linking to a signing/permanence disclaimer page. The signing ceremony's disclaimer link now resolves to real content covering permanence of the public record, what a passkey signature means for identity-verified accounts, and that platform counts are not official results of any government process.
+4. **Draft privacy notice + affirmative consent.** The app now publishes a draft platform Privacy Notice (marked pending counsel review) covering collection (email, handle, optional legal name/address for verification via Didit), what stays off the public record, and PIPA/PIPEDA rights. Registration requires an affirmative (not pre-checked) 18+ attestation and acknowledgement of the notice. No date of birth is collected or stored — only the adult flag.
+
+## Second-Round Questions
+
+*Numbering continues from the round-one list; the original fifteen questions stand — several are now sharper because there is a running system to point at.*
+
+**16. Sufficiency of the draft Privacy Notice — and is a ToS required now?**
+The demo collects email, handle, and (optionally) legal name and address for identity/residency verification through a third-party KYC provider. Is the published draft privacy notice plus affirmative consent checkbox sufficient under PIPA/PIPEDA for this demonstration stage? Is a Terms of Service agreement legally required *before* collecting this information, or can the ToS wait for public launch? We have deliberately deferred writing one absent counsel review.
+
+**17. Unclaimed roster seats for real officials.**
+Building on Q7: the platform now lists real MLAs and the Premier only as unclaimed seat pages sourced from the public roster (via OpenNorth's Represent API), with the non-endorsement disclaimer above and no verification badge. (a) Is this disclaimer approach sufficient, or is stronger placement/wording needed? (b) Do OpenNorth's API terms and the Legislative Assembly's photo licensing permit redistributing roster names, party affiliations, and member photos this way? (c) The demo also includes a showcase account labelled for the legislature as an institution — does representing a government *body* (as opposed to a person) raise distinct concerns?
+
+**18. Residual "official" vocabulary.**
+We retained the terms **official role** (a seated representative's platform role) and **official verification** (that role plus identity verification) while eliminating "official count/tally/result." Do these residual uses still risk implying government status? Is "platform count" itself clean, or would a different term ("verified total") be safer?
+
+**19. Permanence language vs. erasure rights.**
+Building on Q13: the platform tells users signed civic actions are "permanent" appends to a public record, while account/profile data remains deletable, and the ledger design supports cryptographic redaction of content without breaking auditability. Does the current disclosure ("account data is deletable; signed public-record entries are designed not to be") adequately reconcile PIPA/PIPEDA deletion rights with an append-only public record? What consent language would you require at the moment of signing?
+
+**20. Election-law exposure of the demo itself.**
+The demo is publicly advertised from oursay.ca and contains sample political content (fictional petitions and polls about provincial matters). Does *operating the demonstration* — before launch, with fictional content — create any exposure under the *Election Act*, *Referendum Act*, or third-party advertiser rules, particularly if a writ period begins while it is live?
+
+**21. Our own outreach compliance.**
+These cold outreach emails to legal professionals: beyond the unsubscribe mechanism and truthful sender identification, does CASL's business-to-business or existing-relationship framework require anything further for this kind of pro bono solicitation?
+
+## Refreshed Pitch Paragraph (swap into Versions A/B/C)
+
+> Since I last wrote this kind of letter, the project has crossed a threshold: there is now a **working public demo at demo.oursay.ca** — passkey-signed petitions and votes, verified-anonymity personas, district-level filtering, and a what-you-see-is-what-you-sign ceremony, all backed by an open-source, independently auditable record design. Before writing to you we ran our own legal sweep and fixed everything we could without counsel: government non-affiliation disclaimers throughout the app, no real-person accounts, a draft privacy notice with affirmative consent, and the removal of language implying official or electoral status. What remains is the list below — questions that need a professional, and that a working system now makes concrete rather than hypothetical. You can click the demo before deciding whether this is worth an hour of your time.
 
 ---
 *To stop receiving emails from OurSay.ca, reply to this email with "unsubscribe" in the body.*
