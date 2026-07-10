@@ -237,7 +237,9 @@ Host ports so stacks can run side-by-side (same offsets as public-record):
 |-------|--------------|-----|----------|--------|---------|
 | dev | `docker-compose.dev.yml` | **8080** | **5442** | **5443** | **8082** |
 | test | `docker-compose.test.yml` | **8081** | **5444** | **5445** | **8083** |
-| prod | `docker-compose.prod.yml` | **8085** | **5446** | **5447** | **8084** |
+| prod | `docker-compose.prod.yml` | **8085** | *(internal)* | *(internal)* | *(none)* |
+
+Prod publishes only the API; Postgres/immudb are compose-network-only.
 
 `npm run seed -w @oursay/api` wipes auth + record rows (not production), ingests Alberta districts
 when `geo.districts` is empty, creates ~21 accounts with mixed visibility (`public`, `my_district`,

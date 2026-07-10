@@ -1,7 +1,8 @@
 # API production stack — includes public-record (Postgres + immudb + optional worker).
 #
 # Compose project: oursay-public-record (same as public-record db:prod:up).
-# Host API port :8085 (offset from immudb consoles 8082–8084 and dev/test API 8080/8081).
+# Host publishes only the API (:8085). Postgres + immudb stay on the compose network
+# (no host ports) — seed and host DB clients cannot reach them by design.
 # Production secrets (SESSION_SECRET, PLATFORM_BINDING_PRIVKEY, mailer, …) MUST be supplied
 # via the environment or an env_file — compose does not ship defaults for them.
 include:

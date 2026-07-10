@@ -153,7 +153,11 @@ Host ports so stacks can run side-by-side:
 |-------|--------------|----------|--------|---------|
 | dev | `docker-compose.dev.yml` | **5442** | **5443** | **8082** |
 | test | `docker-compose.test.yml` | **5444** | **5445** | **8083** |
-| prod | `docker-compose.prod.yml` | **5446** | **5447** | **8084** |
+| prod | `docker-compose.prod.yml` | *(internal only)* | *(internal only)* | *(none)* |
+
+Prod does **not** publish Postgres/immudb to the host — only containers on the compose
+network (API / worker) can connect. Dev/test keep host ports for local tooling and
+host-run tests/seed.
 
 No `.env` is needed for local dev; package defaults match `docker-compose.dev.yml`. Prod app
 config: repo-root `.env.prod.example`.

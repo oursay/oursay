@@ -5,8 +5,9 @@
 #   postgres  -> private, MUTABLE store (record_tx event log + raw content + salt) — erasable
 #
 # Compose project: oursay-public-record (no env qualifier).
-# Host ports are offset from dev (5442/5443/8082), test (5444/5445/8083), and
-# immudb-test (5432/5433/8080-8081) so all stacks can run simultaneously.
+# Postgres + immudb are NOT published to the host — only API/worker on this Compose
+# network may connect (service names `postgres` / `immudb`). Dev/test stacks still
+# publish host ports for local tooling and host-run mocha/seed.
 services:
   # immudb 1.11.0 over the PostgreSQL wire protocol — the modern, maintained path.
   # Verification is available as SQL functions: immudb_state(), immudb_verify_row().
@@ -16,9 +17,7 @@ services:
     environment:
       IMMUDB_ADDRESS: "0.0.0.0"
       IMMUDB_PGSQL_SERVER: "true"
-    ports:
-      - "5447:5432" # PostgreSQL wire protocol
-      - "8084:8080" # web console
+    # No `ports:` — internal to the compose network only (API/worker).
     volumes:
       - immudb-data:/var/lib/immudb
     healthcheck:
@@ -38,8 +37,7 @@ services:
       POSTGRES_USER: oursay
       POSTGRES_PASSWORD: oursay
       POSTGRES_DB: oursay_public_record
-    ports:
-      - "5446:5432"
+    # No `ports:` — internal to the compose network only (API/worker).
     volumes:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
