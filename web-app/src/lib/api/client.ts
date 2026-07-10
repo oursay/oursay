@@ -42,7 +42,7 @@ function resStatusLabel(status: number): string {
 
 function apiBase(): string {
   if (typeof window !== "undefined") return "";
-  return process.env.OURSAY_API_URL ?? "http://localhost:6173";
+  return process.env.OURSAY_API_URL ?? "http://localhost:8080";
 }
 
 /** GET JSON from the API. Returns null on 404. Throws on other non-OK statuses. */

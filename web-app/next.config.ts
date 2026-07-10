@@ -11,8 +11,8 @@ dotenv.config({ path: path.join(repoRoot, ".env") });
 dotenv.config({ path: path.join(webAppDir, ".env") });
 dotenv.config({ path: path.join(webAppDir, ".env.local") });
 
-/** Backend origin for `/v1/*` rewrites. Override with OURSAY_API_URL when not on :6173. */
-const API_ORIGIN = process.env.OURSAY_API_URL ?? "http://localhost:6173";
+/** Backend origin for `/v1/*` rewrites. Override with OURSAY_API_URL when not on :8080. */
+const API_ORIGIN = process.env.OURSAY_API_URL ?? "http://localhost:8080";
 
 const mockOnly =
   process.env.NEXT_PUBLIC_MOCK_ONLY !== "0" &&

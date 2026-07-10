@@ -1,4 +1,4 @@
-// One-shot live Didit flow against the running API (default :6173).
+// One-shot live Didit flow against the running API (default :8080).
 // Usage: npx tsx scripts/didit-live-flow.ts
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -9,7 +9,7 @@ import { diditWebhookSignatureV2 } from "../src/services/kyc/didit-client.js";
 import { fullSessionAccount } from "../test/helpers/account.js";
 import { resetWorld } from "../test/helpers/world.js";
 
-const API = `http://127.0.0.1:${process.env.PORT ?? "6173"}`;
+const API = `http://127.0.0.1:${process.env.PORT ?? "8080"}`;
 const OUTPUT = join(dirname(fileURLToPath(import.meta.url)), "../test/.output/didit-live-flow.json");
 
 async function main(): Promise<void> {
