@@ -6,8 +6,8 @@ import { formatCount } from "@/components/utils";
 const pillBase =
   "pill-chrome inline-flex h-5 items-center gap-1 rounded-full px-2 text-xs transition-colors";
 
-function pillStyles(participated: boolean) {
-  return participated
+function pillStyles(participated: boolean, highlighted = false) {
+  return participated || highlighted
     ? "bg-brand-100 font-bold text-brand-700"
     : "bg-surface text-ink-soft hover:bg-brand-100/60";
 }
@@ -16,6 +16,8 @@ interface CivicPillProps {
   count: number;
   /** Viewer signed / voted — purple accent like reaction selection. */
   participated?: boolean;
+  /** Share preview emphasis — purple accent regardless of participation. */
+  highlighted?: boolean;
   onClick?: () => void;
   className?: string;
 }
@@ -24,6 +26,7 @@ interface CivicPillProps {
 export function SignaturePill({
   count,
   participated = false,
+  highlighted = false,
   onClick,
   className = "",
 }: CivicPillProps) {
@@ -32,9 +35,9 @@ export function SignaturePill({
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      aria-pressed={participated}
+      aria-pressed={participated || highlighted}
       aria-label="View petition"
-      className={`${pillBase} ${pillStyles(participated)} ${onClick ? "cursor-pointer" : "cursor-default"} ${className}`}
+      className={`${pillBase} ${pillStyles(participated, highlighted)} ${onClick ? "cursor-pointer" : "cursor-default"} ${className}`}
     >
       <ClipboardPenLine size={11} aria-hidden />
       {formatCount(count)}
@@ -46,6 +49,7 @@ export function SignaturePill({
 export function VotePill({
   count,
   participated = false,
+  highlighted = false,
   onClick,
   className = "",
 }: CivicPillProps) {
@@ -54,9 +58,9 @@ export function VotePill({
       type="button"
       onClick={onClick}
       disabled={!onClick}
-      aria-pressed={participated}
+      aria-pressed={participated || highlighted}
       aria-label="View poll"
-      className={`${pillBase} ${pillStyles(participated)} ${onClick ? "cursor-pointer" : "cursor-default"} ${className}`}
+      className={`${pillBase} ${pillStyles(participated, highlighted)} ${onClick ? "cursor-pointer" : "cursor-default"} ${className}`}
     >
       <CircleCheckBig size={11} aria-hidden />
       {formatCount(count)}

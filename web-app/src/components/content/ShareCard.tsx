@@ -154,6 +154,8 @@ function ShareRecordCard({
           edits={item.edits}
           readOnly
           highlightCommentPill
+          highlightSignaturePill={item.kind === "petition"}
+          highlightVotePill={item.kind === "poll"}
           {...shareReactionProps}
         />
       }

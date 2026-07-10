@@ -42,6 +42,10 @@ interface RecordCardFooterProps {
   highlightReactionPill?: boolean;
   /** Read-only share preview — purple comment pill accent. */
   highlightCommentPill?: boolean;
+  /** Read-only share preview — purple signature pill accent (petitions). */
+  highlightSignaturePill?: boolean;
+  /** Read-only share preview — purple vote pill accent (polls). */
+  highlightVotePill?: boolean;
   /** Share preview — toggle my-reaction vs both-segment emphasis. */
   onShareReactionToggle?: () => void;
 }
@@ -73,6 +77,8 @@ export function RecordCardFooter({
   readOnly = false,
   highlightReactionPill = false,
   highlightCommentPill = false,
+  highlightSignaturePill = false,
+  highlightVotePill = false,
   onShareReactionToggle,
 }: RecordCardFooterProps) {
   const isComment = kind === "comment";
@@ -102,17 +108,19 @@ export function RecordCardFooter({
           />
         )
       ) : null}
-      {kind === "petition" && sig !== undefined ? (
+      {kind === "petition" ? (
         <SignaturePill
-          count={sig}
+          count={sig ?? 0}
           participated={interactive ? signedPetition : false}
+          highlighted={!interactive && highlightSignaturePill}
           onClick={interactive ? onOpenPost : undefined}
         />
       ) : null}
-      {kind === "poll" && voteTotal !== undefined ? (
+      {kind === "poll" ? (
         <VotePill
-          count={voteTotal}
+          count={voteTotal ?? 0}
           participated={interactive ? votedPoll : false}
+          highlighted={!interactive && highlightVotePill}
           onClick={interactive ? onOpenPost : undefined}
         />
       ) : null}
