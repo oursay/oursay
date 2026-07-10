@@ -214,7 +214,7 @@ export const COMMENTS_PETITION: CommentNode[] = [
     districts: ["calgary-elbow"],
     ts: "2026-06-27T17:45:00",
     body: [
-      "Calgary elector here — happy to see it, though it's really an Edmonton corridor fix.",
+      "Calgary resident here — happy to see it, though it's really an Edmonton corridor fix.",
     ],
     up: 7,
     down: 1,
@@ -258,7 +258,7 @@ export const POST_POLL: RecordDetail = {
   title: RIVER_PATH_QUESTION,
   body: [
     "Graduated from Wei Chen's petition after it passed the",
-    "signature threshold. Open to residency-verified electors",
+    "signature threshold. Open to residency-verified residents",
     "province-wide, since this draws on the general budget.",
   ],
   options: [
@@ -323,7 +323,7 @@ export const POST_RESULT: RecordDetail = {
   title: "Result: River-valley path twinning vote",
   body: [
     "The province-wide poll has closed. Counts shown are",
-    "residency-verified electors only, anchored on the",
+    "residency-verified residents only, anchored on the",
     "public ledger — past the k-anonymity floor.",
   ],
   options: [

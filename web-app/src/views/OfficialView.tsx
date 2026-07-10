@@ -139,7 +139,9 @@ export function OfficialView({ handle }: { handle: string }) {
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate font-bold text-ink">{profile.role}</p>
-              <VerificationPill tier={3} align="right" />
+              {/* Verification badge only when the office holder actually claimed
+                  the seat — an unclaimed roster listing asserts no verification. */}
+              {profile.claimed ? <VerificationPill tier={3} align="right" /> : null}
             </div>
             {representativeRow}
           </div>

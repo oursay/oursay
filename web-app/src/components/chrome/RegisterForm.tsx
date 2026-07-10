@@ -43,7 +43,9 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
   const [handle, setHandle] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
-  const [over18, setOver18] = useState(true);
+  // Both attestations must be AFFIRMATIVE — never pre-checked (legal).
+  const [over18, setOver18] = useState(false);
+  const [privacyAck, setPrivacyAck] = useState(false);
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -134,6 +136,27 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
             className="size-4 rounded border-border"
           />
           I am 18 or older
+        </label>
+
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={privacyAck}
+            onChange={(e) => setPrivacyAck(e.target.checked)}
+            className="size-4 rounded border-border"
+          />
+          <span>
+            I&apos;ve read the{" "}
+            <a
+              href="/help/privacy"
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Privacy Notice (draft)
+            </a>
+          </span>
         </label>
 
         <div className="rounded-lg border border-border bg-surface-muted p-3">
@@ -233,7 +256,7 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
           </div>
         </div>
 
-        <Button fullWidth icon={Mail} onClick={submit}>
+        <Button fullWidth icon={Mail} onClick={submit} disabled={!over18 || !privacyAck}>
           Send Verification Code
         </Button>
       </div>

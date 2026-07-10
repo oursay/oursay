@@ -159,7 +159,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
     title: "Provincial budget priority for 2027",
     body: [
       "Where should the next provincial budget lead?",
-      "One vote per residency-verified elector.",
+      "One vote per residency-verified resident.",
     ],
     options: [
       { label: "Healthcare", v: 320 },
@@ -180,7 +180,7 @@ export const WIREFRAME_POSTS: FeedItem[] = [
     title: "Result: Bill 12 community poll",
     body: [
       "The non-binding community poll on Bill 12 has closed.",
-      "Counts shown are residency-verified electors only.",
+      "Counts shown are residency-verified residents only.",
     ],
     options: [
       { label: "Support", v: 29 },

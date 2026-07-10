@@ -62,7 +62,7 @@ interface PollOptionsProps {
 
 /**
  * Poll option bars. Live (poll) vs frozen (result) modes. The bar/number is
- * always the official residency-verified count — never thinned; lowering Verified
+ * always the residency-verified platform count — never thinned; lowering Verified
  * below Residency instead reveals an additive "+N unverified votes" note (§4.3).
  */
 export function PollOptions({

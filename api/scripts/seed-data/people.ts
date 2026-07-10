@@ -86,33 +86,12 @@ export const SEED_ANCHORS: readonly SeedPerson[] = [
     legislatureOfficial: true,
     officialTitle: "Legislature",
   },
-  {
-    handle: "danielle_smith",
-    name: "Danielle Smith",
-    tier: 3,
-    visibility: "public",
-    jurisdictions: [ALBERTA_ID],
-    districts: ["brooks-medicine-hat"],
-    seatClaims: ["ab-premier", "ab-bro_med_hat"],
-  },
-  {
-    handle: "naheed_nenshi",
-    name: "Naheed K. Nenshi",
-    tier: 3,
-    visibility: "public",
-    jurisdictions: [ALBERTA_ID],
-    districts: ["edmonton-strathcona"],
-    seatClaims: ["ab-edm_strth"],
-  },
-  {
-    handle: "david_shepherd",
-    name: "David Shepherd",
-    tier: 3,
-    visibility: "public",
-    jurisdictions: [ALBERTA_ID],
-    districts: ["edmonton-city-centre"],
-    seatClaims: ["ab-edm_city_cen"],
-  },
+  // No seed accounts for REAL people (legal: impersonation / fabricated speech),
+  // and no seeded claims on real government seats — a fictional claimant would
+  // misrepresent the office. Real officials appear only as unclaimed roster
+  // seats served from jurisdiction-data (public record) with the auto-generated
+  // "has not endorsed this platform" bio. The claimed-seat UX is demonstrated by
+  // the fictional mock corpus (web-app) and exercised by test 36.
 ];
 
 /** Visibility mix for generated users (weights). */

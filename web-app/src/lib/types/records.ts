@@ -16,18 +16,19 @@ export function toCanonical(kind: RecordKind): CanonicalRecordType {
   return kind === "statement" ? "post" : kind;
 }
 
-/** A single poll/result option with its official (residency-verified) tally. */
+/** A single poll/result option with its platform-count (residency-verified) tally. */
 export interface RecordOption {
   label: string;
   /**
-   * Official vote count — participants who meet the gate's `officialCount` bar
-   * (residency-verified in Alberta). This is the tally that settles a record.
+   * Platform-count tally — participants who meet the gate's counting floor
+   * (`officialCount` wire field, renaming to `platformCount`; residency-verified
+   * for the Alberta jurisdiction). This is the tally that settles a record.
    */
   v: number;
   /**
    * Live count including everyone who acted, incl. below-floor participants
-   * whose votes are recorded but do not yet count officially ("sign now, counts
-   * once you verify"). Absent ⇒ no distinction (live === official).
+   * whose votes are recorded but not yet in the platform count ("sign now,
+   * counts once you verify"). Absent ⇒ no distinction (live === platform count).
    */
   live?: number;
 }

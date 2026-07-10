@@ -18,14 +18,10 @@ const EXTRA_PEOPLE: MockPerson[] = [
   { name: "OurSay Stewards", handle: "oursay", tier: 3, role: "Platform · Global" },
   { name: "Priya Anand", handle: "priya", tier: 1, visibility: "id_verified" },
   { name: "Marcus Lee", handle: "mlee", tier: 1, visibility: "my_jurisdiction" },
+  // All demo accounts are FICTIONAL people. Real officials appear only as
+  // unclaimed roster seats (public record + auto-bio disclaimer) — never as
+  // registered accounts with authored content.
   { name: "Hon. A. Premier", handle: "premier", tier: 3, role: "Premier · Alberta" },
-  {
-    name: "Danielle Smith",
-    handle: "danielle_smith",
-    tier: 3,
-    role: "Premier · Alberta",
-    districts: ["brooks-medicine-hat"],
-  },
   { name: "Alberta Assembly", handle: "ableg", tier: 3, role: "Legislature · Alberta" },
   {
     name: "Jordan Vance",

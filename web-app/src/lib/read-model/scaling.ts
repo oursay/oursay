@@ -6,9 +6,9 @@ import type { VerificationTier } from "@/lib/types";
  * Social counts (comments + agree/disagree reactions) are thinned as the Verified
  * filter rises — fewer qualifying voices are shown. Civic counts (petition
  * signatures + poll votes) are NEVER thinned: the bar/number is always the
- * official residency-verified total. Instead, lowering Verified below Residency
+ * residency-verified platform count. Instead, lowering Verified below Residency
  * reveals an ADDITIVE "+N unverified" note surfacing participants who took part
- * but aren't in the official count.
+ * but aren't in the platform count.
  */
 
 /** Social-count multiplier, indexed by tier (None · ID · Residency · Official). */

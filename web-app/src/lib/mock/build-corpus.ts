@@ -32,7 +32,6 @@ import { MY_HANDLE } from "./constants";
 import { PEOPLE_BY_HANDLE, person, personDistricts } from "./people";
 import {
   ALEX_MORGAN_PROFILE,
-  DANIELLE_SMITH_PROFILE,
   PREMIER_PROFILE,
   RAE_NGUYEN_PROFILE,
 } from "./profiles-seed";
@@ -501,7 +500,7 @@ function buildDistrictMap(): Record<string, DistrictDetail> {
       about: [
         "Part of Alberta — provincial (ladder) rules apply.",
         "District-scoped posts use appliesToRegion: district.",
-        "Only residency-verified electors count officially.",
+        "Platform counts include residency-verified residents only.",
         "Boundary: 2019 revision (Elections Alberta).",
         "Membership is inferred from your address, never stored.",
       ],
@@ -540,11 +539,12 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       slug: "alberta",
       name: "Alberta",
       level: "province",
+      // Fictional demo leader — real officials are never claimed demo accounts.
       leader: {
-        name: "Danielle Smith",
+        name: "Hon. A. Premier",
         handle: "ab-premier",
         claimed: true,
-        claimedUserHandle: "danielle_smith",
+        claimedUserHandle: "premier",
         leaderRole: "premier",
       },
       gates: JURISDICTION_GATES[ALBERTA_ID],
@@ -554,7 +554,7 @@ function buildJurData(): Record<string, JurisdictionSummary> {
         "Petitions: residency-verified authors only.",
         "Polls: officials only (or via petition→poll graduation).",
         "Verified actions are written on-ledger.",
-        "Official counts: residency-verified electors only.",
+        "Platform counts: residency-verified residents only.",
       ],
       districtLabel: "Ridings",
       districts: ALBERTA_RIDINGS.map((r) => ({
@@ -562,9 +562,6 @@ function buildJurData(): Record<string, JurisdictionSummary> {
         slug: r.slug,
         leader: r.mla.name,
         leaderHandle: r.mla.seatHandle,
-        ...(r.mla.seatHandle === "ab-bro_med_hat"
-          ? { claimedUserHandle: "danielle_smith", leaderClaimed: true }
-          : {}),
       })),
     },
   };
@@ -627,7 +624,6 @@ function buildProfiles(
   const byHandle: Record<string, PublicProfile> = {
     raenguyen: RAE_NGUYEN_PROFILE,
     premier: PREMIER_PROFILE,
-    danielle_smith: DANIELLE_SMITH_PROFILE,
     [MY_HANDLE]: ALEX_MORGAN_PROFILE,
   };
 

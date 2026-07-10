@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { User } from "lucide-react";
 import {
@@ -253,6 +254,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               filterActive={filterActive}
               accountSlot={accountSlot}
             />
+
+            {/* Non-affiliation / demo notice — legal surface, shown on every view. */}
+            <Link
+              href="/help/signing"
+              className="block bg-surface-muted px-3 py-1 text-center text-[11px] leading-snug text-muted"
+            >
+              Demonstration preview — OurSay is independent and not affiliated with any
+              government. <span className="underline underline-offset-2">Learn more</span>
+            </Link>
 
             {state.filterOpen ? (
               <div className="pointer-events-auto absolute left-3 top-full z-40 mt-1">

@@ -18,8 +18,8 @@ interface PetitionProgressProps {
 }
 
 /**
- * Petition signature progress bar. The bar/count is always the official
- * residency-verified total (never thinned); lowering Verified reveals an additive
+ * Petition signature progress bar. The bar/count is always the residency-verified
+ * platform-count total (never thinned); lowering Verified reveals an additive
  * unverified-signers note. A petition with an attachedPoll shows a compact
  * "Poll @ N" / "Poll Open" graduation tag once sig >= goal (§8.6).
  */

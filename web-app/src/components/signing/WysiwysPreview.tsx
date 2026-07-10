@@ -106,13 +106,13 @@ function warningCopy(w: WysiwysWarning): ReactNode {
     case "count-floor":
       return w.countBasis === "identity" ? (
         <>
-          {jur} official counts require ID verification — this may not count officially until
-          you verify your ID.
+          {jur} platform counts require ID verification — this won&apos;t be included in the
+          verified totals until you verify your ID.
         </>
       ) : (
         <>
-          {jur} official counts include verified residents only — this may not count officially
-          until you verify residency.
+          {jur} platform counts include verified residents only — this won&apos;t be included in
+          the verified totals until you verify residency.
         </>
       );
     case "affected":

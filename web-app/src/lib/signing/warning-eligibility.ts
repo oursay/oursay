@@ -70,7 +70,7 @@ function requirementPhrase(req: ActorRequirement): string {
   return req === "residency" ? "requires verified residency" : "requires ID verification";
 }
 
-/** True when the viewer fails the action's official-count floor (soft — they can still act). */
+/** True when the viewer fails the action's platform-count floor (soft — they can still act). */
 export function belowOfficialCountFloor(
   jurisdictionId: JurisdictionId,
   action: SignAction,
@@ -81,7 +81,7 @@ export function belowOfficialCountFloor(
   return !meetsActor(gate.officialCount, kycTier);
 }
 
-/** Actions that may show residency / official-count eligibility warnings. */
+/** Actions that may show residency / platform-count eligibility warnings. */
 export function actionShowsResidencyWarning(action: SignAction): boolean {
   return action === "vote" || action === "signature" || action === "post.petition";
 }
@@ -168,8 +168,8 @@ export function warningsForAction(
     }
   }
 
-  // Soft official-count floor: the viewer can act, but it won't count officially
-  // until they clear an ID or residency requirement.
+  // Soft platform-count floor: the viewer can act, but the action isn't included
+  // in the platform count until they clear an ID or residency requirement.
   if (
     actionShowsResidencyWarning(action) &&
     gate.officialCount &&

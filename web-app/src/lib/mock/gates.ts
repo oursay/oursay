@@ -22,12 +22,13 @@ import { toCanonical } from "@/lib/types";
  * 2 (the backend's KycTier strings; the W5 served config maps back).
  *
  * Locked values (WEB-APP-GAPS Part 3 / C5):
- * - `oursay-global`: everything anyone·quick; vote/petition_signature count
- *   officially at ID-verified-or-better.
+ * - `oursay-global`: everything anyone·quick; vote/petition_signature enter the
+ *   platform count at ID-verified-or-better.
  * - `ab-ca-gov`: posts/votes/signatures passkey-signed; petitions
  *   residency-verified authors; polls officials-only; votes need jurisdiction
- *   residency; signatures are sign-now-verify-later (official at residency);
- *   official-role holders are DENIED on vote and petition_signature (Part 6 #3).
+ *   residency; signatures are sign-now-verify-later (platform count at
+ *   residency); official-role holders are DENIED on vote and petition_signature
+ *   (Part 6 #3).
  */
 export const JURISDICTION_GATES: Record<JurisdictionId, JurisdictionGates> = {
   [GLOBAL_ID]: {

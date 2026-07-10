@@ -17,7 +17,7 @@ export function mockRoleTagsFor(handle: string, person: MockPerson): ProfileRole
     ];
   }
 
-  if (handle === "danielle_smith") {
+  if (handle === "premier") {
     return [
       {
         roleLabel: "Premier",
@@ -29,10 +29,10 @@ export function mockRoleTagsFor(handle: string, person: MockPerson): ProfileRole
       },
       {
         roleLabel: "MLA",
-        placeLabel: "Brooks-Medicine Hat",
+        placeLabel: "Calgary-Lougheed",
         jurisdictionId: ALBERTA_ID,
-        districtSlug: "brooks-medicine-hat",
-        seatHandle: "ab-bro_med_hat",
+        districtSlug: "calgary-lougheed",
+        seatHandle: "ab-cal_lough",
         placeKind: "district",
       },
     ];

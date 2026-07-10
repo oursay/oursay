@@ -16,11 +16,11 @@ export function districtSeatHandle(jurisdictionId: string, districtSlug: string)
   return `${jurShort}-${districtShortSlug(districtSlug)}`;
 }
 
-/** Demo + seeded official seats mapped to the holder's user handle (avatar seed). */
+/** Demo + seeded official seats mapped to the holder's user handle (avatar seed).
+ * Demo accounts are fictional only — real roster names stay on UNCLAIMED seats. */
 const CLAIMED_SEAT_USERS: Record<string, string> = {
   "global-platform": "oursay",
-  "ab-premier": "danielle_smith",
-  "ab-bro_med_hat": "danielle_smith",
+  "ab-premier": "premier",
 };
 
 export function isSeatClaimed(seatHandle: string): boolean {

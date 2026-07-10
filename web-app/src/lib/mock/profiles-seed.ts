@@ -194,6 +194,14 @@ export const PREMIER_PROFILE: PublicProfile = {
       seatHandle: "ab-premier",
       placeKind: "jurisdiction",
     },
+    {
+      roleLabel: "MLA",
+      placeLabel: "Calgary-Lougheed",
+      jurisdictionId: ALBERTA_ID,
+      districtSlug: "calgary-lougheed",
+      seatHandle: "ab-cal_lough",
+      placeKind: "district",
+    },
   ],
   tier: 3,
   bio: "Premier of Alberta and MLA for Calgary-Lougheed. Sharing provincial priorities and consultation updates.",
@@ -209,45 +217,5 @@ export const PREMIER_PROFILE: PublicProfile = {
   ],
 };
 
-/** Hand-crafted profile for Danielle Smith (Premier + Brooks-Medicine Hat MLA). */
-export const DANIELLE_SMITH_PROFILE: PublicProfile = {
-  name: "Danielle Smith",
-  handle: "danielle_smith",
-  role: "Premier · Alberta",
-  roles: [
-    {
-      roleLabel: "Premier",
-      placeLabel: "Alberta",
-      jurisdictionId: ALBERTA_ID,
-      districtSlug: null,
-      seatHandle: "ab-premier",
-      placeKind: "jurisdiction",
-    },
-    {
-      roleLabel: "MLA",
-      placeLabel: "Brooks-Medicine Hat",
-      jurisdictionId: ALBERTA_ID,
-      districtSlug: "brooks-medicine-hat",
-      seatHandle: "ab-bro_med_hat",
-      placeKind: "district",
-    },
-  ],
-  tier: 3,
-  bio: "Premier of Alberta and MLA for Brooks-Medicine Hat. Sharing provincial priorities and consultation updates.",
-  ageLabel: "6 years",
-  support: { agrees: 5400, disagrees: 1290, statements: 24, comments: 38 },
-  posts: [],
-  activity: [
-    { kind: "statement", text: "Posted “Budget 2027 consultation now open”", meta: "3d · Alberta", recordId: "stmt-premier-budget" },
-    { kind: "comment", text: "Commented on river-valley path poll", meta: "1d", recordId: "poll-river-path" },
-  ],
-  mentions: [
-    {
-      author: "Priya Anand",
-      handle: "priya",
-      text: "Thanks @danielle_smith for opening budget consultation",
-      meta: "2d",
-      recordId: "stmt-premier-budget",
-    },
-  ],
-};
+// NOTE: no profiles for real people. The demo premier account is the fictional
+// "Hon. A. Premier" above; real officials exist only as unclaimed roster seats.

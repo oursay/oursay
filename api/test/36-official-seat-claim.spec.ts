@@ -26,8 +26,8 @@ describe("36 official seat claim", () => {
 
   it("claimSeat links ab-edm_strth to the user and assigns official role", async () => {
     const author = await makeAccount(w, {
-      handle: "naheed_nenshi",
-      displayName: "Naheed K. Nenshi",
+      handle: "rae_nguyen",
+      displayName: "Rae Nguyen",
     });
     await w.services.repos.profile.setVisibility(author.userId, "public");
     await w.services.repos.membership.add(author.userId, AB);
@@ -35,7 +35,7 @@ describe("36 official seat claim", () => {
     await w.services.officialSeatClaimService.claimSeat(author.userId, "ab-edm_strth");
 
     const seat = await w.services.geoStore.getOfficialSeatByHandle("ab-edm_strth");
-    expect(seat?.claimedUserHandle).to.equal("naheed_nenshi");
+    expect(seat?.claimedUserHandle).to.equal("rae_nguyen");
 
     const membership = await w.services.repos.membership.get(author.userId, AB);
     expect(membership?.role).to.equal("official");
@@ -43,7 +43,7 @@ describe("36 official seat claim", () => {
 
     const res = await w.app.inject({
       method: "GET",
-      url: "/v1/public/profiles/naheed_nenshi",
+      url: "/v1/public/profiles/rae_nguyen",
     });
     expect(res.statusCode).to.equal(200, res.body);
     const body = res.json() as { role: string; official: boolean };
@@ -52,7 +52,7 @@ describe("36 official seat claim", () => {
   });
 
   it("rejects claiming a seat already held by another user", async () => {
-    const first = await makeAccount(w, { handle: "naheed_nenshi" });
+    const first = await makeAccount(w, { handle: "rae_nguyen" });
     const second = await makeAccount(w, { handle: "other_mla" });
     await w.services.officialSeatClaimService.claimSeat(first.userId, "ab-edm_strth");
 

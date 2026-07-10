@@ -64,6 +64,6 @@ export const abCaGov: JurisdictionConfig = {
     "Petitions: residency-verified authors only.",
     "Polls: officials only (or via petition→poll graduation).",
     "Verified actions are written on-ledger.",
-    "Official counts: residency-verified electors only.",
+    "Platform counts: residency-verified residents only.",
   ],
 };
