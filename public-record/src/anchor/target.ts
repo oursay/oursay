@@ -23,6 +23,10 @@ export function everyNBlocks(n: number): AnchorPublishPolicy {
  *
  * All `fetch*` reads model an auditor obtaining artifacts independently of the platform API.
  * Implementations MUST fail loudly on an inconsistent target rather than silently re-anchor.
+ *
+ * Startup catch-up (`AnchorPublisher.catchUp`) compares the target tip's `bundleMerkleRoot` at
+ * height H to the platform header at H before appending; a mismatch throws and must be repaired
+ * via fork / wipe / redeploy — never by rewriting the tip in place.
  */
 export interface AnchorTarget {
   /** This target's publish cadence (consulted by AnchorPublisher.maybePublish). */

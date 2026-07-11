@@ -109,6 +109,18 @@ describe("11 settlement cadence: count/age triggers, per-target publish cadence,
     expect(verifyChain([anchor1, anchor2], chainId).ok, "chain intact end to end").to.equal(true);
   });
 
+  it("catchUp ignores everyNBlocks cadence (maybePublish still gated)", async () => {
+    const { svc, settler, publisher } = await freshChainWorld(cadenceCfg);
+    const { target } = freshTarget(); // everyNBlocks(2)
+
+    await makePosts(svc, 2);
+    await settler.settleBlock({ capturedAt: "2026-06-16T00:00:00.000Z" });
+
+    expect(await publisher.maybePublish(target), "cadence still blocks").to.deep.equal([]);
+    expect(await publisher.catchUp(target), "catch-up force-publishes the single gap").to.deep.equal([1]);
+    expect((await target.fetchLatestAnchor())!.blockHeight).to.equal(1);
+  });
+
   it("re-evaluating with no new pending settles nothing (idempotent tick)", async () => {
     const { chainId, svc, settler } = await freshChainWorld(cadenceCfg);
     const now = Date.now();

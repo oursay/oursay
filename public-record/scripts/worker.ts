@@ -66,6 +66,8 @@ async function main(): Promise<void> {
     log: console,
   });
 
+  // catchUpAll runs inside run() before the tick loop (integrity failures are fatal).
+  // After Hardhat wipe + redeploy, restart this process so catch-up republishes to the new contract.
   const runPromise = worker.run();
 
   let shuttingDown = false;

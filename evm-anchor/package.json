@@ -11,6 +11,7 @@
     "test:mocha": "hardhat test mocha",
     "node": "hardhat node --hostname 0.0.0.0 --port 8545",
     "deploy:local": "hardhat compile && tsx scripts/deploy-local.ts",
+    "fork:chain": "hardhat compile && tsx scripts/fork-chain.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

@@ -27,6 +27,8 @@ export interface SettlerLike {
 /** The slice of AnchorPublisher the worker depends on. */
 export interface PublisherLike {
   maybePublish(target: AnchorTarget): Promise<number[]>;
+  /** Force catch-up (integrity + publish all gaps); no cadence gate. */
+  catchUp(target: AnchorTarget): Promise<number[]>;
 }
 
 /** One chain's settlement + anchoring wiring. The worker drives each runner independently. */
@@ -116,6 +118,27 @@ export class SettlementWorker {
     this.log = o.log ?? console;
   }
 
+  /**
+   * Reconcile every target to the platform tip before the steady-state loop.
+   * Throws on AnchorIntegrityError — not soft-swallowed (unlike {@link tick}).
+   * After Hardhat wipe + redeploy, restart the worker so this sees tip 0 and
+   * republishes settled headers to the fresh contract.
+   */
+  async catchUpAll(): Promise<void> {
+    for (const r of this.runners) {
+      for (const target of r.targets) {
+        const heights = await r.publisher.catchUp(target);
+        if (heights.length > 0) {
+          this.log.log(
+            `[worker] catch-up ${r.chainId} published block(s) ${JSON.stringify(heights)}`,
+          );
+        } else {
+          this.log.log(`[worker] catch-up ${r.chainId} target already at tip`);
+        }
+      }
+    }
+  }
+
   /** One pass over every chain: drain → publish → record trigger state. Never throws (per-chain catch). */
   async tick(): Promise<TickSummary> {
     const summary: TickSummary = { decisions: [], settled: [], published: [] };
@@ -185,6 +208,8 @@ export class SettlementWorker {
       `[worker] starting: ${this.runners.length} chain(s) [${this.runners.map((r) => r.chainId).join(", ")}], ` +
         `maxIdle=${this.maxIdleMs}ms minInterval=${this.minIntervalMs}ms`,
     );
+    // Outside the per-tick soft catch so integrity failures exit the process.
+    await this.catchUpAll();
     while (!this.stopped) {
       const summary = await this.tick();
       if (this.stopped) break;

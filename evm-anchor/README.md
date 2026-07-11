@@ -23,3 +23,23 @@ npm run deploy:local -w @oursay/evm-anchor
 ```
 
 Compiled with solc 0.8.28, no optimizer / viaIR.
+
+## Catch-up and integrity (ops)
+
+Hardhat’s in-memory chain is wiped on every `evm` restart; each `deploy:local` writes a **fresh** contract while immudb keeps settled blocks. The settlement worker runs `catchUp` once per target on startup: if the target tip is empty it republishes all settled headers; if tip height H > 0 it compares `bundleMerkleRoot` at H to the platform header and throws `AnchorIntegrityError` on mismatch (no silent rewrite, no auto-fork).
+
+After wipe + redeploy, **restart the worker** so catch-up sees tip height 0 and restores the on-chain tip. Compose profile `worker` already sequences `evm-deploy` then worker.
+
+### Fork recovery (explicit)
+
+If integrity fails at height H, fork at the last **good** height (do not auto-fork from the worker):
+
+```powershell
+$env:FORK_SOURCE_CHAIN_ID = "ab-ca-gov"
+$env:FORK_AT_HEIGHT = "1"
+$env:FORK_NEW_CHAIN_ID = "ab-ca-gov-fork"
+$env:FORK_REASON = "repair after integrity mismatch"
+npm run fork:chain -w @oursay/evm-anchor
+```
+
+String chain ids are mapped on-chain with `ethers.id` (keccak256 of UTF-8). File targets: wipe or restore from a known-good snapshot, then restart the worker for catch-up.

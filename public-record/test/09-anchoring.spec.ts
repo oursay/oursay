@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect } from "chai";
+import { AnchorIntegrityError } from "../src/anchor/errors.js";
 import { FileAnchorTarget } from "../src/anchor/file.target.js";
 import { everyNBlocks } from "../src/anchor/target.js";
 import {
@@ -295,5 +296,48 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
     writeFileSync(blockPath, JSON.stringify(bundle));
 
     expect(await rejects(target.fetchBundle(1))).to.equal(true);
+  });
+
+  it("catchUp backfills an empty target with all settled heights (no cadence gate)", async () => {
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 2);
+    await settler.settleBlock({ capturedAt: T });
+    await makePosts(svc, 2);
+    await settler.settleBlock({ capturedAt: T });
+    await makePosts(svc, 1);
+    await settler.settleBlock({ capturedAt: T });
+
+    const { target } = freshTarget();
+    expect(await publisher.catchUp(target)).to.deep.equal([1, 2, 3]);
+    expect((await target.listAnchors()).map((a) => a.blockHeight)).to.deep.equal([1, 2, 3]);
+  });
+
+  it("catchUp throws AnchorIntegrityError when tip root mismatches the platform header", async () => {
+    const { chainId, svc, settler, publisher } = await chain();
+    await makePosts(svc, 2);
+    await settler.settleBlock({ capturedAt: T });
+    const { dir, target } = freshTarget();
+    await publisher.publish(target);
+
+    const good = (await target.fetchAnchor(1))!;
+    const badRoot = "ab".repeat(32);
+    expect(badRoot).to.not.equal(good.bundleMerkleRoot);
+
+    // Corrupt tip root in anchors.jsonl only (fetchAnchor reads the line; block file still exists).
+    const corrupted = { ...good, bundleMerkleRoot: badRoot };
+    writeFileSync(join(dir, "anchors.jsonl"), canonicalJson(corrupted) + "\n");
+
+    try {
+      await publisher.catchUp(target);
+      expect.fail("expected AnchorIntegrityError");
+    } catch (err) {
+      expect(err).to.be.instanceOf(AnchorIntegrityError);
+      const e = err as AnchorIntegrityError;
+      expect(e.chainId).to.equal(chainId);
+      expect(e.height).to.equal(1);
+      expect(e.expectedRoot).to.equal(good.bundleMerkleRoot);
+      expect(e.actualRoot).to.equal(badRoot);
+      expect(e.targetKind).to.equal("FileAnchorTarget");
+    }
   });
 });

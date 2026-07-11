@@ -17,7 +17,7 @@ import {
   type Sleeper,
   SettlementWorker,
 } from "../src/worker/settlement-worker.js";
-import { freshChainWorld, getWorld } from "./helpers/world.js";
+import { freshChainWorld, getWorld, rejects } from "./helpers/world.js";
 
 const silent = { log() {}, error() {} };
 
@@ -47,12 +47,17 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       };
     }
 
-    function fakePublisher(): PublisherLike & { calls: number } {
+    function fakePublisher(): PublisherLike & { calls: number; catchUpCalls: number } {
       return {
         calls: 0,
+        catchUpCalls: 0,
         async maybePublish() {
           this.calls++;
           return [1];
+        },
+        async catchUp() {
+          this.catchUpCalls++;
+          return [];
         },
       };
     }
@@ -100,6 +105,36 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       const summary = await worker.tick();
       expect(summary.settled.map((s) => s.chainId)).to.deep.equal(["good"]);
       expect(summary.decisions.map((d) => d.chainId)).to.deep.equal(["bad", "good"]); // both scheduled
+    });
+
+    it("catchUpAll invokes catchUp per target and propagates integrity failures", async () => {
+      const pA = fakePublisher();
+      const pB = fakePublisher();
+      pB.catchUp = async () => {
+        pB.catchUpCalls++;
+        throw new Error("integrity boom");
+      };
+      const runners: ChainRunner[] = [
+        {
+          chainId: "chain-a",
+          settler: fakeSettler(0),
+          publisher: pA,
+          targets: [{} as never],
+          blockConfig: workerCfg,
+        },
+        {
+          chainId: "chain-b",
+          settler: fakeSettler(0),
+          publisher: pB,
+          targets: [{} as never, {} as never],
+          blockConfig: workerCfg,
+        },
+      ];
+      const worker = new SettlementWorker({ runners, maxIdleMs: 60_000, minIntervalMs: 1_000, log: silent });
+
+      expect(await rejects(worker.catchUpAll())).to.equal(true);
+      expect(pA.catchUpCalls).to.equal(1);
+      expect(pB.catchUpCalls).to.equal(1); // failed on first of two targets
     });
   });
 
@@ -162,14 +197,21 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
     const runner: ChainRunner = {
       chainId: "c",
       settler,
-      publisher: { async maybePublish() { return []; } },
+      publisher: {
+        async maybePublish() {
+          return [];
+        },
+        async catchUp() {
+          return [];
+        },
+      },
       targets: [] as never[],
       blockConfig: workerCfg,
     };
     const worker = new SettlementWorker({ runners: [runner], maxIdleMs: 60_000, minIntervalMs: 1_000, sleeper, log: silent });
 
     const done = worker.run();
-    // Let the first tick complete and reach the sleep.
+    // Let catchUpAll + the first tick complete and reach the sleep.
     await new Promise((r) => setTimeout(r, 0));
     expect(sleeps, "ran a tick then slept").to.equal(1);
 
