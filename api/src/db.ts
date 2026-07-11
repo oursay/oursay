@@ -41,13 +41,15 @@ export class Db {
   /** Wipe auth + account rows for test isolation. Guarded: refuses under NODE_ENV=production.
    *  `public.users CASCADE` also clears the civic identity tables that FK it (device_keys,
    *  thread_keys/bindings/signers, kyc/nullifier attestations); the record pool (record_tx /
-   *  record_outbox) has no FK to users, so it's truncated explicitly. */
+   *  record_outbox) has no FK to users, so it's truncated explicitly. mention_map must be
+   *  truncated too — unresolved rows (NULL user) are not CASCADE-cleared via users alone. */
   async reset(): Promise<void> {
     assertDestructiveAllowed("Db.reset()");
     await this.pool.query(
       `TRUNCATE auth.otp_rate_limits, auth.kyc_sessions, auth.email_otp, auth.sessions, auth.webauthn_challenges,
                auth.passkey_credentials, auth.profile_geocode_history, auth.profile_geocodes, auth.profiles,
                geo.regions, geo.districts,
+               public.mention_index, public.mention_map,
                public.record_outbox, public.record_tx, public.users CASCADE`,
     );
   }

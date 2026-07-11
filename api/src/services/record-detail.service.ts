@@ -23,10 +23,11 @@ import {
 } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 import { countExposure } from "./count-exposure.js";
-import type { AuthorGeoRelation, AuthorIdentityDto, IdentityReadService, ReadResolution, ThreadGeoContext } from "./identity-read.service.js";
+import type { AuthorGeoRelation, AuthorIdentityDto, IdentityReadService, MentionsMap, ReadResolution, ThreadGeoContext } from "./identity-read.service.js";
 import type { ApiViewer } from "./viewer-context.service.js";
 import type { KycTier } from "../types/kyc.js";
 import { ViewerState, type MyReaction } from "./viewer-state.service.js";
+import { resolveContentMentions } from "../helpers/resolve-mentions.js";
 
 const ROOT_TYPES = ["post", "petition", "poll", "result"] as const;
 type RootType = (typeof ROOT_TYPES)[number];
@@ -49,6 +50,8 @@ export interface RecordDetailDto {
   title: string;
   body: string[];
   withheld: boolean;
+  /** Opaque mention token → server-resolved display/kind/route (absent when no tokens). */
+  mentions?: MentionsMap;
   ts: string;
   edits: number;
 
@@ -87,6 +90,8 @@ export interface CommentNodeDto {
   down: number;
   _my?: MyReaction;
   identity: AuthorIdentityDto;
+  /** Opaque mention token → server-resolved display/kind/route (absent when no tokens). */
+  mentions?: MentionsMap;
   replies: CommentNodeDto[];
 }
 
@@ -171,6 +176,11 @@ export class RecordDetailService {
       edits: editCounts.get(root.entityId) ?? 0,
     };
 
+    if (!view.withheld) {
+      const mentions = await resolveContentMentions(this.d.recordStore, res, ctx, view.content);
+      if (mentions) dto.mentions = mentions;
+    }
+
     if (type === "post" || type === "result") {
       const [up, down] = await this.reactionUpDown(root.entityId);
       dto.up = up;
@@ -253,7 +263,8 @@ export class RecordDetailService {
     const author = await res.resolveAuthor(node.state.authorPubkey, ctx);
     const [up, down] = await this.reactionUpDown(node.state.entityId);
     const replies = await Promise.all(node.replies.map((r) => this.mapComment(r, res, ctx, my, editCounts)));
-    return {
+    const body = view.withheld ? [] : paras(commentBody(view.content));
+    const dto: CommentNodeDto = {
       id: node.state.entityId,
       author: author.author,
       handle: author.handle,
@@ -263,7 +274,7 @@ export class RecordDetailService {
       ts: node.state.createdAt,
       edits: editCounts.get(node.state.entityId) ?? 0,
       signTier: node.state.signTier,
-      body: view.withheld ? [] : paras(commentBody(view.content)),
+      body,
       withheld: view.withheld,
       up,
       down,
@@ -271,6 +282,11 @@ export class RecordDetailService {
       identity: author.identity,
       replies,
     };
+    if (!view.withheld) {
+      const mentions = await resolveContentMentions(this.d.recordStore, res, ctx, view.content);
+      if (mentions) dto.mentions = mentions;
+    }
+    return dto;
   }
 
   private async reactionUpDown(entityId: string): Promise<[number, number]> {

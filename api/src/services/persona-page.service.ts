@@ -9,6 +9,7 @@ import {
   type PrivateStore,
 } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
+import { resolveContentMentions } from "../helpers/resolve-mentions.js";
 import type { AuthorIdentityDto, IdentityReadService, ReadResolution, ThreadGeoContext } from "./identity-read.service.js";
 import type { CommentNodeDto } from "./record-detail.service.js";
 import { rootTitleOf, type ActivityItemDto, type ProfilePageService, type ProfileSupportDto } from "./profile-page.service.js";
@@ -131,7 +132,7 @@ export class PersonaPageService {
     const view = toPublicView(node.state);
     const author = await res.resolveAuthor(node.state.authorPubkey, ctx);
     const [up, down] = await this.reactionUpDown(node.state.entityId);
-    return {
+    const dto: CommentNodeDto = {
       id: node.state.entityId,
       author: author.author,
       handle: author.handle,
@@ -148,6 +149,11 @@ export class PersonaPageService {
       identity: author.identity,
       replies: [],
     };
+    if (!view.withheld) {
+      const mentions = await resolveContentMentions(this.d.recordStore, res, ctx, view.content);
+      if (mentions) dto.mentions = mentions;
+    }
+    return dto;
   }
 
   private async reactionUpDown(entityId: string): Promise<[number, number]> {

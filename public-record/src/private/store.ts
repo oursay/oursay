@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { assertDestructiveAllowed } from "../../../scripts/destructive-guard.js";
 import type { PgConfig } from "../config.js";
-import { personaNameForPubkey } from "../identity/persona-name.js";
+import { personaNameForPubkey, randomReservedLabelCandidate } from "../identity/persona-name.js";
 import type { ChainRow } from "../ledger/connector.js";
 import { POSTGRES_DDL } from "../schema/postgres.sql.js";
 import type { Op, RecordType } from "../schema/types.js";
@@ -17,6 +17,16 @@ export interface ThreadBindingRow {
   kycTier: string | null;
   commitment: string;
   bindingSig: string;
+}
+
+/** One `mention_map` row (docs/entities/civic-identity/mention-node.md). */
+export interface MentionMapRow {
+  nodeId: string;
+  threadId: string;
+  /** Null when unresolved (display Someone). */
+  mentionedUserId: string | null;
+  reservedLabel: string;
+  createdAt: string;
 }
 
 /** A full event-log row (the private, mutable record of one transaction). */
@@ -210,8 +220,9 @@ export class PrivateStore {
   /** Wipe all rows (test isolation). immudb is append-only and is never reset. */
   async reset(): Promise<void> {
     assertDestructiveAllowed("PrivateStore.reset()");
+    // mention_map first: unresolved rows (NULL user) are not CASCADE-cleared via users alone.
     await this.pool.query(
-      "TRUNCATE record_outbox, record_tx, thread_signers, thread_civic_credentials, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users CASCADE",
+      "TRUNCATE mention_index, mention_map, record_outbox, record_tx, thread_signers, thread_civic_credentials, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users CASCADE",
     );
   }
 
@@ -1242,6 +1253,121 @@ export class PrivateStore {
     return r.rows[0]?.persona_name ?? null;
   }
 
+  // ── Mention nodes (mention_map / mention_index) ─────────────────────────────────────────
+
+  /**
+   * Related mention: one stable node per `(threadId, userId)`. Mints a random soft-mode reserved
+   * label with collision retry against `mention_map.reserved_label` + `thread_keys.persona_name`.
+   * Idempotent — concurrent allocates converge via the partial unique index.
+   */
+  async allocateOrGet(threadId: string, userId: string): Promise<{ nodeId: string; reservedLabel: string }> {
+    const existing = await this.getRelatedMention(threadId, userId);
+    if (existing) return { nodeId: existing.nodeId, reservedLabel: existing.reservedLabel };
+
+    for (let digits = 2; digits <= 8; digits++) {
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const reservedLabel = randomReservedLabelCandidate(digits);
+        if (await this.reservedLabelTaken(reservedLabel)) continue;
+        const nodeId = randomUUID();
+        try {
+          await this.pool.query(
+            `INSERT INTO mention_map(node_id, thread_id, mentioned_user_id, reserved_label)
+             VALUES ($1, $2, $3, $4)`,
+            [nodeId, threadId, userId, reservedLabel],
+          );
+          return { nodeId, reservedLabel };
+        } catch (err) {
+          // Concurrent related allocate won the partial unique — return their row.
+          if (isUniqueViolation(err)) {
+            const raced = await this.getRelatedMention(threadId, userId);
+            if (raced) return { nodeId: raced.nodeId, reservedLabel: raced.reservedLabel };
+            continue; // label collision race; retry with a fresh candidate
+          }
+          throw err;
+        }
+      }
+    }
+    // Astronomically unlikely; fall back to an unambiguous unique label.
+    const reservedLabel = `Mention${randomUUID().replace(/-/g, "").slice(0, 12)}`;
+    const nodeId = randomUUID();
+    try {
+      await this.pool.query(
+        `INSERT INTO mention_map(node_id, thread_id, mentioned_user_id, reserved_label)
+         VALUES ($1, $2, $3, $4)`,
+        [nodeId, threadId, userId, reservedLabel],
+      );
+      return { nodeId, reservedLabel };
+    } catch (err) {
+      if (isUniqueViolation(err)) {
+        const raced = await this.getRelatedMention(threadId, userId);
+        if (raced) return { nodeId: raced.nodeId, reservedLabel: raced.reservedLabel };
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Unresolved mention: `mentioned_user_id` NULL, fixed display label `Someone`. Each call inserts
+   * a fresh non-correlatable node (multiple NULLs per thread are allowed).
+   */
+  async allocateUnresolved(threadId: string): Promise<{ nodeId: string }> {
+    const nodeId = randomUUID();
+    await this.pool.query(
+      `INSERT INTO mention_map(node_id, thread_id, mentioned_user_id, reserved_label)
+       VALUES ($1, $2, NULL, 'Someone')`,
+      [nodeId, threadId],
+    );
+    return { nodeId };
+  }
+
+  /** Batch lookup for read resolve / submit index. Missing ids are omitted. */
+  async getMentionMapByNodeIds(ids: string[]): Promise<Map<string, MentionMapRow>> {
+    const out = new Map<string, MentionMapRow>();
+    if (ids.length === 0) return out;
+    const r = await this.pool.query(
+      `SELECT node_id, thread_id, mentioned_user_id, reserved_label, created_at
+       FROM mention_map WHERE node_id = ANY($1::uuid[])`,
+      [ids],
+    );
+    for (const row of r.rows) {
+      const mapped = mapMentionMapRow(row);
+      out.set(mapped.nodeId, mapped);
+    }
+    return out;
+  }
+
+  /** Post-submit Mentions-tab projection (related tokens only). Idempotent per (tx, user). */
+  async insertMentionIndex(rows: { txId: string; entityId: string; mentionedUserId: string }[]): Promise<void> {
+    for (const row of rows) {
+      await this.pool.query(
+        `INSERT INTO mention_index(tx_id, entity_id, mentioned_user_id)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (tx_id, mentioned_user_id) DO NOTHING`,
+        [row.txId, row.entityId, row.mentionedUserId],
+      );
+    }
+  }
+
+  private async getRelatedMention(threadId: string, userId: string): Promise<MentionMapRow | null> {
+    const r = await this.pool.query(
+      `SELECT node_id, thread_id, mentioned_user_id, reserved_label, created_at
+       FROM mention_map WHERE thread_id = $1 AND mentioned_user_id = $2`,
+      [threadId, userId],
+    );
+    return r.rows[0] ? mapMentionMapRow(r.rows[0]) : null;
+  }
+
+  private async reservedLabelTaken(label: string): Promise<boolean> {
+    const r = await this.pool.query(
+      `SELECT 1 FROM mention_map WHERE reserved_label = $1
+       UNION ALL
+       SELECT 1 FROM thread_keys WHERE persona_name = $1
+       LIMIT 1`,
+      [label],
+    );
+    return r.rows.length > 0;
+  }
+
   /** Set (or clear with null) the caller's per-thread visibility OVERRIDE (C4). Keyed by the
    *  caller's own (user, thread) binding; returns false when the user has no persona in the thread. */
   async setThreadVisibility(userId: string, threadId: string, visibility: string | null): Promise<boolean> {
@@ -1467,4 +1593,19 @@ function mapStoredTx(row: pg.QueryResultRow): StoredTx {
     redactedAt: row.redacted_at ? new Date(row.redacted_at).toISOString() : null,
     erasedAt: row.erased_at ? new Date(row.erased_at).toISOString() : null,
   };
+}
+
+function mapMentionMapRow(row: pg.QueryResultRow): MentionMapRow {
+  return {
+    nodeId: row.node_id,
+    threadId: row.thread_id,
+    mentionedUserId: row.mentioned_user_id ?? null,
+    reservedLabel: row.reserved_label,
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+  };
+}
+
+/** Postgres unique_violation (23505) — partial unique races on related allocate. */
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err != null && (err as { code?: string }).code === "23505";
 }

@@ -10,7 +10,7 @@
 
 import type { CommentContent, PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
 import type { IdentitySession } from "./session.js";
-import type { Intent, JoinThreadResponse, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
+import type { Intent, JoinThreadResponse, MentionCandidate, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
 
 export type ThreadPasskeyPhase = "creating" | "signing";
 
@@ -127,11 +127,13 @@ export class CivicHttpClient {
     return this.session.personaDisplayName(t);
   }
 
-  /** Prepare an append: fetch the server-derived fields the client must sign over. */
-  async prepare(t: ThreadRef, intent: Intent): Promise<PreparedAppend> {
+  /** Prepare an append: fetch the server-derived fields the client must sign over.
+   *  Optional `mentions` allocates mention nodes near sign (returned as `prep.mentionNodes`). */
+  async prepare(t: ThreadRef, intent: Intent, mentions?: MentionCandidate[]): Promise<PreparedAppend> {
     return this.request<PreparedAppend>("POST", "/v1/civic/appends/prepare", {
       author: this.session.personaPubkey(t),
       intent,
+      ...(mentions?.length ? { mentions } : {}),
     });
   }
 

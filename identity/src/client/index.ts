@@ -31,6 +31,8 @@ export type {
   CreateIntent,
   MutateIntent,
   PreparedAppend,
+  MentionCandidate,
+  MentionNodeRef,
   SignedSubmission,
   SignMode,
   DeviceEnrollment,

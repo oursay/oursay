@@ -238,17 +238,17 @@ CREATE INDEX IF NOT EXISTS mention_index_entity ON mention_index (entity_id);
 | Layer | Path | Status |
 |-------|------|--------|
 | Entity doc | `docs/entities/civic-identity/mention-node.md` | this file |
-| DDL | `public-record/src/schema/postgres.sql.ts` | proposed / landed empty tables |
-| Token codec | `@oursay/encode` (build/parse helpers) | target Slice 1 follow-on |
-| Content validation | `public-record/src/schema/content.ts` (optional well-formed token check) | target |
-| Allocate on prepare | `api` + `identity` `PreparedAppend` | Slice 2 |
-| Resolve + read DTO | `IdentityReadService` + feed/detail | Slice 2 |
+| DDL | `public-record/src/schema/postgres.sql.ts` | landed |
+| Token codec | `@oursay/encode` (`buildMentionToken` / `parseMentionTokens`) | Slice 2 |
+| Store allocate / index | `PrivateStore` allocateOrGet / allocateUnresolved / getMentionMapByNodeIds / insertMentionIndex | Slice 2 |
+| Allocate on prepare | `CivicRecordService.prepare` + `PreparedAppend.mentionNodes` | Slice 2 |
+| Resolve + read DTO | `IdentityReadService.resolveMention` + feed/detail `mentions` | Slice 2 |
 | Compose embed | `web-app` + `identity` session build | Slice 3 |
 | Mentions tabs | profile/persona APIs; drop `DEFERRED_MENTIONS` | Slice 4 |
 
 ## Gaps
 
-- **Store methods + prepare/submit wiring** — Slice 2+.
+- **Compose embed / chip render** — Slice 3.
 - **Official always-public mention special-case** — deferred V1; see [future.md](./future.md).
 - **Compose helpers dropdown** — makes unauthorized → `Someone` obvious at chip time (future UX).
 - **Typeahead privacy** — compose must not leak existence of fully anonymous accounts; prefer thread roster + already-public handles (product policy for Slice 3).

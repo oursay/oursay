@@ -10,25 +10,10 @@ import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
 import { KYC_TIERS } from "../../types/kyc.js";
 import { errorSchema } from "../schemas.js";
+import { identitySchema, mentionsMapSchema } from "./public-page.schemas.js";
 
 const ROOT_TYPES = ["post", "petition", "poll", "result"] as const;
 const AUTHOR_GEO = ["none", "home", "affected", "jurisdiction"] as const;
-
-const identitySchema = {
-  type: "object",
-  description:
-    "Viewer-resolved author identity: real name/handle iff the author's effective visibility admits this viewer; the per-thread persona otherwise (handle null — never leaked). Self resolves revealed, with a seenByOthersAs hint when not public.",
-  properties: {
-    display: { type: "string" },
-    handle: { type: "string", nullable: true },
-    isPersona: { type: "boolean" },
-    isSelf: { type: "boolean" },
-    seed: { type: "string" },
-    threadId: { type: "string" },
-    seenByOthersAs: { type: "string" },
-  },
-  required: ["display", "handle", "isPersona", "isSelf", "seed", "threadId"],
-} as const;
 
 const authorGeoSchema = {
   type: "string",
@@ -73,6 +58,7 @@ const commentNodeSchema = {
     down: { type: "integer" },
     _my: myReactionSchema,
     identity: identitySchema,
+    mentions: mentionsMapSchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
   required: ["id", "author", "handle", "tier", "official", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
@@ -97,6 +83,7 @@ const detailSchema = {
     title: { type: "string" },
     body: { type: "array", items: { type: "string" } },
     withheld: { type: "boolean" },
+    mentions: mentionsMapSchema,
     ts: { type: "string" },
     edits: { type: "integer" },
     up: { type: "integer" },

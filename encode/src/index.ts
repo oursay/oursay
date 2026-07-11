@@ -44,3 +44,11 @@ export {
   formatThreadPasskeyDisplayName,
   formatThreadPasskeyUserName,
 } from "./passkey-labels.js";
+
+export {
+  MENTION_TOKEN_RE,
+  buildMentionToken,
+  collectMentionNodeIds,
+  parseMentionTokens,
+} from "./mention-token.js";
+export type { ParsedMentionToken } from "./mention-token.js";

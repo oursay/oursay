@@ -25,8 +25,9 @@ import {
 import { countExposure } from "./count-exposure.js";
 import { kycRank } from "./viewer-context.service.js";
 import type { ApiViewer } from "./viewer-context.service.js";
-import type { AuthorGeoRelation, AuthorIdentityDto, IdentityReadService, ReadResolution } from "./identity-read.service.js";
+import type { AuthorGeoRelation, AuthorIdentityDto, IdentityReadService, MentionsMap, ReadResolution } from "./identity-read.service.js";
 import type { KycTier } from "../types/kyc.js";
+import { resolveContentMentions } from "../helpers/resolve-mentions.js";
 
 export const ROOT_TYPES = ["post", "petition", "poll", "result"] as const;
 export type RootType = (typeof ROOT_TYPES)[number];
@@ -69,6 +70,8 @@ export interface FeedItemDto {
   body: string[];
   /** True when the content is redacted/erased (title/body empty; the row remains provably present). */
   withheld: boolean;
+  /** Opaque mention token → server-resolved display/kind/route (absent when no tokens). */
+  mentions?: MentionsMap;
 
   up?: number;
   down?: number;
@@ -166,7 +169,7 @@ export class PublicFeedService {
       jurisdiction,
       affectedDistricts: appliesToDistrictIds,
     });
-    return { jurisdiction, appliesToDistrictIds, author };
+    return { jurisdiction, appliesToDistrictIds, author, res };
   }
 
   private async toDto(
@@ -196,6 +199,20 @@ export class PublicFeedService {
       edits: editCounts.get(row.entityId) ?? 0,
       ts: row.firstCreatedAt,
     };
+
+    if (!view.withheld) {
+      const mentions = await resolveContentMentions(
+        this.d.recordStore,
+        r.res,
+        {
+          threadId: row.entityId,
+          jurisdiction: r.jurisdiction,
+          affectedDistricts: r.appliesToDistrictIds,
+        },
+        view.content,
+      );
+      if (mentions) dto.mentions = mentions;
+    }
 
     if (type === "post" || type === "result") {
       const reactions = await this.d.recordStore.getReactionCountsByEntity(row.entityId);
@@ -234,6 +251,7 @@ interface Resolved {
   jurisdiction: string;
   appliesToDistrictIds: string[];
   author: Awaited<ReturnType<ReadResolution["resolveAuthor"]>>;
+  res: ReadResolution;
 }
 
 function parseCursor(cursor: string | undefined): number | undefined {

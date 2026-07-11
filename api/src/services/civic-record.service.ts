@@ -13,14 +13,26 @@
 // The RecordService underneath re-verifies the assertion/signature, binding, and floor policy.
 
 import type { IdentityRegistry } from "@oursay/identity/server";
-import type { Intent, JoinThreadResponse, PreparedAppend, SignedSubmission } from "@oursay/identity";
+import type {
+  Intent,
+  JoinThreadResponse,
+  MentionCandidate,
+  MentionNodeRef,
+  PreparedAppend,
+  SignedSubmission,
+} from "@oursay/identity";
 import { actionForType, isRootType, opAllowed, requiredSignScheme, rulesOf } from "@oursay/public-record";
 import type { Op, PrivateStore, RecordType, Ref, TxEnvelope } from "@oursay/public-record";
 import type { GeoStore, RegionResolver } from "@oursay/geo";
 import { ServiceError } from "../errors.js";
+import { contentMentionNodeIds } from "../helpers/mentions.js";
+import { normalizeHandle } from "../helpers/handle.js";
+import type { UserRepo } from "../repo/user.repo.js";
 import type { GateService } from "./gate.service.js";
+import type { IdentityReadService } from "./identity-read.service.js";
 import type { KycService } from "./kyc.service.js";
 import type { ParticipantGeoService } from "./participant-geo.service.js";
+import type { ViewerContextService } from "./viewer-context.service.js";
 
 /** Compressed-or-uncompressed SEC1 P-256 point, lowercase hex (33 or 65 bytes → 66 or 130 chars). */
 const PUBKEY_HEX = /^(02|03)[0-9a-f]{64}$|^04[0-9a-f]{128}$/;
@@ -55,6 +67,8 @@ export interface PrepareInput {
   /** The thread persona pubkey the action is authored as (must belong to the caller). */
   author: string;
   intent: Intent;
+  /** Optional mention candidates to allocate near sign (order preserved in `mentionNodes`). */
+  mentions?: MentionCandidate[];
 }
 
 export interface SubmitInput {
@@ -76,6 +90,12 @@ export interface CivicRecordServiceDeps {
   regionResolver: RegionResolver;
   /** District slug → effective revision resolution for the entity_audience projection. */
   geoStore: GeoStore;
+  /** Profile handle → userId for profile-@ candidates. */
+  userRepo: UserRepo;
+  /** Commenter's viewer context for profileVisible relate gate. */
+  viewerContextService: ViewerContextService;
+  /** profileVisible for profile-@ authorization at prepare. */
+  identityReadService: IdentityReadService;
 }
 
 export class CivicRecordService {
@@ -114,11 +134,14 @@ export class CivicRecordService {
 
   /**
    * Compute the server-derived fields the client must sign over for a civic intent. The persona the
-   * action is authored as must belong to the caller (registered via a prior join).
+   * action is authored as must belong to the caller (registered via a prior join). When `mentions`
+   * are supplied, allocates mention nodes against `rootEntityId` after prepare (near sign) and
+   * returns them as `mentionNodes` for the client to embed before contentHash.
    */
   async prepare(input: PrepareInput): Promise<PreparedAppend> {
     const author = hexPubkey(input.author, "author");
     validateIntent(input.intent);
+    const mentions = normalizeMentions(input.mentions);
 
     const owner = await this.d.store.getThreadKey(author);
     if (!owner) throw new ServiceError("not_found", "Author persona is not registered (join the thread first)");
@@ -128,11 +151,17 @@ export class CivicRecordService {
     // is locked out BEFORE running a signing ceremony.
     await this.d.gateService.assertAct(input.userId, actionForType(input.intent.type as RecordType), owner.jurisdiction);
 
+    let prep: PreparedAppend;
     try {
-      return await this.d.registry.prepare(input.intent, author);
+      prep = await this.d.registry.prepare(input.intent, author);
     } catch (err) {
       throw asServiceError(err, "validation");
     }
+
+    if (mentions.length === 0) return prep;
+
+    const mentionNodes = await this.allocateMentions(input.userId, prep.rootEntityId, mentions);
+    return { ...prep, mentionNodes };
   }
 
   /**
@@ -194,14 +223,94 @@ export class CivicRecordService {
       throw asServiceError(err, "validation");
     }
 
-    // Post-submit projections (C6 relationship snapshot + entity_audience) are BEST-EFFORT: the tx
-    // is already pooled/appended, so a projection failure must never fail the accepted write.
+    // Post-submit projections (C6 relationship snapshot + entity_audience + mention_index) are
+    // BEST-EFFORT: the tx is already pooled/appended, so a projection failure must never fail the
+    // accepted write.
     try {
       await this.project(input.userId, envelope, persona.jurisdiction);
     } catch {
       /* read models tolerate a missing snapshot row (pre-W3 rows have none) */
     }
+    try {
+      await this.projectMentions(envelope.txId, input.submission.content);
+    } catch {
+      /* Mentions tabs tolerate a missing index row */
+    }
     return ref;
+  }
+
+  /**
+   * Apply relate rules and allocate mention nodes for prepare candidates.
+   * Persona-@ in this thread always relates; profile-@ only when the commenter may view the profile.
+   */
+  private async allocateMentions(
+    commenterUserId: string,
+    threadId: string,
+    mentions: MentionCandidate[],
+  ): Promise<MentionNodeRef[]> {
+    const viewer = await this.d.viewerContextService.resolve(commenterUserId);
+    const res = this.d.identityReadService.begin(viewer);
+    const out: MentionNodeRef[] = [];
+
+    for (const candidate of mentions) {
+      const relatedUserId = await this.relateCandidate(candidate, threadId, res);
+      if (relatedUserId) {
+        const { nodeId } = await this.d.store.allocateOrGet(threadId, relatedUserId);
+        out.push({ nodeId, userId: relatedUserId });
+      } else {
+        const { nodeId } = await this.d.store.allocateUnresolved(threadId);
+        out.push({ nodeId });
+      }
+    }
+    return out;
+  }
+
+  /** Resolve a candidate to a related user id, or null → unresolved (Someone). */
+  private async relateCandidate(
+    candidate: MentionCandidate,
+    threadId: string,
+    res: ReturnType<IdentityReadService["begin"]>,
+  ): Promise<string | null> {
+    if (candidate.kind === "persona") {
+      const name = candidate.personaName?.trim();
+      if (!name) return null;
+      const persona = await this.d.store.getPersonaByName(name);
+      if (!persona || persona.threadId !== threadId) return null;
+      const tk = await this.d.store.getThreadKey(persona.pubkey);
+      return tk?.userId ?? null;
+    }
+
+    // profile-@
+    let userId = candidate.userId?.trim() || null;
+    if (!userId && candidate.handle) {
+      const wire = normalizeHandle(candidate.handle);
+      if (wire) {
+        const user = await this.d.userRepo.getByHandle(wire);
+        userId = user?.id ?? null;
+      }
+    }
+    if (!userId) return null;
+    const exists = await this.d.userRepo.getById(userId);
+    if (!exists) return null;
+    if (!(await res.profileVisible(userId))) return null;
+    return userId;
+  }
+
+  /** Project mention_index for related tokens in committed content (ignore unknown / unresolved). */
+  private async projectMentions(txId: string, content: unknown): Promise<void> {
+    const nodeIds = contentMentionNodeIds(content);
+    if (nodeIds.length === 0) return;
+    const map = await this.d.store.getMentionMapByNodeIds(nodeIds);
+    const seen = new Set<string>();
+    const rows: { txId: string; entityId: string; mentionedUserId: string }[] = [];
+    for (const nodeId of nodeIds) {
+      const row = map.get(nodeId);
+      if (!row?.mentionedUserId) continue;
+      if (seen.has(row.mentionedUserId)) continue;
+      seen.add(row.mentionedUserId);
+      rows.push({ txId, entityId: row.threadId, mentionedUserId: row.mentionedUserId });
+    }
+    if (rows.length > 0) await this.d.store.insertMentionIndex(rows);
   }
 
   /** Write the per-tx relationship snapshot (record_action_geo) and, for a ROOT create carrying a
@@ -351,6 +460,32 @@ function validateIntent(intent: Intent): void {
   if (!opAllowed(intent.type as RecordType, intent.op as Op)) {
     throw new ServiceError("validation", `op '${intent.op}' is not allowed on a '${intent.type}'`);
   }
+}
+
+/** Validate and normalize optional prepare mention candidates (drop empty / malformed entries). */
+function normalizeMentions(raw: MentionCandidate[] | undefined): MentionCandidate[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  const out: MentionCandidate[] = [];
+  for (const c of raw) {
+    if (!c || typeof c !== "object") continue;
+    if (c.kind === "persona") {
+      const personaName = typeof c.personaName === "string" ? c.personaName.trim() : "";
+      if (!personaName) continue;
+      out.push({ kind: "persona", personaName });
+      continue;
+    }
+    if (c.kind === "profile") {
+      const userId = typeof c.userId === "string" ? c.userId.trim() : "";
+      const handle = typeof c.handle === "string" ? c.handle.trim() : "";
+      if (!userId && !handle) continue;
+      out.push({
+        kind: "profile",
+        ...(userId ? { userId } : {}),
+        ...(handle ? { handle } : {}),
+      });
+    }
+  }
+  return out;
 }
 
 /** Map a non-ServiceError thrown by the reused libraries to a ServiceError, preserving its message

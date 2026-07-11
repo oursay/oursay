@@ -19,6 +19,7 @@ export type {
   StoredTx,
   AppendTxInput,
   ThreadBindingRow,
+  MentionMapRow,
 } from "./private/store.js";
 export { PublicChain, txHashOf } from "./ledger/chain.js";
 
@@ -56,7 +57,7 @@ export {
 export { DEFAULT_CONTENT_LIMITS, DEFAULT_GATES, DEFAULT_LABELS, actionForType, gateFor, getJurisdiction, registerJurisdiction, requiredSignScheme } from "./jurisdiction.js";
 export type { ActionGate, GateActor, GatedAction, JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionGates, JurisdictionGraduation, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules, SignMethod } from "./jurisdiction.js";
 // Persona display names (minted at join; the persona page key)
-export { personaNameForPubkey } from "./identity/persona-name.js";
+export { personaNameForPubkey, randomReservedLabelCandidate } from "./identity/persona-name.js";
 
 // Projections (fold-on-read state)
 export { getThread, reactionTallies } from "./projection.js";

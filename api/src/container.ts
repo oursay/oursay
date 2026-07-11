@@ -277,19 +277,9 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     diditProvider: kycStack.diditProvider,
   });
 
-  // Per-action jurisdiction gates ([align-w3-gates-schema]) + the civic write service. Built here —
-  // after kyc/participant-geo — because gate resolution needs the caller's CURRENT tier, point, and
-  // role, and the write path projects the C6 relationship snapshot through the same seams.
+  // Per-action jurisdiction gates ([align-w3-gates-schema]). Built here — after kyc/participant-geo —
+  // because gate resolution needs the caller's CURRENT tier, point, and role.
   const gateService = new GateService({ kycService, participantGeoService, membershipRepo: repos.membership });
-  const civicRecordService = new CivicRecordService({
-    registry: identityRegistry,
-    store: recordStore,
-    gateService,
-    kycService,
-    participantGeoService,
-    regionResolver,
-    geoStore,
-  });
 
   // The public read surface resolves geo `scope` AND KYC `tier` on the count endpoints: regionResolver +
   // participantGeoService (region-first, current-point mode) for geo, and KycRepo (current tier, set
@@ -324,6 +314,22 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     geoStore,
     jurisdictions: [...jurisdictions],
   });
+
+  // Civic write path: after identity-read so prepare can apply profileVisible relate rules for
+  // mention candidates, and submit can project mention_index.
+  const civicRecordService = new CivicRecordService({
+    registry: identityRegistry,
+    store: recordStore,
+    gateService,
+    kycService,
+    participantGeoService,
+    regionResolver,
+    geoStore,
+    userRepo: repos.user,
+    viewerContextService,
+    identityReadService,
+  });
+
   const publicFeedService = new PublicFeedService({ recordStore, identityReadService });
   const recordDetailService = new RecordDetailService({ recordStore, identityReadService });
   const recordStateService = new RecordStateService({ recordStore });

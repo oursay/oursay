@@ -57,6 +57,28 @@ export interface PreparedAppend {
   rootEntityId: string;
   nullifierParentId?: string;
   nullifier?: string;
+  /**
+   * Mention nodes allocated for this prepare (order matches request `mentions`).
+   * `userId` is set when related; omitted when unresolved (Someone).
+   * Client embeds `<@base59(nodeId)>` into content before contentHash/sign (Slice 3).
+   */
+  mentionNodes?: MentionNodeRef[];
+}
+
+/**
+ * Prepare-time mention candidate. Persona-@ always relates when the name exists in this thread;
+ * profile-@ relates only when the commenter may view that profile (same gate as profile 404).
+ * Unknown / unauthorized → allocateUnresolved (Someone).
+ */
+export type MentionCandidate =
+  | { kind: "persona"; personaName: string }
+  | { kind: "profile"; userId?: string; handle?: string };
+
+/** One allocated mention node returned from prepare. */
+export interface MentionNodeRef {
+  nodeId: string;
+  /** Present when related; omitted when unresolved. */
+  userId?: string;
 }
 
 /** A client-built, device-signed submission ready for the server's `submit`. */

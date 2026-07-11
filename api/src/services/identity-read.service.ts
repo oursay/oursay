@@ -14,7 +14,12 @@
 // feed page tests each distinct author once, and nothing memoized outlives the request.
 
 import type { GeoStore } from "@oursay/geo";
-import { personaNameForPubkey, type JurisdictionConfig, type PrivateStore } from "@oursay/public-record";
+import {
+  personaNameForPubkey,
+  type JurisdictionConfig,
+  type MentionMapRow,
+  type PrivateStore,
+} from "@oursay/public-record";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
@@ -60,6 +65,21 @@ export interface ResolvedAuthor {
   /** Platform-assigned official role in the thread's jurisdiction (role, never a tier). */
   official: boolean;
 }
+
+/** Server-resolved mention display for read DTOs (client chips/links only — Slice 3). */
+export type MentionKind = "reserved" | "persona" | "profile";
+
+export interface ResolvedMention {
+  display: string;
+  kind: MentionKind;
+  /** Profile/persona path when linkable; omitted for reserved/Someone. */
+  route?: string;
+  isSelf: boolean;
+}
+
+/** nodeId → resolved mention metadata attached to feed/detail/comment DTOs. */
+export type MentionsMap = Record<string, ResolvedMention>;
+
 
 /** The record-side inputs for one thread's resolution. */
 export interface ThreadGeoContext {
@@ -180,6 +200,38 @@ export class ReadResolution {
       authorGeo,
       tier,
       official,
+    };
+  }
+
+  /**
+   * Resolve one mention_map row for read DTOs (mention-node.md):
+   *   NULL user → Someone (reserved); no Pₜ → reserved_label; else resolveAuthor(Pₜ).
+   */
+  async resolveMention(row: MentionMapRow, ctx: ThreadGeoContext): Promise<ResolvedMention> {
+    if (!row.mentionedUserId) {
+      return { display: "Someone", kind: "reserved", isSelf: false };
+    }
+
+    const pubkey = await this.d.recordStore.getThreadKeyByUserThread(row.mentionedUserId, row.threadId);
+    if (!pubkey) {
+      return { display: row.reservedLabel, kind: "reserved", isSelf: false };
+    }
+
+    const author = await this.resolveAuthor(pubkey, { ...ctx, threadId: row.threadId });
+    if (author.identity.isPersona) {
+      return {
+        display: author.identity.display,
+        kind: "persona",
+        route: `/persona/${encodeURIComponent(author.identity.display)}`,
+        isSelf: author.identity.isSelf,
+      };
+    }
+    const handle = author.identity.handle ?? author.handle;
+    return {
+      display: author.identity.display,
+      kind: "profile",
+      route: `/profile/${encodeURIComponent(handle)}`,
+      isSelf: author.identity.isSelf,
     };
   }
 

@@ -9,22 +9,7 @@ import type { Services } from "../../container.js";
 import { ROOT_TYPES, type FeedQuery } from "../../services/public-feed.service.js";
 import { KYC_TIERS } from "../../types/kyc.js";
 import { errorSchema } from "../schemas.js";
-
-const identitySchema = {
-  type: "object",
-  description:
-    "Viewer-resolved author identity (docs/09): real name/handle iff the author's effective visibility admits this viewer; the per-thread persona otherwise (handle null — never leaked). Self always resolves revealed, with a seenByOthersAs persona hint when not publicly visible.",
-  properties: {
-    display: { type: "string" },
-    handle: { type: "string", nullable: true, description: "Real @handle iff revealed or self; null for personas." },
-    isPersona: { type: "boolean" },
-    isSelf: { type: "boolean" },
-    seed: { type: "string", description: "Avatar seed: real handle when revealed, persona name otherwise." },
-    threadId: { type: "string" },
-    seenByOthersAs: { type: "string", description: "Self only, when own effective visibility is not public." },
-  },
-  required: ["display", "handle", "isPersona", "isSelf", "seed", "threadId"],
-} as const;
+import { identitySchema, mentionsMapSchema } from "./public-page.schemas.js";
 
 const optionTallySchema = {
   type: "object",
@@ -58,6 +43,7 @@ const feedItemSchema = {
     title: { type: "string" },
     body: { type: "array", items: { type: "string" }, description: "Paragraphs." },
     withheld: { type: "boolean", description: "Content redacted/erased — title/body empty, the row provably present." },
+    mentions: mentionsMapSchema,
     up: { type: "integer" },
     down: { type: "integer" },
     sig: { type: "integer", nullable: true, description: "Signature count; null when withheld/tier-gated by count policy." },

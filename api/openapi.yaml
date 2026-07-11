@@ -1834,6 +1834,34 @@ paths:
                     - type
                     - entityId
                   additionalProperties: false
+                mentions:
+                  type: array
+                  items:
+                    type: object
+                    description: Prepare-time mention candidate. persona = in-thread persona @
+                      (always relates when found); profile = handle/userId gated
+                      by profile visibility.
+                    properties:
+                      kind:
+                        type: string
+                        enum:
+                          - persona
+                          - profile
+                      personaName:
+                        type: string
+                        description: In-thread persona display name (kind=persona).
+                      userId:
+                        type: string
+                        description: Target user id (kind=profile).
+                      handle:
+                        type: string
+                        description: Profile handle without @ (kind=profile); resolved when userId
+                          omitted.
+                    required:
+                      - kind
+                    additionalProperties: false
+                  description: Optional mention candidates to allocate near sign (returned as
+                    mentionNodes).
               required:
                 - author
                 - intent
@@ -1867,6 +1895,23 @@ paths:
                     type: string
                   nullifier:
                     type: string
+                  mentionNodes:
+                    type: array
+                    description: Allocated mention nodes (order matches request mentions). Embed
+                      <@base59(nodeId)> into content before contentHash/sign.
+                      userId omitted when unresolved (Someone).
+                    items:
+                      type: object
+                      properties:
+                        nodeId:
+                          type: string
+                          description: mention_map.node_id (UUID v4).
+                        userId:
+                          type: string
+                          description: Related user id; omitted when unresolved.
+                      required:
+                        - nodeId
+                      additionalProperties: false
                 required:
                   - prevHash
                   - rootEntityId
@@ -4391,6 +4436,33 @@ paths:
                           type: boolean
                           description: Content redacted/erased — title/body empty, the row provably
                             present.
+                        mentions:
+                          type: object
+                          description: nodeId → resolved mention metadata. Absent when the content has no
+                            well-formed tokens.
+                          additionalProperties:
+                            type: object
+                            description: Server-resolved mention display for one opaque token
+                              (mention-node.md).
+                            properties:
+                              display:
+                                type: string
+                              kind:
+                                type: string
+                                enum:
+                                  - reserved
+                                  - persona
+                                  - profile
+                              route:
+                                type: string
+                                description: Profile/persona path when linkable; omitted for reserved/Someone.
+                              isSelf:
+                                type: boolean
+                            required:
+                              - display
+                              - kind
+                              - isSelf
+                            additionalProperties: false
                         up:
                           type: integer
                         down:
@@ -4591,6 +4663,33 @@ paths:
                           type: string
                       withheld:
                         type: boolean
+                      mentions:
+                        type: object
+                        description: nodeId → resolved mention metadata. Absent when the content has no
+                          well-formed tokens.
+                        additionalProperties:
+                          type: object
+                          description: Server-resolved mention display for one opaque token
+                            (mention-node.md).
+                          properties:
+                            display:
+                              type: string
+                            kind:
+                              type: string
+                              enum:
+                                - reserved
+                                - persona
+                                - profile
+                            route:
+                              type: string
+                              description: Profile/persona path when linkable; omitted for reserved/Someone.
+                            isSelf:
+                              type: boolean
+                          required:
+                            - display
+                            - kind
+                            - isSelf
+                          additionalProperties: false
                       ts:
                         type: string
                       edits:
@@ -4757,6 +4856,33 @@ paths:
                             - isSelf
                             - seed
                             - threadId
+                        mentions:
+                          type: object
+                          description: nodeId → resolved mention metadata. Absent when the content has no
+                            well-formed tokens.
+                          additionalProperties:
+                            type: object
+                            description: Server-resolved mention display for one opaque token
+                              (mention-node.md).
+                            properties:
+                              display:
+                                type: string
+                              kind:
+                                type: string
+                                enum:
+                                  - reserved
+                                  - persona
+                                  - profile
+                              route:
+                                type: string
+                                description: Profile/persona path when linkable; omitted for reserved/Someone.
+                              isSelf:
+                                type: boolean
+                            required:
+                              - display
+                              - kind
+                              - isSelf
+                            additionalProperties: false
                         replies:
                           type: array
                           items:
@@ -4907,6 +5033,33 @@ paths:
                             - isSelf
                             - seed
                             - threadId
+                        mentions:
+                          type: object
+                          description: nodeId → resolved mention metadata. Absent when the content has no
+                            well-formed tokens.
+                          additionalProperties:
+                            type: object
+                            description: Server-resolved mention display for one opaque token
+                              (mention-node.md).
+                            properties:
+                              display:
+                                type: string
+                              kind:
+                                type: string
+                                enum:
+                                  - reserved
+                                  - persona
+                                  - profile
+                              route:
+                                type: string
+                                description: Profile/persona path when linkable; omitted for reserved/Someone.
+                              isSelf:
+                                type: boolean
+                            required:
+                              - display
+                              - kind
+                              - isSelf
+                            additionalProperties: false
                         replies:
                           type: array
                           items:

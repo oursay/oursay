@@ -40,8 +40,36 @@ const preparedAppendSchema = {
     rootEntityId: { type: "string" },
     nullifierParentId: { type: "string" },
     nullifier: { type: "string" },
+    mentionNodes: {
+      type: "array",
+      description:
+        "Allocated mention nodes (order matches request mentions). Embed <@base59(nodeId)> into content before contentHash/sign. userId omitted when unresolved (Someone).",
+      items: {
+        type: "object",
+        properties: {
+          nodeId: { type: "string", description: "mention_map.node_id (UUID v4)." },
+          userId: { type: "string", description: "Related user id; omitted when unresolved." },
+        },
+        required: ["nodeId"],
+        additionalProperties: false,
+      },
+    },
   },
   required: ["prevHash", "rootEntityId"],
+} as const;
+
+const mentionCandidateSchema = {
+  type: "object",
+  description:
+    "Prepare-time mention candidate. persona = in-thread persona @ (always relates when found); profile = handle/userId gated by profile visibility.",
+  properties: {
+    kind: { type: "string", enum: ["persona", "profile"] },
+    personaName: { type: "string", description: "In-thread persona display name (kind=persona)." },
+    userId: { type: "string", description: "Target user id (kind=profile)." },
+    handle: { type: "string", description: "Profile handle without @ (kind=profile); resolved when userId omitted." },
+  },
+  required: ["kind"],
+  additionalProperties: false,
 } as const;
 
 const refSchema = {
@@ -124,6 +152,11 @@ export function registerCivicRecordRoutes(app: FastifyInstance, services: Servic
           properties: {
             author: { type: "string", description: "Thread persona pubkey the action is authored as (must be the caller's)." },
             intent: intentSchema,
+            mentions: {
+              type: "array",
+              items: mentionCandidateSchema,
+              description: "Optional mention candidates to allocate near sign (returned as mentionNodes).",
+            },
           },
           required: ["author", "intent"],
           additionalProperties: false,
@@ -132,8 +165,17 @@ export function registerCivicRecordRoutes(app: FastifyInstance, services: Servic
       },
     },
     async (req) => {
-      const b = req.body as { author: string; intent: Parameters<typeof services.civicRecordService.prepare>[0]["intent"] };
-      return services.civicRecordService.prepare({ userId: req.user!.userId, author: b.author, intent: b.intent });
+      const b = req.body as {
+        author: string;
+        intent: Parameters<typeof services.civicRecordService.prepare>[0]["intent"];
+        mentions?: Parameters<typeof services.civicRecordService.prepare>[0]["mentions"];
+      };
+      return services.civicRecordService.prepare({
+        userId: req.user!.userId,
+        author: b.author,
+        intent: b.intent,
+        mentions: b.mentions,
+      });
     },
   );
 
