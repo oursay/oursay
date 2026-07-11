@@ -55,7 +55,8 @@ services:
 
   # Settlement worker — opt-in via compose profile `worker` (AUTO_START_WORKER=1 on db:up).
   # Single proposer per chain; do not also run `npm run worker` on the host against the same stack.
-  # EVM anchoring: start `npm run dev:up -w @oursay/evm-anchor` first (RPC on host :8545).
+  # EVM: set EVM_* in public-record/.env (Sepolia or local). Address env wins over the address file
+  # (see src/config.ts). Local Hardhat: `npm run dev:up -w @oursay/evm-anchor` (host :8545).
   worker:
     profiles: ["worker"]
     build:
@@ -69,6 +70,10 @@ services:
         condition: service_healthy
       immudb:
         condition: service_healthy
+    # Loads EVM_* (and other overrides) from public-record/.env when present.
+    env_file:
+      - path: .env
+        required: false
     environment:
       PGHOST: postgres
       PGPORT: "5432"
@@ -81,13 +86,16 @@ services:
       IMMUDB_PG_PASSWORD: immudb
       IMMUDB_PG_DATABASE: defaultdb
       FILE_ANCHOR_DIR: /repo/public-record/.anchors
-      FILE_ANCHOR_EVERY_BLOCKS: "1"
-      EVM_ANCHOR_EVERY_BLOCKS: "2"
-      # Local Hardhat from `npm run dev:up -w @oursay/evm-anchor` (not a compose service named `evm`).
-      EVM_RPC_URL: http://host.docker.internal:8545
-      EVM_CHAIN_ID: "31337"
-      EVM_CONTRACT_ADDRESS_FILE: /repo/evm-anchor/.evm/address
-      WORKER_CHAIN_IDS: oursay-global,ab-ca-gov
+      FILE_ANCHOR_EVERY_BLOCKS: ${FILE_ANCHOR_EVERY_BLOCKS:-1}
+      EVM_ANCHOR_EVERY_BLOCKS: ${EVM_ANCHOR_EVERY_BLOCKS:-2}
+      # Interpolated from host / public-record/.env (compose-up + api up load that file).
+      # EVM_CONTRACT_ADDRESS preferred; file is fallback only when address env is empty.
+      EVM_RPC_URL: ${EVM_RPC_URL:-http://host.docker.internal:8545}
+      EVM_CHAIN_ID: ${EVM_CHAIN_ID:-31337}
+      EVM_CONTRACT_ADDRESS: ${EVM_CONTRACT_ADDRESS:-}
+      EVM_CONTRACT_ADDRESS_FILE: ${EVM_CONTRACT_ADDRESS_FILE:-/repo/evm-anchor/.evm/address}
+      EVM_ANCHOR_PRIVATE_KEY: ${EVM_ANCHOR_PRIVATE_KEY:-}
+      WORKER_CHAIN_IDS: ${WORKER_CHAIN_IDS:-oursay-global,ab-ca-gov}
     volumes:
       # Persist anchors on the host (not container-ephemeral).
       - ./.anchors:/repo/public-record/.anchors

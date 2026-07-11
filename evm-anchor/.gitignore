@@ -32,3 +32,5 @@
 
 # Local deploy address (written by deploy:local / compose entrypoint)
 /.evm/
+
+!./ignition/deployments/chain-11155111*

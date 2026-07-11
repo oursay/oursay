@@ -23,6 +23,7 @@
     "posttest": "npm run db:test:down",
     "seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/worker.ts",
+    "evm:compile": "npm run sync:abi -w @oursay/evm-anchor",
     "test": "mocha",
     "typecheck": "tsc --noEmit"
   },

@@ -238,6 +238,7 @@ npm run worker -w @oursay/public-record
 
 Host env (see `.env.example`): `EVM_RPC_URL`, `EVM_CONTRACT_ADDRESS`, `EVM_ANCHOR_PRIVATE_KEY`,
 `EVM_CHAIN_ID` (Hardhat network id, default `31337` — not a civic `CHAIN_ID`).
+After contract changes: `npm run evm:compile -w @oursay/public-record` (compiles Hardhat + copies ABI).
 
 **What does not ship yet (external anchoring):** connectors that push anchors to infrastructure
 we do not control in production — **Git** transparency log, public **EVM** L1/L2, **Solana**. The

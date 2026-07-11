@@ -38,6 +38,16 @@ npm run sync:abi -w @oursay/evm-anchor
 
 Compiled with solc 0.8.28, no optimizer / viaIR.
 
+## Sepolia
+
+See **[SEPOLIA.md](./SEPOLIA.md)** — deploy `SettlementAnchor`, set `EVM_*` on public-record, run the worker against chain id `11155111`.
+
+```powershell
+$env:SEPOLIA_RPC_URL = "https://..."
+$env:SEPOLIA_PRIVATE_KEY = "0x..."
+npm run deploy:sepolia -w @oursay/evm-anchor
+```
+
 ## Catch-up and integrity (ops)
 
 Hardhat’s in-memory chain is wiped on every `evm` restart; each deploy writes a **fresh** contract while immudb keeps settled blocks. The settlement worker runs `catchUp` once per target on startup: if the target tip is empty it republishes all settled headers; if tip height H > 0 it compares `bundleMerkleRoot` at H to the platform header and throws `AnchorIntegrityError` on mismatch (no silent rewrite, no auto-fork).
