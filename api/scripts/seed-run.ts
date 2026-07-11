@@ -146,9 +146,15 @@ async function main(): Promise<void> {
   };
   writeFileSync(MANIFEST_PATH, JSON.stringify(manifest, null, 2));
 
+  const { rows: outboxRows } = await world.db.pool.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM record_outbox`,
+  );
+  const outboxCount = Number(outboxRows[0]?.n ?? 0);
+
   console.log("\n--- summary ---");
   console.log(`  users:  ${people.length}`);
   console.log(`  posts:  ${posts.length}`);
+  console.log(`  outbox: ${outboxCount} tx (worker settles 250/block; ≥500 → 2 blocks → EVM)`);
   console.log(`  feed:   ${feedCount} items (GET /v1/public/feed)`);
   console.log(`  manifest: ${MANIFEST_PATH}`);
   console.log("\n  Visibility showcase:");

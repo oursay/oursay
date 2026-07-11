@@ -1,6 +1,6 @@
 /**
  * Deploy SettlementAnchor to a local Hardhat JSON-RPC node and write the address
- * to public-record/.evm/address (consumed by the settlement worker).
+ * to evm-anchor/.evm/address (consumed by the settlement worker).
  *
  *   npm run deploy:local -w @oursay/evm-anchor
  *   EVM_RPC_URL=http://127.0.0.1:8545 npm run deploy:local -w @oursay/evm-anchor
@@ -8,11 +8,10 @@
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ContractFactory, JsonRpcProvider, Wallet } from "ethers";
+import { ContractFactory, JsonRpcProvider, Wallet, type InterfaceAbi } from "ethers";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(here, "..");
-const repoRoot = resolve(packageRoot, "..");
 const artifactPath = join(
   packageRoot,
   "artifacts",
@@ -20,7 +19,7 @@ const artifactPath = join(
   "SettlementAnchor.sol",
   "SettlementAnchor.json",
 );
-const outDir = join(repoRoot, "public-record", ".evm");
+const outDir = join(packageRoot, ".evm");
 const outFile = join(outDir, "address");
 
 const rpcUrl = process.env.EVM_RPC_URL?.trim() || "http://127.0.0.1:8545";
@@ -30,7 +29,7 @@ const privateKey =
 
 async function main(): Promise<void> {
   const artifact = JSON.parse(readFileSync(artifactPath, "utf8")) as {
-    abi: unknown[];
+    abi: InterfaceAbi;
     bytecode: string;
   };
   const provider = new JsonRpcProvider(rpcUrl);

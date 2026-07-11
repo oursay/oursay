@@ -1,11 +1,38 @@
 import { chainConfig } from "../config.js";
-import type { LedgerConnector } from "../ledger/connector.js";
+import { canonicalJson, sha256Hex } from "../crypto/commitment.js";
+import type { BlockHeader, LedgerConnector } from "../ledger/connector.js";
 import type { BundleAssembler } from "./assembler.js";
 import { AnchorIntegrityError } from "./errors.js";
 import type { AnchorTarget } from "./target.js";
+import type { AnchorRecord, BlockBundle } from "./types.js";
 
 function targetKind(target: AnchorTarget): string {
   return target.constructor?.name || "AnchorTarget";
+}
+
+/** Build a header-only bundle from a settled block (no Postgres rebuild; empty entries). */
+export function headerOnlyBundle(
+  header: BlockHeader,
+  prevPublishedAnchor: AnchorRecord | undefined,
+): BlockBundle {
+  const anchor: AnchorRecord = {
+    v: 1,
+    chainId: header.chainId,
+    blockHeight: header.blockHeight,
+    fromSeq: header.fromSeq,
+    toSeq: header.toSeq,
+    txCount: header.txCount,
+    bundleMerkleRoot: header.bundleMerkleRoot,
+    immudbRoot: header.immudbRoot,
+    prevBlockRoot: header.prevBlockRoot,
+    chainTipHash: header.chainTipHash,
+    prevChainTipHash: header.prevChainTipHash,
+    proposer: header.proposer,
+    attestations: header.attestations,
+    prevAnchorHash: prevPublishedAnchor ? sha256Hex(canonicalJson(prevPublishedAnchor)) : null,
+    capturedAt: header.capturedAt,
+  };
+  return { anchor, entries: [] };
 }
 
 /**
@@ -18,6 +45,10 @@ function targetKind(target: AnchorTarget): string {
  * Idempotent: it resumes from the TARGET's own last-published height (each target is an independent
  * replica with its own cursor), so a re-run never republishes and two fresh targets receive identical
  * bundles for the same settled blocks.
+ *
+ * Header-only targets (`target.headerOnly`, e.g. EVM) publish from the settled header without
+ * rebuilding envelopes from Postgres — required for catch-up after ephemeral chain redeploy when
+ * early private-store rows may no longer exist.
  */
 export class AnchorPublisher {
   constructor(
@@ -54,6 +85,15 @@ export class AnchorPublisher {
     }
   }
 
+  private async bundleFor(
+    target: AnchorTarget,
+    header: BlockHeader,
+    prevAnchor: AnchorRecord | undefined,
+  ): Promise<BlockBundle> {
+    if (target.headerOnly) return headerOnlyBundle(header, prevAnchor);
+    return this.assembler.assemble(header, prevAnchor);
+  }
+
   /** Publish every settled-but-unpublished block to `target`, in order. Returns the heights published. */
   async publish(target: AnchorTarget): Promise<number[]> {
     const latest = await this.connector.fetchLatestBlock(this.chainId);
@@ -63,14 +103,22 @@ export class AnchorPublisher {
     const lastPublished = prevAnchor?.blockHeight ?? 0;
     await this.assertTipIntegrity(target, lastPublished);
 
+    const bundles: BlockBundle[] = [];
     const published: number[] = [];
     for (let h = lastPublished + 1; h <= latest.blockHeight; h++) {
       const header = await this.connector.fetchBlockByHeight(this.chainId, h);
       if (!header) throw new Error(`settled block ${h} missing on chain ${this.chainId}`);
-      const bundle = await this.assembler.assemble(header, prevAnchor);
-      await target.publish(bundle);
+      const bundle = await this.bundleFor(target, header, prevAnchor);
+      bundles.push(bundle);
       prevAnchor = bundle.anchor;
       published.push(h);
+    }
+    if (bundles.length === 0) return [];
+
+    if (typeof target.publishBatch === "function") {
+      await target.publishBatch(bundles);
+    } else {
+      for (const bundle of bundles) await target.publish(bundle);
     }
     return published;
   }

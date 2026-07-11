@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { expect } from "chai";
 import { AnchorIntegrityError } from "../src/anchor/errors.js";
 import { FileAnchorTarget } from "../src/anchor/file.target.js";
-import { everyNBlocks } from "../src/anchor/target.js";
+import { everyNBlocks, type AnchorTarget } from "../src/anchor/target.js";
 import {
   computeChainTipHash,
   verifyBlock,
@@ -12,6 +12,7 @@ import {
   verifyChainLink,
   verifyEntry,
 } from "../src/anchor/verify.js";
+import type { AnchorRecord } from "../src/anchor/types.js";
 import { canonicalJson, sha256Hex } from "../src/crypto/commitment.js";
 import { hashLeaf, merkleRoot } from "../src/crypto/merkle.js";
 import type { PrivateStore } from "../src/private/store.js";
@@ -339,5 +340,42 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
       expect(e.actualRoot).to.equal(badRoot);
       expect(e.targetKind).to.equal("FileAnchorTarget");
     }
+  });
+
+  it("header-only catch-up publishes from settled headers without assembling Postgres txs", async () => {
+    const { svc, settler, publisher } = await chain();
+    await makePosts(svc, 2);
+    await settler.settleBlock({ capturedAt: T });
+
+    // In-memory EVM-like target: headerOnly, no bundle store.
+    const anchors: AnchorRecord[] = [];
+    const headerOnlyTarget: AnchorTarget = {
+      headerOnly: true,
+      publishPolicy: everyNBlocks(2),
+      async publish(bundle) {
+        expect(bundle.entries).to.deep.equal([]);
+        anchors.push(bundle.anchor);
+      },
+      async fetchLatestAnchor() {
+        return anchors[anchors.length - 1];
+      },
+      async fetchAnchor(h) {
+        return anchors.find((a) => a.blockHeight === h);
+      },
+      async fetchBundle() {
+        return undefined;
+      },
+      async listAnchors() {
+        return anchors.slice();
+      },
+    };
+
+    // One settled block is below every-2 cadence; catch-up still publishes from the header alone.
+    expect(await publisher.maybePublish(headerOnlyTarget)).to.deep.equal([]);
+    expect(await publisher.catchUp(headerOnlyTarget)).to.deep.equal([1]);
+    expect(anchors).to.have.length(1);
+    expect(anchors[0].blockHeight).to.equal(1);
+    expect(anchors[0].txCount).to.equal(2);
+    expect(anchors[0].bundleMerkleRoot).to.match(/^[0-9a-f]{64}$/);
   });
 });

@@ -71,7 +71,15 @@ export { BundleAssembler } from "./anchor/assembler.js";
 export type { AssembleOptions } from "./anchor/assembler.js";
 export { AnchorPublisher } from "./anchor/publisher.js";
 export { FileAnchorTarget } from "./anchor/file.target.js";
-export { EvmAnchorTarget, UnsupportedEvmBundleError, onChainChainId, onChainDbId, computeEvmHeaderHash } from "./anchor/evm.target.js";
+export {
+  EvmAnchorTarget,
+  UnsupportedEvmBundleError,
+  onChainChainId,
+  onChainDbId,
+  computeEvmHeaderHash,
+  createSharedEvmSigner,
+  createEvmTargetsForChains,
+} from "./anchor/evm.target.js";
 export type { EvmAnchorTargetOptions } from "./anchor/evm.target.js";
 export { everyNBlocks } from "./anchor/target.js";
 export type { AnchorTarget, AnchorPublishPolicy } from "./anchor/target.js";

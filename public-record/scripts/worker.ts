@@ -8,10 +8,13 @@
  * SIGTERM/SIGINT stop the loop AFTER the in-flight tick (never mid-settlement), then close the DB
  * connections. The worker is non-destructive (it never calls store.reset()), so it runs in any
  * NODE_ENV. Run exactly ONE worker per chain (the settler is single-proposer-per-chain).
+ *
+ * EVM: start the local node with `npm run dev:up -w @oursay/evm-anchor` (auto-deploys; writes
+ * `evm-anchor/.evm/address`). ethers stays inside EvmAnchorTarget — this script only wires config.
  */
 import { BundleAssembler } from "../src/anchor/assembler.js";
 import { AnchorPublisher } from "../src/anchor/publisher.js";
-import { EvmAnchorTarget } from "../src/anchor/evm.target.js";
+import { createEvmTargetsForChains } from "../src/anchor/evm.target.js";
 import { FileAnchorTarget } from "../src/anchor/file.target.js";
 import { everyNBlocks, type AnchorTarget } from "../src/anchor/target.js";
 import {
@@ -27,37 +30,36 @@ import { BlockSettler } from "../src/ledger/settler.js";
 import { PrivateStore } from "../src/private/store.js";
 import { type ChainRunner, SettlementWorker } from "../src/worker/settlement-worker.js";
 
-function targetsForChain(c: { chainId: string; anchorDir: string; fileEveryNBlocks: number; evmEveryNBlocks: number }): AnchorTarget[] {
-  const targets: AnchorTarget[] = [
-    new FileAnchorTarget(c.anchorDir, everyNBlocks(c.fileEveryNBlocks)),
-  ];
-  if (evmAnchorConfig.contractAddress) {
-    targets.push(
-      new EvmAnchorTarget({
-        rpcUrl: evmAnchorConfig.rpcUrl,
-        privateKey: evmAnchorConfig.privateKey,
-        contractAddress: evmAnchorConfig.contractAddress,
-        chainId: c.chainId,
-        publishPolicy: everyNBlocks(c.evmEveryNBlocks),
-      }),
-    );
-  }
-  return targets;
-}
-
 async function main(): Promise<void> {
   const connector = new PgWireLedgerConnector(immudbPgConfig);
   await connector.connect();
   const store = new PrivateStore(pgConfig);
   await store.init(); // NOT reset() — the worker is non-destructive
 
-  const runners: ChainRunner[] = workerChainConfigs().map((c) => ({
-    chainId: c.chainId,
-    blockConfig: c.blockConfig,
-    settler: new BlockSettler(store, connector, c.chainId, c.blockConfig, outboxConfig),
-    publisher: new AnchorPublisher(connector, new BundleAssembler(store), c.chainId),
-    targets: targetsForChain(c),
-  }));
+  const chainConfigs = workerChainConfigs();
+  // One shared NonceManager across all chains (inside createEvmTargetsForChains).
+  const sharedEvmTargets = createEvmTargetsForChains(
+    chainConfigs.map((c) => ({ chainId: c.chainId, evmEveryNBlocks: c.evmEveryNBlocks })),
+    evmAnchorConfig,
+  );
+  const evmTargetByChainId = new Map(
+    sharedEvmTargets.map((t, i) => [chainConfigs[i].chainId, t] as const),
+  );
+
+  const runners: ChainRunner[] = chainConfigs.map((c) => {
+    const targets: AnchorTarget[] = [
+      new FileAnchorTarget(c.anchorDir, everyNBlocks(c.fileEveryNBlocks)),
+    ];
+    const evm = evmTargetByChainId.get(c.chainId);
+    if (evm) targets.push(evm);
+    return {
+      chainId: c.chainId,
+      blockConfig: c.blockConfig,
+      settler: new BlockSettler(store, connector, c.chainId, c.blockConfig, outboxConfig),
+      publisher: new AnchorPublisher(connector, new BundleAssembler(store), c.chainId),
+      targets,
+    };
+  });
 
   const worker = new SettlementWorker({
     runners,

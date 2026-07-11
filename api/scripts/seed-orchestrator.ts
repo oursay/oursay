@@ -447,7 +447,72 @@ export async function runSeedOrchestrator(world: SeedWorld, rng: Rng): Promise<S
     console.log(`  → ${voteGateSkips} vote(s) skipped by gates (set SEED_VERBOSE=1 for per-vote reasons)`);
   }
 
+  // Pad the civic outbox so the settlement worker can cut N full blocks in one go.
+  // Default N=2 matches EVM_ANCHOR_EVERY_BLOCKS=2 — after two settles, maybePublish flushes to EVM.
+  await padForSettlementBlocks(world, members, people, rng);
+
   return { members, people, posts };
+}
+
+/**
+ * Ensure `record_outbox` has at least `SEED_SETTLE_BLOCKS * BLOCK_MAX_TXS` rows (defaults 2×250)
+ * by appending filler posts. Without this, a typical seed (~330 txs) only settles one 250-tx block
+ * and leaves a remainder below the count trigger — EVM (every 2 blocks) never publishes.
+ */
+async function padForSettlementBlocks(
+  world: SeedWorld,
+  members: Map<string, SeedMember>,
+  people: SeedPerson[],
+  rng: Rng,
+): Promise<void> {
+  const maxBlockTxs = Math.max(
+    1,
+    Number(process.env.BLOCK_MAX_TXS ?? process.env.BLOCK_MAX_PENDING ?? "250") || 250,
+  );
+  const settleBlocks = Math.max(1, Number(process.env.SEED_SETTLE_BLOCKS ?? "2") || 2);
+  const targetTxs = maxBlockTxs * settleBlocks;
+
+  const { rows } = await world.db.pool.query<{ n: string }>(
+    `SELECT COUNT(*)::text AS n FROM record_outbox`,
+  );
+  let n = Number(rows[0]?.n ?? 0);
+  if (n >= targetTxs) {
+    console.log(
+      `Phase 5: settlement pad skipped — already ${n} outbox tx (≥ ${targetTxs} for ${settleBlocks}×${maxBlockTxs})`,
+    );
+    return;
+  }
+
+  const authors = people.filter((p) => (p.jurisdictions ?? []).includes(ALBERTA_ID));
+  const authorMembers = authors
+    .map((p) => members.get(p.handle))
+    .filter((m): m is SeedMember => m != null);
+  if (authorMembers.length === 0) {
+    throw new Error("Phase 5: no Alberta authors available to pad settlement blocks");
+  }
+
+  const need = targetTxs - n;
+  console.log(
+    `Phase 5: padding ${need} filler post(s) → ${targetTxs} outbox tx (${settleBlocks} blocks × ${maxBlockTxs})…`,
+  );
+
+  let i = 0;
+  while (n < targetTxs) {
+    const member = pickRandom(rng, authorMembers);
+    const entityId = randomUUID();
+    const template: PostTemplate = {
+      slug: `settle-pad-${i}`,
+      kind: "statement",
+      title: `Settlement pad #${i + 1}`,
+      body: `Filler post so the worker can settle ${settleBlocks} blocks and touch EVM.`,
+      scope: "alberta",
+    };
+    await createPostFromTemplate(member, template, entityId, ALBERTA_ID);
+    n++;
+    i++;
+    if (i % 25 === 0) process.stdout.write(".");
+  }
+  console.log(` done (${i} added, outbox=${n})`);
 }
 
 export const defaultSeedRng = mulberry32(0x05eed202);

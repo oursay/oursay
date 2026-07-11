@@ -127,13 +127,14 @@ export class SettlementWorker {
   async catchUpAll(): Promise<void> {
     for (const r of this.runners) {
       for (const target of r.targets) {
+        const kind = target.constructor?.name || "AnchorTarget";
         const heights = await r.publisher.catchUp(target);
         if (heights.length > 0) {
           this.log.log(
-            `[worker] catch-up ${r.chainId} published block(s) ${JSON.stringify(heights)}`,
+            `[worker] catch-up ${r.chainId}/${kind} published block(s) ${JSON.stringify(heights)}`,
           );
         } else {
-          this.log.log(`[worker] catch-up ${r.chainId} target already at tip`);
+          this.log.log(`[worker] catch-up ${r.chainId}/${kind} already at tip`);
         }
       }
     }

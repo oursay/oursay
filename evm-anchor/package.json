@@ -6,12 +6,15 @@
   "type": "module",
   "scripts": {
     "compile": "hardhat compile",
+    "sync:abi": "hardhat compile && tsx scripts/sync-abi.ts",
     "test": "hardhat test",
     "test:solidity": "hardhat test solidity",
     "test:mocha": "hardhat test mocha",
     "node": "hardhat node --hostname 0.0.0.0 --port 8545",
     "deploy:local": "hardhat compile && tsx scripts/deploy-local.ts",
     "fork:chain": "hardhat compile && tsx scripts/fork-chain.ts",
+    "dev:up": "docker compose -p oursay-dev-evm -f docker-compose.dev.yml up -d --wait",
+    "dev:down": "docker compose -p oursay-dev-evm -f docker-compose.dev.yml down -v",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

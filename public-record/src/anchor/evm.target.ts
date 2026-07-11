@@ -1,16 +1,27 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Contract, JsonRpcProvider, Wallet, getBytes, AbiCoder, id as ethersId } from "ethers";
+import {
+  Contract,
+  JsonRpcProvider,
+  NonceManager,
+  Wallet,
+  getBytes,
+  AbiCoder,
+  id as ethersId,
+  type InterfaceAbi,
+  type Signer,
+} from "ethers";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToHex } from "@noble/hashes/utils";
-import { anchorTargetsConfig } from "../config.js";
+import { anchorTargetsConfig, type EvmAnchorConfig } from "../config.js";
 import { type AnchorPublishPolicy, type AnchorTarget, everyNBlocks } from "./target.js";
 import type { AnchorRecord, BlockBundle } from "./types.js";
 import { computeChainTipHash } from "./verify.js";
 
+/** Synced from Hardhat via `npm run sync:abi -w @oursay/evm-anchor` (ABI array only). */
 const abiPath = join(dirname(fileURLToPath(import.meta.url)), "abi", "SettlementAnchor.json");
-const SETTLEMENT_ANCHOR_ABI = JSON.parse(readFileSync(abiPath, "utf8")) as unknown[];
+const SETTLEMENT_ANCHOR_ABI = JSON.parse(readFileSync(abiPath, "utf8")) as InterfaceAbi;
 
 export class UnsupportedEvmBundleError extends Error {
   constructor(message = "EvmAnchorTarget does not store block bundles; use FileAnchorTarget") {
@@ -25,7 +36,58 @@ export interface EvmAnchorTargetOptions {
   contractAddress: string;
   /** Public-record string chain id (e.g. ab-ca-gov). Mapped on-chain via keccak256(utf8). */
   chainId: string;
+  /** EVM network id for JsonRpcProvider (Hardhat local = 31337). */
+  networkChainId?: number;
   publishPolicy?: AnchorPublishPolicy;
+  /**
+   * Shared signer for all EVM targets that use the same key (e.g. worker multi-chain).
+   * Required to avoid nonce collisions when multiple `EvmAnchorTarget` instances publish.
+   * Prefer {@link createSharedEvmSigner}.
+   */
+  signer?: Signer;
+}
+
+/**
+ * One NonceManager for all EVM targets that share a key — same key must not mint parallel
+ * nonces per chain. Used by {@link createEvmTargetsForChains}.
+ */
+export function createSharedEvmSigner(opts: {
+  rpcUrl: string;
+  privateKey: string;
+  networkChainId?: number;
+}): Signer {
+  const network = opts.networkChainId ?? 31337;
+  return new NonceManager(
+    new Wallet(opts.privateKey, new JsonRpcProvider(opts.rpcUrl, network)),
+  );
+}
+
+/**
+ * Build one {@link EvmAnchorTarget} per chain when a contract address is configured; otherwise [].
+ * Owns all ethers wiring so callers (worker) never import ethers.
+ */
+export function createEvmTargetsForChains(
+  chains: ReadonlyArray<{ chainId: string; evmEveryNBlocks: number }>,
+  config: EvmAnchorConfig,
+): EvmAnchorTarget[] {
+  if (!config.contractAddress) return [];
+  const signer = createSharedEvmSigner({
+    rpcUrl: config.rpcUrl,
+    privateKey: config.privateKey,
+    networkChainId: config.networkChainId,
+  });
+  return chains.map(
+    (c) =>
+      new EvmAnchorTarget({
+        rpcUrl: config.rpcUrl,
+        privateKey: config.privateKey,
+        contractAddress: config.contractAddress,
+        chainId: c.chainId,
+        networkChainId: config.networkChainId,
+        publishPolicy: everyNBlocks(c.evmEveryNBlocks),
+        signer,
+      }),
+  );
 }
 
 function strip0x(hex: string): string {
@@ -115,6 +177,8 @@ export function computeEvmHeaderHash(fields: {
  * Option 1 / on-chain `sha256(prev‖root)`.
  */
 export class EvmAnchorTarget implements AnchorTarget {
+  /** EVM stores headers only; catch-up must not require BundleAssembler / Postgres txs. */
+  readonly headerOnly = true;
   readonly publishPolicy: AnchorPublishPolicy;
   private readonly chainIdStr: string;
   private readonly chainIdBytes32: string;
@@ -126,9 +190,13 @@ export class EvmAnchorTarget implements AnchorTarget {
     this.chainIdBytes32 = onChainChainId(opts.chainId);
     this.publishPolicy =
       opts.publishPolicy ?? everyNBlocks(anchorTargetsConfig.evmEveryNBlocks);
-    const provider = new JsonRpcProvider(opts.rpcUrl);
-    const wallet = new Wallet(opts.privateKey, provider);
-    this.contract = new Contract(opts.contractAddress, SETTLEMENT_ANCHOR_ABI, wallet);
+    const signer =
+      opts.signer ??
+      new Wallet(
+        opts.privateKey,
+        new JsonRpcProvider(opts.rpcUrl, opts.networkChainId ?? 31337),
+      );
+    this.contract = new Contract(opts.contractAddress, SETTLEMENT_ANCHOR_ABI, signer);
   }
 
   private async ensureChain(): Promise<void> {
@@ -140,17 +208,44 @@ export class EvmAnchorTarget implements AnchorTarget {
     this.ensuredChain = true;
   }
 
-  async publish(bundle: BlockBundle): Promise<void> {
-    await this.ensureChain();
-    const stats = await this.contract.getChainStats(this.chainIdBytes32);
-    const tipHeight = Number(stats.tipHeight);
-    const expectedHeight = tipHeight + 1;
+  /**
+   * Build one on-chain BlockInput from a bundle + the current tip snapshot, then return the tip
+   * after this block (mirrors SettlementAnchor._appendOne inference).
+   */
+  private buildAppendInput(
+    bundle: BlockBundle,
+    tip: {
+      tipHeight: number;
+      tipToSeq: bigint;
+      tipBundleRoot: string;
+      tipChainTipHash: string;
+      tipHeaderHash: string;
+    },
+  ): {
+    input: {
+      toSeq: bigint;
+      bundleMerkleRoot: string;
+      immudbDb: string;
+      immudbTxId: bigint;
+      immudbTxHash: string;
+      capturedAt: bigint;
+      headerHash: string;
+    };
+    nextTip: {
+      tipHeight: number;
+      tipToSeq: bigint;
+      tipBundleRoot: string;
+      tipChainTipHash: string;
+      tipHeaderHash: string;
+    };
+  } {
+    const expectedHeight = tip.tipHeight + 1;
     if (bundle.anchor.blockHeight !== expectedHeight) {
       throw new Error(
         `evm publish rejected: blockHeight ${bundle.anchor.blockHeight} != expected ${expectedHeight}`,
       );
     }
-    const fromSeq = tipHeight === 0 ? 0n : BigInt(stats.tipToSeq);
+    const fromSeq = tip.tipHeight === 0 ? 0n : tip.tipToSeq;
     const toSeq = BigInt(bundle.anchor.toSeq);
     if (BigInt(bundle.anchor.fromSeq) !== fromSeq) {
       throw new Error(
@@ -158,22 +253,16 @@ export class EvmAnchorTarget implements AnchorTarget {
       );
     }
 
-    const prevBlockRoot = tipHeight === 0 ? zeroBytes32() : (stats.tipBundleRoot as string);
-    const prevChainTipHash = tipHeight === 0 ? zeroBytes32() : (stats.tipChainTipHash as string);
-    const prevAnchorHash = tipHeight === 0 ? zeroBytes32() : (stats.tipHeaderHash as string);
+    const prevBlockRoot = tip.tipHeight === 0 ? zeroBytes32() : tip.tipBundleRoot;
+    const prevChainTipHash = tip.tipHeight === 0 ? zeroBytes32() : tip.tipChainTipHash;
+    const prevAnchorHash = tip.tipHeight === 0 ? zeroBytes32() : tip.tipHeaderHash;
     const bundleRoot = asBytes32(bundle.anchor.bundleMerkleRoot);
     const chainTipHash = asBytes32(
       computeChainTipHash(
-        tipHeight === 0 ? null : strip0x(prevChainTipHash),
+        tip.tipHeight === 0 ? null : strip0x(prevChainTipHash),
         strip0x(bundleRoot),
       ),
     );
-    // Sanity: off-chain tip on the bundle must match the EVM formula.
-    if (strip0x(bundle.anchor.chainTipHash) !== strip0x(chainTipHash)) {
-      throw new Error(
-        `evm publish rejected: bundle chainTipHash ${bundle.anchor.chainTipHash} != EVM tip ${chainTipHash}`,
-      );
-    }
 
     const immudbDb = onChainDbId(bundle.anchor.immudbRoot.db);
     const immudbTxHash = asBytes32(bundle.anchor.immudbRoot.txHashHex);
@@ -197,15 +286,51 @@ export class EvmAnchorTarget implements AnchorTarget {
       capturedAt,
     });
 
-    const tx = await this.contract.appendBlock(this.chainIdBytes32, {
-      toSeq,
-      bundleMerkleRoot: bundleRoot,
-      immudbDb,
-      immudbTxId: BigInt(bundle.anchor.immudbRoot.txId),
-      immudbTxHash,
-      capturedAt,
-      headerHash,
-    });
+    return {
+      input: {
+        toSeq,
+        bundleMerkleRoot: bundleRoot,
+        immudbDb,
+        immudbTxId: BigInt(bundle.anchor.immudbRoot.txId),
+        immudbTxHash,
+        capturedAt,
+        headerHash,
+      },
+      nextTip: {
+        tipHeight: expectedHeight,
+        tipToSeq: toSeq,
+        tipBundleRoot: bundleRoot,
+        tipChainTipHash: chainTipHash,
+        tipHeaderHash: headerHash,
+      },
+    };
+  }
+
+  async publish(bundle: BlockBundle): Promise<void> {
+    await this.publishBatch([bundle]);
+  }
+
+  /** One `appendBlocks` tx for the whole contiguous gap (SettlementAnchor batch entrypoint). */
+  async publishBatch(bundles: BlockBundle[]): Promise<void> {
+    if (bundles.length === 0) return;
+    await this.ensureChain();
+    const stats = await this.contract.getChainStats(this.chainIdBytes32);
+    let tip = {
+      tipHeight: Number(stats.tipHeight),
+      tipToSeq: BigInt(stats.tipToSeq),
+      tipBundleRoot: stats.tipBundleRoot as string,
+      tipChainTipHash: stats.tipChainTipHash as string,
+      tipHeaderHash: stats.tipHeaderHash as string,
+    };
+
+    const inputs = [];
+    for (const bundle of bundles) {
+      const { input, nextTip } = this.buildAppendInput(bundle, tip);
+      inputs.push(input);
+      tip = nextTip;
+    }
+
+    const tx = await this.contract.appendBlocks(this.chainIdBytes32, inputs);
     await tx.wait();
   }
 

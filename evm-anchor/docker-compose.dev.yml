@@ -1,0 +1,27 @@
+# Local Hardhat node + auto-deploy of SettlementAnchor.
+#
+#   npm run dev:up -w @oursay/evm-anchor
+#   npm run dev:down -w @oursay/evm-anchor
+#
+# JSON-RPC on host :8545. Contract address written to evm-anchor/.evm/address
+# (consumed by public-record worker via EVM_ANCHOR_ADDRESS_FILE / default path).
+services:
+  evm:
+    build:
+      context: ..
+      dockerfile: evm-anchor/Dockerfile.node
+    container_name: oursay-dev-evm
+    ports:
+      - "8545:8545"
+    volumes:
+      - ./.evm:/repo/evm-anchor/.evm
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})}).then(r=>r.json()).then(j=>{if(!j.result)process.exit(1)}).catch(()=>process.exit(1))\"",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 45s

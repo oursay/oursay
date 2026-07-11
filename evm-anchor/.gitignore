@@ -29,3 +29,6 @@
 
 # Snapshot cheatcodes output
 /snapshots
+
+# Local deploy address (written by deploy:local / compose entrypoint)
+/.evm/

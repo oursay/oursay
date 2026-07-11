@@ -14,21 +14,35 @@ Minimal append (`toSeq`, roots, immudb witness, `capturedAt`, `headerHash`) → 
 | Forks | `forkChain(..., reason)` — pre-fork heights resolve via parent |
 | Auth | OpenZeppelin `Ownable` |
 
-## Run
+## Local node (dev)
+
+One compose command starts Hardhat and deploys a fresh `SettlementAnchor` (address → `evm-anchor/.evm/address`):
 
 ```powershell
-npm test -w @oursay/evm-anchor
-npm run node -w @oursay/evm-anchor   # JSON-RPC (compose uses this)
+npm run dev:up -w @oursay/evm-anchor
+npm run dev:down -w @oursay/evm-anchor
+```
+
+Host-only (no Docker):
+
+```powershell
+npm run node -w @oursay/evm-anchor   # terminal 1
 npm run deploy:local -w @oursay/evm-anchor
+```
+
+After contract changes, refresh the ABI copy used by public-record:
+
+```powershell
+npm run sync:abi -w @oursay/evm-anchor
 ```
 
 Compiled with solc 0.8.28, no optimizer / viaIR.
 
 ## Catch-up and integrity (ops)
 
-Hardhat’s in-memory chain is wiped on every `evm` restart; each `deploy:local` writes a **fresh** contract while immudb keeps settled blocks. The settlement worker runs `catchUp` once per target on startup: if the target tip is empty it republishes all settled headers; if tip height H > 0 it compares `bundleMerkleRoot` at H to the platform header and throws `AnchorIntegrityError` on mismatch (no silent rewrite, no auto-fork).
+Hardhat’s in-memory chain is wiped on every `evm` restart; each deploy writes a **fresh** contract while immudb keeps settled blocks. The settlement worker runs `catchUp` once per target on startup: if the target tip is empty it republishes all settled headers; if tip height H > 0 it compares `bundleMerkleRoot` at H to the platform header and throws `AnchorIntegrityError` on mismatch (no silent rewrite, no auto-fork).
 
-After wipe + redeploy, **restart the worker** so catch-up sees tip height 0 and restores the on-chain tip. Compose profile `worker` already sequences `evm-deploy` then worker.
+After wipe + redeploy, **restart the worker** so catch-up sees tip height 0 and restores the on-chain tip.
 
 ### Fork recovery (explicit)
 

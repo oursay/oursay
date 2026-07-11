@@ -34,10 +34,11 @@ immudb-test/out/
 # public-record — anchor output (anchors.jsonl + per-block bundle files)
 public-record/.anchors/
 public-record/out/
-public-record/.evm/
 
-# @oursay/evm-anchor — Hardhat build artifacts (also covered by evm-anchor/.gitignore)
+# @oursay/evm-anchor — Hardhat build artifacts + local deploy address
+# (also covered by evm-anchor/.gitignore)
 evm-anchor/artifacts/
+evm-anchor/.evm/
 evm-anchor/cache/
 evm-anchor/coverage/
 evm-anchor/types/

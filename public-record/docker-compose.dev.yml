@@ -3,11 +3,13 @@
 #   immudb    -> public, verifiable, append-only chain (stores hash commitments only)
 #                reached over the PostgreSQL wire protocol (immudb 1.11.0)
 #   postgres  -> private, MUTABLE store (record_tx event log + raw content + salt) — erasable
-#   evm       -> Hardhat JSON-RPC (SettlementAnchor); always started with the stack
-#   evm-deploy / worker -> opt-in via compose profile `worker` (AUTO_START_WORKER=1 on db:up)
+#   worker    -> opt-in via compose profile `worker` (AUTO_START_WORKER=1 on db:up)
+#
+# Local EVM (Hardhat + SettlementAnchor deploy) lives in @oursay/evm-anchor:
+#   npm run dev:up -w @oursay/evm-anchor
 #
 # Compose project: oursay-dev-public-record.
-# Host ports match package defaults (PG :5442, immudb pg-wire :5443, Hardhat :8545) and are offset from
+# Host ports match package defaults (PG :5442, immudb pg-wire :5443) and are offset from
 # immudb-test (5432/5433) and the integration-test stack (5444/5445) so all can run at once.
 services:
   # immudb 1.11.0 over the PostgreSQL wire protocol — the modern, maintained path.
@@ -51,60 +53,22 @@ services:
       retries: 20
       start_period: 3s
 
-  # Local Hardhat node for SettlementAnchor (JSON-RPC on host :8545).
-  evm:
-    build:
-      context: ..
-      dockerfile: evm-anchor/Dockerfile.node
-    container_name: oursay-dev-public-record-evm
-    ports:
-      - "8545:8545"
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "node -e \"fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})}).then(r=>r.json()).then(j=>{if(!j.result)process.exit(1)}).catch(()=>process.exit(1))\"",
-        ]
-      interval: 5s
-      timeout: 5s
-      retries: 30
-      start_period: 15s
-
-  # One-shot deploy of SettlementAnchor; writes public-record/.evm/address for the worker.
-  evm-deploy:
-    profiles: ["worker"]
-    build:
-      context: ..
-      dockerfile: evm-anchor/Dockerfile.node
-    container_name: oursay-dev-public-record-evm-deploy
-    depends_on:
-      evm:
-        condition: service_healthy
-    environment:
-      EVM_RPC_URL: http://evm:8545
-    volumes:
-      - ./.evm:/repo/public-record/.evm
-    working_dir: /repo
-    entrypoint: ["npm", "run", "deploy:local", "-w", "@oursay/evm-anchor"]
-    restart: "no"
-
   # Settlement worker — opt-in via compose profile `worker` (AUTO_START_WORKER=1 on db:up).
   # Single proposer per chain; do not also run `npm run worker` on the host against the same stack.
+  # EVM anchoring: start `npm run dev:up -w @oursay/evm-anchor` first (RPC on host :8545).
   worker:
     profiles: ["worker"]
     build:
       context: ..
       dockerfile: public-record/Dockerfile.worker
     container_name: oursay-dev-public-record-worker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
       immudb:
         condition: service_healthy
-      evm:
-        condition: service_healthy
-      evm-deploy:
-        condition: service_completed_successfully
     environment:
       PGHOST: postgres
       PGPORT: "5432"
@@ -119,13 +83,15 @@ services:
       FILE_ANCHOR_DIR: /repo/public-record/.anchors
       FILE_ANCHOR_EVERY_BLOCKS: "1"
       EVM_ANCHOR_EVERY_BLOCKS: "2"
-      EVM_RPC_URL: http://evm:8545
-      EVM_ANCHOR_ADDRESS_FILE: /repo/public-record/.evm/address
+      # Local Hardhat from `npm run dev:up -w @oursay/evm-anchor` (not a compose service named `evm`).
+      EVM_RPC_URL: http://host.docker.internal:8545
+      EVM_CHAIN_ID: "31337"
+      EVM_CONTRACT_ADDRESS_FILE: /repo/evm-anchor/.evm/address
       WORKER_CHAIN_IDS: oursay-global,ab-ca-gov
     volumes:
       # Persist anchors on the host (not container-ephemeral).
       - ./.anchors:/repo/public-record/.anchors
-      - ./.evm:/repo/public-record/.evm
+      - ../evm-anchor/.evm:/repo/evm-anchor/.evm:ro
     restart: unless-stopped
 
 volumes:

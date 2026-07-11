@@ -139,24 +139,47 @@ export const anchorTargetsConfig: AnchorTargetsConfig = {
   evmEveryNBlocks: Math.max(1, Number(env("EVM_ANCHOR_EVERY_BLOCKS", "2"))),
 };
 
-/** Local Hardhat / EVM RPC for SettlementAnchor. Empty address disables the EVM target. */
+/**
+ * Local Hardhat / EVM RPC for SettlementAnchor (`EvmAnchorTarget`).
+ * Empty `contractAddress` disables the EVM target.
+ *
+ * Env (see `.env.example`):
+ *   EVM_RPC_URL              JSON-RPC endpoint (default http://127.0.0.1:8545)
+ *   EVM_CONTRACT_ADDRESS     SettlementAnchor address (or EVM_ANCHOR_ADDRESS)
+ *   EVM_ANCHOR_PRIVATE_KEY   signer key (or EVM_PRIVATE_KEY; Hardhat #0 default)
+ *   EVM_CHAIN_ID             numeric network id for the provider (default 31337 Hardhat)
+ *   EVM_CONTRACT_ADDRESS_FILE  fallback path when address env unset (default evm-anchor/.evm/address)
+ */
 export interface EvmAnchorConfig {
   rpcUrl: string;
   privateKey: string;
   contractAddress: string;
+  /** EVM network id passed to JsonRpcProvider (not a public-record civic chain id). */
+  networkChainId: number;
 }
 
 export const evmAnchorConfig: EvmAnchorConfig = {
   rpcUrl: env("EVM_RPC_URL", "http://127.0.0.1:8545"),
   // Hardhat default account #0 — local/dev only; never use on a public network.
   privateKey: env(
-    "EVM_PRIVATE_KEY",
-    "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "EVM_ANCHOR_PRIVATE_KEY",
+    env(
+      "EVM_PRIVATE_KEY",
+      "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    ),
   ),
+  networkChainId: Math.max(1, Number(env("EVM_CHAIN_ID", "31337"))),
   contractAddress: (() => {
-    const fromEnv = env("EVM_ANCHOR_ADDRESS", "");
+    const fromEnv = env("EVM_CONTRACT_ADDRESS", env("EVM_ANCHOR_ADDRESS", ""));
     if (fromEnv) return fromEnv;
-    const file = env("EVM_ANCHOR_ADDRESS_FILE", join(packageRoot, ".evm", "address"));
+    // Default: address written by `npm run deploy:local` / `dev:up` in @oursay/evm-anchor.
+    const file = env(
+      "EVM_CONTRACT_ADDRESS_FILE",
+      env(
+        "EVM_ANCHOR_ADDRESS_FILE",
+        join(packageRoot, "..", "evm-anchor", ".evm", "address"),
+      ),
+    );
     try {
       if (existsSync(file)) return readFileSync(file, "utf8").trim();
     } catch {

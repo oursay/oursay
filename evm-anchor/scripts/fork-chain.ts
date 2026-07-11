@@ -7,7 +7,7 @@
  * Env:
  *   EVM_RPC_URL            (default http://127.0.0.1:8545)
  *   EVM_PRIVATE_KEY        (default Hardhat account #0)
- *   EVM_ANCHOR_ADDRESS     (default public-record/.evm/address)
+ *   EVM_ANCHOR_ADDRESS     (default evm-anchor/.evm/address)
  *   FORK_SOURCE_CHAIN_ID   public-record string id (e.g. ab-ca-gov) — mapped via ethers.id
  *   FORK_AT_HEIGHT         last good height (uint64)
  *   FORK_NEW_CHAIN_ID      new public-record string id for the fork
@@ -20,7 +20,6 @@ import { Contract, JsonRpcProvider, Wallet, id as ethersId, type InterfaceAbi } 
 
 const here = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(here, "..");
-const repoRoot = resolve(packageRoot, "..");
 const artifactPath = join(
   packageRoot,
   "artifacts",
@@ -28,7 +27,7 @@ const artifactPath = join(
   "SettlementAnchor.sol",
   "SettlementAnchor.json",
 );
-const defaultAddressFile = join(repoRoot, "public-record", ".evm", "address");
+const defaultAddressFile = join(packageRoot, ".evm", "address");
 
 const rpcUrl = process.env.EVM_RPC_URL?.trim() || "http://127.0.0.1:8545";
 const privateKey =

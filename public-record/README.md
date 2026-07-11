@@ -227,10 +227,17 @@ workers on the same chain. Leader election / HA for a single chain is a stage-2 
 `npm run up -w @oursay/api` which includes this stack.)
 
 **What ships today:** `FileAnchorTarget` writes append-only local files (default every **1** settled
-block). `EvmAnchorTarget` publishes headers to `SettlementAnchor` on a local Hardhat node (default
-every **2** blocks) when `EVM_ANCHOR_ADDRESS` / `.evm/address` is set — compose starts the `evm`
-service on `db:up`, and the `worker` profile runs deploy + worker. Bundles stay on the file target
-(`fetchBundle` is unsupported on EVM).
+block). `EvmAnchorTarget` publishes headers to `SettlementAnchor` (default every **2** blocks) when
+`EVM_CONTRACT_ADDRESS` / `evm-anchor/.evm/address` is set. Start the local node separately:
+
+```powershell
+npm run dev:up -w @oursay/evm-anchor   # Hardhat + auto-deploy → .evm/address
+npm run db:up -w @oursay/public-record
+npm run worker -w @oursay/public-record
+```
+
+Host env (see `.env.example`): `EVM_RPC_URL`, `EVM_CONTRACT_ADDRESS`, `EVM_ANCHOR_PRIVATE_KEY`,
+`EVM_CHAIN_ID` (Hardhat network id, default `31337` — not a civic `CHAIN_ID`).
 
 **What does not ship yet (external anchoring):** connectors that push anchors to infrastructure
 we do not control in production — **Git** transparency log, public **EVM** L1/L2, **Solana**. The

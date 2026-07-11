@@ -32,8 +32,22 @@ export interface AnchorTarget {
   /** This target's publish cadence (consulted by AnchorPublisher.maybePublish). */
   readonly publishPolicy: AnchorPublishPolicy;
 
+  /**
+   * When true, the publisher may emit from the settled {@link import("../ledger/connector.js").BlockHeader}
+   * alone (empty `entries`) — no Postgres bundle rebuild. Used by header-only targets (EVM) so
+   * catch-up after redeploy does not require historical private-store rows.
+   */
+  readonly headerOnly?: boolean;
+
   /** Publish a block. APPEND-ONLY: must never rewrite or overwrite a previously published block. */
   publish(bundle: BlockBundle): Promise<void>;
+
+  /**
+   * Optional batch publish (e.g. EVM `appendBlocks`). When present, {@link import("./publisher.js").AnchorPublisher}
+   * sends the full gap in one call instead of N single publishes. Bundles are in height order, contiguous
+   * from the target tip + 1.
+   */
+  publishBatch?(bundles: BlockBundle[]): Promise<void>;
 
   /** The latest published anchor (the checkpoint the next block continues from); undefined if none. */
   fetchLatestAnchor(): Promise<AnchorRecord | undefined>;
