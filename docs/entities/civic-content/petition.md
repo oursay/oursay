@@ -22,7 +22,7 @@ Primary key: `entity_id` (UUID) on root `petition` create transaction.
 
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
-| `title` | string | yes | yes | Content JSON |
+| `title` | string | yes | yes | Content JSON; may embed opaque mention tokens — see [mention-node.md](../civic-identity/mention-node.md) |
 | `text` | string | yes | yes | Full petition body; may embed opaque mention tokens — see [mention-node.md](../civic-identity/mention-node.md) |
 | `rules` | EntityRules | no | yes | See [EntityRules](../partitioning/entity-rules.md) |
 | `authorPubkey` | TEXT | yes | yes | May be anonymous |

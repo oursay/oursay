@@ -261,6 +261,38 @@ CREATE TABLE IF NOT EXISTS share_marks (
 );
 CREATE INDEX IF NOT EXISTS share_marks_key ON share_marks (share_key);
 
+-- ── Mention nodes (docs/entities/civic-identity/mention-node.md) ─────────────────────────
+-- Opaque tokens in committed strings: <@ + base59(node_id) + >. Never store @handle /
+-- reserved label / persona / profile display in record_tx.content. mentioned_user_id is NULL
+-- for unresolved (unknown or unauthorized profile @) — display Someone, not correlatable.
+-- Related: one node per (thread_id, user) via partial unique. Soft-mode related labels are
+-- random + collision-retry (NOT from user_id). allocate folds into civic prepare near sign.
+CREATE TABLE IF NOT EXISTS mention_map (
+  node_id           UUID PRIMARY KEY,
+  thread_id         TEXT NOT NULL,             -- root entity id
+  mentioned_user_id UUID REFERENCES users(id), -- NULL = unresolved (Someone)
+  reserved_label    TEXT NOT NULL,             -- Someone | random soft-mode label
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS mention_map_thread_user
+  ON mention_map (thread_id, mentioned_user_id)
+  WHERE mentioned_user_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS mention_map_thread ON mention_map (thread_id);
+CREATE INDEX IF NOT EXISTS mention_map_user ON mention_map (mentioned_user_id)
+  WHERE mentioned_user_id IS NOT NULL;
+
+-- Mentions-tab projection at submit: related tokens only (mentioned_user_id set).
+CREATE TABLE IF NOT EXISTS mention_index (
+  tx_id             TEXT NOT NULL,
+  entity_id         TEXT NOT NULL,             -- thread root
+  mentioned_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (tx_id, mentioned_user_id)
+);
+CREATE INDEX IF NOT EXISTS mention_index_user ON mention_index (mentioned_user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS mention_index_entity ON mention_index (entity_id);
+
+
 -- ── Fold-on-read projections (the "get latest state" views) ─────────────────────────────
 
 -- Recreate the view tree from scratch so this DDL stays idempotent as the projection columns

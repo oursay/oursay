@@ -154,7 +154,7 @@ jurisdiction). **Never** use a display label as a canonical dev term.
   reveal** is nuclear (permanent). See [`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md) and
   [`account/future.md`](entities/account/future.md).
 - **Mention node** — a stable opaque mention target for one `(thread_id, mentioned_user_id)` pair (`mention_map`). The committed body stores only an inline **mention token** (`<@` + base59(UUID v4 node id) + `>`); never `@handle`, reserved label, persona name, or profile display. See [`entities/civic-identity/mention-node.md`](entities/civic-identity/mention-node.md).
-- **Reserved label** — the pre-join display string for a mention node (random mint + collision retry, persisted on `mention_map`). **Not** derived from `user_id` (unlike persona names, which are seeded from public Pₜ). Soft-mode: reserved until the mentioned user joins and mints Pₜ; then the same node resolves to persona or profile per viewer privilege.
+- **Reserved label** — the pre-join display string for a mention node (random mint + collision retry, persisted on `mention_map`). **Not** derived from `user_id` (unlike persona names, which are seeded from public Pₜ). Soft-mode: reserved until the mentioned user joins and mints Pₜ; then the same node resolves to persona or profile per viewer privilege. Unresolved mentions use fixed **Someone**.
 - **Mention index** — write-time projection (`mention_index`) of which transactions mention which users, built by parsing committed tokens → `mention_map` (never by scanning free-text `@handle`). Powers profile/persona Mentions tabs.
 
 ## Verification vocabulary

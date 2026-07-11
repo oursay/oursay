@@ -27,7 +27,7 @@ Target field model (see **Gaps** for current code drift):
 
 | Field | Type | Required | Public | Max | Source |
 |-------|------|----------|--------|-----|--------|
-| `title` | string | **yes** | yes | 200 | Content JSON |
+| `title` | string | **yes** | yes | 200 | Content JSON; may embed opaque mention tokens — see [mention-node.md](../civic-identity/mention-node.md) |
 | `body` | string | no | yes | 2000 | Statement text; may embed opaque mention tokens — see [mention-node.md](../civic-identity/mention-node.md) |
 | `authorPubkey` | TEXT | yes | yes | — | Pₜ or anonymous display |
 | `createdAt` | ISO 8601 | yes | yes | — | Envelope |

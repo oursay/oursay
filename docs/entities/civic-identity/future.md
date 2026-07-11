@@ -11,9 +11,12 @@ This replaces the deprecated `thread_keys.claimed` / `claimed_at` columns, which
 → `[code-drop-claimed-columns]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## Official always-public mention (V1 — after mention-node MVP)
-MVP mention render uses the same effective-visibility rules as author cards for the *mentioned* user (privileged → profile; else persona; pre-join → reserved). See [mention-node.md](./mention-node.md).
+MVP mention render uses the same effective-visibility rules as author cards for the *mentioned* user (privileged → profile; else persona; pre-join → reserved). Unresolved (null mention user id) → `Someone` See [mention-node.md](./mention-node.md).
 
 **Deferred:** a special-case for **always-public officials** so mention text always resolves to the direct profile (even when a non-privileged viewer would otherwise see persona). Do **not** treat that as the MVP end state — ship privileged-profile vs persona resolve first; add the official mention carve-out in a later phase.
+
+## Content warnings / doxxing (future)
+Pass composed content through hate-speech and doxxing filters. Warn when the user may be naming someone without a related `@` token (plain-text handle or other bypass of compose handle detection) — against TOS; may result in permanent ban. Out of scope for mention-node MVP (API continues to accept plain-text `@`).
 
 ## Selective disclosure / ZK
 - Salt escrow + at-rest encryption for thread bindings (KMS milestone).

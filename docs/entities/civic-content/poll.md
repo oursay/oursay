@@ -22,7 +22,7 @@ Primary key: `entity_id` (UUID) on root `poll` create transaction.
 
 | Field | Type | Required | Public | Max | Source |
 |-------|------|----------|--------|-----|--------|
-| `question` | string | yes | yes | 200 | Content JSON |
+| `question` | string | yes | yes | 200 | Content JSON; may embed opaque mention tokens — see [mention-node.md](../civic-identity/mention-node.md) |
 | `options` | string[] | yes | yes | ≤10 options, 100 each | Min Yes/No; more allowed |
 | `rules` | EntityRules | no | yes | — | Deadline, allowChange, audience |
 | `description` | string | no | yes | 2000 | Full context (product) |
