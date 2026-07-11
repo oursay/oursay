@@ -28,6 +28,7 @@
     "db:prod:up": "npm run db:prod:up -w @oursay/public-record",
     "db:prod:down": "npm run db:prod:down -w @oursay/public-record",
     "pretest": "npm run db:test:up",
+    "posttest": "npm run db:test:down",
     "test": "mocha \"test/**/*.spec.ts\"",
     "typecheck": "tsc --noEmit"
   },

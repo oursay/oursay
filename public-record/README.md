@@ -131,17 +131,17 @@ text).
 # from the repo root
 npm install
 npm run db:up   --workspace public-record   # immudb 1.11.0 (pg-wire) + PostGIS (postgres 16)
-npm run test    --workspace public-record   # 53 tests (11 suites); pretest starts test stack
+npm run test    --workspace public-record   # pretest starts test stack; posttest tears it down (-v)
 npm run seed    --workspace public-record   # hands-on dev DB: prints folded state + chain verify
 npm run db:down --workspace public-record   # tear down dev stack (wipes volumes; blocked when NODE_ENV=production)
 ```
 
 Integration tests use a **separate Docker stack** (`docker-compose.test.yml`: `oursay-test-public-record-pg` on
 **5444**, `oursay-test-public-record-immudb` on **5445**) so `TRUNCATE` isolation does not wipe the dev seed on
-**5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test-public-record`, so dev
-and test stacks do not replace each other); tear it down with
-`npm run db:test:down --workspace public-record`. Mocha loads repo-root `.env.test` before package
-config (see `scripts/load-test-env.ts`).
+**5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test-public-record`, so
+dev and test stacks do not replace each other) and tears it down with volumes via `posttest`
+(`db:test:down`). Mocha loads repo-root `.env.test` before package config (see
+`scripts/load-test-env.ts`).
 
 Destructive npm scripts (`db:down`, `seed`, `reset`) and `PrivateStore.reset()` refuse to run when
 `NODE_ENV=production`. Raw `docker compose down -v` is not gated — production hosts must not expose

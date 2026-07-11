@@ -20,6 +20,7 @@
     "db:prod:down": "tsx ../scripts/destructive-guard.ts db:prod:down && docker compose -p oursay-public-record -f docker-compose.prod.yml --profile worker down -v",
     "db:logs": "docker compose -p oursay-dev-public-record -f docker-compose.dev.yml --profile worker logs -f",
     "pretest": "npm run db:test:up",
+    "posttest": "npm run db:test:down",
     "seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/worker.ts",
     "test": "mocha",
