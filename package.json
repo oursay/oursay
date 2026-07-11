@@ -22,7 +22,8 @@
     "encode",
     "geo",
     "jurisdiction-data",
-    "api"
+    "api",
+    "evm-anchor"
   ],
   "scripts": {
     "dev": "npm run dev --workspace site",

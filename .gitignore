@@ -35,6 +35,13 @@ immudb-test/out/
 public-record/.anchors/
 public-record/out/
 
+# @oursay/evm-anchor — Hardhat build artifacts (also covered by evm-anchor/.gitignore)
+evm-anchor/artifacts/
+evm-anchor/cache/
+evm-anchor/coverage/
+evm-anchor/types/
+evm-anchor/ignition/deployments/
+
 # @oursay/identity — simulated dev passkey custody (DevPasskeyConnector). NEVER commit key material.
 .oursay-dev/
 

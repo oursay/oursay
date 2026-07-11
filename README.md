@@ -62,6 +62,7 @@ Verified users have confirmed their identity and residency through a pluggable K
 ├── site/                          # Public marketing & explainer website (Astro) [workspace]
 ├── turnkey-test/                  # Spike (historical): HD wallets/per-thread keys — NOT adopted; see its FINDINGS.md [workspace]
 ├── immudb-test/                   # Spike: tamper-evident verifiable-ledger evaluation [workspace]
+├── evm-anchor/                    # Hardhat: EVM anchoring for public-record Merkle roots [workspace]
 ├── public-record/                 # Proposal & requirements for the verifiable public-record library
 ├── api/                            # Account API (@oursay/api): email-OTP registration, passkey auth, recovery [workspace]
 ├── DEPLOYMENTS.md                 # Published build hashes for every production deployment
