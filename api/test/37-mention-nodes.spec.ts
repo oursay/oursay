@@ -146,6 +146,10 @@ describe("37 mention nodes: prepare allocate, submit index, read resolve", () =>
     expect(item.title).to.include(relatedToken);
     expect(item.body.join("\n\n")).to.include(relatedToken);
     expect(item.mentions[nodeId].kind).to.equal("profile"); // target joined + public visibility
+    // Profile chips show wire handle (compose-consistent), not display name.
+    const targetUser = await w.services.repos.user.getById(target.userId);
+    expect(item.mentions[nodeId].display).to.equal(targetUser!.handle);
+    expect(item.mentions[nodeId].route).to.equal(`/profile/${targetUser!.handle}`);
     expect(item.mentions[someoneNode].display).to.equal("Someone");
     expect(item.mentions[someoneNode].kind).to.equal("reserved");
     expect(item.mentions[softNode].kind).to.equal("reserved");

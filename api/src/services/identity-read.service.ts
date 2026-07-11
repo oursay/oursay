@@ -69,6 +69,10 @@ export interface ResolvedAuthor {
 /** Server-resolved mention display for read DTOs (client chips/links only — Slice 3). */
 export type MentionKind = "reserved" | "persona" | "profile";
 
+/**
+ * Profile `display` is the wire handle (compose-consistent); persona uses persona name;
+ * reserved uses reserved_label / Someone. Flip profile to displayName later if product wants.
+ */
 export interface ResolvedMention {
   display: string;
   kind: MentionKind;
@@ -227,8 +231,10 @@ export class ReadResolution {
       };
     }
     const handle = author.identity.handle ?? author.handle;
+    // Profile chips use the wire handle (same as compose). Switch to
+    // `author.identity.display` later if product wants the public display name.
     return {
-      display: author.identity.display,
+      display: handle,
       kind: "profile",
       route: `/profile/${encodeURIComponent(handle)}`,
       isSelf: author.identity.isSelf,

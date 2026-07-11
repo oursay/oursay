@@ -82,7 +82,7 @@ mentioned_user_id IS NULL?
   └─ no   → getThreadKeyByUserThread(mentioned_user_id, thread_id)
                ├─ null  → reserved (display = reserved_label; kind = reserved; no profile/persona route)
                └─ Pₜ    → ReadResolution.resolveAuthor(Pₜ, threadCtx)
-                            ├─ revealed to viewer → profile (display / handle; kind = profile)
+                            ├─ revealed to viewer → profile (display = wire handle; kind = profile)
                             └─ else               → persona (persona_name; kind = persona)
 ```
 
