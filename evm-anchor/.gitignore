@@ -33,4 +33,6 @@
 # Local deploy address (written by deploy:local / compose entrypoint)
 /.evm/
 
-!./ignition/deployments/chain-11155111*
+# Sepolia Ignition deploy — also un-ignored in repo-root .gitignore (that rule is authoritative).
+!/ignition/deployments/chain-11155111/
+!/ignition/deployments/chain-11155111/**

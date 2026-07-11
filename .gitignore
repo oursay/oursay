@@ -42,7 +42,10 @@ evm-anchor/.evm/
 evm-anchor/cache/
 evm-anchor/coverage/
 evm-anchor/types/
-evm-anchor/ignition/deployments/
+# Ignore local Ignition deploys (e.g. Hardhat 31337); keep Sepolia (11155111) for reproducibility.
+evm-anchor/ignition/deployments/*
+!evm-anchor/ignition/deployments/chain-11155111/
+!evm-anchor/ignition/deployments/chain-11155111/**
 
 # @oursay/identity — simulated dev passkey custody (DevPasskeyConnector). NEVER commit key material.
 .oursay-dev/
