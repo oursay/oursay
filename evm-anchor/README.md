@@ -48,6 +48,17 @@ $env:SEPOLIA_PRIVATE_KEY = "0x..."
 npm run deploy:sepolia -w @oursay/evm-anchor
 ```
 
+## Create civic chains on-chain
+
+Owner-only `createChain` (string ids → `ethers.id`). The worker also creates a chain on first publish; use this to set them up ahead of time:
+
+```powershell
+npm run create:chain -w @oursay/evm-anchor -- ab-ca-gov oursay-global
+npm run create:chain -w @oursay/evm-anchor -- --dry-run ab-ca-gov
+```
+
+Uses `EVM_RPC_URL` / `EVM_CONTRACT_ADDRESS` / `EVM_ANCHOR_PRIVATE_KEY` (or `--rpc` / `--address` / `--private-key`).
+
 ## Catch-up and integrity (ops)
 
 Hardhat’s in-memory chain is wiped on every `evm` restart; each deploy writes a **fresh** contract while immudb keeps settled blocks. The settlement worker runs `catchUp` once per target on startup: if the target tip is empty it republishes all settled headers; if tip height H > 0 it compares `bundleMerkleRoot` at H to the platform header and throws `AnchorIntegrityError` on mismatch (no silent rewrite, no auto-fork).

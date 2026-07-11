@@ -15,6 +15,7 @@
     "deploy:local": "hardhat ignition deploy ./ignition/modules/SettlementAnchor.ts --network localhost",
     "deploy:evm": "hardhat ignition deploy ./ignition/modules/SettlementAnchor.ts --network evm",
     "fork:chain": "hardhat compile && tsx scripts/fork-chain.ts",
+    "create:chain": "hardhat compile && tsx scripts/create-chain.ts",
     "dev:up": "docker compose -p oursay-dev-evm -f docker-compose.dev.yml up -d --wait",
     "dev:down": "docker compose -p oursay-dev-evm -f docker-compose.dev.yml down -v",
     "typecheck": "tsc --noEmit"
