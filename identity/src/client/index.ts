@@ -21,7 +21,14 @@ export { WebCryptoMasterStore, IndexedDbKeyStore, MemoryKeyStore } from "./secur
 export type { SecureMasterStore, KeyStore, WrappedMaster } from "./secure-store.js";
 export { IdentitySession } from "./session.js";
 export { CivicHttpClient, CivicHttpError } from "./civic-http-client.js";
-export type { CivicHttpClientOptions, SubmitRef, CivicDeviceView } from "./civic-http-client.js";
+export type {
+  CivicAppendOptions,
+  CivicHttpClientOptions,
+  SubmitRef,
+  CivicDeviceView,
+  ThreadPasskeyPhase,
+} from "./civic-http-client.js";
+export { composeSpanForCandidate, embedMentionTokens, MENTION_STRING_KEYS } from "./embed-mentions.js";
 
 // Shared DTOs convenient for client callers.
 export type {

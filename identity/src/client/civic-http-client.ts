@@ -10,6 +10,7 @@
 
 import type { CommentContent, PostContent, ReactionContent, VoteContent } from "@oursay/public-record/schema/types";
 import type { IdentitySession } from "./session.js";
+import { composeSpanForCandidate, embedMentionTokens } from "./embed-mentions.js";
 import type { Intent, JoinThreadResponse, MentionCandidate, ParentRef, PreparedAppend, SignedSubmission, SignMode, ThreadRef } from "../shared/types.js";
 
 export type ThreadPasskeyPhase = "creating" | "signing";
@@ -17,6 +18,17 @@ export type ThreadPasskeyPhase = "creating" | "signing";
 export interface CivicAppendOptions {
   sign?: SignMode;
   onThreadPasskeyPhase?: (phase: ThreadPasskeyPhase) => void;
+  /**
+   * Mention candidates for prepare (order must match compose `@…` spans in content).
+   * After prepare, spans are replaced with `<@base59(nodeId)>` before contentHash/sign.
+   */
+  mentions?: MentionCandidate[];
+  /**
+   * Exact `@…` labels currently in content string fields (document order), parallel to `mentions`.
+   * Use when the visible span differs from the candidate (e.g. unresolved `@Someone`).
+   * When omitted, spans are derived from each candidate (persona name / profile handle).
+   */
+  mentionSpans?: string[];
 }
 
 export interface CivicHttpClientOptions {
@@ -215,21 +227,53 @@ export class CivicHttpClient {
    * per-thread P-256 key instead (no ceremony; enrolls it as a credential on first use) — accepted
    * only where the jurisdiction's floor for the action is `quick`, else the server 403s
    * `passkey_required`.
+   *
+   * When `opts.mentions` is set, prepare allocates nodes and this client embeds `<@base59(nodeId)>`
+   * into content string fields before contentHash / envelope sign.
    */
   async append(t: ThreadRef, intent: Intent, opts: CivicAppendOptions = {}): Promise<SubmitRef> {
     if (opts.sign === "quick") {
       await this.ensureQuickSigner(t);
-      const prep = await this.prepare(t, intent);
-      return this.submit(this.session.buildQuickSigned(t, prep, intent));
+      const prep = await this.prepare(t, intent, opts.mentions);
+      const toSign = this.intentWithEmbeddedMentions(intent, prep, opts);
+      return this.submit(this.session.buildQuickSigned(t, prep, toSign));
     }
     if (!this.session.hasThreadCredential(t.threadId)) {
       opts.onThreadPasskeyPhase?.("creating");
     }
     await this.ensurePasskeySigner(t);
-    const prep = await this.prepare(t, intent);
+    const prep = await this.prepare(t, intent, opts.mentions);
     opts.onThreadPasskeyPhase?.("signing");
-    const signed = await this.session.buildSigned(t, prep, intent);
+    const toSign = this.intentWithEmbeddedMentions(intent, prep, opts);
+    const signed = await this.session.buildSigned(t, prep, toSign);
     return this.submit(signed);
+  }
+
+  /** Rewrite create/update content with mention tokens when prepare returned mentionNodes. */
+  private intentWithEmbeddedMentions(
+    intent: Intent,
+    prep: PreparedAppend,
+    opts: CivicAppendOptions,
+  ): Intent {
+    const mentions = opts.mentions;
+    if (!mentions?.length) return intent;
+    const nodes = prep.mentionNodes;
+    if (!nodes?.length) {
+      throw new Error("append: prepare returned no mentionNodes for mentions");
+    }
+    if (nodes.length !== mentions.length) {
+      throw new Error(
+        `append: mentionNodes (${nodes.length}) length does not match mentions (${mentions.length})`,
+      );
+    }
+    if (intent.op === "delete") return intent;
+    const spans =
+      opts.mentionSpans ?? mentions.map((c) => composeSpanForCandidate(c));
+    if (spans.length !== mentions.length) {
+      throw new Error("append: mentionSpans length must match mentions");
+    }
+    const content = embedMentionTokens(intent.content, nodes, spans);
+    return { ...intent, content };
   }
 
   // ── Convenience intents ───────────────────────────────────────────────────────────────────
