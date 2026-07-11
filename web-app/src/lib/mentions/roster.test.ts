@@ -40,6 +40,28 @@ describe("mentionRosterFromThread", () => {
 
     const roster = mentionRosterFromThread(detail, comments);
     expect(roster.profiles.map((p) => p.label)).toContain("root_user");
+    expect(roster.profiles.find((p) => p.label === "root_user")?.display).toBe("root_user");
+    expect(roster.profiles.find((p) => p.label === "root_user")?.aliases).toContain("Root");
     expect(roster.personas.map((p) => p.label)).toContain("CuriousFox12");
+  });
+
+  it("profile display stays the handle even when author is a display name", () => {
+    const detail = {
+      author: "Alberta Legislature",
+      handle: "ableg",
+      identity: {
+        display: "Alberta Legislature",
+        handle: "ableg",
+        isPersona: false,
+        isSelf: false,
+        seed: "ableg",
+        threadId: "t1",
+      },
+    } as Pick<RecordDetail, "author" | "handle" | "identity">;
+
+    const roster = mentionRosterFromThread(detail, []);
+    const entry = roster.profiles.find((p) => p.label === "ableg");
+    expect(entry?.display).toBe("ableg");
+    expect(entry?.aliases).toContain("Alberta Legislature");
   });
 });

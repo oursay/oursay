@@ -3,6 +3,9 @@
  * Every real `@handle` span becomes a prepare candidate; unmatched → display `@Someone`
  * (still sent as a profile candidate with the typed handle so the API allocates unresolved).
  * Emails (`me@email.com`) and empty `@` / `@ 4pm` are ignored.
+ *
+ * Profiles always resolve/insert as wire **handles** (not display names). Display names are
+ * typeahead aliases only — flip `display` to the name later if product wants that.
  */
 
 import type { MentionCandidate } from "@oursay/identity";
@@ -11,12 +14,23 @@ const HANDLE_CHAR_RE = /[A-Za-z0-9_-]/;
 /** Max wire-handle length — matches web-app/src/lib/handle.ts. */
 const HANDLE_MAX = 30;
 
+/** Default typeahead list size. */
+export const MENTION_TYPEAHEAD_LIMIT = 6;
+
 export interface MentionRosterEntry {
-  /** Typeahead / match key (persona name or profile handle). */
+  /** Stable key (persona name or profile handle). */
   label: string;
   candidate: MentionCandidate;
-  /** Display after resolve (`Someone` | persona | handle) — without leading @. */
+  /**
+   * What gets inserted into compose after resolve — without leading `@`.
+   * Personas: persona name. Profiles: wire handle (not display name).
+   */
   display: string;
+  /**
+   * Extra typeahead / resolve match strings (e.g. profile display name).
+   * Does not change what is inserted — `display` stays the handle for profiles.
+   */
+  aliases?: string[];
 }
 
 export interface MentionRoster {
@@ -42,6 +56,10 @@ export interface ComposeMentionPayload {
   /** Exact `@…` labels in `text`, parallel to `mentions`. */
   mentionSpans: string[];
 }
+
+export type ComposeHighlightSegment =
+  | { type: "text"; value: string }
+  | { type: "tag"; value: string };
 
 /**
  * Resolve `@` spans across ordered string fields (e.g. title then body).
@@ -88,22 +106,77 @@ export function parseAtSpans(text: string): ParsedAtSpan[] {
   return out;
 }
 
+function entryMatchStrings(e: MentionRosterEntry): string[] {
+  return [e.label, e.display, ...(e.aliases ?? [])];
+}
+
+function entryMatchesRaw(e: MentionRosterEntry, raw: string, lower: string): boolean {
+  return entryMatchStrings(e).some((s) => s === raw || s.toLowerCase() === lower);
+}
+
 function findRosterMatch(
   raw: string,
   roster: MentionRoster,
 ): MentionRosterEntry | null {
   const lower = raw.toLowerCase();
   for (const p of roster.personas) {
-    if (p.label === raw || p.label.toLowerCase() === lower) return p;
+    if (entryMatchesRaw(p, raw, lower)) return p;
   }
   for (const p of roster.profiles) {
-    if (p.label === raw || p.label.toLowerCase() === lower) return p;
+    if (entryMatchesRaw(p, raw, lower)) return p;
   }
   return null;
 }
 
+/** Whether this `@raw` span should render as a compose tag (roster hit or Someone). */
+export function isComposeTagSpan(raw: string, roster: MentionRoster): boolean {
+  if (raw === "Someone") return true;
+  return findRosterMatch(raw, roster) != null;
+}
+
+/**
+ * Split compose text into plain + tag segments for the highlight overlay.
+ * Tags are roster-resolved spans and `@Someone` (bold purple in the composer).
+ */
+export function composeHighlightSegments(
+  text: string,
+  roster: MentionRoster,
+): ComposeHighlightSegment[] {
+  const spans = parseAtSpans(text);
+  if (spans.length === 0) return [{ type: "text", value: text }];
+
+  const parts: ComposeHighlightSegment[] = [];
+  let cursor = 0;
+  for (const span of spans) {
+    if (span.start > cursor) {
+      parts.push({ type: "text", value: text.slice(cursor, span.start) });
+    }
+    const token = text.slice(span.start, span.end);
+    if (isComposeTagSpan(span.raw, roster)) {
+      // Prefer canonical @display when a roster match rewrites (e.g. alias → handle).
+      const match = findRosterMatch(span.raw, roster);
+      const value = match ? `@${match.display}` : token;
+      // Only mark as tag when the on-screen token already matches what we'd show
+      // (avoid styling mid-edit alias text that hasn't been rewritten yet).
+      if (token === value || span.raw === "Someone") {
+        parts.push({ type: "tag", value: token });
+      } else {
+        parts.push({ type: "text", value: token });
+      }
+    } else {
+      parts.push({ type: "text", value: token });
+    }
+    cursor = span.end;
+  }
+  if (cursor < text.length) {
+    parts.push({ type: "text", value: text.slice(cursor) });
+  }
+  return parts;
+}
+
 /**
  * Resolve every `@` span against the roster. Rewrites unmatched spans to `@Someone`.
+ * Profile matches always emit `@handle` (even when matched via display-name alias).
  * Returns prepare candidates + exact spans for SDK embed (order = left-to-right).
  */
 export function resolveComposeMentions(
@@ -155,20 +228,26 @@ export function activeMentionQuery(
   return { start: i, query };
 }
 
-/** Filter roster entries whose label starts with `query` (case-insensitive). */
+function entryMatchesQuery(e: MentionRosterEntry, q: string): boolean {
+  if (!q) return true;
+  return entryMatchStrings(e).some((s) => s.toLowerCase().startsWith(q));
+}
+
+/**
+ * Filter roster entries by handle / persona / display-name alias prefix.
+ * Default limit {@link MENTION_TYPEAHEAD_LIMIT}.
+ */
 export function filterMentionRoster(
   roster: MentionRoster,
   query: string,
-  limit = 8,
+  limit = MENTION_TYPEAHEAD_LIMIT,
 ): MentionRosterEntry[] {
   const q = query.toLowerCase();
   const out: MentionRosterEntry[] = [];
   const push = (entries: MentionRosterEntry[]) => {
     for (const e of entries) {
       if (out.length >= limit) return;
-      if (!q || e.label.toLowerCase().startsWith(q) || e.display.toLowerCase().startsWith(q)) {
-        out.push(e);
-      }
+      if (entryMatchesQuery(e, q)) out.push(e);
     }
   };
   push(roster.personas);
@@ -176,7 +255,7 @@ export function filterMentionRoster(
   return out;
 }
 
-/** Replace the active `@query` at caret with a finalized `@display` span. */
+/** Replace the active `@query` at caret with a finalized `@display` span (handle for profiles). */
 export function applyMentionSelection(
   text: string,
   caret: number,

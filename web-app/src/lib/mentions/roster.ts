@@ -2,6 +2,9 @@
  * Build a compose mention roster from an open thread's root + comment authors.
  * Personas: in-thread persona display names. Profiles: revealed handles only
  * (identity.handle set) — never invent anonymous existence.
+ *
+ * Profile compose tags always use the wire **handle**. Display names are stored
+ * as typeahead aliases so users can find someone by name without inserting it.
  */
 
 import type { CommentNode, RecordDetail } from "@/lib/types";
@@ -17,15 +20,37 @@ function addPersona(into: Map<string, MentionRosterEntry>, name: string) {
   });
 }
 
-function addProfile(into: Map<string, MentionRosterEntry>, handle: string) {
+/**
+ * @param handle - wire handle (what compose inserts)
+ * @param displayName - optional public display name for typeahead only
+ */
+function addProfile(
+  into: Map<string, MentionRosterEntry>,
+  handle: string,
+  displayName?: string | null,
+) {
   const wire = handle.replace(/^@/, "");
   if (!wire) return;
   const key = wire.toLowerCase();
-  if (into.has(key)) return;
+  const existing = into.get(key);
+  const alias =
+    displayName && displayName.trim() && displayName.trim() !== wire
+      ? displayName.trim()
+      : undefined;
+
+  if (existing) {
+    if (alias && !(existing.aliases ?? []).includes(alias)) {
+      existing.aliases = [...(existing.aliases ?? []), alias];
+    }
+    return;
+  }
+
   into.set(key, {
     label: wire,
+    // Profiles always resolve as handles — switch `display` to the name later if desired.
     display: wire,
     candidate: { kind: "profile", handle: wire },
+    ...(alias ? { aliases: [alias] } : {}),
   });
 }
 
@@ -41,7 +66,8 @@ function collectFromAuthor(
     return;
   }
   if (identity?.handle) {
-    addProfile(profiles, identity.handle);
+    // identity.display is the public name when revealed; handle is what we insert.
+    addProfile(profiles, identity.handle, identity.display);
     return;
   }
   // Mock / unresolved identity: treat handle as persona-style if it looks like
@@ -49,7 +75,7 @@ function collectFromAuthor(
   if (handle && /^[A-Z][A-Za-z]+\d{2,}$/.test(handle)) {
     addPersona(personas, handle);
   } else if (handle) {
-    addProfile(profiles, handle);
+    addProfile(profiles, handle, author !== handle ? author : undefined);
   }
 }
 

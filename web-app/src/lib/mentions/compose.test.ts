@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   activeMentionQuery,
   applyMentionSelection,
+  composeHighlightSegments,
   filterMentionRoster,
   isMentionAt,
+  MENTION_TYPEAHEAD_LIMIT,
   parseAtSpans,
   resolveComposeMentions,
   resolveComposeMentionsFields,
@@ -19,6 +21,12 @@ const roster: MentionRoster = {
     },
   ],
   profiles: [
+    {
+      label: "ableg",
+      display: "ableg",
+      aliases: ["Alberta Legislature", "AblegOffice"],
+      candidate: { kind: "profile", handle: "ableg" },
+    },
     {
       label: "alice",
       display: "alice",
@@ -62,8 +70,15 @@ describe("resolveComposeMentions", () => {
     expect(r.mentionSpans).toEqual(["@CuriousFox12"]);
   });
 
+  it("resolves single-token display-name alias to @handle", () => {
+    const r = resolveComposeMentions("ping @AblegOffice", roster);
+    expect(r.text).toBe("ping @ableg");
+    expect(r.mentionSpans).toEqual(["@ableg"]);
+    expect(r.mentions).toEqual([{ kind: "profile", handle: "ableg" }]);
+  });
+
   it("leaves plain text without @ unchanged and emits no candidates", () => {
-    const r = resolveComposeMentions("plain @alice text".replace("@alice", "alice"), roster);
+    const r = resolveComposeMentions("plain alice text", roster);
     expect(r.mentions).toEqual([]);
     expect(r.text).toBe("plain alice text");
   });
@@ -80,20 +95,49 @@ describe("resolveComposeMentions", () => {
   });
 });
 
+describe("composeHighlightSegments", () => {
+  it("marks roster hits and Someone as tags", () => {
+    expect(composeHighlightSegments("Hi @ableg and @Someone", roster)).toEqual([
+      { type: "text", value: "Hi " },
+      { type: "tag", value: "@ableg" },
+      { type: "text", value: " and " },
+      { type: "tag", value: "@Someone" },
+    ]);
+  });
+
+  it("leaves unmatched @handles as plain text until resolve", () => {
+    expect(composeHighlightSegments("Hi @nobody", roster)).toEqual([
+      { type: "text", value: "Hi " },
+      { type: "text", value: "@nobody" },
+    ]);
+  });
+});
+
 describe("typeahead helpers", () => {
   it("activeMentionQuery reads the @ fragment at caret", () => {
     expect(activeMentionQuery("hi @al", 6)).toEqual({ start: 3, query: "al" });
     expect(activeMentionQuery("hi @al ", 7)).toBeNull();
   });
 
-  it("filterMentionRoster matches prefix", () => {
-    expect(filterMentionRoster(roster, "cu").map((e) => e.label)).toEqual(["CuriousFox12"]);
-    expect(filterMentionRoster(roster, "a").map((e) => e.label)).toEqual(["alice"]);
+  it("filterMentionRoster matches handle and display-name alias; caps at 6", () => {
+    expect(filterMentionRoster(roster, "abl").map((e) => e.display)).toEqual(["ableg"]);
+    expect(filterMentionRoster(roster, "alber").map((e) => e.display)).toEqual(["ableg"]);
+    expect(MENTION_TYPEAHEAD_LIMIT).toBe(6);
+
+    const many: MentionRoster = {
+      personas: Array.from({ length: 10 }, (_, i) => ({
+        label: `Persona${i}`,
+        display: `Persona${i}`,
+        candidate: { kind: "persona" as const, personaName: `Persona${i}` },
+      })),
+      profiles: [],
+    };
+    expect(filterMentionRoster(many, "Persona")).toHaveLength(6);
   });
 
-  it("applyMentionSelection inserts display + space", () => {
-    const next = applyMentionSelection("hi @al", 6, roster.profiles[0]!);
-    expect(next.text).toBe("hi @alice ");
-    expect(next.caret).toBe("hi @alice ".length);
+  it("applyMentionSelection inserts handle (not display name) + space", () => {
+    const next = applyMentionSelection("hi @Alb", 7, roster.profiles[0]!);
+    expect(next.text).toBe("hi @ableg ");
+    expect(next.caret).toBe("hi @ableg ".length);
   });
 });
