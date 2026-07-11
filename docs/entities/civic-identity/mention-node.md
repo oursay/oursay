@@ -243,14 +243,15 @@ CREATE INDEX IF NOT EXISTS mention_index_entity ON mention_index (entity_id);
 | Store allocate / index | `PrivateStore` allocateOrGet / allocateUnresolved / getMentionMapByNodeIds / insertMentionIndex | Slice 2 |
 | Allocate on prepare | `CivicRecordService.prepare` + `PreparedAppend.mentionNodes` | Slice 2 |
 | Resolve + read DTO | `IdentityReadService.resolveMention` + feed/detail `mentions` | Slice 2 |
-| Compose embed | `web-app` + `identity` session build | Slice 3 |
+| Compose embed | `web-app` + `identity` CivicHttpClient.append | Slice 3 landed |
 | Mentions tabs | profile/persona APIs; drop `DEFERRED_MENTIONS` | Slice 4 |
 
 ## Gaps
 
-- **Compose embed / chip render** — Slice 3.
+- **Mentions tabs / DEFERRED_MENTIONS** — Slice 4.
 - **Official always-public mention special-case** — deferred V1; see [future.md](./future.md).
 - **Compose helpers dropdown** — makes unauthorized → `Someone` obvious at chip time (future UX).
-- **Typeahead privacy** — compose must not leak existence of fully anonymous accounts; prefer thread roster + already-public handles (product policy for Slice 3).
+- **Handle collision tightening** — ordered spans + candidates; collision UX post-dev / MVP polish.
 - **Content warnings / hate / doxxing filters** (plain-text handle bypass of compose `@` detection) — deferred; see [future.md](./future.md).
 - **Orphan map rows** — prepare without submit; acceptable; optional later sweep of rows never referenced by `mention_index`.
+- **Cross-thread anon persona tagging** — future; MVP roster is in-thread only.

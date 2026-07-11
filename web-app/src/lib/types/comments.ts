@@ -1,4 +1,5 @@
 import type { AuthorIdentity } from "./identity";
+import type { MentionsMap } from "./mentions";
 import type { SignTier } from "./sign-tier";
 import type { AuthorGeoRelation, VerificationTier } from "./verification";
 
@@ -40,5 +41,7 @@ export interface CommentNode {
   _my?: "up" | "down" | null;
   /** Viewer-resolved author identity; present on API-served copies only. */
   identity?: AuthorIdentity;
+  /** Opaque mention tokens → server display; absent when body has no tokens. */
+  mentions?: MentionsMap;
   replies: CommentNode[];
 }

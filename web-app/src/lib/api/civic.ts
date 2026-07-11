@@ -3,7 +3,7 @@
  * Only available in live mode (not mock-only) and only in the browser.
  */
 
-import type { ThreadRef } from "@oursay/identity";
+import type { ThreadRef, MentionCandidate } from "@oursay/identity";
 import type {
   CommentContent,
   EntityRules,
@@ -23,10 +23,22 @@ import { notifyCivicPasskeyPhase } from "./civic-passkey-phase";
 
 export type { CivicSignMode } from "./civic-helpers";
 
-function passkeyAppendOpts(sign: CivicSignMode) {
-  return sign === "passkey"
-    ? { sign, onThreadPasskeyPhase: notifyCivicPasskeyPhase }
-    : { sign };
+export interface CivicMentionsOpts {
+  mentions?: MentionCandidate[];
+  mentionSpans?: string[];
+}
+
+function passkeyAppendOpts(sign: CivicSignMode, mentions?: CivicMentionsOpts) {
+  const base =
+    sign === "passkey"
+      ? { sign, onThreadPasskeyPhase: notifyCivicPasskeyPhase }
+      : { sign };
+  if (!mentions?.mentions?.length) return base;
+  return {
+    ...base,
+    mentions: mentions.mentions,
+    ...(mentions.mentionSpans?.length ? { mentionSpans: mentions.mentionSpans } : {}),
+  };
 }
 
 let civicPromise: Promise<{
@@ -161,6 +173,7 @@ export async function civicComment(
   parentType: "post" | "petition" | "poll" | "comment",
   body: string,
   sign: CivicSignMode = "quick",
+  mentionOpts?: CivicMentionsOpts,
 ): Promise<string | null> {
   const { client } = await getCivicClient(userId);
   const content: CommentContent = { body };
@@ -168,7 +181,7 @@ export async function civicComment(
     t,
     { id: parentId, type: parentType },
     content,
-    passkeyAppendOpts(sign),
+    passkeyAppendOpts(sign, mentionOpts),
   );
   return client.personaDisplayName(t);
 }
@@ -202,11 +215,16 @@ export async function civicCompose(
     body: string;
     pollOptions?: string[];
     districtSlugs?: string[];
+    mentions?: MentionCandidate[];
+    mentionSpans?: string[];
   },
   sign: CivicSignMode = "passkey",
 ): Promise<{ entityId: string; personaName: string | null }> {
   const { client } = await getCivicClient(userId);
   const rules = districtRules(payload.districtSlugs);
+  const mentionOpts: CivicMentionsOpts | undefined = payload.mentions?.length
+    ? { mentions: payload.mentions, mentionSpans: payload.mentionSpans }
+    : undefined;
   if (kind === "statement") {
     const content: PostContent & { rules?: EntityRules } = {
       title: payload.title,
@@ -217,9 +235,13 @@ export async function civicCompose(
       ? await client.append(
           t,
           { op: "create", type: "post", entityId: t.threadId, content },
-          passkeyAppendOpts(sign),
+          passkeyAppendOpts(sign, mentionOpts),
         )
-      : await client.createPost(t, { title: payload.title, body: payload.body }, passkeyAppendOpts(sign));
+      : await client.createPost(
+          t,
+          { title: payload.title, body: payload.body },
+          passkeyAppendOpts(sign, mentionOpts),
+        );
     return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }
   if (kind === "petition") {
@@ -231,7 +253,7 @@ export async function civicCompose(
     const ref = await client.append(
       t,
       { op: "create", type: "petition", entityId: t.threadId, content },
-      passkeyAppendOpts(sign),
+      passkeyAppendOpts(sign, mentionOpts),
     );
     return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }
@@ -245,7 +267,7 @@ export async function civicCompose(
     const ref = await client.append(
       t,
       { op: "create", type: "poll", entityId: t.threadId, content },
-      passkeyAppendOpts(sign),
+      passkeyAppendOpts(sign, mentionOpts),
     );
     return { entityId: ref.entityId, personaName: client.personaDisplayName(t) };
   }

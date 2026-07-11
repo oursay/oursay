@@ -10,3 +10,4 @@ export * from "./viewer";
 export * from "./visibility";
 export * from "./identity";
 export * from "./filters";
+export * from "./mentions";

@@ -32,6 +32,7 @@ import {
   isSeatClaimed,
 } from "@/lib/official-seat";
 import type { CommentNode } from "@/lib/types/comments";
+import type { MentionsMap, MentionKind, ResolvedMention } from "@/lib/types/mentions";
 import type { SignTier } from "@/lib/types/sign-tier";
 import type {
   AuthorGeoRelation,
@@ -49,7 +50,30 @@ function mapWireHandle(raw: unknown): string {
 
 function mapOptionalWireHandle(raw: unknown): string | null {
   if (raw == null) return null;
-  return wireHandle(String(raw)) ?? null;
+  return mapWireHandle(raw);
+}
+
+const MENTION_KINDS = new Set<MentionKind>(["reserved", "persona", "profile"]);
+
+/** Pass through server `mentions` map; omit when absent/empty. */
+function mapMentions(raw: unknown): MentionsMap | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: MentionsMap = {};
+  for (const [nodeId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+    const v = value as Record<string, unknown>;
+    const kind = String(v.kind ?? "");
+    if (!MENTION_KINDS.has(kind as MentionKind)) continue;
+    if (typeof v.display !== "string" || typeof v.isSelf !== "boolean") continue;
+    const resolved: ResolvedMention = {
+      display: v.display,
+      kind: kind as MentionKind,
+      isSelf: v.isSelf,
+    };
+    if (typeof v.route === "string" && v.route.length > 0) resolved.route = v.route;
+    out[nodeId] = resolved;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** Friendly URL slugs for known jurisdiction ids (API serves id only). */
@@ -191,6 +215,8 @@ export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
   if (opts) item.options = opts;
   const poll = mapAttachedPoll(raw.attachedPoll);
   if (poll) item.attachedPoll = poll;
+  const mentions = mapMentions(raw.mentions);
+  if (mentions) item.mentions = mentions;
   return item;
 }
 
@@ -228,6 +254,8 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
   if (raw.sourcePetitionId) detail.sourcePetition = true;
   if (raw.sourcePollId) detail.sourcePoll = true;
   if (raw.resultId) detail.resultPublished = true;
+  const mentions = mapMentions(raw.mentions);
+  if (mentions) detail.mentions = mentions;
   return detail;
 }
 
@@ -252,6 +280,8 @@ export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
   if (raw.edits != null) node.edits = raw.edits as number;
   if (raw.signTier != null) node.signTier = raw.signTier as SignTier;
   if (raw._my != null) node._my = raw._my as "up" | "down" | null;
+  const mentions = mapMentions(raw.mentions);
+  if (mentions) node.mentions = mentions;
   if (Array.isArray(raw.replies)) {
     node.replies = raw.replies.map((r) =>
       mapCommentNode(r as Record<string, unknown>),

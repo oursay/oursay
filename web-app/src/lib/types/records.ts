@@ -1,4 +1,5 @@
 import type { AuthorIdentity } from "./identity";
+import type { MentionsMap } from "./mentions";
 import type { SignTier } from "./sign-tier";
 import type { AuthorGeoRelation, VerificationTier } from "./verification";
 
@@ -101,6 +102,8 @@ export interface FeedItem {
   attachedPoll?: AttachedPoll;
   /** Viewer-resolved author identity; present on API-served copies only. */
   identity?: AuthorIdentity;
+  /** Opaque mention tokens → server display; absent when content has no tokens. */
+  mentions?: MentionsMap;
 }
 
 /**
@@ -149,4 +152,6 @@ export interface RecordDetail {
   resultPublished?: boolean;
   /** Viewer-resolved author identity; present on API-served copies only. */
   identity?: AuthorIdentity;
+  /** Opaque mention tokens → server display; absent when content has no tokens. */
+  mentions?: MentionsMap;
 }
