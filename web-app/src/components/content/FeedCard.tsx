@@ -11,6 +11,7 @@ import { ResultOutcome } from "./ResultOutcome";
 import { RecordCard } from "./RecordCard";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
+import { MentionText } from "./MentionText";
 
 interface FeedCardProps {
   item: FeedItem;
@@ -109,9 +110,15 @@ export function FeedCard({
             onClick={onTitleClick}
             className="block w-full text-left"
           >
-            <h3 className="text-[15px] font-bold text-ink">{item.title}</h3>
+            <h3 className="text-[15px] font-bold text-ink">
+              <MentionText text={item.title} mentions={item.mentions} linkable={false} />
+            </h3>
             <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
-              {item.body.join(" ")}
+              <MentionText
+                text={item.body.join(" ")}
+                mentions={item.mentions}
+                linkable={false}
+              />
             </p>
             <span className="mt-1 inline-block text-sm font-semibold text-ink">
               …more

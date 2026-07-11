@@ -5,6 +5,7 @@ import { COMMENT_MAX_DEPTH } from "@/lib/types";
 import type { CommentNode, ViewerContext, VerificationTier } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
 import { CommentCard } from "./CommentCard";
+import { MentionText } from "./MentionText";
 
 interface CommentThreadProps {
   nodes: CommentNode[];
@@ -83,7 +84,7 @@ export function CommentThread({
                       {li === 0 && prefix ? (
                         <span className="font-semibold text-brand-700">{prefix} </span>
                       ) : null}
-                      {line}
+                      <MentionText text={line} mentions={node.mentions} />
                     </p>
                   ))}
                 </>

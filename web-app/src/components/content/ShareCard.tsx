@@ -13,6 +13,7 @@ import { RecordCard } from "./RecordCard";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
 import { CommentCard } from "./CommentCard";
+import { MentionText } from "./MentionText";
 
 interface ShareCardProps {
   preview: SharePreview;
@@ -60,7 +61,9 @@ export function ShareCard({
         body={
           <div className="space-y-1">
             {node.body.map((line, i) => (
-              <p key={i}>{line}</p>
+              <p key={i}>
+                <MentionText text={line} mentions={node.mentions} linkable={false} />
+              </p>
             ))}
           </div>
         }
@@ -113,9 +116,15 @@ function ShareRecordCard({
       }
       body={
         <>
-          <h3 className="text-[15px] font-bold text-ink">{item.title}</h3>
+          <h3 className="text-[15px] font-bold text-ink">
+            <MentionText text={item.title} mentions={item.mentions} linkable={false} />
+          </h3>
           <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
-            {item.body.join(" ")}
+            <MentionText
+              text={item.body.join(" ")}
+              mentions={item.mentions}
+              linkable={false}
+            />
           </p>
           {item.kind === "petition" ? (
             <div className="mt-3">

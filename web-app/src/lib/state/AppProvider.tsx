@@ -46,6 +46,8 @@ import { RECORD_TYPE_LABEL } from "@/components/content";
 import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import { nextGeoFilterMode } from "@/lib/types";
 import { shareBaseCount } from "@/lib/share";
+import { resolveComposeMentionsFields } from "@/lib/mentions/compose";
+import { emptyMentionRoster } from "@/lib/mentions/roster";
 import type {
   AppState,
   ShareTarget,
@@ -135,6 +137,7 @@ import {
   hasLocalThreadCredential,
   setCivicPasskeyPhaseListener,
 } from "@/lib/api/civic-passkey-phase";
+import type { MentionCandidate } from "@oursay/identity";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 const ALL_ACTIVITY: ActivityKind[] = [
@@ -167,6 +170,8 @@ export interface CommentWriteContext {
   parentId: string;
   parentType: "post" | "comment";
   body: string;
+  mentions?: MentionCandidate[];
+  mentionSpans?: string[];
 }
 
 type SignedCommit = (sign: CivicSignMode) => void | Promise<void>;
@@ -1775,6 +1780,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const selfHandle =
       wireHandle(state.accountHandle) ?? (isMockOnly() ? MY_HANDLE : "you");
     const threadId = crypto.randomUUID();
+    // New-thread roster is empty — unmatched @ → Someone (still tokenized).
+    const fieldOrder = kind === "poll" ? ["title"] : ["title", "body"];
+    const resolved = resolveComposeMentionsFields(
+      { title, body },
+      fieldOrder,
+      emptyMentionRoster(),
+    );
+    const composeTitleFinal = resolved.fields.title ?? title;
+    const composeBodyFinal = resolved.fields.body ?? body;
     const finish = (personaName?: string | null) => {
       closeCompose();
       notify(
@@ -1801,8 +1815,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         input: {
           threadId,
           kind,
-          title,
-          body,
+          title: composeTitleFinal,
+          body: composeBodyFinal,
           pollOptions: state.composePollOptions,
           districtSlugs:
             state.composeDistricts.length > 0
@@ -1823,13 +1837,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
               civic.threadRef(threadId, jur),
               kind,
               {
-                title,
-                body,
+                title: composeTitleFinal,
+                body: composeBodyFinal,
                 pollOptions: state.composePollOptions,
                 districtSlugs:
                   state.composeDistricts.length > 0
                     ? state.composeDistricts
                     : undefined,
+                ...(resolved.mentions.length
+                  ? {
+                      mentions: resolved.mentions,
+                      mentionSpans: resolved.mentionSpans,
+                    }
+                  : {}),
               },
               mode,
             );
@@ -2012,6 +2032,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
                   ctx.parentType,
                   body,
                   mode,
+                  ctx.mentions?.length
+                    ? { mentions: ctx.mentions, mentionSpans: ctx.mentionSpans }
+                    : undefined,
                 );
               },
               (personaName) => done(personaName ?? undefined),

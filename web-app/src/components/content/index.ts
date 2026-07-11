@@ -16,6 +16,8 @@ export * from "./SharePill";
 export * from "./CivicPills";
 export * from "./ReplyLink";
 export * from "./ReplyComposer";
+export * from "./MentionText";
+export * from "./MentionComposer";
 export * from "./RecordCard";
 export * from "./RecordCardHeader";
 export * from "./RecordCardFooter";

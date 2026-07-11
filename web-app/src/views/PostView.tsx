@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRecordDetail, personaShownToOthers } from "@/lib/api";
 import {
@@ -25,6 +25,8 @@ import {
   Button,
   CommentCountPill,
   CommentThread,
+  MentionComposer,
+  MentionText,
   PetitionProgress,
   PollOptions,
   RecordCard,
@@ -45,6 +47,8 @@ import {
   useApp,
 } from "@/lib/state";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
+import { resolveComposeMentions } from "@/lib/mentions/compose";
+import { mentionRosterFromThread } from "@/lib/mentions/roster";
 
 function countNodes(nodes: CommentNode[]): number {
   return nodes.reduce((n, node) => n + 1 + countNodes(node.replies), 0);
@@ -69,6 +73,14 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   // Inline comment reply composers, keyed by node path — several open at once.
   const [openReplies, setOpenReplies] = useState<Set<string>>(new Set());
   const [rootReplyText, setRootReplyText] = useState("");
+
+  const mentionRoster = useMemo(
+    () => (detail ? mentionRosterFromThread(detail, fullComments) : mentionRosterFromThread(
+      { author: "", handle: "", identity: undefined },
+      [],
+    )),
+    [detail, fullComments],
+  );
 
   const toggleCommentReply = (nodePath: string) => {
     setOpenReplies((prev) => {
@@ -259,12 +271,16 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
         body={
           <>
             <div>
-              <h1 className="text-lg font-bold text-ink">{detail.title}</h1>
+              <h1 className="text-lg font-bold text-ink">
+                <MentionText text={detail.title} mentions={detail.mentions} />
+              </h1>
               <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, now)}</p>
             </div>
             <div className="mt-3 space-y-1 text-sm text-ink-soft">
               {detail.body.map((line, i) => (
-                <p key={i}>{line}</p>
+                <p key={i}>
+                  <MentionText text={line} mentions={detail.mentions} />
+                </p>
               ))}
             </div>
             {detail.kind === "petition" ? (
@@ -372,12 +388,12 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
 
         {app.state.replyOpen ? (
           <div className="space-y-2 rounded-xl border border-border bg-surface p-3">
-            <textarea
+            <MentionComposer
               rows={3}
               placeholder="Write a reply…"
               value={rootReplyText}
-              onChange={(e) => setRootReplyText(e.target.value)}
-              className="w-full rounded-md border border-border bg-surface-muted px-2.5 py-2 text-sm text-ink placeholder:text-muted"
+              onChange={setRootReplyText}
+              roster={mentionRoster}
             />
             <div className="flex items-center gap-2">
               <Button
@@ -395,6 +411,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                 size="sm"
                 className="rounded-full!"
                 onClick={() => {
+                  const resolved = resolveComposeMentions(rootReplyText, mentionRoster);
+                  if (!resolved.text.trim()) {
+                    app.notify("Write something before posting.");
+                    return;
+                  }
                   app.postComment(
                     {
                       threadId: detail.id,
@@ -402,7 +423,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                       targetTitle: detail.title,
                       parentId: detail.id,
                       parentType: "post",
-                      body: rootReplyText,
+                      body: resolved.text,
+                      mentions: resolved.mentions,
+                      mentionSpans: resolved.mentionSpans,
                     },
                     (personaName) => {
                       setRootReplyText("");
@@ -442,8 +465,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                       depth >= COMMENT_MAX_DEPTH ? `@${node.handle} ` : ""
                     }
                     autoFocus
+                    roster={mentionRoster}
                     onCancel={() => toggleCommentReply(nodePath)}
-                    onSubmit={(text) => {
+                    onSubmit={(payload) => {
                       const parentId = civicCommentParentForReply(
                         node,
                         nodePath,
@@ -461,7 +485,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                           targetTitle: detail.title,
                           parentId,
                           parentType: "comment",
-                          body: text,
+                          body: payload.text,
+                          mentions: payload.mentions,
+                          mentionSpans: payload.mentionSpans,
                         },
                         (personaName) => {
                           postCommentDone(
