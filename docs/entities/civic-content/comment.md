@@ -21,7 +21,7 @@ Primary key: `entity_id` (UUID) on `comment` create transaction.
 
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
-| `body` | string | yes | yes | Comment text |
+| `body` | string | yes | yes | Comment text; may embed opaque mention tokens (`<@` + base59(node id) + `>`) — see [mention-node.md](../civic-identity/mention-node.md). Free-text `@handle` is not parsed. |
 | `authorPubkey` | TEXT | yes | yes | May be anonymous |
 | `parent_type` | RecordType | yes | yes | post / petition / poll / comment |
 | `parent_id` | UUID | yes | yes | Entity-level parent |

@@ -49,6 +49,7 @@ This library **formalizes** existing documentation; it does not replace it.
 | [ThreadBinding](./civic-identity/thread-binding.md) | — | — | `public.thread_bindings` | [MVP] |
 | [ThreadCredential](./civic-identity/thread-credential.md) | Civic signer | — | `public.thread_civic_credentials` | [MVP] |
 | [Nullifier](./civic-identity/nullifier.md) | — | — | `public.nullifier_attestations` | [MVP] |
+| [MentionNode](./civic-identity/mention-node.md) | @mention / opaque token | — | `public.mention_map` (+ `mention_index`) | [Gap] schema proposed; allocate/resolve wiring pending |
 | [RecordTransaction](./record/record-transaction.md) | — | all types | `record_tx` | [MVP] |
 | [PublicRecord](./record/public-record.md) | Public record | — | immudb + `record_outbox` | [MVP] |
 | [EntityProjection](./record/entity-projection.md) | — | — | `entity_state` views | [MVP] |
@@ -104,7 +105,7 @@ docs/entities/
 ├── partitioning/             ← jurisdiction, district, region, entity-rules
 ├── account/                  ← user, profile, verification, profile-geocode
 ├── civic-content/            ← post, petition, poll, vote, result, …
-├── civic-identity/           ← thread persona, binding, credential, nullifier
+├── civic-identity/           ← thread persona, binding, credential, nullifier, mention-node
 ├── record/                   ← record-transaction, public-record, entity-projection
 └── auth/                     ← session, passkey, email-otp (supporting objects)
 ```

@@ -367,12 +367,27 @@ CREATE TABLE record_action_geo (
 );                                     -- breakdowns); default NULL — privileged-view resolution
                                        -- goes through a live geocode join, never this table
 
--- Profile tabs: mentions index (resolved at write time from @handle in content)
+-- Mentions (see docs/entities/civic-identity/mention-node.md):
+-- Opaque tokens in committed body (`<@` + base59(node_id) + `>`); NEVER store @handle /
+-- reserved label / persona / profile display in record_tx.content.
+-- One stable node per (thread_id, mentioned_user_id); reserved_label = random + collision retry
+-- (NOT derived from user_id). allocateOrGet folds into civic prepare (near sign) so tokens exist
+-- before contentCommitment + envelope sign.
+CREATE TABLE mention_map (
+  node_id UUID PRIMARY KEY,
+  thread_id TEXT NOT NULL,             -- root entity id
+  mentioned_user_id UUID NOT NULL REFERENCES users(id),
+  reserved_label TEXT NOT NULL UNIQUE, -- random mint; collision-retry vs map + persona_name
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (thread_id, mentioned_user_id)
+);
+
+-- Profile/persona Mentions tabs: projected at submit from tokens → mention_map (not @handle text)
 CREATE TABLE mention_index (
   tx_id TEXT NOT NULL,
   entity_id TEXT NOT NULL,             -- thread the mention appears in
   mentioned_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (tx_id, mentioned_user_id)
 );
 
@@ -584,3 +599,4 @@ _Action plan + agent prompts: [`WEB-APP-ALIGNMENT-PROMPTS.md`](./WEB-APP-ALIGNME
   Didit hosted session. Under `KYC_PROVIDER=didit` the dev "Get Verified" button 403s (gap B: didit
   declines direct `verify()`). Dev default stays dev-attest; the web-app end-to-end walk uses
   `KYC_PROVIDER=stub`. Tracked in ROADMAP.md and API-GAPS-AND-ROADMAP.md.
+- **Mention nodes proposed 2026-07-11** (Slice 1 docs + schema): Part 2 `mention_index` corrected — no longer “resolved from `@handle` in content.” Added `mention_map` (stable opaque node per `(thread_id, mentioned_user_id)`, random reserved labels). Committed body stays a string with `<@base59(nodeId)>` tokens; allocate on prepare near sign; read resolve reuses author-card visibility (reserved | persona | profile). Entity spec: [`entities/civic-identity/mention-node.md`](../entities/civic-identity/mention-node.md). Official always-public mention special-case deferred to V1 (`civic-identity/future.md`). DDL landed in `public-record` postgres schema; allocate/resolve/compose wiring = later slices.

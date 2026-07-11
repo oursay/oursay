@@ -57,6 +57,7 @@ Primary key: `thread_keys.id` (UUID). Uniqueness enforced on `(user_id, thread_i
 | ThreadCredential | 1:N | Per-device signers for this persona |
 | RecordTransaction | 1:N | All txs use this `authorPubkey` |
 | JurisdictionMasterKey | N:1 | Derived from jurisdiction-scoped master |
+| MentionNode | 0..N | Soft-mode mentions of this user in this thread resolve via Pₜ after join — see [mention-node.md](./mention-node.md) |
 
 ## Invariants
 
