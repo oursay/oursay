@@ -226,15 +226,15 @@ workers on the same chain. Leader election / HA for a single chain is a stage-2 
 (Containerizing the worker is done — compose profile `worker` on `db:up` / `db:prod:up`, or via
 `npm run up -w @oursay/api` which includes this stack.)
 
-**What ships today:** `FileAnchorTarget` writes append-only local files for development and
-testing. An **offline verifier** checks a block, a single entry, or the whole chain against a root
-read from those files — exercising the publish/verify pipeline without the platform DB.
+**What ships today:** `FileAnchorTarget` writes append-only local files (default every **1** settled
+block). `EvmAnchorTarget` publishes headers to `SettlementAnchor` on a local Hardhat node (default
+every **2** blocks) when `EVM_ANCHOR_ADDRESS` / `.evm/address` is set — compose starts the `evm`
+service on `db:up`, and the `worker` profile runs deploy + worker. Bundles stay on the file target
+(`fetchBundle` is unsupported on EVM).
 
 **What does not ship yet (external anchoring):** connectors that push anchors to infrastructure
-we do not control — **Git** transparency log, **EVM** (L1/L2/testnet), **Solana**. R14's
-“verify without trusting the platform” claim applies only once those targets are implemented,
-verified, and used in dev (testnet) or production. The file target is the primitive those
-connectors will publish the same artifacts through.
+we do not control in production — **Git** transparency log, public **EVM** L1/L2, **Solana**. The
+local Hardhat path is the EVM plugin for development.
 
 ```ts
 // 1. Pool writes (RecordService.create/update/... → PublicChain.append) accumulate in Postgres.

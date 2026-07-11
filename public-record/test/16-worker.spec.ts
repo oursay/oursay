@@ -63,8 +63,8 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       const sB = fakeSettler(0);
       const pB = fakePublisher();
       const runners: ChainRunner[] = [
-        { chainId: "chain-a", settler: sA, publisher: pA, target: {} as never, blockConfig: workerCfg },
-        { chainId: "chain-b", settler: sB, publisher: pB, target: {} as never, blockConfig: workerCfg },
+        { chainId: "chain-a", settler: sA, publisher: pA, targets: [{} as never], blockConfig: workerCfg },
+        { chainId: "chain-b", settler: sB, publisher: pB, targets: [{} as never], blockConfig: workerCfg },
       ];
       const worker = new SettlementWorker({ runners, maxIdleMs: 60_000, minIntervalMs: 1_000, log: silent });
 
@@ -92,8 +92,8 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       };
       const good = fakeSettler(1);
       const runners: ChainRunner[] = [
-        { chainId: "bad", settler: bad, publisher: fakePublisher(), target: {} as never, blockConfig: workerCfg },
-        { chainId: "good", settler: good, publisher: fakePublisher(), target: {} as never, blockConfig: workerCfg },
+        { chainId: "bad", settler: bad, publisher: fakePublisher(), targets: [] as never[], blockConfig: workerCfg },
+        { chainId: "good", settler: good, publisher: fakePublisher(), targets: [] as never[], blockConfig: workerCfg },
       ];
       const worker = new SettlementWorker({ runners, maxIdleMs: 60_000, minIntervalMs: 1_000, log: silent });
 
@@ -163,7 +163,7 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       chainId: "c",
       settler,
       publisher: { async maybePublish() { return []; } },
-      target: {} as never,
+      targets: [] as never[],
       blockConfig: workerCfg,
     };
     const worker = new SettlementWorker({ runners: [runner], maxIdleMs: 60_000, minIntervalMs: 1_000, sleeper, log: silent });
@@ -211,8 +211,8 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       const ta = freshTarget();
       const tb = freshTarget();
       const runners: ChainRunner[] = [
-        { chainId: a.chainId, settler: a.settler, publisher: a.publisher, target: ta.target, blockConfig: workerCfg },
-        { chainId: b.chainId, settler: b.settler, publisher: b.publisher, target: tb.target, blockConfig: workerCfg },
+        { chainId: a.chainId, settler: a.settler, publisher: a.publisher, targets: [ta.target], blockConfig: workerCfg },
+        { chainId: b.chainId, settler: b.settler, publisher: b.publisher, targets: [tb.target], blockConfig: workerCfg },
       ];
       const worker = new SettlementWorker({ runners, maxIdleMs: 60_000, minIntervalMs: 1_000, log: silent });
 

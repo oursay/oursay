@@ -1,7 +1,7 @@
 /**
  * Settlement + anchoring worker: a long-running process that settles pooled civic blocks and
- * publishes file anchors for a SET of chains, reusing BlockSettler + AnchorPublisher (docs/01 §3.4:
- * pool → settle → publish). Run with: `npm run worker --workspace public-record`
+ * publishes file (+ optional EVM) anchors for a SET of chains, reusing BlockSettler + AnchorPublisher
+ * (docs/01 §3.4: pool → settle → publish). Run with: `npm run worker --workspace public-record`
  * (after `npm run db:up --workspace public-record`; alongside `npm run dev --workspace @oursay/api`).
  *
  * Bootstrap mirrors scripts/seed.ts (connect → run → close). Graceful shutdown is worker-specific:
@@ -11,13 +11,39 @@
  */
 import { BundleAssembler } from "../src/anchor/assembler.js";
 import { AnchorPublisher } from "../src/anchor/publisher.js";
+import { EvmAnchorTarget } from "../src/anchor/evm.target.js";
 import { FileAnchorTarget } from "../src/anchor/file.target.js";
-import { everyNBlocks } from "../src/anchor/target.js";
-import { immudbPgConfig, outboxConfig, pgConfig, workerChainConfigs, workerConfig } from "../src/config.js";
+import { everyNBlocks, type AnchorTarget } from "../src/anchor/target.js";
+import {
+  evmAnchorConfig,
+  immudbPgConfig,
+  outboxConfig,
+  pgConfig,
+  workerChainConfigs,
+  workerConfig,
+} from "../src/config.js";
 import { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import { BlockSettler } from "../src/ledger/settler.js";
 import { PrivateStore } from "../src/private/store.js";
 import { type ChainRunner, SettlementWorker } from "../src/worker/settlement-worker.js";
+
+function targetsForChain(c: { chainId: string; anchorDir: string; fileEveryNBlocks: number; evmEveryNBlocks: number }): AnchorTarget[] {
+  const targets: AnchorTarget[] = [
+    new FileAnchorTarget(c.anchorDir, everyNBlocks(c.fileEveryNBlocks)),
+  ];
+  if (evmAnchorConfig.contractAddress) {
+    targets.push(
+      new EvmAnchorTarget({
+        rpcUrl: evmAnchorConfig.rpcUrl,
+        privateKey: evmAnchorConfig.privateKey,
+        contractAddress: evmAnchorConfig.contractAddress,
+        chainId: c.chainId,
+        publishPolicy: everyNBlocks(c.evmEveryNBlocks),
+      }),
+    );
+  }
+  return targets;
+}
 
 async function main(): Promise<void> {
   const connector = new PgWireLedgerConnector(immudbPgConfig);
@@ -30,7 +56,7 @@ async function main(): Promise<void> {
     blockConfig: c.blockConfig,
     settler: new BlockSettler(store, connector, c.chainId, c.blockConfig, outboxConfig),
     publisher: new AnchorPublisher(connector, new BundleAssembler(store), c.chainId),
-    target: new FileAnchorTarget(c.anchorDir, everyNBlocks(c.fileEveryNBlocks)),
+    targets: targetsForChain(c),
   }));
 
   const worker = new SettlementWorker({

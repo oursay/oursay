@@ -60,7 +60,7 @@ export interface BlockHeader {
   toSeq: number; // inclusive upper bound
   txCount: number;
   bundleMerkleRoot: string; // app-level Merkle root over this block's envelopes (the "block hash")
-  chainTipHash: string; // cumulative tip: sha256(prevChainTipHash, bundleMerkleRoot)
+  chainTipHash: string; // cumulative tip: sha256(prevTip32 ‖ bundleMerkleRoot32)
   prevBlockRoot: string | null; // block N-1's bundleMerkleRoot (null at genesis)
   prevChainTipHash: string | null; // block N-1's chainTipHash (null at genesis)
   immudbRoot: { db: string; txId: number; txHashHex: string }; // captured AFTER the batch tx append

@@ -30,10 +30,9 @@ export interface AnchorRecord {
   immudbRoot: ImmudbRootRef; // ledger integrity witness captured at close
   prevBlockRoot: string | null; // block N-1's bundleMerkleRoot (chaining; null at genesis)
   /**
-   * The cumulative CHAIN TIP: `sha256Hex(canonicalJson({ prevChainTipHash, bundleMerkleRoot }))`.
-   * Each block folds the previous tip with its own block hash, so this single value commits to the
-   * whole block history up to here. An auditor recomputes it from genesis to answer "is the chain
-   * intact?" and compares the tip to what is externally anchored. (See computeChainTipHash.)
+   * The cumulative CHAIN TIP: `sha256(prevTip32 ‖ bundleMerkleRoot32)` (genesis prev = 32 zero bytes).
+   * Same formula as SettlementAnchor on-chain. An auditor recomputes it from genesis to answer
+   * "is the chain intact?" and compares the tip to what is externally anchored. (See computeChainTipHash.)
    */
   chainTipHash: string;
   prevChainTipHash: string | null; // block N-1's chainTipHash (null at genesis)

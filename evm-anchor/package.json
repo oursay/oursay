@@ -9,6 +9,8 @@
     "test": "hardhat test",
     "test:solidity": "hardhat test solidity",
     "test:mocha": "hardhat test mocha",
+    "node": "hardhat node --hostname 0.0.0.0 --port 8545",
+    "deploy:local": "hardhat compile && tsx scripts/deploy-local.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -24,6 +26,7 @@
     "forge-std": "github:foundry-rs/forge-std#v1.9.4",
     "hardhat": "^3.9.1",
     "mocha": "^11.7.6",
+    "tsx": "^4.23.0",
     "typescript": "~6.0.3"
   },
   "dependencies": {

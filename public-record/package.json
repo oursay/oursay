@@ -30,6 +30,7 @@
     "@noble/hashes": "^1.7.1",
     "@oursay/geo": "*",
     "dotenv": "^16.4.7",
+    "ethers": "^6.17.0",
     "pg": "^8.13.1",
     "unique-names-generator": "^4.7.1"
   },

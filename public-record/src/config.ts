@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -125,15 +126,44 @@ export const blockConfig: BlockConfig = {
 /**
  * Per-target external-anchor publish cadence. Settlement (above) and publication are separate
  * phases: a block is settled to the chain on the trigger policy, then replicated to each anchor
- * target on its own cadence. The file target publishes every `fileEveryNBlocks` settled blocks
- * (still in order, no gaps — see AnchorPublisher).
+ * target on its own cadence. The file target publishes every `fileEveryNBlocks` settled blocks;
+ * the EVM target every `evmEveryNBlocks` (still in order, no gaps — see AnchorPublisher).
  */
 export interface AnchorTargetsConfig {
   fileEveryNBlocks: number;
+  evmEveryNBlocks: number;
 }
 
 export const anchorTargetsConfig: AnchorTargetsConfig = {
-  fileEveryNBlocks: Math.max(1, Number(env("FILE_ANCHOR_EVERY_BLOCKS", "2"))),
+  fileEveryNBlocks: Math.max(1, Number(env("FILE_ANCHOR_EVERY_BLOCKS", "1"))),
+  evmEveryNBlocks: Math.max(1, Number(env("EVM_ANCHOR_EVERY_BLOCKS", "2"))),
+};
+
+/** Local Hardhat / EVM RPC for SettlementAnchor. Empty address disables the EVM target. */
+export interface EvmAnchorConfig {
+  rpcUrl: string;
+  privateKey: string;
+  contractAddress: string;
+}
+
+export const evmAnchorConfig: EvmAnchorConfig = {
+  rpcUrl: env("EVM_RPC_URL", "http://127.0.0.1:8545"),
+  // Hardhat default account #0 — local/dev only; never use on a public network.
+  privateKey: env(
+    "EVM_PRIVATE_KEY",
+    "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+  ),
+  contractAddress: (() => {
+    const fromEnv = env("EVM_ANCHOR_ADDRESS", "");
+    if (fromEnv) return fromEnv;
+    const file = env("EVM_ANCHOR_ADDRESS_FILE", join(packageRoot, ".evm", "address"));
+    try {
+      if (existsSync(file)) return readFileSync(file, "utf8").trim();
+    } catch {
+      /* optional */
+    }
+    return "";
+  })(),
 };
 
 /**
@@ -170,6 +200,7 @@ export interface WorkerChainConfig {
   blockConfig: BlockConfig;
   anchorDir: string; // already includes the per-chain subdir
   fileEveryNBlocks: number;
+  evmEveryNBlocks: number;
 }
 
 /** Env-var suffix for a chain's per-chain overrides: uppercase, non-alphanumeric → `_`. */
@@ -197,6 +228,7 @@ export function workerChainConfigs(): WorkerChainConfig[] {
       },
       anchorDir: join(workerConfig.anchorDir, chainId),
       fileEveryNBlocks: Math.max(1, num("FILE_ANCHOR_EVERY_BLOCKS", anchorTargetsConfig.fileEveryNBlocks)),
+      evmEveryNBlocks: Math.max(1, num("EVM_ANCHOR_EVERY_BLOCKS", anchorTargetsConfig.evmEveryNBlocks)),
     };
   });
 }

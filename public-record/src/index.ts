@@ -71,6 +71,8 @@ export { BundleAssembler } from "./anchor/assembler.js";
 export type { AssembleOptions } from "./anchor/assembler.js";
 export { AnchorPublisher } from "./anchor/publisher.js";
 export { FileAnchorTarget } from "./anchor/file.target.js";
+export { EvmAnchorTarget, UnsupportedEvmBundleError, onChainChainId, onChainDbId, computeEvmHeaderHash } from "./anchor/evm.target.js";
+export type { EvmAnchorTargetOptions } from "./anchor/evm.target.js";
 export { everyNBlocks } from "./anchor/target.js";
 export type { AnchorTarget, AnchorPublishPolicy } from "./anchor/target.js";
 export type { AnchorRecord, BlockBundle, BlockEntry, ImmudbRootRef } from "./anchor/types.js";
@@ -139,5 +141,27 @@ export type {
 } from "./schema/types.js";
 
 // Config
-export { immudbPgConfig, pgConfig, outboxConfig, chainConfig, jurisdictionConfig, blockConfig, anchorTargetsConfig, workerConfig, workerChainConfigs } from "./config.js";
-export type { PgConfig, OutboxConfig, ChainConfig, BlockConfig, AnchorTargetsConfig, WorkerConfig, WorkerChainConfig } from "./config.js";
+export {
+  immudbPgConfig,
+  pgConfig,
+  outboxConfig,
+  chainConfig,
+  jurisdictionConfig,
+  blockConfig,
+  anchorTargetsConfig,
+  evmAnchorConfig,
+  workerConfig,
+  workerChainConfigs,
+  identityConfig,
+  paths,
+} from "./config.js";
+export type {
+  PgConfig,
+  OutboxConfig,
+  ChainConfig,
+  BlockConfig,
+  AnchorTargetsConfig,
+  EvmAnchorConfig,
+  WorkerConfig,
+  WorkerChainConfig,
+} from "./config.js";

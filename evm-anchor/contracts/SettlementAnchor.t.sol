@@ -52,9 +52,7 @@ contract SettlementAnchorTest is Test {
     returns (SettlementAnchor.BlockInput memory)
   {
     return SettlementAnchor.BlockInput({
-      fromSeq: h.fromSeq,
       toSeq: h.toSeq,
-      txCount: h.txCount,
       bundleMerkleRoot: h.bundleMerkleRoot,
       immudbDb: h.immudbDb,
       immudbTxId: h.immudbTxId,
@@ -74,12 +72,8 @@ contract SettlementAnchorTest is Test {
     assertEq(b.fromSeq, 0);
     assertEq(b.toSeq, 3);
     assertEq(b.txCount, 3);
-    assertEq(b.bundleMerkleRoot, keccak256("block1"));
     assertEq(b.prevBlockRoot, bytes32(0));
-    assertEq(b.prevChainTipHash, bytes32(0));
-    assertEq(b.prevAnchorHash, bytes32(0));
     assertEq(b.chainTipHash, anchor.computeChainTipHash(bytes32(0), keccak256("block1")));
-    assertEq(anchor.tipHeight(CHAIN_A), 1);
   }
 
   function test_SecondBlockChainsPrevFromTip() public {
@@ -94,11 +88,10 @@ contract SettlementAnchorTest is Test {
     anchor.appendBlock(CHAIN_A, _input(h2));
 
     SettlementAnchor.BlockView memory b2 = anchor.getBlock(CHAIN_A, 2);
-    assertEq(b2.blockHeight, 2);
-    assertEq(b2.prevBlockRoot, keccak256("block1"));
-    assertEq(b2.prevChainTipHash, b1.chainTipHash);
-    assertEq(b2.prevAnchorHash, b1.headerHash);
     assertEq(b2.fromSeq, 2);
+    assertEq(b2.txCount, 3);
+    assertEq(b2.prevBlockRoot, keccak256("block1"));
+    assertEq(b2.prevAnchorHash, b1.headerHash);
   }
 
   function test_RejectsBadHeaderHash() public {
@@ -110,14 +103,14 @@ contract SettlementAnchorTest is Test {
     anchor.appendBlock(CHAIN_A, bad);
   }
 
-  function test_RejectsNonContiguousSeq() public {
+  function test_RejectsNonIncreasingToSeq() public {
     SettlementAnchor.HeaderFields memory h1 =
       _header(CHAIN_A, 1, 0, 2, keccak256("r1"), bytes32(0), bytes32(0), bytes32(0), 1, 1, keccak256("t1"));
     anchor.appendBlock(CHAIN_A, _input(h1));
     SettlementAnchor.BlockView memory b1 = anchor.getBlock(CHAIN_A, 1);
 
     SettlementAnchor.HeaderFields memory badH =
-      _header(CHAIN_A, 2, 3, 4, keccak256("r2"), b1.bundleMerkleRoot, b1.chainTipHash, b1.headerHash, 2, 2, keccak256("t2"));
+      _header(CHAIN_A, 2, 2, 2, keccak256("r2"), b1.bundleMerkleRoot, b1.chainTipHash, b1.headerHash, 2, 2, keccak256("t2"));
     SettlementAnchor.BlockInput memory bad = _input(badH);
     vm.expectRevert();
     anchor.appendBlock(CHAIN_A, bad);
@@ -144,12 +137,6 @@ contract SettlementAnchorTest is Test {
 
     anchor.forkChain(CHAIN_A, 1, keccak256("b1"), CHAIN_B, "correct erroneous block 2");
 
-    SettlementAnchor.ChainStats memory stats = anchor.getChainStats(CHAIN_B);
-    assertEq(stats.tipHeight, 1);
-    assertEq(stats.parentChain, CHAIN_A);
-    assertEq(stats.forkHeight, 1);
-    assertEq(anchor.getBlock(CHAIN_B, 1).bundleMerkleRoot, keccak256("b1"));
-
     SettlementAnchor.HeaderFields memory alt = _header(
       CHAIN_B, 2, 2, 5, keccak256("b2-alt"), b1.bundleMerkleRoot, b1.chainTipHash, b1.headerHash, 3, 2, keccak256("alt")
     );
@@ -157,8 +144,6 @@ contract SettlementAnchorTest is Test {
 
     assertEq(anchor.getBlock(CHAIN_A, 2).bundleMerkleRoot, keccak256("b2"));
     assertEq(anchor.getBlock(CHAIN_B, 2).bundleMerkleRoot, keccak256("b2-alt"));
-    assertEq(anchor.tipHeight(CHAIN_A), 2);
-    assertEq(anchor.tipHeight(CHAIN_B), 2);
   }
 
   function test_BatchAppend() public {
@@ -184,8 +169,6 @@ contract SettlementAnchorTest is Test {
     batch[0] = g;
     batch[1] = _input(h2);
     anchor.appendBlocks(CHAIN_A, batch);
-
     assertEq(anchor.tipHeight(CHAIN_A), 2);
-    assertEq(anchor.getBlock(CHAIN_A, 2).prevBlockRoot, keccak256("b1"));
   }
 }

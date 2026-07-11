@@ -1,0 +1,774 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "initialOwner",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "height",
+        "type": "uint64"
+      }
+    ],
+    "name": "BlockNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ChainAlreadyExists",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ChainNotFound",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "EmptyBatch",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "EmptyForkReason",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "expected",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "actual",
+        "type": "bytes32"
+      }
+    ],
+    "name": "ForkBlockHashMismatch",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "atHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "tipHeight",
+        "type": "uint64"
+      }
+    ],
+    "name": "ForkHeightOutOfRange",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "expected",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "actual",
+        "type": "bytes32"
+      }
+    ],
+    "name": "InvalidHeaderHash",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint64",
+        "name": "tipToSeq",
+        "type": "uint64"
+      },
+      {
+        "internalType": "uint64",
+        "name": "toSeq",
+        "type": "uint64"
+      }
+    ],
+    "name": "InvalidToSeq",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "blockHeight",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "bundleMerkleRoot",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "chainTipHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "headerHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "fromSeq",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint64",
+        "name": "toSeq",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint32",
+        "name": "txCount",
+        "type": "uint32"
+      }
+    ],
+    "name": "BlockAnchored",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "ChainCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "bytes32",
+        "name": "newChainId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "internalType": "uint64",
+        "name": "atHeight",
+        "type": "uint64"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "atBlockHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "ChainForked",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnershipTransferred",
+    "type": "event"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "toSeq",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "bundleMerkleRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "immudbDb",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "immudbTxId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "immudbTxHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "capturedAt",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "headerHash",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct SettlementAnchor.BlockInput",
+        "name": "input",
+        "type": "tuple"
+      }
+    ],
+    "name": "appendBlock",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint64",
+            "name": "toSeq",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "bundleMerkleRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "immudbDb",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "immudbTxId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "immudbTxHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "capturedAt",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "headerHash",
+            "type": "bytes32"
+          }
+        ],
+        "internalType": "struct SettlementAnchor.BlockInput[]",
+        "name": "inputs",
+        "type": "tuple[]"
+      }
+    ],
+    "name": "appendBlocks",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "prevChainTipHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "bundleMerkleRoot",
+        "type": "bytes32"
+      }
+    ],
+    "name": "computeChainTipHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "chainId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "blockHeight",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "fromSeq",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "toSeq",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint32",
+            "name": "txCount",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "bundleMerkleRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "immudbDb",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "immudbTxId",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "immudbTxHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "prevBlockRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "chainTipHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "prevChainTipHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "prevAnchorHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "capturedAt",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct SettlementAnchor.HeaderFields",
+        "name": "h",
+        "type": "tuple"
+      }
+    ],
+    "name": "computeHeaderHash",
+    "outputs": [
+      {
+        "internalType": "bytes32",
+        "name": "",
+        "type": "bytes32"
+      }
+    ],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "createChain",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "sourceChainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "atHeight",
+        "type": "uint64"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "atBlockHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "newChainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "forkChain",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint64",
+        "name": "height",
+        "type": "uint64"
+      }
+    ],
+    "name": "getBlock",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bytes32",
+            "name": "chainId",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "blockHeight",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "fromSeq",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint64",
+            "name": "toSeq",
+            "type": "uint64"
+          },
+          {
+            "internalType": "uint32",
+            "name": "txCount",
+            "type": "uint32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "bundleMerkleRoot",
+            "type": "bytes32"
+          },
+          {
+            "components": [
+              {
+                "internalType": "bytes32",
+                "name": "db",
+                "type": "bytes32"
+              },
+              {
+                "internalType": "uint64",
+                "name": "txId",
+                "type": "uint64"
+              },
+              {
+                "internalType": "bytes32",
+                "name": "txHash",
+                "type": "bytes32"
+              }
+            ],
+            "internalType": "struct SettlementAnchor.ImmudbRoot",
+            "name": "immudbRoot",
+            "type": "tuple"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "prevBlockRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "chainTipHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "prevChainTipHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "prevAnchorHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "headerHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "capturedAt",
+            "type": "uint64"
+          }
+        ],
+        "internalType": "struct SettlementAnchor.BlockView",
+        "name": "view_",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "getChainStats",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "bool",
+            "name": "exists",
+            "type": "bool"
+          },
+          {
+            "internalType": "uint64",
+            "name": "tipHeight",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "tipBundleRoot",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "tipChainTipHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "tipHeaderHash",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "tipToSeq",
+            "type": "uint64"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "parentChain",
+            "type": "bytes32"
+          },
+          {
+            "internalType": "uint64",
+            "name": "forkHeight",
+            "type": "uint64"
+          },
+          {
+            "internalType": "string",
+            "name": "forkReason",
+            "type": "string"
+          }
+        ],
+        "internalType": "struct SettlementAnchor.ChainStats",
+        "name": "stats",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "owner",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "chainId",
+        "type": "bytes32"
+      }
+    ],
+    "name": "tipHeight",
+    "outputs": [
+      {
+        "internalType": "uint64",
+        "name": "",
+        "type": "uint64"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "newOwner",
+        "type": "address"
+      }
+    ],
+    "name": "transferOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

@@ -1,6 +1,19 @@
+import { hexToBytes, concatBytes } from "@noble/hashes/utils";
 import { canonicalJson, contentCommitment, sha256Hex } from "../crypto/commitment.js";
 import { hashLeaf, verifyMerkleProof } from "../crypto/merkle.js";
 import type { AnchorRecord, BlockBundle, BlockEntry } from "./types.js";
+
+function strip0x(hex: string): string {
+  return hex.startsWith("0x") ? hex.slice(2) : hex;
+}
+
+/** Decode a 32-byte hex hash, or 32 zero bytes when `null` (genesis prev tip). */
+function tipPreimageHalf(hex: string | null): Uint8Array {
+  if (hex === null) return new Uint8Array(32);
+  const h = strip0x(hex);
+  if (h.length !== 64) throw new Error(`computeChainTipHash: expected 32-byte hex, got length ${h.length}`);
+  return hexToBytes(h);
+}
 
 /**
  * The OFFLINE auditor. Pure functions — no Postgres, no immudb, no platform API. The trust pivot
@@ -81,11 +94,12 @@ export function verifyBlock(bundle: BlockBundle, anchoredRoot: string): BlockRep
 /**
  * The cumulative chain-tip fold: each block hashes the previous tip together with its own block
  * hash (`bundleMerkleRoot`), so one value commits to the entire block history. Genesis folds a
- * `null` previous tip. Producer (settlement) and verifier MUST agree byte-for-byte, so it is defined
- * once here and reused by the settler.
+ * `null` previous tip as 32 zero bytes. Same preimage as SettlementAnchor on-chain:
+ * `sha256(prevTip32 ‖ bundleMerkleRoot32)`. Producer (settlement), verifier, and EVM contract MUST
+ * agree byte-for-byte.
  */
 export function computeChainTipHash(prevChainTipHash: string | null, bundleMerkleRoot: string): string {
-  return sha256Hex(canonicalJson({ prevChainTipHash, bundleMerkleRoot }));
+  return sha256Hex(concatBytes(tipPreimageHalf(prevChainTipHash), tipPreimageHalf(bundleMerkleRoot)));
 }
 
 /**

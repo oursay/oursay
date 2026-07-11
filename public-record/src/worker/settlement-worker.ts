@@ -1,13 +1,13 @@
 // SettlementWorker — the deadline-aware loop that drives settlement + anchoring for a SET of chains.
 //
 // It owns NO connections and constructs NO crypto: each chain is handed in as a ChainRunner wrapping
-// an existing BlockSettler + AnchorPublisher + AnchorTarget (no second settlement implementation —
+// an existing BlockSettler + AnchorPublisher + AnchorTarget[] (no second settlement implementation —
 // docs/01 §3.4: pool → settle → publish). That makes the loop unit-testable with fakes and a
 // controllable clock/sleeper, no real timers and no DB.
 //
 // Per tick, for each chain SERIALLY (the settler is single-proposer-per-chain, so never overlap):
 //   1. drain eligible blocks  — `while (maybeSettleBlock() !== null)` (trigger-gated, maxBlockTxs cap)
-//   2. publish on cadence     — `maybePublish(target)` (the target's everyNBlocks policy)
+//   2. publish on cadence     — `maybePublish(target)` for each target (everyNBlocks policy)
 //   3. record the trigger state (pendingCount / oldestAgeMs) to schedule the next wake
 // The loop then sleeps until the nearest age-deadline across chains, clamped to [minIntervalMs,
 // maxIdleMs]. `maxIdleMs` is the polling floor that catches the COUNT trigger between writes — the
@@ -34,7 +34,8 @@ export interface ChainRunner {
   chainId: string;
   settler: SettlerLike;
   publisher: PublisherLike;
-  target: AnchorTarget;
+  /** One or more targets (file, EVM, …); each has its own cadence and publish cursor. */
+  targets: AnchorTarget[];
   /** This chain's settlement config — the worker needs `maxPendingAgeMs`/`minTxs` for scheduling. */
   blockConfig: BlockConfig;
 }
@@ -127,11 +128,13 @@ export class SettlementWorker {
           summary.settled.push({ chainId: r.chainId, blockHeight: header.blockHeight, txCount: header.txCount });
           this.log.log(`[worker] settled ${r.chainId} block ${header.blockHeight} (${header.txCount} tx)`);
         }
-        // (2) Publish settled-but-unpublished blocks on the target's own cadence.
-        const heights = await r.publisher.maybePublish(r.target);
-        if (heights.length > 0) {
-          summary.published.push({ chainId: r.chainId, heights });
-          this.log.log(`[worker] published ${r.chainId} block(s) ${JSON.stringify(heights)}`);
+        // (2) Publish settled-but-unpublished blocks on each target's own cadence.
+        for (const target of r.targets) {
+          const heights = await r.publisher.maybePublish(target);
+          if (heights.length > 0) {
+            summary.published.push({ chainId: r.chainId, heights });
+            this.log.log(`[worker] published ${r.chainId} block(s) ${JSON.stringify(heights)}`);
+          }
         }
         // (3) Record the post-drain trigger state to schedule the next wake.
         const d = await r.settler.evaluateTrigger(this.now());

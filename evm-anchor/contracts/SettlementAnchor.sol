@@ -7,33 +7,31 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @title SettlementAnchor
  * @notice Owner-controlled on-chain witness for OurSay public-record block settlement.
  * @dev Multi-chain (one `chainId` per jurisdiction/genesis). Callers submit minimal block
- *      fields; the contract infers height, prev links, and tip fold, then requires the
- *      submitted `headerHash` to match the reconstructed header.
+ *      fields; the contract infers height, seq bounds, prev links, and tip fold, then
+ *      requires the submitted `headerHash` to match the reconstructed header.
  *
- *      On-chain tip fold (bytes32(0) stands for off-chain `null`):
- *        chainTipHash = keccak256(abi.encode(prevChainTipHash, bundleMerkleRoot))
+ *      Inferred:
+ *        fromSeq = tipHeight == 0 ? 0 : tipToSeq
+ *        txCount = toSeq - fromSeq
+ *        height  = tipHeight + 1
  *
- *      This packing is the EVM commitment scheme — it is not byte-identical to the
- *      off-chain `sha256(canonicalJson({prevChainTipHash, bundleMerkleRoot}))` tip.
- *      Store the same `bundleMerkleRoot` / immudb witness bytes the ledger produced;
- *      treat `chainTipHash` / `headerHash` as the on-chain linkage proofs.
+ *      Tip fold (bytes32(0) = off-chain null), shared with public-record:
+ *        chainTipHash = sha256(abi.encodePacked(prevChainTipHash, bundleMerkleRoot))
+ *
+ *      headerHash = sha256(abi.encode(HeaderFields))
  *
  *      Compiled without optimizer / viaIR — helpers keep the stack shallow.
  */
 contract SettlementAnchor is Ownable {
-  // ─── Types ───────────────────────────────────────────────────────────────
-
   struct ImmudbRoot {
     bytes32 db;
     uint64 txId;
     bytes32 txHash;
   }
 
-  /// @dev Packed storage. Prev links are not stored — inferred from tip / height-1.
+  /// @dev Packed storage. fromSeq / txCount / prev* are not stored — inferred on read.
   struct BlockData {
-    uint64 fromSeq;
     uint64 toSeq;
-    uint32 txCount;
     bytes32 bundleMerkleRoot;
     bytes32 immudbDb;
     uint64 immudbTxId;
@@ -43,7 +41,6 @@ contract SettlementAnchor is Ownable {
     uint64 capturedAt;
   }
 
-  /// @dev AnchorRecord-shaped view including inferred prev* fields.
   struct BlockView {
     bytes32 chainId;
     uint64 blockHeight;
@@ -72,11 +69,9 @@ contract SettlementAnchor is Ownable {
     string forkReason;
   }
 
-  /// @dev Minimal append input. Height and prev* are inferred on-chain.
+  /// @dev Minimal append input. Height, fromSeq, txCount, prev*, tip are inferred.
   struct BlockInput {
-    uint64 fromSeq;
     uint64 toSeq;
-    uint32 txCount;
     bytes32 bundleMerkleRoot;
     bytes32 immudbDb;
     uint64 immudbTxId;
@@ -85,7 +80,6 @@ contract SettlementAnchor is Ownable {
     bytes32 headerHash;
   }
 
-  /// @dev Fields committed by `headerHash` (order is consensus-critical).
   struct HeaderFields {
     bytes32 chainId;
     uint64 blockHeight;
@@ -141,8 +135,7 @@ contract SettlementAnchor is Ownable {
   error ChainAlreadyExists(bytes32 chainId);
   error ChainNotFound(bytes32 chainId);
   error BlockNotFound(bytes32 chainId, uint64 height);
-  error InvalidSeqRange(uint64 fromSeq, uint64 toSeq, uint32 txCount);
-  error SeqNotContiguous(uint64 expectedFromSeq, uint64 actualFromSeq);
+  error InvalidToSeq(uint64 tipToSeq, uint64 toSeq);
   error InvalidHeaderHash(bytes32 expected, bytes32 actual);
   error ForkHeightOutOfRange(uint64 atHeight, uint64 tipHeight);
   error ForkBlockHashMismatch(bytes32 expected, bytes32 actual);
@@ -151,21 +144,17 @@ contract SettlementAnchor is Ownable {
 
   constructor(address initialOwner) Ownable(initialOwner) {}
 
-  // ─── Pure helpers ────────────────────────────────────────────────────────
-
   function computeChainTipHash(bytes32 prevChainTipHash, bytes32 bundleMerkleRoot)
     public
     pure
     returns (bytes32)
   {
-    return keccak256(abi.encode(prevChainTipHash, bundleMerkleRoot));
+    return sha256(abi.encodePacked(prevChainTipHash, bundleMerkleRoot));
   }
 
   function computeHeaderHash(HeaderFields memory h) public pure returns (bytes32) {
-    return keccak256(abi.encode(h));
+    return sha256(abi.encode(h));
   }
-
-  // ─── Writes ──────────────────────────────────────────────────────────────
 
   function createChain(bytes32 chainId) external onlyOwner {
     if (_chains[chainId].exists) revert ChainAlreadyExists(chainId);
@@ -188,11 +177,6 @@ contract SettlementAnchor is Ownable {
     _appendOne(chainId, input);
   }
 
-  /**
-   * @notice Fork `sourceChainId` at `atHeight` into `newChainId`.
-   * @dev Heights 1..atHeight resolve through the parent; later appends are local.
-   *      `atBlockHash` must equal that height's `bundleMerkleRoot`. `reason` is stored + emitted.
-   */
   function forkChain(
     bytes32 sourceChainId,
     uint64 atHeight,
@@ -217,8 +201,6 @@ contract SettlementAnchor is Ownable {
     _writeForkTip(newChainId, sourceChainId, atHeight, atBlock, reason);
     emit ChainForked(sourceChainId, newChainId, atHeight, atBlockHash, reason);
   }
-
-  // ─── Views ───────────────────────────────────────────────────────────────
 
   function getChainStats(bytes32 chainId) external view returns (ChainStats memory stats) {
     ChainState storage c = _chains[chainId];
@@ -251,47 +233,35 @@ contract SettlementAnchor is Ownable {
     }
   }
 
-  // ─── Internal ────────────────────────────────────────────────────────────
-
   function _appendOne(bytes32 chainId, BlockInput calldata input) private {
     ChainState storage chain = _chains[chainId];
     if (!chain.exists) revert ChainNotFound(chainId);
-    _validateSeq(chain, input);
+
+    uint64 fromSeq = chain.tipHeight == 0 ? 0 : chain.tipToSeq;
+    if (input.toSeq <= fromSeq) revert InvalidToSeq(fromSeq, input.toSeq);
 
     uint64 height = chain.tipHeight + 1;
-    bytes32 expectedHeader = _expectedHeaderHash(chainId, height, input, chain);
+    bytes32 expectedHeader = _expectedHeaderHash(chainId, height, fromSeq, input, chain);
     if (input.headerHash != expectedHeader) {
       revert InvalidHeaderHash(expectedHeader, input.headerHash);
     }
 
-    _storeAndAdvance(chainId, height, input, expectedHeader, chain);
-  }
-
-  function _validateSeq(ChainState storage chain, BlockInput calldata input) private view {
-    if (input.toSeq <= input.fromSeq || input.txCount == 0) {
-      revert InvalidSeqRange(input.fromSeq, input.toSeq, input.txCount);
-    }
-    if (uint64(input.txCount) != input.toSeq - input.fromSeq) {
-      revert InvalidSeqRange(input.fromSeq, input.toSeq, input.txCount);
-    }
-    uint64 expectedFrom = chain.tipHeight == 0 ? 0 : chain.tipToSeq;
-    if (input.fromSeq != expectedFrom) {
-      revert SeqNotContiguous(expectedFrom, input.fromSeq);
-    }
+    _storeAndAdvance(chainId, height, fromSeq, input, expectedHeader, chain);
   }
 
   function _expectedHeaderHash(
     bytes32 chainId,
     uint64 height,
+    uint64 fromSeq,
     BlockInput calldata input,
     ChainState storage chain
   ) private view returns (bytes32) {
     HeaderFields memory h;
     h.chainId = chainId;
     h.blockHeight = height;
-    h.fromSeq = input.fromSeq;
+    h.fromSeq = fromSeq;
     h.toSeq = input.toSeq;
-    h.txCount = input.txCount;
+    h.txCount = uint32(input.toSeq - fromSeq);
     h.bundleMerkleRoot = input.bundleMerkleRoot;
     h.immudbDb = input.immudbDb;
     h.immudbTxId = input.immudbTxId;
@@ -315,6 +285,7 @@ contract SettlementAnchor is Ownable {
   function _storeAndAdvance(
     bytes32 chainId,
     uint64 height,
+    uint64 fromSeq,
     BlockInput calldata input,
     bytes32 headerHash,
     ChainState storage chain
@@ -323,11 +294,10 @@ contract SettlementAnchor is Ownable {
       height == 1 ? bytes32(0) : chain.tipChainTipHash,
       input.bundleMerkleRoot
     );
+    uint32 count = uint32(input.toSeq - fromSeq);
 
     BlockData storage b = _blocks[chainId][height];
-    b.fromSeq = input.fromSeq;
     b.toSeq = input.toSeq;
-    b.txCount = input.txCount;
     b.bundleMerkleRoot = input.bundleMerkleRoot;
     b.immudbDb = input.immudbDb;
     b.immudbTxId = input.immudbTxId;
@@ -344,7 +314,7 @@ contract SettlementAnchor is Ownable {
     chain.tipToSeq = input.toSeq;
 
     emit BlockAnchored(
-      chainId, height, input.bundleMerkleRoot, tip, headerHash, input.fromSeq, input.toSeq, input.txCount
+      chainId, height, input.bundleMerkleRoot, tip, headerHash, fromSeq, input.toSeq, count
     );
   }
 
@@ -375,9 +345,9 @@ contract SettlementAnchor is Ownable {
   ) private view {
     view_.chainId = chainId;
     view_.blockHeight = height;
-    view_.fromSeq = b.fromSeq;
     view_.toSeq = b.toSeq;
-    view_.txCount = b.txCount;
+    view_.fromSeq = 0;
+    view_.txCount = uint32(b.toSeq);
     view_.bundleMerkleRoot = b.bundleMerkleRoot;
     view_.immudbRoot.db = b.immudbDb;
     view_.immudbRoot.txId = b.immudbTxId;
@@ -394,6 +364,8 @@ contract SettlementAnchor is Ownable {
     view_.prevBlockRoot = prev.bundleMerkleRoot;
     view_.prevChainTipHash = prev.chainTipHash;
     view_.prevAnchorHash = prev.headerHash;
+    view_.fromSeq = prev.toSeq;
+    view_.txCount = uint32(view_.toSeq - prev.toSeq);
   }
 
   function _storageChainForHeight(bytes32 chainId, uint64 height) private view returns (bytes32) {
