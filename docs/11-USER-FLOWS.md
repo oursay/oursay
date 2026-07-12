@@ -210,18 +210,18 @@ flowchart TD
 **End (success):** New device has its own passkey and full session; **other sessions are not revoked**.
 **Notes:** Distinct from recovery (1.5): cross-device login is additive and non-destructive.
 
-### 1.5 Recovery — lost device  ·  Registered  ·  Built (unverified) / Partial (verified)  ·  US-SYS-3, US-SYS-5
+### 1.5 Recovery — lost device  ·  Registered  ·  Built  ·  US-SYS-3, US-SYS-5
 
 **Entry:** Login screen → "Lost your device?"
 
 1. Request recovery code  `[screen: Recover account]`  `-> POST /v1/auth/otp/request {purpose:"recovery"}` (sent only if account exists; no enumeration)
 2. Enter code  `[screen: Enter recovery code]`  `-> POST /v1/auth/recovery/verify`
    - branch (**unverified account**): → **recovery**-scoped session (enroll-only). Continue to step 3. **Built.**
-   - branch (**verified account**): → `409 kyc_reverification_required` `[screen: Re-verify required]`; user must re-verify with the KYC provider before verified tier is restored. **Partial** — real provider not integrated (`[mvp-c-kyc-provider]`).
+   - branch (**verified account**): → `kyc_reverification_required` + **recovery_kyc** session `[screen: Confirm it’s you]` → `POST /v1/auth/recovery/kyc/session` (Didit biometric workflow 03) → poll until Approved → **recovery**-scoped session. Continue to step 3. **Built** (requires `KYC_PROVIDER=didit` + `DIDIT_WORKFLOW_RECOVER`).
 3. Enroll a fresh passkey  `-> POST /v1/auth/passkey/register/{options,verify}` → sign in (1.3) → full session.
 
-**End (success):** New passkey; **all prior sessions revoked** (security reset). Persona `Pₜ` and thread bindings **preserved**; per-thread civic credentials were revoked, so the user re-authorizes per thread by enrolling a fresh signer under the same `Pₜ` on next civic action (3.0).
-**End (error/abandon, verified):** Account stuck at re-verify gate until provider flow ships.
+**End (success):** New passkey; **all prior sessions revoked** (security reset). Persona `Pₜ` and thread bindings **preserved**; per-thread civic credentials were revoked, so the user re-authorizes per thread by enrolling a fresh signer under the same `Pₜ` on next civic action (3.0). Existing KYC attestations are **kept** (biometric unlocks recovery; it does not re-award a tier).
+**End (error/abandon, verified):** Stuck at biometric gate until Approved or the user abandons.
 **Notes:** Contrast 1.4 — recovery is destructive to sessions by design.
 
 ### 1.6 Manage / revoke passkeys  ·  Registered  ·  Built  ·  US-SYS-2
@@ -291,30 +291,29 @@ flowchart TD
   P -->|"pass: identity + address"| RV(["residency_verified"])
   P -->|"fail"| F["Verification failed"]
   RV --> D["Inferred district"]
-  REC2["1.5 Recovery (verified)"] --> REV2["2.2 KYC re-verify (Partial)"]
+  REC2["1.5 Recovery (verified)"] --> REV2["2.2 KYC re-verify (Built)"]
 ```
 
-### 2.1 Verify identity / residency  ·  Registered → Verified  ·  Partial  ·  US-SYS-4
+### 2.1 Verify identity / residency  ·  Registered → Verified  ·  Built  ·  US-SYS-4
 
-**Entry:** Settings → "Verify identity".
+**Entry:** Profile → "Get verified" `[screen: Verify chooser — ID | Residency]`.
 
-1. Review exact at-cost price + consent  `[screen: Verification cost consent]`
-   - branch: user declines price → `[state: not started]`, no charge, no ledger entry. **Required** before proceeding.
-2. Run provider flow  `[screen: Provider (Didit) handoff]`
-   - **Built today:** dev stub via `-> POST /v1/dev/kyc/attest` (self-attest a tier for QA; dev-only).
-   - **Partial:** real **Didit** integration (dev: ID-only + platform self-signed address; prod: ~$2 CAD POA) — `[code-didit-provider]`.
+1. Choose **Verify ID** or **Verify Residency** (residency may show a fee note / consent copy).
+2. Run provider flow:
+   - **`KYC_PROVIDER=stub`:** identity via `POST /v1/dev/kyc/attest`; residency via `POST /v1/kyc/residency/attest` (platform geocode).
+   - **`KYC_PROVIDER=didit`:** `POST /v1/kyc/didit/session` with `workflowKind` `identity` | `poa` → hosted Didit URL → poll/webhook → award tier (`DIDIT_WORKFLOW_ID` / `DIDIT_WORKFLOW_POA`).
 3. Provider returns  `[state: result]`:
-   - branch: pass (identity only) → award `identity_verified`; write a public-record entry linking the **pseudonymous** identity to the tier (no PII).
-   - branch: pass (identity + address) → award `residency_verified`; geocode address → inferred district.
+   - branch: pass (identity only) → award `identity_verified`; public-record tier link (no PII).
+   - branch: pass (identity + address / POA) → award `residency_verified`; coarse region on attestation.
    - branch: fail → `[screen: Verification failed]`, no ledger entry, may retry.
 
 **End (success):** Tier reflected in all subsequent civic actions and count breakdowns.
-**Notes:** Provider is pluggable (stub default; Didit MVP; Equifax / Elections-Alberta future). No PII on ledger.
+**Notes:** Provider is pluggable (stub default; Didit MVP; Equifax / Elections-Alberta future). No PII on ledger. See [DIDIT-KYC-SETUP.md](./DIDIT-KYC-SETUP.md).
 
-### 2.2 KYC re-verification during recovery  ·  Verified  ·  Partial  ·  US-SYS-5
+### 2.2 KYC re-verification during recovery  ·  Verified  ·  Built  ·  US-SYS-5
 
-See 1.5 verified branch. Requires re-verify before restoring verified tier; gated by `409` today, real
-provider pending (`[mvp-c-kyc-provider]`).
+See 1.5 verified branch. Didit biometric workflow 03 (`DIDIT_WORKFLOW_RECOVER`) unlocks passkey
+re-enroll; existing attestations remain. Requires `KYC_PROVIDER=didit`.
 
 ### 2.3 Sponsor another user's verification  ·  any  ·  Planned
 

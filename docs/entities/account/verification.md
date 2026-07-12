@@ -129,7 +129,7 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 
 - **Provider drift** — the provider enum today is `'stub' | 'equifax'` (`api/src/config.ts` `KycProviderName`). The MVP provider is **Didit**; the enum and provider seam need a `didit` implementation, and provider tags should be orthogonal to tiers. Tracked as `[code-didit-provider]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 - **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
-- Recovery re-verify flow incomplete.
+- Recovery re-verify flow: verified accounts complete Didit biometric (`DIDIT_WORKFLOW_RECOVER`) before passkey re-enroll.
 - **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
 - **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / platform-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
 - Sponsorship / waitlist mechanics documented in contributor spec but not fully implemented.

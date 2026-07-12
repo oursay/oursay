@@ -137,11 +137,11 @@ with `OURSAY_API_URL`), so the session cookie flows without CORS. Register with 
 email OTP (the API container logs OTP codes), enroll a passkey, then browse the seeded
 corpus and post/comment/vote for real.
 
-> **KYC in dev:** keep `KYC_PROVIDER=stub` in `api/.env` for the web-app walk — the dev
-> "Get Verified" button uses `POST /v1/dev/kyc/attest`, which awards a tier offline. The
-> Didit provider (`KYC_PROVIDER=didit`) is wired on the backend and sandbox-proven, but the
-> hosted-session flow is not yet called from the UI (see the repo's ROADMAP gaps A/B); under
-> `didit` the dev attest button 403s by design. Validate Didit separately via the api specs.
+> **KYC in dev:** keep `KYC_PROVIDER=stub` in `api/.env` for the offline walk — **Get verified**
+> opens a Verify ID / Verify Residency chooser (stub uses `POST /v1/dev/kyc/attest` + platform
+> residency attest). With `KYC_PROVIDER=didit` and `NEXT_PUBLIC_MOCK_ONLY=false`, the chooser
+> starts hosted Didit sessions (`DIDIT_WORKFLOW_ID` / `DIDIT_WORKFLOW_POA`). Verified-account
+> recovery uses `DIDIT_WORKFLOW_RECOVER`. See [`docs/DIDIT-KYC-SETUP.md`](../docs/DIDIT-KYC-SETUP.md).
 
 Re-run `npm run seed -w @oursay/api` after running the api test suite — the tests share the
 dev DB on 5442 and truncate it.
