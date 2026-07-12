@@ -60,7 +60,7 @@ npx vitest run src/lib/api/kyc.test.ts
 
 ## Residual gaps / notes
 
-- **Donation soft-ask UI (next agent):** docs locked to free verify + GitHub Sponsors ask before Didit; implement UI/service per [DONATION-FUNDED-VERIFY-HANDOFF.md](./DONATION-FUNDED-VERIFY-HANDOFF.md).
+- **Donation soft-ask UI:** shipped env-gated; see [DONATION-FUNDED-VERIFY-HANDOFF.md](./DONATION-FUNDED-VERIFY-HANDOFF.md).
 - Official role remains separate from KYC (dev cycle no longer auto-promotes to Official via Get verified).
 - Equifax / electoral providers still reserved.
 - Auto-blocklist / face lists stay Didit-console ops.
