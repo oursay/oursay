@@ -2,7 +2,11 @@
 
 ## Definition
 
-Private personally identifiable information (PII) for a registered user. Legal name, address, and email live here — never on the public user row. Used for KYC, geocoding, and account recovery. **Registration is least-resistance:** email, the required public handle (display name optional — defaults to the handle; see [User](./user.md)), and the `over_18` self-attestation are required at signup; **full name and address are optional signup fields** behind a helper (*fill these before ID/residency verification; without an address the platform cannot auto-recommend jurisdictions — a V1 feature at 5+ jurisdictions*). Whatever is left blank arrives at the **KYC step** (Didit) or a later profile update. No location / a pseudo location never blocks registration (geocoding is best-effort in code today). The age gate is the **`over_18`** boolean (target) — self-attested at signup, re-verified by KYC; the platform needs only the adult flag, not a stored date of birth.
+Account-private row for a registered user: **email**, age gate (`over_18`), and account prefs — never on the public user row. Used for login, recovery contact, and privacy defaults.
+
+**Identity text PII is not stored here.** Legal name, government ID data, biometrics, and the residential **street address string** are held by the **KYC provider** (Didit). On residency success OurSay receives an address, geocodes it, and stores the **point** on [ProfileGeocode](./profile-geocode.md) — not address columns on this row. See also KYC **session refs** and **attestations** keyed by `user_id` ([verification.md](./verification.md), [account/future.md](./future.md)).
+
+**Registration is least-resistance:** email, required public handle (display name optional — defaults to the handle; see [User](./user.md)), and the `over_18` self-attestation. No legal-name or address fields. The age gate is the **`over_18`** boolean — self-attested at signup, re-confirmed via KYC; the platform needs only the adult flag, not a stored date of birth.
 
 ## Aliases
 
@@ -23,34 +27,23 @@ One profile per user. Primary key: `auth.profiles.user_id` → `public.users.id`
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
 | `user_id` | UUID | yes | no | FK → `users.id` |
-| `first_name` | TEXT | no (optional at signup, else KYC) | **never** | Private PII |
-| `last_name` | TEXT | no (optional at signup, else KYC) | **never** | Private PII |
-| `address_line1` | TEXT | no (optional at signup, else KYC / profile update) | no | Private |
-| `address_line2` | TEXT | no | no | Private |
-| `city` | TEXT | no (empty until KYC) | no | Private |
-| `province` | TEXT | no (empty until KYC) | no | Canada-centric storage |
-| `postal_code` | TEXT | no (empty until KYC) | no | Private |
-| `country` | TEXT | yes | no | Default `'CA'` |
-| `address_memo` | TEXT | no | no | Jurisdiction-specific extra |
-| `over_18` | boolean | yes | no | **Target** age gate: self-attested checkbox at signup, KYC re-verifies; replaces stored `birthdate` (see Gaps) |
+| `over_18` | boolean | yes | no | **Target** age gate: self-attested checkbox at signup, KYC re-confirms; replaces stored `birthdate` (see Gaps) |
 | `visibility` | enum | yes | no | **Target** account-default author visibility; default `'anonymous'` ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) |
 | `email` | TEXT | yes | no | As user typed |
 | `email_canonical` | TEXT | yes | no | Normalized; unique |
 | `created_at` | TIMESTAMPTZ | yes | no | |
 
-Public-facing name fields (`handle`, `display_name`) live on [User](./user.md), not here.
+**Removed from target model (do not collect / drop when migrating):** `first_name`, `last_name`, `address_line1`, `address_line2`, `city`, `province`, `postal_code`, `address_memo`. Code/schema may still have these columns until the non-storage migration.
+
+Public-facing name fields (`handle`, `display_name`) live on [User](./user.md), not here. Display name is **not** legal name.
 
 ## States & lifecycle
 
-Created atomically at registration with **email + over_18** (name/address columns filled only if
-the user chose to provide them at signup). The first address write — at signup, KYC, or via
-profile PATCH — triggers the geocode sync (service exists; PATCH route gap; never blocking).
-
 ```
-[registration sets profile — email + over_18 (+ optional name/address)]
-        │ signup / KYC step / profile PATCH supplies name + address
+[registration sets profile — email + over_18]
+        │ KYC residency/POA: provider returns address (ephemeral)
         ▼
-[geocode sync → ProfileGeocode updated]
+[geocode → ProfileGeocode.geom; attestation for user_id — no street address on profile]
 ```
 
 ## Relationships
@@ -58,15 +51,15 @@ profile PATCH — triggers the geocode sync (service exists; PATCH route gap; ne
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
 | User | 1:1 | CASCADE delete |
-| ProfileGeocode | 1:1 | Current geocoded point |
-| Verification | indirect | KYC provider reads profile fields |
+| ProfileGeocode | 0..1 | Private point from residency geocode |
+| Verification | indirect | Attestations reference `user_id`; provider holds identity text PII |
 
 ## Invariants
 
-- **R6 [Invariant]**: Raw PII in separate mutable store, not on append-only ledger ([REQUIREMENTS.md](../../../public-record/REQUIREMENTS.md)).
-- Legal name never publicly surfaced ([GLOSSARY.md](../../GLOSSARY.md)).
+- **R6 [Invariant]**: Raw content / remaining account PII in a separate mutable store, not on the append-only ledger ([REQUIREMENTS.md](../../../public-record/REQUIREMENTS.md)).
+- **No legal name or street address on OurSay profiles** — KYC seam is system of record; residency yields a stored **point** only ([account/future.md](./future.md)).
 - No district binding persisted — boundaries shift over time.
-- Encryption-at-rest (KMS) is a follow-on milestone.
+- Encrypting profile name/address columns is **not** a milestone (those fields are not retained). Point encryption vs GIS: see [profile-geocode.md](./profile-geocode.md).
 
 ## Permissions
 
@@ -74,19 +67,18 @@ profile PATCH — triggers the geocode sync (service exists; PATCH route gap; ne
 |--------|-----|
 | Create | Self at registration |
 | Read | Self only (full session) |
-| Update | Self only |
-| Read by platform | KYC provider integration, geocode service |
+| Update | Self only (prefs / email flows — not KYC PII) |
 
 ## Events
 
-- Registration: profile insert + OTP verify.
-- Address change: triggers `GeocodeService.syncGeocodeForUser()` (when PATCH lands).
+- Registration: profile insert + OTP verify (email + over_18).
+- KYC pass/fail: attestation / session updates; residency success triggers geocode → point (no profile street-address sync).
 
 ## Examples
 
-**Valid:** Profile with complete Alberta address → geocode → district inferred at count time.
+**Valid:** Profile with email + `over_18`; residency attested via Didit → tier on `kyc_attestations` + private geocode point; no street address column filled.
 
-**Invalid:** Returning `first_name` or street address in any public API response.
+**Invalid:** Returning legal name or street address from any OurSay API. Storing a copy of Didit’s ID/POA text payload on `auth.profiles`.
 
 ## Implementation
 
@@ -99,7 +91,9 @@ profile PATCH — triggers the geocode sync (service exists; PATCH route gap; ne
 
 ## Gaps
 
-- **Age-gate storage drift** — code today stores `auth.profiles.birthdate` (DATE NOT NULL) and computes 18+ at registration (`api/src/helpers/age.ts`). Target stores only `over_18` (boolean; signup checkbox, KYC re-verifies). Tracked as `[code-over-18]`; the column remains until migration. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
-- **Registration input drift** — `POST /v1/auth/otp/verify` (`profileInputSchema`) today accepts name/address and **requires** `birthdate`; target requires handle + `over_18` checkbox, with displayName (falls back to handle), full name, and address optional — `[align-w3-gates-schema]`.
-- **[mvp-c10c-profile-patch]**: `GeocodeService.syncGeocodeForUser` exists; no `PATCH /v1/profile` yet — see [account/future.md](./future.md).
+- **KYC-held text PII / drop name+street columns** — code still has profile name/address fields; target is removal + POA→geocode→point. See [account/future.md](./future.md).
+- **Age-gate storage drift** — code today stores `auth.profiles.birthdate` (DATE NOT NULL) and computes 18+ at registration (`api/src/helpers/age.ts`). Target stores only `over_18` (boolean; signup checkbox, KYC re-confirms). Tracked as `[code-over-18]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
+- **Registration input drift** — `POST /v1/auth/otp/verify` (`profileInputSchema`) today accepts name/address and **requires** `birthdate`; target is handle + `over_18` (+ optional displayName) only — `[align-w3-gates-schema]`.
+- **[mvp-c10c-profile-patch]**: retarget to prefs (not user-edited street address).
 - `visibility` column (account-default author visibility) not in schema yet — [09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md).
+- **Geocode point encryption vs GiST** — open; see [profile-geocode.md](./profile-geocode.md).

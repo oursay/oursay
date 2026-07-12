@@ -1,6 +1,6 @@
 # Didit setup for KYC verification
 
-OurSay records verification **tiers** in `public.kyc_attestations` (identity, residency, electoral). The platform never stores document images, legal names from ID scans, face embeddings, or face-match confidence scores — only the awarded tier, provider tag, and an optional coarse region string.
+OurSay records verification **tiers** in `public.kyc_attestations` (identity, residency, electoral). The platform never stores document images, legal names from ID scans, face embeddings, or face-match confidence scores — only the awarded tier, provider tag, an optional coarse region string, and (on residency) a **private geocoded point** derived from the address Didit returns. Street address and legal name stay with Didit.
 
 In **development**, the default `KYC_PROVIDER=stub` lets tests and `POST /v1/dev/kyc/attest` place users at any tier with no network. In **production** (or dev walks against the real vendor), set `KYC_PROVIDER=didit` to use [Didit](https://didit.me) hosted verification sessions.
 
@@ -153,9 +153,15 @@ DIDIT_CALLBACK_URL=https://<public-web-host>/profile/self
 2. Residency (optional; uses POA workflow credits on the Didit account): `{ "workflowKind": "poa" }` → `residency_verified`.
 3. Recovery: verified account → recovery OTP → biometric session via recovery KYC route → Approved → passkey re-enroll (no extra attestation row).
 
-### 3.6 What we never store
+### 3.6 What we never store (vs what we keep)
 
-Didit holds documents and biometrics. OurSay stores only session tracking (`auth.kyc_sessions`) and tier facts (`public.kyc_attestations`). Face-match confidence stays inside Didit’s decision; we key off Approved/Declined.
+Didit holds documents, biometrics, legal name, and the residential street address. OurSay stores:
+
+- session tracking (`auth.kyc_sessions`) keyed by `user_id`
+- tier facts (`public.kyc_attestations`)
+- on residency/POA: a **geocoded point** (`auth.profile_geocodes`) from the address returned by the seam — **not** the street-address string on `auth.profiles`
+
+Face-match confidence stays inside Didit’s decision; we key off Approved/Declined. Column-encrypting the point while keeping PostGIS GiST / `ST_Contains` is **uncertain / likely impossible** — see [`entities/account/profile-geocode.md`](entities/account/profile-geocode.md).
 
 ### 3.7 Ops notes
 

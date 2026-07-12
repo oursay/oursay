@@ -164,7 +164,7 @@ flowchart TD
 1. Enter email  `[screen: Email capture]`  `-> POST /v1/auth/otp/request {purpose:"registration"}`
    - branch: email already registered → unauthenticated request is a **silent no-op** (no enumeration); UI shows "check your email" regardless.
 2. Enter code + public identity + `over_18` checkbox (required)  `[screen: OTP + identity form]`  `-> POST /v1/auth/otp/verify`
-   — **least-resistance registration** fields: **handle (required)** · **display name (optional — uses the handle when unfilled)** · **full name (optional)** · **address (optional)**, with a helper: *these need to be filled before ID/residency verification; without an address the platform cannot recommend which jurisdictions to join automatically* (auto-recommendation is a V1 feature, at 5+ jurisdictions). No birthdate. The KYC step (2.x) collects/re-verifies whatever was left blank and triggers the first geocode where the address arrives there.
+   — **least-resistance registration** fields: **handle (required)** · **display name (optional — uses the handle when unfilled)** · **over_18**. No birthdate. **No** legal name or street address on OurSay — Didit collects/holds those; on residency (2.x) the seam returns an address that is geocoded to a **private point** only.
    - branch: over-18 box unchecked → `[screen: Ineligible]`, no account created.
    - branch: handle taken → `[state: inline error]`, suggest alternatives.
    - branch: code wrong/expired → `[state: inline error]`, allow resend (rate-limited 10/min request, 20/min verify).
@@ -239,19 +239,19 @@ flowchart TD
 
 **Entry:** Settings → Profile (full session).
 
-1. View own profile (email, handle, display name (handle-derived if never set), `over_18`, visibility default; address/legal name appear once supplied — at signup, KYC, or a profile edit)  `[screen: Profile]`  `-> GET /v1/profile`
+1. View own profile (email, handle, display name (handle-derived if never set), `over_18`, visibility default — **not** legal name or street address)  `[screen: Profile]`  `-> GET /v1/profile`
 
-**End (success):** Profile shown. PII is private to the owner; never on the public record.
+**End (success):** Profile shown. Account contact/prefs are private to the owner; KYC text PII stays with the provider; never on the public record.
 
-### 1.8 Update profile / address (re-geocode)  ·  Registered  ·  Partial  ·  US-CAP-12 (district inference)
+### 1.8 Update profile prefs  ·  Registered  ·  Partial
 
 **Entry:** Settings → Profile → "Edit".
 
-1. Edit address fields  `[screen: Edit profile]`  `-> PATCH /v1/profile` **(gap: no HTTP route yet — `[mvp-c10c-profile-patch]`)**
-2. On save, address re-geocoded to a new private point + history append (`GeocodeService.syncGeocodeForUser` exists; not exposed).
+1. Edit account prefs (e.g. visibility) — **not** legal name / street address  `[screen: Edit profile]`  `-> PATCH /v1/profile` **(gap: no HTTP route yet — `[mvp-c10c-profile-patch]`)**
+2. Residency address / point refresh comes from KYC re-verify / POA, not a profile address form (`GeocodeService` after seam address intake).
 
-**End (success, when shipped):** New inferred district drives my-district filters (5.5).
-**Notes:** Service layer exists; only the HTTP surface is missing.
+**End (success, when shipped):** Prefs updated; district inference still driven by private geocode point from residency.
+**Notes:** Do not reintroduce a user-editable street-address write path on profile.
 
 ### 1.10 Join / switch jurisdiction (membership)  ·  Registered  ·  Partial  ·  US-SYS-6, US-STR-1
 
@@ -305,7 +305,7 @@ flowchart TD
    - **`KYC_PROVIDER=didit`:** `POST /v1/kyc/didit/session` with `workflowKind` `identity` | `poa` → hosted Didit URL → poll/webhook → award tier (`DIDIT_WORKFLOW_ID` / `DIDIT_WORKFLOW_POA`).
 4. Provider returns  `[state: result]`:
    - branch: pass (identity only) → award `identity_verified`; public-record tier link (no PII).
-   - branch: pass (identity + address / POA) → award `residency_verified`; coarse region on attestation.
+   - branch: pass (identity + address / POA) → award `residency_verified`; geocode address from seam → store private point; coarse region on attestation optional.
    - branch: fail → `[screen: Verification failed]`, no ledger entry, may retry.
 
 **End (success):** Tier reflected in all subsequent civic actions and count breakdowns.

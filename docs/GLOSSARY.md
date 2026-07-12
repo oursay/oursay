@@ -138,9 +138,14 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 - **display_name** — public display text. **Optional at registration** — when unfilled it defaults
   to the handle (without the `@`), so it is never null on a public surface (NOT NULL target,
   server-filled from the handle).
-- **first_name / last_name** — private PII, used for KYC, never publicly surfaced (`auth.profiles`).
-- **province** — the province/territory address component (Canada-centric storage;
-  `auth.profiles.province`). Jurisdiction-specific *display* labels live in the front-end.
+- **first_name / last_name** — **not stored on OurSay (target).** Legal name lives with the KYC
+  provider (Didit). Legacy `auth.profiles` columns may still exist until migration.
+- **Street address** — **not stored on OurSay (target).** Residency/POA returns an address to
+  geocode; OurSay keeps the **private point** (`auth.profile_geocodes`), not address lines.
+  See [`account/future.md`](entities/account/future.md) and
+  [`account/profile-geocode.md`](entities/account/profile-geocode.md).
+- **province** — legacy profile address component (Canada-centric); **drop with street-address
+  columns**. Jurisdiction *display* labels live in the front-end.
 - **over_18** — the age-gate boolean. Self-attested via a checkbox at registration and re-verified
   factually at the KYC step; the platform needs only "is this account an adult", never a date of
   birth, so the stored `birthdate` column is dropped (target). Today the age gate stores

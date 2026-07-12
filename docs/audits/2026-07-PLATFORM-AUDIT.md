@@ -21,7 +21,7 @@ The engineering is materially more advanced than "pre-MVP." The civic write path
 2. **Geographic/residency attribution is platform-asserted (High).** `attestPlatformResidency` awards `residency_verified` from a geocoded point falling inside the jurisdiction; with the default stub geocoder this is entirely self-asserted, and even the Didit-POA path trusts one provider. No third party can check "resides in riding X."
 3. **Single platform signing key, no KMS/rotation/quorum (High).** One P-256 key (`PLATFORM_BINDING_PRIVKEY`) signs registration bindings, nullifier attestations, and credential authorizations. Its compromise forges verified personas and dedupe attestations wholesale. Dev fallback is a hardcoded insecure scalar.
 4. **Single KYC provider, unsigned attestation rows (Medium-High).** Didit is the sole verifier; `public.kyc_attestations` rows are platform-trust (R26) with no provider signature (R27 deferred), so the platform can assert any tier for any user, and Sybil-resistance reduces entirely to Didit's deduplication.
-5. **PII-at-rest encryption / KMS not implemented (Medium).** Binding salts, geocode points, and other PII live in Postgres; at-rest encryption and KMS-held keys are documented as "still later (NOT done)" (`public-record/README.md`).
+5. **PII-at-rest encryption / KMS (Medium — narrowed).** Thread-binding salts / openings still need encrypt-at-rest. Legal name / street address are **not** retained on OurSay (KYC-held). Geocode **points** are stored for GIS; column-level encryption of `geom` is **likely incompatible** with PostGIS GiST / `ST_Contains` — see `docs/entities/account/profile-geocode.md`. Harden with volume/disk encryption + access control.
 
 **Top 5 strengths.**
 1. **Real signed write path with defense-in-depth** (`appendSigned`): signature + binding re-verify + credential attestation + nullifier dedupe + freshness + jurisdiction floor, all fail-closed.
@@ -194,7 +194,7 @@ Severity: **Critical / High / Medium / Low / Informational**. Each finding notes
 
 **Findings.**
 - **[High · Implemented] One platform key does too much, with no KMS/rotation/quorum.** `PLATFORM_BINDING_PRIVKEY` (a raw hex P-256 scalar in env) signs registration bindings, nullifier attestations, and credential authorizations (`identity/platform-binding.ts`). KMS is a "later milestone." Compromise = forge verified personas + dedupe attestations + device authorizations, undetectably. The dev fallback (`"de".repeat(32)`) is a fixed insecure key — ensure it can never be active in any internet-reachable environment. *Remediation:* move to a KMS/HSM-held key with an audit log; separate keys per purpose (binding vs. nullifier vs. credential) so blast radius is scoped; design for the `attestations` quorum the block header already reserves.
-- **[Medium · Implemented] PII/KMS at-rest encryption not implemented.** `public-record/README.md` lists "at-rest PII/KMS encryption" under "Still later (NOT done)." Binding openings and geocode points are plaintext in Postgres. Encrypt before production; these are the exact fields that re-identify users.
+- **[Medium · Implemented] PII/KMS at-rest encryption not implemented for binding openings.** Geocode points remain queryable (GIS); column-encrypt of `geom` documented as likely incompatible with GiST — `docs/entities/account/profile-geocode.md`. Name/street address: target non-storage (KYC-held).
 - **[Medium · Dev context] Runtime exposure at audit time.** The ngrok tunnel exposes the API to the public internet under a shared dev secret set; immudb console on `:8082` and dev fallback secrets are dev-grade. This is fine as integration context but must not be mistaken for a hardened deployment; the ngrok URL should be treated as sensitive (webhook replay surface) and rotated.
 - **[Low · Implemented] Postmark logs `MessageID` (safe) and never the body/OTP** (`postmark.ts`) — correct; keep the "never log `msg.text`" invariant under review as adapters are added.
 
@@ -263,7 +263,7 @@ Severity: **Critical / High / Medium / Low / Informational**. Each finding notes
 **P0 — before the ~October 2026 provincial-referendum target.**
 - **Wire at least one external anchor target** (Git transparency log first; EVM/L2 as a second simultaneous target) and publish roots on a fixed cadence. Without this, no "independently verifiable" claim is defensible. *(lens 1, R14–R16)*
 - **Move the platform key into a KMS/HSM** with an audit log; forbid the dev fallback anywhere reachable; split keys by purpose. *(lens 8)*
-- **Encrypt PII at rest** (binding openings, geocode points) with KMS-held keys. *(lens 6/8)*
+- **Encrypt binding openings at rest** with KMS-held keys. Geocode points: accept queryable storage for GIS unless an encrypted-spatial path is proven (`docs/entities/account/profile-geocode.md`). *(lens 6/8)*
 - **Ship verified-account recovery** (KYC re-verification branch) — otherwise verified referendum participants can be permanently locked out. *(lens 2)*
 - **Enforce the visibility resolver + 404 identity surfaces server-side** before any profile surface is public. *(lens 6)*
 - **Add civic-write rate limits** and confirm the WebAuthn origin/RP check at the API layer. *(lens 7/1)*

@@ -2,7 +2,7 @@
 
 ## Definition
 
-A registered account holder on OurSay. Public-facing identity (handle, display name) lives on this object; private PII lives on [Profile](./profile.md). Users exist on a spectrum from unverified participants to verified tiers and (future) officials.
+A registered account holder on OurSay. Public-facing identity (handle, display name) lives on this object; account-private contact/prefs live on [Profile](./profile.md). **Legal name and residential address are not OurSay fields** — they stay with the KYC provider. Users exist on a spectrum from unverified participants to verified tiers and (future) officials.
 
 ## Aliases
 
@@ -55,7 +55,7 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
-| Profile | 1:1 | Private PII in `auth.profiles` |
+| Profile | 1:1 | Email / over_18 / prefs in `auth.profiles` (no legal name or street address) |
 | Verification | 1:N | Append-only attestations; latest wins |
 | Session | 1:N | Active login sessions |
 | PasskeyCredential | 1:N | Account-login passkeys |
@@ -80,8 +80,8 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 
 ## Events
 
-- Registration (least-resistance): creates `users` (**handle required**; display name optional — defaults to the handle) + `profiles` (email + over_18 checkbox required; **full name and address optional**, behind a helper explaining they must be filled before ID/residency verification, and that without an address the platform cannot auto-recommend which jurisdictions to join — a V1 feature at 5+ jurisdictions). Geocode happens on the first address write (signup if provided, else KYC/profile update) and **never blocks registration** — users outside Alberta, or with no/pseudo location, register fine and participate to the degree the gates allow.
-- Verification: appends `kyc_attestations` row (the KYC step collects/re-verifies legal name and address where not already filled).
+- Registration (least-resistance): creates `users` (**handle required**; display name optional — defaults to the handle) + `profiles` (email + over_18 checkbox required). **No** full name or street address on OurSay — Didit collects/holds those at KYC. Registration never blocks on location.
+- Verification: appends `kyc_attestations` for `user_id`; on residency, geocode the address from the KYC seam → store private point (not street string).
 
 ## Examples
 

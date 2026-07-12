@@ -86,12 +86,21 @@ Privacy ([06 §2–3](06-PRIVACY-REVIEW.md)): public geography stays **coarse**.
 
 ## Participant geocode (private input to `contains`)
 
-A participant's address is geocoded into a **private point** — the future input to `region.contains`.
-This is structural **resolvability**, not residency/KYC, and stores no district/region id. Two `auth`
-tables hold it (PRIVATE PII; never on any HTTP response; see [`api/README.md` § Geocoding](../api/README.md)):
+On residency / POA, OurSay **receives an address from the KYC seam**, geocodes it, and stores a
+**private point** — the input to `region.contains`. The street-address string is **not** retained on
+the profile (Didit keeps identity/address text PII). This is structural **resolvability**, not a
+stored district/region id. Two `auth` tables hold the point (PRIVATE location data; never on any
+HTTP response; see [`api/README.md` § Geocoding](../api/README.md) and
+[`entities/account/profile-geocode.md`](entities/account/profile-geocode.md)):
 
 - `auth.profile_geocodes` — the participant's **current** point (one row per user).
-- `auth.profile_geocode_history` — **append-only** log of every distinct address→point they've resolved to.
+- `auth.profile_geocode_history` — **append-only** log of every distinct address→point they've resolved to
+  (`address_hash` for invalidation only — not a recoverable street address).
+
+**Encryption note:** Column-level encryption of `geom` is **likely incompatible** with PostGIS GiST /
+`ST_Contains` (ciphertext cannot be spatially indexed). Working assumption: store queryable points;
+use volume/disk encryption + access control. Details and uncertainty:
+[`entities/account/profile-geocode.md`](entities/account/profile-geocode.md) (*Encryption vs spatial index*).
 
 A later phase will choose, per jurisdiction config, **which point** a scoped filter binds to:
 
@@ -101,7 +110,9 @@ A later phase will choose, per jurisdiction config, **which point** a scoped fil
 | `at_action` | per-action snapshot at civic-write time (**C4**, not built) | Where were they **when they acted**? |
 | `ever_in_region` | `auth.profile_geocode_history` ∪ action snapshots | Have they **ever** been in region? |
 
-**Shipped today:** `current` mode on `/counts` only. Geocoding on register is best-effort; no usable point ⇒ out-of-area for scoped geo. Action-time and ever-in-region modes are not built.
+**Shipped today:** `current` mode on `/counts` only. Geocoding may still run from legacy profile
+address fields; target trigger is residency KYC. No usable point ⇒ out-of-area for scoped geo.
+Action-time and ever-in-region modes are not built.
 
 ## Discussion-scoped stake filtering (C7)
 

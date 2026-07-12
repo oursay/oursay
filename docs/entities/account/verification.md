@@ -4,11 +4,11 @@
 
 Proof that a user has completed identity and/or residency confirmation through a KYC provider. Represented as append-only attestations; the **latest row wins** for tier resolution. Matching is **set membership**, not a strict ladder.
 
-**The KYC step is where identity PII is verified.** Registration is least-resistance (email + required handle + over_18 checkbox; display name, full name, and address are optional at signup, behind a helper noting they must be filled before ID/residency verification); whatever was left blank is entered at the start of verification and stored on [Profile](./profile.md) — the first address write (signup or here) triggers the geocode sync.
+**The KYC step verifies identity/residency PII at the provider.** Registration is least-resistance (email + required handle + over_18 checkbox; display name optional). Legal name and the residential **street address string** are collected and retained by **Didit** (the KYC seam). On residency/POA success OurSay **receives an address**, geocodes it, and stores only the **private point** ([profile-geocode.md](./profile-geocode.md)) plus `user_id`-keyed session refs and attestations (tier, provider, optional coarse region). See [account/future.md](./future.md) and [profile.md](./profile.md).
 
 **Tiers and provider tags are orthogonal.** A *tier* says how verified an account is; a *provider tag* says who attested it (and how). The MVP provider is **Didit**:
-- **Dev:** ID-only verification + a **platform self-signed** address KYC (POA-ready).
-- **Prod:** Didit performs proof-of-address (POA) verification. The **platform** pays Didit; users are not charged per check.
+- **Dev:** ID-only verification + a **platform self-signed** address KYC (POA-ready) for local/stub flows — still without writing legal name/street address onto `auth.profiles`.
+- **Prod:** Didit performs proof-of-address (POA) verification. The **platform** pays Didit; users are not charged per check. Didit holds ID/POA PII; OurSay stores the geocoded point.
 
 Equifax (canadian_verified) and Elections Alberta (electoral_verified) provider tags are **future only**. Residency verification is **never** electoral eligibility, and OurSay must **never** imply an Elections Alberta partnership.
 
@@ -70,11 +70,12 @@ Flow states beyond the tier enum: `pending`, `failed`, `sponsored_pending`, `ver
 
 ```
 [unverified]
-    │ initiate KYC — enter legal name/address (first PII write)
-    │ soft-ask GitHub Sponsors donation (optional; skip allowed)
+    │ initiate KYC — soft-ask GitHub Sponsors (optional) → hosted Didit
+    │ (provider collects/holds legal name + address)
     ▼
 [pending]
-    ├─ pass → append attestation (identity_verified or residency_verified)
+    ├─ pass identity → append identity_verified attestation for user_id
+    ├─ pass residency/POA → append residency_verified + geocode address → store point (not street string)
     └─ fail → failed (no ledger record)
 ```
 
@@ -96,6 +97,8 @@ Peer-sponsorship path *(deferred; paid-verify contingency only)*: `sponsored_pen
 - On fail: no ledger record created.
 - Verification is free to the user; soft-ask for GitHub Sponsors donations before opening a Didit session — never required (contributor §5.5).
 - No payment-gateway charge at the verify gate (pay-per-verification is a donation-collapse contingency only).
+- **No legal name / street address on OurSay profiles** — KYC seam holds them; on residency we store the **geocoded point** only ([profile-geocode.md](./profile-geocode.md)).
+- **Point column encryption** — likely incompatible with PostGIS GiST / `ST_Contains`; see profile-geocode encryption note.
 
 ## Permissions
 
@@ -133,8 +136,10 @@ Peer-sponsorship path *(deferred; paid-verify contingency only)*: `sponsored_pen
 - **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
 - Recovery re-verify flow: verified accounts complete Didit biometric (`DIDIT_WORKFLOW_RECOVER`) before passkey re-enroll.
 - **Donation soft-ask** — GitHub Sponsors ask before Didit session open (verify / recover / re-verify); see [DONATION-FUNDED-VERIFY-HANDOFF.md](../../temp/DONATION-FUNDED-VERIFY-HANDOFF.md).
+- **Drop profile name/street-address columns** — migrate off storing KYC text PII locally; wire POA → geocode → point ([account/future.md](./future.md)).
 - **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
-- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / platform-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
+- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / platform-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not fully built.
 - Peer sponsorship / waitlist — deferred; only relevant under paid-verify contingency (contributor §5.6–5.7).
 - Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).
 - **Funding contingency** — if donations collapse: invasive banners/popups, then pay-per-verification as last resort (roadmap/gaps).
+- **Geocode point encryption** — open; see [profile-geocode.md](./profile-geocode.md).
