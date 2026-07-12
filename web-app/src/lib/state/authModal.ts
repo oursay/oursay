@@ -19,7 +19,9 @@ export type AuthModal =
   /** Login chooser; `otp` shows the email-OTP sub-path instead of passkey. */
   | { kind: "login"; otp: boolean; email?: string }
   /** OTP-entry dialog, tagged by which flow opened it. */
-  | { kind: "otp"; flow: OtpFlow; email?: string };
+  | { kind: "otp"; flow: OtpFlow; email?: string }
+  /** Verified recovery: Didit biometric before passkey re-enroll. */
+  | { kind: "recovery_kyc"; email?: string };
 
 export const authNone: AuthModal = { kind: "none" };
 export const authChooser: AuthModal = { kind: "chooser" };
@@ -31,6 +33,7 @@ export const authLogin = (email?: string): AuthModal => ({ kind: "login", otp: f
 export const authLoginOtp = (email?: string): AuthModal => ({ kind: "login", otp: true, email });
 export const authRecover = (email?: string): AuthModal => ({ kind: "recover", email });
 export const authOtp = (flow: OtpFlow, email?: string): AuthModal => ({ kind: "otp", flow, email });
+export const authRecoveryKyc = (email?: string): AuthModal => ({ kind: "recovery_kyc", email });
 
 /**
  * Email typed into the login chooser: a valid address jumps straight to the
@@ -46,4 +49,6 @@ export const toggleLoginOtp = (m: AuthModal): AuthModal =>
 
 /** The email carried by whichever dialog is open (recover/login/otp), if any. */
 export const authEmailOf = (m: AuthModal): string | undefined =>
-  m.kind === "recover" || m.kind === "login" || m.kind === "otp" ? m.email : undefined;
+  m.kind === "recover" || m.kind === "login" || m.kind === "otp" || m.kind === "recovery_kyc"
+    ? m.email
+    : undefined;

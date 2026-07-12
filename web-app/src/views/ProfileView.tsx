@@ -205,8 +205,8 @@ export function ProfileView({
             >
               Edit Profile
             </Button>
-            <Button size="sm" icon={BadgeCheck} onClick={app.cycleKyc}>
-              Validate ID
+            <Button size="sm" icon={BadgeCheck} onClick={app.openVerify}>
+              Get Verified
             </Button>
           </div>
         ) : null}

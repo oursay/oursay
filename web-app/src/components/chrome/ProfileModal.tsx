@@ -394,7 +394,7 @@ export function ProfileModal({
               {KYC_LABEL[kycTier]}
             </span>
             <Button size="sm" className="rounded-full!" onClick={onValidateId}>
-              Validate ID
+              Get Verified
             </Button>
           </div>
           <p className="mt-1.5 text-xs text-muted">

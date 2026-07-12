@@ -21,9 +21,11 @@ import {
   OtpVerify,
   ProfileModal,
   RecoverForm,
+  RecoveryKycModal,
   RegisterForm,
   SafeFooter,
   ShareModal,
+  VerifyModal,
 } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
 import { jurisdictionLabel as labelForJurisdiction } from "@/lib/mock";
@@ -379,7 +381,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           app.closeProfile();
           router.push(SELF_PROFILE_PATH);
         }}
-        onValidateId={app.cycleKyc}
+        onValidateId={app.openVerify}
         onLogout={app.logout}
         passkeys={state.passkeys}
         onAddDevice={app.addDevice}
@@ -415,6 +417,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           app.notify(`${label} is not built in this demo.`);
         }}
         passkeyBusy={profilePasskeyBusy}
+      />
+      <VerifyModal
+        open={state.verifyOpen}
+        onClose={app.closeVerify}
+        onChoose={(choice) => app.chooseVerify(choice)}
+        residencyHasCost={!isMockOnly()}
+      />
+      <RecoveryKycModal
+        open={authModal.kind === "recovery_kyc"}
+        onClose={app.closeAuth}
+        onStart={app.startRecoveryKyc}
       />
       <ComposeFlow
         open={state.composeOpen}

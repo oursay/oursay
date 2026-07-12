@@ -121,6 +121,8 @@ export interface AppState {
   /** The single open auth dialog (chooser/register/login/recover/otp) — one at a time. */
   authModal: AuthModal;
   profileOpen: boolean;
+  /** Verify ID / Verify Residency chooser. */
+  verifyOpen: boolean;
   addJurOpen: boolean;
 
   // Compose flow.

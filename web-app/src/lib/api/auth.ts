@@ -29,7 +29,7 @@ export interface RegistrationProfile {
 
 export interface SessionInfo {
   token: string;
-  scope: "full" | "registration" | "recovery";
+  scope: "full" | "registration" | "recovery" | "login" | "recovery_kyc";
 }
 
 /** Account-login passkey metadata from `GET /v1/auth/passkeys` (no key material). */
@@ -68,7 +68,7 @@ export interface EnableRecoveryResult {
 }
 
 export interface VerifyRecoveryResult {
-  status: "passkey_reenroll";
+  status: "passkey_reenroll" | "kyc_reverification_required";
   userId: string;
   session: SessionInfo;
 }

@@ -7,6 +7,26 @@ import { jurisdictionConfig } from "../../config.js";
 import { bearerSecurity, errorSchema } from "../schemas.js";
 
 export async function registerKycRoutes(app: FastifyInstance, services: Services): Promise<void> {
+  app.get(
+    "/v1/public/kyc",
+    {
+      schema: {
+        tags: ["kyc"],
+        summary: "Public KYC provider flag (stub vs didit) for UI routing",
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              provider: { type: "string", enum: ["stub", "didit", "equifax"] },
+            },
+            required: ["provider"],
+          },
+        },
+      },
+    },
+    async () => ({ provider: services.kycProvider.name }),
+  );
+
   app.post(
     "/v1/kyc/didit/session",
     {

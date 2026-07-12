@@ -5,6 +5,8 @@ export * from "./RegisterForm";
 export * from "./OtpVerify";
 export * from "./LoginChooser";
 export * from "./ProfileModal";
+export * from "./VerifyModal";
+export * from "./RecoveryKycModal";
 export * from "./RecoverForm";
 export * from "./ComposeFlow";
 export * from "./ChooseSignModal";

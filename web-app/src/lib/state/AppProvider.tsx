@@ -100,6 +100,12 @@ import {
   type AuthPasskey,
 } from "@/lib/api/auth";
 import {
+  fetchKycProvider,
+  runDiditHostedFlow,
+  runRecoveryKycFlow,
+  type KycWorkflowKind,
+} from "@/lib/api/kyc";
+import {
   applyRecordStates,
   attestResidency,
   devAttestKyc,
@@ -128,6 +134,7 @@ import {
   authNone,
   authOtp,
   authRecover,
+  authRecoveryKyc,
   authRegister,
   toggleLoginOtp,
 } from "./authModal";
@@ -219,6 +226,7 @@ export const INITIAL_APP_STATE: AppState = {
 
   authModal: authNone,
   profileOpen: false,
+  verifyOpen: false,
   addJurOpen: false,
 
   composeOpen: false,
@@ -284,6 +292,10 @@ export interface AppApi {
   demoLogin: () => void;
   logout: () => void;
   cycleKyc: () => void;
+  openVerify: () => void;
+  closeVerify: () => void;
+  chooseVerify: (choice: KycWorkflowKind) => void;
+  startRecoveryKyc: () => void;
   requireAuth: (action: () => void) => void;
 
   // Filter — record types + Verified/geography ladder.
@@ -570,6 +582,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     set({
       authModal: authNone,
       profileOpen: false,
+      verifyOpen: false,
       addJurOpen: false,
       filterOpen: false,
       jurSelectorOpen: false,
@@ -764,27 +777,109 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [notify]);
 
   const cycleKyc = useCallback(() => {
+    // Back-compat alias — opens the Verify ID / Residency chooser.
+    set({ verifyOpen: true, profileOpen: false });
+  }, [set]);
+
+  const openVerify = useCallback(() => {
+    set({ verifyOpen: true, profileOpen: false });
+  }, [set]);
+
+  const closeVerify = useCallback(() => set({ verifyOpen: false }), [set]);
+
+  const chooseVerify = useCallback(
+    (choice: KycWorkflowKind) => {
+      if (isMockOnly()) {
+        setState((s) => {
+          const next =
+            choice === "poa"
+              ? (2 as VerificationTier)
+              : s.kycTier < 1
+                ? (1 as VerificationTier)
+                : s.kycTier;
+          return {
+            ...s,
+            verifyOpen: false,
+            kycTier: next,
+            viewerDistricts: next >= 2 ? MY_DISTRICTS : s.viewerDistricts,
+          };
+        });
+        notify(choice === "poa" ? "Residency verified (demo)." : "Identity verified (demo).");
+        return;
+      }
+
+      void (async () => {
+        try {
+          const provider = await fetchKycProvider();
+          if (provider !== "didit") {
+            // Stub / offline: keep the old tier cycle for identity; residency uses platform attest.
+            if (choice === "poa") {
+              await attestResidency();
+              const account = await fetchAccountContext();
+              if (account) applyAccount(account);
+              set({ verifyOpen: false });
+              notify("Residency attested.");
+              return;
+            }
+            setState((s) => {
+              void devAttestKyc(s.kycTier)
+                .then(() => fetchAccountContext())
+                .then((account) => {
+                  if (account) applyAccount(account);
+                  set({ verifyOpen: false });
+                })
+                .catch((e: Error) => notify(e.message));
+              return s;
+            });
+            return;
+          }
+
+          const result = await runDiditHostedFlow(choice);
+          if (result.status === "approved") {
+            const account = await fetchAccountContext();
+            if (account) applyAccount(account);
+            set({ verifyOpen: false });
+            notify(choice === "poa" ? "Residency verified." : "Identity verified.");
+            return;
+          }
+          notify(`Verification ${result.status}. Try again when ready.`);
+        } catch (e: unknown) {
+          const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Verification failed.";
+          notify(msg);
+        }
+      })();
+    },
+    [applyAccount, notify, set],
+  );
+
+  const startRecoveryKyc = useCallback(() => {
     if (isMockOnly()) {
-      setState((s) => {
-        const next = ((s.kycTier + 1) % 4) as VerificationTier;
-        return {
-          ...s,
-          kycTier: next,
-          viewerDistricts: next >= 2 ? MY_DISTRICTS : [],
-        };
-      });
+      set({ authModal: authLogin() });
+      notify("Recovery complete — now log in with your passkey.");
       return;
     }
-    setState((s) => {
-      void devAttestKyc(s.kycTier)
-        .then(() => fetchAccountContext())
-        .then((account) => {
-          if (account) applyAccount(account);
-        })
-        .catch((e: Error) => notify(e.message));
-      return s;
-    });
-  }, [applyAccount, notify]);
+    void (async () => {
+      try {
+        const result = await runRecoveryKycFlow();
+        if (result.status === "approved" && result.passkeyReenroll) {
+          beginPasskeyBusy("otp", "creating");
+          try {
+            await enrollPasskey();
+            set({ authModal: authLogin() });
+            notify("Recovered — now log in with your passkey.");
+          } finally {
+            endPasskeyBusy();
+          }
+          return;
+        }
+        notify(`Biometric check ${result.status}. Try again when ready.`);
+      } catch (e: unknown) {
+        const msg =
+          e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Biometric recovery failed.";
+        notify(msg);
+      }
+    })();
+  }, [beginPasskeyBusy, endPasskeyBusy, notify, set]);
 
   const openAuth = useCallback(() => {
     closeAllModals();
@@ -1167,7 +1262,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
         void (async () => {
           try {
-            await verifyRecoveryOtp(email, code);
+            const result = await verifyRecoveryOtp(email, code);
+            if (result.status === "kyc_reverification_required") {
+              set({ authModal: authRecoveryKyc(email) });
+              return;
+            }
             beginPasskeyBusy("otp", "creating");
             try {
               await enrollPasskey();
@@ -2086,6 +2185,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     demoLogin,
     logout,
     cycleKyc,
+    openVerify,
+    closeVerify,
+    chooseVerify,
+    startRecoveryKyc,
     requireAuth,
     toggleFilter,
     closePopovers,

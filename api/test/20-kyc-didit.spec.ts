@@ -80,6 +80,12 @@ describe("20 kyc didit: sessions, webhooks, attestations", () => {
     expect(res.statusCode).to.equal(501);
   });
 
+  it("exposes public KYC provider flag", async () => {
+    const res = await w.app.inject({ method: "GET", url: "/v1/public/kyc" });
+    expect(res.statusCode).to.equal(200);
+    expect(res.json()).to.deep.equal({ provider: "stub" });
+  });
+
   it("start → poll approve awards identity_verified with provider didit", async () => {
     const { userId } = await makeAccount(w, { email: "didit-user@example.com" });
     let decisionCalls = 0;
