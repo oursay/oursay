@@ -106,9 +106,10 @@ CREATE INDEX IF NOT EXISTS webauthn_challenges_lookup ON auth.webauthn_challenge
 
 -- Opaque DB-backed sessions. The token itself is never stored — only its hash. Non-'full' scopes are
 -- limited sessions that may re-enroll a passkey but not perform full actions:
---   'recovery' — issued by recovery OTP (lost passkey); recovery REVOKES all prior sessions.
---   'login'    — issued by the gated cross-device login OTP (docs/08); enroll-only until the new
---                device enrolls a passkey and logs in with it. Login does NOT revoke other sessions.
+--   'recovery'     — issued by recovery OTP (lost passkey); recovery REVOKES all prior sessions.
+--   'login'        — issued by the gated cross-device login OTP (docs/08); enroll-only until the new
+--                    device enrolls a passkey and logs in with it. Login does NOT revoke other sessions.
+--   'recovery_kyc' — verified-account recovery after email OTP; biometric Didit only (no passkey enroll).
 -- credential_id pairs a session to the account-login passkey that established it (passkey login only;
 -- NULL for OTP registration/recovery/login sessions). Revoking that passkey (kick a device) revokes
 -- its sessions. ON DELETE SET NULL so removing the credential never orphans the FK.
@@ -116,7 +117,7 @@ CREATE TABLE IF NOT EXISTS auth.sessions (
   id            UUID PRIMARY KEY,
   user_id       UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   token_hash    TEXT NOT NULL UNIQUE,
-  scope         TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','registration','recovery','login')),
+  scope         TEXT NOT NULL DEFAULT 'full' CHECK (scope IN ('full','registration','recovery','login','recovery_kyc')),
   credential_id UUID REFERENCES auth.passkey_credentials(id) ON DELETE SET NULL,
   user_agent    TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -124,10 +125,11 @@ CREATE TABLE IF NOT EXISTS auth.sessions (
   revoked_at    TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS sessions_user ON auth.sessions (user_id);
--- Widen the scope CHECK on a persistent dev DB created before 'login'/'registration' existed
+-- Widen the scope CHECK on a persistent dev DB created before later scopes existed
 -- (constraint is the table-name-derived auto name). Idempotent: drop then re-add the allow-list.
 ALTER TABLE auth.sessions DROP CONSTRAINT IF EXISTS sessions_scope_check;
-ALTER TABLE auth.sessions ADD CONSTRAINT sessions_scope_check CHECK (scope IN ('full','registration','recovery','login'));
+ALTER TABLE auth.sessions ADD CONSTRAINT sessions_scope_check
+  CHECK (scope IN ('full','registration','recovery','login','recovery_kyc'));
 -- Add the passkey pairing column on a persistent dev DB created before it existed (BEFORE the index
 -- below, which depends on it).
 ALTER TABLE auth.sessions ADD COLUMN IF NOT EXISTS credential_id UUID REFERENCES auth.passkey_credentials(id) ON DELETE SET NULL;
@@ -242,7 +244,7 @@ CREATE TABLE IF NOT EXISTS auth.kyc_sessions (
   user_id              UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   provider             TEXT NOT NULL,
   provider_session_id  TEXT NOT NULL UNIQUE,
-  workflow_kind        TEXT NOT NULL CHECK (workflow_kind IN ('identity', 'poa')),
+  workflow_kind        TEXT NOT NULL CHECK (workflow_kind IN ('identity', 'poa', 'recovery')),
   status               TEXT NOT NULL,
   attested_at          TIMESTAMPTZ,
   last_polled_at       TIMESTAMPTZ,
@@ -250,4 +252,9 @@ CREATE TABLE IF NOT EXISTS auth.kyc_sessions (
   updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS kyc_sessions_user ON auth.kyc_sessions (user_id);
+
+-- Expand workflow_kind for DBs that already had the identity|poa-only CHECK.
+ALTER TABLE auth.kyc_sessions DROP CONSTRAINT IF EXISTS kyc_sessions_workflow_kind_check;
+ALTER TABLE auth.kyc_sessions ADD CONSTRAINT kyc_sessions_workflow_kind_check
+  CHECK (workflow_kind IN ('identity', 'poa', 'recovery'));
 `;

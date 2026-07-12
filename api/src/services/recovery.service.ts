@@ -2,8 +2,9 @@
 //
 // Branch on verified status resolved from public.kyc_attestations (no row = unverified):
 //   - unverified  → issue a limited 'recovery'-scoped session; the client re-enrolls a passkey.
-//   - verified    → policy STUB: email alone is insufficient; future KYC re-verification is required
-//                   (provider stubbed this milestone). We surface kyc_reverification_required.
+//   - verified    → issue 'recovery_kyc' session; client must complete Didit biometric (workflow 03)
+//                   then exchange for a 'recovery' session (passkey re-enroll). Email alone is insufficient
+//                   (US-SYS-5).
 //
 // To avoid account enumeration, requestRecovery always reports success but only actually emails a
 // code when an account exists for the address.
@@ -13,6 +14,7 @@ import { normalizeEmail } from "../helpers/email.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { AuthService, IssuedSession } from "./auth.service.js";
+import type { KycSessionService } from "./kyc-session.service.js";
 import type { OtpService, OtpRequestResult } from "./otp.service.js";
 
 export interface RecoveryServiceDeps {
@@ -20,16 +22,13 @@ export interface RecoveryServiceDeps {
   profileRepo: ProfileRepo;
   kycRepo: KycRepo;
   authService: AuthService;
+  kycSessionService: KycSessionService;
   now?: Now;
 }
 
-// verifyRecovery throws kyc_reverification_required for verified accounts, so a returned value is
-// always the passkey re-enroll branch.
-export interface RecoveryVerifyResult {
-  status: "passkey_reenroll";
-  userId: string;
-  session: IssuedSession;
-}
+export type RecoveryVerifyResult =
+  | { status: "passkey_reenroll"; userId: string; session: IssuedSession }
+  | { status: "kyc_reverification_required"; userId: string; session: IssuedSession };
 
 export class RecoveryService {
   private readonly now: Now;
@@ -63,11 +62,9 @@ export class RecoveryService {
     }
 
     if (await this.d.kycRepo.isVerified(profile.userId)) {
-      // Verified users cannot recover via email alone (policy stub for future KYC re-verification).
-      throw new ServiceError(
-        "kyc_reverification_required",
-        "This account is identity-verified; recovery requires KYC re-verification (not available yet)",
-      );
+      // Verified: email proves inbox control only. Issue a biometric challenge session (no passkey enroll).
+      const session = await this.d.authService.issue(profile.userId, "recovery_kyc", input.userAgent ?? null);
+      return { status: "kyc_reverification_required", userId: profile.userId, session };
     }
 
     // Recovery means the account holder may have lost a device — revoke every prior session before
@@ -76,5 +73,45 @@ export class RecoveryService {
 
     const session = await this.d.authService.issue(profile.userId, "recovery", input.userAgent ?? null);
     return { status: "passkey_reenroll", userId: profile.userId, session };
+  }
+
+  /** Start Didit biometric recovery for a recovery_kyc-scoped caller. */
+  async startRecoveryKyc(userId: string): Promise<{ sessionId: string; url: string }> {
+    return this.d.kycSessionService.startDiditSession(userId, "recovery");
+  }
+
+  /**
+   * Poll recovery biometric session. On Approved: revoke all sessions and issue a recovery-scoped
+   * session for passkey re-enroll (tier attestations are left unchanged).
+   */
+  async pollRecoveryKyc(
+    userId: string,
+    sessionId: string,
+    userAgent?: string | null,
+  ): Promise<
+    | { status: "pending" | "declined" | "abandoned" | "expired" | "in_review"; tier: null }
+    | { status: "approved"; tier: null; passkeyReenroll: { userId: string; session: IssuedSession } }
+  > {
+    const polled = await this.d.kycSessionService.getDiditSessionStatus(userId, sessionId);
+    if (polled.status !== "approved") {
+      return { status: polled.status as "pending" | "declined" | "abandoned" | "expired" | "in_review", tier: null };
+    }
+
+    const row = await this.d.kycSessionService.getOwnedSession(userId, sessionId);
+    if (!row || row.workflowKind !== "recovery") {
+      throw new ServiceError("forbidden", "Not a recovery KYC session");
+    }
+    if (!row.attestedAt) {
+      // Race: decision approved but claim not finished — treat as still pending.
+      return { status: "pending", tier: null };
+    }
+
+    await this.d.authService.revokeAllForUser(userId);
+    const session = await this.d.authService.issue(userId, "recovery", userAgent ?? null);
+    return {
+      status: "approved",
+      tier: null,
+      passkeyReenroll: { userId, session },
+    };
   }
 }

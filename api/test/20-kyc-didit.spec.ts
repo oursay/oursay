@@ -1,5 +1,6 @@
 // Didit KYC provider: fake-fetch unit tests + HTTP edges. Live sandbox smoke is 33-didit-session-smoke.spec.ts.
 
+import { randomUUID } from "node:crypto";
 import { expect } from "chai";
 import { kycConfig } from "../src/config.js";
 import { KycSessionRepo } from "../src/repo/kyc-session.repo.js";
@@ -19,6 +20,8 @@ function diditCfg() {
     apiKey: "test-api-key",
     webhookSecret: WEBHOOK_SECRET,
     workflowId: WORKFLOW_ID,
+    poaWorkflowId: "poa-workflow-id",
+    recoverWorkflowId: "recover-workflow-id",
     baseUrl: "https://verification.didit.me",
   };
 }
@@ -190,5 +193,50 @@ describe("20 kyc didit: sessions, webhooks, attestations", () => {
       payload: { session_id: SESSION_ID, status: "Approved" },
     });
     expect(res.statusCode).to.equal(501);
+  });
+
+  it("recovery workflow approve does not append a KYC attestation", async () => {
+    const RECOVER_WF = "recover-workflow-id";
+    const RECOVER_SID = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    const { userId } = await makeAccount(w, { email: "didit-recover@example.com" });
+    await w.db.pool.query(
+      `INSERT INTO public.kyc_attestations (id, user_id, provider, tier) VALUES ($1, $2, 'didit', 'identity_verified')`,
+      [randomUUID(), userId],
+    );
+    const svc = buildDiditSessionService(
+      w,
+      fakeFetch((url, method) => {
+        if (method === "POST" && url.endsWith("/v3/session/")) {
+          return {
+            body: {
+              session_id: RECOVER_SID,
+              url: "https://verify.didit.me/session/recover",
+              status: "Not Started",
+              workflow_id: RECOVER_WF,
+            },
+          };
+        }
+        if (method === "GET" && url.includes(`/v3/session/${RECOVER_SID}/decision/`)) {
+          return {
+            body: {
+              session_id: RECOVER_SID,
+              status: "Approved",
+              workflow_id: RECOVER_WF,
+            },
+          };
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      }),
+    );
+
+    await svc.startDiditSession(userId, "recovery");
+    const polled = await svc.getDiditSessionStatus(userId, RECOVER_SID);
+    expect(polled.status).to.equal("approved");
+    expect(polled.tier).to.equal(null);
+
+    const rows = await w.db.pool.query(`SELECT COUNT(*)::int AS n FROM public.kyc_attestations WHERE user_id = $1`, [
+      userId,
+    ]);
+    expect(rows.rows[0].n).to.equal(1);
   });
 });

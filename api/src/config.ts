@@ -132,6 +132,7 @@ export interface DiditConfig {
   baseUrl: string;
   workflowId: string;
   poaWorkflowId: string;
+  recoverWorkflowId: string;
   callbackUrl: string;
 }
 
@@ -153,7 +154,8 @@ export const kycConfig: KycConfig = {
     webhookSecret: env("DIDIT_WEBHOOK_SECRET", ""),
     baseUrl: env("DIDIT_BASE_URL", "https://verification.didit.me"),
     workflowId: env("DIDIT_WORKFLOW_ID", ""),
-    poaWorkflowId: env("DIDIT_POA_WORKFLOW_ID", ""),
+    poaWorkflowId: env("DIDIT_WORKFLOW_POA", ""),
+    recoverWorkflowId: env("DIDIT_WORKFLOW_RECOVER", ""),
     callbackUrl: env("DIDIT_CALLBACK_URL", ""),
   },
 };

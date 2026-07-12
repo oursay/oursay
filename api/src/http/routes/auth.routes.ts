@@ -17,7 +17,7 @@ export function registerAuthRoutes(app: FastifyInstance, services: Services): vo
         response: {
           200: {
             type: "object",
-            properties: { userId: { type: "string", format: "uuid" }, scope: { type: "string", enum: ["full", "recovery"] } },
+            properties: { userId: { type: "string", format: "uuid" }, scope: { type: "string", enum: ["full", "recovery", "login", "registration", "recovery_kyc"] } },
             required: ["userId", "scope"],
           },
           401: errorSchema,

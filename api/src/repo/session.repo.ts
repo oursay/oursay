@@ -5,7 +5,7 @@ import type pg from "pg";
 /** Session scopes (kept in sync with auth.sessions.scope CHECK + AuthService.SessionScope).
  *  Non-'full' scopes are limited (enroll-only): 'registration' (OTP registration, pre-passkey),
  *  'recovery' (lost passkey), and 'login' (gated cross-device sign-in). */
-export type SessionScope = "full" | "registration" | "recovery" | "login";
+export type SessionScope = "full" | "registration" | "recovery" | "login" | "recovery_kyc";
 
 export interface SessionRecord {
   id: string;

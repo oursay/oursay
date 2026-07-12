@@ -1,6 +1,6 @@
 // Optional session-based KYC capability (Didit). Providers that only support direct verify() omit this.
 
-export type KycSessionWorkflowKind = "identity" | "poa";
+export type KycSessionWorkflowKind = "identity" | "poa" | "recovery";
 
 /** Normalized session lifecycle — mapped defensively from vendor-specific statuses. */
 export type KycSessionStatus = "pending" | "approved" | "declined" | "abandoned" | "expired" | "in_review";

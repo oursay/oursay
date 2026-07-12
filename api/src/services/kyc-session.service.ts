@@ -81,8 +81,13 @@ export class KycSessionService {
 
     return {
       status: row.status,
-      tier: row.attestedAt ? await this.d.kycService.currentTier(userId) : null,
+      tier: row.attestedAt && row.workflowKind !== "recovery" ? await this.d.kycService.currentTier(userId) : null,
     };
+  }
+
+  /** Owned session row (for recovery unlock checks). */
+  async getOwnedSession(userId: string, sessionId: string) {
+    return this.d.sessionRepo.getForUser(userId, sessionId);
   }
 
   /** Platform self-attest residency when the user's private geocode point falls inside the jurisdiction. */
@@ -123,6 +128,9 @@ export class KycSessionService {
     const claimed = await this.d.sessionRepo.claimAttestation(sessionId);
     if (!claimed) return;
 
+    // Biometric recovery: mark session consumed (attested_at) but do not append a KYC tier.
+    if (claimed.workflowKind === "recovery") return;
+
     const tier = this.tierForWorkflow(workflowId, claimed.workflowKind);
     if (!tier) return;
 
@@ -130,6 +138,7 @@ export class KycSessionService {
   }
 
   private tierForWorkflow(workflowId: string, workflowKind: KycSessionWorkflowKind): KycTier | null {
+    if (workflowKind === "recovery") return null;
     if (this.d.diditProvider) {
       const mapped = this.d.diditProvider.tierForApprovedWorkflow(workflowId);
       if (mapped) return mapped;
@@ -140,7 +149,7 @@ export class KycSessionService {
   private async tierAfterApproval(sessionId: string, status: KycSessionStatus): Promise<KycTier | null> {
     if (status !== "approved") return null;
     const row = await this.d.sessionRepo.getByProviderSessionId(sessionId);
-    if (!row?.attestedAt) return null;
+    if (!row?.attestedAt || row.workflowKind === "recovery") return null;
     return this.d.kycService.currentTier(row.userId);
   }
 }

@@ -221,13 +221,6 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     authService,
     now,
   });
-  const recoveryService = new RecoveryService({
-    otpService,
-    profileRepo: repos.profile,
-    kycRepo: repos.kyc,
-    authService,
-    now,
-  });
   const loginService = new LoginService({
     otpService,
     profileRepo: repos.profile,
@@ -275,6 +268,14 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     sessionRepo: repos.kycSession,
     participantGeoService,
     diditProvider: kycStack.diditProvider,
+  });
+  const recoveryService = new RecoveryService({
+    otpService,
+    profileRepo: repos.profile,
+    kycRepo: repos.kyc,
+    authService,
+    kycSessionService,
+    now,
   });
 
   // Per-action jurisdiction gates ([align-w3-gates-schema]). Built here — after kyc/participant-geo —

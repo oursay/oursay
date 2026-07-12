@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/server";
 import type { Services } from "../../container.js";
+import { ServiceError } from "../../errors.js";
 import { setSessionCookie } from "../cookies.js";
 import { bearerSecurity, errorSchema, sessionSchema, webauthnJson } from "../schemas.js";
 
@@ -35,6 +36,12 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
     },
     async (req) => {
       const userId = req.user!.userId;
+      if (req.user!.scope === "recovery_kyc") {
+        throw new ServiceError(
+          "forbidden",
+          "Complete biometric recovery before enrolling a passkey",
+        );
+      }
       const [user, profile] = await Promise.all([
         services.repos.user.getById(userId),
         services.repos.profile.getByUserId(userId),
@@ -69,6 +76,12 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
       },
     },
     async (req, reply) => {
+      if (req.user!.scope === "recovery_kyc") {
+        throw new ServiceError(
+          "forbidden",
+          "Complete biometric recovery before enrolling a passkey",
+        );
+      }
       const body = req.body as { response: RegistrationResponseJSON; label?: string };
       const result = await services.passkeyService.registerVerify({
         userId: req.user!.userId,

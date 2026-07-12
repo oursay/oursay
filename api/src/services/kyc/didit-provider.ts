@@ -68,17 +68,24 @@ export class DiditKycProvider implements KycProvider, KycSessionProvider {
   }
 
   tierForApprovedWorkflow(workflowId: string): "identity_verified" | "residency_verified" | null {
-    if (workflowId === this.cfg.poaWorkflowId) return "residency_verified";
+    if (this.cfg.poaWorkflowId && workflowId === this.cfg.poaWorkflowId) return "residency_verified";
     if (workflowId === this.cfg.workflowId) return "identity_verified";
+    // Recovery / biometric workflows unlock passkey re-enroll — they do not award a tier.
     return null;
   }
 
   private workflowIdFor(kind: KycSessionWorkflowKind): string {
     if (kind === "poa") {
       if (!this.cfg.poaWorkflowId) {
-        throw new Error("DIDIT_POA_WORKFLOW_ID is required for POA sessions");
+        throw new Error("DIDIT_WORKFLOW_POA is required for POA sessions");
       }
       return this.cfg.poaWorkflowId;
+    }
+    if (kind === "recovery") {
+      if (!this.cfg.recoverWorkflowId) {
+        throw new Error("DIDIT_WORKFLOW_RECOVER is required for recovery sessions");
+      }
+      return this.cfg.recoverWorkflowId;
     }
     return this.cfg.workflowId;
   }

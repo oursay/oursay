@@ -13,7 +13,7 @@ import type { SessionRepo, SessionRecord } from "../repo/session.repo.js";
  *                   the subsequent passkey login.
  *  'recovery'     — issued by recovery OTP (lost passkey); recovery revokes all prior sessions.
  *  'login'        — issued by the gated cross-device login OTP (docs/08). */
-export type SessionScope = "full" | "registration" | "recovery" | "login";
+export type SessionScope = "full" | "registration" | "recovery" | "login" | "recovery_kyc";
 
 export interface IssuedSession {
   token: string;

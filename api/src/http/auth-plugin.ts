@@ -10,7 +10,7 @@ import type { Services } from "../container.js";
 
 export interface AuthUser {
   userId: string;
-  scope: "full" | "recovery" | "login" | "registration";
+  scope: "full" | "recovery" | "login" | "registration" | "recovery_kyc";
   token: string;
 }
 
@@ -21,6 +21,7 @@ declare module "fastify" {
   interface FastifyInstance {
     authenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     requireFullScope: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireRecoveryKycScope: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
     optionalAuthenticate: (req: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
@@ -46,6 +47,13 @@ export function registerAuth(app: FastifyInstance, services: Services): void {
     await app.authenticate(req, reply);
     if (req.user!.scope !== "full") {
       throw new ServiceError("forbidden", "This action requires a full session (limited recovery/login sessions cannot perform it)");
+    }
+  });
+
+  app.decorate("requireRecoveryKycScope", async (req: FastifyRequest, reply: FastifyReply) => {
+    await app.authenticate(req, reply);
+    if (req.user!.scope !== "recovery_kyc") {
+      throw new ServiceError("forbidden", "This action requires a verified-recovery biometric challenge session");
     }
   });
 
