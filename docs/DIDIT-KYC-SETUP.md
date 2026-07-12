@@ -114,7 +114,7 @@ Use this checklist before enabling Didit for real users. Do **not** use ngrok or
 ### 3.1 Didit production application
 
 1. In the [Didit business console](https://business.didit.me), create or select the **production** application (separate from sandbox).
-2. Confirm billing / prepaid credits are funded for ID, liveness, face match, POA, and biometric auth as needed.
+2. Confirm **platform** billing / prepaid credits are funded for ID, liveness, face match, POA, and biometric auth as needed (user-facing verification remains free; capacity is donation-funded — see contributor §5.5).
 3. Create an API key for that production app only; store as `DIDIT_API_KEY` on the API host (secret manager / host env — never commit).
 
 ### 3.2 Publish workflows
@@ -150,7 +150,7 @@ DIDIT_CALLBACK_URL=https://<public-web-host>/profile/self
 ### 3.5 Smoke after deploy
 
 1. Identity: authenticated `POST /v1/kyc/didit/session` `{ "workflowKind": "identity" }` → complete hosted flow → confirm `public.kyc_attestations` row `identity_verified` / provider `didit`.
-2. Residency (optional, costs POA): `{ "workflowKind": "poa" }` → `residency_verified`.
+2. Residency (optional; uses POA workflow credits on the Didit account): `{ "workflowKind": "poa" }` → `residency_verified`.
 3. Recovery: verified account → recovery OTP → biometric session via recovery KYC route → Approved → passkey re-enroll (no extra attestation row).
 
 ### 3.6 What we never store

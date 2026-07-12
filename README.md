@@ -31,7 +31,7 @@ All content types link together. A public vote can trace back to the petitions a
 
 Anyone can participate on OurSay without verifying their identity. Unverified participation counts and is publicly visible.
 
-Verified users have confirmed their identity and residency through a pluggable KYC process, configurable per region. Their actions are distinguished by verification tier in every count and filter. Verification has a real cost — users pay it directly, at cost, with no markup. Users who cannot afford verification can join a public waitlist and receive community sponsorships.
+Verified users have confirmed their identity and residency through a pluggable KYC process, configurable per region. Their actions are distinguished by verification tier in every count and filter. Verification is **free to users**; the platform pays the KYC provider and funds capacity through optional donations (including recurring) via GitHub Sponsors — highly encouraged before a verify/recover/re-verify session, never required.
 
 ---
 
@@ -104,7 +104,7 @@ Structured definitions of every core domain noun — attributes, states, invaria
 
 ### [`docs/02-PUBLIC-EXPLAINER.md`](docs/02-PUBLIC-EXPLAINER.md) — Public Platform Overview
 
-A plain-language explanation of OurSay for users. Explains why representative democracy hasn't kept up with the world, what OurSay does, why the verification tier distinction matters, how anonymity and auditability coexist, and the cost model behind verification. Written for the Alberta launch but reflects the platform's broader mission.
+A plain-language explanation of OurSay for users. Explains why representative democracy hasn't kept up with the world, what OurSay does, why the verification tier distinction matters, how anonymity and auditability coexist, and the donation-funded free verification model. Written for the Alberta launch but reflects the platform's broader mission.
 
 Not aimed at contributors — aimed at participants.
 

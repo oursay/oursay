@@ -31,7 +31,7 @@ code-alignment prompts. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 - **Vocabulary & content model** — `JurisdictionConfig.labels` + `contentLimits`; `PostContent` `title` required (≤200) / `body` optional (≤2000).
 - **Thread audience** — `appliesToRegion` (district/revision/region/union, keyed off `district_slug`; **shipped**) and `appliesToVerified` (tier set); `appliesToDistrictIds` **kept** as the region's served district-slug projection, maintained by the `entity_audience` projection (promoted from V1 performance work to MVP — it powers per-thread district resolution and district pages).
 - **Signing gates & prefs** — per-jurisdiction per-action gates (`act` (+ `deny`) / `signMin` / `platformCount`, incl. jurisdiction-residency and official-role gate kinds; the platform count is a counting floor after the action, never a participation barrier) replacing the platform-wide vote/signature scheme hard-override; per-account per-action signing preferences (quick/ask/passkey, strongest wins); `signTier` projection on read DTOs.
-- **Identity / KYC** — Didit provider (dev ID-only + platform self-signed address; prod POA ~$2 CAD); `over_18` checkbox at signup (KYC re-verifies) instead of stored birthdate; **least-resistance registration** (handle + over_18 required; display name optional — falls back to handle; full name/address optional at signup behind a helper, else collected at KYC).
+- **Identity / KYC** — Didit provider (dev ID-only + platform self-signed address; prod POA); verification **free to users**, platform pays Didit, funded by optional GitHub Sponsors donations (soft-ask before session open); `over_18` checkbox at signup (KYC re-verifies) instead of stored birthdate; **least-resistance registration** (handle + over_18 required; display name optional — falls back to handle; full name/address optional at signup behind a helper, else collected at KYC).
 - **Account privacy** — visibility ships with 4 values (`anonymous | officials | my_district | public`; `officials` = officials affected by the post), cascade `thread ?? account ?? anonymous` (thread override may widen or narrow; default `anonymous`), private profiles 404 out-of-scope, persona display names + persona pages (moved up from V1 — the web-app demo specifies it).
 - **Auth** — `registration` session scope (enroll first passkey only) before `full`.
 - **Results** — formal derived `result` published at poll close ([mvp-c12-poll-results]).
@@ -47,6 +47,7 @@ code-alignment prompts. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 - **Platform-signed records** — final tallies, tally amendments, censorship reasoning, district boundary revisions, official profiles (MLA/premier/agency).
 - **Provider tags** — Equifax (`canadian_verified`); broader KYC providers per region.
 - **Performance** — further read-model projections (feed, profile activity, mentions) as load demands (`entity_audience` itself is MVP — see Thread audience above).
+- **Donation pressure / funding contingency** — if GitHub Sponsors soft-asks underfund capacity: escalate to invasive banners and popups; if donations still collapse, fall back to pay-per-verification (and optionally peer sponsorship / waitlist per contributor §5.6–5.7). Do not build the charge path until this contingency is declared.
 
 ## V2 — horizon (deliberately vague)
 

@@ -32,7 +32,7 @@ During a federal or provincial election writ period, does the platform's activit
 **5. Identity and Residency Verification Claims**
 The platform has replaced "elector eligibility determination" language with "identity and residency verification." Verified users are described as confirmed real persons living at a verified address — no claim is made about electoral eligibility or voter registration status. Does this approach adequately avoid encroaching on Elections Alberta's or Elections Canada's jurisdiction? Is there any remaining language or implication the platform should address?
 
-**6. The "Refused to Verify" Public Status**
+**6. The "Refused to Verify" Public Status** *(deferred — only if peer sponsorship returns under a paid-verify contingency)*
 The platform permanently records on a user's public profile that they received a sponsored KYC verification and did not complete it within 30 days. This status cannot be removed. Does this create defamation risk — particularly if the refusal was caused by a KYC system failure, a dispute with the provider, or circumstances beyond the user's control? What conditions, disclosures, or appeal mechanisms would reduce this risk?
 
 **7. Public Official Profiles**
@@ -50,8 +50,8 @@ The platform proposes to host on Google Cloud or AWS, with servers potentially o
 **11. Intermediary Liability for User Content**
 Canada does not have a direct equivalent to the U.S.'s Section 230. What is OurSay's liability exposure for user-generated petitions, beliefs, and discussion comments that may be defamatory, misleading, or otherwise legally problematic? What moderation obligations exist?
 
-**12. The Sponsorship Payment Model**
-Any user can pay for another user's identity verification. The platform processes this payment as a pass-through. Does this constitute a regulated payment or financial service? Does it create any contractual or fiduciary relationship between the sponsor, the platform, and the recipient?
+**12. Donations via GitHub Sponsors (and contingency charging)**
+Verification is free to users; the platform soft-asks for optional donations (including recurring) via GitHub Sponsors before KYC sessions. Does receiving donations this way create charitable-registration, tax-receipt, or other obligations for the operating entity? If donations collapse and the platform later charges per verification (or processes peer pass-through sponsorship), does that constitute a regulated payment or financial service?
 
 **13. Liability for Published Results**
 The public documents describe referendum results as "immutable" and "permanent." If a result is later found to be compromised, manipulated, or incorrect, does this language create heightened liability for the platform? What disclaimers are needed?
@@ -138,12 +138,12 @@ Before this platform can launch responsibly, I have a list of legal questions th
 
 The questions include:
 
-- **Platform classification:** Should this be structured as a social media platform focused on political discussion, rather than a "civic platform"? I believe this may be the cleaner legal classification — keeping election law at arm's length, establishing a clear business model for paid verification, and avoiding any implied quasi-governmental status. I would like a legal opinion before the platform documents are finalized.
+- **Platform classification:** Should this be structured as a social media platform focused on political discussion, rather than a "civic platform"? I believe this may be the cleaner legal classification — keeping election law at arm's length, establishing a clear funding model (voluntary donations via GitHub Sponsors for free verification capacity), and avoiding any implied quasi-governmental status. I would like a legal opinion before the platform documents are finalized.
 - **Implied governmental approval:** Government non-affiliation disclaimers have been added throughout. Are they sufficient? Does any remaining language imply official endorsement?
 - **"Public Vote" feature name:** The platform renamed its formal vote feature from "Referendum" to "Public Vote." Does this adequately address *Referendum Act* concerns?
 - **Election period exposure:** During a federal or provincial writ period, does operating this platform — hosting political petitions and public votes — trigger third-party advertiser registration or spending limit obligations?
 - **Verification language:** Verified users are described as identity and residency confirmed, not as eligible electors. Is this framing legally clean?
-- **Defamation risk:** The platform records a `verification_not_completed` state in a user's public activity if they don't complete a sponsored verification within 30 days. Is this approach legally safe?
+- **Defamation risk:** *(Deferred.)* Under a paid-verify contingency with peer sponsorship, the platform would record a `verification_not_completed` state if a sponsored user does not complete KYC within 30 days. Is that approach legally safe?
 - **Public official profiles:** The platform creates profiles for MLAs and officials based on public record, without consent, with a disclaimer. Are there consent or misrepresentation concerns?
 - **Corporate structure:** What entity type is legally optimal given the platform's purpose and business model?
 - **Data obligations:** What are OurSay's obligations under PIPA and PIPEDA for processing KYC data? Are there Canadian data residency requirements affecting the hosting decision?

@@ -7,8 +7,8 @@ Proof that a user has completed identity and/or residency confirmation through a
 **The KYC step is where identity PII is verified.** Registration is least-resistance (email + required handle + over_18 checkbox; display name, full name, and address are optional at signup, behind a helper noting they must be filled before ID/residency verification); whatever was left blank is entered at the start of verification and stored on [Profile](./profile.md) — the first address write (signup or here) triggers the geocode sync.
 
 **Tiers and provider tags are orthogonal.** A *tier* says how verified an account is; a *provider tag* says who attested it (and how). The MVP provider is **Didit**:
-- **Dev:** ID-only verification (free) + a **platform self-signed** address KYC (POA-ready).
-- **Prod:** Didit performs proof-of-address (POA) verification, charged at ~$2 CAD/check.
+- **Dev:** ID-only verification + a **platform self-signed** address KYC (POA-ready).
+- **Prod:** Didit performs proof-of-address (POA) verification. The **platform** pays Didit; users are not charged per check.
 
 Equifax (canadian_verified) and Elections Alberta (electoral_verified) provider tags are **future only**. Residency verification is **never** electoral eligibility, and OurSay must **never** imply an Elections Alberta partnership.
 
@@ -70,14 +70,15 @@ Flow states beyond the tier enum: `pending`, `failed`, `sponsored_pending`, `ver
 
 ```
 [unverified]
-    │ initiate KYC — enter legal name/address (first PII write) + consent to cost
+    │ initiate KYC — enter legal name/address (first PII write)
+    │ soft-ask GitHub Sponsors donation (optional; skip allowed)
     ▼
 [pending]
     ├─ pass → append attestation (identity_verified or residency_verified)
     └─ fail → failed (no ledger record)
 ```
 
-Sponsorship path: `sponsored_pending` → must complete within 30 days or `verification_not_completed`.
+Peer-sponsorship path *(deferred; paid-verify contingency only)*: `sponsored_pending` → must complete within 30 days or `verification_not_completed`.
 
 ## Relationships
 
@@ -93,7 +94,8 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 - **Residency verification ≠ electoral eligibility** (contributor §4.4).
 - On pass: public-record entry links pseudonymous identity to tier — **no PII on ledger** (contributor §5.3).
 - On fail: no ledger record created.
-- User must see exact at-cost price and consent before payment (contributor §5.5).
+- Verification is free to the user; soft-ask for GitHub Sponsors donations before opening a Didit session — never required (contributor §5.5).
+- No payment-gateway charge at the verify gate (pay-per-verification is a donation-collapse contingency only).
 
 ## Permissions
 
@@ -130,7 +132,9 @@ Sponsorship path: `sponsored_pending` → must complete within 30 days or `verif
 - **Provider drift** — the provider enum today is `'stub' | 'equifax'` (`api/src/config.ts` `KycProviderName`). The MVP provider is **Didit**; the enum and provider seam need a `didit` implementation, and provider tags should be orthogonal to tiers. Tracked as `[code-didit-provider]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 - **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
 - Recovery re-verify flow: verified accounts complete Didit biometric (`DIDIT_WORKFLOW_RECOVER`) before passkey re-enroll.
+- **Donation soft-ask** — GitHub Sponsors ask before Didit session open (verify / recover / re-verify); see [DONATION-FUNDED-VERIFY-HANDOFF.md](../../temp/DONATION-FUNDED-VERIFY-HANDOFF.md).
 - **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
 - **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / platform-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not built.
-- Sponsorship / waitlist mechanics documented in contributor spec but not fully implemented.
+- Peer sponsorship / waitlist — deferred; only relevant under paid-verify contingency (contributor §5.6–5.7).
 - Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).
+- **Funding contingency** — if donations collapse: invasive banners/popups, then pay-per-verification as last resort (roadmap/gaps).

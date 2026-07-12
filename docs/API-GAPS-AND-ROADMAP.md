@@ -99,7 +99,10 @@ membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI s
 | CORS / BFF | ✅ Same-origin `/v1/*` proxy via Next `rewrites()` → `:6173`; mock path behind `NEXT_PUBLIC_MOCK_ONLY` |
 | **Didit hosted KYC in the UI (gap A)** | Backend complete + sandbox-proven, but `web-app/src/lib/api/me.ts` never opens a Didit hosted session — Get-Verified only does dev-attest + platform residency. Under `KYC_PROVIDER=didit` the dev button 403s (gap B: didit declines direct `verify()`). Dev default stays dev-attest; UI walk uses `KYC_PROVIDER=stub`. ~1 web-app commit to close (needs a public provider flag). |
 | Production deploy, external anchors | Phase E |
-| Notifications, sponsorship, waitlist | Spec §14; no routes |
+| Notifications | Spec §14 KYC result etc.; no routes |
+| Peer sponsorship / waitlist | Deferred — paid-verify contingency only (contributor §5.6–5.7) |
+| **Donation soft-ask (GitHub Sponsors)** | Soft-ask before Didit session (verify / recover / re-verify); profile Donate; optional banner. See [DONATION-FUNDED-VERIFY-HANDOFF.md](./temp/DONATION-FUNDED-VERIFY-HANDOFF.md). |
+| **Funding contingency** | If donations collapse: invasive popups/banners → last-resort pay-per-verification. Not launch scope. |
 
 ---
 

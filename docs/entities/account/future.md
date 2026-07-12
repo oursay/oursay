@@ -20,8 +20,11 @@ A user ↔ jurisdiction membership table; every account auto-subscribed to **`ou
 Linking a thread persona to a public profile is the **reveal** flow: a **platform reveal** is reversible (off-ledger), an **on-chain reveal** is nuclear (permanent). Replaces the old `claimed`/`claimed_at` columns. Privacy surface defined in [09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md). See also [civic-identity/future.md](../civic-identity/future.md).
 
 ## Verification — provider tags
-Didit is the MVP provider (dev: ID-only + platform self-signed address; prod: POA ~$2 CAD). Future provider tags, orthogonal to tiers: Equifax (`canadian_verified`) (~$16/check), election authority KYC (`electoral_verified`). Residency ≠ electoral eligibility; never imply an elector status without electoral verification providers per jurisdiction.
+Didit is the MVP provider (dev: ID-only + platform self-signed address; prod: POA). The platform pays Didit; users verify for free with an optional GitHub Sponsors soft-ask. Future provider tags, orthogonal to tiers: Equifax (`canadian_verified`) (provider list price is an ops concern, not a user gate), election authority KYC (`electoral_verified`). Residency ≠ electoral eligibility; never imply an elector status without electoral verification providers per jurisdiction.
 → `[code-didit-provider]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
+
+## Funding contingency (donations collapse)
+If soft-asks and banners cannot fund provider capacity: escalate invasive donation UX, then as last resort introduce pay-per-verification (and optionally peer sponsorship / waitlist). Not launch scope.
 
 ## Encryption at rest
 PII encryption-at-rest (KMS) for `auth.profiles` and geocode points is a follow-on milestone.

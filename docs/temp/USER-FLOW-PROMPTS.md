@@ -64,7 +64,7 @@ between the user stories (what users want) and wireframes (what screens to draw)
    - A short **Notes** line for privacy/anonymity/tier rules that shape the UI
 4. **Cover, at minimum, these flow groups** (split into sub-flows as needed):
    - **Account & auth:** Register → first civic action · Enroll passkey · Login (passkey) · Cross-device gated login · Recovery (lost device, unverified vs verified branches) · Manage/revoke passkeys · Logout · View profile · Update profile/address (Partial)
-   - **Verification:** Identity verification (Didit, cost-consent screen, pass identity-only vs identity+address vs fail) · KYC re-verification on recovery (Partial) · Sponsorship (Planned)
+   - **Verification:** Identity verification (Didit, GitHub Sponsors donation soft-ask then free session, pass identity-only vs identity+address vs fail) · KYC re-verification on recovery (Built) · Peer sponsorship (Planned — paid-verify contingency only)
    - **Civic content (create):** Create statement/post · Create petition · Create poll (note Alberta = graduation-only) — each via thread join → prepare → submit
    - **Civic content (participate):** React (agree/disagree, switch) · Comment (threaded, depth ≤3, delete) · Sign petition (webauthn-es256, optional comment, finality/revoke) · Vote in poll (one option, anonymity flag, finality/change)
    - **Browse & read (Guest-capable):** Home/browse feed · Post detail (root + comments + tallies) · Petition detail · Poll detail/results · Counts with geo scope (jurisdiction / impacted-region / my-district / all-public) + tier breakdown + k-anonymity suppression · Browse jurisdictions/districts, district map geometry
@@ -93,7 +93,7 @@ between the user stories (what users want) and wireframes (what screens to draw)
 - Ground every **Built** claim in a real route in api/src/http/routes or api/openapi.yaml. If you cannot
   find the route, label it Partial or Planned — do not assume.
 - Do not resolve open product decisions (the `<DECISION>` markers in the eligibility matrices, the privacy
-  visibility cascade, sponsorship). Carry the open question forward verbatim and mark Planned.
+  visibility cascade, peer-sponsorship contingency). Carry the open question forward verbatim and mark Planned.
 - Do not invent screen designs or visual layout — name screens/states functionally (`[screen: OTP + profile form]`),
   leave the actual layout to wireframes. This doc says *what screens exist and how the user moves between them*,
   not *what they look like*.

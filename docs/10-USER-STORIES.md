@@ -112,7 +112,7 @@ concrete because the gate is not jurisdiction config.
 
 **US-SYS-4 — Provide ID to become verified**  `[scope: MVP]`
 - **Story:** As a registered user, I want to verify my identity (and, for residency, my address) through the KYC provider, so that my civic actions count at a verified tier.
-- **Acceptance:** The flow uses **Didit** (dev: ID-only + platform self-signed address; prod: proof-of-address ~$2 CAD); the user reviews and consents to the **exact at-cost price before paying**; on pass the platform awards the tier and writes a public-record entry linking the **pseudonymous** identity to the tier — **no PII**. Residency verification is **not** electoral eligibility.
+- **Acceptance:** The flow uses **Didit** (dev: ID-only + platform self-signed address; prod: proof-of-address). Verification is **free**; before opening a Didit session the product soft-asks for optional GitHub Sponsors donations (one-time / recurring) — never required. On pass the platform awards the tier and writes a public-record entry linking the **pseudonymous** identity to the tier — **no PII**. Residency verification is **not** electoral eligibility.
 - **Eligibility:** any registered user.
 - **Config knobs:** verification provider + which tiers a jurisdiction recognizes.
 - **Traces:** PRD §7.4; `entities/account/verification.md`; GLOSSARY *Didit*, *Verification tier*; `[code-didit-provider]`.

@@ -916,7 +916,7 @@ Add Didit as the MVP KYC provider behind the existing provider seam, with provid
 **No assumptions — ask the user for clarification when requirements, wire format, or scope are ambiguous.**
 
 ## Read first
-- docs/entities/account/verification.md — Didit (dev ID-only + platform self-signed address; prod POA ~$2 CAD) + Gaps
+- docs/entities/account/verification.md — Didit (dev ID-only + platform self-signed address; prod POA; free to user + donation soft-ask) + Gaps
 - docs/entities/account/future.md — provider tags
 - api/src/config.ts — `KycProviderName = "stub" | "equifax"` (~line 127)
 - api/src/services/kyc/provider.ts, kyc/index.ts, kyc/stub-provider.ts — provider seam
@@ -925,7 +925,7 @@ Add Didit as the MVP KYC provider behind the existing provider seam, with provid
 ## Goals
 1. Add `didit` to `KycProviderName` and a `DiditKycProvider` implementing `KycProvider`.
    - Dev: ID-only verification (free) + platform self-signed address attestation.
-   - Prod: Didit proof-of-address (POA) verification (~$2 CAD/check). Make cost/consent explicit per spec.
+   - Prod: Didit proof-of-address (POA) verification (platform-paid; free to user). Soft-ask GitHub Sponsors before session per contributor §5.5.
 2. Keep tiers (set membership) and provider tags orthogonal; record the provider tag on the attestation.
    Reserve `canadian_verified` (Equifax) and `electoral_verified` (Elections Alberta) as future tags only.
 3. Never imply an Elections Alberta partnership; residency ≠ electoral eligibility.

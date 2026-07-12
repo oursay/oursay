@@ -74,27 +74,25 @@ Your data is not sold. Your participation is not monetized. OurSay is not a prod
 
 ---
 
-## The Reality of Trust: Verification Has a Cost
+## The Reality of Trust: Verification Has a Cost — You Don't Pay It
 
 We will be honest with you about something most platforms would rather not discuss.
 
-Confirming that you are a real, identity-verified Alberta resident — not a bot, not a duplicate account, not a foreign actor — costs money. Identity verification services charge per verification. This is not a nominal fee. At the scale of millions of Albertans, it becomes a significant cost.
+Confirming that you are a real, identity-verified Alberta resident — not a bot, not a duplicate account, not a foreign actor — costs money. Identity verification services charge the platform per check. At the scale of millions of Albertans, that becomes a significant cost.
 
-We made a deliberate decision: we will not subsidize this cost through advertising. We will not sell your data. We will not accept investment that comes with strings about how the platform must behave. OurSay exists to serve Albertans, not to profit from their participation.
+We made a deliberate decision: we will not subsidize this through advertising. We will not sell your data. We will not accept investment that comes with strings about how the platform must behave. OurSay exists to serve Albertans, not to profit from their participation.
 
-So verification is **pay-what-it-costs**. You pay the direct cost of verifying your identity. No markup. No margin. The exact cost is shown to you before you confirm. If you choose not to verify, you can still participate as an unverified user — and your voice still counts.
+So **verification is free to you**. Register, recover, and re-verify without a payment wall. When you start identity or residency verification, we will ask you to support the next citizen’s free check — including optional **recurring** support — through **GitHub Sponsors**. It is highly encouraged. It is never required. Skip the ask and continue to verification.
+
+If you choose not to verify at all, you can still participate as an unverified user — and your voice still counts.
 
 ---
 
-## Community-Funded Democracy: Sponsorships
+## Community-Funded Democracy: Donations
 
-Not every Albertan who wants to verify can afford to. We built a solution that reflects the values of this province.
+OurSay runs on voluntary support, not a pay-per-verify gate.
 
-Any user on OurSay can **sponsor another user's verification**. You can browse a public waitlist of users who want to verify but are waiting for help, and cover the cost of their verification.
-
-Sponsorships are public. If you sponsor someone, your display name, theirs, and the outcome are recorded in a public sponsorship ledger. You may also sponsor anonymously — your identity is withheld, but the sponsorship and its result are still recorded.
-
-If a sponsored user completes verification, it's recorded. If verification doesn't pass, it's recorded. If a sponsored user doesn't complete their verification within 30 days, a "declined to verify" status is noted on their profile. This accountability matters: a sponsored verification is a community investment, and the community can see whether it was accepted or left unused.
+Donations (one-time or recurring via GitHub Sponsors) pool toward verification capacity and related operations — so the next Albertan can confirm they are real without being charged at the door. Profile and campaign surfaces may remind you when the platform needs help; verification itself stays free unless donations collapse and the project is forced to reconsider a charge model later.
 
 ---
 

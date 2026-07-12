@@ -82,7 +82,7 @@ KYC providers are **pluggable and configurable per region or jurisdiction**. No 
 - Different providers returning different verification outputs, mapped to different verification tiers (see Section 4)
 - Provider configuration changes without rebuilding the platform
 
-The **MVP provider for the Alberta launch** is **Didit**: in dev it performs ID-only verification (free) and the platform self-signs the address check; in production Didit performs proof-of-address (POA) verification (~$2 CAD/check). Verification **tiers** (how verified) and **provider tags** (who attested) are orthogonal.
+The **MVP provider for the Alberta launch** is **Didit**: in dev it performs ID-only verification and the platform self-signs the address check; in production Didit performs proof-of-address (POA) verification. The **platform** pays Didit (ops billing / prepaid credits), funded by optional user donations — verification is **free to the end user**. Verification **tiers** (how verified) and **provider tags** (who attested) are orthogonal.
 
 Commercial providers such as Equifax (`canadian_verified`) and an official electoral authority such as Elections Alberta (`electoral_verified`) are **future** provider tags yielding distinct, higher-trust tiers — not part of the launch. OurSay must **never** imply an Elections Alberta partnership, and residency verification is explicitly **not** electoral eligibility. The pluggable architecture exists precisely to add these later without restructuring the platform.
 
@@ -120,7 +120,7 @@ No account. Can browse all public content, aggregate counts, and poll results. C
 
 ### 4.2 Unverified User
 
-Account created, no KYC completed. Can create statements (agree/disagree), sign petitions, vote in polls, participate in discussions, apply for verification, join the verification waitlist, and sponsor other users. Actions are publicly counted and displayed separately from all verified tiers.
+Account created, no KYC completed. Can create statements (agree/disagree), sign petitions, vote in polls, participate in discussions, and apply for free verification (optional GitHub Sponsors soft-ask before the provider session). Peer waitlist / sponsor-another-user are inactive while verification is free (§5.6–5.7). Actions are publicly counted and displayed separately from all verified tiers.
 
 ### 4.3 Identity Verified
 
@@ -181,8 +181,8 @@ A provider that confirms only identity awards `identity_verified`. A provider th
 
 ### 5.3 Verification Flow
 
-1. User initiates verification from account settings
-2. User reviews the exact cost and consents to payment before proceeding
+1. User initiates verification (Get verified, residency, or KYC during recovery / re-verify)
+2. Before opening a provider session, the product soft-asks for an optional donation (one-time and/or recurring) via **GitHub Sponsors** — highly encouraged, never required; declining continues the free path
 3. The platform routes to the configured provider for the user's region
 4. The provider returns a result and capability output
 5. On **pass**: the platform awards the appropriate tier, records any geographic area assignment, and creates a public-record entry linking the user's pseudonymous identity to their verification tier — no personally identifiable information is committed to the public record
@@ -201,18 +201,24 @@ Every user account carries exactly one verification state at any time.
 | *(official role)* | Elected/public-official status is a platform-assigned, revocable **role** on the account/jurisdiction membership — not a KYC tier/state |
 | `electoral_validated` | Validated directly by an official electoral authority *(future)* |
 | `failed` | KYC completed but did not pass |
-| `sponsored_pending` | Sponsorship received; KYC not yet initiated |
-| `verification_not_completed` | Sponsorship received; not completed within 30 days |
+| `sponsored_pending` | *(Deferred)* Peer sponsorship received; KYC not yet initiated — paid-verify contingency only |
+| `verification_not_completed` | *(Deferred)* Peer sponsorship received; not completed within 30 days |
 
-### 5.5 Cost Model
+### 5.5 Funding model (donations)
 
-Verification costs are set by the provider and vary by provider and volume tier. The platform does not subsidize or mark up these costs. Users pay the direct provider cost. The exact cost must be displayed before the user confirms payment.
+Verification is **free to the user**. Account registration (email OTP + passkey) has no payment step. The platform pays the KYC provider; capacity is funded by optional donations.
 
-### 5.6 Sponsorship System
+**Soft-ask (launch model):** Before opening a Didit session on identity verify, residency/POA, recovery KYC, or re-verify, the product asks for donations — including **recurring** — via **[GitHub Sponsors](https://github.com/sponsors)**. Amounts are suggested, not enforced. Skipping the ask still opens the free verification session.
 
-Any registered user may pay for another user's verification. Sponsorships may target a specific named user or a user on the verification waitlist.
+**Not a payment gateway:** OurSay does not acquire cards or charge per verification at the gate. GitHub Sponsors is the donation surface.
 
-**Rules:**
+**Contingency (roadmap / gaps only — not launch):** If donations fail to cover provider costs, escalate with more invasive banners and popups; if that still collapses, fall back to a pay-per-verification model. Do not build the charge path until that contingency is declared.
+
+### 5.6 Peer sponsorship system *(deferred — paid-verify contingency)*
+
+While verification is free, peer “pay for another user’s KYC” is inactive. If the platform later falls back to pay-per-verification (§5.5 contingency), any registered user may pay for another user’s verification (named user or waitlist entry).
+
+**Rules (contingency design):**
 
 - All sponsorship activity is permanently recorded in both the sponsor's and the recipient's public activity history. The factual record — who sponsored whom, when, and what the outcome was — is public by default.
 - A sponsor may choose to act **anonymously**. Their identity is withheld, but the sponsorship event and its outcome are still recorded in the recipient's public activity.
@@ -222,9 +228,9 @@ Any registered user may pay for another user's verification. Sponsorships may ta
 - `verification_not_completed` does not permanently prevent future verification. The user may pay themselves or receive a new sponsorship.
 - Sponsorship payments are non-refundable once a KYC session has been initiated by the recipient.
 
-### 5.7 Verification Waitlist
+### 5.7 Verification Waitlist *(deferred — paid-verify contingency)*
 
-Users who want to verify but cannot afford the cost may join the public waitlist. Other users browse the waitlist and choose to sponsor an entry.
+Only meaningful under a pay-per-verification fallback. Users who want to verify but cannot afford the cost may join the public waitlist. Other users browse the waitlist and choose to sponsor an entry.
 
 Each waitlist entry displays: the user's display name (or "Anonymous"), time on the waitlist, and whether a pending sponsorship has been received. Users may remove themselves at any time.
 
@@ -557,9 +563,9 @@ Every public-facing deployment must display the following disclaimer prominently
 
 The platform must notify users of events that affect them. At minimum:
 
-- Sponsorship received — user notified when someone sponsors their verification
-- Sponsorship deadline reminder — sent with sufficient notice before `verification_not_completed` is applied
+- Sponsorship received / deadline reminder — only if peer sponsorship (§5.6) is activated under a paid-verify contingency
 - KYC result (pass or fail)
+- Optional donation / GitHub Sponsors nudges (product surfaces first; email/push campaigns only with privacy-policy coverage)
 - Petition delivered to its named addressee
 - Official response posted to content relevant to the user
 - Activity milestones on content the user created

@@ -284,13 +284,13 @@ Residency verification is **not** electoral eligibility.
 
 ```mermaid
 flowchart TD
-  U(["Registered user"]) --> C["2.1 Cost consent"]
-  C -->|"declines"| STOP["No charge, no ledger entry"]
-  C -->|"consents"| P["Provider flow (Didit / dev stub)"]
+  U(["Registered user"]) --> D["2.1 Donation soft-ask (GitHub Sponsors)"]
+  D -->|"skips or donates"| P["Provider flow (Didit / dev stub)"]
+  D -->|"never required"| P
   P -->|"pass: identity"| IV(["identity_verified"])
   P -->|"pass: identity + address"| RV(["residency_verified"])
   P -->|"fail"| F["Verification failed"]
-  RV --> D["Inferred district"]
+  RV --> Dist["Inferred district"]
   REC2["1.5 Recovery (verified)"] --> REV2["2.2 KYC re-verify (Built)"]
 ```
 
@@ -298,27 +298,28 @@ flowchart TD
 
 **Entry:** Profile → "Get verified" `[screen: Verify chooser — ID | Residency]`.
 
-1. Choose **Verify ID** or **Verify Residency** (residency may show a fee note / consent copy).
-2. Run provider flow:
+1. Soft-ask for optional donation (one-time / recurring) via **GitHub Sponsors** — highly encouraged; skip continues. Same pattern before recovery KYC / re-verify. *(UI seam — see donation handoff.)*
+2. Choose **Verify ID** or **Verify Residency**.
+3. Run provider flow:
    - **`KYC_PROVIDER=stub`:** identity via `POST /v1/dev/kyc/attest`; residency via `POST /v1/kyc/residency/attest` (platform geocode).
    - **`KYC_PROVIDER=didit`:** `POST /v1/kyc/didit/session` with `workflowKind` `identity` | `poa` → hosted Didit URL → poll/webhook → award tier (`DIDIT_WORKFLOW_ID` / `DIDIT_WORKFLOW_POA`).
-3. Provider returns  `[state: result]`:
+4. Provider returns  `[state: result]`:
    - branch: pass (identity only) → award `identity_verified`; public-record tier link (no PII).
    - branch: pass (identity + address / POA) → award `residency_verified`; coarse region on attestation.
    - branch: fail → `[screen: Verification failed]`, no ledger entry, may retry.
 
 **End (success):** Tier reflected in all subsequent civic actions and count breakdowns.
-**Notes:** Provider is pluggable (stub default; Didit MVP; Equifax / Elections-Alberta future). No PII on ledger. See [DIDIT-KYC-SETUP.md](./DIDIT-KYC-SETUP.md).
+**Notes:** Provider is pluggable (stub default; Didit MVP; Equifax / Elections-Alberta future). No PII on ledger. No user payment at the gate. See [DIDIT-KYC-SETUP.md](./DIDIT-KYC-SETUP.md).
 
 ### 2.2 KYC re-verification during recovery  ·  Verified  ·  Built  ·  US-SYS-5
 
-See 1.5 verified branch. Didit biometric workflow 03 (`DIDIT_WORKFLOW_RECOVER`) unlocks passkey
+See 1.5 verified branch. Soft-ask donation before opening Didit biometric workflow 03 (`DIDIT_WORKFLOW_RECOVER`); on Approved unlocks passkey
 re-enroll; existing attestations remain. Requires `KYC_PROVIDER=didit`.
 
-### 2.3 Sponsor another user's verification  ·  any  ·  Planned
+### 2.3 Peer-sponsor another user's verification  ·  any  ·  Planned (paid-verify contingency)
 
 Pay for another user's verification; outcomes (pass/fail/not-completed) publicly recorded; 30-day window.
-Documented in PRD §5.6; **not implemented**, not launch.
+Documented in contributor §5.6; **inactive while verification is free**; only relevant if donations collapse and pay-per-verify returns.
 
 ---
 

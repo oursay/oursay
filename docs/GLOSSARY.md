@@ -162,11 +162,16 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 - **Verification tier** — a KYC level resolved by **set membership**, never a strict ladder (see
   [`account/verification.md`](entities/account/verification.md)). Tiers and **provider tags** are
   orthogonal — a tier says *how verified*, a provider tag says *who attested*.
-- **Didit** — the MVP KYC provider. **Dev:** ID-only verification (free) + a platform self-signed
-  address KYC (POA-ready). **Prod:** Didit proof-of-address (POA) verification, ~$2 CAD/check. Equifax
+- **Didit** — the MVP KYC provider. **Dev:** ID-only verification + a platform self-signed
+  address KYC (POA-ready). **Prod:** Didit proof-of-address (POA) verification; the **platform**
+  pays Didit (ops billing), funded by optional user donations via GitHub Sponsors — verification is
+  free to the end user. Equifax
   (`canadian_verified`) and election commission KYC (`electoral_verified`) provider tags are future only.
   Residency verification is **never** electoral eligibility, and OurSay must **never** imply a partnership with government or authority. Today the provider enum is `stub | equifax` — see the superseded-terms
   table and [`account/future.md`](entities/account/future.md).
+- **Donation soft-ask** — optional GitHub Sponsors prompt (one-time and/or recurring) shown before
+  opening a Didit session on verify, recover KYC, or re-verify. Highly encouraged, never required.
+  Pay-per-verification is a donation-collapse contingency only (see contributor §5.5).
 
 ## Auth / device vocabulary
 
