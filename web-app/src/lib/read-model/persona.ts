@@ -1,10 +1,5 @@
-import { 
-  adjectives, 
-  colors, 
-  animals, 
-  names, 
-  uniqueNamesGenerator 
-} from "unique-names-generator";
+import { uniqueNamesGenerator } from "unique-names-generator";
+import { PERSONA_NAME_DICTS } from "@oursay/public-record/identity/persona-name-dictionaries";
 import { hashSeed } from "@/lib/mock/comment-utils";
 
 /**
@@ -15,16 +10,15 @@ import { hashSeed } from "@/lib/mock/comment-utils";
  * thread (root record + its comments), a different one in every other thread.
  * Deterministic across reloads: seeded from (handle, threadId), never random
  * at render time.
+ *
+ * Dictionaries are shared with `@oursay/public-record` (blocklist-filtered).
  */
 
 /** Deterministic persona name for (handle, thread) with an `digits`-wide numeric suffix. */
 export function personaNameFor(handle: string, threadId: string, digits = 2): string {
   const key = `${handle}::${threadId}`;
   const words = uniqueNamesGenerator({
-    dictionaries: [
-      [...adjectives, ...colors].filter(word => word.length <= 7), 
-      [...animals, ...names].filter(word => word.length <= 7)
-    ],
+    dictionaries: PERSONA_NAME_DICTS,
     separator: "",
     style: "capital",
     seed: hashSeed(key),

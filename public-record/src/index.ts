@@ -58,6 +58,8 @@ export { DEFAULT_CONTENT_LIMITS, DEFAULT_GATES, DEFAULT_LABELS, actionForType, g
 export type { ActionGate, GateActor, GatedAction, JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionGates, JurisdictionGraduation, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules, SignMethod } from "./jurisdiction.js";
 // Persona display names (minted at join; the persona page key)
 export { personaNameForPubkey, randomReservedLabelCandidate } from "./identity/persona-name.js";
+export { PERSONA_NAME_ADJECTIVES, PERSONA_NAME_NOUNS, personaNamePoolStats } from "./identity/persona-name-dictionaries.js";
+export { PERSONA_NAME_BLOCKLIST, isBlockedPersonaWord } from "./identity/persona-name-blocklist.js";
 
 // Projections (fold-on-read state)
 export { getThread, reactionTallies } from "./projection.js";

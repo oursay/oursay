@@ -20,6 +20,7 @@
     "@dicebear/styles": "^10.2.0",
     "@oursay/encode": "*",
     "@oursay/identity": "*",
+    "@oursay/public-record": "*",
     "@oursay/slugs": "*",
     "@simplewebauthn/browser": "^13.1.0",
     "html-to-image": "^1.11.13",

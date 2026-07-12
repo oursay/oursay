@@ -8,12 +8,8 @@
 // random (never derived from user_id / thread_id) — see `randomReservedLabelCandidate`.
 
 import { randomBytes } from "node:crypto";
-import { adjectives, colors, animals, names, uniqueNamesGenerator } from "unique-names-generator";
-
-const NAME_DICTS = [
-  [...adjectives, ...colors].filter((word) => word.length <= 7),
-  [...animals, ...names].filter((word) => word.length <= 7),
-] as const;
+import { uniqueNamesGenerator } from "unique-names-generator";
+import { PERSONA_NAME_DICTS } from "./persona-name-dictionaries.js";
 
 /** Deterministic 31-bit string hash (mirrors the web-app demo's `hashSeed` so styles match). */
 export function hashSeed(s: string): number {
@@ -29,7 +25,7 @@ export function hashSeed(s: string): number {
 export function personaNameForPubkey(personaPubkey: string, digits = 2): string {
   const key = `persona::${personaPubkey}`;
   const words = uniqueNamesGenerator({
-    dictionaries: [...NAME_DICTS],
+    dictionaries: PERSONA_NAME_DICTS,
     separator: "",
     style: "capital",
     seed: hashSeed(key),
@@ -45,7 +41,7 @@ export function personaNameForPubkey(personaPubkey: string, digits = 2): string 
 export function randomReservedLabelCandidate(digits = 2): string {
   const seed = randomBytes(4).readUInt32BE(0);
   const words = uniqueNamesGenerator({
-    dictionaries: [...NAME_DICTS],
+    dictionaries: PERSONA_NAME_DICTS,
     separator: "",
     style: "capital",
     seed,
