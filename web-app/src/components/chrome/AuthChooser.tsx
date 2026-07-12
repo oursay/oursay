@@ -8,6 +8,8 @@ interface AuthChooserProps {
   onRegister?: () => void;
   onLogin?: () => void;
   onRecover?: () => void;
+  /** Optional public donation soft-ask (env-gated). */
+  onDonate?: () => void;
 }
 
 /** Logged-out gateway: register / log in chooser (the wireframe's authModal). */
@@ -17,6 +19,7 @@ export function AuthChooser({
   onRegister,
   onLogin,
   onRecover,
+  onDonate,
 }: AuthChooserProps) {
   return (
     <Modal
@@ -40,6 +43,15 @@ export function AuthChooser({
         >
           Trouble signing in? Recover account
         </button>
+        {onDonate ? (
+          <button
+            type="button"
+            onClick={onDonate}
+            className="block w-full text-center text-sm text-brand-600 underline underline-offset-2"
+          >
+            Support free verification
+          </button>
+        ) : null}
       </div>
     </Modal>
   );

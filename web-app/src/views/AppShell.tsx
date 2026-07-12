@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { User } from "lucide-react";
@@ -14,6 +14,8 @@ import {
   ChooseSignModal,
   ComposeFlow,
   DemoBanner,
+  DonationBanner,
+  DonationModal,
   Fab,
   FilterDropdown,
   JurisdictionSelector,
@@ -27,6 +29,7 @@ import {
   ShareModal,
   VerifyModal,
 } from "@/components";
+import type { VerifyChoice } from "@/components";
 import { DismissBackdrop, NotificationToast } from "@/components/ui";
 import { jurisdictionLabel as labelForJurisdiction } from "@/lib/mock";
 import { GLOBAL_ID } from "@/lib/types";
@@ -49,6 +52,20 @@ import {
   DEFERRED_LEGAL,
   DEFERRED_PASSKEY_RECOVERY,
 } from "@/lib/api/deferred";
+import {
+  donationsSurfacesEnabled,
+  getSponsorsUrl,
+  openGitHubSponsors,
+  resolveFabBanner,
+  SHOW_DONATION_MODAL_KYC,
+  SHOW_DONATION_MODAL_PUBLIC,
+} from "@/lib/donations";
+
+type DonationOpen = "public" | "kyc" | null;
+type PendingKyc =
+  | { kind: "verify"; choice: VerifyChoice }
+  | { kind: "recovery" }
+  | null;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const app = useApp();
@@ -67,6 +84,43 @@ export function AppShell({ children }: { children: ReactNode }) {
   const loginPasskeyBusy = passkeyBusy?.anchor === "login" ? passkeyBusy.phase : null;
   const profilePasskeyBusy = passkeyBusy?.anchor === "profile" ? passkeyBusy.phase : null;
   const choosePasskeyBusy = passkeyBusy?.anchor === "choose" ? passkeyBusy.phase : null;
+
+  const [donationOpen, setDonationOpen] = useState<DonationOpen>(null);
+  const [pendingKyc, setPendingKyc] = useState<PendingKyc>(null);
+  const fabBanner = resolveFabBanner();
+
+  const openPublicDonate = () => {
+    if (SHOW_DONATION_MODAL_PUBLIC) {
+      setDonationOpen("public");
+      return;
+    }
+    openGitHubSponsors();
+  };
+
+  const openProfileDonate = () => {
+    if (SHOW_DONATION_MODAL_PUBLIC || SHOW_DONATION_MODAL_KYC) {
+      setDonationOpen("public");
+      return;
+    }
+    openGitHubSponsors();
+  };
+
+  const closeDonation = () => {
+    setDonationOpen(null);
+    setPendingKyc(null);
+  };
+
+  const continueAfterDonation = () => {
+    const pending = pendingKyc;
+    setDonationOpen(null);
+    setPendingKyc(null);
+    if (!pending) return;
+    if (pending.kind === "verify") {
+      void app.chooseVerify(pending.choice);
+      return;
+    }
+    void app.startRecoveryKyc();
+  };
 
   const resendOtp = () => {
     const email = authEmailOf(authModal)?.trim();
@@ -324,7 +378,10 @@ export function AppShell({ children }: { children: ReactNode }) {
         footer={<SafeFooter />}
         fab={
           <>
-            <DemoBanner />
+            {fabBanner === "demo" ? <DemoBanner /> : null}
+            {fabBanner === "donation" ? (
+              <DonationBanner onOpenDonate={openPublicDonate} />
+            ) : null}
             <Fab onClick={() => app.startCompose(inferredComposeJurisdiction)} />
           </>
         }
@@ -338,6 +395,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onRegister={app.goRegister}
         onLogin={app.goLogin}
         onRecover={app.recover}
+        onDonate={SHOW_DONATION_MODAL_PUBLIC ? openPublicDonate : undefined}
       />
       <RecoverForm
         open={authModal.kind === "recover"}
@@ -393,6 +451,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         signing={state.signing}
         onSetSigning={app.setSigning}
         onSetPostSigning={app.setPostSigning}
+        onDonate={
+          donationsSurfacesEnabled() || getSponsorsUrl()
+            ? openProfileDonate
+            : undefined
+        }
         onOpenSetting={(label) => {
           if (label === "Change Address") {
             app.openChangeAddress();
@@ -421,13 +484,36 @@ export function AppShell({ children }: { children: ReactNode }) {
       <VerifyModal
         open={state.verifyOpen}
         onClose={app.closeVerify}
-        onChoose={(choice) => app.chooseVerify(choice)}
-        residencyHasCost={!isMockOnly()}
+        onChoose={(choice) => {
+          if (SHOW_DONATION_MODAL_KYC) {
+            setPendingKyc({ kind: "verify", choice });
+            setDonationOpen("kyc");
+            return;
+          }
+          void app.chooseVerify(choice);
+        }}
       />
       <RecoveryKycModal
         open={authModal.kind === "recovery_kyc"}
         onClose={app.closeAuth}
-        onStart={app.startRecoveryKyc}
+        onStart={() => {
+          if (SHOW_DONATION_MODAL_KYC) {
+            setPendingKyc({ kind: "recovery" });
+            setDonationOpen("kyc");
+            return;
+          }
+          void app.startRecoveryKyc();
+        }}
+      />
+      <DonationModal
+        open={donationOpen !== null}
+        variant={donationOpen === "kyc" ? "kyc" : "public"}
+        onClose={closeDonation}
+        onContinue={
+          donationOpen === "kyc" && pendingKyc
+            ? continueAfterDonation
+            : closeDonation
+        }
       />
       <ComposeFlow
         open={state.composeOpen}

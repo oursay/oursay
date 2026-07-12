@@ -4,3 +4,4 @@ export * from "./ScrollBody";
 export * from "./SafeFooter";
 export * from "./Fab";
 export * from "./DemoBanner";
+export * from "./DonationBanner";

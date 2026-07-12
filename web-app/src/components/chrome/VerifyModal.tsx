@@ -11,8 +11,6 @@ interface VerifyModalProps {
   onClose: () => void;
   /** Called when the user picks a path; parent runs stub cycle or Didit hosted flow. */
   onChoose: (choice: VerifyChoice) => void | Promise<void>;
-  /** When true, show a short cost note on Verify Residency. */
-  residencyHasCost?: boolean;
   busy?: boolean;
 }
 
@@ -23,7 +21,6 @@ export function VerifyModal({
   open,
   onClose,
   onChoose,
-  residencyHasCost = true,
   busy = false,
 }: VerifyModalProps) {
   const [pending, setPending] = useState<VerifyChoice | null>(null);
@@ -44,7 +41,8 @@ export function VerifyModal({
       <div className="space-y-3">
         <p className="text-sm text-muted">
           Confirm your identity for civic standing. Residency adds proof of address for
-          permission to cast ballots or sign petitions in some jurisdictions.
+          permission to cast ballots or sign petitions in some jurisdictions. Verification
+          is free — optional donations help fund the next check.
         </p>
         {loading ? (
           <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-muted px-3 py-3 text-sm text-muted">
@@ -63,16 +61,10 @@ export function VerifyModal({
             <ModalOptionRow
               label="Verify Residency"
               icon={<Home size={16} aria-hidden />}
-              trailing={residencyHasCost ? "May incur a fee" : undefined}
               onClick={() => void pick("poa")}
             />
           </div>
         )}
-        {residencyHasCost && !loading ? (
-          <p className="text-xs text-muted">
-            You will see the exact price and must consent before paying for proof of address.
-          </p>
-        ) : null}
       </div>
     </Modal>
   );

@@ -7,6 +7,7 @@ import {
   Eye,
   Gavel,
   Globe,
+  Heart,
   IdCard,
   Key,
   LogOut,
@@ -70,6 +71,8 @@ interface ProfileModalProps {
   onRenamePasskey?: (id: string, label: string) => void;
   /** Remove a passkey ("kick" a device). Hidden on the last remaining passkey. */
   onRevokePasskey?: (id: string) => void;
+  /** Opens donation soft-ask (GitHub Sponsors). */
+  onDonate?: () => void;
   /** Deferred account-settings destinations (wireframe no-ops → toast). */
   onOpenSetting?: (label: string) => void;
   passkeyBusy?: PasskeyBusyPhase | null;
@@ -345,6 +348,7 @@ export function ProfileModal({
   onAddDeviceByEmail,
   onRenamePasskey,
   onRevokePasskey,
+  onDonate,
   onOpenSetting,
   passkeyBusy = null,
 }: ProfileModalProps) {
@@ -496,6 +500,9 @@ export function ProfileModal({
               label="Jurisdictions"
               onClick={() => onOpenSetting?.("Jurisdictions")}
             />
+            {onDonate ? (
+              <SettingsRow icon={Heart} label="Donate" onClick={onDonate} />
+            ) : null}
             <SettingsRow
               icon={theme === "dark" ? Moon : Sun}
               label="Theme"

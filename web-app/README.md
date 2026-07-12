@@ -142,6 +142,13 @@ corpus and post/comment/vote for real.
 > residency attest). With `KYC_PROVIDER=didit` and `NEXT_PUBLIC_MOCK_ONLY=false`, the chooser
 > starts hosted Didit sessions (`DIDIT_WORKFLOW_ID` / `DIDIT_WORKFLOW_POA`). Verified-account
 > recovery uses `DIDIT_WORKFLOW_RECOVER`. See [`docs/DIDIT-KYC-SETUP.md`](../docs/DIDIT-KYC-SETUP.md).
+>
+> **Donations (GitHub Sponsors):** optional soft-ask UI, all default **off**. Set
+> `NEXT_PUBLIC_GITHUB_SPONSORS_URL`, then enable any of:
+> `NEXT_PUBLIC_SHOW_DONATION_BANNER`, `NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC` (guests /
+> AuthChooser / banner), `NEXT_PUBLIC_SHOW_DONATION_MODAL_KYC` (before Didit / stub verify
+> and recovery biometric). Demo banner supersedes the donation banner when both are on
+> (console warning). Hide demo with `NEXT_PUBLIC_SHOW_DEMO_BANNER=false`.
 
 Re-run `npm run seed -w @oursay/api` after running the api test suite — the tests share the
 dev DB on 5442 and truncate it.
