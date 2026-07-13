@@ -3,7 +3,7 @@
 // the deterministic stub provider, which resolves a point ONLY from a valid Canadian postal code.
 
 import { expect } from "chai";
-import { hashAddress, normalizeAddress } from "../src/helpers/address.js";
+import { hashRoundedPoint, roundCoord } from "../src/helpers/address.js";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 
 interface RegisterResult {
@@ -60,9 +60,10 @@ describe("14 geocode: best-effort private point cache (current + append-only his
     expect(current!.provider).to.equal("stub");
     expect(current!.lon).to.be.a("number");
     expect(current!.lat).to.be.a("number");
-    expect(current!.addressHash).to.equal(
-      hashAddress(normalizeAddress({ province: "AB", postalCode: "t2p1h9", country: "ca" })),
-    );
+    // location_hash is 3-dp rounded coords (not street/address text).
+    expect(current!.addressHash).to.equal(hashRoundedPoint(current!.lon, current!.lat));
+    expect(current!.lon).to.equal(roundCoord(current!.lon));
+    expect(current!.lat).to.equal(roundCoord(current!.lat));
 
     const history = await w.services.repos.geocode.historyForUser(userId);
     expect(history).to.have.length(1);
@@ -84,7 +85,7 @@ describe("14 geocode: best-effort private point cache (current + append-only his
     expect(await w.services.repos.geocode.historyForUser(userId)).to.have.length(0);
   });
 
-  it("does not attempt geocoding for a non-Canadian address", async () => {
+  it("attempts non-CA addresses but stub leaves them unresolved (no service-level country clear)", async () => {
     const { userId } = await register(w, {
       line1: "1600 Pennsylvania Ave",
       city: "Washington",
@@ -93,8 +94,20 @@ describe("14 geocode: best-effort private point cache (current + append-only his
       country: "US",
     });
 
+    // Stub is Canada-only → unresolved; service does not clear-by-country (nothing to clear).
     expect(await w.services.repos.geocode.getCurrent(userId)).to.equal(null);
     expect(await w.services.repos.geocode.historyForUser(userId)).to.have.length(0);
+  });
+
+  it("rounded location_hash makes a second sync of the same point unchanged", async () => {
+    const { userId } = await register(w, { province: "AB", postalCode: "t2p1h9", country: "ca" });
+    const a = await w.services.repos.geocode.getCurrent(userId);
+    expect(a).to.not.equal(null);
+
+    const noop = await w.services.geocodeService.syncGeocodeForUser(userId);
+    expect(noop.status).to.equal("unchanged");
+    expect(noop.addressHash).to.equal(a!.addressHash);
+    expect(await w.services.repos.geocode.historyForUser(userId)).to.have.length(1);
   });
 
   it("appends history and updates current when the address changes", async () => {

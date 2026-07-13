@@ -4,8 +4,10 @@ import { randomUUID } from "node:crypto";
 import { ServiceError } from "../errors.js";
 import type { KycSessionRepo } from "../repo/kyc-session.repo.js";
 import type { KycTier } from "../types/kyc.js";
+import type { GeocodeService } from "./geocode.service.js";
 import type { DiditKycProvider } from "./kyc/didit-provider.js";
 import type {
+  EphemeralPoaLocation,
   KycSessionProvider,
   KycSessionStatus,
   KycSessionWorkflowKind,
@@ -20,6 +22,7 @@ export interface KycSessionServiceDeps {
   kycService: KycService;
   sessionRepo: KycSessionRepo;
   participantGeoService: ParticipantGeoService;
+  geocodeService: GeocodeService;
   /** When the active provider is Didit, used to map workflow → tier on approval. */
   diditProvider?: DiditKycProvider;
 }
@@ -74,7 +77,7 @@ export class KycSessionService {
       await this.d.sessionRepo.updateStatus(sessionId, decision.status);
       await this.d.sessionRepo.markPolled(sessionId);
       if (decision.status === "approved") {
-        await this.applyApprovedSession(sessionId, decision.workflowId, decision.region ?? null);
+        await this.applyApprovedSession(sessionId, decision.workflowId, decision.region ?? null, decision.poaLocation);
       }
       return { status: decision.status, tier: await this.tierAfterApproval(sessionId, decision.status) };
     }
@@ -116,7 +119,12 @@ export class KycSessionService {
     await this.d.sessionRepo.updateStatus(event.sessionId, event.status);
     if (event.status === "approved") {
       const decision = await provider.fetchDecision(event.sessionId);
-      await this.applyApprovedSession(event.sessionId, decision.workflowId, decision.region ?? null);
+      await this.applyApprovedSession(
+        event.sessionId,
+        decision.workflowId,
+        decision.region ?? null,
+        decision.poaLocation,
+      );
     }
   }
 
@@ -124,17 +132,34 @@ export class KycSessionService {
     sessionId: string,
     workflowId: string,
     region: string | null,
+    poaLocation?: EphemeralPoaLocation | null,
   ): Promise<void> {
+    const row = await this.d.sessionRepo.getByProviderSessionId(sessionId);
+    if (!row) return;
+
     const claimed = await this.d.sessionRepo.claimAttestation(sessionId);
-    if (!claimed) return;
+    if (claimed) {
+      // Biometric recovery: mark session consumed (attested_at) but do not append a KYC tier.
+      if (claimed.workflowKind !== "recovery") {
+        const tier = this.tierForWorkflow(workflowId, claimed.workflowKind);
+        if (tier) {
+          await this.d.kycService.award(claimed.userId, tier, region, claimed.provider);
+        }
+      }
+    }
 
-    // Biometric recovery: mark session consumed (attested_at) but do not append a KYC tier.
-    if (claimed.workflowKind === "recovery") return;
-
-    const tier = this.tierForWorkflow(workflowId, claimed.workflowKind);
-    if (!tier) return;
-
-    await this.d.kycService.award(claimed.userId, tier, region, claimed.provider);
+    const workflowKind = claimed?.workflowKind ?? row.workflowKind;
+    const userId = claimed?.userId ?? row.userId;
+    if (workflowKind === "poa") {
+      try {
+        await this.d.geocodeService.applyResidencyLocation(userId, poaLocation ?? null);
+      } catch (e) {
+        console.warn("[kyc] poa_geocode_error", {
+          userId,
+          error: e instanceof Error ? e.name : "unknown",
+        });
+      }
+    }
   }
 
   private tierForWorkflow(workflowId: string, workflowKind: KycSessionWorkflowKind): KycTier | null {

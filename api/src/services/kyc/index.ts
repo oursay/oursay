@@ -16,7 +16,7 @@ export type {
 } from "./session-provider.js";
 export { StubKycProvider } from "./stub-provider.js";
 export { DiditKycProvider } from "./didit-provider.js";
-export { DiditClient, mapDiditStatus, diditWebhookSignatureV2 } from "./didit-client.js";
+export { DiditClient, mapDiditStatus, diditWebhookSignatureV2, ephemeralPoaLocationFromDecision } from "./didit-client.js";
 
 export interface KycProviderStack {
   provider: KycProvider;

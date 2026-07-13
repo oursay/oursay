@@ -46,15 +46,15 @@ export function normalizeAddress(input: AddressInput): NormalizedAddress {
 }
 
 /** True when a normalized address carries enough signal to attempt geocoding: a postal code, or a
- *  street line with a city and province. Country-gating (Canada-only) is applied by the caller. */
+ *  street line with a city and province. Country filtering (if any) belongs on the provider / KYC side. */
 export function hasGeocodableAddress(addr: NormalizedAddress): boolean {
   if (addr.postalCode) return true;
   return Boolean(addr.line1 && addr.city && addr.province);
 }
 
-/** Stable content hash of a normalized address — the geocode cache key / invalidation signal. Uses a
- *  fixed field order (not JSON key order) and an escaped unit-separator delimiter, so the hash is
- *  deterministic across runs and changes if a normalized field changes. */
+/** Stable content hash of a normalized address — used as location_hash when no point can be resolved.
+ *  Uses a fixed field order (not JSON key order) and an escaped unit-separator delimiter, so the hash
+ *  is deterministic across runs and changes if a normalized field changes. */
 export function hashAddress(addr: NormalizedAddress): string {
   const SEP = String.fromCharCode(0x1f); // unit separator — field delimiter (never typed by users)
   const fields = [addr.line1, addr.line2, addr.city, addr.province, addr.postalCode, addr.country, addr.memo];
@@ -64,6 +64,23 @@ export function hashAddress(addr: NormalizedAddress): string {
     .map((f) => (f ?? "").replace(/\\/g, "\\\\").replace(new RegExp(SEP, "g"), "\\u001f"))
     .join(SEP);
   return createHash("sha256").update(canonical, "utf8").digest("hex");
+}
+
+/** Round a coordinate to `dp` decimal places (default 3 ≈ 100 m). */
+export function roundCoord(n: number, dp = 3): number {
+  const f = 10 ** dp;
+  return Math.round(n * f) / f;
+}
+
+/**
+ * location_hash from a resolved point: sha256 of 3-dp rounded lon/lat (~100 m grid).
+ * Prefer this over hashAddress whenever a point exists (Didit coords or geocode hit).
+ * DB column remains `address_hash` until a deferred rename.
+ */
+export function hashRoundedPoint(lon: number, lat: number): string {
+  const rLon = roundCoord(lon);
+  const rLat = roundCoord(lat);
+  return createHash("sha256").update(`${rLon},${rLat}`, "utf8").digest("hex");
 }
 
 /** Canadian postal codes uppercased to "A1A 1A1"; others uppercased + space-collapsed. */

@@ -2,7 +2,7 @@
 
 ## Definition
 
-Private geocoded **point** used for district inference via `region.contains(point)`. Sourced from the **address returned by residency / POA verification** (Didit or stub/dev path) — geocode once, **store the point**, do **not** persist the street-address string on the profile. History rows support future "ever in region" filters. Never exposed on HTTP.
+Private geocoded **point** used for district inference via `region.contains(point)`. Sourced from the **address / coordinates returned by residency / POA verification** (Didit or stub/dev path) — resolve once, **store the point**, do **not** persist the street-address string on the profile. History rows support future "ever in region" filters. Never exposed on HTTP.
 
 ## Aliases
 
@@ -18,7 +18,7 @@ See [REGION-MODEL.md](../../REGION-MODEL.md) §Participant geocode and [account/
 
 **Current:** one row per user — primary key `auth.profile_geocodes.user_id`.
 
-**History:** composite key `(user_id, address_hash)` — append-only log of distinct address→point resolutions. `address_hash` is for **invalidation only** (detect “same address again”); it is not a recoverable street address.
+**History:** composite key `(user_id, address_hash)` — append-only log of distinct location→point resolutions. The DB column is still named `address_hash`; in code comments it is the **location hash** (`location_hash` rename deferred). It is for **invalidation only** (detect “same resolved location again”); it is not a recoverable street address.
 
 ## Attributes
 
@@ -27,9 +27,9 @@ See [REGION-MODEL.md](../../REGION-MODEL.md) §Participant geocode and [account/
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
 | `user_id` | UUID | yes | **never** | PK → `users.id` |
-| `address_hash` | TEXT | yes | no | Non-reversible invalidation key from ephemeral address |
-| `geom` | Point 4326 | yes | **never** | PostGIS geometry (queryable; see encryption note) |
-| `provider` | TEXT | yes | no | `'stub'` \| `'geocodio'` |
+| `address_hash` | TEXT | yes | no | Non-reversible invalidation key (rounded-coord hash when a point exists; else normalized-address hash) |
+| `geom` | Point 4326 | yes | **never** | PostGIS geometry — **3 decimal places (~100 m)** when stored from a resolved point |
+| `provider` | TEXT | yes | no | `'didit'` \| `'stub'` \| `'geocodio'` |
 | `confidence` | REAL | no | no | Provider confidence score |
 | `geocoded_at` | TIMESTAMPTZ | yes | no | |
 
@@ -43,30 +43,50 @@ Same fields plus `recorded_at` — append-only; one row per distinct `(user_id, 
 |--------|---------|
 | `geocoded` | Point resolved and stored |
 | `unresolved` | Provider could not resolve |
-| `cleared` | Point removed / invalidated |
-| `unchanged` | Address hash matches existing |
+| `cleared` | Point removed / invalidated (below geocodeable-address gate) |
+| `unchanged` | Location hash matches existing row — no provider call / upsert |
 | `skipped` | Geocode not attempted |
+
+## Hashing & rounding
+
+When a **point is present** (Didit `document_location` **or** a geocode-seam hit):
+
+1. Round lon/lat to **3 decimal places** (~100 m).
+2. Store that rounded point in `geom`.
+3. Set `address_hash` to a hash of those rounded coordinates (not the street text).
+
+When **no point** can be obtained (no coords and provider returns null / below address gate): hash the **raw normalized address** so “same unresolved address again” stays idempotent without writing a point.
+
+**Upsert only on hash change.** If the computed location hash matches the current cache row → `unchanged`.
+
+## Country / provider policy
+
+- **`GeocodeService` is country-agnostic** — it does not refuse or clear by country. Clears only when the intake falls below `hasGeocodableAddress`.
+- **Canada-only** stays on the **dev stub** (`StubGeocodeProvider`). Jurisdiction / country limits belong on the KYC workflow / provider side later.
+- Different seam providers may be routed by country later (e.g. Geocodio for CA/US).
 
 ## States & lifecycle
 
 ```
-[residency / POA Approved — KYC seam returns address]
-        │ ephemeral geocode (do not write street address to profile)
+[residency / POA Approved — KYC seam returns coords and/or address]
+        │ ephemeral intake (do not write street address to profile)
         ▼
-[geocoded | unresolved]
-        │ address_hash change
+[prefer Didit document_location → else geocode seam from structured address]
+        │ location_hash change
         ▼
-[history append + cache upsert — store geom only]
+[history append + cache upsert — store rounded geom only]
 ```
 
-**Target trigger:** Didit POA (or stub residency) success — not registration profile fields. Code today may still geocode from a stored profile address; that is drift to remove.
+**Primary trigger:** Didit POA Approved (poll + webhook) — ephemeral `poa_parsed_address` / `document_location`; never written onto `auth.profiles`. Registration / `PATCH /v1/profile` may still geocode from stored profile address; that is drift to remove later.
+
+**POA path:** On every Approved POA, attempt residency → point best-effort. Tier award remains once via `claimAttestation` and must not fail if geocode fails. Provider labels: Didit coords → `didit`; address fallback → `stub` / `geocodio`.
 
 ## Relationships
 
 | Related | Cardinality | Notes |
 |---------|-------------|-------|
 | User | 1:1 current | Via `user_id` |
-| Verification | causal | Residency attestation supplies the address used to build the point |
+| Verification | causal | Residency attestation supplies the ephemeral address / coords used to build the point |
 | District | inferred | `ParticipantGeoService`: point → district at `asOf` |
 | Region filters | input | `contains(point)` on count endpoints |
 
@@ -85,6 +105,19 @@ Same fields plus `recorded_at` — append-only; one row per distinct `(user_id, 
 - No usable point ⇒ participant is out-of-area for scoped geo filters.
 - Counts today use **current** point + **current** tier only (`asOf = now`).
 - Street address / legal name are **not** stored alongside the point (KYC seam retains them).
+- Multi-candidate rounding / district membership is **not** evaluated at POA-approve time (see future boundary reverify).
+
+## Future: boundary change / rounding candidates (not built)
+
+When district boundaries change, stored points sit on a **3-dp (~100 m) grid**. A future job may:
+
+- Build a **2×2 matrix** of round-down / round-up candidates for lat/lon around the stored point (same order until a cell matches the exact point’s region); if that fails, optionally retry at 4–5 decimal places.
+- Flag users within that tolerance of a **specifically changed** boundary segment that **reverification is recommended**; optionally revoke residency KYC when detection is accurate enough.
+- **Shrink / move inward:** only users who could fall **outside** the new geometry (near the moved edge).
+- **Grow / expand:** existing in-district points stay valid; do not mass-flag the grown interior. Impact the **shrunken** neighbor if that is where the edge moved.
+- Rectangular example: three sides unchanged, one side shrinks → only people near that moved side who might now be outside get flagged.
+
+See [account/future.md](./future.md) and [REGION-MODEL.md](../../REGION-MODEL.md).
 
 ## Encryption vs spatial index (preliminary)
 
@@ -104,17 +137,17 @@ Same fields plus `recorded_at` — append-only; one row per distinct `(user_id, 
 
 | Action | Who |
 |--------|-----|
-| Write | `GeocodeService` after residency address intake |
+| Write | `GeocodeService` after residency address / coord intake |
 | Read | Internal services only (`ParticipantGeoService`) |
 
 ## Events
 
-- Residency/POA Approved: ephemeral address → geocode → upsert point.
-- Stub/dev: existing residency attest path may still assume a prior point; align to KYC-supplied address when wiring Didit POA → geocode.
+- Residency/POA Approved: ephemeral Didit coords or structured address → resolve → upsert rounded point (or address-hash idempotency when unresolved).
+- Stub/dev: `POST /v1/kyc/residency/attest` may still assume a prior point from profile geocode.
 
 ## Examples
 
-**Valid:** Didit POA returns an Edmonton address → geocode → point inside `edmonton-strathcona-2019` at query `asOf` → counts with `scope=impacted-region` include this participant; profile has no street address columns filled.
+**Valid:** Didit POA returns an Edmonton address (and optional `document_location`) → point inside `edmonton-strathcona-2019` at query `asOf` → counts with `scope=impacted-region` include this participant; profile has no street address columns filled from KYC.
 
 **Invalid:** Returning `geom` coordinates in an API response; storing district id on the geocode row; persisting the street address string on `auth.profiles` “for convenience.”
 
@@ -126,11 +159,14 @@ Same fields plus `recorded_at` — append-only; one row per distinct `(user_id, 
 | Repo | `api/src/repo/geocode.repo.ts` |
 | Service | `api/src/services/geocode.service.ts` |
 | Participant linkage | `api/src/services/participant-geo.service.ts` |
+| KYC intake | `api/src/services/kyc/didit-client.ts`, `kyc-session.service.ts` |
 | Config | `api/src/config.ts` → `GeocodeProviderName` |
 
 ## Gaps
 
-- **Didit POA → geocode wire-up** — receive address from residency decision, geocode, store point; do not write address onto profile.
 - **[mvp-c4-action-snapshots]**: No geo/tier snapshot at civic submit time.
 - **[mvp-c11-ever-in-region]**: History table unused for filtering.
+- **Boundary-change detection / reverify flags / KYC revoke** — docs intent only (see above).
+- **Full `address_hash` → `location_hash` schema rename** — deferred.
 - **Point encryption** — open uncertainty documented above; no implementation milestone until a GIS-compatible approach exists.
+- Registration / profile PATCH may still geocode from stored address columns — drift to remove when PII columns drop.

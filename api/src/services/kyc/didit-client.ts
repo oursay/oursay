@@ -1,8 +1,9 @@
 // Typed Didit REST client (verification API v3). Never logs decision payloads or document PII.
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { hasGeocodableAddress, normalizeAddress } from "../../helpers/address.js";
 import type { DiditConfig } from "../../config.js";
-import type { KycSessionStatus } from "./session-provider.js";
+import type { EphemeralPoaLocation, KycSessionStatus } from "./session-provider.js";
 
 export type DiditFetch = typeof fetch;
 
@@ -19,13 +20,29 @@ export interface DiditCreateSessionResponse {
   workflow_id: string;
 }
 
+export interface DiditPoaParsedAddress {
+  street_1?: string | null;
+  street_2?: string | null;
+  city?: string | null;
+  region?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+  document_location?: { latitude?: number | null; longitude?: number | null } | null;
+}
+
 export interface DiditDecisionResponse {
   session_id: string;
   status: string;
   workflow_id: string;
   id_verifications?: Array<{ issuing_state?: string | null; nationality?: string | null }>;
-  poa_verifications?: Array<{ country?: string | null; state?: string | null }>;
+  poa_verifications?: Array<{
+    country?: string | null;
+    state?: string | null;
+    poa_parsed_address?: DiditPoaParsedAddress | null;
+  }>;
 }
+
+export type { EphemeralPoaLocation };
 
 const WEBHOOK_MAX_SKEW_SEC = 300;
 
@@ -44,10 +61,48 @@ export function mapDiditStatus(raw: string): KycSessionStatus {
 export function coarseRegionFromDecision(decision: DiditDecisionResponse): string | null {
   const poa = decision.poa_verifications?.[0];
   if (poa?.state) return poa.state;
+  const parsedRegion = poa?.poa_parsed_address?.region;
+  if (parsedRegion) return parsedRegion;
   if (poa?.country) return poa.country;
+  if (poa?.poa_parsed_address?.country) return poa.poa_parsed_address.country;
   const idv = decision.id_verifications?.[0];
   if (idv?.issuing_state) return idv.issuing_state;
   if (idv?.nationality) return idv.nationality;
+  return null;
+}
+
+/**
+ * Extract ephemeral residency location from a Didit decision (intake only).
+ * Prefer document_location coords; else structured address for the geocode seam.
+ * Never logs the payload. Hash rules live in GeocodeService (location_hash).
+ */
+export function ephemeralPoaLocationFromDecision(decision: DiditDecisionResponse): EphemeralPoaLocation | null {
+  const parsed = decision.poa_verifications?.[0]?.poa_parsed_address;
+  if (!parsed) return null;
+
+  const loc = parsed.document_location;
+  const lat = loc?.latitude;
+  const lon = loc?.longitude;
+  if (
+    typeof lat === "number" &&
+    typeof lon === "number" &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lon)
+  ) {
+    return { kind: "coords", lon, lat };
+  }
+
+  const addr = normalizeAddress({
+    line1: parsed.street_1,
+    line2: parsed.street_2,
+    city: parsed.city,
+    province: parsed.region,
+    postalCode: parsed.postal_code,
+    country: parsed.country,
+  });
+  if (hasGeocodableAddress(addr)) {
+    return { kind: "address", addr };
+  }
   return null;
 }
 

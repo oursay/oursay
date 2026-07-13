@@ -1,5 +1,7 @@
 // Optional session-based KYC capability (Didit). Providers that only support direct verify() omit this.
 
+import type { NormalizedAddress } from "../../helpers/address.js";
+
 export type KycSessionWorkflowKind = "identity" | "poa" | "recovery";
 
 /** Normalized session lifecycle — mapped defensively from vendor-specific statuses. */
@@ -15,12 +17,19 @@ export interface KycSessionStartResult {
   url: string;
 }
 
+/** Ephemeral POA intake — never logged; not written onto the profile. */
+export type EphemeralPoaLocation =
+  | { kind: "coords"; lon: number; lat: number }
+  | { kind: "address"; addr: NormalizedAddress };
+
 export interface KycSessionDecision {
   sessionId: string;
   status: KycSessionStatus;
   workflowId: string;
   /** Coarse region tag for the attestation row — never precise coordinates or document fields. */
   region?: string | null;
+  /** Ephemeral POA intake for private geocode — never logged or written onto the profile. */
+  poaLocation?: EphemeralPoaLocation | null;
 }
 
 export interface KycWebhookEvent {

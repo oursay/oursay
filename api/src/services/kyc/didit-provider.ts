@@ -5,6 +5,7 @@ import type { KycAttestation, KycProvider, KycVerifyRequest } from "./provider.j
 import {
   coarseRegionFromDecision,
   DiditClient,
+  ephemeralPoaLocationFromDecision,
   mapDiditStatus,
   type DiditFetch,
 } from "./didit-client.js";
@@ -56,6 +57,7 @@ export class DiditKycProvider implements KycProvider, KycSessionProvider {
       status: mapDiditStatus(decision.status),
       workflowId: decision.workflow_id,
       region: coarseRegionFromDecision(decision),
+      poaLocation: ephemeralPoaLocationFromDecision(decision),
     };
   }
 

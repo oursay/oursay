@@ -165,6 +165,7 @@ describe("05 recovery: kyc_tier branch", () => {
       kycService,
       sessionRepo: new KycSessionRepo(w.db.pool),
       participantGeoService: w.services.participantGeoService,
+      geocodeService: w.services.geocodeService,
       diditProvider: didit,
     });
     const recovery = new RecoveryService({

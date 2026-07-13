@@ -267,6 +267,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     kycService,
     sessionRepo: repos.kycSession,
     participantGeoService,
+    geocodeService,
     diditProvider: kycStack.diditProvider,
   });
   const recoveryService = new RecoveryService({

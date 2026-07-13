@@ -86,16 +86,24 @@ Privacy ([06 §2–3](06-PRIVACY-REVIEW.md)): public geography stays **coarse**.
 
 ## Participant geocode (private input to `contains`)
 
-On residency / POA, OurSay **receives an address from the KYC seam**, geocodes it, and stores a
-**private point** — the input to `region.contains`. The street-address string is **not** retained on
-the profile (Didit keeps identity/address text PII). This is structural **resolvability**, not a
+On residency / POA, OurSay **receives coords and/or an address from the KYC seam**, resolves a
+**private point** — the input to `region.contains`. Prefer Didit `document_location` when present;
+otherwise geocode the structured address. The street-address string is **not** retained on the
+profile (Didit keeps identity/address text PII). This is structural **resolvability**, not a
 stored district/region id. Two `auth` tables hold the point (PRIVATE location data; never on any
 HTTP response; see [`api/README.md` § Geocoding](../api/README.md) and
 [`entities/account/profile-geocode.md`](entities/account/profile-geocode.md)):
 
 - `auth.profile_geocodes` — the participant's **current** point (one row per user).
-- `auth.profile_geocode_history` — **append-only** log of every distinct address→point they've resolved to
-  (`address_hash` for invalidation only — not a recoverable street address).
+- `auth.profile_geocode_history` — **append-only** log of every distinct location→point they've resolved to
+  (`address_hash` for invalidation only — not a recoverable street address; conceptually a
+  **location hash**: rounded-coord hash when a point exists, else normalized-address hash).
+
+**Service policy:** `GeocodeService` does **not** refuse or clear by country (Canada-only stays on the
+dev stub provider). Stored points from a resolved location are rounded to **3 decimal places (~100 m)**;
+upsert only when the location hash changes. Future boundary-change reverify (2×2 rounding candidates
+near a moved edge) is documented on [profile-geocode.md](entities/account/profile-geocode.md) /
+[account/future.md](entities/account/future.md) — not evaluated at POA-approve time.
 
 **Encryption note:** Column-level encryption of `geom` is **likely incompatible** with PostGIS GiST /
 `ST_Contains` (ciphertext cannot be spatially indexed). Working assumption: store queryable points;
@@ -110,8 +118,9 @@ A later phase will choose, per jurisdiction config, **which point** a scoped fil
 | `at_action` | per-action snapshot at civic-write time (**C4**, not built) | Where were they **when they acted**? |
 | `ever_in_region` | `auth.profile_geocode_history` ∪ action snapshots | Have they **ever** been in region? |
 
-**Shipped today:** `current` mode on `/counts` only. Geocoding may still run from legacy profile
-address fields; target trigger is residency KYC. No usable point ⇒ out-of-area for scoped geo.
+**Shipped today:** `current` mode on `/counts` only. Didit POA Approved drives the private point from
+ephemeral decision intake. Registration / profile PATCH may still geocode from legacy address fields
+(drift). No usable point ⇒ out-of-area for scoped geo.
 Action-time and ever-in-region modes are not built.
 
 ## Discussion-scoped stake filtering (C7)

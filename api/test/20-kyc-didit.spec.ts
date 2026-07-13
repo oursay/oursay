@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { expect } from "chai";
 import { kycConfig } from "../src/config.js";
+import { hashRoundedPoint } from "../src/helpers/address.js";
 import { KycSessionRepo } from "../src/repo/kyc-session.repo.js";
 import { KycSessionService } from "../src/services/kyc-session.service.js";
 import { KycService } from "../src/services/kyc.service.js";
@@ -12,7 +13,9 @@ import { resetWorld, type World } from "./helpers/world.js";
 
 const WEBHOOK_SECRET = "test-didit-webhook-secret";
 const WORKFLOW_ID = "654c0688-66b2-4b3e-9c6f-2ce9dbcef969";
+const POA_WORKFLOW_ID = "poa-workflow-id";
 const SESSION_ID = "4c5c7f3a-1f82-4f3b-8d8e-1a8d2d2f9b7a";
+const POA_SESSION_ID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
 
 function diditCfg() {
   return {
@@ -20,7 +23,7 @@ function diditCfg() {
     apiKey: "test-api-key",
     webhookSecret: WEBHOOK_SECRET,
     workflowId: WORKFLOW_ID,
-    poaWorkflowId: "poa-workflow-id",
+    poaWorkflowId: POA_WORKFLOW_ID,
     recoverWorkflowId: "recover-workflow-id",
     baseUrl: "https://verification.didit.me",
   };
@@ -50,6 +53,7 @@ function buildDiditSessionService(w: World, fetchImpl: typeof fetch): KycSession
     kycService,
     sessionRepo: new KycSessionRepo(w.db.pool),
     participantGeoService: w.services.participantGeoService,
+    geocodeService: w.services.geocodeService,
     diditProvider: didit,
   });
 }
@@ -244,5 +248,209 @@ describe("20 kyc didit: sessions, webhooks, attestations", () => {
       userId,
     ]);
     expect(rows.rows[0].n).to.equal(1);
+  });
+
+  it("POA approve with document_location stores a didit point + rounded location_hash", async () => {
+    const lon = -113.5219;
+    const lat = 53.5211;
+    const { userId } = await makeAccount(w, { email: "didit-poa-coords@example.com" });
+    const svc = buildDiditSessionService(
+      w,
+      fakeFetch((url, method) => {
+        if (method === "POST" && url.endsWith("/v3/session/")) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              url: "https://verify.didit.me/session/poa",
+              status: "Not Started",
+              workflow_id: POA_WORKFLOW_ID,
+            },
+          };
+        }
+        if (method === "GET" && url.includes(`/v3/session/${POA_SESSION_ID}/decision/`)) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              status: "Approved",
+              workflow_id: POA_WORKFLOW_ID,
+              poa_verifications: [
+                {
+                  state: "AB",
+                  country: "CA",
+                  poa_parsed_address: {
+                    street_1: "100 Fake St",
+                    city: "Edmonton",
+                    region: "AB",
+                    postal_code: "T6E 2A1",
+                    country: "CA",
+                    document_location: { latitude: lat, longitude: lon },
+                  },
+                },
+              ],
+            },
+          };
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      }),
+    );
+
+    await svc.startDiditSession(userId, "poa");
+    const polled = await svc.getDiditSessionStatus(userId, POA_SESSION_ID);
+    expect(polled.status).to.equal("approved");
+    expect(polled.tier).to.equal("residency_verified");
+
+    const geo = await w.services.repos.geocode.getCurrent(userId);
+    expect(geo, "private point").to.not.equal(null);
+    expect(geo!.provider).to.equal("didit");
+    expect(geo!.lon).to.equal(-113.522);
+    expect(geo!.lat).to.equal(53.521);
+    expect(geo!.addressHash).to.equal(hashRoundedPoint(-113.522, 53.521));
+
+    const profile = await w.db.pool.query(
+      `SELECT address_line1, city, postal_code FROM auth.profiles WHERE user_id = $1`,
+      [userId],
+    );
+    expect(profile.rows[0].address_line1).to.equal(null);
+  });
+
+  it("POA approve with address only geocodes via stub and uses rounded location_hash", async () => {
+    const { userId } = await makeAccount(w, { email: "didit-poa-addr@example.com" });
+    const svc = buildDiditSessionService(
+      w,
+      fakeFetch((url, method) => {
+        if (method === "POST" && url.endsWith("/v3/session/")) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              url: "https://verify.didit.me/session/poa",
+              status: "Not Started",
+              workflow_id: POA_WORKFLOW_ID,
+            },
+          };
+        }
+        if (method === "GET" && url.includes(`/v3/session/${POA_SESSION_ID}/decision/`)) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              status: "Approved",
+              workflow_id: POA_WORKFLOW_ID,
+              poa_verifications: [
+                {
+                  state: "AB",
+                  country: "CA",
+                  poa_parsed_address: {
+                    street_1: "8118 Gateway Blvd",
+                    city: "Edmonton",
+                    region: "AB",
+                    postal_code: "T6E 2A1",
+                    country: "CA",
+                  },
+                },
+              ],
+            },
+          };
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      }),
+    );
+
+    await svc.startDiditSession(userId, "poa");
+    await svc.getDiditSessionStatus(userId, POA_SESSION_ID);
+
+    const geo = await w.services.repos.geocode.getCurrent(userId);
+    expect(geo, "private point").to.not.equal(null);
+    expect(geo!.provider).to.equal("stub");
+    expect(geo!.addressHash).to.equal(hashRoundedPoint(geo!.lon, geo!.lat));
+  });
+
+  it("POA webhook double-delivery awards once and second geocode is unchanged", async () => {
+    const lon = -113.5;
+    const lat = 53.5;
+    const { userId } = await makeAccount(w, { email: "didit-poa-dup@example.com" });
+    const svc = buildDiditSessionService(
+      w,
+      fakeFetch((url, method) => {
+        if (method === "POST" && url.endsWith("/v3/session/")) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              url: "https://verify.didit.me/session/poa",
+              status: "Not Started",
+              workflow_id: POA_WORKFLOW_ID,
+            },
+          };
+        }
+        if (method === "GET" && url.includes(`/v3/session/${POA_SESSION_ID}/decision/`)) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              status: "Approved",
+              workflow_id: POA_WORKFLOW_ID,
+              poa_verifications: [
+                {
+                  country: "CA",
+                  poa_parsed_address: {
+                    document_location: { latitude: lat, longitude: lon },
+                  },
+                },
+              ],
+            },
+          };
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      }),
+    );
+
+    await svc.startDiditSession(userId, "poa");
+    const payload = { session_id: POA_SESSION_ID, status: "Approved", event_id: "evt-poa-dup" };
+    const headers = signWebhookV2(payload, String(Math.floor(Date.now() / 1000)));
+    await svc.handleDiditWebhook(JSON.stringify(payload), headers);
+    await svc.handleDiditWebhook(JSON.stringify(payload), headers);
+
+    const rows = await w.db.pool.query(`SELECT COUNT(*)::int AS n FROM public.kyc_attestations WHERE user_id = $1`, [
+      userId,
+    ]);
+    expect(rows.rows[0].n).to.equal(1);
+
+    const geo = await w.services.repos.geocode.getCurrent(userId);
+    expect(geo!.provider).to.equal("didit");
+    expect(geo!.addressHash).to.equal(hashRoundedPoint(lon, lat));
+    const history = await w.services.repos.geocode.historyForUser(userId);
+    expect(history).to.have.length(1);
+  });
+
+  it("POA approve without location still awards residency and leaves no point", async () => {
+    const { userId } = await makeAccount(w, { email: "didit-poa-nogeo@example.com" });
+    const svc = buildDiditSessionService(
+      w,
+      fakeFetch((url, method) => {
+        if (method === "POST" && url.endsWith("/v3/session/")) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              url: "https://verify.didit.me/session/poa",
+              status: "Not Started",
+              workflow_id: POA_WORKFLOW_ID,
+            },
+          };
+        }
+        if (method === "GET" && url.includes(`/v3/session/${POA_SESSION_ID}/decision/`)) {
+          return {
+            body: {
+              session_id: POA_SESSION_ID,
+              status: "Approved",
+              workflow_id: POA_WORKFLOW_ID,
+              poa_verifications: [{ country: "CA", state: "AB" }],
+            },
+          };
+        }
+        throw new Error(`unexpected ${method} ${url}`);
+      }),
+    );
+
+    await svc.startDiditSession(userId, "poa");
+    const polled = await svc.getDiditSessionStatus(userId, POA_SESSION_ID);
+    expect(polled.tier).to.equal("residency_verified");
+    expect(await w.services.repos.geocode.getCurrent(userId)).to.equal(null);
   });
 });

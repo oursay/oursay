@@ -14,7 +14,7 @@ Deferred design intent for the `account/` entities (user, profile, verification,
 | `public.kyc_attestations` (tier, provider, `attested_at`, optional coarse `region`) | A durable mirror of Didit’s ID/POA payload / legal name |
 | **`auth.profile_geocodes.geom`** — private PostGIS point from residency | Raw address string after geocode |
 
-**Residency → point (required):** On residency/POA success, OurSay **receives an address from the KYC seam**, geocodes it, and **stores the encoded point** for district inference (`region.contains(point)`). The street address is used **ephemerally for geocoding** (and may leave a non-reversible `address_hash` for cache invalidation) — it is **not** written back onto the profile. Legal name never lands on OurSay.
+**Residency → point (required):** On residency/POA success, OurSay **receives coords and/or an address from the KYC seam**, resolves a point, and **stores the encoded point** for district inference (`region.contains(point)`). Prefer Didit `document_location` when present; otherwise geocode the structured address. Street text is used **ephemerally** (and may leave a non-reversible location hash — DB column `address_hash` — for cache invalidation) — it is **not** written back onto the profile. When a point exists, hash and store **3-dp (~100 m) rounded** lon/lat; when unresolved, hash the normalized address only. Legal name never lands on OurSay.
 
 **Why drop name/street storage:** Avoid a second copy of KYC identity PII, skip encrypting those columns, and shrink retention/erasure surface. Attestation + `user_id` + private point is enough for gates and geo counts.
 
@@ -47,6 +47,10 @@ Didit is the MVP provider (dev: ID-only + platform self-signed address; prod: PO
 
 ## Funding contingency (donations collapse)
 If soft-asks and banners cannot fund provider capacity: escalate invasive donation UX, then as last resort introduce pay-per-verification (and optionally peer sponsorship / waitlist). Not launch scope.
+
+## Boundary change → residency reverify (deferred)
+
+When district boundaries change, flag users near a **moved edge** (within the stored **3-dp / ~100 m** rounding grid) that **reverification is recommended**; optionally revoke residency KYC when detection is accurate enough. Candidate check: a **2×2** round-down/up matrix of lat/lon cells around the stored point (retry at 4–5 dp if needed). **Shrink:** only users who could fall outside the new geometry. **Grow:** do not mass-flag the grown interior — impact the shrunken neighbor if that is where the edge moved. Details: [profile-geocode.md](./profile-geocode.md) (*Future: boundary change*). Not evaluated at POA-approve time.
 
 ## Encryption at rest — narrowed
 

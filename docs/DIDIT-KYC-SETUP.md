@@ -150,7 +150,7 @@ DIDIT_CALLBACK_URL=https://<public-web-host>/profile/self
 ### 3.5 Smoke after deploy
 
 1. Identity: authenticated `POST /v1/kyc/didit/session` `{ "workflowKind": "identity" }` → complete hosted flow → confirm `public.kyc_attestations` row `identity_verified` / provider `didit`.
-2. Residency (optional; uses POA workflow credits on the Didit account): `{ "workflowKind": "poa" }` → `residency_verified`.
+2. Residency (optional; uses POA workflow credits on the Didit account): `{ "workflowKind": "poa" }` → `residency_verified` **and** a private point in `auth.profile_geocodes` from ephemeral `poa_parsed_address` / `document_location` (never written onto `auth.profiles`).
 3. Recovery: verified account → recovery OTP → biometric session via recovery KYC route → Approved → passkey re-enroll (no extra attestation row).
 
 ### 3.6 What we never store (vs what we keep)
@@ -199,7 +199,7 @@ npm test -w @oursay/api -- --grep "05 recovery"
 2. `POST /v1/kyc/didit/session` with `{ "workflowKind": "identity" }`.
 3. Open the returned `url` and complete verification (sandbox credits).
 4. `GET /v1/kyc/didit/session/:sessionId` until `status` is `approved` and `tier` is `identity_verified`.
-5. For Didit residency: `{ "workflowKind": "poa" }` (requires `DIDIT_WORKFLOW_POA`).
+5. For Didit residency: `{ "workflowKind": "poa" }` (requires `DIDIT_WORKFLOW_POA`). On Approved, confirm `residency_verified` **and** (when Didit returns coords or a geocodable address) a row in `auth.profile_geocodes` — street text must not appear on `auth.profiles` from this path.
 6. For stub/dev residency without Didit POA: `PATCH /v1/profile` address → `POST /v1/kyc/residency/attest` with `{ "consent": true }`.
 
 ---
