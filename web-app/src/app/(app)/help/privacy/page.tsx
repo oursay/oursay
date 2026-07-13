@@ -58,9 +58,9 @@ export default function PrivacyHelpPage() {
           OurSay profile from the Didit residency path.
         </p>
         <p>
-          <strong>Demo / older forms:</strong> some registration or profile screens may still accept
-          optional address fields. Those are being retired; they are not required for Didit
-          residency, and they are not how production residency is meant to work.
+          <strong>Demo / older forms:</strong> some registration screens may still accept optional
+          address fields. Those are being retired for signup; self-service residence refresh uses
+          Get Verified / Residency Update (Didit POA), not a street-address form on profile.
         </p>
       </HelpSection>
 
