@@ -136,9 +136,9 @@ Peer-sponsorship path *(deferred; paid-verify contingency only)*: `sponsored_pen
 - **[mvp-c-kyc-provider]**: Production provider not implemented; dev stub only.
 - Recovery re-verify flow: verified accounts complete Didit biometric (`DIDIT_WORKFLOW_RECOVER`) before passkey re-enroll.
 - **Donation soft-ask** — GitHub Sponsors ask before Didit session open (verify / recover / re-verify); see [DONATION-FUNDED-VERIFY-HANDOFF.md](../../temp/DONATION-FUNDED-VERIFY-HANDOFF.md).
-- **Drop profile name/street-address columns** — migrate off storing KYC text PII locally; wire POA → geocode → point ([account/future.md](./future.md)).
+- **Drop profile name/street-address columns** — migrate off storing KYC text PII locally; POA → geocode → point is wired (ephemeral Didit intake). Remaining work is retiring profile address columns / register-PATCH drift ([account/future.md](./future.md)).
 - **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
-- **Jurisdiction-residency gate** — `residency_verified` AND point-in-jurisdiction (the `ab-ca-gov` vote act / platform-count gate) needs a resolver combining the tier attestation with `ParticipantGeoService` containment; not fully built.
+- **Jurisdiction-residency gate** — **implemented**: `residencyIn` requires `residency_verified` (or electoral) **and** a current point that maps to a district in the jurisdiction (`GateService` + `ParticipantGeoService`). **Residual product gap:** POA can award the tier when no point resolves — user looks verified but fails this gate and scoped geo counts. UX: distinguish with `MapPinX` (or similar). Details: [profile-geocode.md](./profile-geocode.md) (*Tier without point*).
 - Peer sponsorship / waitlist — deferred; only relevant under paid-verify contingency (contributor §5.6–5.7).
 - Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).
 - **Funding contingency** — if donations collapse: invasive banners/popups, then pay-per-verification as last resort (roadmap/gaps).

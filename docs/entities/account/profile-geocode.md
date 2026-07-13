@@ -170,3 +170,26 @@ See [account/future.md](./future.md) and [REGION-MODEL.md](../../REGION-MODEL.md
 - **Full `address_hash` → `location_hash` schema rename** — deferred.
 - **Point encryption** — open uncertainty documented above; no implementation milestone until a GIS-compatible approach exists.
 - Registration / profile PATCH may still geocode from stored address columns — drift to remove when PII columns drop.
+
+### Tier without point (POA Approved, no usable geom) — product / filter gap
+
+**Fact today:** Didit can award `residency_verified` when POA is Approved even if `document_location` is missing and the structured address does not resolve (`applyResidencyLocation` is best-effort; award must not fail). Attestation may still store a coarse `region` string (e.g. `"AB"`). That string is **never** used for geo filters, gates, or `authorGeo`.
+
+**Filter / gate impact (no `auth.profile_geocodes` row):**
+
+| Surface | Result |
+|---------|--------|
+| Counts `scope=jurisdiction` / `impacted-region` | **Excluded** (`participantInRegion` → false; no rough point is invented) |
+| Counts `scope=all-public` (+ optional tier filter) | **Included** (tier-only) |
+| `residencyIn` act gate / official floors | **Fails** (tier alone is insufficient; needs `viewerDistrictId`) |
+| `authorGeo` | **`none`** (collapses with “no contextual tie”) |
+
+There is **no** fallback rough geom from “Edmonton AB” / provincial coarse region. Jurisdiction-wide filters still require `region.contains(point)`.
+
+**UX gap:** Residency pill (tier 2) still shows a plain `MapPin` for `authorGeo: "none"`, so a verified-but-unlocalized user looks the same as a resident outside the thread context. There is no `MapPinX` (or equivalent) for “residency verified, location unresolved.” Desired signal: distinguish this scenario in the UI (e.g. `MapPinX` when tier ≥ residency and no usable point), optionally with copy that re-verify / complete address resolution is needed — without inventing a fake jurisdiction membership.
+
+**Open product questions (not decided):**
+
+1. Should POA approval **withhold** `residency_verified` until a point resolves?
+2. Should coarse region ever count for **jurisdiction-wide** membership (still never for district / `home`)?
+3. Ship `MapPinX` (or a dedicated `authorGeo` / status value) before changing filter math?

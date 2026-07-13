@@ -151,7 +151,7 @@ authorGeo ∈ { "home", "affected", "jurisdiction", "none" }
 - **`home`** — the author resides in one of the **viewer's** home districts. Resolved **only for a residency-verified viewer** (the privileged case: it discloses district co-residency, nothing finer).
 - **`affected`** — the author resides in the post's affected area (`appliesToRegion`).
 - **`jurisdiction`** — in the post's jurisdiction but outside its affected area. Drops off on a jurisdiction-wide post (there everyone in-jurisdiction is `affected`).
-- **`none`** — no contextual relation, below Residency, or no usable point.
+- **`none`** — no contextual relation, below Residency, or no usable point. Today this also covers **residency tier without a geocode point** (Didit POA Approved with no coords / unresolvable address) — same glyph as “resident outside this context,” with no distinct “location unresolved” signal (see [profile-geocode.md](entities/account/profile-geocode.md) Gaps).
 
 Rules:
 
