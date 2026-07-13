@@ -1,22 +1,13 @@
-// Profile route: a user's own PII, returned only to themselves (full session). PII is never public.
-// Public-facing name (handle / displayName) lives on public.users; legal name (first/last) is private.
+// Profile route: own account surface (full session). Legal name / street address are KYC-held —
+// not writable here. Public identity (handle / displayName / bio) lives on public.users.
 
 import type { FastifyInstance } from "fastify";
 import { ServiceError } from "../../errors.js";
 import type { Services } from "../../container.js";
-import type { UpdateProfileInput } from "../../repo/profile.repo.js";
+import { isValidHandle, normalizeHandle } from "../../helpers/handle.js";
+import { BIO_MAX, DISPLAY_NAME_MAX } from "../../repo/user.repo.js";
 import { AUTHOR_VISIBILITIES } from "../../types/visibility.js";
 import { bearerSecurity, errorSchema } from "../schemas.js";
-
-const PROFILE_ADDRESS_FIELDS = [
-  "line1",
-  "line2",
-  "city",
-  "province",
-  "postalCode",
-  "country",
-  "memo",
-] as const satisfies readonly (keyof UpdateProfileInput)[];
 
 const profileResponseSchema = {
   type: "object",
@@ -24,42 +15,29 @@ const profileResponseSchema = {
     userId: { type: "string", format: "uuid" },
     handle: { type: ["string", "null"] },
     displayName: { type: ["string", "null"] },
-    firstName: { type: ["string", "null"] },
-    lastName: { type: ["string", "null"] },
+    bio: { type: "string" },
     email: { type: "string" },
     over18: { type: "boolean", description: "Self-attested age gate; KYC re-verifies. No DOB is stored." },
     visibility: { type: "string", enum: AUTHOR_VISIBILITIES },
-    address: {
-      type: "object",
-      properties: {
-        line1: { type: ["string", "null"] },
-        line2: { type: ["string", "null"] },
-        city: { type: ["string", "null"] },
-        province: { type: ["string", "null"] },
-        postalCode: { type: ["string", "null"] },
-        country: { type: "string" },
-        memo: { type: ["string", "null"] },
-      },
-    },
   },
-  required: ["userId", "email", "over18", "visibility"],
+  required: ["userId", "email", "over18", "visibility", "bio"],
 } as const;
 
 const patchProfileBodySchema = {
   type: "object",
   properties: {
-    firstName: { type: ["string", "null"] },
-    lastName: { type: ["string", "null"] },
-    line1: { type: ["string", "null"] },
-    line2: { type: ["string", "null"] },
-    city: { type: ["string", "null"] },
-    province: { type: ["string", "null"] },
-    postalCode: { type: ["string", "null"] },
-    country: { type: "string" },
-    memo: { type: ["string", "null"] },
+    handle: { type: "string", minLength: 1, maxLength: 31, description: "Wire or @-prefixed handle" },
+    displayName: { type: "string", maxLength: DISPLAY_NAME_MAX },
+    bio: { type: "string", maxLength: BIO_MAX },
   },
   additionalProperties: false,
 } as const;
+
+export interface PatchProfileBody {
+  handle?: string;
+  displayName?: string;
+  bio?: string;
+}
 
 async function buildProfileResponse(services: Services, userId: string) {
   const [user, profile] = await Promise.all([
@@ -71,20 +49,10 @@ async function buildProfileResponse(services: Services, userId: string) {
     userId,
     handle: user?.handle ?? null,
     displayName: user?.displayName ?? null,
-    firstName: profile.firstName,
-    lastName: profile.lastName,
+    bio: user?.bio ?? "",
     email: profile.email,
     over18: profile.over18,
     visibility: profile.visibility,
-    address: {
-      line1: profile.line1,
-      line2: profile.line2,
-      city: profile.city,
-      province: profile.province,
-      postalCode: profile.postalCode,
-      country: profile.country,
-      memo: profile.memo,
-    },
   };
 }
 
@@ -95,7 +63,7 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
       preHandler: app.requireFullScope,
       schema: {
         tags: ["profile"],
-        summary: "Get the authenticated user's own profile (private PII)",
+        summary: "Get the authenticated user's own profile (account contact + public identity)",
         security: bearerSecurity,
         response: {
           200: profileResponseSchema,
@@ -114,7 +82,7 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
       preHandler: app.requireFullScope,
       schema: {
         tags: ["profile"],
-        summary: "Update private profile fields (best-effort geocode refresh when address changes)",
+        summary: "Update handle, display name, and/or bio (not legal name or street address)",
         security: bearerSecurity,
         body: patchProfileBodySchema,
         response: {
@@ -122,21 +90,39 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
           401: errorSchema,
           403: errorSchema,
           404: errorSchema,
+          409: errorSchema,
         },
       },
     },
     async (req) => {
       const userId = req.user!.userId;
-      const body = req.body as UpdateProfileInput;
-      const updated = await services.repos.profile.update(userId, body);
-      if (!updated) throw new ServiceError("not_found", "Profile not found");
-      if (PROFILE_ADDRESS_FIELDS.some((k) => body[k] !== undefined)) {
-        try {
-          await services.geocodeService.syncGeocodeForUser(userId);
-        } catch {
-          // Best-effort — never fail the PATCH on geocode errors.
+      const body = req.body as PatchProfileBody;
+      const profile = await services.repos.profile.getByUserId(userId);
+      if (!profile) throw new ServiceError("not_found", "Profile not found");
+
+      if (body.handle !== undefined) {
+        const wire = normalizeHandle(body.handle);
+        if (!wire || !isValidHandle(wire)) {
+          throw new ServiceError("validation", "Invalid handle");
         }
+        const taken = await services.repos.user.getByHandle(wire);
+        if (taken && taken.id !== userId) {
+          throw new ServiceError("handle_taken", "That handle is already taken");
+        }
+        await services.repos.user.setHandle(userId, wire);
       }
+
+      if (body.displayName !== undefined) {
+        const user = await services.repos.user.getById(userId);
+        const fallback = (user?.handle ?? "user").replace(/^@/, "");
+        const next = body.displayName.trim() || fallback;
+        await services.repos.user.setDisplayName(userId, next);
+      }
+
+      if (body.bio !== undefined) {
+        await services.repos.user.setBio(userId, body.bio);
+      }
+
       return buildProfileResponse(services, userId);
     },
   );

@@ -113,7 +113,7 @@ export class ProfilePageService {
       roles,
       tier,
       official,
-      bio: "",
+      bio: ctx.bio,
       ageLabel: formatAgeLabel(ctx.createdAt),
       support,
     };
@@ -193,6 +193,7 @@ export class ProfilePageService {
       userId: user.id,
       handleWire: handle.replace(/^@/, ""),
       displayName: displayNameFor(user.handle, user.displayName) ?? handle.replace(/^@/, ""),
+      bio: user.bio,
       createdAt: user.createdAt,
       pubkeys,
     };
@@ -367,6 +368,7 @@ interface ProfileCtx {
   userId: string;
   handleWire: string;
   displayName: string;
+  bio: string;
   createdAt: string;
   pubkeys: string[];
 }

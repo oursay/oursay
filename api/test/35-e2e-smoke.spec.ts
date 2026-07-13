@@ -181,16 +181,7 @@ describe("35 e2e smoke: the full civic journey over the live HTTP surface", func
   });
 
   it("sets an address and platform-attests residency for Alberta", async () => {
-    // The address write is the real UI path (PATCH /v1/profile → best-effort geocode)…
-    const patch = await w.app.inject({
-      method: "PATCH",
-      url: "/v1/profile",
-      headers: bearer(token),
-      payload: { province: "AB", postalCode: "T5K 2B6", country: "CA" },
-    });
-    expect(patch.statusCode, patch.body).to.equal(200);
-    // …but the stub geocoder can't resolve a postal code to a specific riding, so pin the known
-    // interior point directly (the seed script does the same) before the residency gate reads it.
+    // Street address is not writable via PATCH /v1/profile; pin a known interior point for the gate.
     await w.services.repos.geocode.upsertCurrent({
       userId,
       addressHash: `smoke:${userId}`,

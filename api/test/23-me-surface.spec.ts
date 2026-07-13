@@ -185,18 +185,64 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     expect(userId).to.be.a("string");
   });
 
-  it("PATCH /v1/profile updates fields and triggers best-effort geocode on address change", async () => {
+  it("PATCH /v1/profile updates handle, displayName, and bio", async () => {
     const { userId, token } = await fullSessionAccount(w, "patch@example.com");
     const res = await w.app.inject({
       method: "PATCH",
       url: "/v1/profile",
       headers: bearer(token),
-      payload: { firstName: "Pat", postalCode: "T2P 1H9", province: "AB", country: "CA" },
+      payload: { displayName: "Pat", bio: "Hello civic world" },
     });
     expect(res.statusCode).to.equal(200, res.body);
-    expect(res.json().firstName).to.equal("Pat");
-    expect(res.json().address.postalCode).to.equal("T2P 1H9");
-    expect(await w.services.repos.geocode.getCurrent(userId)).to.not.equal(null);
+    expect(res.json().displayName).to.equal("Pat");
+    expect(res.json().bio).to.equal("Hello civic world");
+    expect(res.json().address).to.equal(undefined);
+    expect(res.json().firstName).to.equal(undefined);
+
+    const handleRes = await w.app.inject({
+      method: "PATCH",
+      url: "/v1/profile",
+      headers: bearer(token),
+      payload: { handle: "pat_civic" },
+    });
+    expect(handleRes.statusCode).to.equal(200, handleRes.body);
+    expect(handleRes.json().handle).to.equal("pat_civic");
+    const user = await w.services.repos.user.getById(userId);
+    expect(user?.handle).to.equal("pat_civic");
+    expect(user?.bio).to.equal("Hello civic world");
+  });
+
+  it("PATCH /v1/profile rejects a taken handle with 409", async () => {
+    await fullSessionAccount(w, "owner@example.com", { handle: "taken_handle" });
+    const { token } = await fullSessionAccount(w, "other@example.com");
+    const res = await w.app.inject({
+      method: "PATCH",
+      url: "/v1/profile",
+      headers: bearer(token),
+      payload: { handle: "taken_handle" },
+    });
+    expect(res.statusCode).to.equal(409);
+  });
+
+  it("PATCH /v1/profile ignores street-address / legal-name fields (identity-only)", async () => {
+    const { userId, token } = await fullSessionAccount(w, "nostreet@example.com");
+    const before = await w.services.repos.profile.getByUserId(userId);
+    const res = await w.app.inject({
+      method: "PATCH",
+      url: "/v1/profile",
+      headers: bearer(token),
+      payload: { firstName: "Pat", postalCode: "T2P 1H9", bio: "kept" },
+    });
+    // Fastify may strip unknown keys (removeAdditional) rather than 400; either way they must not land.
+    expect(res.statusCode).to.be.oneOf([200, 400]);
+    if (res.statusCode === 200) {
+      expect(res.json().bio).to.equal("kept");
+      expect(res.json().firstName).to.equal(undefined);
+      expect(res.json().address).to.equal(undefined);
+    }
+    const after = await w.services.repos.profile.getByUserId(userId);
+    expect(after?.firstName).to.equal(before?.firstName ?? null);
+    expect(after?.postalCode).to.equal(before?.postalCode ?? null);
   });
 
   it("rejects limited sessions with 403 on /v1/me routes", async () => {

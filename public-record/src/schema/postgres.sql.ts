@@ -84,6 +84,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_handle_unique ON users (handle);
 -- Wire username: 1–30 [A-Za-z0-9_-] (C4; mirrors api/src/helpers/handle.ts).
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_handle_format;
 ALTER TABLE users ADD CONSTRAINT users_handle_format CHECK (handle ~ '^[A-Za-z0-9_-]{1,30}$');
+-- Non-indexable public presentation (bio, dicebear icon_type). Handle/display_name stay columns.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_details JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 -- Jurisdiction-scoped master PUBLIC keys: one per (user, jurisdiction); the root a client derives
 -- per-thread keys from on-device (HKDF). The platform stores only the public master.
