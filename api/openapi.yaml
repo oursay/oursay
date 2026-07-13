@@ -253,6 +253,7 @@ paths:
                           - registration
                           - recovery
                           - login
+                          - recovery_kyc
                       userId:
                         type: string
                         format: uuid
@@ -871,6 +872,7 @@ paths:
                           - registration
                           - recovery
                           - login
+                          - recovery_kyc
                       userId:
                         type: string
                         format: uuid
@@ -927,6 +929,9 @@ paths:
                     enum:
                       - full
                       - recovery
+                      - login
+                      - registration
+                      - recovery_kyc
                 required:
                   - userId
                   - scope
@@ -981,8 +986,8 @@ paths:
                   - error
   /v1/auth/recovery/verify:
     post:
-      summary: Verify a recovery code (unverified → recovery session; verified → KYC
-        re-verification required)
+      summary: Verify a recovery code (unverified → recovery session; verified →
+        recovery_kyc biometric challenge)
       tags:
         - recovery
       requestBody:
@@ -1014,6 +1019,7 @@ paths:
                     type: string
                     enum:
                       - passkey_reenroll
+                      - kyc_reverification_required
                   userId:
                     type: string
                     format: uuid
@@ -1030,6 +1036,7 @@ paths:
                           - registration
                           - recovery
                           - login
+                          - recovery_kyc
                       userId:
                         type: string
                         format: uuid
@@ -1065,7 +1072,7 @@ paths:
                       - message
                 required:
                   - error
-        "409":
+        "429":
           description: Default Response
           content:
             application/json:
@@ -1085,7 +1092,209 @@ paths:
                       - message
                 required:
                   - error
-        "429":
+  /v1/auth/recovery/kyc/session:
+    post:
+      summary: Start Didit biometric recovery (verified accounts only; recovery_kyc
+        scope)
+      tags:
+        - recovery
+      security: *a1
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                  url:
+                    type: string
+                required:
+                  - sessionId
+                  - url
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "501":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/recovery/kyc/session/{sessionId}:
+    get:
+      summary: Poll biometric recovery; on Approved issues a recovery-scoped
+        passkey-reenroll session
+      tags:
+        - recovery
+      parameters:
+        - schema:
+            type: string
+          in: path
+          name: sessionId
+          required: true
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  tier:
+                    type: string
+                    nullable: true
+                  passkeyReenroll:
+                    type: object
+                    nullable: true
+                    properties:
+                      userId:
+                        type: string
+                        format: uuid
+                      session:
+                        type: object
+                        properties:
+                          token:
+                            type: string
+                            description: Opaque bearer token (also set as an HttpOnly cookie).
+                          scope:
+                            type: string
+                            enum:
+                              - full
+                              - registration
+                              - recovery
+                              - login
+                              - recovery_kyc
+                          userId:
+                            type: string
+                            format: uuid
+                          expiresAt:
+                            type: string
+                            format: date-time
+                        required:
+                          - token
+                          - scope
+                          - userId
+                          - expiresAt
+                required:
+                  - status
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "501":
           description: Default Response
           content:
             application/json:
@@ -1267,6 +1476,7 @@ paths:
                           - registration
                           - recovery
                           - login
+                          - recovery_kyc
                       userId:
                         type: string
                         format: uuid
@@ -4384,31 +4594,22 @@ paths:
                           description: Real @handle when revealed; the persona name otherwise.
                         identity:
                           type: object
-                          description: "Viewer-resolved author identity (docs/09): real name/handle iff
-                            the author's effective visibility admits this
-                            viewer; the per-thread persona otherwise (handle
-                            null — never leaked). Self always resolves revealed,
-                            with a seenByOthersAs persona hint when not publicly
-                            visible."
                           properties:
                             display:
                               type: string
                             handle:
                               type: string
                               nullable: true
-                              description: Real @handle iff revealed or self; null for personas.
                             isPersona:
                               type: boolean
                             isSelf:
                               type: boolean
                             seed:
                               type: string
-                              description: "Avatar seed: real handle when revealed, persona name otherwise."
                             threadId:
                               type: string
                             seenByOthersAs:
                               type: string
-                              description: Self only, when own effective visibility is not public.
                           required:
                             - display
                             - handle
@@ -4618,11 +4819,6 @@ paths:
                         type: string
                       identity:
                         type: object
-                        description: "Viewer-resolved author identity: real name/handle iff the author's
-                          effective visibility admits this viewer; the
-                          per-thread persona otherwise (handle null — never
-                          leaked). Self resolves revealed, with a seenByOthersAs
-                          hint when not public."
                         properties:
                           display:
                             type: string
@@ -4828,11 +5024,6 @@ paths:
                             none.
                         identity:
                           type: object
-                          description: "Viewer-resolved author identity: real name/handle iff the author's
-                            effective visibility admits this viewer; the
-                            per-thread persona otherwise (handle null — never
-                            leaked). Self resolves revealed, with a
-                            seenByOthersAs hint when not public."
                           properties:
                             display:
                               type: string
@@ -5005,11 +5196,6 @@ paths:
                             none.
                         identity:
                           type: object
-                          description: "Viewer-resolved author identity: real name/handle iff the author's
-                            effective visibility admits this viewer; the
-                            per-thread persona otherwise (handle null — never
-                            leaked). Self resolves revealed, with a
-                            seenByOthersAs hint when not public."
                           properties:
                             display:
                               type: string
@@ -8338,6 +8524,27 @@ paths:
                       - message
                 required:
                   - error
+  /v1/public/kyc:
+    get:
+      summary: Public KYC provider flag (stub vs didit) for UI routing
+      tags:
+        - kyc
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                    enum:
+                      - stub
+                      - didit
+                      - equifax
+                required:
+                  - provider
   /v1/kyc/didit/session:
     post:
       summary: Start a Didit hosted identity or POA verification session

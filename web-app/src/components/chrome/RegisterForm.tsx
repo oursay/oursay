@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, IdCard, Mail, ShieldCheck } from "lucide-react";
 import { isValidEmailFormat } from "@/lib/email";
 import { handleValidationError, normalizeHandleBody } from "@/lib/handle";
-import { Button, Modal, ModalField } from "@/components/ui";
+import { Button, CheckboxIndicator, Modal, ModalField } from "@/components/ui";
 
 export interface RegisterVerificationAddress {
   line1?: string;
@@ -142,36 +142,52 @@ export function RegisterForm({ open, onClose, onSubmit }: RegisterFormProps) {
           </p>
         ) : null}
 
-        <label className="flex items-center gap-2 pt-1 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={over18}
-            onChange={(e) => setOver18(e.target.checked)}
-            className="size-4 rounded border-border"
-          />
-          I am 18 or older
-        </label>
-
-        <label className="flex items-center gap-2 text-sm text-ink">
-          <input
-            type="checkbox"
-            checked={privacyAck}
-            onChange={(e) => setPrivacyAck(e.target.checked)}
-            className="size-4 rounded border-border"
-          />
-          <span>
-            I&apos;ve read the{" "}
-            <a
-              href="/help/privacy"
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2"
-              onClick={(e) => e.stopPropagation()}
+        <div className="space-y-0">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={over18}
+            onClick={() => setOver18((v) => !v)}
+            className="flex min-h-5 w-full items-center gap-2 rounded-lg px-2 text-left hover:bg-surface-muted"
+          >
+            <CheckboxIndicator checked={over18} />
+            <span
+              className={`text-sm text-ink ${over18 ? "font-semibold" : "font-normal"}`}
             >
-              Privacy Notice (draft)
-            </a>
-          </span>
-        </label>
+              I am 18 or older
+            </span>
+          </button>
+
+          <div className="flex min-h-9 w-full items-center gap-2 rounded-lg px-2 hover:bg-surface-muted">
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={privacyAck}
+              aria-label="I've read the Privacy Notice"
+              onClick={() => setPrivacyAck((v) => !v)}
+              className="inline-flex size-5 shrink-0 items-center justify-center"
+            >
+              <CheckboxIndicator checked={privacyAck} />
+            </button>
+            <div
+              className={`min-w-0 flex-1 cursor-pointer text-sm text-ink ${
+                privacyAck ? "font-semibold" : "font-normal"
+              }`}
+              onClick={() => setPrivacyAck((v) => !v)}
+            >
+              I&apos;ve read the{" "}
+              <a
+                href="/help/privacy"
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                Privacy Notice (draft)
+              </a>
+            </div>
+          </div>
+        </div>
 
         <div className="rounded-lg border border-border bg-surface-muted p-3">
           <div className="flex items-start gap-3">

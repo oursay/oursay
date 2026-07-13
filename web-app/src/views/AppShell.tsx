@@ -55,8 +55,11 @@ import {
 import {
   donationsSurfacesEnabled,
   getSponsorsUrl,
+  markPublicDonationAskShown,
   openGitHubSponsors,
+  PUBLIC_DONATION_DELAY_MS,
   resolveFabBanner,
+  shouldOfferPublicDonationAsk,
   SHOW_DONATION_MODAL_KYC,
   SHOW_DONATION_MODAL_PUBLIC,
 } from "@/lib/donations";
@@ -89,6 +92,54 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [pendingKyc, setPendingKyc] = useState<PendingKyc>(null);
   const fabBanner = resolveFabBanner();
 
+  const loggedInRef = useRef(state.loggedIn);
+  const authKindRef = useRef(authModal.kind);
+  const donationOpenRef = useRef(donationOpen);
+  const profileOpenRef = useRef(state.profileOpen);
+  const verifyOpenRef = useRef(state.verifyOpen);
+  const composeOpenRef = useRef(state.composeOpen);
+  loggedInRef.current = state.loggedIn;
+  authKindRef.current = authModal.kind;
+  donationOpenRef.current = donationOpen;
+  profileOpenRef.current = state.profileOpen;
+  verifyOpenRef.current = state.verifyOpen;
+  composeOpenRef.current = state.composeOpen;
+
+  /** Guest soft-ask: once per 24h, after 30s on the page (skips while other chrome modals are open). */
+  useEffect(() => {
+    if (!SHOW_DONATION_MODAL_PUBLIC || state.loggedIn) return;
+    if (!shouldOfferPublicDonationAsk()) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const readyAt = Date.now() + PUBLIC_DONATION_DELAY_MS;
+
+    const tick = () => {
+      if (cancelled || loggedInRef.current) return;
+      if (Date.now() < readyAt) {
+        timeoutId = setTimeout(tick, 500);
+        return;
+      }
+      if (donationOpenRef.current) return;
+      const chromeBusy =
+        authKindRef.current !== "none" ||
+        profileOpenRef.current ||
+        verifyOpenRef.current ||
+        composeOpenRef.current;
+      if (chromeBusy) {
+        timeoutId = setTimeout(tick, 1_000);
+        return;
+      }
+      setDonationOpen("public");
+    };
+
+    timeoutId = setTimeout(tick, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [state.loggedIn]);
+
   const openPublicDonate = () => {
     if (SHOW_DONATION_MODAL_PUBLIC) {
       setDonationOpen("public");
@@ -106,6 +157,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const closeDonation = () => {
+    if (donationOpen === "public") {
+      markPublicDonationAskShown();
+    }
     setDonationOpen(null);
     setPendingKyc(null);
   };
@@ -395,7 +449,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         onRegister={app.goRegister}
         onLogin={app.goLogin}
         onRecover={app.recover}
-        onDonate={SHOW_DONATION_MODAL_PUBLIC ? openPublicDonate : undefined}
       />
       <RecoverForm
         open={authModal.kind === "recover"}
