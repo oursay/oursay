@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { BadgeCheck, Home, Loader2 } from "lucide-react";
-import { Modal, ModalOptionRow } from "@/components/ui";
+import { IdCard, Loader2, MapPin } from "lucide-react";
+import { Button, Modal } from "@/components/ui";
 
 export type VerifyChoice = "identity" | "poa";
 
@@ -37,13 +37,17 @@ export function VerifyModal({
   };
 
   return (
-    <Modal open={open} onClose={loading ? () => undefined : onClose} title="Get verified">
+    <Modal open={open} onClose={loading ? () => undefined : onClose} title="Get Verified">
       <div className="space-y-3">
-        <p className="text-sm text-muted">
-          Confirm your identity for civic standing. Residency adds proof of address for
-          permission to cast ballots or sign petitions in some jurisdictions. Verification
-          is free — optional donations help fund the next check.
-        </p>
+        <div>
+          <p className="text-sm font-semibold text-ink">
+            You have the right to participate anonymously
+          </p>
+          <p className="mt-1 text-xs text-muted">
+            Getting verified unlocks more access and visibility — home-district posts,
+            residency voting, and a verification badge on your contributions.
+          </p>
+        </div>
         {loading ? (
           <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-muted px-3 py-3 text-sm text-muted">
             <Loader2 size={16} className="animate-spin shrink-0" aria-hidden />
@@ -53,16 +57,17 @@ export function VerifyModal({
           </div>
         ) : (
           <div className="space-y-2">
-            <ModalOptionRow
-              label="Verify ID"
-              icon={<BadgeCheck size={16} aria-hidden />}
+            <Button fullWidth icon={MapPin} onClick={() => void pick("poa")}>
+              Verify Residency
+            </Button>
+            <Button
+              fullWidth
+              variant="outline"
+              icon={IdCard}
               onClick={() => void pick("identity")}
-            />
-            <ModalOptionRow
-              label="Verify Residency"
-              icon={<Home size={16} aria-hidden />}
-              onClick={() => void pick("poa")}
-            />
+            >
+              Verify Identity
+            </Button>
           </div>
         )}
       </div>

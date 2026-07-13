@@ -63,6 +63,11 @@ import {
   SHOW_DONATION_MODAL_KYC,
   SHOW_DONATION_MODAL_PUBLIC,
 } from "@/lib/donations";
+import {
+  markVerifyAskShown,
+  shouldOfferVerifyAsk,
+  VERIFY_ASK_DELAY_MS,
+} from "@/lib/kyc/verifyAsk";
 
 type DonationOpen = "public" | "kyc" | null;
 type PendingKyc =
@@ -93,17 +98,21 @@ export function AppShell({ children }: { children: ReactNode }) {
   const fabBanner = resolveFabBanner();
 
   const loggedInRef = useRef(state.loggedIn);
+  const kycTierRef = useRef(state.kycTier);
   const authKindRef = useRef(authModal.kind);
   const donationOpenRef = useRef(donationOpen);
   const profileOpenRef = useRef(state.profileOpen);
   const verifyOpenRef = useRef(state.verifyOpen);
   const composeOpenRef = useRef(state.composeOpen);
+  const openVerifyRef = useRef(app.openVerify);
   loggedInRef.current = state.loggedIn;
+  kycTierRef.current = state.kycTier;
   authKindRef.current = authModal.kind;
   donationOpenRef.current = donationOpen;
   profileOpenRef.current = state.profileOpen;
   verifyOpenRef.current = state.verifyOpen;
   composeOpenRef.current = state.composeOpen;
+  openVerifyRef.current = app.openVerify;
 
   /** Guest soft-ask: once per 24h, after 30s on the page (skips while other chrome modals are open). */
   useEffect(() => {
@@ -139,6 +148,45 @@ export function AppShell({ children }: { children: ReactNode }) {
       clearTimeout(timeoutId);
     };
   }, [state.loggedIn]);
+
+  /**
+   * Unverified members: Get Verified soft-ask once per 24h after login
+   * (skips while other chrome modals are open).
+   */
+  useEffect(() => {
+    if (!state.loggedIn || state.kycTier !== 0) return;
+    if (!shouldOfferVerifyAsk()) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const readyAt = Date.now() + VERIFY_ASK_DELAY_MS;
+
+    const tick = () => {
+      if (cancelled || !loggedInRef.current || kycTierRef.current !== 0) return;
+      if (Date.now() < readyAt) {
+        timeoutId = setTimeout(tick, 250);
+        return;
+      }
+      if (donationOpenRef.current || verifyOpenRef.current) return;
+      const chromeBusy =
+        authKindRef.current !== "none" ||
+        profileOpenRef.current ||
+        composeOpenRef.current;
+      if (chromeBusy) {
+        timeoutId = setTimeout(tick, 1_000);
+        return;
+      }
+      if (!shouldOfferVerifyAsk()) return;
+      markVerifyAskShown();
+      openVerifyRef.current();
+    };
+
+    timeoutId = setTimeout(tick, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [state.loggedIn, state.kycTier]);
 
   const openPublicDonate = () => {
     if (SHOW_DONATION_MODAL_PUBLIC) {
