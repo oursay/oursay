@@ -19,6 +19,7 @@ export interface AccountContext {
   userId: string;
   handle: string;
   displayName: string;
+  bio: string;
   kycTier: VerificationTier;
   isOfficial: boolean;
   accountVisibility: AuthorVisibility;
@@ -35,14 +36,10 @@ export interface RecordStateEntry {
   shared: boolean;
 }
 
-export interface ProfileAddressPatch {
-  line1?: string | null;
-  line2?: string | null;
-  city?: string | null;
-  province?: string | null;
-  postalCode?: string | null;
-  country?: string;
-  memo?: string | null;
+export interface ProfileIdentityPatch {
+  handle?: string;
+  displayName?: string;
+  bio?: string;
 }
 
 const KYC_CYCLE: Array<{ tier: VerificationTier; token: string }> = [
@@ -85,6 +82,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     apiGet<{
       handle: string | null;
       displayName: string | null;
+      bio?: string;
       visibility: AuthorVisibility;
     }>("/v1/profile"),
     apiGet<{ districts: string[] }>("/v1/me/districts"),
@@ -109,6 +107,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     userId: session.userId,
     handle,
     displayName: profile.displayName?.trim() || handle,
+    bio: typeof profile.bio === "string" ? profile.bio : "",
     kycTier,
     isOfficial: publicSelf?.official ?? false,
     accountVisibility: profile.visibility,
@@ -206,14 +205,14 @@ export async function patchSigningPrefs(
   return mapSigningPrefs(raw);
 }
 
-/** Update private profile fields (`PATCH /v1/profile`). */
-export async function patchProfile(body: ProfileAddressPatch): Promise<void> {
+/** Update OurSay-owned public identity (`PATCH /v1/profile`). */
+export async function patchProfile(body: ProfileIdentityPatch): Promise<void> {
   await apiPatch("/v1/profile", body);
 }
 
 /**
- * Award residency verification after address is set.
- * Uses `POST /v1/kyc/residency/attest` when available; dev-attest fallback until Didit (#6).
+ * Award residency verification (platform attest / Didit POA path).
+ * Uses `POST /v1/kyc/residency/attest` when available; dev-attest fallback.
  */
 export async function attestResidency(): Promise<void> {
   try {

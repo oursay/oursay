@@ -143,19 +143,18 @@ describe("live /v1/me adapters", () => {
     expect(prefs.comment).toBe("ask");
   });
 
-  it("patchProfile PATCHes address fields", async () => {
+  it("patchProfile PATCHes identity fields", async () => {
     mockFetch((url, init) => {
       expect(url).toContain("/v1/profile");
       expect(init?.method).toBe("PATCH");
-      expect(init?.body).toContain("Edmonton");
+      expect(init?.body).toContain("Hello");
+      expect(init?.body).toContain("displayName");
       return Promise.resolve(new Response(JSON.stringify({ userId: "u1" }), { status: 200 }));
     });
     await patchProfile({
-      line1: "1 Main",
-      city: "Edmonton",
-      province: "AB",
-      postalCode: "T5K 0A1",
-      country: "CA",
+      handle: "pat_civic",
+      displayName: "Pat",
+      bio: "Hello",
     });
   });
 

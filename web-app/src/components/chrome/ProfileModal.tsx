@@ -17,6 +17,7 @@ import {
   Pencil,
   PenTool,
   Plus,
+  BadgeCheck,
   ShieldCheck,
   Sun,
   Trash2,
@@ -75,6 +76,8 @@ interface ProfileModalProps {
   onDonate?: () => void;
   /** Deferred account-settings destinations (wireframe no-ops → toast). */
   onOpenSetting?: (label: string) => void;
+  /** Tier-matched ID Update / Residency Update shortcut (hidden while unverified). */
+  onTierMatchedUpdate?: () => void;
   passkeyBusy?: PasskeyBusyPhase | null;
 }
 
@@ -350,9 +353,12 @@ export function ProfileModal({
   onRevokePasskey,
   onDonate,
   onOpenSetting,
+  onTierMatchedUpdate,
   passkeyBusy = null,
 }: ProfileModalProps) {
   const KycIcon = KYC_ICON[kycTier];
+  const tierUpdateLabel =
+    kycTier <= 0 ? null : kycTier === 1 ? "ID Update" : "Residency Update";
   const [passkeysExpanded, setPasskeysExpanded] = useState(false);
   const [privacyOpen, setPrivacyOpen] = useState(false);
   const [signingOpen, setSigningOpen] = useState(false);
@@ -456,11 +462,13 @@ export function ProfileModal({
               label="Edit Profile"
               onClick={() => onOpenSetting?.("Edit Profile")}
             />
-            <SettingsRow
-              icon={MapPin}
-              label="Change Address"
-              onClick={() => onOpenSetting?.("Change Address")}
-            />
+            {tierUpdateLabel && onTierMatchedUpdate ? (
+              <SettingsRow
+                icon={BadgeCheck}
+                label={tierUpdateLabel}
+                onClick={onTierMatchedUpdate}
+              />
+            ) : null}
             <SettingsRow
               icon={Eye}
               label="Privacy Settings"

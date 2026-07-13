@@ -15,4 +15,4 @@ export * from "./AddJurisdictionModal";
 export * from "./AffectedDistrictsSelector";
 export * from "./AnonymityConfirmModal";
 export * from "./ShareModal";
-export * from "./ChangeAddressModal";
+export * from "./EditProfileModal";

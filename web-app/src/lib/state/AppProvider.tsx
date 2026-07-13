@@ -118,7 +118,7 @@ import {
   putJurisdictionMemberships,
   putThreadVisibility,
 } from "@/lib/api/me";
-import type { AddressFormData } from "@/components/chrome/ChangeAddressModal";
+import type { EditProfileFormData } from "@/components/chrome/EditProfileModal";
 import { writeThreadVisibility } from "./cookies";
 import {
   clearRegistrationDraft,
@@ -249,7 +249,7 @@ export const INITIAL_APP_STATE: AppState = {
   shared: {},
   shareCounts: {},
 
-  addressOpen: false,
+  editProfileOpen: false,
 
   replyOpen: false,
 
@@ -404,10 +404,10 @@ export interface AppApi {
   /** Remember + sync per-thread anonymity (cookie in mock; PUT in live). */
   setThreadVisibility: (threadId: string, visibility: AuthorVisibility) => void;
 
-  // Address + residency (live settings).
-  openChangeAddress: () => void;
-  closeChangeAddress: () => void;
-  submitAddress: (data: AddressFormData) => void;
+  // Edit Profile (handle / display name / bio).
+  openEditProfile: () => void;
+  closeEditProfile: () => void;
+  submitEditProfile: (data: EditProfileFormData) => void;
 
   // Shared-chrome coordination (set by the active view).
   setPageJurisdiction: (name: string | null) => void;
@@ -487,6 +487,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         viewerDistricts: account.viewerDistricts,
         accountHandle: account.handle,
         accountDisplayName: account.displayName,
+        accountBio: account.bio,
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
@@ -620,6 +621,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         viewerDistricts: account.viewerDistricts,
         accountHandle: account.handle,
         accountDisplayName: account.displayName,
+        accountBio: account.bio,
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
@@ -648,8 +650,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         viewerDistricts: [],
         accountHandle: undefined,
         accountDisplayName: undefined,
+        accountBio: undefined,
         authModal: authNone,
         profileOpen: false,
+        editProfileOpen: false,
         passkeys: isMockOnly() ? MOCK_PASSKEYS : [],
       }));
       notify("Signed out.");
@@ -2060,36 +2064,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [notify],
   );
 
-  const openChangeAddress = useCallback(() => {
-    requireAuth(() => set({ addressOpen: true, profileOpen: false }));
+  const openEditProfile = useCallback(() => {
+    requireAuth(() => set({ editProfileOpen: true, profileOpen: false }));
   }, [requireAuth, set]);
 
-  const closeChangeAddress = useCallback(() => set({ addressOpen: false }), [set]);
+  const closeEditProfile = useCallback(() => set({ editProfileOpen: false }), [set]);
 
-  const submitAddress = useCallback(
-    (data: AddressFormData) => {
+  const submitEditProfile = useCallback(
+    (data: EditProfileFormData) => {
       if (isMockOnly()) {
-        closeChangeAddress();
-        notify("Address saved (demo).");
+        set({
+          editProfileOpen: false,
+          accountHandle: data.handle,
+          accountDisplayName: data.displayName || data.handle,
+          accountBio: data.bio,
+        });
+        notify("Profile saved (demo).");
         return;
       }
       void patchProfile({
-        line1: data.line1,
-        city: data.city,
-        province: data.province,
-        postalCode: data.postalCode,
-        country: data.country,
+        handle: data.handle,
+        displayName: data.displayName || data.handle,
+        bio: data.bio,
       })
-        .then(() => attestResidency())
         .then(() => fetchAccountContext())
         .then((account) => {
           if (account) applyAccount(account);
-          closeChangeAddress();
-          notify("Address saved — residency verification updated.");
+          closeEditProfile();
+          notify("Profile saved.");
         })
         .catch((e: Error) => notify(e.message));
     },
-    [applyAccount, closeChangeAddress, notify],
+    [applyAccount, closeEditProfile, notify, set],
   );
 
   // Comments/reactions are never ledger-final, so a jurisdiction never forces
@@ -2265,9 +2271,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     recordShare,
     hydrateRecordState,
     setThreadVisibility,
-    openChangeAddress,
-    closeChangeAddress,
-    submitAddress,
+    openEditProfile,
+    closeEditProfile,
+    submitEditProfile,
     setPageJurisdiction,
     setPostDistricts,
     notify,

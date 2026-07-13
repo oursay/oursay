@@ -10,8 +10,6 @@ export const DEFERRED_PASSKEY_RECOVERY =
 
 export const DEFERRED_LEGAL = (label: string) => `${label} is not available yet.`;
 
-export const DEFERRED_EDIT_PROFILE = "Edit Profile is not available yet.";
-
 export const DEFERRED_JURISDICTIONS_SETTINGS =
   "Use the jurisdiction selector in the header to add or remove jurisdictions.";
 

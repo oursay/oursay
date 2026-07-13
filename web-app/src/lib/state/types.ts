@@ -86,6 +86,8 @@ export interface AppState {
   accountHandle?: string;
   /** Live-session display name from `/v1/profile`. */
   accountDisplayName?: string;
+  /** Live-session bio from `/v1/profile` (`profile_details`). */
+  accountBio?: string;
   /** Account-default profile visibility (persisted; docs/09 cascade base). */
   accountVisibility: AuthorVisibility;
   /** Enrolled account-login passkeys (live API or mock wireframe). */
@@ -156,8 +158,8 @@ export interface AppState {
   /** Server-reported share totals (live mode; keyed by shareKey). */
   shareCounts: Record<string, number>;
 
-  // Address editor (live settings).
-  addressOpen: boolean;
+  // Edit Profile modal (handle / display name / bio).
+  editProfileOpen: boolean;
   replyOpen: boolean;
 
   // View coordination (set by the active view for the shared chrome).

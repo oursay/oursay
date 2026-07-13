@@ -29,7 +29,7 @@ import type { ProfileRoleTag } from "@/lib/types";
 import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
 import { useApp, useHydrateRecordState } from "@/lib/state";
 import { isMockOnly } from "@/lib/api/client";
-import { DEFERRED_EDIT_HISTORY, DEFERRED_EDIT_PROFILE, DEFERRED_MENTIONS } from "@/lib/api/deferred";
+import { DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
 
 type Tab = "posts" | "activity" | "mentions";
 
@@ -201,7 +201,7 @@ export function ProfileView({
               size="sm"
               variant="outline"
               icon={Pencil}
-              onClick={() => app.notify(isMockOnly() ? "Edit Profile is not built in this demo." : DEFERRED_EDIT_PROFILE)}
+              onClick={() => app.openEditProfile()}
             >
               Edit Profile
             </Button>

@@ -10,12 +10,12 @@ import {
   AppHeader,
   AuthChooser,
   Avatar,
-  ChangeAddressModal,
   ChooseSignModal,
   ComposeFlow,
   DemoBanner,
   DonationBanner,
   DonationModal,
+  EditProfileModal,
   Fab,
   FilterDropdown,
   JurisdictionSelector,
@@ -47,7 +47,6 @@ import {
 import { isMockOnly } from "@/lib/api/client";
 import { requestLoginOtp, requestRecoveryOtp, requestRegistrationOtp } from "@/lib/api/auth";
 import {
-  DEFERRED_EDIT_PROFILE,
   DEFERRED_JURISDICTIONS_SETTINGS,
   DEFERRED_LEGAL,
   DEFERRED_PASSKEY_RECOVERY,
@@ -68,6 +67,8 @@ import {
   shouldOfferVerifyAsk,
   VERIFY_ASK_DELAY_MS,
 } from "@/lib/kyc/verifyAsk";
+import { tierMatchedVerifyChoice } from "@/lib/kyc/tierUpdate";
+import { MY_HANDLE, MY_NAME } from "@/lib/mock/constants";
 
 type DonationOpen = "public" | "kyc" | null;
 type PendingKyc =
@@ -222,6 +223,22 @@ export function AppShell({ children }: { children: ReactNode }) {
       return;
     }
     void app.startRecoveryKyc();
+  };
+
+  const startVerifyChoice = (choice: VerifyChoice) => {
+    if (SHOW_DONATION_MODAL_KYC) {
+      setPendingKyc({ kind: "verify", choice });
+      setDonationOpen("kyc");
+      return;
+    }
+    void app.chooseVerify(choice);
+  };
+
+  const openTierMatchedUpdate = () => {
+    const choice = tierMatchedVerifyChoice(state.kycTier);
+    if (!choice) return;
+    app.closeProfile();
+    startVerifyChoice(choice);
   };
 
   const resendOtp = () => {
@@ -557,13 +574,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             ? openProfileDonate
             : undefined
         }
+        onTierMatchedUpdate={openTierMatchedUpdate}
         onOpenSetting={(label) => {
-          if (label === "Change Address") {
-            app.openChangeAddress();
-            return;
-          }
           if (label === "Edit Profile") {
-            app.notify(isMockOnly() ? `${label} is not built in this demo.` : DEFERRED_EDIT_PROFILE);
+            app.openEditProfile();
             return;
           }
           if (label === "Jurisdictions") {
@@ -586,12 +600,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         open={state.verifyOpen}
         onClose={app.closeVerify}
         onChoose={(choice) => {
-          if (SHOW_DONATION_MODAL_KYC) {
-            setPendingKyc({ kind: "verify", choice });
-            setDonationOpen("kyc");
-            return;
-          }
-          void app.chooseVerify(choice);
+          startVerifyChoice(choice);
         }}
       />
       <RecoveryKycModal
@@ -681,11 +690,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         }}
       />
 
-      <ChangeAddressModal
-        open={state.addressOpen}
-        onClose={app.closeChangeAddress}
-        onSubmit={app.submitAddress}
-        attestResidency={!isMockOnly()}
+      <EditProfileModal
+        open={state.editProfileOpen}
+        onClose={app.closeEditProfile}
+        initial={{
+          handle: account?.handle ?? (isMockOnly() ? MY_HANDLE : ""),
+          displayName: account?.name ?? (isMockOnly() ? MY_NAME : ""),
+          bio: state.accountBio ?? "",
+        }}
+        onSubmit={app.submitEditProfile}
       />
 
       {state.toast ? (
