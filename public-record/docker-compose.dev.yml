@@ -97,8 +97,10 @@ services:
       EVM_ANCHOR_PRIVATE_KEY: ${EVM_ANCHOR_PRIVATE_KEY:-}
       WORKER_CHAIN_IDS: ${WORKER_CHAIN_IDS:-oursay-global,ab-ca-gov}
     volumes:
-      # Persist anchors on the host (not container-ephemeral).
-      - ./.anchors:/repo/public-record/.anchors
+      # Named volume — not a host bind mount. A local `npm run worker` writing
+      # public-record/.anchors must not poison the container worker (epoch skew → crash loop).
+      # This is a dev only issue — production host can anchor files since live immudb shouldn't skew.
+      - anchors-data:/repo/public-record/.anchors
       - ../evm-anchor/.evm:/repo/evm-anchor/.evm:ro
     restart: unless-stopped
 
@@ -107,3 +109,5 @@ volumes:
     name: oursay_dev_public_record_immudb
   pg-data:
     name: oursay_dev_public_record_pg
+  anchors-data:
+    name: oursay_dev_public_record_anchors
