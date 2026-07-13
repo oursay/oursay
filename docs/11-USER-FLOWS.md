@@ -243,15 +243,16 @@ flowchart TD
 
 **End (success):** Profile shown. Account contact/prefs are private to the owner; KYC text PII stays with the provider; never on the public record.
 
-### 1.8 Update profile prefs  ·  Registered  ·  Partial
+### 1.8 Update profile prefs  ·  Registered  ·  Built
 
-**Entry:** Settings → Profile → "Edit".
+**Entry:** Settings → Profile → "Edit Profile".
 
-1. Edit account prefs (e.g. visibility) — **not** legal name / street address  `[screen: Edit profile]`  `-> PATCH /v1/profile` **(gap: no HTTP route yet — `[mvp-c10c-profile-patch]`)**
-2. Residency address / point refresh comes from KYC re-verify / POA, not a profile address form (`GeocodeService` after seam address intake).
+1. Edit OurSay-owned public identity: handle, display name, bio (not legal name / street address). Change Email and Profile Icon are future (UI present, disabled).  `[screen: Edit Profile]`  `-> PATCH /v1/profile`
+2. Account-default visibility stays under Privacy Settings  `-> PATCH /v1/me/visibility`.
+3. Verification refresh is **not** a street-address form — see 2.1 (Get Verified selector; ID Update / Residency Update shortcut). Private geocode point still comes from POA / residency seam (`GeocodeService`).
 
-**End (success, when shipped):** Prefs updated; district inference still driven by private geocode point from residency.
-**Notes:** Do not reintroduce a user-editable street-address write path on profile.
+**End (success):** Identity fields updated; district inference still driven by private geocode point from residency.
+**Notes:** Do not reintroduce a user-editable street-address write path on profile. Bio / icon live in `users.profile_details` JSONB (HTTP exposes flat `bio`).
 
 ### 1.10 Join / switch jurisdiction (membership)  ·  Registered  ·  Partial  ·  US-SYS-6, US-STR-1
 
@@ -296,20 +297,23 @@ flowchart TD
 
 ### 2.1 Verify identity / residency  ·  Registered → Verified  ·  Built  ·  US-SYS-4
 
-**Entry:** Profile → "Get verified" `[screen: Verify chooser — ID | Residency]`.
+**Entries (same chrome; different purpose):**
 
-1. Soft-ask for optional donation (one-time / recurring) via **GitHub Sponsors** — highly encouraged; skip continues. Same pattern before recovery KYC / re-verify. *(UI seam — see donation handoff.)*
-2. Choose **Verify ID** or **Verify Residency**.
+- **Get Verified** — verification **selector** (upgrade or re-verify). Opens chooser `[screen: Verify chooser — ID | Residency]`.
+- **ID Update / Residency Update** (Account Settings; hidden while unverified) — shortcut equal to Get Verified → the option matching **current tier** (identity → workflow 01; residency+ → POA 02). No chooser. Intended for real changes (e.g. legal name change); does not block re-attesting the same document/address.
+
+1. Soft-ask for optional donation (one-time / recurring) via **GitHub Sponsors** — highly encouraged; skip continues. Same pattern before recovery KYC / re-verify / tier-matched update. *(UI seam — see donation handoff; env-gated.)*
+2. Selector path only: choose **Verify ID** or **Verify Residency**. Shortcut path skips this step.
 3. Run provider flow:
-   - **`KYC_PROVIDER=stub`:** identity via `POST /v1/dev/kyc/attest`; residency via `POST /v1/kyc/residency/attest` (platform geocode).
+   - **`KYC_PROVIDER=stub`:** identity via `POST /v1/dev/kyc/attest`; residency via `POST /v1/kyc/residency/attest` (platform geocode; no street PATCH).
    - **`KYC_PROVIDER=didit`:** `POST /v1/kyc/didit/session` with `workflowKind` `identity` | `poa` → hosted Didit URL → poll/webhook → award tier (`DIDIT_WORKFLOW_ID` / `DIDIT_WORKFLOW_POA`).
 4. Provider returns  `[state: result]`:
    - branch: pass (identity only) → award `identity_verified`; public-record tier link (no PII).
-   - branch: pass (identity + address / POA) → award `residency_verified`; geocode address from seam → store private point; coarse region on attestation optional.
+   - branch: pass (identity + address / POA) → award `residency_verified`; geocode address from seam → store private point (unchanged when location_hash matches); coarse region on attestation optional.
    - branch: fail → `[screen: Verification failed]`, no ledger entry, may retry.
 
 **End (success):** Tier reflected in all subsequent civic actions and count breakdowns.
-**Notes:** Provider is pluggable (stub default; Didit MVP; Equifax / Elections-Alberta future). No PII on ledger. No user payment at the gate. See [DIDIT-KYC-SETUP.md](./DIDIT-KYC-SETUP.md).
+**Notes:** Provider is pluggable (stub default; Didit MVP; Equifax / Elections-Alberta future). No PII on ledger. No user payment at the gate. Street-address modal retired. See [DIDIT-KYC-SETUP.md](./DIDIT-KYC-SETUP.md).
 
 ### 2.2 KYC re-verification during recovery  ·  Verified  ·  Built  ·  US-SYS-5
 
@@ -722,7 +726,7 @@ flowchart TD
 
 All trace to existing tags; **none implemented here** (this is a documentation pass):
 
-- **Profile update HTTP route** — service exists, no `PATCH /v1/profile` (1.8) — `[mvp-c10c-profile-patch]`.
+- **Street-address profile form** — retired; use Get Verified / ID Update / Residency Update (2.1) + KYC seam for point refresh.
 - **Real KYC provider** (Didit) + **recovery re-verify** (2.1, 2.2, 1.5) — `[code-didit-provider]`, `[mvp-c-kyc-provider]`.
 - **Graduation engine** petition→poll auto-start (3.4, US-AB-1) — `[code-jurisdiction-graduation]`.
 - **Per-action gates config** — encodes the resolved eligibility matrices (act / signMin / official for 3.x–4.x), incl. the jurisdiction-residency and official-role gate kinds — `[align-w3-gates-schema]` (absorbs `[code-participation-act-eligibility]`).

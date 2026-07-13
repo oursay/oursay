@@ -200,7 +200,7 @@ npm test -w @oursay/api -- --grep "05 recovery"
 3. Open the returned `url` and complete verification (sandbox credits).
 4. `GET /v1/kyc/didit/session/:sessionId` until `status` is `approved` and `tier` is `identity_verified`.
 5. For Didit residency: `{ "workflowKind": "poa" }` (requires `DIDIT_WORKFLOW_POA`). On Approved, confirm `residency_verified` **and** (when Didit returns coords or a geocodable address) a row in `auth.profile_geocodes` — street text must not appear on `auth.profiles` from this path.
-6. For stub/dev residency without Didit POA: `PATCH /v1/profile` address → `POST /v1/kyc/residency/attest` with `{ "consent": true }`.
+6. For stub/dev residency without Didit POA: ensure a private geocode point exists (e.g. prior registration/dev setup), then `POST /v1/kyc/residency/attest` with `{ "consent": true }`. Do **not** write street address via `PATCH /v1/profile`.
 
 ---
 

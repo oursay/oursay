@@ -131,9 +131,9 @@ resolve participants into geographic [Regions](../docs/REGION-MODEL.md) (point-i
   cleared only when the address drops below the gate or leaves Canada). `auth.profile_geocode_history`
   appends every distinct address→point (deduped by `address_hash`) and is **never deleted** — the basis
   for future "ever in region" filters. A *failed* re-geocode keeps the last-known-good current row.
-- **Re-geocode seam.** `GeocodeService.syncGeocodeForUser(userId)` refreshes the cache from the stored
-  profile when an address changes. (No `PATCH /v1/profile` route yet — the service/repo path exists for
-  follow-on work.)
+- **Re-geocode seam.** `GeocodeService.syncGeocodeForUser(userId)` refreshes the cache from intake
+  (KYC/POA ephemeral address, or legacy profile address columns if still populated). `PATCH /v1/profile`
+  is identity-only (handle / display name / bio) and does **not** accept street address.
 
 **Providers** (`GEOCODE_PROVIDER`, see `.env.example`):
 - `stub` *(default)* — deterministic, offline, no key; resolves only valid Canadian postal codes. Used by

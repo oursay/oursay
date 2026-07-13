@@ -23,11 +23,12 @@ Two users are the same if their `id` (UUID) matches. Primary key: `public.users.
 | Field | Type | Required | Public | Source |
 |-------|------|----------|--------|--------|
 | `id` | UUID | yes | no* | Primary key |
-| `handle` | TEXT | **yes** | scoped | Unique `@username`, collected at registration (NOT NULL target; nullable today — see Gaps). Visible per the account's visibility setting — a private account's handle 404s out-of-scope, it is never null |
-| `display_name` | TEXT | optional at signup | scoped | Public display name. Optional at registration — server fills it from the handle (without `@`) when unfilled, so it is never null on a public surface (NOT NULL target) |
+| `handle` | TEXT | **yes** | scoped | Unique `@username`, collected at registration (NOT NULL). Visible per the account's visibility setting — a private account's handle 404s out-of-scope. Self-updatable via `PATCH /v1/profile` |
+| `display_name` | TEXT | optional at signup | scoped | Public display name. Optional at registration — server fills it from the handle (without `@`) when unfilled. Self-updatable via `PATCH /v1/profile` |
+| `profile_details` | JSONB | yes (default `{}`) | scoped* | Non-indexable presentation: `{ bio?, icon_type? }`. HTTP exposes flat `bio`; `icon_type` (dicebear) reserved until Profile Icon UI ships |
 | `created_at` | TIMESTAMPTZ | yes | no | Account creation |
 
-\* User id is not publicly surfaced; handle/display_name are the public identity.
+\* User id is not publicly surfaced; handle/display_name/bio are the public identity (scoped by visibility). `icon_type` is stored but not yet writable/readable on product PATCH.
 
 ### Derived (not stored on user row)
 
@@ -101,6 +102,6 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 ## Gaps
 
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
-- **handle/display_name NOT NULL migration** — columns are nullable today; target makes `handle` required at registration and `display_name` server-filled from the handle when omitted, with a backfill for existing rows — `[align-w3-gates-schema]`.
-- Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) not built — profile surface must 404 for out-of-scope viewers; the reveal model replaces the old persona `claimed`/`claimed_at` flow.
+- Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) — enforcement on public profile surfaces; reveal model replaces the old persona `claimed`/`claimed_at` flow.
 - **Official role** — platform-assigned, revocable `official` role (on the user/jurisdiction membership) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier.
+- **Profile Icon** — `icon_type` in `profile_details` reserved; Edit Profile UI disabled until dicebear style picker ships.

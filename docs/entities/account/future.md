@@ -36,7 +36,7 @@ Registration requires **email OTP + handle + the over_18 checkbox** only; **disp
 A user ↔ jurisdiction membership table; every account auto-subscribed to **`oursay-global`** at registration. Future: subscription prompts after residency geocode yields a usable point. ([mvp-c10b-membership])
 
 ## Profile PATCH
-`PATCH /v1/profile` for account prefs (e.g. visibility) remains useful. **Do not** use it as a legal-name/street-address write path; residency re-verify / KYC seam supplies address for geocode refresh. ([mvp-c10c-profile-patch] retargeted.)
+`PATCH /v1/profile` updates OurSay-owned public identity: handle, display name, bio (in `users.profile_details` JSONB). **Do not** use it as a legal-name/street-address write path; residency re-verify / KYC seam supplies address for geocode refresh. Visibility stays on `PATCH /v1/me/visibility`. (`[mvp-c10c-profile-patch]` retargeted and shipped for identity fields.)
 
 ## Reveal model (persona → profile)
 Linking a thread persona to a public profile is the **reveal** flow: a **platform reveal** is reversible (off-ledger), an **on-chain reveal** is nuclear (permanent). Replaces the old `claimed`/`claimed_at` columns. Privacy surface defined in [09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md). See also [civic-identity/future.md](../civic-identity/future.md).

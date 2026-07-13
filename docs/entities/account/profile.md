@@ -91,9 +91,8 @@ Public-facing name fields (`handle`, `display_name`) live on [User](./user.md), 
 
 ## Gaps
 
-- **KYC-held text PII / drop name+street columns** — code still has profile name/address fields; target is removal + POA→geocode→point. See [account/future.md](./future.md).
+- **KYC-held text PII / drop name+street columns** — code may still have leftover profile name/address columns; target is removal + POA→geocode→point. Street-address self-service write path retired. See [account/future.md](./future.md).
 - **Age-gate storage drift** — code today stores `auth.profiles.birthdate` (DATE NOT NULL) and computes 18+ at registration (`api/src/helpers/age.ts`). Target stores only `over_18` (boolean; signup checkbox, KYC re-confirms). Tracked as `[code-over-18]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 - **Registration input drift** — `POST /v1/auth/otp/verify` (`profileInputSchema`) today accepts name/address and **requires** `birthdate`; target is handle + `over_18` (+ optional displayName) only — `[align-w3-gates-schema]`.
-- **[mvp-c10c-profile-patch]**: retarget to prefs (not user-edited street address).
-- `visibility` column (account-default author visibility) not in schema yet — [09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md).
+- **`[mvp-c10c-profile-patch]` (shipped retarget):** `PATCH /v1/profile` updates handle / display name / bio (`profile_details`); not street/legal name. Visibility remains `PATCH /v1/me/visibility`. Geocode refresh is KYC/POA-driven only.
 - **Geocode point encryption vs GiST** — open; see [profile-geocode.md](./profile-geocode.md).

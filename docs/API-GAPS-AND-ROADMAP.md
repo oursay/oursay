@@ -79,7 +79,7 @@ membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI s
 |-----|-----|----------------|
 | **`[mvp-c10-multi-jurisdiction]`** | Single `CHAIN_ID` / one `RecordService` chain in API container | Writes and reads should follow each thread’s `audienceScope.jurisdiction`, not only deployment default. Worker already multi-chain. **Foundation = MVP; a populated multi-chain feed is best-effort.** |
 | **`[mvp-c10b-membership]`** | No user ↔ jurisdiction subscription | Glossary: users may belong to multiple jurisdictions. **MVP foundation** — the membership API backs the UI jurisdiction-selector + “my jurisdictions” unified feed even with one active chain. |
-| **`[mvp-c10c-profile-patch]`** | `GeocodeService.syncGeocodeForUser` exists; no `PATCH /v1/profile` | Address changes must refresh geocode cache. |
+| **`[mvp-c10c-profile-patch]`** | ~~no PATCH~~ → **shipped (retargeted):** handle / displayName / bio via `PATCH /v1/profile`; street modal retired; geocode from KYC/POA only | Was address-write + geocode; product path is identity prefs + seam intake. |
 | **`[mvp-c11-ever-in-region]`** | `profile_geocode_history` unused | Optional filter mode (V1): “ever in region” using history ∪ action snapshots (REGION-MODEL). |
 
 ### Trust and formal outcomes (overlap Phase E)

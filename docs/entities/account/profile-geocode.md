@@ -77,7 +77,7 @@ When **no point** can be obtained (no coords and provider returns null / below a
 [history append + cache upsert — store rounded geom only]
 ```
 
-**Primary trigger:** Didit POA Approved (poll + webhook) — ephemeral `poa_parsed_address` / `document_location`; never written onto `auth.profiles`. Registration / `PATCH /v1/profile` may still geocode from stored profile address; that is drift to remove later.
+**Primary trigger:** Didit POA Approved (poll + webhook) — ephemeral `poa_parsed_address` / `document_location`; never written onto `auth.profiles`. `PATCH /v1/profile` no longer accepts street address (identity fields only); registration may still carry legacy address intake until `[align-w3-gates-schema]`.
 
 **POA path:** On every Approved POA, attempt residency → point best-effort. Tier award remains once via `claimAttestation` and must not fail if geocode fails. Provider labels: Didit coords → `didit`; address fallback → `stub` / `geocodio`.
 
