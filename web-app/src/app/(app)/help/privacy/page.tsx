@@ -40,20 +40,39 @@ export default function PrivacyHelpPage() {
           the right to join anonymously.
         </p>
         <p>
-          <strong>If you choose to verify (optional):</strong> your legal name and home address,
-          used to verify identity and residency through our verification provider (Didit) and to
-          infer your home districts from your address. We store the verification outcome (your
-          tier), not your identity documents.
+          <strong>If you choose to verify (optional):</strong> identity and residency checks run
+          through our verification provider, Didit. Didit collects and retains legal name,
+          government-ID data, biometrics needed for the check, proof-of-address documents, and the
+          residential street address string. OurSay does not keep your identity documents or legal
+          name from that flow.
+        </p>
+        <p>
+          <strong>What OurSay stores from verification:</strong> the verification outcome (your
+          tier and provider), session references keyed to your account, an optional coarse region
+          tag (for example a province or country code — never a street), and — when residency
+          verification can resolve a location — a <strong>private geocoded point</strong> used only
+          for district and jurisdiction filters. We may also keep a non-reversible location hash and
+          an append-only history of distinct resolved points for cache invalidation and future
+          &quot;ever in region&quot; features. The street address Didit returns is used ephemerally
+          to build that point (or skipped if it cannot be resolved); it is not written onto your
+          OurSay profile from the Didit residency path.
+        </p>
+        <p>
+          <strong>Demo / older forms:</strong> some registration or profile screens may still accept
+          optional address fields. Those are being retired; they are not required for Didit
+          residency, and they are not how production residency is meant to work.
         </p>
       </HelpSection>
 
       <HelpSection title="What stays private">
         <p>
-          Your legal name, address, email, and verification details are never shown on the public
-          record or to other members. Your district membership is inferred from your address and
-          used only in aggregate or as coarse relations (for example, &quot;same district as
-          you&quot;) — never as a raw address or location. Public surfaces show your handle or a
-          pseudonymous persona, your chosen display name, and your verification tier.
+          Your email, legal name (held by Didit), street address (held by Didit), geocode
+          coordinates, and verification documents are never shown on the public record or to other
+          members. District membership is inferred from your private point and used only in
+          aggregate counts or as coarse relations on read surfaces (for example &quot;same district
+          as you&quot; or &quot;in the affected area&quot;) — never as a raw address, coordinates, or
+          district name list. Public surfaces show your handle or a pseudonymous persona, your
+          chosen display name, and your verification tier.
         </p>
       </HelpSection>
 
@@ -72,9 +91,17 @@ export default function PrivacyHelpPage() {
       <HelpSection title="Why we collect it">
         <p>
           To operate accounts and sessions, to verify identity and residency so counts can be
-          trusted, to compute district-level participation, and to email you one-time codes for
-          registration, login, and recovery. We do not sell personal information and we do not use
-          it for advertising.
+          trusted, to place participation in jurisdiction and district filters without publishing
+          where you live, and to email you one-time codes for registration, login, and recovery. We
+          do not sell personal information and we do not use it for advertising.
+        </p>
+      </HelpSection>
+
+      <HelpSection title="Verification provider">
+        <p>
+          Didit processes verification data under its own terms and privacy policy as our KYC
+          provider. OurSay receives decision outcomes needed to award a tier and, for residency, to
+          derive a private point — not document images or face-match scores for storage.
         </p>
       </HelpSection>
 
@@ -94,7 +121,8 @@ export default function PrivacyHelpPage() {
           <a href={`mailto:${CONTACT_EMAIL}`} className="underline underline-offset-2">
             {CONTACT_EMAIL}
           </a>
-          .
+          . Requests about data Didit holds for verification may also need to go through Didit as
+          that provider&apos;s system of record for legal name, documents, and street address.
         </p>
       </HelpSection>
     </div>
