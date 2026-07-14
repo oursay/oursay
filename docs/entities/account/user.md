@@ -25,10 +25,22 @@ Two users are the same if their `id` (UUID) matches. Primary key: `public.users.
 | `id` | UUID | yes | no* | Primary key |
 | `handle` | TEXT | **yes** | scoped | Unique `@username`, collected at registration (NOT NULL). Visible per the account's visibility setting — a private account's handle 404s out-of-scope. Self-updatable via `PATCH /v1/profile` |
 | `display_name` | TEXT | optional at signup | scoped | Public display name. Optional at registration — server fills it from the handle (without `@`) when unfilled. Self-updatable via `PATCH /v1/profile` |
-| `profile_details` | JSONB | yes (default `{}`) | scoped* | Non-indexable presentation: `{ bio?, icon_type? }`. HTTP exposes flat `bio`; `icon_type` (dicebear) reserved until Profile Icon UI ships |
+| `profile_details` | JSONB | yes (default `{}`) | scoped* | Non-indexable presentation: `{ bio?, icon_type? }`. HTTP exposes flat `bio` + `iconType`. |
 | `created_at` | TIMESTAMPTZ | yes | no | Account creation |
 
-\* User id is not publicly surfaced; handle/display_name/bio are the public identity (scoped by visibility). `icon_type` is stored but not yet writable/readable on product PATCH.
+\* User id is not publicly surfaced; handle/display_name/bio/iconType are the public identity (scoped by visibility).
+
+### `profile_details.icon_type` (DiceBear)
+
+Stored wire keys match `@dicebear/styles/<name>.json`. **Product rules by surface:**
+
+| Surface | Style | Choosable |
+|---------|-------|-----------|
+| Persona (anonymous / persona page) | `initial-face` (hard-wired) | no |
+| Official seat chrome | `disco` (hard-wired) | no |
+| User profile / revealed author | one of the allowlist below | yes via `PATCH /v1/profile` |
+
+**User allowlist (PATCH-able):** `glass` · `rings` · `shape-grid` · `shapes` · `stripes` · `thumbs` · `triangles`. Missing or invalid → treat as **`thumbs`**.
 
 ### Derived (not stored on user row)
 
@@ -104,4 +116,4 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
 - Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) — enforcement on public profile surfaces; reveal model replaces the old persona `claimed`/`claimed_at` flow.
 - **Official role** — platform-assigned, revocable `official` role (on the user/jurisdiction membership) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier.
-- **Profile Icon** — `icon_type` in `profile_details` reserved; Edit Profile UI disabled until dicebear style picker ships.
+- **Profile Icon** — user allowlist chooser ships; personas stay `initial-face`, official seats stay `disco` (not user-pickable).

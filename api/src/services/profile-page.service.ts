@@ -53,6 +53,8 @@ export interface ProfileHeaderDto {
   tier: KycTier;
   official: boolean;
   bio: string;
+  /** DiceBear style id for this account (user allowlist; default thumbs). */
+  iconType: string;
   ageLabel: string;
   support: ProfileSupportDto;
 }
@@ -114,6 +116,7 @@ export class ProfilePageService {
       tier,
       official,
       bio: ctx.bio,
+      iconType: ctx.iconType,
       ageLabel: formatAgeLabel(ctx.createdAt),
       support,
     };
@@ -194,6 +197,7 @@ export class ProfilePageService {
       handleWire: handle.replace(/^@/, ""),
       displayName: displayNameFor(user.handle, user.displayName) ?? handle.replace(/^@/, ""),
       bio: user.bio,
+      iconType: user.iconType,
       createdAt: user.createdAt,
       pubkeys,
     };
@@ -369,6 +373,7 @@ interface ProfileCtx {
   handleWire: string;
   displayName: string;
   bio: string;
+  iconType: string;
   createdAt: string;
   pubkeys: string[];
 }

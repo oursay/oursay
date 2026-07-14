@@ -185,17 +185,18 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     expect(userId).to.be.a("string");
   });
 
-  it("PATCH /v1/profile updates handle, displayName, and bio", async () => {
+  it("PATCH /v1/profile updates handle, displayName, bio, and iconType", async () => {
     const { userId, token } = await fullSessionAccount(w, "patch@example.com");
     const res = await w.app.inject({
       method: "PATCH",
       url: "/v1/profile",
       headers: bearer(token),
-      payload: { displayName: "Pat", bio: "Hello civic world" },
+      payload: { displayName: "Pat", bio: "Hello civic world", iconType: "glass" },
     });
     expect(res.statusCode).to.equal(200, res.body);
     expect(res.json().displayName).to.equal("Pat");
     expect(res.json().bio).to.equal("Hello civic world");
+    expect(res.json().iconType).to.equal("glass");
     expect(res.json().address).to.equal(undefined);
     expect(res.json().firstName).to.equal(undefined);
 
@@ -207,9 +208,22 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     });
     expect(handleRes.statusCode).to.equal(200, handleRes.body);
     expect(handleRes.json().handle).to.equal("pat_civic");
+    expect(handleRes.json().iconType).to.equal("glass");
     const user = await w.services.repos.user.getById(userId);
     expect(user?.handle).to.equal("pat_civic");
     expect(user?.bio).to.equal("Hello civic world");
+    expect(user?.iconType).to.equal("glass");
+  });
+
+  it("PATCH /v1/profile rejects an invalid iconType", async () => {
+    const { token } = await fullSessionAccount(w, "badicon@example.com");
+    const res = await w.app.inject({
+      method: "PATCH",
+      url: "/v1/profile",
+      headers: bearer(token),
+      payload: { iconType: "initial-face" },
+    });
+    expect(res.statusCode).to.equal(400);
   });
 
   it("PATCH /v1/profile rejects a taken handle with 409", async () => {

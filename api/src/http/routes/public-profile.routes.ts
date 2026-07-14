@@ -67,6 +67,7 @@ const profileHeaderSchema = {
     tier: { type: "string", enum: KYC_TIERS },
     official: { type: "boolean" },
     bio: { type: "string" },
+    iconType: { type: "string" },
     ageLabel: { type: "string" },
     support: {
       type: "object",
@@ -79,7 +80,7 @@ const profileHeaderSchema = {
       required: ["agrees", "disagrees", "statements", "comments"],
     },
   },
-  required: ["name", "handle", "role", "roles", "tier", "official", "bio", "ageLabel", "support"],
+  required: ["name", "handle", "role", "roles", "tier", "official", "bio", "iconType", "ageLabel", "support"],
 } as const;
 
 const typesQuery = {

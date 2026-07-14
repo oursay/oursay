@@ -44,6 +44,8 @@ export interface AuthorIdentityDto {
   isPersona: boolean;
   isSelf: boolean;
   seed: string;
+  /** DiceBear style when revealed/self; omitted for personas. */
+  iconType?: string;
   threadId: string;
   seenByOthersAs?: string;
 }
@@ -103,6 +105,7 @@ interface AuthorLink {
 interface AuthorFacts {
   handle: string;
   displayName: string;
+  iconType: string;
   accountVisibility: AuthorVisibility;
   tier: KycTier;
   /** Jurisdiction ids where the author holds the official role. */
@@ -176,6 +179,7 @@ export class ReadResolution {
           isPersona: false,
           isSelf: true,
           seed: facts.handle,
+          iconType: facts.iconType,
           threadId: ctx.threadId,
           ...(effective === "public" ? {} : { seenByOthersAs: link.personaName }),
         },
@@ -190,7 +194,15 @@ export class ReadResolution {
       return {
         author: facts.displayName,
         handle: facts.handle,
-        identity: { display: facts.displayName, handle: facts.handle, isPersona: false, isSelf: false, seed: facts.handle, threadId: ctx.threadId },
+        identity: {
+          display: facts.displayName,
+          handle: facts.handle,
+          isPersona: false,
+          isSelf: false,
+          seed: facts.handle,
+          iconType: facts.iconType,
+          threadId: ctx.threadId,
+        },
         authorGeo,
         tier,
         official,
@@ -381,6 +393,7 @@ export class ReadResolution {
     const facts: AuthorFacts = {
       handle: wireHandle(user?.handle),
       displayName: user?.displayName ?? displayNameFor(user?.handle ?? null, null) ?? "Unknown",
+      iconType: user?.iconType ?? "thumbs",
       accountVisibility: normalizeVisibility(profile?.visibility),
       tier: normalizeTier(tierRaw),
       officialIn,

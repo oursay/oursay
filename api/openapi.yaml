@@ -5713,6 +5713,8 @@ paths:
                     type: boolean
                   bio:
                     type: string
+                  iconType:
+                    type: string
                   ageLabel:
                     type: string
                   support:
@@ -5739,6 +5741,7 @@ paths:
                   - tier
                   - official
                   - bio
+                  - iconType
                   - ageLabel
                   - support
         "404":
@@ -7395,6 +7398,16 @@ paths:
                       - string
                   bio:
                     type: string
+                  iconType:
+                    type: string
+                    enum:
+                      - glass
+                      - rings
+                      - shape-grid
+                      - shapes
+                      - stripes
+                      - thumbs
+                      - triangles
                   email:
                     type: string
                   over18:
@@ -7416,6 +7429,7 @@ paths:
                   - over18
                   - visibility
                   - bio
+                  - iconType
         "401":
           description: Default Response
           content:
@@ -7477,8 +7491,8 @@ paths:
                 required:
                   - error
     patch:
-      summary: Update handle, display name, and/or bio (not legal name or street
-        address)
+      summary: Update handle, display name, bio, and/or icon type (not legal name or
+        street address)
       tags:
         - profile
       requestBody:
@@ -7499,6 +7513,16 @@ paths:
                 bio:
                   type: string
                   maxLength: 280
+                iconType:
+                  type: string
+                  enum:
+                    - glass
+                    - rings
+                    - shape-grid
+                    - shapes
+                    - stripes
+                    - thumbs
+                    - triangles
               additionalProperties: false
       security: *a1
       responses:
@@ -7522,6 +7546,16 @@ paths:
                       - string
                   bio:
                     type: string
+                  iconType:
+                    type: string
+                    enum:
+                      - glass
+                      - rings
+                      - shape-grid
+                      - shapes
+                      - stripes
+                      - thumbs
+                      - triangles
                   email:
                     type: string
                   over18:
@@ -7543,6 +7577,7 @@ paths:
                   - over18
                   - visibility
                   - bio
+                  - iconType
         "401":
           description: Default Response
           content:

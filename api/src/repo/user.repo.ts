@@ -6,6 +6,7 @@
 
 import type pg from "pg";
 import { displayNameFor, normalizeHandle, requireValidHandle } from "../helpers/handle.js";
+import { normalizeUserIconType, type UserIconType } from "../helpers/icon-type.js";
 
 export interface UserProfileDetails {
   bio?: string;
@@ -19,6 +20,8 @@ export interface UserRecord {
   displayName: string;
   /** Flat bio from profile_details (defaults to ""). */
   bio: string;
+  /** DiceBear style for user profiles (allowlist; default thumbs). */
+  iconType: UserIconType;
   /** Raw profile_details blob (for merge writes). */
   profileDetails: UserProfileDetails;
   createdAt: string;
@@ -98,6 +101,21 @@ export class UserRepo {
     );
   }
 
+  /** Merge `icon_type` into profile_details without wiping bio. Caller must pass an allowlisted value. */
+  async setIconType(id: string, iconType: UserIconType): Promise<void> {
+    await this.pool.query(
+      `UPDATE public.users
+       SET profile_details = jsonb_set(
+         COALESCE(profile_details, '{}'::jsonb),
+         '{icon_type}',
+         to_jsonb($2::text),
+         true
+       )
+       WHERE id = $1`,
+      [id, iconType],
+    );
+  }
+
   /** Remove an account row (used to roll back a half-built registration). */
   async delete(id: string): Promise<void> {
     await this.pool.query(`DELETE FROM public.users WHERE id = $1`, [id]);
@@ -113,6 +131,7 @@ function map(r: any): UserRecord {
     handle: r.handle,
     displayName: displayNameFor(r.handle, r.display_name) ?? r.handle,
     bio: typeof details.bio === "string" ? details.bio : "",
+    iconType: normalizeUserIconType(details.icon_type),
     profileDetails: details,
     createdAt: r.created_at.toISOString?.() ?? String(r.created_at),
   };
