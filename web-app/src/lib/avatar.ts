@@ -1,6 +1,5 @@
 import { Avatar, Style } from "@dicebear/core";
 import disco from "@dicebear/styles/disco.json";
-import glass from "@dicebear/styles/glass.json";
 import initialFace from "@dicebear/styles/initial-face.json";
 import rings from "@dicebear/styles/rings.json";
 import shapeGrid from "@dicebear/styles/shape-grid.json";
@@ -19,12 +18,11 @@ export const PERSONA_ICON_TYPE = "initial-face" as const;
 export const OFFICIAL_SEAT_ICON_TYPE = "disco" as const;
 
 export const USER_ICON_TYPES = [
-  "glass",
+  "thumbs",
   "rings",
   "shape-grid",
   "shapes",
   "stripes",
-  "thumbs",
   "triangles",
 ] as const;
 
@@ -36,7 +34,6 @@ export const DEFAULT_USER_ICON_TYPE: UserIconType = "thumbs";
 const STYLE_DEFS: Record<IconType, unknown> = {
   "initial-face": initialFace,
   disco,
-  glass,
   rings,
   "shape-grid": shapeGrid,
   shapes,

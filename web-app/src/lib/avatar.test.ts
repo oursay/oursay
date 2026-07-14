@@ -26,8 +26,8 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
   });
 
   it("different styles produce different URIs for the same seed", () => {
-    const a = avatarDataUri("alex_morgan", "glass");
-    const b = avatarDataUri("alex_morgan", "rings");
+    const a = avatarDataUri("alex_morgan", "rings");
+    const b = avatarDataUri("alex_morgan", "stripes");
     expect(a).not.toBe(b);
   });
 
@@ -38,9 +38,10 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
     expect(avatarDataUri("seat", OFFICIAL_SEAT_ICON_TYPE).startsWith("data:")).toBe(true);
   });
 
-  it("user allowlist has seven choosable styles", () => {
-    expect(USER_ICON_TYPES).toHaveLength(7);
-    expect(USER_ICON_TYPES).toContain("thumbs");
+  it("user allowlist has six choosable styles with thumbs first", () => {
+    expect(USER_ICON_TYPES).toHaveLength(6);
+    expect(USER_ICON_TYPES[0]).toBe("thumbs");
+    expect(USER_ICON_TYPES).not.toContain("glass");
     expect(USER_ICON_TYPES).not.toContain("initial-face");
     expect(USER_ICON_TYPES).not.toContain("disco");
   });

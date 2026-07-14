@@ -40,7 +40,7 @@ Stored wire keys match `@dicebear/styles/<name>.json`. **Product rules by surfac
 | Official seat chrome | `disco` (hard-wired) | no |
 | User profile / revealed author | one of the allowlist below | yes via `PATCH /v1/profile` |
 
-**User allowlist (PATCH-able):** `glass` · `rings` · `shape-grid` · `shapes` · `stripes` · `thumbs` · `triangles`. Missing or invalid → treat as **`thumbs`**.
+**User allowlist (PATCH-able):** `thumbs` · `rings` · `shape-grid` · `shapes` · `stripes` · `triangles`. Missing or invalid → treat as **`thumbs`**.
 
 ### Derived (not stored on user row)
 

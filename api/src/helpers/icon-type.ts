@@ -2,12 +2,11 @@
 // Personas hard-wire initial-face; official seats hard-wire disco — not PATCHable here.
 
 export const USER_ICON_TYPES = [
-  "glass",
+  "thumbs",
   "rings",
   "shape-grid",
   "shapes",
   "stripes",
-  "thumbs",
   "triangles",
 ] as const;
 

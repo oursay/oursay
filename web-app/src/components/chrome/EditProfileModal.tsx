@@ -29,12 +29,11 @@ interface EditProfileModalProps {
 const BIO_MAX = 280;
 
 const STYLE_LABELS: Record<UserIconType, string> = {
-  glass: "Glass",
+  thumbs: "Thumbs",
   rings: "Rings",
   "shape-grid": "Shape Grid",
   shapes: "Shapes",
   stripes: "Stripes",
-  thumbs: "Thumbs",
   triangles: "Triangles",
 };
 
@@ -106,7 +105,7 @@ export function EditProfileModal({
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
             Profile Icon
           </p>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+          <div className="grid grid-cols-3 gap-3">
             {USER_ICON_TYPES.map((style) => {
               const selected = style === iconType;
               return (
@@ -117,19 +116,27 @@ export function EditProfileModal({
                   aria-label={STYLE_LABELS[style]}
                   aria-pressed={selected}
                   onClick={() => setIconType(style)}
-                  className={`flex flex-col items-center gap-1 rounded-lg border p-1.5 ${
-                    selected
-                      ? "border-brand-500 bg-brand-100"
-                      : "border-border bg-surface-muted hover:border-brand-300"
-                  }`}
+                  className="flex flex-col items-center gap-1"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- static data URI */}
-                  <img
-                    src={avatarDataUri(previewSeed, style)}
-                    alt=""
-                    className="size-10 rounded-full"
-                  />
-                  <span className="w-full truncate text-center text-[9px] text-muted">
+                  <span
+                    className={`inline-flex size-12 items-center justify-center overflow-hidden rounded-full ${
+                      selected
+                        ? "border-3 border-brand-500"
+                        : "border-2 border-border hover:border-brand-300"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element -- static data URI */}
+                    <img
+                      src={avatarDataUri(previewSeed, style)}
+                      alt=""
+                      className="size-full rounded-full"
+                    />
+                  </span>
+                  <span
+                    className={`w-full truncate text-center text-[9px] ${
+                      selected ? "font-medium text-ink" : "text-muted"
+                    }`}
+                  >
                     {STYLE_LABELS[style]}
                   </span>
                 </button>

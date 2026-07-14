@@ -191,12 +191,12 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
       method: "PATCH",
       url: "/v1/profile",
       headers: bearer(token),
-      payload: { displayName: "Pat", bio: "Hello civic world", iconType: "glass" },
+      payload: { displayName: "Pat", bio: "Hello civic world", iconType: "rings" },
     });
     expect(res.statusCode).to.equal(200, res.body);
     expect(res.json().displayName).to.equal("Pat");
     expect(res.json().bio).to.equal("Hello civic world");
-    expect(res.json().iconType).to.equal("glass");
+    expect(res.json().iconType).to.equal("rings");
     expect(res.json().address).to.equal(undefined);
     expect(res.json().firstName).to.equal(undefined);
 
@@ -208,11 +208,11 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     });
     expect(handleRes.statusCode).to.equal(200, handleRes.body);
     expect(handleRes.json().handle).to.equal("pat_civic");
-    expect(handleRes.json().iconType).to.equal("glass");
+    expect(handleRes.json().iconType).to.equal("rings");
     const user = await w.services.repos.user.getById(userId);
     expect(user?.handle).to.equal("pat_civic");
     expect(user?.bio).to.equal("Hello civic world");
-    expect(user?.iconType).to.equal("glass");
+    expect(user?.iconType).to.equal("rings");
   });
 
   it("PATCH /v1/profile rejects an invalid iconType", async () => {
