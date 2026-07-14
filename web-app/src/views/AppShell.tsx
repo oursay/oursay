@@ -46,6 +46,7 @@ import {
 } from "@/lib/routes";
 import { isMockOnly } from "@/lib/api/client";
 import { requestLoginOtp, requestRecoveryOtp, requestRegistrationOtp } from "@/lib/api/auth";
+import { loadRegistrationDraft, registrationProfileForApi } from "@/lib/state/registration-draft";
 import {
   DEFERRED_JURISDICTIONS_SETTINGS,
   DEFERRED_LEGAL,
@@ -84,6 +85,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const otpEmailParam = searchParams.get("otpEmail");
+  const otpPurposeParam = searchParams.get("otpPurpose");
   const handledOtpEmailRef = useRef<string | null>(null);
   const view = viewFromPathname(pathname);
   const account = accountIdentity(state);
@@ -266,7 +268,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           app.notify("A new sign-in code has been sent — check API server console in dev.");
           return;
         }
-        await requestRegistrationOtp(email);
+        const draft = loadRegistrationDraft();
+        const profile =
+          draft?.email?.trim().toLowerCase() === email.toLowerCase() && draft.handle?.trim()
+            ? registrationProfileForApi(draft)
+            : undefined;
+        await requestRegistrationOtp(email, profile);
         app.notify("A new verification code has been sent — check API server console in dev.");
       } catch (e: unknown) {
         const msg =
@@ -285,20 +292,26 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.title = `OurSay — ${title}`;
   }, [title]);
 
-  // Deep-link: valid `?otpEmail=...` opens Verify Your Email; invalid opens login with prefill.
+  // Deep-link: `?otpEmail=` (+ optional `otpPurpose=registration`) opens Verify Your Email.
   useEffect(() => {
     if (!otpEmailParam) return;
     if (state.loggedIn) return;
-    if (handledOtpEmailRef.current === otpEmailParam) return;
+    const handledKey = `${otpPurposeParam ?? "login"}:${otpEmailParam}`;
+    if (handledOtpEmailRef.current === handledKey) return;
 
-    handledOtpEmailRef.current = otpEmailParam;
-    app.openLoginOtpWindowByEmail(otpEmailParam);
+    handledOtpEmailRef.current = handledKey;
+    if (otpPurposeParam === "registration") {
+      app.openRegistrationOtpByEmail(otpEmailParam);
+    } else {
+      app.openLoginOtpWindowByEmail(otpEmailParam);
+    }
 
     const next = new URLSearchParams(searchParams.toString());
     next.delete("otpEmail");
+    next.delete("otpPurpose");
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
-  }, [otpEmailParam, pathname, router, searchParams, state.loggedIn, app]);
+  }, [otpEmailParam, otpPurposeParam, pathname, router, searchParams, state.loggedIn, app]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== "development") return;

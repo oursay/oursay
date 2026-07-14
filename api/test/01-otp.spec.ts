@@ -11,12 +11,18 @@ describe("01 otp: request, verify, attempts, expiry", () => {
   });
 
   it("emails a code that verifies once", async () => {
-    await w.services.otpService.request({ emailRaw: "Alice@example.com", purpose: "registration", ip: "1.2.3.4" });
+    await w.services.otpService.request({
+      emailRaw: "Alice@example.com",
+      purpose: "registration",
+      ip: "1.2.3.4",
+      registrationDraft: { handle: "alice", over18: true },
+    });
     const code = codeFromLastMail(w.mail);
     expect(code).to.match(/^\d{6}$/);
 
     const verified = await w.services.otpService.verify({ emailRaw: "alice@example.com", code, purpose: "registration" });
     expect(verified.emailCanonical).to.equal("alice@example.com");
+    expect(verified.registrationDraft?.handle).to.equal("alice");
 
     // A consumed code cannot be reused.
     await expectServiceError(
@@ -26,7 +32,11 @@ describe("01 otp: request, verify, attempts, expiry", () => {
   });
 
   it("rejects a wrong code and locks out after too many attempts", async () => {
-    await w.services.otpService.request({ emailRaw: "bob@example.com", purpose: "registration" });
+    await w.services.otpService.request({
+      emailRaw: "bob@example.com",
+      purpose: "registration",
+      registrationDraft: { handle: "bob", over18: true },
+    });
     for (let i = 0; i < otpConfig.maxAttempts; i++) {
       await expectServiceError(
         () => w.services.otpService.verify({ emailRaw: "bob@example.com", code: "000000", purpose: "registration" }),
@@ -49,7 +59,11 @@ describe("01 otp: request, verify, attempts, expiry", () => {
       pepper: sessionConfig.secret,
       now: () => new Date(Date.now() - (otpConfig.ttlSec + 60) * 1000),
     });
-    await past.request({ emailRaw: "carol@example.com", purpose: "registration" });
+    await past.request({
+      emailRaw: "carol@example.com",
+      purpose: "registration",
+      registrationDraft: { handle: "carol", over18: true },
+    });
     const code = codeFromLastMail(w.mail);
     await expectServiceError(
       () => w.services.otpService.verify({ emailRaw: "carol@example.com", code, purpose: "registration" }),

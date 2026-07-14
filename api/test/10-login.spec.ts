@@ -18,12 +18,15 @@ async function registerWithPasskey(
   w: World,
   email: string,
 ): Promise<{ userId: string; token: string; auth: SoftAuthenticator }> {
-  await w.services.otpService.request({ emailRaw: email, purpose: "registration" });
+  const handle = `lt${email.split("@")[0]!.replace(/[^a-z0-9]/gi, "")}`.slice(0, 30);
+  await w.services.registrationService.requestOtp({
+    emailRaw: email,
+    profile: { handle, over18: true },
+  });
   const code = codeFromLastMail(w.mail, email);
   const reg = await w.services.registrationService.registerWithOtp({
     emailRaw: email,
     code,
-    profile: { handle: `@lt${email.split("@")[0]!.replace(/[^a-z0-9]/gi, "")}`, over18: true },
   });
   const auth = new SoftAuthenticator(webauthnConfig.rpID, webauthnConfig.origin);
   const opts = await w.services.passkeyService.registerOptions({

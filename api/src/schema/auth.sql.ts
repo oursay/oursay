@@ -148,12 +148,25 @@ CREATE TABLE IF NOT EXISTS auth.email_otp (
   attempts        INT  NOT NULL DEFAULT 0,
   expires_at      TIMESTAMPTZ NOT NULL,
   consumed_at     TIMESTAMPTZ,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Registration draft: handle hold + profile captured at OTP request (cross-session verify).
+  reserved_handle TEXT,
+  profile_json    JSONB
 );
 CREATE INDEX IF NOT EXISTS email_otp_lookup ON auth.email_otp (email_canonical, purpose);
 -- Widen the purpose CHECK on a persistent dev DB created before 'login' existed.
 ALTER TABLE auth.email_otp DROP CONSTRAINT IF EXISTS email_otp_purpose_check;
 ALTER TABLE auth.email_otp ADD CONSTRAINT email_otp_purpose_check CHECK (purpose IN ('registration','recovery','login'));
+-- Idempotent columns for persistent DBs created before registration drafts existed.
+ALTER TABLE auth.email_otp ADD COLUMN IF NOT EXISTS reserved_handle TEXT;
+ALTER TABLE auth.email_otp ADD COLUMN IF NOT EXISTS profile_json JSONB;
+-- One active (unconsumed) registration hold per handle. Expired rows are released via
+-- consumeExpiredRegistrationHolds before a new request contends for the name.
+CREATE UNIQUE INDEX IF NOT EXISTS email_otp_reserved_handle_active
+  ON auth.email_otp (reserved_handle)
+  WHERE purpose = 'registration'
+    AND consumed_at IS NULL
+    AND reserved_handle IS NOT NULL;
 
 -- Rolling-window rate-limit counters, keyed by bucket (e.g. "email:<canonical>" / "ip:<addr>").
 -- Enforced in OtpService so the CLI/service path is throttled too, not just HTTP.

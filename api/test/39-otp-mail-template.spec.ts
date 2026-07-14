@@ -1,6 +1,7 @@
 import { expect } from "chai";
 import {
   buildOtpMailTemplate,
+  otpContinueUrl,
   otpLoginContinueUrl,
 } from "../src/services/mailer/otp-mail-template.js";
 
@@ -45,5 +46,12 @@ describe("39 otp mail template", () => {
   it("builds a login deep-link that carries otpEmail", () => {
     const url = otpLoginContinueUrl("http://localhost:3000", "Alice@Example.com");
     expect(url).to.equal("http://localhost:3000/?otpEmail=Alice%40Example.com");
+  });
+
+  it("builds a registration deep-link with otpPurpose", () => {
+    const url = otpContinueUrl("http://localhost:3000", "new@example.com", "registration");
+    expect(url).to.equal(
+      "http://localhost:3000/?otpEmail=new%40example.com&otpPurpose=registration",
+    );
   });
 });

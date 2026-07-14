@@ -73,14 +73,34 @@ export interface VerifyRecoveryResult {
   session: SessionInfo;
 }
 
-export async function requestRegistrationOtp(email: string): Promise<void> {
-  await apiPost("/v1/auth/otp/request", { email, purpose: "registration" });
+/** Request a registration OTP. Pass `profile` on first request; omit on resend to reuse the server draft. */
+export async function requestRegistrationOtp(
+  email: string,
+  profile?: RegistrationProfile,
+): Promise<void> {
+  await apiPost("/v1/auth/otp/request", {
+    email,
+    purpose: "registration",
+    ...(profile
+      ? {
+          profile: {
+            handle: profile.handle.trim(),
+            over18: profile.over18 !== false,
+            ...(profile.displayName?.trim() ? { displayName: profile.displayName.trim() } : {}),
+            ...(profile.firstName?.trim() ? { firstName: profile.firstName.trim() } : {}),
+            ...(profile.lastName?.trim() ? { lastName: profile.lastName.trim() } : {}),
+            ...(profile.address ? { address: profile.address } : {}),
+          },
+        }
+      : {}),
+  });
 }
 
+/** Verify registration OTP. `profile` optional when a server draft was stored at request time. */
 export async function verifyRegistrationOtp(
   email: string,
   code: string,
-  profile: RegistrationProfile,
+  profile?: RegistrationProfile,
 ): Promise<VerifyRegistrationResult> {
   const body = await apiPost<{
     userId: string;
@@ -88,14 +108,18 @@ export async function verifyRegistrationOtp(
   }>("/v1/auth/otp/verify", {
     email,
     code,
-    profile: {
-      handle: profile.handle.trim(),
-      over18: profile.over18 !== false,
-      ...(profile.displayName?.trim() ? { displayName: profile.displayName.trim() } : {}),
-      ...(profile.firstName?.trim() ? { firstName: profile.firstName.trim() } : {}),
-      ...(profile.lastName?.trim() ? { lastName: profile.lastName.trim() } : {}),
-      ...(profile.address ? { address: profile.address } : {}),
-    },
+    ...(profile
+      ? {
+          profile: {
+            handle: profile.handle.trim(),
+            over18: profile.over18 !== false,
+            ...(profile.displayName?.trim() ? { displayName: profile.displayName.trim() } : {}),
+            ...(profile.firstName?.trim() ? { firstName: profile.firstName.trim() } : {}),
+            ...(profile.lastName?.trim() ? { lastName: profile.lastName.trim() } : {}),
+            ...(profile.address ? { address: profile.address } : {}),
+          },
+        }
+      : {}),
   });
   if (!body) throw new Error("OTP verify returned empty body");
   return { userId: body.userId, session: body.session };

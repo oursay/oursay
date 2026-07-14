@@ -336,6 +336,8 @@ export interface AppApi {
   loginPasskey: () => void;
   loginVerifyEmail: (email: string) => void;
   openLoginOtpWindowByEmail: (email: string) => void;
+  /** Deep-link into registration OTP (server already holds the draft). */
+  openRegistrationOtpByEmail: (email: string) => void;
   toggleLoginOtpWindow: () => void;
   recover: () => void;
   submitRecovery: (data?: { email: string }) => void;
@@ -1152,7 +1154,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const payload = { ...data, handle: normalized };
       authDraftRef.current = payload;
       saveRegistrationDraft(payload);
-      void requestRegistrationOtp(payload.email)
+      void requestRegistrationOtp(payload.email, registrationProfileForApi(payload))
         .then(() => {
           set({ authModal: authOtp("registration", payload.email) });
           notify("Code sent — check the API server console in dev.");
@@ -1302,31 +1304,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Registration OTP path:
+      // Registration OTP path. Prefer local draft; otherwise verify with email+code only
+      // (server draft from OTP request — cross-session deep-link).
       if (isMockOnly()) {
         demoLogin();
         return;
       }
       const draft = authDraftRef.current ?? loadRegistrationDraft();
-      if (!draft?.email?.trim() || !draft.handle?.trim()) {
+      const modalEmail =
+        state.authModal.kind === "otp" ? state.authModal.email?.trim() : undefined;
+      const email = draft?.email?.trim() || modalEmail;
+      if (!email) {
         notify("Registration data was lost — close this dialog and register again.");
         return;
       }
-      const handleErr = handleValidationError(draft.handle);
-      if (handleErr) {
-        clearRegistrationDraft();
-        notify(`${handleErr} Go back and register with a valid handle.`);
-        set({ authModal: authRegister });
-        return;
+      if (draft?.handle?.trim()) {
+        const handleErr = handleValidationError(draft.handle);
+        if (handleErr) {
+          clearRegistrationDraft();
+          notify(`${handleErr} Go back and register with a valid handle.`);
+          set({ authModal: authRegister });
+          return;
+        }
+        authDraftRef.current = draft;
       }
-      authDraftRef.current = draft;
 
       void (async () => {
         try {
           const reg = await verifyRegistrationOtp(
-            draft.email.trim(),
+            email,
             code,
-            registrationProfileForApi(draft),
+            draft?.handle?.trim() ? registrationProfileForApi(draft) : undefined,
           );
           clearRegistrationDraft();
           userIdRef.current = reg.userId;
@@ -1375,6 +1383,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     (email: string) => {
       const trimmed = email.trim();
       set({ authModal: authLoginByEmail(trimmed, isValidEmailFormat(trimmed)) });
+    },
+    [set],
+  );
+  const openRegistrationOtpByEmail = useCallback(
+    (email: string) => {
+      const trimmed = email.trim();
+      if (!isValidEmailFormat(trimmed)) {
+        set({ authModal: authRegister });
+        return;
+      }
+      set({ authModal: authOtp("registration", trimmed) });
     },
     [set],
   );
@@ -2238,6 +2257,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loginPasskey,
     loginVerifyEmail,
     openLoginOtpWindowByEmail,
+    openRegistrationOtpByEmail,
     toggleLoginOtpWindow,
     recover,
     submitRecovery,

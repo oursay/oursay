@@ -15,10 +15,11 @@ let emailSeq = 0;
 
 async function register(w: World, address: Record<string, unknown> | undefined): Promise<RegisterResult> {
   const email = `geo${emailSeq++}@example.com`;
+  const profile = { handle: `@geo${emailSeq}`, over18: true as const, ...(address ? { address } : {}) };
   const reqRes = await w.app.inject({
     method: "POST",
     url: "/v1/auth/otp/request",
-    payload: { email, purpose: "registration" },
+    payload: { email, purpose: "registration", profile },
   });
   expect(reqRes.statusCode).to.equal(202);
   const code = codeFromLastMail(w.mail, email);
@@ -26,7 +27,7 @@ async function register(w: World, address: Record<string, unknown> | undefined):
   const res = await w.app.inject({
     method: "POST",
     url: "/v1/auth/otp/verify",
-    payload: { email, code, profile: { handle: `@geo${emailSeq}`, over18: true, ...(address ? { address } : {}) } },
+    payload: { email, code, profile },
   });
   expect(res.statusCode).to.equal(201);
   const body = res.json();

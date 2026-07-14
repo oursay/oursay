@@ -161,7 +161,15 @@ $("saveProfile").addEventListener("click", () => {
 
 // ── 2 · Request registration OTP ─────────────────────────────────────────────
 $("requestOtp").addEventListener("click", async () => {
-  const r = await api("POST", "/v1/auth/otp/request", { email: state.email, purpose: "registration" });
+  if (!state.profile?.handle) {
+    badge("otp", "err", "need profile");
+    return show("otp", "Save a profile (handle + over-18) in step 1 before requesting a code.");
+  }
+  const r = await api("POST", "/v1/auth/otp/request", {
+    email: state.email,
+    purpose: "registration",
+    profile: state.profile,
+  });
   if (!r.ok) {
     badge("otp", "err", `error ${r.status}`);
     show("otp", r.body ?? `HTTP ${r.status}`);

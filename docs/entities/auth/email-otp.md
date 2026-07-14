@@ -30,6 +30,8 @@ Primary key: `auth.email_otp.id` (UUID). Active OTP: `consumed_at IS NULL` AND `
 | `expires_at` | TIMESTAMPTZ | yes | no | TTL bound |
 | `consumed_at` | TIMESTAMPTZ | no | no | One-time use |
 | `created_at` | TIMESTAMPTZ | yes | no | |
+| `reserved_handle` | TEXT | no | no | Registration handle hold (OTP TTL) |
+| `profile_json` | JSONB | no | no | Registration draft at request |
 
 ### OtpPurpose
 
@@ -69,6 +71,7 @@ Login purpose: active `login` OTP row **is** the login enable window (TTL = `OTP
 - Consumed once per successful verify.
 - `login` OTP requests are silent no-ops when enable window closed.
 - Rate limiting via `auth.otp_rate_limits`.
+- Registration: `reserved_handle` is unique among unconsumed registration rows; expire-and-release before competing claims. Verify may omit `profile` when `profile_json` is present.
 
 ## Permissions
 

@@ -15,7 +15,10 @@ export function registerRegistrationRoutes(app: FastifyInstance, services: Servi
       config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
       schema: {
         tags: ["auth"],
-        summary: "Verify a registration code with a profile body to create the account",
+        summary: "Verify a registration code to create the account",
+        description:
+          "`profile` is optional when a draft was stored at OTP request (cross-session). " +
+          "When provided, it overrides the draft for account creation.",
         body: {
           type: "object",
           properties: {
@@ -23,7 +26,7 @@ export function registerRegistrationRoutes(app: FastifyInstance, services: Servi
             code: { type: "string", minLength: 1 },
             profile: profileInputSchema,
           },
-          required: ["email", "code", "profile"],
+          required: ["email", "code"],
           additionalProperties: false,
         },
         response: {
@@ -43,7 +46,7 @@ export function registerRegistrationRoutes(app: FastifyInstance, services: Servi
       const body = req.body as {
         email: string;
         code: string;
-        profile: {
+        profile?: {
           handle: string;
           displayName?: string;
           over18: boolean;
@@ -55,7 +58,7 @@ export function registerRegistrationRoutes(app: FastifyInstance, services: Servi
       const result = await services.registrationService.registerWithOtp({
         emailRaw: body.email,
         code: body.code,
-        profile: body.profile,
+        profile: body.profile ?? null,
         userAgent: req.headers["user-agent"] ?? null,
       });
       setSessionCookie(reply, result.session.token, result.session.expiresAt);

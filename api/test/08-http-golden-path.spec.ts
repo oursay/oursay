@@ -30,7 +30,11 @@ describe("08 golden path: HTTP register → enroll → logout → login → prof
     const auth = newAuthenticator();
 
     // 1. Request a registration code, then verify it with the slim profile → LIMITED enroll-only session.
-    const req = await w.app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { email, purpose: "registration" } });
+    const req = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: { email, purpose: "registration", profile: { handle: "@golden", over18: true } },
+    });
     expect(req.statusCode).to.equal(202);
     const code = codeFromLastMail(w.mail, email);
 
@@ -91,7 +95,11 @@ describe("08 golden path: HTTP register → enroll → logout → login → prof
   it("authenticates GET /v1/auth/session with the cookie alone (no Authorization header)", async () => {
     const email = "cookie@example.com";
 
-    const req = await w.app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { email, purpose: "registration" } });
+    const req = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: { email, purpose: "registration", profile: { handle: "@cookie", over18: true } },
+    });
     expect(req.statusCode).to.equal(202);
     const code = codeFromLastMail(w.mail, email);
 

@@ -1,16 +1,17 @@
 // OtpService: issue + verify email one-time codes, with hashing, rate limiting, and pluggable
 // mailing. Codes are generated here, hashed before storage, and emailed via the role-based mailer.
 // The plaintext code is held only long enough to send it — never persisted, returned, or logged.
+// Registration requests may attach reserved_handle + profile_json for cross-session verify.
 
 import { randomUUID } from "node:crypto";
 import type { OtpConfig } from "../config.js";
 import { ServiceError, systemNow, type Now } from "../errors.js";
 import { expiryFrom, generateOtp, hashOtp, hexEqual, newOtpSalt } from "../helpers/otp.js";
 import { isPlausibleEmail, normalizeEmail } from "../helpers/email.js";
-import type { OtpPurpose, OtpRepo } from "../repo/otp.repo.js";
+import type { OtpPurpose, OtpRepo, RegistrationOtpDraft } from "../repo/otp.repo.js";
 import type { RateLimitRepo } from "../repo/ratelimit.repo.js";
 import type { MailerService, MailRole } from "./mailer/mailer.js";
-import { buildOtpMailTemplate, otpLoginContinueUrl } from "./mailer/otp-mail-template.js";
+import { buildOtpMailTemplate, otpContinueUrl } from "./mailer/otp-mail-template.js";
 
 export interface OtpServiceDeps {
   otpRepo: OtpRepo;
@@ -20,8 +21,8 @@ export interface OtpServiceDeps {
   /** Server-side pepper (sessionConfig.secret). */
   pepper: string;
   /**
-   * Public web-app origin used to build login OTP deep-links (`?otpEmail=`).
-   * Defaults to WEBAUTHN_ORIGIN when omitted. Leave unset/empty to omit the link.
+   * Public web-app origin used to build OTP deep-links (`?otpEmail=` / `otpPurpose=`).
+   * Leave unset/empty to omit the link.
    */
   appOrigin?: string;
   now?: Now;
@@ -30,11 +31,21 @@ export interface OtpServiceDeps {
 export interface VerifiedEmail {
   email: string;
   emailCanonical: string;
+  /** Registration draft captured at OTP request (when present). */
+  registrationDraft?: RegistrationOtpDraft | null;
 }
 
 /** Result of issuing an OTP. `expiresAt` is ISO-8601 (UTC) — the code is invalid after this instant. */
 export interface OtpRequestResult extends VerifiedEmail {
   expiresAt: string;
+}
+
+export interface OtpRequestInput {
+  emailRaw: string;
+  purpose: OtpPurpose;
+  ip?: string | null;
+  /** Required for registration when no prior active draft exists for this email. */
+  registrationDraft?: RegistrationOtpDraft | null;
 }
 
 const ROLE: Record<OtpPurpose, MailRole> = {
@@ -50,7 +61,7 @@ export class OtpService {
   }
 
   /** Generate, store (hashed), and email a code. Rate-limited per email and per IP. */
-  async request(input: { emailRaw: string; purpose: OtpPurpose; ip?: string | null }): Promise<OtpRequestResult> {
+  async request(input: OtpRequestInput): Promise<OtpRequestResult> {
     if (!isPlausibleEmail(input.emailRaw)) {
       throw new ServiceError("validation", "A valid email address is required");
     }
@@ -58,6 +69,14 @@ export class OtpService {
     const now = this.now();
 
     await this.enforceRateLimit(canonical, input.ip ?? null, now);
+
+    const draft =
+      input.purpose === "registration" ? (input.registrationDraft ?? null) : null;
+    const reservedHandle = draft?.handle ?? null;
+
+    if (input.purpose === "registration" && (!draft || !reservedHandle)) {
+      throw new ServiceError("validation", "A registration profile is required to request a code");
+    }
 
     const code = generateOtp(this.d.config.length);
     const salt = newOtpSalt();
@@ -72,12 +91,14 @@ export class OtpService {
       salt,
       purpose: input.purpose,
       expiresAt,
+      reservedHandle,
+      profileJson: draft,
     });
 
     const minutes = Math.round(this.d.config.ttlSec / 60);
     const continueUrl =
-      input.purpose === "login" && this.d.appOrigin
-        ? otpLoginContinueUrl(this.d.appOrigin, email)
+      this.d.appOrigin && (input.purpose === "login" || input.purpose === "registration")
+        ? otpContinueUrl(this.d.appOrigin, email, input.purpose)
         : undefined;
     const mail = buildOtpMailTemplate({
       purpose: input.purpose,
@@ -101,6 +122,21 @@ export class OtpService {
     return (await this.d.otpRepo.getLatestActive(emailCanonical, purpose)) != null;
   }
 
+  /** Peek the latest active OTP without consuming it (e.g. to read a registration draft). */
+  async peekActive(emailCanonical: string, purpose: OtpPurpose) {
+    return this.d.otpRepo.getLatestActive(emailCanonical, purpose);
+  }
+
+  /** Release expired registration handle holds (call before contending for a reserved handle). */
+  async releaseExpiredRegistrationHolds(): Promise<void> {
+    await this.d.otpRepo.consumeExpiredRegistrationHolds();
+  }
+
+  /** Email holding an active registration reservation for this wire handle, if any. */
+  async activeRegistrationHolder(reservedHandle: string): Promise<string | null> {
+    return this.d.otpRepo.getActiveRegistrationHolder(reservedHandle);
+  }
+
   /** Verify a presented code; consumes it on success. Throws on invalid/expired/too-many-attempts. */
   async verify(input: { emailRaw: string; code: string; purpose: OtpPurpose }): Promise<VerifiedEmail> {
     const { email, canonical } = normalizeEmail(input.emailRaw);
@@ -119,7 +155,11 @@ export class OtpService {
     }
 
     await this.d.otpRepo.consume(rec.id);
-    return { email, emailCanonical: canonical };
+    return {
+      email,
+      emailCanonical: canonical,
+      registrationDraft: rec.profileJson,
+    };
   }
 
   private async enforceRateLimit(emailCanonical: string, ip: string | null, now: Date): Promise<void> {

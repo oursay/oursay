@@ -1,9 +1,24 @@
 import { expect } from "chai";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 
-async function requestCode(w: World, email: string): Promise<string> {
-  const res = await w.app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { email, purpose: "registration" } });
-  expect(res.statusCode).to.equal(202);
+async function requestCode(
+  w: World,
+  email: string,
+  profile: { handle: string; over18?: boolean; displayName?: string } = {
+    handle: `@${email.split("@")[0]!.replace(/[^a-z0-9_-]/gi, "").slice(0, 24) || "user"}`,
+    over18: true,
+  },
+): Promise<string> {
+  const res = await w.app.inject({
+    method: "POST",
+    url: "/v1/auth/otp/request",
+    payload: {
+      email,
+      purpose: "registration",
+      profile: { over18: true, ...profile },
+    },
+  });
+  expect(res.statusCode, res.body).to.equal(202);
   const body = res.json() as { status: string; expiresAt?: string };
   expect(body.expiresAt).to.be.a("string");
   expect(new Date(body.expiresAt!).getTime()).to.be.greaterThan(Date.now());
@@ -18,7 +33,7 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
 
   it("registers with the least-resistance profile (handle + over-18) and returns a 'registration' session", async () => {
     const email = "newuser@example.com";
-    const code = await requestCode(w, email);
+    const code = await requestCode(w, email, { handle: "@newuser" });
     const res = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
@@ -62,31 +77,78 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
     expect(memberships.map((m) => m.jurisdictionId)).to.deep.equal(["oursay-global"]);
   });
 
-  it("accepts optional PII behind the helper (name + address normalized onto the private profile)", async () => {
-    const email = "eager@example.com";
-    const code = await requestCode(w, email);
+  it("verifies with email+code only when a server draft was stored at request", async () => {
+    const email = "cross.session@example.com";
+    const code = await requestCode(w, email, { handle: "@crosssession", displayName: "Cross Session" });
     const res = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
+      payload: { email, code },
+    });
+    expect(res.statusCode, res.body).to.equal(201);
+    const user = await w.services.repos.user.getById(res.json().userId);
+    expect(user?.handle).to.equal("crosssession");
+    expect(user?.displayName).to.equal("Cross Session");
+  });
+
+  it("409s when a second email tries to reserve a handle held by an active registration OTP", async () => {
+    await requestCode(w, "first.hold@example.com", { handle: "@heldname" });
+    const second = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
       payload: {
-        email,
-        code,
-        profile: {
-          handle: "@eager",
-          displayName: "Eager Beaver",
-          over18: true,
-          firstName: "New",
-          lastName: "User",
-          address: { province: "AB", postalCode: "t2p1h9", country: "ca" },
-        },
+        email: "second.hold@example.com",
+        purpose: "registration",
+        profile: { handle: "@heldname", over18: true },
       },
     });
+    expect(second.statusCode).to.equal(409);
+    expect(second.json().error.code).to.equal("handle_taken");
+  });
+
+  it("resend without profile reuses the active draft for the same email", async () => {
+    const email = "resend.draft@example.com";
+    await requestCode(w, email, { handle: "@resenddraft" });
+    w.mail.clear();
+    const resend = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: { email, purpose: "registration" },
+    });
+    expect(resend.statusCode, resend.body).to.equal(202);
+    const code = codeFromLastMail(w.mail, email);
+    const verify = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email, code },
+    });
+    expect(verify.statusCode, verify.body).to.equal(201);
+    const user = await w.services.repos.user.getById(verify.json().userId);
+    expect(user?.handle).to.equal("resenddraft");
+  });
+
+  it("accepts optional PII behind the helper (name + address normalized onto the private profile)", async () => {
+    const email = "eager@example.com";
+    const profile = {
+      handle: "@eager",
+      displayName: "Eager Beaver",
+      over18: true,
+      firstName: "New",
+      lastName: "User",
+      address: { province: "AB", postalCode: "t2p1h9", country: "ca" },
+    };
+    const code = await requestCode(w, email, profile);
+    const res = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email, code, profile },
+    });
     expect(res.statusCode).to.equal(201);
-    const profile = await w.services.repos.profile.getByUserId(res.json().userId);
-    expect(profile?.postalCode).to.equal("T2P 1H9");
-    expect(profile?.province).to.equal("AB");
-    expect(profile?.firstName).to.equal("New");
-    expect(profile?.lastName).to.equal("User");
+    const priv = await w.services.repos.profile.getByUserId(res.json().userId);
+    expect(priv?.postalCode).to.equal("T2P 1H9");
+    expect(priv?.province).to.equal("AB");
+    expect(priv?.firstName).to.equal("New");
+    expect(priv?.lastName).to.equal("User");
     const user = await w.services.repos.user.getById(res.json().userId);
     expect(user?.displayName).to.equal("Eager Beaver");
   });
@@ -113,7 +175,7 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
   });
 
   it("409s a handle that is already taken", async () => {
-    const code1 = await requestCode(w, "first-handle@example.com");
+    const code1 = await requestCode(w, "first-handle@example.com", { handle: "@taken" });
     const first = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
@@ -133,7 +195,7 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
 
   it("rejects a registrant who does not attest to being 18+", async () => {
     const email = "kid@example.com";
-    const code = await requestCode(w, email);
+    const code = await requestCode(w, email, { handle: "@tooyoung" });
     const res = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
@@ -145,7 +207,7 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
 
   it("409s an already-registered email at otp/request (no wasted code)", async () => {
     const email = "dupe@example.com";
-    const code = await requestCode(w, email);
+    const code = await requestCode(w, email, { handle: "@dupe" });
     const first = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/verify",
@@ -155,7 +217,11 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
 
     // A second registration code for the same email is refused up front — no code is emailed.
     w.mail.clear();
-    const second = await w.app.inject({ method: "POST", url: "/v1/auth/otp/request", payload: { email, purpose: "registration" } });
+    const second = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: { email, purpose: "registration", profile: { handle: "@dupe2", over18: true } },
+    });
     expect(second.statusCode).to.equal(409);
     expect(second.json().error.code).to.equal("email_taken");
     expect(w.mail.outbox).to.have.length(0);
@@ -163,7 +229,7 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
 
   it("does not burn the OTP when registration fails the age gate", async () => {
     const email = "retry@example.com";
-    const code = await requestCode(w, email);
+    const code = await requestCode(w, email, { handle: "@retry" });
 
     // First attempt fails the age gate (403) — the code must survive.
     const unattested = await w.app.inject({
@@ -182,10 +248,24 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
     expect(ok.statusCode).to.equal(201);
   });
 
-  it("rejects a missing profile via schema validation", async () => {
-    const email = "noprofile@example.com";
-    const code = await requestCode(w, email);
-    const res = await w.app.inject({ method: "POST", url: "/v1/auth/otp/verify", payload: { email, code } });
+  it("rejects verify without profile when no server draft exists", async () => {
+    const email = "nodraft@example.com";
+    const res = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/verify",
+      payload: { email, code: "000000" },
+    });
     expect(res.statusCode).to.equal(400);
+    expect(res.json().error.code).to.equal("validation");
+  });
+
+  it("rejects otp/request without a profile when no prior draft exists", async () => {
+    const res = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: { email: "noprofile-req@example.com", purpose: "registration" },
+    });
+    expect(res.statusCode).to.equal(400);
+    expect(res.json().error.code).to.equal("validation");
   });
 });

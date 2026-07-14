@@ -18,7 +18,16 @@ const COMMANDS: Record<string, { help: string; run: Handler }> = {
     // how a real client obtains a login code (use `enable-login`/the enable endpoint for that).
     run: async (s, [email, purpose = "registration"]) => {
       if (!email) throw new Error("email is required");
-      await s.otpService.request({ emailRaw: email, purpose: purpose as "registration" | "recovery" | "login", ip: null });
+      const p = purpose as "registration" | "recovery" | "login";
+      const local = email.split("@")[0]?.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 20) || "testuser";
+      await s.otpService.request({
+        emailRaw: email,
+        purpose: p,
+        ip: null,
+        ...(p === "registration"
+          ? { registrationDraft: { handle: `cli${local}`.slice(0, 30), over18: true } }
+          : {}),
+      });
       console.log(`Queued ${purpose} OTP for ${email} (check the mailer; codes are never printed).`);
     },
   },

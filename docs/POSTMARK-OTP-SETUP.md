@@ -63,7 +63,7 @@ The adapter sends on the default transactional stream **`outbound`**. No extra P
 
 - **Activity** — confirm delivery and diagnose bounces.
 - **Webhooks** — delivery / bounce / spam-complaint handlers (not required to send OTP).
-- **Templates** — OTP uses an in-app template (`api/src/services/mailer/otp-mail-template.ts`) that produces `subject` / `text` / `html` for every vendor (Postmark, SMTP, SES, noop). Postmark hosted Templates are not required; the adapter forwards `HtmlBody` when `html` is set. Login mails also include a `?otpEmail=` deep-link built from `WEBAUTHN_ORIGIN`.
+- **Templates** — OTP uses an in-app template (`api/src/services/mailer/otp-mail-template.ts`) that produces `subject` / `text` / `html` for every vendor (Postmark, SMTP, SES, noop). Postmark hosted Templates are not required; the adapter forwards `HtmlBody` when `html` is set. Login and registration mails include a continue deep-link from `WEBAUTHN_ORIGIN` (`?otpEmail=`; registration also sets `otpPurpose=registration`). Registration drafts + handle holds live on `auth.email_otp`.
 
 ## 2. Configure `@oursay/api` for production
 

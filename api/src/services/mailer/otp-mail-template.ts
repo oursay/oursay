@@ -10,8 +10,8 @@ export interface OtpMailTemplateInput {
   /** Whole minutes shown in copy (rounded by the caller). */
   expiresInMinutes: number;
   /**
-   * Absolute URL that opens the web app on the OTP entry screen.
-   * Only the login flow supports `?otpEmail=` today; omit for other purposes.
+   * Absolute URL that opens the web app on the OTP entry screen
+   * (`?otpEmail=` and optional `otpPurpose=`).
    */
   continueUrl?: string;
 }
@@ -40,12 +40,27 @@ const COPY: Record<OtpPurpose, { subject: string; label: string; intro: string }
   },
 };
 
-/** Build login deep-link: `/?otpEmail=` opens Verify Your Email when the address is valid. */
-export function otpLoginContinueUrl(appOrigin: string, email: string): string {
+/**
+ * Build OTP deep-link. Login: `?otpEmail=`. Registration: also sets `otpPurpose=registration`
+ * so the client opens the registration verify screen (not gated login).
+ */
+export function otpContinueUrl(
+  appOrigin: string,
+  email: string,
+  purpose: OtpPurpose = "login",
+): string {
   const base = appOrigin.replace(/\/+$/, "");
   const url = new URL(base.endsWith("/") ? base : `${base}/`);
   url.searchParams.set("otpEmail", email);
+  if (purpose === "registration") {
+    url.searchParams.set("otpPurpose", "registration");
+  }
   return url.toString();
+}
+
+/** @deprecated Prefer otpContinueUrl — kept for call-site clarity in login-only paths. */
+export function otpLoginContinueUrl(appOrigin: string, email: string): string {
+  return otpContinueUrl(appOrigin, email, "login");
 }
 
 export function buildOtpMailTemplate(input: OtpMailTemplateInput): OtpMailTemplate {

@@ -10,7 +10,7 @@
 import type { FastifyInstance } from "fastify";
 import type { OtpRequestResult } from "../../services/otp.service.js";
 import type { Services } from "../../container.js";
-import { errorSchema, otpSentResponseSchema } from "../schemas.js";
+import { errorSchema, otpSentResponseSchema, profileInputSchema } from "../schemas.js";
 
 type OtpPurpose = "registration" | "recovery" | "login";
 
@@ -26,11 +26,16 @@ export function registerOtpRoutes(app: FastifyInstance, services: Services): voi
       schema: {
         tags: ["auth"],
         summary: "Request an email one-time code (registration, recovery, or gated login)",
+        description:
+          "For purpose=registration, include `profile` (handle + over18) to reserve the handle and " +
+          "enable cross-session verify with email+code only. Omitting profile on resend reuses the " +
+          "active draft for that email when present.",
         body: {
           type: "object",
           properties: {
             email: { type: "string", format: "email" },
             purpose: { type: "string", enum: ["registration", "recovery", "login"], default: "registration" },
+            profile: profileInputSchema,
           },
           required: ["email"],
           additionalProperties: false,
@@ -38,20 +43,36 @@ export function registerOtpRoutes(app: FastifyInstance, services: Services): voi
         response: {
           202: otpSentResponseSchema,
           400: errorSchema,
+          403: errorSchema,
           409: errorSchema,
           429: errorSchema,
         },
       },
     },
     async (req, reply) => {
-      const { email, purpose = "registration" } = req.body as { email: string; purpose?: OtpPurpose };
+      const { email, purpose = "registration", profile } = req.body as {
+        email: string;
+        purpose?: OtpPurpose;
+        profile?: {
+          handle: string;
+          displayName?: string;
+          over18: boolean;
+          firstName?: string;
+          lastName?: string;
+          address?: Record<string, string>;
+        };
+      };
       let result: OtpRequestResult | null;
       if (purpose === "recovery") {
         result = await services.recoveryService.requestRecovery({ emailRaw: email, ip: req.ip });
       } else if (purpose === "login") {
         result = await services.loginService.requestLoginOtp({ emailRaw: email, ip: req.ip });
       } else {
-        result = await services.registrationService.requestOtp({ emailRaw: email, ip: req.ip });
+        result = await services.registrationService.requestOtp({
+          emailRaw: email,
+          ip: req.ip,
+          profile: profile ?? null,
+        });
       }
       if (process.env.NODE_ENV !== "production") {
         if (result) {

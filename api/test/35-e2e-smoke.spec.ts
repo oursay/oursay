@@ -91,7 +91,7 @@ describe("35 e2e smoke: the full civic journey over the live HTTP surface", func
     const req = await w.app.inject({
       method: "POST",
       url: "/v1/auth/otp/request",
-      payload: { email, purpose: "registration" },
+      payload: { email, purpose: "registration", profile: { handle, over18: true } },
     });
     expect(req.statusCode).to.equal(202);
     const code = codeFromLastMail(w.mail, email);

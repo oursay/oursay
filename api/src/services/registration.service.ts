@@ -4,9 +4,10 @@
 // subsequent passkey enrollment + passkey login.
 //
 // Required at registration: email (OTP-verified), a unique @handle, and the self-attested over-18
-// checkbox. Optional behind a helper: display name (falls back to the handle), legal name, and
-// address — the KYC step collects whatever is missing before ID/residency verification. No date of
-// birth is collected or stored ([code-over-18]). Every account is auto-subscribed to oursay-global.
+// checkbox. The profile is captured at OTP *request* (server-side draft on auth.email_otp) so verify
+// can complete from another browser with only email + code. Optional PII behind a helper: display
+// name, legal name, and address. No date of birth ([code-over-18]). Every account is auto-subscribed
+// to oursay-global.
 
 import { randomUUID } from "node:crypto";
 import type { RegistrationConfig } from "../config.js";
@@ -15,6 +16,7 @@ import { normalizeAddress } from "../helpers/address.js";
 import { normalizeEmail } from "../helpers/email.js";
 import { isValidHandle, normalizeHandle } from "../helpers/handle.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
+import type { RegistrationOtpDraft } from "../repo/otp.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import type { AuthService, IssuedSession } from "./auth.service.js";
@@ -49,7 +51,8 @@ export interface RegistrationProfileInput {
 export interface RegisterInput {
   emailRaw: string;
   code: string;
-  profile: RegistrationProfileInput;
+  /** Optional when a registration draft was stored on the OTP at request time. */
+  profile?: RegistrationProfileInput | null;
   userAgent?: string | null;
 }
 
@@ -73,10 +76,16 @@ export interface RegistrationServiceDeps {
 export class RegistrationService {
   constructor(private readonly d: RegistrationServiceDeps) {}
 
-  /** Request a registration OTP, rejecting up front if the email is already registered so we don't
-   *  burn a code on an address that can't complete registration. (Registration is not enumeration-
-   *  sensitive like recovery — an existing account is surfaced directly.) */
-  async requestOtp(input: { emailRaw: string; ip?: string | null }): Promise<OtpRequestResult> {
+  /**
+   * Request a registration OTP with a profile draft. The handle is reserved for the OTP TTL so
+   * another registrant cannot take it mid-flow. Rejects up front if the email is already registered.
+   * Resend without a profile reuses the active draft for this email when present.
+   */
+  async requestOtp(input: {
+    emailRaw: string;
+    ip?: string | null;
+    profile?: RegistrationProfileInput | null;
+  }): Promise<OtpRequestResult> {
     const { canonical } = normalizeEmail(input.emailRaw);
     if (await this.d.profileRepo.getByEmailCanonical(canonical)) {
       throw new ServiceError(
@@ -84,27 +93,65 @@ export class RegistrationService {
         "An account already exists for this email — sign in with your passkey, or use account recovery if you've lost access",
       );
     }
-    return this.d.otpService.request({ emailRaw: input.emailRaw, purpose: "registration", ip: input.ip ?? null });
+
+    await this.d.otpService.releaseExpiredRegistrationHolds();
+
+    let profileInput = input.profile ?? null;
+    if (!profileInput) {
+      const active = await this.d.otpService.peekActive(canonical, "registration");
+      if (active?.profileJson) {
+        profileInput = active.profileJson;
+      }
+    }
+    if (!profileInput) {
+      throw new ServiceError("validation", "A registration profile is required to request a code");
+    }
+
+    const draft = this.toDraft(profileInput, { requireOver18: true });
+    await this.assertHandleAvailable(draft.handle, canonical);
+
+    return this.d.otpService.request({
+      emailRaw: input.emailRaw,
+      purpose: "registration",
+      ip: input.ip ?? null,
+      registrationDraft: draft,
+    });
   }
 
   async registerWithOtp(input: RegisterInput): Promise<RegisterResult> {
-    // Validate the request fully BEFORE consuming the OTP, so a 409/403 never burns a valid code.
-    const handle = normalizeHandle(input.profile?.handle);
+    // Resolve profile from the body or the active OTP draft BEFORE consuming the code, so a
+    // 409/403 never burns a valid OTP.
+    const { canonical } = normalizeEmail(input.emailRaw);
+    const active = await this.d.otpService.peekActive(canonical, "registration");
+    const profileInput = input.profile ?? active?.profileJson ?? null;
+    if (!profileInput) {
+      throw new ServiceError(
+        "validation",
+        "A registration profile is required (submit one with the code, or request a code with a profile first)",
+      );
+    }
+
+    const handle = normalizeHandle(profileInput.handle);
     if (!handle) throw new ServiceError("validation", "A handle (@username) is required");
     if (!isValidHandle(handle)) {
       throw new ServiceError("validation", "Handle must use letters, digits, hyphens, and underscores only");
     }
+    if (profileInput.over18 !== true) {
+      throw new ServiceError(
+        "age_restricted",
+        `You must confirm you are at least ${this.d.config.minAgeYears} to register`,
+      );
+    }
+
     if (await this.d.userRepo.handleExists(handle)) {
       throw new ServiceError("handle_taken", "That handle is already taken");
     }
-    const displayName = input.profile?.displayName?.trim() || null;
-
-    // Age gate (docs/01 §4.3, [code-over-18]): a self-attested checkbox — no DOB is collected.
-    if (input.profile?.over18 !== true) {
-      throw new ServiceError("age_restricted", `You must confirm you are at least ${this.d.config.minAgeYears} to register`);
+    await this.d.otpService.releaseExpiredRegistrationHolds();
+    const holder = await this.d.otpService.activeRegistrationHolder(handle);
+    if (holder && holder !== canonical) {
+      throw new ServiceError("handle_taken", "That handle is already taken");
     }
 
-    const { canonical } = normalizeEmail(input.emailRaw);
     if (await this.d.profileRepo.getByEmailCanonical(canonical)) {
       throw new ServiceError(
         "email_taken",
@@ -119,9 +166,10 @@ export class RegistrationService {
       purpose: "registration",
     });
 
-    const addr = normalizeAddress(input.profile.address ?? {});
-    const firstName = input.profile?.firstName?.trim() || null;
-    const lastName = input.profile?.lastName?.trim() || null;
+    const displayName = profileInput.displayName?.trim() || null;
+    const addr = normalizeAddress(profileInput.address ?? {});
+    const firstName = profileInput.firstName?.trim() || null;
+    const lastName = profileInput.lastName?.trim() || null;
     const userId = randomUUID();
 
     await this.d.userRepo.create({ id: userId, handle, displayName });
@@ -157,5 +205,44 @@ export class RegistrationService {
     // a full session ([code-registration-scope]).
     const session = await this.d.authService.issue(userId, "registration", input.userAgent ?? null);
     return { userId, session };
+  }
+
+  private async assertHandleAvailable(handle: string, emailCanonical: string): Promise<void> {
+    if (await this.d.userRepo.handleExists(handle)) {
+      throw new ServiceError("handle_taken", "That handle is already taken");
+    }
+    const holder = await this.d.otpService.activeRegistrationHolder(handle);
+    if (holder && holder !== emailCanonical) {
+      throw new ServiceError("handle_taken", "That handle is already taken");
+    }
+  }
+
+  private toDraft(
+    profile: RegistrationProfileInput,
+    opts: { requireOver18: boolean },
+  ): RegistrationOtpDraft {
+    const handle = normalizeHandle(profile.handle);
+    if (!handle) throw new ServiceError("validation", "A handle (@username) is required");
+    if (!isValidHandle(handle)) {
+      throw new ServiceError("validation", "Handle must use letters, digits, hyphens, and underscores only");
+    }
+    if (opts.requireOver18 && profile.over18 !== true) {
+      throw new ServiceError(
+        "age_restricted",
+        `You must confirm you are at least ${this.d.config.minAgeYears} to register`,
+      );
+    }
+    const draft: RegistrationOtpDraft = {
+      handle,
+      over18: profile.over18 === true,
+    };
+    const displayName = profile.displayName?.trim();
+    if (displayName) draft.displayName = displayName;
+    const firstName = profile.firstName?.trim();
+    if (firstName) draft.firstName = firstName;
+    const lastName = profile.lastName?.trim();
+    if (lastName) draft.lastName = lastName;
+    if (profile.address) draft.address = profile.address;
+    return draft;
   }
 }
