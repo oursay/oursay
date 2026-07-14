@@ -10,6 +10,7 @@ import { isPlausibleEmail, normalizeEmail } from "../helpers/email.js";
 import type { OtpPurpose, OtpRepo } from "../repo/otp.repo.js";
 import type { RateLimitRepo } from "../repo/ratelimit.repo.js";
 import type { MailerService, MailRole } from "./mailer/mailer.js";
+import { buildOtpMailTemplate, otpLoginContinueUrl } from "./mailer/otp-mail-template.js";
 
 export interface OtpServiceDeps {
   otpRepo: OtpRepo;
@@ -18,6 +19,11 @@ export interface OtpServiceDeps {
   config: OtpConfig;
   /** Server-side pepper (sessionConfig.secret). */
   pepper: string;
+  /**
+   * Public web-app origin used to build login OTP deep-links (`?otpEmail=`).
+   * Defaults to WEBAUTHN_ORIGIN when omitted. Leave unset/empty to omit the link.
+   */
+  appOrigin?: string;
   now?: Now;
 }
 
@@ -35,13 +41,6 @@ const ROLE: Record<OtpPurpose, MailRole> = {
   registration: "registration",
   recovery: "recovery",
   login: "login",
-};
-
-// Per-purpose mail copy. `label` slots into the subject and body sentence.
-const MAIL_COPY: Record<OtpPurpose, { subject: string; label: string }> = {
-  registration: { subject: "Your OurSay verification code", label: "verification" },
-  recovery: { subject: "Your OurSay recovery code", label: "recovery" },
-  login: { subject: "Your OurSay sign-in code", label: "sign-in" },
 };
 
 export class OtpService {
@@ -76,13 +75,21 @@ export class OtpService {
     });
 
     const minutes = Math.round(this.d.config.ttlSec / 60);
-    const copy = MAIL_COPY[input.purpose];
+    const continueUrl =
+      input.purpose === "login" && this.d.appOrigin
+        ? otpLoginContinueUrl(this.d.appOrigin, email)
+        : undefined;
+    const mail = buildOtpMailTemplate({
+      purpose: input.purpose,
+      code,
+      expiresInMinutes: minutes,
+      continueUrl,
+    });
     await this.d.mailer.send(ROLE[input.purpose], {
       to: email,
-      subject: copy.subject,
-      text:
-        `Your OurSay ${copy.label} code is:\n\n` +
-        `${code}\n\nIt expires in ${minutes} minutes. If you didn't request this, you can ignore this email.`,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
     });
 
     return { email, emailCanonical: canonical, expiresAt: expiresAt.toISOString() };

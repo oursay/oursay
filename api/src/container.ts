@@ -25,6 +25,7 @@ import {
   pgConfig,
   registrationConfig,
   sessionConfig,
+  webauthnConfig,
   type KycConfig,
   type MailerVendor,
 } from "./config.js";
@@ -208,6 +209,8 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     mailer,
     config: otpConfig,
     pepper: sessionConfig.secret,
+    // Same public origin the passkey ceremony uses — login OTP mails deep-link with ?otpEmail=.
+    appOrigin: webauthnConfig.origin,
     now,
   });
   // Geocoding: pluggable provider (stub by default) + best-effort service over the cache/history repo.

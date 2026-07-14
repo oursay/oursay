@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mailerConfig } from "../src/config.js";
 import { deliverPostmarkEmail } from "../src/services/mailer/adapters/postmark.js";
+import { buildOtpMailTemplate } from "../src/services/mailer/otp-mail-template.js";
 
 const TEST_EMAIL = "test.walk1@oursay.ca";
 const OUTPUT_DIR = join(dirname(fileURLToPath(import.meta.url)), ".output");
@@ -34,24 +35,25 @@ describe("32 postmark: live OTP email smoke", function () {
   });
 
   it("sends a test OTP-style email via Postmark and records the result", async function () {
-    const subject = "Your OurSay verification code";
-    const text =
-      "Your OurSay verification code is:\n\n" +
-      "123456\n\n" +
-      "It expires in 10 minutes. If you didn't request this, you can ignore this email.";
+    const mail = buildOtpMailTemplate({
+      purpose: "registration",
+      code: "123456",
+      expiresInMinutes: 10,
+    });
 
     const startedAt = new Date().toISOString();
     const messageId = await deliverPostmarkEmail(mailerConfig.from, mailerConfig.postmark.token, {
       to: TEST_EMAIL,
-      subject,
-      text,
+      subject: mail.subject,
+      text: mail.text,
+      html: mail.html,
     });
 
     const artifact = {
       sentAt: startedAt,
       to: TEST_EMAIL,
       from: mailerConfig.from,
-      subject,
+      subject: mail.subject,
       vendor: "postmark",
       messageId,
       messageStream: "outbound",

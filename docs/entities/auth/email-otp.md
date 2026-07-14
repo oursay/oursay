@@ -96,7 +96,7 @@ Login purpose: active `login` OTP row **is** the login enable window (TTL = `OTP
 | Repo | `api/src/repo/otp.repo.ts` |
 | Service | `api/src/services/otp.service.ts` |
 | Rate limit | `api/src/repo/ratelimit.repo.ts` |
-| Mailer | `api/src/services/mailer/` (Postmark: [`docs/POSTMARK-OTP-SETUP.md`](../../POSTMARK-OTP-SETUP.md)) |
+| Mailer | `api/src/services/mailer/` (template: `otp-mail-template.ts`; Postmark: [`docs/POSTMARK-OTP-SETUP.md`](../../POSTMARK-OTP-SETUP.md)) |
 | Routes | `registration.routes.ts`, `recovery.routes.ts`, `login.routes.ts`, `otp.routes.ts` |
 
 ## Gaps
