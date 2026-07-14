@@ -99,6 +99,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     const svc = seeder(w);
     const author = await makeAccount(w, { handle: "@jane", displayName: "Jane" });
     await w.services.repos.profile.setVisibility(author.userId, "public");
+    await w.services.repos.user.setIconType(author.userId, "rings");
     const post = await svc.create({ type: "post", author: "pk-jane", content: { title: "Hello", body: "hi" } });
     await link(w, "pk-jane", author.userId, post.entityId);
 
@@ -106,12 +107,14 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     const anon = (await feed(w)).items[0];
     expect(anon.identity.isPersona).to.equal(false, "public visibility reveals even to anonymous viewers");
     expect(anon.identity.handle).to.equal("jane");
+    expect(anon.identity.iconType).to.equal("rings");
 
     // Flip to anonymous visibility: nobody (but self) sees the handle.
     await w.services.repos.profile.setVisibility(author.userId, "anonymous");
     const masked = (await feed(w)).items[0];
     expect(masked.identity.isPersona).to.equal(true);
     expect(masked.identity.handle).to.equal(null);
+    expect(masked.identity.iconType).to.equal(undefined);
     expect(masked.author).to.match(/^[A-Z][A-Za-z]*\d{2,}$/); // AdjectiveAnimalNN persona
     expect(masked.handle).to.equal(masked.author);
     expect(JSON.stringify(masked)).to.not.include("@jane");
@@ -121,6 +124,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     const self = (await feed(w, "", session.token)).items[0];
     expect(self.identity.isSelf).to.equal(true);
     expect(self.identity.handle).to.equal("jane");
+    expect(self.identity.iconType).to.equal("rings");
     expect(self.identity.seenByOthersAs).to.equal(masked.author);
   });
 

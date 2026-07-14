@@ -49,6 +49,7 @@ describe("mapFeedItem", () => {
         isPersona: false,
         isSelf: false,
         seed: "jane",
+        iconType: "rings",
         threadId: "x1",
       },
       authorGeo: "none",
@@ -65,6 +66,7 @@ describe("mapFeedItem", () => {
     expect(item.districts).toEqual(["edmonton-strathcona"]);
     expect(item.tier).toBe(1);
     expect(item.up).toBe(3);
+    expect(item.identity?.iconType).toBe("rings");
   });
 
   it("strips leading @ from API handles", () => {

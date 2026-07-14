@@ -58,6 +58,7 @@ describe("29 public profile: visibility gate, posts, activity", () => {
     const svc = seeder(w);
     const author = await makeAccount(w, { handle: "@public", displayName: "Public User" });
     await w.services.repos.profile.setVisibility(author.userId, "public");
+    await w.services.repos.user.setIconType(author.userId, "stripes");
     const post = await svc.create({ type: "post", author: "pk-pub", content: { title: "Hello", body: "b" } });
     await link(w, "pk-pub", author.userId, post.entityId);
 
@@ -66,8 +67,13 @@ describe("29 public profile: visibility gate, posts, activity", () => {
     const body = res.json() as any;
     expect(body.name).to.equal("Public User");
     expect(body.handle).to.equal("public");
+    expect(body.iconType).to.equal("stripes");
     expect(body.role).to.equal("Member");
     expect(body.roles).to.be.an("array").that.is.empty;
+
+    const posts = await profilePosts(w, "public");
+    expect(posts.statusCode).to.equal(200, posts.body);
+    expect(posts.json().items[0].identity.iconType).to.equal("stripes");
   });
 
   it("404 (not 403) for an anonymous account viewed by a stranger", async () => {

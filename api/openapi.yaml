@@ -5570,6 +5570,8 @@ paths:
                               type: boolean
                             seed:
                               type: string
+                            iconType:
+                              type: string
                             threadId:
                               type: string
                             seenByOthersAs:
@@ -5795,6 +5797,8 @@ paths:
                             type: boolean
                           seed:
                             type: string
+                          iconType:
+                            type: string
                           threadId:
                             type: string
                           seenByOthersAs:
@@ -6000,6 +6004,8 @@ paths:
                               type: boolean
                             seed:
                               type: string
+                            iconType:
+                              type: string
                             threadId:
                               type: string
                             seenByOthersAs:
@@ -6172,6 +6178,8 @@ paths:
                               type: boolean
                             seed:
                               type: string
+                            iconType:
+                              type: string
                             threadId:
                               type: string
                             seenByOthersAs:
@@ -6302,6 +6310,8 @@ paths:
                         type: boolean
                       seed:
                         type: string
+                      iconType:
+                        type: string
                       threadId:
                         type: string
                       seenByOthersAs:
@@ -6393,6 +6403,8 @@ paths:
                             isSelf:
                               type: boolean
                             seed:
+                              type: string
+                            iconType:
                               type: string
                             threadId:
                               type: string
@@ -6510,6 +6522,8 @@ paths:
                             isSelf:
                               type: boolean
                             seed:
+                              type: string
+                            iconType:
                               type: string
                             threadId:
                               type: string
@@ -6724,6 +6738,8 @@ paths:
                             isSelf:
                               type: boolean
                             seed:
+                              type: string
+                            iconType:
                               type: string
                             threadId:
                               type: string
@@ -7026,6 +7042,8 @@ paths:
                               type: boolean
                             seed:
                               type: string
+                            iconType:
+                              type: string
                             threadId:
                               type: string
                             seenByOthersAs:
@@ -7321,6 +7339,8 @@ paths:
                             isSelf:
                               type: boolean
                             seed:
+                              type: string
+                            iconType:
                               type: string
                             threadId:
                               type: string
