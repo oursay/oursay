@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Map, Newspaper, ScrollText } from "lucide-react";
 import { getJurisdiction, listFeedItems } from "@/lib/api";
@@ -12,6 +12,7 @@ import {
   PlaceHeader,
   TitleLeaderRow,
 } from "@/components";
+import { InfiniteScrollFooter, InfiniteScrollSentinel } from "@/components/utils";
 import { districtName, jurisdictionIdFromSlug } from "@/lib/mock";
 import { inferLeaderRole, isSeatClaimed } from "@/lib/official-seat";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { useCursorInfiniteList } from "@/lib/hooks/useCursorInfiniteList";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function JurisdictionView({ slug }: { slug: string }) {
@@ -32,11 +34,41 @@ export function JurisdictionView({ slug }: { slug: string }) {
   const id = jurisdictionIdFromSlug(slug) ?? slug;
 
   const [summary, setSummary] = useState<JurisdictionSummary | null>(null);
-  const [items, setItems] = useState<FeedItem[] | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
   const [ridingsOpen, setRidingsOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(true);
+
+  const resetKey = useMemo(
+    () => JSON.stringify({ feedFilter, viewer, id }),
+    [feedFilter, viewer, id],
+  );
+
+  const fetchPage = useCallback(
+    (cursor: string | null) =>
+      listFeedItems({
+        scope: "jurisdiction",
+        filter: { ...feedFilter, jurisdiction: id },
+        viewer,
+        cursor,
+      }),
+    [feedFilter, viewer, id],
+  );
+
+  const {
+    items,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    loadMore,
+  } = useCursorInfiniteList<FeedItem>({
+    resetKey,
+    fetchPage,
+    getItemId: (item) => item.id,
+    enabled: feedOpen,
+    onItemsChange: (rows) => app.hydrateRecordState(rows.map((r) => r.id)),
+  });
 
   useEffect(() => {
     setPageJurisdiction(id);
@@ -45,20 +77,6 @@ export function JurisdictionView({ slug }: { slug: string }) {
   useEffect(() => {
     getJurisdiction(id).then(setSummary);
   }, [id]);
-
-  useEffect(() => {
-    let active = true;
-    listFeedItems({
-      scope: "jurisdiction",
-      filter: { ...feedFilter, jurisdiction: id },
-      viewer,
-    }).then((rows) => {
-      if (active) setItems(rows);
-    });
-    return () => {
-      active = false;
-    };
-  }, [feedFilter, viewer, id]);
 
   if (!summary) {
     return <p className="p-6 text-center text-sm text-muted">Jurisdiction not found.</p>;
@@ -155,12 +173,12 @@ export function JurisdictionView({ slug }: { slug: string }) {
       <CollapsibleSection
         icon={Newspaper}
         label="Feed"
-        count={items ? String(items.length) : undefined}
+        count={items.length > 0 || loading ? String(items.length) : undefined}
         open={feedOpen}
         onToggle={() => setFeedOpen((v) => !v)}
       >
         <div className="space-y-3">
-          {items === null ? (
+          {loading && items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">Loading…</p>
           ) : items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">
@@ -208,6 +226,18 @@ export function JurisdictionView({ slug }: { slug: string }) {
               );
             })
           )}
+          <InfiniteScrollFooter
+            loading={loading}
+            loadingMore={loadingMore}
+            error={error}
+            hasMore={hasMore}
+            empty={items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={loadMore}
+            disabled={!feedOpen || !hasMore || loading || loadingMore}
+            watchKey={items.length}
+          />
         </div>
       </CollapsibleSection>
 

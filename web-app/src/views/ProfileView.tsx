@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Pencil } from "lucide-react";
-import { getProfile } from "@/lib/api";
+import {
+  getProfile,
+  listProfileActivity,
+  listProfileMentions,
+  listProfilePosts,
+} from "@/lib/api";
 import type { ActivityKind, PublicProfile } from "@/lib/types";
 import { Avatar, FeedCard, VerificationPill } from "@/components";
 import { Button } from "@/components/ui";
@@ -13,6 +18,7 @@ import {
   ProfileSupportBar,
   RoleTag,
 } from "@/components/content";
+import { InfiniteScrollFooter, InfiniteScrollSentinel } from "@/components/utils";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
 import { relTime, useNow } from "@/lib/read-model";
 import { displayHandle, wireHandle } from "@/lib/handle";
@@ -27,8 +33,9 @@ import {
   personaHintPath,
 } from "@/lib/routes";
 import type { ProfileRoleTag } from "@/lib/types";
-import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
+import { recordShareTarget } from "@/lib/share";
 import { useApp, useHydrateRecordState } from "@/lib/state";
+import { useCursorInfiniteList } from "@/lib/hooks/useCursorInfiniteList";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 type Tab = "posts" | "activity" | "mentions";
@@ -51,15 +58,14 @@ export function ProfileView({
   const app = useApp();
   const { setPageJurisdiction } = app;
   const router = useRouter();
-  const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [profile, setProfile] = useState<PublicProfile | null | undefined>(undefined);
   const [tab, setTab] = useState<Tab>("posts");
   const [rolesExpanded, setRolesExpanded] = useState(false);
   const now = useNow();
   const wireHandleParam = wireHandle(handle) ?? handle;
 
-  const selectTab = (t: Tab) => {
-    setTab(t);
-  };
+  const verified = app.effectiveVerified;
+  const { profileTypes } = app.state;
 
   useEffect(() => {
     setPageJurisdiction(null);
@@ -73,8 +79,7 @@ export function ProfileView({
   }, [handle, wireHandleParam, router, self]);
 
   useEffect(() => {
-    // Viewer-scoped: out-of-visibility profiles resolve null (hide existence),
-    // and the reveal set updates live as the demo KYC tier cycles.
+    setProfile(undefined);
     getProfile(wireHandleParam, { viewer: app.viewer }).then(setProfile);
   }, [wireHandleParam, app.viewer]);
 
@@ -84,25 +89,72 @@ export function ProfileView({
     }
   }, [profile, wireHandleParam, router, self]);
 
-  const verified = app.effectiveVerified;
-  const { profileTypes } = app.state;
-  const postIds = useMemo(
-    () =>
-      profile?.posts
-        .filter(
-          (p) =>
-            profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
-        )
-        .map((p) => p.id) ?? [],
-    [profile, profileTypes, verified],
+  const tabParams = useMemo(
+    () => ({ profileTypes, tierMin: verified, viewer: app.viewer }),
+    [profileTypes, verified, app.viewer],
   );
-  useHydrateRecordState(postIds);
 
-  if (!profile) {
+  const postsKey = useMemo(
+    () => JSON.stringify({ wireHandleParam, tab: "posts", ...tabParams }),
+    [wireHandleParam, tabParams],
+  );
+  const activityKey = useMemo(
+    () => JSON.stringify({ wireHandleParam, tab: "activity", ...tabParams }),
+    [wireHandleParam, tabParams],
+  );
+  const mentionsKey = useMemo(
+    () => JSON.stringify({ wireHandleParam, tab: "mentions", viewer: app.viewer }),
+    [wireHandleParam, app.viewer],
+  );
+
+  const fetchPosts = useCallback(
+    (cursor: string | null) =>
+      listProfilePosts(wireHandleParam, { ...tabParams, cursor }),
+    [wireHandleParam, tabParams],
+  );
+  const fetchActivity = useCallback(
+    (cursor: string | null) =>
+      listProfileActivity(wireHandleParam, { ...tabParams, cursor }),
+    [wireHandleParam, tabParams],
+  );
+  const fetchMentions = useCallback(
+    (cursor: string | null) =>
+      listProfileMentions(wireHandleParam, { viewer: app.viewer, cursor }),
+    [wireHandleParam, app.viewer],
+  );
+
+  const postsList = useCursorInfiniteList({
+    resetKey: postsKey,
+    enabled: profile != null && tab === "posts",
+    fetchPage: fetchPosts,
+    getItemId: (item) => item.id,
+  });
+  const activityList = useCursorInfiniteList({
+    resetKey: activityKey,
+    enabled: profile != null && tab === "activity",
+    fetchPage: fetchActivity,
+    getItemId: (item) => `${item.recordId ?? item.kind}-${item.ts ?? item.text}`,
+  });
+  const mentionsList = useCursorInfiniteList({
+    resetKey: mentionsKey,
+    enabled: profile != null && tab === "mentions",
+    fetchPage: fetchMentions,
+    getItemId: (item) => `${item.recordId ?? "mention"}-${item.ts ?? item.text}`,
+  });
+
+  const hydrateIds = useMemo(
+    () => (tab === "posts" ? postsList.items.map((p) => p.id) : []),
+    [tab, postsList.items],
+  );
+  useHydrateRecordState(hydrateIds);
+
+  if (profile === undefined) {
+    return <p className="p-6 text-center text-sm text-muted">Loading profile…</p>;
+  }
+  if (profile === null) {
     return <p className="p-6 text-center text-sm text-muted">Profile not found.</p>;
   }
 
-  // Self mode reflects the live session tier so Validate ID updates the pill.
   const displayTier = self ? app.state.kycTier : profile.tier;
   const displayRoles: ProfileRoleTag[] =
     self && displayTier === 3
@@ -137,10 +189,6 @@ export function ProfileView({
     }
     router.push(jurisdictionPath(tag.jurisdictionId));
   };
-  const posts = profile.posts.filter(
-    (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
-  );
-  const activity = profile.activity.filter((a) => profileTypes.includes(a.kind));
 
   return (
     <div className="space-y-1 p-3">
@@ -148,8 +196,6 @@ export function ProfileView({
         <div className="flex items-center gap-3">
           <Avatar name={profile.name} seed={profile.handle} iconType={profile.iconType} size="lg" />
           <div className="min-w-0 flex-1">
-            {/* Pill shares the name row (right-justified, like posts) so the
-                role line below keeps the full width for long district names. */}
             <div className="flex items-center gap-2">
               <p className="truncate font-bold text-ink">{profile.name}</p>
               <VerificationPill tier={displayTier} align="right" />
@@ -213,7 +259,7 @@ export function ProfileView({
           <button
             key={t}
             type="button"
-            onClick={() => selectTab(t)}
+            onClick={() => setTab(t)}
             className={`flex-1 rounded-md py-1 text-sm capitalize ${
               tab === t
                 ? "font-semibold text-ink underline decoration-2 underline-offset-4"
@@ -226,14 +272,15 @@ export function ProfileView({
       </div>
 
       {tab === "posts" ? (
-        <div className="max-h-[62vh] space-y-3 overflow-y-auto overscroll-auto pr-1 pb-1">
-          {posts.length === 0 ? (
+        <div className="space-y-3 pb-1">
+          {postsList.loading && postsList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading posts…</p>
+          ) : postsList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No posts match the filters.</p>
           ) : (
-            posts.map((item) => {
+            postsList.items.map((item) => {
               const personaHint = personaHintPath(item.identity);
               return (
-              // TODO(entityId): representative-target nav — route by record/profile id.
               <FeedCard
                 key={item.id}
                 item={{
@@ -261,25 +308,37 @@ export function ProfileView({
                 signedPetition={app.hasSignedPetition(item.id)}
                 onVote={(label) => app.votePoll(item, label)}
                 onSignPetition={() => app.signPetition(item)}
-                onEditsClick={() =>
-                  app.notify(DEFERRED_EDIT_HISTORY)
-                }
+                onEditsClick={() => app.notify(DEFERRED_EDIT_HISTORY)}
                 onDistrictClick={(s) => router.push(districtPath(s))}
               />
               );
             })
           )}
+          <InfiniteScrollFooter
+            loading={postsList.loading}
+            loadingMore={postsList.loadingMore}
+            error={postsList.error}
+            hasMore={postsList.hasMore}
+            empty={postsList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={postsList.loadMore}
+            disabled={!postsList.hasMore || postsList.loading || postsList.loadingMore}
+            watchKey={postsList.items.length}
+          />
         </div>
       ) : null}
 
       {tab === "activity" ? (
-        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
-          {activity.length === 0 ? (
+        <ul className="space-y-2 pb-1">
+          {activityList.loading && activityList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading activity…</p>
+          ) : activityList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No activity matches the filters.</p>
           ) : (
-            activity.map((a, i) => (
+            activityList.items.map((a, i) => (
               <ActivityRow
-                key={i}
+                key={`${a.recordId ?? a.kind}-${a.ts ?? i}`}
                 item={a}
                 now={now}
                 onOpen={() =>
@@ -290,22 +349,33 @@ export function ProfileView({
               />
             ))
           )}
+          <InfiniteScrollFooter
+            loading={activityList.loading}
+            loadingMore={activityList.loadingMore}
+            error={activityList.error}
+            hasMore={activityList.hasMore}
+            empty={activityList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={activityList.loadMore}
+            disabled={!activityList.hasMore || activityList.loading || activityList.loadingMore}
+            watchKey={activityList.items.length}
+          />
         </ul>
       ) : null}
 
       {tab === "mentions" ? (
-        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
-          {profile.mentions.length === 0 ? (
+        <ul className="space-y-2 pb-1">
+          {mentionsList.loading && mentionsList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading mentions…</p>
+          ) : mentionsList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No mentions yet.</p>
           ) : (
-            profile.mentions.map((m, i) => (
-            <li key={i} className="rounded-lg border border-border bg-surface">
-              {/* Author links to the profile; the row body opens the mentioned
-                  record (wireframe §1 link map: mentionRow -> goPost). */}
+            mentionsList.items.map((m, i) => (
+            <li key={`${m.recordId ?? "mention"}-${m.ts ?? i}`} className="rounded-lg border border-border bg-surface">
               <div className="px-3 pt-3">
                 <button
                   type="button"
-                  // TODO(entityId): route to the mentioner's real profile.
                   onClick={() => router.push(authorPath(m.identity, m.handle))}
                   className="text-sm font-semibold text-ink hover:underline"
                 >
@@ -332,6 +402,18 @@ export function ProfileView({
             </li>
           ))
           )}
+          <InfiniteScrollFooter
+            loading={mentionsList.loading}
+            loadingMore={mentionsList.loadingMore}
+            error={mentionsList.error}
+            hasMore={mentionsList.hasMore}
+            empty={mentionsList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={mentionsList.loadMore}
+            disabled={!mentionsList.hasMore || mentionsList.loading || mentionsList.loadingMore}
+            watchKey={mentionsList.items.length}
+          />
         </ul>
       ) : null}
     </div>

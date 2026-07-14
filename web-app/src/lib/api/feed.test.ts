@@ -1,33 +1,45 @@
 import { describe, expect, it } from "vitest";
 import { POSTS } from "@/lib/mock";
 import { countCommentNodes } from "@/lib/mock/comment-utils";
-import { listFeedItems } from "./feed";
+import { listAllFeedItems, listFeedItems } from "./feed";
 import { getRecordDetail } from "./record";
 
 describe("listFeedItems", () => {
   it("returns the full corpus for the default feed (Global + Alberta subscribed)", async () => {
-    const items = await listFeedItems({});
+    const items = await listAllFeedItems({});
     expect(items).toHaveLength(POSTS.length);
   });
 
   it("returns raw social counts (scaling is a display concern, not the API's)", async () => {
-    const items = await listFeedItems({});
+    const items = await listAllFeedItems({});
     const rae = items.find((p) => p.id === "stmt-rae-ravine");
     expect(rae?.up).toBe(204);
   });
 
   it("hides lower tiers as the Verified ladder rises but leaves counts raw", async () => {
-    const items = await listFeedItems({ filter: { tierMin: 1 } });
+    const items = await listAllFeedItems({ filter: { tierMin: 1 } });
     expect(items.every((p) => p.tier >= 1)).toBe(true);
     const rae = items.find((p) => p.id === "stmt-rae-ravine");
     expect(rae?.up).toBe(204);
   });
 
   it("includes the rural-broadband petition naming every third riding", async () => {
-    const items = await listFeedItems({});
+    const items = await listAllFeedItems({});
     const broadband = items.find((p) => p.id === "pet-rural-broadband");
     // Every third slug of the curated 12-riding demo set.
     expect(broadband?.districts.length).toBe(4);
+  });
+
+  it("returns pages of 25 with a cursor in mock mode", async () => {
+    expect(POSTS.length).toBeGreaterThan(25);
+
+    const page1 = await listFeedItems({});
+    expect(page1.items.length).toBe(25);
+    expect(page1.nextCursor).not.toBeNull();
+
+    const page2 = await listFeedItems({ cursor: page1.nextCursor });
+    expect(page2.items.length).toBeGreaterThan(0);
+    expect(page1.items[0]?.id).not.toBe(page2.items[0]?.id);
   });
 });
 

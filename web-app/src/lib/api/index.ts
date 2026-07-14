@@ -2,6 +2,7 @@ export * from "./client";
 export * from "./auth";
 export * from "./me";
 export * from "./feed";
+export * from "./pagination";
 export * from "./record";
 export * from "./places";
 export * from "./profile";

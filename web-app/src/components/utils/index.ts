@@ -45,3 +45,8 @@ export function swallowNextPointerClick() {
   document.addEventListener("pointerdown", disarm, true);
   document.addEventListener("keydown", disarm, true);
 }
+
+export {
+  InfiniteScrollFooter,
+  InfiniteScrollSentinel,
+} from "./InfiniteScrollSentinel";

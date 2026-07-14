@@ -1,45 +1,50 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { listFeedItems } from "@/lib/api";
 import type { FeedItem } from "@/lib/types";
 import { FeedCard } from "@/components";
+import { InfiniteScrollFooter, InfiniteScrollSentinel } from "@/components/utils";
 import { districtName } from "@/lib/mock";
 import { authorPath, districtPath, jurisdictionPath, personaHintPath, postPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { useCursorInfiniteList } from "@/lib/hooks/useCursorInfiniteList";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function FeedView() {
   const app = useApp();
   const { setPageJurisdiction, feedFilter, viewer, hydrateRecordState } = app;
   const router = useRouter();
-  const [items, setItems] = useState<FeedItem[] | null>(null);
 
   useEffect(() => {
     setPageJurisdiction(null);
   }, [setPageJurisdiction]);
 
-  useEffect(() => {
-    let active = true;
-    listFeedItems({ scope: "feed", filter: feedFilter, viewer }).then(
-      (rows) => {
-        if (active) {
-          setItems(rows);
-          hydrateRecordState(rows.map((r) => r.id));
-        }
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [feedFilter, viewer, hydrateRecordState]);
+  const resetKey = useMemo(
+    () => JSON.stringify({ feedFilter, viewer }),
+    [feedFilter, viewer],
+  );
 
-  if (items === null) {
+  const fetchPage = useCallback(
+    (cursor: string | null) =>
+      listFeedItems({ scope: "feed", filter: feedFilter, viewer, cursor }),
+    [feedFilter, viewer],
+  );
+
+  const { items, loading, loadingMore, hasMore, error, loadMore } =
+    useCursorInfiniteList<FeedItem>({
+      resetKey,
+      fetchPage,
+      getItemId: (item) => item.id,
+      onItemsChange: (rows) => hydrateRecordState(rows.map((r) => r.id)),
+    });
+
+  if (loading && items.length === 0) {
     return <p className="p-6 text-center text-sm text-muted">Loading feed…</p>;
   }
-  if (items.length === 0) {
+  if (!loading && items.length === 0) {
     return (
       <p className="p-6 text-center text-sm text-muted">
         No records match the current filters.
@@ -92,6 +97,17 @@ export function FeedView() {
         />
         );
       })}
+      <InfiniteScrollFooter
+        loading={loading}
+        loadingMore={loadingMore}
+        error={error}
+        hasMore={hasMore}
+      />
+      <InfiniteScrollSentinel
+        onVisible={loadMore}
+        disabled={!hasMore || loading || loadingMore}
+        watchKey={items.length}
+      />
     </div>
   );
 }

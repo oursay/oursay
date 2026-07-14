@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Info, Map, Newspaper } from "lucide-react";
 import { getDistrict, listFeedItems } from "@/lib/api";
 import type { DistrictDetail, FeedItem } from "@/lib/types";
 import { Button, CollapsibleSection, FeedCard, PlaceHeader } from "@/components";
+import { InfiniteScrollFooter, InfiniteScrollSentinel } from "@/components/utils";
 import { districtName, jurisdictionIdFromSlug, jurisdictionLabel } from "@/lib/mock";
 import { isSeatClaimed } from "@/lib/official-seat";
 import { authorPath, personaHintPath, postPath, officialPath, jurisdictionPath } from "@/lib/routes";
 import { recordShareTarget } from "@/lib/share";
 import { useApp } from "@/lib/state";
+import { useCursorInfiniteList } from "@/lib/hooks/useCursorInfiniteList";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 export function DistrictView({
@@ -28,10 +30,40 @@ export function DistrictView({
     : undefined;
 
   const [detail, setDetail] = useState<DistrictDetail | null>(null);
-  const [items, setItems] = useState<FeedItem[] | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(true);
+
+  const resetKey = useMemo(
+    () => JSON.stringify({ feedFilter, viewer, slug }),
+    [feedFilter, viewer, slug],
+  );
+
+  const fetchPage = useCallback(
+    (cursor: string | null) =>
+      listFeedItems({
+        scope: "district",
+        filter: { ...feedFilter, districtSlug: slug },
+        viewer,
+        cursor,
+      }),
+    [feedFilter, viewer, slug],
+  );
+
+  const {
+    items,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    loadMore,
+  } = useCursorInfiniteList<FeedItem>({
+    resetKey,
+    fetchPage,
+    getItemId: (item) => item.id,
+    enabled: feedOpen,
+    onItemsChange: (rows) => app.hydrateRecordState(rows.map((r) => r.id)),
+  });
 
   useEffect(() => {
     getDistrict(slug, jurisdictionId ? { jurisdictionId } : undefined).then(setDetail);
@@ -40,20 +72,6 @@ export function DistrictView({
   useEffect(() => {
     if (detail) setPageJurisdiction(detail.jur);
   }, [detail?.jur, setPageJurisdiction]);
-
-  useEffect(() => {
-    let active = true;
-    listFeedItems({
-      scope: "district",
-      filter: { ...feedFilter, districtSlug: slug },
-      viewer,
-    }).then((rows) => {
-      if (active) setItems(rows);
-    });
-    return () => {
-      active = false;
-    };
-  }, [feedFilter, viewer, slug]);
 
   if (!detail) {
     return <p className="p-6 text-center text-sm text-muted">District not found.</p>;
@@ -111,12 +129,12 @@ export function DistrictView({
       <CollapsibleSection
         icon={Newspaper}
         label="Feed"
-        count={items ? String(items.length) : undefined}
+        count={items.length > 0 || loading ? String(items.length) : undefined}
         open={feedOpen}
         onToggle={() => setFeedOpen((v) => !v)}
       >
         <div className="space-y-3">
-          {items === null ? (
+          {loading && items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">Loading…</p>
           ) : items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">
@@ -162,6 +180,18 @@ export function DistrictView({
               );
             })
           )}
+          <InfiniteScrollFooter
+            loading={loading}
+            loadingMore={loadingMore}
+            error={error}
+            hasMore={hasMore}
+            empty={items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={loadMore}
+            disabled={!feedOpen || !hasMore || loading || loadingMore}
+            watchKey={items.length}
+          />
         </div>
       </CollapsibleSection>
 

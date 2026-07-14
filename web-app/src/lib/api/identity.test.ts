@@ -9,7 +9,7 @@ import type {
 } from "@/lib/types";
 import { anonymizeFeedItem, personaFor, personaMapForThread } from "./identity";
 import { getRecordDetail } from "./record";
-import { listFeedItems } from "./feed";
+import { listAllFeedItems } from "./feed";
 
 const MY = ["edmonton-strathcona"];
 
@@ -130,7 +130,7 @@ describe("self identity", () => {
 describe("persona stability across surfaces", () => {
   it("feed card and detail page use the same persona per (author, thread)", async () => {
     const anon = viewer(0);
-    const feed = await listFeedItems({ viewer: anon });
+    const feed = await listAllFeedItems({ viewer: anon });
     const card = feed.find((f) => f.id === "pet-sam-109st");
     expect(card).toBeDefined();
     expect(card!.identity?.isPersona).toBe(true);
@@ -171,7 +171,7 @@ describe("persona stability across surfaces", () => {
 
 describe("residence privacy — served DTOs carry authorGeo, never districts", () => {
   it("feed items: raw residence is stripped and replaced by the relation", async () => {
-    const rows = await listFeedItems({ viewer: viewer(2) });
+    const rows = await listAllFeedItems({ viewer: viewer(2) });
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(row.authorDistricts).toBeUndefined();

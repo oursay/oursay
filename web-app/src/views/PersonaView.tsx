@@ -15,10 +15,12 @@ import {
   ProfileSupportBar,
   RECORD_TYPE_ICON,
 } from "@/components/content";
+import { InfiniteScrollFooter, InfiniteScrollSentinel } from "@/components/utils";
 import { districtName } from "@/lib/mock";
 import { authorPath, districtPath, postPath, postPathForId } from "@/lib/routes";
 import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
 import { useApp, useHydrateRecordState } from "@/lib/state";
+import { useLocalInfiniteList } from "@/lib/hooks/useLocalInfiniteList";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 type Tab = "comments" | "activity" | "mentions";
@@ -49,6 +51,26 @@ export function PersonaView({ personaName }: { personaName: string }) {
   useEffect(() => {
     getPersonaProfile(personaName, app.viewer).then(setProfile);
   }, [personaName, app.viewer]);
+
+  const comments = profile?.comments ?? [];
+  const activity = profile?.activity ?? [];
+  const mentions = profile?.mentions ?? [];
+
+  const commentsList = useLocalInfiniteList({
+    items: comments,
+    getItemId: (node) => node.id ?? `${node.author}-${node.ts ?? node.body[0] ?? ""}`,
+    enabled: tab === "comments" && profile != null,
+  });
+  const activityList = useLocalInfiniteList({
+    items: activity,
+    getItemId: (item) => `${item.recordId ?? item.kind}-${item.ts ?? item.text}`,
+    enabled: tab === "activity" && profile != null,
+  });
+  const mentionsList = useLocalInfiniteList({
+    items: mentions,
+    getItemId: (item) => `${item.recordId ?? "mention"}-${item.ts ?? item.text}`,
+    enabled: tab === "mentions" && profile != null,
+  });
 
   useHydrateRecordState([
     ...(profile?.rootPost ? [profile.rootPost.id] : []),
@@ -141,7 +163,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
       </div>
 
       {tab === "comments" ? (
-        <div className="max-h-[62vh] space-y-3 overflow-y-auto overscroll-auto pr-1 pb-1">
+        <div className="space-y-3 pb-1">
           {profile.rootPost ? (
             <FeedCard
               item={{
@@ -173,9 +195,11 @@ export function PersonaView({ personaName }: { personaName: string }) {
               onDistrictClick={(s) => router.push(districtPath(s))}
             />
           ) : null}
-          {profile.comments.length > 0 ? (
+          {commentsList.loading && commentsList.items.length === 0 && !profile.rootPost ? (
+            <p className="py-4 text-center text-sm text-muted">Loading comments…</p>
+          ) : commentsList.items.length > 0 ? (
             <div className="space-y-4 rounded-lg border border-border bg-surface p-3 pr-2">
-              {profile.comments.map((node, i) => (
+              {commentsList.items.map((node, i) => (
                 <CommentCard
                   key={node.id ?? i}
                   author={node.author}
@@ -208,42 +232,70 @@ export function PersonaView({ personaName }: { personaName: string }) {
               ))}
             </div>
           ) : null}
-          {!profile.rootPost && profile.comments.length === 0 ? (
+          {!profile.rootPost && commentsList.items.length === 0 && !commentsList.loading ? (
             <p className="py-4 text-center text-sm text-muted">
               No comments in this thread.
             </p>
           ) : null}
+          <InfiniteScrollFooter
+            loading={commentsList.loading}
+            loadingMore={commentsList.loadingMore}
+            error={commentsList.error}
+            hasMore={commentsList.hasMore}
+            empty={commentsList.items.length === 0 && !profile.rootPost}
+          />
+          <InfiniteScrollSentinel
+            onVisible={commentsList.loadMore}
+            disabled={!commentsList.hasMore || commentsList.loading || commentsList.loadingMore}
+            watchKey={commentsList.items.length}
+          />
         </div>
       ) : null}
 
       {tab === "activity" ? (
-        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
-          {profile.activity.length === 0 ? (
+        <ul className="space-y-2 pb-1">
+          {activityList.loading && activityList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading activity…</p>
+          ) : activityList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">
               No other activity in this thread.
             </p>
           ) : (
-            profile.activity.map((a, i) => (
+            activityList.items.map((a, i) => (
               <ActivityRow
-                key={i}
+                key={`${a.recordId ?? a.kind}-${a.ts ?? i}`}
                 item={a}
                 now={now}
                 onOpen={() => router.push(postPathForId(a.recordId ?? profile.threadId))}
               />
             ))
           )}
+          <InfiniteScrollFooter
+            loading={activityList.loading}
+            loadingMore={activityList.loadingMore}
+            error={activityList.error}
+            hasMore={activityList.hasMore}
+            empty={activityList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={activityList.loadMore}
+            disabled={!activityList.hasMore || activityList.loading || activityList.loadingMore}
+            watchKey={activityList.items.length}
+          />
         </ul>
       ) : null}
 
       {tab === "mentions" ? (
-        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
-          {profile.mentions.length === 0 ? (
+        <ul className="space-y-2 pb-1">
+          {mentionsList.loading && mentionsList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading mentions…</p>
+          ) : mentionsList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">
               No mentions in this thread.
             </p>
           ) : (
-            profile.mentions.map((m, i) => (
-              <li key={i} className="rounded-lg border border-border bg-surface">
+            mentionsList.items.map((m, i) => (
+              <li key={`${m.recordId ?? "mention"}-${m.ts ?? i}`} className="rounded-lg border border-border bg-surface">
                 <div className="px-3 pt-3">
                   <button
                     type="button"
@@ -271,6 +323,18 @@ export function PersonaView({ personaName }: { personaName: string }) {
               </li>
             ))
           )}
+          <InfiniteScrollFooter
+            loading={mentionsList.loading}
+            loadingMore={mentionsList.loadingMore}
+            error={mentionsList.error}
+            hasMore={mentionsList.hasMore}
+            empty={mentionsList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={mentionsList.loadMore}
+            disabled={!mentionsList.hasMore || mentionsList.loading || mentionsList.loadingMore}
+            watchKey={mentionsList.items.length}
+          />
         </ul>
       ) : null}
     </div>

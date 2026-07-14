@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALBERTA_ID, ANON_VIEWER, GLOBAL_ID, type FeedFilterParams } from "@/lib/types";
-import { listFeedItems } from "./feed";
+import { listAllFeedItems } from "./feed";
 import { getRecordDetail } from "./record";
 
 // The client never sends geography.jurisdictionDistricts — these tests prove
@@ -11,7 +11,7 @@ const jurOnly: FeedFilterParams = {
 
 describe("API-resolved My Jurisdiction universe", () => {
   it("feed scope: resolves from the included subscriptions", async () => {
-    const rows = await listFeedItems({
+    const rows = await listAllFeedItems({
       scope: "feed",
       viewer: ANON_VIEWER,
       filter: {
@@ -28,7 +28,7 @@ describe("API-resolved My Jurisdiction universe", () => {
   });
 
   it("feed scope: Global included -> universe unresolved -> filter gated off", async () => {
-    const rows = await listFeedItems({
+    const rows = await listAllFeedItems({
       scope: "feed",
       viewer: ANON_VIEWER,
       filter: {
@@ -43,7 +43,7 @@ describe("API-resolved My Jurisdiction universe", () => {
   });
 
   it("jurisdiction scope: resolves from the pinned jurisdiction", async () => {
-    const rows = await listFeedItems({
+    const rows = await listAllFeedItems({
       scope: "jurisdiction",
       viewer: ANON_VIEWER,
       filter: { ...jurOnly, jurisdiction: ALBERTA_ID },

@@ -28,6 +28,8 @@ import { useApp, useHydrateRecordState } from "@/lib/state";
 import type { ActivityKind } from "@/lib/types";
 import { DEFERRED_CLAIM_PROFILE, DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 import { recordShareTarget } from "@/lib/share";
+import { InfiniteScrollFooter, InfiniteScrollSentinel } from "@/components/utils";
+import { useLocalInfiniteList } from "@/lib/hooks/useLocalInfiniteList";
 
 type Tab = "posts" | "activity" | "mentions";
 
@@ -73,6 +75,38 @@ export function OfficialView({ handle }: { handle: string }) {
   );
   useHydrateRecordState(postIds);
 
+  const filteredPosts = useMemo(
+    () =>
+      profile?.posts?.filter(
+        (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
+      ) ?? [],
+    [profile, profileTypes, verified],
+  );
+  const filteredActivity = useMemo(
+    () => profile?.activity?.filter((a) => profileTypes.includes(a.kind)) ?? [],
+    [profile, profileTypes],
+  );
+  const filteredMentions = useMemo(
+    () => profile?.mentions ?? [],
+    [profile],
+  );
+
+  const postsList = useLocalInfiniteList({
+    items: filteredPosts,
+    getItemId: (item) => item.id,
+    enabled: tab === "posts" && !!profile?.claimed,
+  });
+  const activityList = useLocalInfiniteList({
+    items: filteredActivity,
+    getItemId: (item) => `${item.recordId ?? item.kind}-${item.ts ?? item.text}`,
+    enabled: tab === "activity" && !!profile?.claimed,
+  });
+  const mentionsList = useLocalInfiniteList({
+    items: filteredMentions,
+    getItemId: (item) => `${item.recordId ?? "mention"}-${item.ts ?? item.text}`,
+    enabled: tab === "mentions",
+  });
+
   const selectTab = (t: Tab) => {
     setTab(t);
   };
@@ -84,10 +118,6 @@ export function OfficialView({ handle }: { handle: string }) {
     return <p className="p-6 text-center text-sm text-muted">Official profile not found.</p>;
   }
 
-  const posts = profile.posts.filter(
-    (p) => profileTypes.includes(p.kind as ActivityKind) && p.tier >= verified,
-  );
-  const activity = profile.activity.filter((a) => profileTypes.includes(a.kind));
   const support = profile.support ?? {
     agrees: 0,
     disagrees: 0,
@@ -189,15 +219,17 @@ export function OfficialView({ handle }: { handle: string }) {
       </div>
 
       {tab === "posts" ? (
-        <div className="max-h-[62vh] space-y-3 overflow-y-auto overscroll-auto pr-1 pb-1">
+        <div className="space-y-3 pb-1">
           {!profile.claimed ? (
             <p className="py-4 text-center text-sm text-muted">
               No posts yet — activity appears here after the office holder claims this profile.
             </p>
-          ) : posts.length === 0 ? (
+          ) : postsList.loading && postsList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading posts…</p>
+          ) : postsList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No posts match the filters.</p>
           ) : (
-            posts.map((item) => {
+            postsList.items.map((item) => {
               const personaHint = personaHintPath(item.identity);
               return (
                 <FeedCard
@@ -235,21 +267,35 @@ export function OfficialView({ handle }: { handle: string }) {
               );
             })
           )}
+          <InfiniteScrollFooter
+            loading={postsList.loading}
+            loadingMore={postsList.loadingMore}
+            error={postsList.error}
+            hasMore={postsList.hasMore}
+            empty={postsList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={postsList.loadMore}
+            disabled={!profile.claimed || !postsList.hasMore || postsList.loading || postsList.loadingMore}
+            watchKey={postsList.items.length}
+          />
         </div>
       ) : null}
 
       {tab === "activity" ? (
-        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
+        <ul className="space-y-2 pb-1">
           {!profile.claimed ? (
             <p className="py-4 text-center text-sm text-muted">
               No activity yet — activity appears here after the office holder claims this profile.
             </p>
-          ) : activity.length === 0 ? (
+          ) : activityList.loading && activityList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading activity…</p>
+          ) : activityList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No activity matches the filters.</p>
           ) : (
-            activity.map((a, i) => (
+            activityList.items.map((a, i) => (
               <ActivityRow
-                key={i}
+                key={`${a.recordId ?? a.kind}-${a.ts ?? i}`}
                 item={a}
                 now={now}
                 onOpen={() =>
@@ -260,16 +306,30 @@ export function OfficialView({ handle }: { handle: string }) {
               />
             ))
           )}
+          <InfiniteScrollFooter
+            loading={activityList.loading}
+            loadingMore={activityList.loadingMore}
+            error={activityList.error}
+            hasMore={activityList.hasMore}
+            empty={activityList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={activityList.loadMore}
+            disabled={!profile.claimed || !activityList.hasMore || activityList.loading || activityList.loadingMore}
+            watchKey={activityList.items.length}
+          />
         </ul>
       ) : null}
 
       {tab === "mentions" ? (
-        <ul className="max-h-[62vh] space-y-2 overflow-y-auto overscroll-auto pr-1 pb-1">
-          {profile.mentions.length === 0 ? (
+        <ul className="space-y-2 pb-1">
+          {mentionsList.loading && mentionsList.items.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted">Loading mentions…</p>
+          ) : mentionsList.items.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted">No mentions yet.</p>
           ) : (
-            profile.mentions.map((m, i) => (
-              <li key={i} className="rounded-lg border border-border bg-surface">
+            mentionsList.items.map((m, i) => (
+              <li key={`${m.recordId ?? "mention"}-${m.ts ?? i}`} className="rounded-lg border border-border bg-surface">
                 <div className="px-3 pt-3">
                   <button
                     type="button"
@@ -299,6 +359,18 @@ export function OfficialView({ handle }: { handle: string }) {
               </li>
             ))
           )}
+          <InfiniteScrollFooter
+            loading={mentionsList.loading}
+            loadingMore={mentionsList.loadingMore}
+            error={mentionsList.error}
+            hasMore={mentionsList.hasMore}
+            empty={mentionsList.items.length === 0}
+          />
+          <InfiniteScrollSentinel
+            onVisible={mentionsList.loadMore}
+            disabled={!mentionsList.hasMore || mentionsList.loading || mentionsList.loadingMore}
+            watchKey={mentionsList.items.length}
+          />
         </ul>
       ) : null}
     </div>
