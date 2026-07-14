@@ -9,7 +9,7 @@ export type VerifyChoice = "identity" | "poa";
 interface VerifyModalProps {
   open: boolean;
   onClose: () => void;
-  /** Called when the user picks a path; parent runs stub cycle or Didit hosted flow. */
+  /** Called when the user picks a path; parent runs stub Didit-mimic or Didit hosted flow. */
   onChoose: (choice: VerifyChoice) => void | Promise<void>;
   busy?: boolean;
 }

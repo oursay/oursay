@@ -13,6 +13,7 @@ import {
   putJurisdictionMemberships,
   putThreadVisibility,
   stubApprovePoa,
+  stubApproveIdentity,
 } from "./me";
 
 function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
@@ -202,6 +203,18 @@ describe("live /v1/me adapters", () => {
       );
     });
     await stubApprovePoa();
+  });
+
+  it("stubApproveIdentity awards identity_verified only", async () => {
+    mockFetch((url, init) => {
+      expect(url).toContain("/v1/dev/kyc/attest");
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toContain("identity_verified");
+      return Promise.resolve(
+        new Response(JSON.stringify({ tier: "identity_verified" }), { status: 200 }),
+      );
+    });
+    await stubApproveIdentity();
   });
 
   it("devAttestKyc awards official role from residency without re-attesting KYC", async () => {

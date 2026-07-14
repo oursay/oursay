@@ -107,8 +107,8 @@ import {
 } from "@/lib/api/kyc";
 import {
   applyRecordStates,
+  stubApproveIdentity,
   stubApprovePoa,
-  devAttestKyc,
   fetchAccountContext,
   getRecordStates,
   patchAccountVisibility,
@@ -816,8 +816,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         try {
           const provider = await fetchKycProvider();
           if (provider !== "didit") {
-            // Stub / offline: identity cycles via dev attest; residency mimics Didit POA
-            // (seed private point + residency_verified) — does not require a prior profile address.
+            // Stub / offline: Didit-mimic — identity and POA award fixed tiers (no cycle).
+            // POA also upserts the seed private point without a prior profile address.
             if (choice === "poa") {
               await stubApprovePoa();
               const account = await fetchAccountContext();
@@ -826,16 +826,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
               notify("Residency verified (stub).");
               return;
             }
-            setState((s) => {
-              void devAttestKyc(s.kycTier)
-                .then(() => fetchAccountContext())
-                .then((account) => {
-                  if (account) applyAccount(account);
-                  set({ verifyOpen: false });
-                })
-                .catch((e: Error) => notify(e.message));
-              return s;
-            });
+            await stubApproveIdentity();
+            const account = await fetchAccountContext();
+            if (account) applyAccount(account);
+            set({ verifyOpen: false });
+            notify("Identity verified (stub).");
             return;
           }
 

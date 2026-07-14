@@ -211,6 +211,13 @@ export async function patchProfile(body: ProfileIdentityPatch): Promise<void> {
 }
 
 /**
+ * Stub/dev Didit-mimic identity: awards `identity_verified` only (no tier cycle).
+ */
+export async function stubApproveIdentity(): Promise<void> {
+  await apiPost("/v1/dev/kyc/attest", { tier: "identity_verified" });
+}
+
+/**
  * Stub/dev Didit-mimic POA (`POST /v1/dev/kyc/poa`): awards residency + private seed point.
  * Does not require a prior profile address (unlike platform `/v1/kyc/residency/attest`).
  */
