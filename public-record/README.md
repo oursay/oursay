@@ -85,20 +85,14 @@ targets publish those blocks on their own cadence.
 - **Signatures are stubbed** in this phase (`authorPubkey`/`signature` fields + author-match by
   equality); the per-entity hashing/verification is real.
 
-### Chain identity (`CHAIN_ID`)
+### Ledger + chain identity (`LEDGER_ID`, `CHAIN_ID`)
 
-A `chainId` names **one public record** — one legal/custodial chain (e.g. one government body's
-record), **not** a single global OurSay chain. Block headers and commitments are keyed by it, so one
-shared immudb can host several independent records side by side.
+A **`ledgerId`** (UUID, env `LEDGER_ID`) names **one immudb instance** — and the one external anchor / EVM contract bound to that instance. Every jurisdiction database on the instance shares it. A **`chainId`** (slug) names **one public record** — one legal/custodial chain (e.g. one government body's record). Each chain is a **separate immudb database** (snake_case of the slug, e.g. `ab-ca-gov` → `ab_ca_gov`) with its own Merkle / `immudb_state()` root, so a jurisdiction can be added or removed without rewriting sibling chains. See [`docs/spikes/immudb/DB-PER-JURISDICTION.md`](../docs/spikes/immudb/DB-PER-JURISDICTION.md).
 
-- **Production:** a stable, human-auditable slug — e.g. `ca-ab-gov` (the Alberta first deployment).
-  Set it once per deployment via the `CHAIN_ID` env var and never change it for that record.
-- **Dev / test:** a fresh `randomUUID()` per run (immudb is never reset, so a new id keeps block
-  heights starting at 1). The library/seed `CHAIN_ID` default is `oursay-global` (the universal
-  record); the API sets its own civic `CHAIN_ID` (`ab-ca-gov`, the launch jurisdiction).
-- **Never reuse** a production id for a new genesis. If you ever intentionally start a fresh chain
-  for the same body, bump a suffix (e.g. `ca-ab-gov-v2`); reusing the id would collide with the
-  existing append-only history.
+- **Production `ledgerId`:** set a durable UUID once via `LEDGER_ID` and never change it for that instance. Also written as an append-only genesis/meta row in each jurisdiction db.
+- **Production `chainId`:** a stable, human-auditable slug — e.g. `ab-ca-gov`. Set via `CHAIN_ID` / `WORKER_CHAIN_IDS` and never reuse for a new genesis (bump a suffix, e.g. `ab-ca-gov-v2`).
+- **Dev / test:** fresh UUID `ledgerId` and/or fresh slug/`randomUUID()` chainIds as needed; each chain still gets its own database so block heights start clean without resetting immudb.
+- Library default chain slug is `oursay-global`; the API civic default is `ab-ca-gov`.
 - The published `AnchorRecord.chainId` always matches the settled block header's `chainId`, and
   `verifyChain(anchors, expectedChainId)` lets an auditor bind a record to the genesis they expect.
 

@@ -8,10 +8,11 @@
 export const TABLE = "record_chain";
 export const BLOCKS_TABLE = "record_blocks";
 
-// `chain_id` labels which chain (genesis/network) a commitment belongs to, so one shared immudb can
-// host several chains (e.g. one per governing body). It is a COLUMN, not part of the PK: `tx_id` is
-// a UUID, globally unique, and each pooled tx settles to exactly one chain — so keeping `tx_id` the
-// sole PK leaves `immudb_verify_row` / point reads single-key and unchanged.
+// `chain_id` labels which chain (genesis/network) a commitment belongs to. Each jurisdiction is its
+// own immudb *database* (snake_case of the slug) under one instance/`ledgerId` — see
+// docs/spikes/immudb/DB-PER-JURISDICTION.md — so rows in this table are already scoped to one chain's
+// DB. `chain_id` remains a COLUMN (not part of the PK): `tx_id` is a UUID, unique within the DB, and
+// keeping `tx_id` the sole PK leaves `immudb_verify_row` / point reads single-key and unchanged.
 export const LEDGER_DDL = `
 CREATE TABLE IF NOT EXISTS ${TABLE} (
   tx_id                VARCHAR[64],
@@ -37,10 +38,11 @@ CREATE TABLE IF NOT EXISTS ${TABLE} (
 // settlement. The tip (height, chain-tip hash) of THIS chain is read back from here, so the next
 // block chains deterministically onto the last.
 //
-// PRIMARY KEY is (chain_id, block_height): chain_id is a genesis/network id. immudb is append-only
-// and is never reset, so a single height column would collide across deployments/test runs. Keying
-// by chain lets each genesis (incl. a fresh per-test-run id) start cleanly at height 1 while immudb
-// stays append-only. block_height PK also makes a duplicate settle at the same height a safe no-op.
+// PRIMARY KEY is (chain_id, block_height): within one per-jurisdiction database the chain_id matches
+// that DB's slug, but the composite key keeps headers self-describing for export/verify. immudb DBs
+// are append-only and never reset in place — removal is drop/unload of that database. A fresh
+// chainId (incl. per-test-run) gets a new DB so heights start at 1. Duplicate settle at the same
+// height is a safe no-op.
 //
 // Nullable-at-genesis fields (prev_block_root, prev_chain_tip_hash) are stored as "" — immudb
 // dislikes NULLs in indexed columns — and mapped back to null on read.

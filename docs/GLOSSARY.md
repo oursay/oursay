@@ -9,13 +9,11 @@ If a term elsewhere disagrees with this file, this file wins; fix the other plac
 
 ## Core terms
 
+- **Ledger (`ledgerId`)** — the identity of **one immudb instance** (and, eventually, one external anchor / EVM contract bound to that instance). A **UUID**, set once per deployment. Every jurisdiction database on that instance shares the same `ledgerId`. Written once as an append-only genesis/meta row in each jurisdiction db for tamper-evidence. Not a partition of civic identity. See [`spikes/immudb/DB-PER-JURISDICTION.md`](spikes/immudb/DB-PER-JURISDICTION.md).
 - **Jurisdiction** — the primary partition of civic identity and rules. A jurisdiction (e.g.
   `ab-ca-gov`, `ca-gov`) is **one chain + one rule set + one governmental level**, and is **1:1 with a
   chain** (the append-only ledger keeps the word "chain" only where physically accurate — e.g.
-  `record_outbox.chain_id`). A user may belong to **multiple jurisdictions**. Cryptographic identity
-  (persona master, nullifier/dedupe root) and gating rules (expiry, censoring, change/revoke) are
-  partitioned **per jurisdiction**. Code: `jurisdictionId`; the deployment default is
-  `jurisdictionConfig` (`public-record/src/jurisdiction.ts`).
+  `record_outbox.chain_id`). Each chain maps to its own **immudb database** (snake_case of the slug) under the shared instance/`ledgerId`. A user may belong to **multiple jurisdictions**. Cryptographic identity (persona master, nullifier/dedupe root) and gating rules (expiry, censoring,change/revoke) are partitioned **per jurisdiction**. Code: `jurisdictionId`; the deployment default is `jurisdictionConfig` (`public-record/src/jurisdiction.ts`).
 - **Level** — a **property of a jurisdiction**: its governmental tier (`federal`, `provincial`,
   `municipal`, `state`, …). Descriptive metadata, **never** a partition key on its own.
 - **District** — the electoral subdivision within a jurisdiction (riding / ward / constituency). A
