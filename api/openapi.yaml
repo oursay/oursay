@@ -2252,10 +2252,11 @@ paths:
                   - entityId
                   - txHash
         "400":
-          description: Default Response
+          description: Envelope / binding / content validation failed
           content:
             application/json:
               schema:
+                description: Envelope / binding / content validation failed
                 type: object
                 properties:
                   error:
@@ -2272,10 +2273,11 @@ paths:
                 required:
                   - error
         "401":
-          description: Default Response
+          description: Missing or invalid session
           content:
             application/json:
               schema:
+                description: Missing or invalid session
                 type: object
                 properties:
                   error:
@@ -2292,10 +2294,11 @@ paths:
                 required:
                   - error
         "403":
-          description: Default Response
+          description: Persona/signer ownership or act-gate denied
           content:
             application/json:
               schema:
+                description: Persona/signer ownership or act-gate denied
                 type: object
                 properties:
                   error:
@@ -2312,10 +2315,11 @@ paths:
                 required:
                   - error
         "409":
-          description: txId already exists on the public record (or other conflict)
+          description: txId already exists on the public record
           content:
             application/json:
               schema:
+                description: txId already exists on the public record
                 type: object
                 properties:
                   error:
@@ -2336,6 +2340,7 @@ paths:
           content:
             application/json:
               schema:
+                description: Public-record ledger unavailable (pool gate fail-closed)
                 type: object
                 properties:
                   error:
