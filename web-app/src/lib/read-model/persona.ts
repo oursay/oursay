@@ -36,6 +36,9 @@ export function personaNameFor(handle: string, threadId: string, digits = 2): st
  * Uniqueness is correctness-critical — components key lists by the displayed
  * handle, and the persona page resolves a persona from its name alone.
  *
+ * Collisions include other persona names and reserved user handles (defaults to
+ * the participant handles themselves — mirrors server `freePersonaName`).
+ *
  * Pass a shared `used` set to enforce uniqueness across threads (the persona
  * page's `/persona/<name>` lookup needs globally unique names); by default
  * uniqueness is per-thread. `nameAt` is injectable for tests that force
@@ -46,13 +49,15 @@ export function buildPersonaMap(
   threadId: string,
   nameAt: (handle: string, threadId: string, digits: number) => string = personaNameFor,
   used: Set<string> = new Set(),
+  reservedUserHandles: Iterable<string> = participantHandles,
 ): Map<string, string> {
   const map = new Map<string, string>();
   const handles = [...new Set(participantHandles)].sort();
+  const reserved = new Set(reservedUserHandles);
   for (const handle of handles) {
     let digits = 2;
     let name = nameAt(handle, threadId, digits);
-    while (used.has(name)) {
+    while (used.has(name) || reserved.has(name)) {
       digits += 1;
       name = nameAt(handle, threadId, digits);
     }

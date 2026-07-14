@@ -1,6 +1,6 @@
-/** Matches @oursay/api helpers/handle.ts — letters, digits, hyphen, underscore; 1–30 chars. */
+/** Matches @oursay/api helpers/handle.ts — 3–30 [A-Za-z0-9_-] with ≥1 letter. */
 
-const HANDLE_BODY_RE = /^[A-Za-z0-9_-]{1,30}$/;
+const HANDLE_BODY_RE = /^(?=.*[A-Za-z])[A-Za-z0-9_-]{3,30}$/;
 
 /** Profile/API wire handle: no leading @. */
 export function wireHandle(raw: string | null | undefined): string | undefined {
@@ -26,9 +26,11 @@ export function normalizeHandleBody(raw: string): string | null {
 export function handleValidationError(raw: string): string | null {
   const body = raw.trim().replace(/^@/, "");
   if (!body) return "Handle is required.";
+  if (body.length < 3) return "Handle must be at least 3 characters.";
   if (body.length > 30) return "Handle must be at most 30 characters.";
-  if (!HANDLE_BODY_RE.test(body)) {
+  if (!/^[A-Za-z0-9_-]+$/.test(body)) {
     return "Handle must use letters, digits, hyphens, and underscores only (e.g. jane-alberta).";
   }
+  if (!/[A-Za-z]/.test(body)) return "Handle must contain at least one letter.";
   return null;
 }

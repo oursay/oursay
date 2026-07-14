@@ -55,4 +55,12 @@ describe("buildPersonaMap", () => {
     expect(map.get("a")).toBe("Stuck00");
     expect(map.get("b")).toBe("Freeb4");
   });
+
+  it("treats user handles as reserved and widens digits (3-digit reroll)", () => {
+    // First candidate equals a registered user handle — must advance to 3 digits.
+    const nameAt = (_handle: string, _thread: string, digits: number) =>
+      digits === 2 ? "BraveOtter42" : `BraveOtter${"0".repeat(digits)}`;
+    const map = buildPersonaMap(["alice"], "thread-x", nameAt, new Set(), ["BraveOtter42"]);
+    expect(map.get("alice")).toBe("BraveOtter000");
+  });
 });

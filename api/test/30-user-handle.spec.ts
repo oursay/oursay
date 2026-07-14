@@ -29,6 +29,24 @@ describe("30 user handle: repo + DB format enforcement", () => {
     }
   });
 
+  it("rejects handles shorter than 3 characters", async () => {
+    try {
+      await w.services.repos.user.create({ id: randomUUID(), handle: "ab" });
+      expect.fail("expected create to throw");
+    } catch (e) {
+      expect((e as Error).message).to.match(/Invalid handle/);
+    }
+  });
+
+  it("rejects digit-only handles", async () => {
+    try {
+      await w.services.repos.user.create({ id: randomUUID(), handle: "12345" });
+      expect.fail("expected create to throw");
+    } catch (e) {
+      expect((e as Error).message).to.match(/Invalid handle/);
+    }
+  });
+
   it("stores wire form and strips a leading @ on input", async () => {
     const id = randomUUID();
     await w.services.repos.user.create({ id, handle: "@weichen", displayName: "Wei Chen" });

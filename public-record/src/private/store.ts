@@ -1324,11 +1324,19 @@ export class PrivateStore {
 
   // ── [align-w3-gates-schema] persona names, visibility, projections ─────────────────────
 
-  /** The first free persona name for `personaPubkey`, widening the numeric suffix on collision. */
+  /**
+   * The first free persona name for `personaPubkey`, widening the numeric suffix on collision.
+   * Conflicts with existing persona names AND user handles (`public.users.handle`) so a registered
+   * profile cannot be shadowed by a later persona mint (reroll 2→3→… digits).
+   */
   private async freePersonaName(client: pg.PoolClient, personaPubkey: string): Promise<string> {
     for (let digits = 2; digits <= 8; digits++) {
       const candidate = personaNameForPubkey(personaPubkey, digits);
-      const clash = await client.query(`SELECT 1 FROM thread_keys WHERE persona_name = $1`, [candidate]);
+      const clash = await client.query(
+        `SELECT 1 WHERE EXISTS (SELECT 1 FROM thread_keys WHERE persona_name = $1)
+                  OR EXISTS (SELECT 1 FROM users WHERE handle = $1)`,
+        [candidate],
+      );
       if (clash.rows.length === 0) return candidate;
     }
     // 8 suffix digits colliding is astronomically unlikely; fall back to an unambiguous unique name.

@@ -51,7 +51,12 @@ export const profileInputSchema = {
     "Least-resistance registration (C3): handle + over-18 checkbox required; everything else optional " +
     "behind a helper (the KYC step collects missing name/address before verification). No date of birth.",
   properties: {
-    handle: { type: "string", description: "REQUIRED unique username (wire form, no @). Letters, digits, hyphens, underscores; 1–30 chars." },
+    handle: {
+      type: "string",
+      description:
+        "REQUIRED unique username (wire form, no @). 3–30 chars of letters, digits, hyphens, underscores; " +
+        "must contain ≥1 letter. Cannot match an official seat handle or persona name.",
+    },
     displayName: { type: "string", description: "Optional public display text; falls back to the handle without its '@'." },
     over18: { type: "boolean", description: "Self-attested 18+ checkbox (must be true). KYC re-verifies; no DOB is stored." },
     firstName: { type: "string", description: "Optional private PII (KYC); never publicly surfaced." },

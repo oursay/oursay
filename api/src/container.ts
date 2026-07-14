@@ -221,16 +221,6 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     provider: geocodeProvider,
     profileRepo: repos.profile,
   });
-  const registrationService = new RegistrationService({
-    userRepo: repos.user,
-    profileRepo: repos.profile,
-    membershipRepo: repos.membership,
-    otpService,
-    authService,
-    geocodeService,
-    config: registrationConfig,
-    now,
-  });
   const passkeyService = new PasskeyService({
     passkeyRepo: repos.passkey,
     profileRepo: repos.profile,
@@ -300,6 +290,20 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     recordStore,
     geocodeRepo: repos.geocode,
     geoStore,
+  });
+
+  // Registration needs geo + record stores to reject official seat handles and persona names.
+  const registrationService = new RegistrationService({
+    userRepo: repos.user,
+    profileRepo: repos.profile,
+    membershipRepo: repos.membership,
+    otpService,
+    authService,
+    geocodeService,
+    geoStore,
+    recordStore,
+    config: registrationConfig,
+    now,
   });
 
   // KYC: pluggable provider (stub by default; didit/equifax) + session orchestration + attestations.

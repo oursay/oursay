@@ -13,6 +13,15 @@ describe("handle", () => {
     expect(handleValidationError("a@oursay.ca")).toMatch(/hyphens/i);
   });
 
+  it("rejects short handles and digit-only handles", () => {
+    expect(normalizeHandleBody("ab")).toBeNull();
+    expect(handleValidationError("ab")).toMatch(/3 characters/i);
+    expect(normalizeHandleBody("123")).toBeNull();
+    expect(handleValidationError("123")).toMatch(/letter/i);
+    expect(normalizeHandleBody("12_")).toBeNull();
+    expect(normalizeHandleBody("ab1")).toBe("ab1");
+  });
+
   it("strips @ for wire handles", () => {
     expect(wireHandle("@jane_alberta")).toBe("jane_alberta");
     expect(wireHandle("jane_alberta")).toBe("jane_alberta");

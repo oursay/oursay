@@ -4,7 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import { ServiceError } from "../../errors.js";
 import type { Services } from "../../container.js";
-import { isValidHandle, normalizeHandle } from "../../helpers/handle.js";
+import { handleFormatError, normalizeHandle } from "../../helpers/handle.js";
 import { isUserIconType, USER_ICON_TYPES } from "../../helpers/icon-type.js";
 import { BIO_MAX, DISPLAY_NAME_MAX } from "../../repo/user.repo.js";
 import { AUTHOR_VISIBILITIES } from "../../types/visibility.js";
@@ -107,13 +107,11 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
 
       if (body.handle !== undefined) {
         const wire = normalizeHandle(body.handle);
-        if (!wire || !isValidHandle(wire)) {
-          throw new ServiceError("validation", "Invalid handle");
-        }
-        const taken = await services.repos.user.getByHandle(wire);
-        if (taken && taken.id !== userId) {
-          throw new ServiceError("handle_taken", "That handle is already taken");
-        }
+        if (!wire) throw new ServiceError("validation", "Invalid handle");
+        const formatErr = handleFormatError(wire);
+        if (formatErr) throw new ServiceError("validation", formatErr);
+        await services.otpService.releaseExpiredRegistrationHolds();
+        await services.registrationService.ensureHandleAvailable(wire, { excludeUserId: userId });
         await services.repos.user.setHandle(userId, wire);
       }
 

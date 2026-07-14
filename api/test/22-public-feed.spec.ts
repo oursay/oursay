@@ -152,7 +152,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
 
   it("filters by types[], jurisdictions[], and tierMin; AB tier-gated scalars serve null", async () => {
     const svc = seeder(w);
-    const ab = await makeAccount(w, { handle: "@ab", displayName: "Ab" });
+    const ab = await makeAccount(w, { handle: "@ab_user", displayName: "Ab" });
     await w.services.recordStore.putAttestation({ userId: ab.userId, provider: "stub", tier: "residency_verified" });
 
     const gPost = await svc.create({ type: "post", author: "pk-g", content: { title: "G", body: "g" } });

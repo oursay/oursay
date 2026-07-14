@@ -93,7 +93,7 @@ describe("25 record detail: kind-agnostic detail + comment tree, identity, inter
     expect(d.attachedPoll).to.deep.equal({ question: "Q?", options: ["yes", "no"] });
 
     // AB petition: ab-ca-gov tier-gates signature counts; detail never filters by tier ⇒ null.
-    const ab = await makeAccount(w, { handle: "@ab" });
+    const ab = await makeAccount(w, { handle: "@ab_user" });
     const abPet = await svc.create({ type: "petition", author: "pk-abpet", content: { title: "AB", text: "t" } });
     await link(w, "pk-abpet", ab.userId, abPet.entityId, "ab-ca-gov");
     await svc.sign("pk-abs", abPet.entityId);

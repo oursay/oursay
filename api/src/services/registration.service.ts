@@ -14,7 +14,7 @@ import type { RegistrationConfig } from "../config.js";
 import { ServiceError, type Now } from "../errors.js";
 import { normalizeAddress } from "../helpers/address.js";
 import { normalizeEmail } from "../helpers/email.js";
-import { isValidHandle, normalizeHandle } from "../helpers/handle.js";
+import { handleFormatError, normalizeHandle } from "../helpers/handle.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { RegistrationOtpDraft } from "../repo/otp.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
@@ -22,6 +22,8 @@ import type { UserRepo } from "../repo/user.repo.js";
 import type { AuthService, IssuedSession } from "./auth.service.js";
 import type { GeocodeService } from "./geocode.service.js";
 import type { OtpService, OtpRequestResult } from "./otp.service.js";
+import type { GeoStore } from "@oursay/geo";
+import type { PrivateStore } from "@oursay/public-record";
 
 /** The jurisdiction every account is subscribed to at creation ([mvp-c10b-membership]). */
 const HOME_JURISDICTION = "oursay-global";
@@ -69,6 +71,10 @@ export interface RegistrationServiceDeps {
   authService: AuthService;
   /** Best-effort geocoding of the new profile's address into a private point. Never blocks registration. */
   geocodeService: GeocodeService;
+  /** Official seat handles must not be claimable as user handles. */
+  geoStore: GeoStore;
+  /** Persona display names must not be claimable as user handles. */
+  recordStore: PrivateStore;
   config: RegistrationConfig;
   now?: Now;
 }
@@ -133,9 +139,8 @@ export class RegistrationService {
 
     const handle = normalizeHandle(profileInput.handle);
     if (!handle) throw new ServiceError("validation", "A handle (@username) is required");
-    if (!isValidHandle(handle)) {
-      throw new ServiceError("validation", "Handle must use letters, digits, hyphens, and underscores only");
-    }
+    const formatErr = handleFormatError(handle);
+    if (formatErr) throw new ServiceError("validation", formatErr);
     if (profileInput.over18 !== true) {
       throw new ServiceError(
         "age_restricted",
@@ -143,14 +148,8 @@ export class RegistrationService {
       );
     }
 
-    if (await this.d.userRepo.handleExists(handle)) {
-      throw new ServiceError("handle_taken", "That handle is already taken");
-    }
     await this.d.otpService.releaseExpiredRegistrationHolds();
-    const holder = await this.d.otpService.activeRegistrationHolder(handle);
-    if (holder && holder !== canonical) {
-      throw new ServiceError("handle_taken", "That handle is already taken");
-    }
+    await this.ensureHandleAvailable(handle, { emailCanonical: canonical });
 
     if (await this.d.profileRepo.getByEmailCanonical(canonical)) {
       throw new ServiceError(
@@ -207,14 +206,41 @@ export class RegistrationService {
     return { userId, session };
   }
 
+  /**
+   * True when `handle` may be claimed by a user (format already validated by the caller).
+   * Rejects existing users, active registration OTP holds, official seat handles, and persona names.
+   */
+  async ensureHandleAvailable(
+    handle: string,
+    opts: { emailCanonical?: string; excludeUserId?: string } = {},
+  ): Promise<void> {
+    const existing = await this.d.userRepo.getByHandle(handle);
+    if (existing && existing.id !== opts.excludeUserId) {
+      throw new ServiceError("handle_taken", "That handle is already taken");
+    }
+    if (opts.emailCanonical) {
+      const holder = await this.d.otpService.activeRegistrationHolder(handle);
+      if (holder && holder !== opts.emailCanonical) {
+        throw new ServiceError("handle_taken", "That handle is already taken");
+      }
+    } else {
+      const holder = await this.d.otpService.activeRegistrationHolder(handle);
+      if (holder) {
+        throw new ServiceError("handle_taken", "That handle is already taken");
+      }
+    }
+    const seat = await this.d.geoStore.getOfficialSeatByHandle(handle);
+    if (seat) {
+      throw new ServiceError("handle_taken", "That handle is already taken");
+    }
+    const persona = await this.d.recordStore.getPersonaByName(handle);
+    if (persona) {
+      throw new ServiceError("handle_taken", "That handle is already taken");
+    }
+  }
+
   private async assertHandleAvailable(handle: string, emailCanonical: string): Promise<void> {
-    if (await this.d.userRepo.handleExists(handle)) {
-      throw new ServiceError("handle_taken", "That handle is already taken");
-    }
-    const holder = await this.d.otpService.activeRegistrationHolder(handle);
-    if (holder && holder !== emailCanonical) {
-      throw new ServiceError("handle_taken", "That handle is already taken");
-    }
+    await this.ensureHandleAvailable(handle, { emailCanonical });
   }
 
   private toDraft(
@@ -223,9 +249,8 @@ export class RegistrationService {
   ): RegistrationOtpDraft {
     const handle = normalizeHandle(profile.handle);
     if (!handle) throw new ServiceError("validation", "A handle (@username) is required");
-    if (!isValidHandle(handle)) {
-      throw new ServiceError("validation", "Handle must use letters, digits, hyphens, and underscores only");
-    }
+    const formatErr = handleFormatError(handle);
+    if (formatErr) throw new ServiceError("validation", formatErr);
     if (opts.requireOver18 && profile.over18 !== true) {
       throw new ServiceError(
         "age_restricted",

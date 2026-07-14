@@ -1,4 +1,7 @@
 import { expect } from "chai";
+import { randomUUID } from "node:crypto";
+import { ingestOfficialSeats, paths } from "@oursay/geo";
+import { makeAccount } from "./helpers/account.js";
 import { codeFromLastMail, resetWorld, type World } from "./helpers/world.js";
 
 async function requestCode(
@@ -267,5 +270,68 @@ describe("02 registration: OTP verify + slim profile → account + enroll-only s
     });
     expect(res.statusCode).to.equal(400);
     expect(res.json().error.code).to.equal("validation");
+  });
+
+  it("rejects handles shorter than 3 characters or without a letter", async () => {
+    const short = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: {
+        email: "short@example.com",
+        purpose: "registration",
+        profile: { handle: "@ab", over18: true },
+      },
+    });
+    expect(short.statusCode).to.equal(400);
+    expect(short.json().error.code).to.equal("validation");
+
+    const digits = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: {
+        email: "digits@example.com",
+        purpose: "registration",
+        profile: { handle: "@12345", over18: true },
+      },
+    });
+    expect(digits.statusCode).to.equal(400);
+    expect(digits.json().error.code).to.equal("validation");
+  });
+
+  it("409s official seat handles and persona names at otp/request", async () => {
+    await ingestOfficialSeats(
+      w.services.geoStore,
+      { jurisdictionId: "ab-ca-gov", effectiveDate: "2019-04-16", boundaryYear: 2019 },
+      paths.repoRoot,
+    );
+    const official = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: {
+        email: "seat.squatter@example.com",
+        purpose: "registration",
+        profile: { handle: "@ab-edm_strth", over18: true },
+      },
+    });
+    expect(official.statusCode).to.equal(409);
+    expect(official.json().error.code).to.equal("handle_taken");
+
+    const holder = await makeAccount(w, { handle: "persona_holder" });
+    await w.db.pool.query(
+      `INSERT INTO thread_keys (id, user_id, thread_id, jurisdiction, pubkey, persona_name)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [randomUUID(), holder.userId, randomUUID(), "oursay-global", "pk_reserved_persona", "BraveOtter99"],
+    );
+    const persona = await w.app.inject({
+      method: "POST",
+      url: "/v1/auth/otp/request",
+      payload: {
+        email: "persona.squatter@example.com",
+        purpose: "registration",
+        profile: { handle: "@BraveOtter99", over18: true },
+      },
+    });
+    expect(persona.statusCode).to.equal(409);
+    expect(persona.json().error.code).to.equal("handle_taken");
   });
 });

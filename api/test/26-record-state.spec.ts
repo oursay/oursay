@@ -112,7 +112,7 @@ describe("26 record-state: self-only batch participation markers", () => {
     await link(w, "pk-other", other.userId, post.entityId);
     await svc.react("pk-other", { type: "post", id: post.entityId }, "check");
 
-    const viewer = await makeAccount(w, { handle: "@me" });
+    const viewer = await makeAccount(w, { handle: "@viewer_me" });
     const session = await w.services.authService.issue(viewer.userId, "full", "test");
     const res = await recordState(w, [post.entityId], session.token);
     expect(res.statusCode).to.equal(200, res.body);

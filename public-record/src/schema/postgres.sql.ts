@@ -81,9 +81,12 @@ UPDATE users SET handle = ltrim(handle, '@') WHERE handle LIKE '@%';
 ALTER TABLE users ALTER COLUMN handle SET NOT NULL;
 ALTER TABLE users ALTER COLUMN display_name SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS users_handle_unique ON users (handle);
--- Wire username: 1–30 [A-Za-z0-9_-] (C4; mirrors api/src/helpers/handle.ts).
+-- Wire username: 3–30 [A-Za-z0-9_-] with ≥1 letter (C4; mirrors api/src/helpers/handle.ts).
+-- PG has no lookahead — length/charset and letter requirement are separate CHECKs in one constraint.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_handle_format;
-ALTER TABLE users ADD CONSTRAINT users_handle_format CHECK (handle ~ '^[A-Za-z0-9_-]{1,30}$');
+ALTER TABLE users ADD CONSTRAINT users_handle_format CHECK (
+  handle ~ '^[A-Za-z0-9_-]{3,30}$' AND handle ~ '[A-Za-z]'
+);
 -- Non-indexable public presentation (bio, dicebear icon_type). Handle/display_name stay columns.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_details JSONB NOT NULL DEFAULT '{}'::jsonb;
 

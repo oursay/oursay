@@ -16,13 +16,13 @@ import { p256 } from "@noble/curves/p256";
 import { bytesToHex } from "@noble/hashes/utils";
 import {
   BlockSettler,
-  PgWireLedgerConnector,
+  LedgerInstance,
   PrivateStore,
   PublicChain,
   RecordService,
   blockConfig,
-  immudbPgConfig,
   pgConfig,
+  type PgWireLedgerConnector,
 } from "@oursay/public-record";
 import type { TxEnvelope } from "@oursay/public-record/schema/types";
 import { DevPasskeyConnector } from "../src/client/dev-connector.js";
@@ -38,7 +38,9 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
   const kycTier = "residency_verified";
 
   let store: PrivateStore | undefined;
+  let ledger: LedgerInstance | undefined;
   let connector: PgWireLedgerConnector | undefined;
+  let chainId: string | undefined;
   let settler: BlockSettler;
   let registry: IdentityRegistry;
   let passkey: DevPasskeyConnector;
@@ -51,12 +53,12 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
   let sessB: IdentitySession;
 
   before(async () => {
-    connector = new PgWireLedgerConnector(immudbPgConfig);
-    await connector.connect();
     store = new PrivateStore(pgConfig);
     await store.init();
     await store.reset();
-    const chainId = randomUUID();
+    chainId = randomUUID();
+    ledger = new LedgerInstance();
+    connector = await ledger.createDatabaseFor(chainId).then(() => ledger!.getConnector(chainId!));
     const svc = new RecordService(new PublicChain(store, chainId, connector), store, {
       platformBindingPrivKeyHex: platformPriv,
       signedEnvelopeMaxAgeSec: 0,
@@ -225,7 +227,16 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
   });
 
   after(async () => {
-    await connector?.close?.();
+    if (ledger && chainId) {
+      try {
+        await ledger.dropDatabaseFor(chainId);
+      } catch {
+        /* best-effort */
+      }
+      await ledger.close().catch(() => {});
+    } else {
+      await connector?.close?.();
+    }
     await store?.close?.();
   });
 });
