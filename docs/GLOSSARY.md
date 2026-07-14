@@ -237,7 +237,7 @@ jurisdiction). **Never** use a display label as a canonical dev term.
 - Domain code: `public-record/src/jurisdiction.ts`, `public-record/src/governance.ts`; boundaries +
   regions: `@oursay/geo` (`geo/src/region-resolver.ts`, `geo/src/store.ts`).
 
-> **Spikes predate this vocabulary.** Exploratory spike packages (e.g. `passkey-test/`) were written
+> **Spikes predate this vocabulary.** Exploratory spike packages (archived under `docs/spikes/`, e.g. passkey) were written
 > before the jurisdiction terminology and still use the old words (`level`, `region`). They have been
 > **promoted** into `@oursay/public-record` + `@oursay/identity`, which use the terms above — treat the
 > shipping packages and this glossary as authoritative, not the spikes.

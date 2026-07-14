@@ -1,7 +1,7 @@
 // On-device per-thread key derivation (PROPOSAL.md §6). Promoted from the `passkey-test` spike.
 //
 // A user holds one JURISDICTION MASTER per jurisdiction (the 32-byte IKM; on the web it comes from
-// the WebAuthn PRF output, or the secure-storage fallback — see passkey-test/FINDINGS.md). Per-thread
+// the WebAuthn PRF output, or the secure-storage fallback — see docs/spikes/passkey/FINDINGS.md). Per-thread
 // keys are derived deterministically with HKDF-SHA256, DOMAIN-SEPARATED by (thread_id, jurisdiction),
 // then mapped to a P-256 private scalar. No private/derivation material ever leaves the device; the
 // platform only ever sees the public thread key.

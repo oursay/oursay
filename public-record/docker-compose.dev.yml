@@ -10,7 +10,7 @@
 #
 # Compose project: oursay-dev-public-record.
 # Host ports match package defaults (PG :5442, immudb pg-wire :5443) and are offset from
-# immudb-test (5432/5433) and the integration-test stack (5444/5445) so all can run at once.
+# the integration-test stack (5444/5445) so both can run at once.
 services:
   # immudb 1.11.0 over the PostgreSQL wire protocol — the modern, maintained path.
   # Verification is available as SQL functions: immudb_state(), immudb_verify_row().

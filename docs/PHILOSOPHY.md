@@ -41,14 +41,14 @@ verify."
 
 The repository is an **npm workspaces** monorepo (`package.json` → `workspaces`). Each
 workspace is a directory with its own `package.json`, named under the `@oursay/*` scope
-(`@oursay/immudb-test`, `@oursay/public-record`). Node ≥ 20. Dependencies are hoisted to
+(`@oursay/public-record`, `@oursay/api`). Node ≥ 20. Dependencies are hoisted to
 the root; the root `package-lock.json` is the single locked dependency graph.
 
 Every workspace falls into one of three kinds. The kind determines what is expected of it.
 
 ### 2.1 Product workspaces
 
-The deployable application(s). Today: `site` (the Astro frontend). A product workspace is
+The deployable application(s). Today: `site` (the Astro frontend) and `web-app` (Next.js). A product workspace is
 something we ship to users; it carries the full weight of the spec — accessibility, the
 non-affiliation disclaimer, public-language discipline, build-hash publication.
 
@@ -57,7 +57,7 @@ non-affiliation disclaimer, public-language discipline, build-hash publication.
 Time-boxed, hypothesis-driven investigations that answer a small number of sharp questions
 with **tests as evidence**. `turnkey-test` asked "can we provision per-user HD wallets and
 derive per-thread keys?" — it could, but the BIP32/xpub/remote-custody answer was **not adopted**
-(see [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md); identity moved to passkeys +
+(see [`spikes/turnkey/FINDINGS.md`](./spikes/turnkey/FINDINGS.md); identity moved to passkeys +
 on-device HKDF + per-thread bindings). `immudb-test` asked "is immudb a viable tamper-evident
 ledger, and how do redaction and anchoring actually behave?".
 
@@ -65,12 +65,15 @@ An evaluation workspace is **honest about being a spike**:
 
 - Its name ends in `-test` and its `description` says "evaluation."
 - It pins whatever versions make the experiment _genuine_ even if they are not what we
-  would deploy. (`immudb-test` pins immudb 1.1.0 to exercise real gRPC proofs as a
+  would deploy. (`immudb-test` pinned immudb 1.1.0 to exercise real gRPC proofs as a
   baseline, while explicitly recommending 1.11.0 for production — see its FINDINGS.)
 - It produces a **`FINDINGS.md`**: the durable output. The code may be thrown away; the
   findings are not. They are the input to the next phase.
 - It is never imported by a product or library workspace. Spikes are leaves in the
   dependency graph.
+
+> Graduated spikes (`turnkey-test`, `immudb-test`, `passkey-test`) have been removed from the
+> workspace graph; their FINDINGS live under [`docs/spikes/`](./spikes/).
 
 > An evaluation workspace's job is to retire risk and write down what was learned, not to
 > become the production system by accretion. When it has answered its questions, it stops.
@@ -142,7 +145,7 @@ Decoupling is what keeps a monorepo from collapsing into a tangle. The rules:
 ## 5. Separation of concerns: the public ledger vs the private store
 
 One architectural decision is so foundational it is monorepo philosophy, not just a
-library detail (the immudb spike established it; see `../immudb-test/FINDINGS.md`):
+library detail (the immudb spike established it; see [`spikes/immudb/FINDINGS.md`](./spikes/immudb/FINDINGS.md)):
 
 **The append-only public ledger holds only hash commitments and public metadata. A
 separate, mutable private store holds raw content and PII.**

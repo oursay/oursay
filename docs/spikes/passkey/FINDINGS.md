@@ -181,7 +181,7 @@ interface PlatformAdapter {
 |---|---|
 | WebAuthn P-256 register/auth flow (`alg -7`, `rpId=localhost`) | Treating the passkey as the action signer |
 | PRF as level-master IKM **where available** | Hard-depending on PRF (uneven support) |
-| HKDF (domain-separated) → P-256, pinned scalar mapping | BIP32 paths / xpub (already dropped — see `../turnkey-test/FINDINGS.md`) |
+| HKDF (domain-separated) → P-256, pinned scalar mapping | BIP32 paths / xpub (already dropped — see [`../turnkey/FINDINGS.md`](../turnkey/FINDINGS.md)) |
 | Reusing `public-record` `canonicalJson`/`sha256Hex`/`txHashOf` | Re-implementing canonical JSON, Merkle, or commitments |
 | The `salt_t`-hex identity-commitment encoding (port to public-record) | Putting the commitment/opening on the public envelope |
 | `PlatformAdapter` seam (web now, native later) | Building native modules in this pass |

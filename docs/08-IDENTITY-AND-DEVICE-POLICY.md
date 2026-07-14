@@ -647,7 +647,7 @@ production data.
 
 | Surface | Operation |
 |---------|-----------|
-| `public-record` / `immudb-test` `npm run db:down` | `docker compose down -v` |
+| `public-record` `npm run db:down` | `docker compose down -v` |
 | `@oursay/identity` `npm run reset` | dev custody wipe + `db:down -v` |
 | `PrivateStore.reset()` | `TRUNCATE` all private tables |
 | `DevPasskeyConnector` | construct / `destroyAll()` (dev only) |
@@ -696,7 +696,7 @@ Before merging changes that touch identity or user data, confirm:
 | [`VALUES.md`](./VALUES.md) | Engineering values and anti-patterns |
 | [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) | Normative R1–R28 |
 | [`../public-record/PROPOSAL.md`](../public-record/PROPOSAL.md) | Worked technical design |
-| [`../passkey-test/FINDINGS.md`](../passkey-test/FINDINGS.md) | WebAuthn + PRF spike results |
+| [`spikes/passkey/FINDINGS.md`](./spikes/passkey/FINDINGS.md) | WebAuthn + PRF spike results |
 
 ---
 

@@ -11,9 +11,6 @@ COPY identity/package.json ./identity/
 COPY jurisdiction-data/package.json ./jurisdiction-data/
 COPY web-app/package.json ./web-app/
 COPY site/package.json ./site/
-COPY turnkey-test/package.json ./turnkey-test/
-COPY immudb-test/package.json ./immudb-test/
-COPY passkey-test/package.json ./passkey-test/
 COPY public-record/package.json ./public-record/
 COPY geo/package.json ./geo/
 COPY slugs/package.json ./slugs/

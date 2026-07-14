@@ -1,6 +1,6 @@
 # Proposal: `@oursay/public-record`
 
-_Status: **Partially implemented** · Graduates from `immudb-test`; **supersedes** the `turnkey-test` spike (identity model revised — see [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md))_
+_Status: **Partially implemented** · Graduates from `immudb-test`; **supersedes** the `turnkey-test` spike (identity model revised — see [`../docs/spikes/turnkey/FINDINGS.md`](../docs/spikes/turnkey/FINDINGS.md))_
 
 > **Implementation note (event-sourced model).** The initial schema + verification chain are
 > built — see [`README.md`](./README.md) and `src/`. The implemented model is **event-sourced**:
@@ -37,7 +37,7 @@ we can serve immudb over gRPC _or_ the Postgres wire protocol — and swap or ad
 without touching the rest of the system.
 
 **Read first:** [`REQUIREMENTS.md`](./REQUIREMENTS.md) (the normative requirements `R1`–`R28` this must satisfy),
-[`../immudb-test/FINDINGS.md`](../immudb-test/FINDINGS.md) (the evidence), and
+[`../docs/spikes/immudb/FINDINGS.md`](../docs/spikes/immudb/FINDINGS.md) (the evidence), and
 [`../docs/PHILOSOPHY.md`](../docs/PHILOSOPHY.md) / [`../docs/VALUES.md`](../docs/VALUES.md) (the rules).
 
 ---
@@ -482,7 +482,7 @@ reversibly (R8, R9); an independent org can verify a user's thread activity once
 authorizes it (R11).
 
 > The earlier `turnkey-test` spike explored BIP32/xpub derivation with remote Turnkey custody.
-> That model was **not adopted** — see [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md).
+> That model was **not adopted** — see [`../docs/spikes/turnkey/FINDINGS.md`](../docs/spikes/turnkey/FINDINGS.md).
 > The decisive problem: ownership proof via **xpub** is all-or-nothing — sharing one xpub exposes
 > **every** thread under it (a jurisdiction-scoped xpub only limits the blast radius to a whole
 > jurisdiction, never to an individual thread). A civic record needs **per-thread** selective disclosure.

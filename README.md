@@ -58,10 +58,10 @@ Verified users have confirmed their identity and residency through a pluggable K
 │   ├── 06-PRIVACY-REVIEW.md       # Disclosure matrix, re-identification risk, and mitigations
 │   ├── 07-DECENTRALIZATION-ALIGNMENT.md  # North star: build centralized, stay ready to decentralize
 │   ├── PHILOSOPHY.md              # Monorepo philosophy: structure & how code matures
-│   └── VALUES.md                  # Engineering values that constrain design
+│   ├── VALUES.md                  # Engineering values that constrain design
+│   └── spikes/                    # Archived spike FINDINGS (turnkey, immudb, passkey)
 ├── site/                          # Public marketing & explainer website (Astro) [workspace]
-├── turnkey-test/                  # Spike (historical): HD wallets/per-thread keys — NOT adopted; see its FINDINGS.md [workspace]
-├── immudb-test/                   # Spike: tamper-evident verifiable-ledger evaluation [workspace]
+├── web-app/                       # Civic web app (Next.js) [workspace]
 ├── evm-anchor/                    # Hardhat: EVM anchoring for public-record Merkle roots [workspace]
 ├── public-record/                 # Proposal & requirements for the verifiable public-record library
 ├── api/                            # Account API (@oursay/api): email-OTP registration, passkey auth, recovery [workspace]

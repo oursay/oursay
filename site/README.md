@@ -1,6 +1,6 @@
 # OurSay — marketing & explainer site
 
-Public-facing website for OurSay. Static [Astro](https://astro.build) + Tailwind CSS v4. This is the **`site`** product workspace of the OurSay monorepo (alongside the `turnkey-test` and `immudb-test` evaluation spikes and the proposed `public-record` library — see [`../docs/PHILOSOPHY.md`](../docs/PHILOSOPHY.md)).
+Public-facing website for OurSay. Static [Astro](https://astro.build) + Tailwind CSS v4. This is the **`site`** product workspace of the OurSay monorepo (alongside `web-app` and library packages such as `public-record` — see [`../docs/PHILOSOPHY.md`](../docs/PHILOSOPHY.md)).
 
 ## Run it
 

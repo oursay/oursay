@@ -17,9 +17,7 @@ COPY scripts ./scripts
 # `npm ci` can link the workspace graph without copying the whole monorepo.
 COPY web-app/package.json ./web-app/
 COPY site/package.json ./site/
-COPY turnkey-test/package.json ./turnkey-test/
-COPY immudb-test/package.json ./immudb-test/
-COPY passkey-test/package.json ./passkey-test/
+COPY evm-anchor/package.json ./evm-anchor/
 
 RUN npm ci
 

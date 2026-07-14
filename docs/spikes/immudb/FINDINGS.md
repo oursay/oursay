@@ -141,7 +141,7 @@ impossible) — good as a transparency log, best combined with (b).
 `anchor(bytes32)` call. Once mined, the root + timestamp are immutable and globally verifiable
 without trusting OurSay or GitHub. The test builds the calldata, signs the tx digest **offline**
 with secp256k1, and recovers the signer — no broadcast, no faucet, fully deterministic. In
-production this signing is delegated to the **Turnkey** wallet already used in `../turnkey-test`
+production this signing is delegated to the **Turnkey** wallet already used in [`../turnkey`](../turnkey)
 (`signRawPayload` + `HASH_FUNCTION_NO_OP` over the same secp256k1 curve). A cheap L2 or an
 OP_RETURN-style commitment would be the production target; broadcasting to a testnet is the
 only remaining step and was intentionally left out of the test to keep it hermetic.

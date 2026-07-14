@@ -100,7 +100,7 @@ use the vocabulary in contributor spec §11.5 — see [`../docs/PHILOSOPHY.md`](
 > (ownership mechanism), and **R11** (selective reveal vs xpub sharing). The pseudonymous
 > public-ownership channel (claim/unclaim, R8/R9) is unchanged and is kept distinct from the
 > identity-to-auditor reveal channel (R11). Rationale and the discarded approach:
-> [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md); worked design:
+> [`../docs/spikes/turnkey/FINDINGS.md`](../docs/spikes/turnkey/FINDINGS.md); worked design:
 > [`PROPOSAL.md`](./PROPOSAL.md) §6.
 
 - **R7 [Invariant]** — The platform MUST be able to verify that a per-thread key belongs to a
@@ -229,7 +229,7 @@ original assertions._
 - **Two stores.** An **append-only verifiable ledger** (immudb) holds commitments + public
   metadata only; a **mutable Postgres store** holds raw content, salts, and PII. This split is
   what makes both auditability (R4, R12) and redaction/erasure (R17–R19) possible at once. See
-  [`../immudb-test/FINDINGS.md`](../immudb-test/FINDINGS.md).
+  [`../docs/spikes/immudb/FINDINGS.md`](../docs/spikes/immudb/FINDINGS.md).
 - **Per-thread keys.** Users hold a **jurisdiction-scoped master key per jurisdiction** (governmental
   level is a property of the jurisdiction, not the partition key); per-thread keys are derived
   **on-device via HKDF** from the matching jurisdiction master (R3) and sign envelopes with **P-256**. The platform links a thread key to a verified user through a **private
@@ -237,7 +237,7 @@ original assertions._
   and any commitment opening are PII, **encrypted at rest, never published** until the user
   authorizes a **selective reveal** of specific threads (R11). Custody is the user's device/passkey;
   Turnkey is an **optional recovery** path only. The discarded BIP32/xpub/Turnkey-custody spike is
-  documented in [`../turnkey-test/FINDINGS.md`](../turnkey-test/FINDINGS.md).
+  documented in [`../docs/spikes/turnkey/FINDINGS.md`](../docs/spikes/turnkey/FINDINGS.md).
 - **Pool → settle → publish.** Actions are first **pooled** (Postgres `record_outbox`, `pending`,
   tagged with their `chainId`); nothing reaches the ledger on the user's action. A **block** is
   **settled** when its trigger fires — `BLOCK_MAX_PENDING` records accumulated **or** the oldest
