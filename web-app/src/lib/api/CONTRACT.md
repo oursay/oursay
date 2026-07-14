@@ -28,7 +28,7 @@ mock maps today.
 | `listDistricts` | `DistrictSummary[]` | `GET /v1/public/jurisdictions/{jurisdictionId}/districts` | — | Names/leaders map directly. |
 | `getDistrict` | `DistrictDetail` | `GET /v1/public/jurisdictions/{jurisdictionId}/districts` (+ slug filter) | — | About/boundary/leader detail not on the current API — mock fills; detail route → Part 2. |
 | `getProfile` | `PublicProfile` | *(none)* | — | Gap → Part 2. |
-| `listProfilePosts` / `listProfileActivity` / `listProfileMentions` | `ProfilePost[]` / `ActivityItem[]` / `MentionItem[]` | *(none)* | — | Gap → Part 2. |
+| `listProfilePosts` / `listProfileActivity` / `listProfileMentions` | `ProfilePost[]` / `ActivityItem[]` / `MentionItem[]` | posts/activity/mentions | Live | Mentions gated by `threadRevealed`. |
 | `getJurisdictionMembership` | `JurisdictionMembership[]` | *(none — client cookie)* | — | Gap → Part 2. |
 
 Counts sub-resources for aggregates that resolve geo/tier server-side:
@@ -78,9 +78,11 @@ extends an existing resource or is net-new, and a priority note.
 ### 5. Profile mentions
 - **Function(s):** `listProfileMentions`
 - **UI surface:** Profile Mentions tab (others referencing `@handle`).
-- **Proposed:** `GET /v1/public/profiles/{handle}/mentions?limit&offset` →
-  `{ items: MentionItem[] }`.
-- **Extend / new:** Net-new (requires mention indexing).
+- **Live:** `GET /v1/public/profiles/{handle}/mentions?limit&cursor` →
+  `{ items: MentionItem[]; nextCursor }`. Rows from related `mention_index`, gated by
+  `threadRevealed` (docs/09 §2). Soft-mode related cites included when account visibility
+  admits them. Out-of-scope profiles → 404.
+- **Extend / new:** Landed (mention-nodes Slice 4).
 - **Priority:** Blocks D3 profile view.
 
 ### 6. Nested comment trees

@@ -1,8 +1,5 @@
 /** Explicit user-facing copy for surfaces deferred past W5. */
 
-export const DEFERRED_MENTIONS =
-  "Mentions are coming soon — activity is available on the Activity tab.";
-
 export const DEFERRED_EDIT_HISTORY = "Edit history is not available yet.";
 
 export const DEFERRED_PASSKEY_RECOVERY =

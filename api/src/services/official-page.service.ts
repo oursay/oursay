@@ -161,10 +161,11 @@ export class OfficialPageService {
   private async enrichClaimed(page: OfficialPageDto, viewer: ApiViewer): Promise<OfficialPageDto> {
     const handle = page.claimedUserHandle!;
     try {
-      const [header, posts, activity] = await Promise.all([
+      const [header, posts, activity, mentions] = await Promise.all([
         this.profilePageService!.getHeader(handle, viewer),
         this.profilePageService!.listPosts(handle, viewer, { limit: 100 }),
         this.profilePageService!.listActivity(handle, viewer, { limit: 100 }),
+        this.profilePageService!.listMentions(handle, viewer, { limit: 100 }),
       ]);
       return {
         ...page,
@@ -174,6 +175,7 @@ export class OfficialPageService {
         support: header.support,
         posts: posts.items,
         activity: activity.items,
+        mentions: mentions.items,
       };
     } catch (err) {
       if (err instanceof ServiceError && err.code === "not_found") return page;

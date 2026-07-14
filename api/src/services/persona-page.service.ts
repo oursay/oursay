@@ -12,7 +12,13 @@ import { ServiceError } from "../errors.js";
 import { resolveContentMentions } from "../helpers/resolve-mentions.js";
 import type { AuthorIdentityDto, IdentityReadService, ReadResolution, ThreadGeoContext } from "./identity-read.service.js";
 import type { CommentNodeDto } from "./record-detail.service.js";
-import { rootTitleOf, type ActivityItemDto, type ProfilePageService, type ProfileSupportDto } from "./profile-page.service.js";
+import {
+  rootTitleOf,
+  type ActivityItemDto,
+  type MentionItemDto,
+  type ProfilePageService,
+  type ProfileSupportDto,
+} from "./profile-page.service.js";
 import type { RootType } from "./public-feed.service.js";
 import type { ApiViewer } from "./viewer-context.service.js";
 import type { KycTier } from "../types/kyc.js";
@@ -33,6 +39,8 @@ export interface PersonaPageDto {
   support: ProfileSupportDto;
   comments: CommentNodeDto[];
   activity: ActivityItemDto[];
+  /** Thread-scoped Mentions tab — related cites of this persona's user in this thread only. */
+  mentions: MentionItemDto[];
 }
 
 export interface PersonaPageServiceDeps {
@@ -61,6 +69,16 @@ export class PersonaPageService {
     const activityRows = await this.d.recordStore.listAuthorActivity([resolved.pubkey], { limit: 100 });
     const activity = await this.d.profilePageService.mapAuthorActivityRows(activityRows);
 
+    const key = await this.d.recordStore.getThreadKey(resolved.pubkey);
+    let mentions: MentionItemDto[] = [];
+    if (key?.userId) {
+      const mentionRows = await this.d.recordStore.listMentionsForUser(key.userId, {
+        entityId: resolved.threadId,
+        limit: 100,
+      });
+      mentions = await this.d.profilePageService.mapMentionIndexRows(mentionRows, res);
+    }
+
     const isRootAuthor = root.authorPubkey === resolved.pubkey;
     const rootView = toPublicView(root);
 
@@ -86,6 +104,7 @@ export class PersonaPageService {
       support: { agrees, disagrees, statements: 0, comments: comments.length },
       comments,
       activity,
+      mentions,
     };
   }
 

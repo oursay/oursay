@@ -141,7 +141,7 @@ Soft-mode (related): the map row (and reserved label) is created at allocate, wh
 |--------|-----|
 | Allocate (`allocateOrGet` / `allocateUnresolved`) | Authenticated author on civic prepare for that thread |
 | Read resolved display | Public (viewer-dependent profile vs persona vs reserved when related; `Someone` when unresolved) |
-| Index / Mentions tab | Related `mention_index` rows only (subject to existing profile/persona 404 rules) |
+| Index / Mentions tab | Related `mention_index` rows only; Profile Mentions additionally gated by `threadRevealed` (docs/09 §2); persona Mentions are thread-scoped |
 
 ## Events
 
@@ -224,7 +224,7 @@ CREATE INDEX IF NOT EXISTS mention_index_user ON mention_index (mentioned_user_i
 CREATE INDEX IF NOT EXISTS mention_index_entity ON mention_index (entity_id);
 ```
 
-### Store contract (target — not yet wired)
+### Store contract
 
 | Method | Behavior |
 |--------|----------|
@@ -232,6 +232,7 @@ CREATE INDEX IF NOT EXISTS mention_index_entity ON mention_index (entity_id);
 | `allocateUnresolved(threadId)` | New row with `mentioned_user_id` NULL and `reserved_label = Someone`; return `{ nodeId }` |
 | `getMentionMapByNodeIds(ids)` | Batch lookup for read resolve |
 | `insertMentionIndex(rows)` | Post-submit projection (related only) |
+| `listMentionsForUser(userId, opts)` | Mentions-tab list; join `record_tx` via `mi.tx_id::uuid`; optional `entityId` for persona scope |
 
 ## Implementation
 
@@ -244,11 +245,10 @@ CREATE INDEX IF NOT EXISTS mention_index_entity ON mention_index (entity_id);
 | Allocate on prepare | `CivicRecordService.prepare` + `PreparedAppend.mentionNodes` | Slice 2 |
 | Resolve + read DTO | `IdentityReadService.resolveMention` + feed/detail `mentions` | Slice 2 |
 | Compose embed | `web-app` + `identity` CivicHttpClient.append | Slice 3 landed |
-| Mentions tabs | profile/persona APIs; drop `DEFERRED_MENTIONS` | Slice 4 |
+| Mentions tabs | profile/persona APIs; drop `DEFERRED_MENTIONS` | Slice 4 landed |
 
 ## Gaps
 
-- **Mentions tabs / DEFERRED_MENTIONS** — Slice 4.
 - **Official always-public mention special-case** — deferred V1; see [future.md](./future.md).
 - **Compose helpers dropdown** — makes unauthorized → `Someone` obvious at chip time (future UX).
 - **Handle collision tightening** — ordered spans + candidates; collision UX post-dev / MVP polish.

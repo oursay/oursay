@@ -7,7 +7,7 @@ import type { Services } from "../../container.js";
 import { KYC_TIERS } from "../../types/kyc.js";
 import { ROOT_TYPES } from "../../services/public-feed.service.js";
 import { errorSchema } from "../schemas.js";
-import { activityItemSchema, identitySchema } from "./public-page.schemas.js";
+import { activityItemSchema, identitySchema, mentionItemSchema } from "./public-page.schemas.js";
 
 const supportSchema = {
   type: "object",
@@ -69,8 +69,9 @@ export function registerPublicPersonaRoutes(app: FastifyInstance, services: Serv
               support: supportSchema,
               comments: { type: "array", items: commentNodeSchema },
               activity: { type: "array", items: activityItemSchema },
+              mentions: { type: "array", items: mentionItemSchema },
             },
-            required: ["name", "threadId", "jurisdiction", "threadKind", "threadTitle", "identity", "tier", "isRootAuthor", "support", "comments", "activity"],
+            required: ["name", "threadId", "jurisdiction", "threadKind", "threadTitle", "identity", "tier", "isRootAuthor", "support", "comments", "activity", "mentions"],
           },
           404: errorSchema,
         },

@@ -5,7 +5,7 @@
  */
 
 import type { AuthorIdentity } from "@/lib/types/identity";
-import type { ActivityItem, PublicProfile } from "@/lib/types/profile";
+import type { ActivityItem, MentionItem, PublicProfile } from "@/lib/types/profile";
 import type { ProfileRoleTag } from "@/lib/types/role-tag";
 import type {
   AttachedPoll,
@@ -340,6 +340,24 @@ export function mapActivityItem(raw: Record<string, unknown>): ActivityItem {
   };
 }
 
+/** Mentions-tab row (profile / persona / official). */
+export function mapMentionItem(raw: Record<string, unknown>): MentionItem {
+  const mentions = mapMentions(raw.mentions);
+  const item: MentionItem = {
+    author: String(raw.author ?? ""),
+    handle: String(raw.handle ?? ""),
+    text: String(raw.text ?? ""),
+    ts: raw.ts != null ? String(raw.ts) : undefined,
+    meta: raw.meta != null ? String(raw.meta) : undefined,
+    recordId: raw.recordId != null ? String(raw.recordId) : undefined,
+    identity: raw.identity
+      ? mapIdentity(raw.identity as Record<string, unknown>)
+      : undefined,
+  };
+  if (mentions) item.mentions = mentions;
+  return item;
+}
+
 function mapLevel(level: string): JurisdictionLevel {
   if (level === "provincial" || level === "municipal") return "province";
   return "global";
@@ -483,6 +501,8 @@ export function mapPersonaProfile(
     activity: Array.isArray(raw.activity)
       ? raw.activity.map((row) => mapActivityItem(row as Record<string, unknown>))
       : [],
-    mentions: [],
+    mentions: Array.isArray(raw.mentions)
+      ? raw.mentions.map((row) => mapMentionItem(row as Record<string, unknown>))
+      : [],
   };
 }

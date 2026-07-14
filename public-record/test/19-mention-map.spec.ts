@@ -67,4 +67,49 @@ describe("19 mention-map allocate + index", () => {
     // Second call must not throw (ON CONFLICT DO NOTHING).
     await store.insertMentionIndex([{ txId, entityId: threadId, mentionedUserId: userId }]);
   });
+
+  it("listMentionsForUser joins record_tx via tx_id cast and filters by entityId", async () => {
+    const { store, svc } = await getWorld();
+    await store.reset();
+    const userId = randomUUID();
+    await store.putUser({ id: userId, handle: `@u${userId.slice(0, 8)}` });
+
+    const threadA = await svc.create({
+      type: "post",
+      author: "pk-list-a",
+      content: { title: "Thread A", body: "mention me" },
+    });
+    const threadB = await svc.create({
+      type: "post",
+      author: "pk-list-b",
+      content: { title: "Thread B", body: "other" },
+    });
+    const comment = await svc.create({
+      type: "comment",
+      author: "pk-list-c",
+      content: { body: "hi @target" },
+      parent: { type: "post", id: threadA.entityId },
+    });
+
+    await store.insertMentionIndex([
+      { txId: comment.txId, entityId: threadA.entityId, mentionedUserId: userId },
+      { txId: threadB.txId, entityId: threadB.entityId, mentionedUserId: userId },
+    ]);
+
+    const all = await store.listMentionsForUser(userId, { limit: 10 });
+    expect(all).to.have.length(2);
+    expect(all.map((r) => r.entityId).sort()).to.deep.equal(
+      [threadA.entityId, threadB.entityId].sort(),
+    );
+    expect(all.find((r) => r.entityId === threadA.entityId)?.citingEntityId).to.equal(comment.entityId);
+    expect(all.find((r) => r.entityId === threadA.entityId)?.citingType).to.equal("comment");
+
+    const scoped = await store.listMentionsForUser(userId, {
+      entityId: threadA.entityId,
+      limit: 10,
+    });
+    expect(scoped).to.have.length(1);
+    expect(scoped[0]!.entityId).to.equal(threadA.entityId);
+    expect(scoped[0]!.citingContent).to.deep.include({ body: "hi @target" });
+  });
 });

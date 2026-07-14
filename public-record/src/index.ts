@@ -20,6 +20,7 @@ export type {
   AppendTxInput,
   ThreadBindingRow,
   MentionMapRow,
+  MentionIndexRow,
 } from "./private/store.js";
 export { PublicChain, txHashOf } from "./ledger/chain.js";
 

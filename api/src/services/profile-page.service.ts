@@ -1,20 +1,33 @@
 // ProfilePageService ([align-w4-api-surface] P4/P5): the account-level public profile surface
-// behind the web-app's ProfileView. The whole profile (header, posts, activity) EXISTS ONLY for
-// viewers the account's visibility admits — out-of-scope lookups 404 (not 403, docs/09 §3).
-// Posts = FeedItems for authored roots (no results); activity derived from record_tx. Mentions
-// deferred (no mention_index). Reuses ReadResolution for the visibility gate + feed identity.
+// behind the web-app's ProfileView. The whole profile (header, posts, activity, mentions) EXISTS
+// ONLY for viewers the account's visibility admits — out-of-scope lookups 404 (not 403, docs/09 §3).
+// Posts = FeedItems for authored roots (no results); activity derived from record_tx; Mentions from
+// mention_index gated by threadRevealed (docs/09 §2 both-directions sever). Reuses ReadResolution.
 
 import type { GeoStore } from "@oursay/geo";
-import { toPublicView, type AuthorActivityRow, type PrivateStore, type RecordType } from "@oursay/public-record";
+import {
+  toPublicView,
+  type AuthorActivityRow,
+  type MentionIndexRow,
+  type PrivateStore,
+  type RecordType,
+} from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 import { displayNameFor, normalizeHandle } from "../helpers/handle.js";
+import { resolveContentMentions } from "../helpers/resolve-mentions.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import type { KycTier } from "../types/kyc.js";
 import { normalizeTier } from "../types/kyc.js";
-import type { IdentityReadService } from "./identity-read.service.js";
+import type {
+  AuthorIdentityDto,
+  IdentityReadService,
+  MentionsMap,
+  ReadResolution,
+  ThreadGeoContext,
+} from "./identity-read.service.js";
 import type { FeedItemDto, PublicFeedService, RootType } from "./public-feed.service.js";
 import type { ApiViewer } from "./viewer-context.service.js";
 
@@ -70,6 +83,22 @@ export interface ActivityItemDto {
   recordId?: string;
 }
 
+/** One Mentions-tab row (others citing this account / persona via related mention tokens). */
+export interface MentionItemDto {
+  author: string;
+  handle: string;
+  /** Citing content snippet; may contain opaque `<@…>` tokens. */
+  text: string;
+  /** ISO timestamp of the citing transaction. */
+  ts: string;
+  jurisdictionId: string;
+  /** Navigate to the citing root (or the citing entity when it is a root). */
+  recordId?: string;
+  identity: AuthorIdentityDto;
+  /** Server-resolved chip metadata when `text` contains tokens. */
+  mentions?: MentionsMap;
+}
+
 export interface ProfilePostsQuery {
   types?: RootType[];
   cursor?: string;
@@ -78,6 +107,11 @@ export interface ProfilePostsQuery {
 
 export interface ProfileActivityQuery {
   kinds?: ActivityKind[];
+  cursor?: string;
+  limit?: number;
+}
+
+export interface ProfileMentionsQuery {
   cursor?: string;
   limit?: number;
 }
@@ -157,6 +191,44 @@ export class ProfilePageService {
     return { items, nextCursor };
   }
 
+  /**
+   * Mentions tab — related `mention_index` cites of this account. After `requireVisible`, each
+   * citing thread is gated with `threadRevealed(mentionedUser, entityId)` so a per-thread
+   * anonymous override severs the account↔thread link in both directions (docs/09 §2) — same
+   * class of leak as listing that thread under Posts/Activity.
+   *
+   * Soft-mode related cites (mentioned user never joined the citing thread) still appear when
+   * account-level visibility reveals the mention to this viewer. Visibility is a post-filter, so
+   * the store is over-fetched until a full page (or end of index) is collected.
+   */
+  async listMentions(
+    handleRaw: string,
+    viewer: ApiViewer,
+    query: ProfileMentionsQuery,
+  ): Promise<{ items: MentionItemDto[]; nextCursor: string | null }> {
+    const ctx = await this.requireVisible(handleRaw, viewer);
+    const limit = clampLimit(query.limit);
+    const res = this.d.identityReadService.begin(viewer);
+    const retained = await this.collectRevealedMentions(ctx.userId, res, {
+      beforeCreatedAt: parseCreatedAtCursor(query.cursor),
+      limit: limit + 1,
+    });
+    const page = retained.slice(0, limit);
+    const items = await this.mapMentionIndexRows(page, res);
+    const nextCursor = retained.length > limit ? page[page.length - 1]!.createdAt : null;
+    return { items, nextCursor };
+  }
+
+  /** Map mention_index rows (already visibility-gated) to Mentions-tab DTOs. */
+  async mapMentionIndexRows(rows: MentionIndexRow[], res: ReadResolution): Promise<MentionItemDto[]> {
+    const items: MentionItemDto[] = [];
+    for (const row of rows) {
+      const item = await this.mapMentionRow(row, res);
+      if (item) items.push(item);
+    }
+    return items;
+  }
+
   /** Map record_tx author-activity rows to profile/persona activity items. */
   async mapAuthorActivityRows(
     rows: AuthorActivityRow[],
@@ -170,6 +242,64 @@ export class ProfilePageService {
       items.push(item);
     }
     return items;
+  }
+
+  /**
+   * Over-fetch mention_index until `limit` revealed rows (or exhaustion). Callers request
+   * `limit + 1` when they need a nextCursor.
+   */
+  private async collectRevealedMentions(
+    userId: string,
+    res: ReadResolution,
+    opts: { entityId?: string; beforeCreatedAt?: string; limit: number },
+  ): Promise<MentionIndexRow[]> {
+    const retained: MentionIndexRow[] = [];
+    let before = opts.beforeCreatedAt;
+    const batchSize = Math.max(opts.limit * 3, 30);
+    for (;;) {
+      const batch = await this.d.recordStore.listMentionsForUser(userId, {
+        entityId: opts.entityId,
+        beforeCreatedAt: before,
+        limit: batchSize,
+      });
+      if (batch.length === 0) break;
+      for (const row of batch) {
+        if (await res.threadRevealed(userId, row.entityId)) {
+          retained.push(row);
+          if (retained.length >= opts.limit) return retained;
+        }
+      }
+      before = batch[batch.length - 1]!.createdAt;
+      if (batch.length < batchSize) break;
+    }
+    return retained;
+  }
+
+  private async mapMentionRow(row: MentionIndexRow, res: ReadResolution): Promise<MentionItemDto | null> {
+    const geo = await this.threadGeoContext(row.entityId);
+    if (!geo) return null;
+    const author = await res.resolveAuthor(row.citingAuthorPubkey, geo);
+    const text = mentionSnippet(row.citingType, row.citingContent);
+    const item: MentionItemDto = {
+      author: author.author,
+      handle: author.handle,
+      text,
+      ts: row.createdAt,
+      jurisdictionId: geo.jurisdiction,
+      recordId: row.entityId,
+      identity: author.identity,
+    };
+    const mentions = await resolveContentMentions(this.d.recordStore, res, geo, row.citingContent);
+    if (mentions) item.mentions = mentions;
+    return item;
+  }
+
+  private async threadGeoContext(threadId: string): Promise<ThreadGeoContext | null> {
+    const root = await this.d.recordStore.getEntityState(threadId);
+    if (!root || root.isDeleted) return null;
+    const jurisdiction = (await this.d.recordStore.getThreadJurisdiction(threadId)) ?? DEFAULT_JURISDICTION;
+    const audience = await this.d.recordStore.getEntityAudience(threadId);
+    return { threadId, jurisdiction, affectedDistricts: audience.map((a) => a.districtSlug) };
   }
 
   private async requireVisible(handleRaw: string, viewer: ApiViewer): Promise<ProfileCtx> {
@@ -428,6 +558,29 @@ function parseCursor(cursor: string | undefined): number | undefined {
   if (!cursor) return undefined;
   const n = Number(cursor);
   return Number.isFinite(n) && n > 0 ? Math.trunc(n) : undefined;
+}
+
+/** Mentions-tab cursor is an ISO `created_at` from `mention_index` (not a seq). */
+function parseCreatedAtCursor(cursor: string | undefined): string | undefined {
+  if (!cursor) return undefined;
+  const t = Date.parse(cursor);
+  return Number.isFinite(t) ? new Date(t).toISOString() : undefined;
+}
+
+/** Prefer body/text snippets; fall back to title/question for root records. */
+function mentionSnippet(type: RecordType, content: unknown): string {
+  if (!content || typeof content !== "object") return "";
+  const c = content as Record<string, unknown>;
+  const body = typeof c.body === "string" ? c.body.trim() : "";
+  if (body) return truncate(body, 280);
+  const text = typeof c.text === "string" ? c.text.trim() : "";
+  if (text) return truncate(text, 280);
+  if (type === "poll") {
+    const q = typeof c.question === "string" ? c.question.trim() : "";
+    if (q) return truncate(q, 280);
+  }
+  const title = typeof c.title === "string" ? c.title.trim() : "";
+  return title ? truncate(title, 280) : "";
 }
 
 function formatAgeLabel(createdAt: string): string {

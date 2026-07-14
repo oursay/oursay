@@ -1,6 +1,6 @@
-// [align-w4-api-surface] P4/P5 — account-level public profile (header + posts + activity tabs).
+// [align-w4-api-surface] P4/P5 — account-level public profile (header + posts + activity + mentions).
 // VIEWER-OPTIONAL: the whole surface 404s when the viewer is outside the account's visibility
-// scope (not 403 — docs/09 §3). Mentions tab deferred (no mention_index).
+// scope (not 403 — docs/09 §3). Mentions rows are further gated by threadRevealed (docs/09 §2).
 
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
@@ -8,7 +8,7 @@ import { KYC_TIERS } from "../../types/kyc.js";
 import { errorSchema } from "../schemas.js";
 import { ROOT_TYPES } from "../../services/public-feed.service.js";
 import { ACTIVITY_KINDS, PROFILE_POST_TYPES } from "../../services/profile-page.service.js";
-import { activityItemSchema, identitySchema } from "./public-page.schemas.js";
+import { activityItemSchema, identitySchema, mentionItemSchema } from "./public-page.schemas.js";
 
 const feedItemSchema = {
   type: "object",
@@ -215,6 +215,54 @@ export function registerPublicProfileRoutes(app: FastifyInstance, services: Serv
       const viewer = await services.viewerContextService.resolve(req.user?.userId ?? null);
       return services.profilePageService.listActivity(handle, viewer, {
         kinds: asList(q.kinds),
+        cursor: q.cursor as string | undefined,
+        limit: q.limit as number | undefined,
+      });
+    },
+  );
+
+  app.get(
+    "/v1/public/profiles/:handle/mentions",
+    {
+      preHandler: app.optionalAuthenticate,
+      schema: {
+        tags: ["public"],
+        summary:
+          "Profile Mentions tab — related mention_index cites gated by threadRevealed (docs/09 §2)",
+        params: {
+          type: "object",
+          properties: { handle: { type: "string" } },
+          required: ["handle"],
+        },
+        querystring: {
+          type: "object",
+          properties: {
+            cursor: {
+              type: "string",
+              description: "Opaque page cursor from nextCursor (ISO created_at).",
+            },
+            limit: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          additionalProperties: false,
+        },
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              items: { type: "array", items: mentionItemSchema },
+              nextCursor: { type: "string", nullable: true },
+            },
+            required: ["items", "nextCursor"],
+          },
+          404: errorSchema,
+        },
+      },
+    },
+    async (req) => {
+      const { handle } = req.params as { handle: string };
+      const q = req.query as Record<string, unknown>;
+      const viewer = await services.viewerContextService.resolve(req.user?.userId ?? null);
+      return services.profilePageService.listMentions(handle, viewer, {
         cursor: q.cursor as string | undefined,
         limit: q.limit as number | undefined,
       });

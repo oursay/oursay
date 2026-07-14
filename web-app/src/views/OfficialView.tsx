@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, User } from "lucide-react";
 import { getOfficialProfile, type OfficialProfile } from "@/lib/api/official";
-import { isMockOnly } from "@/lib/api/client";
 import { OFFICIAL_SEAT_ICON_TYPE } from "@/lib/avatar";
 import {
   ActivityRow,
   Avatar,
   Button,
   FeedCard,
+  MentionText,
   ProfileSupportBar,
   VerificationPill,
 } from "@/components";
@@ -23,10 +23,10 @@ import {
   profilePath,
 } from "@/lib/routes";
 import { districtName } from "@/lib/mock";
-import { useNow } from "@/lib/read-model";
+import { relTime, useNow } from "@/lib/read-model";
 import { useApp, useHydrateRecordState } from "@/lib/state";
 import type { ActivityKind } from "@/lib/types";
-import { DEFERRED_CLAIM_PROFILE, DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
+import { DEFERRED_CLAIM_PROFILE, DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 import { recordShareTarget } from "@/lib/share";
 
 type Tab = "posts" | "activity" | "mentions";
@@ -74,10 +74,6 @@ export function OfficialView({ handle }: { handle: string }) {
   useHydrateRecordState(postIds);
 
   const selectTab = (t: Tab) => {
-    if (t === "mentions" && !isMockOnly()) {
-      app.notify(DEFERRED_MENTIONS);
-      return;
-    }
     setTab(t);
   };
 
@@ -290,8 +286,15 @@ export function OfficialView({ handle }: { handle: string }) {
                   }
                   className="block w-full px-3 pb-3 pt-0.5 text-left hover:bg-surface-muted"
                 >
-                  <span className="block text-sm text-ink-soft">{m.text}</span>
-                  <span className="mt-0.5 block text-xs text-muted">{m.meta}</span>
+                  <MentionText
+                    text={m.text}
+                    mentions={m.mentions}
+                    linkable={false}
+                    className="block text-sm text-ink-soft"
+                  />
+                  <span className="mt-0.5 block text-xs text-muted">
+                    {m.ts ? relTime(m.ts, now) : (m.meta ?? "")}
+                  </span>
                 </button>
               </li>
             ))

@@ -10,7 +10,7 @@ import {
 } from "@/lib/types";
 import { apiGet, isMockOnly } from "./client";
 import { anonymizeFeedItem, resolveAuthorIdentity } from "./identity";
-import { mapActivityItem, mapFeedItem, mapProfileHeader } from "./map";
+import { mapActivityItem, mapFeedItem, mapMentionItem, mapProfileHeader } from "./map";
 
 /** Optional viewer context; profiles are scope-checked against it. */
 export interface GetProfileOptions {
@@ -81,6 +81,13 @@ async function fetchProfileActivity(handle: string): Promise<ActivityItem[]> {
   return res?.items.map((row) => mapActivityItem(row)) ?? [];
 }
 
+async function fetchProfileMentions(handle: string): Promise<MentionItem[]> {
+  const res = await apiGet<{ items: Record<string, unknown>[] }>(
+    `/v1/public/profiles/${encodeURIComponent(handle)}/mentions?limit=100`,
+  );
+  return res?.items.map((row) => mapMentionItem(row)) ?? [];
+}
+
 async function getProfileLive(
   handleOrId: string,
   _opts: GetProfileOptions,
@@ -90,12 +97,13 @@ async function getProfileLive(
   );
   if (!header) return null;
 
-  const [posts, activity] = await Promise.all([
+  const [posts, activity, mentions] = await Promise.all([
     fetchProfilePosts(handleOrId),
     fetchProfileActivity(handleOrId),
+    fetchProfileMentions(handleOrId),
   ]);
 
-  return { ...mapProfileHeader(header), posts, activity, mentions: [] };
+  return { ...mapProfileHeader(header), posts, activity, mentions };
 }
 
 export async function getProfile(
@@ -131,5 +139,7 @@ export async function listProfileMentions(
   opts: GetProfileOptions = {},
 ): Promise<MentionItem[]> {
   if (isMockOnly()) return (await getProfileMock(handleOrId, opts))?.mentions ?? [];
-  return [];
+  const header = await apiGet(`/v1/public/profiles/${encodeURIComponent(handleOrId)}`);
+  if (!header) return [];
+  return fetchProfileMentions(handleOrId);
 }

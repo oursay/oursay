@@ -9,11 +9,12 @@ import { Avatar, FeedCard, VerificationPill } from "@/components";
 import { Button } from "@/components/ui";
 import {
   ActivityRow,
+  MentionText,
   ProfileSupportBar,
   RoleTag,
 } from "@/components/content";
 import { districtName, MY_DISTRICTS } from "@/lib/mock";
-import { useNow } from "@/lib/read-model";
+import { relTime, useNow } from "@/lib/read-model";
 import { displayHandle, wireHandle } from "@/lib/handle";
 import {
   authorPath,
@@ -28,8 +29,7 @@ import {
 import type { ProfileRoleTag } from "@/lib/types";
 import { recordShareTarget, collectCommentIds, commentReactionKey } from "@/lib/share";
 import { useApp, useHydrateRecordState } from "@/lib/state";
-import { isMockOnly } from "@/lib/api/client";
-import { DEFERRED_EDIT_HISTORY, DEFERRED_MENTIONS } from "@/lib/api/deferred";
+import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
 
 type Tab = "posts" | "activity" | "mentions";
 
@@ -58,10 +58,6 @@ export function ProfileView({
   const wireHandleParam = wireHandle(handle) ?? handle;
 
   const selectTab = (t: Tab) => {
-    if (t === "mentions" && !isMockOnly()) {
-      app.notify(DEFERRED_MENTIONS);
-      return;
-    }
     setTab(t);
   };
 
@@ -318,14 +314,20 @@ export function ProfileView({
               </div>
               <button
                 type="button"
-                // TODO(entityId): route to the mentioned record by id.
                 onClick={() =>
                   router.push(postPathForId(m.recordId ?? "stmt-hana-ravine"))
                 }
                 className="block w-full px-3 pb-3 pt-0.5 text-left hover:bg-surface-muted"
               >
-                <span className="block text-sm text-ink-soft">{m.text}</span>
-                <span className="mt-0.5 block text-xs text-muted">{m.meta}</span>
+                <MentionText
+                  text={m.text}
+                  mentions={m.mentions}
+                  linkable={false}
+                  className="block text-sm text-ink-soft"
+                />
+                <span className="mt-0.5 block text-xs text-muted">
+                  {m.ts ? relTime(m.ts, now) : (m.meta ?? "")}
+                </span>
               </button>
             </li>
           ))

@@ -8,7 +8,7 @@ import type {
   ProfileSupport,
 } from "@/lib/types";
 import { apiGet, isMockOnly } from "./client";
-import { mapActivityItem, mapFeedItem } from "./map";
+import { mapActivityItem, mapFeedItem, mapMentionItem } from "./map";
 
 /** Auto-generated official seat page (jurisdiction leaders + district MLAs). */
 export interface OfficialProfile {
@@ -123,7 +123,7 @@ function mapOfficialProfile(raw: Record<string, unknown>): OfficialProfile {
     ? raw.activity.map((row) => mapActivityItem(row as Record<string, unknown>))
     : [];
   const mentions = Array.isArray(raw.mentions)
-    ? (raw.mentions as MentionItem[])
+    ? raw.mentions.map((row) => mapMentionItem(row as Record<string, unknown>))
     : [];
 
   const supportRaw = raw.support as Record<string, number> | undefined;

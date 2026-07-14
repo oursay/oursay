@@ -1,4 +1,5 @@
 import type { AuthorIdentity } from "./identity";
+import type { MentionsMap } from "./mentions";
 import type { FeedItem } from "./records";
 import type { ProfileRoleTag } from "./role-tag";
 import type { VerificationTier } from "./verification";
@@ -54,11 +55,16 @@ export interface MentionItem {
   author: string;
   handle: string;
   text: string;
-  meta: string;
-  /** Mock navigation target — the record this mention appears on. */
+  /** ISO timestamp of the citing action (API). Client formats via `relTime`. */
+  ts?: string;
+  /** Pre-formatted relative-time string — mock/demo fallback when `ts` is absent. */
+  meta?: string;
+  /** Navigation target — the record this mention appears on. */
   recordId?: string;
   /** Viewer-resolved mention-author identity; present on API-served copies. */
   identity?: AuthorIdentity;
+  /** Server-resolved chip metadata when `text` contains opaque tokens. */
+  mentions?: MentionsMap;
 }
 
 /**

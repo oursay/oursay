@@ -54,3 +54,19 @@ export const mentionsMapSchema = {
   description: "nodeId → resolved mention metadata. Absent when the content has no well-formed tokens.",
   additionalProperties: mentionResolvedSchema,
 } as const;
+
+/** One Mentions-tab row (profile / persona / official). */
+export const mentionItemSchema = {
+  type: "object",
+  properties: {
+    author: { type: "string" },
+    handle: { type: "string" },
+    text: { type: "string" },
+    ts: { type: "string" },
+    jurisdictionId: { type: "string" },
+    recordId: { type: "string" },
+    identity: identitySchema,
+    mentions: mentionsMapSchema,
+  },
+  required: ["author", "handle", "text", "ts", "jurisdictionId", "identity"],
+} as const;

@@ -29,6 +29,22 @@ export interface MentionMapRow {
   createdAt: string;
 }
 
+/** One `mention_index` row joined to the citing `record_tx` (Mentions-tab list). */
+export interface MentionIndexRow {
+  txId: string;
+  /** Thread root (`mention_index.entity_id`). */
+  entityId: string;
+  mentionedUserId: string;
+  /** Index projection time — pagination cursor. */
+  createdAt: string;
+  /** Citing record entity id (`record_tx.entity_id`). */
+  citingEntityId: string;
+  citingType: RecordType;
+  citingAuthorPubkey: string;
+  citingContent: unknown;
+  citingCreatedAt: string;
+}
+
 /** A full event-log row (the private, mutable record of one transaction). */
 export interface StoredTx {
   txId: string;
@@ -1348,6 +1364,41 @@ export class PrivateStore {
     }
   }
 
+  /**
+   * Mentions-tab list: related `mention_index` rows for a user, newest first, joined to the citing
+   * `record_tx`. Cast `mi.tx_id::uuid` — index stores TEXT, `record_tx.tx_id` is UUID.
+   * Optional `entityId` scopes to one thread (persona Mentions). Callers must still apply
+   * `threadRevealed` for account-surface privacy (docs/09 §2).
+   */
+  async listMentionsForUser(
+    userId: string,
+    opts: { entityId?: string; beforeCreatedAt?: string; limit: number },
+  ): Promise<MentionIndexRow[]> {
+    const params: unknown[] = [userId, opts.limit];
+    let where = `mi.mentioned_user_id = $1`;
+    if (opts.entityId != null) {
+      params.push(opts.entityId);
+      where += ` AND mi.entity_id = $${params.length}`;
+    }
+    if (opts.beforeCreatedAt != null) {
+      params.push(opts.beforeCreatedAt);
+      where += ` AND mi.created_at < $${params.length}::timestamptz`;
+    }
+    const r = await this.pool.query(
+      `SELECT mi.tx_id, mi.entity_id, mi.mentioned_user_id, mi.created_at,
+              t.entity_id AS citing_entity_id, t.type AS citing_type,
+              t.author_pubkey AS citing_author_pubkey, t.content AS citing_content,
+              t.created_at AS citing_created_at
+       FROM mention_index mi
+       JOIN record_tx t ON t.tx_id = mi.tx_id::uuid
+       WHERE ${where}
+       ORDER BY mi.created_at DESC
+       LIMIT $2`,
+      params,
+    );
+    return r.rows.map(mapMentionIndexRow);
+  }
+
   private async getRelatedMention(threadId: string, userId: string): Promise<MentionMapRow | null> {
     const r = await this.pool.query(
       `SELECT node_id, thread_id, mentioned_user_id, reserved_label, created_at
@@ -1592,6 +1643,23 @@ function mapStoredTx(row: pg.QueryResultRow): StoredTx {
     content: row.content,
     redactedAt: row.redacted_at ? new Date(row.redacted_at).toISOString() : null,
     erasedAt: row.erased_at ? new Date(row.erased_at).toISOString() : null,
+  };
+}
+
+function mapMentionIndexRow(row: pg.QueryResultRow): MentionIndexRow {
+  return {
+    txId: String(row.tx_id),
+    entityId: row.entity_id,
+    mentionedUserId: String(row.mentioned_user_id),
+    createdAt: typeof row.created_at === "string" ? row.created_at : new Date(row.created_at).toISOString(),
+    citingEntityId: row.citing_entity_id,
+    citingType: row.citing_type,
+    citingAuthorPubkey: row.citing_author_pubkey,
+    citingContent: row.citing_content,
+    citingCreatedAt:
+      typeof row.citing_created_at === "string"
+        ? row.citing_created_at
+        : new Date(row.citing_created_at).toISOString(),
   };
 }
 
