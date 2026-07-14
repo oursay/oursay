@@ -8,7 +8,7 @@ import { KYC_TIERS } from "../../types/kyc.js";
 import { errorSchema } from "../schemas.js";
 import { ROOT_TYPES } from "../../services/public-feed.service.js";
 import { ACTIVITY_KINDS, PROFILE_POST_TYPES } from "../../services/profile-page.service.js";
-import { activityItemSchema, identitySchema, mentionItemSchema } from "./public-page.schemas.js";
+import { activityItemSchema, identitySchema, mentionItemSchema, mentionsMapSchema } from "./public-page.schemas.js";
 
 const feedItemSchema = {
   type: "object",
@@ -27,6 +27,8 @@ const feedItemSchema = {
     title: { type: "string" },
     body: { type: "array", items: { type: "string" } },
     withheld: { type: "boolean" },
+    /** Viewer-resolved mention chips (absent when content has no tokens). */
+    mentions: mentionsMapSchema,
     up: { type: "integer" },
     down: { type: "integer" },
     sig: { type: "integer", nullable: true },

@@ -4,6 +4,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Services } from "../../container.js";
 import { errorSchema } from "../schemas.js";
+import { activityItemSchema, mentionItemSchema } from "./public-page.schemas.js";
 
 const officialPageResponse = {
   type: "object",
@@ -33,9 +34,10 @@ const officialPageResponse = {
       },
       required: ["agrees", "disagrees", "statements", "comments"],
     },
+    // FeedItems reuse profile listPosts (includes viewer-resolved mentions map).
     posts: { type: "array", items: { type: "object", additionalProperties: true } },
-    activity: { type: "array", items: { type: "object", additionalProperties: true } },
-    mentions: { type: "array", items: { type: "object", additionalProperties: true } },
+    activity: { type: "array", items: activityItemSchema },
+    mentions: { type: "array", items: mentionItemSchema },
   },
   required: [
     "seatTitle",

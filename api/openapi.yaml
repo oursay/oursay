@@ -5441,6 +5441,33 @@ paths:
                             - isSelf
                             - seed
                             - threadId
+                        mentions:
+                          type: object
+                          description: nodeId → resolved mention metadata. Absent when the content has no
+                            well-formed tokens.
+                          additionalProperties:
+                            type: object
+                            description: Server-resolved mention display for one opaque token
+                              (mention-node.md).
+                            properties:
+                              display:
+                                type: string
+                              kind:
+                                type: string
+                                enum:
+                                  - reserved
+                                  - persona
+                                  - profile
+                              route:
+                                type: string
+                                description: Profile/persona path when linkable; omitted for reserved/Someone.
+                              isSelf:
+                                type: boolean
+                            required:
+                              - display
+                              - kind
+                              - isSelf
+                            additionalProperties: false
                         replies:
                           type: array
                           items:
@@ -5679,12 +5706,106 @@ paths:
                     type: array
                     items:
                       type: object
-                      additionalProperties: true
+                      properties:
+                        kind:
+                          type: string
+                          enum:
+                            - statement
+                            - comment
+                            - petition
+                            - poll
+                            - reaction
+                        icon:
+                          type: string
+                        text:
+                          type: string
+                        ts:
+                          type: string
+                        jurisdictionId:
+                          type: string
+                        recordId:
+                          type: string
+                      required:
+                        - kind
+                        - text
+                        - ts
+                        - jurisdictionId
                   mentions:
                     type: array
                     items:
                       type: object
-                      additionalProperties: true
+                      properties:
+                        author:
+                          type: string
+                        handle:
+                          type: string
+                        text:
+                          type: string
+                        ts:
+                          type: string
+                        jurisdictionId:
+                          type: string
+                        recordId:
+                          type: string
+                        identity:
+                          type: object
+                          properties:
+                            display:
+                              type: string
+                            handle:
+                              type: string
+                              nullable: true
+                            isPersona:
+                              type: boolean
+                            isSelf:
+                              type: boolean
+                            seed:
+                              type: string
+                            threadId:
+                              type: string
+                            seenByOthersAs:
+                              type: string
+                          required:
+                            - display
+                            - handle
+                            - isPersona
+                            - isSelf
+                            - seed
+                            - threadId
+                        mentions:
+                          type: object
+                          description: nodeId → resolved mention metadata. Absent when the content has no
+                            well-formed tokens.
+                          additionalProperties:
+                            type: object
+                            description: Server-resolved mention display for one opaque token
+                              (mention-node.md).
+                            properties:
+                              display:
+                                type: string
+                              kind:
+                                type: string
+                                enum:
+                                  - reserved
+                                  - persona
+                                  - profile
+                              route:
+                                type: string
+                                description: Profile/persona path when linkable; omitted for reserved/Someone.
+                              isSelf:
+                                type: boolean
+                            required:
+                              - display
+                              - kind
+                              - isSelf
+                            additionalProperties: false
+                      required:
+                        - author
+                        - handle
+                        - text
+                        - ts
+                        - jurisdictionId
+                        - identity
                 required:
                   - seatTitle
                   - representativeName
@@ -5967,6 +6088,33 @@ paths:
                             type: string
                         withheld:
                           type: boolean
+                        mentions:
+                          type: object
+                          description: nodeId → resolved mention metadata. Absent when the content has no
+                            well-formed tokens.
+                          additionalProperties:
+                            type: object
+                            description: Server-resolved mention display for one opaque token
+                              (mention-node.md).
+                            properties:
+                              display:
+                                type: string
+                              kind:
+                                type: string
+                                enum:
+                                  - reserved
+                                  - persona
+                                  - profile
+                              route:
+                                type: string
+                                description: Profile/persona path when linkable; omitted for reserved/Someone.
+                              isSelf:
+                                type: boolean
+                            required:
+                              - display
+                              - kind
+                              - isSelf
+                            additionalProperties: false
                         up:
                           type: integer
                         down:

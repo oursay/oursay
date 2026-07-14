@@ -186,7 +186,9 @@ export function PersonaView({ personaName }: { personaName: string }) {
                   body={
                     <>
                       {node.body.map((line, li) => (
-                        <p key={li}>{line}</p>
+                        <p key={li}>
+                          <MentionText text={line} mentions={node.mentions} />
+                        </p>
                       ))}
                     </>
                   }

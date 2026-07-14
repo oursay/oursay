@@ -7,7 +7,7 @@ import type { Services } from "../../container.js";
 import { KYC_TIERS } from "../../types/kyc.js";
 import { ROOT_TYPES } from "../../services/public-feed.service.js";
 import { errorSchema } from "../schemas.js";
-import { activityItemSchema, identitySchema, mentionItemSchema } from "./public-page.schemas.js";
+import { activityItemSchema, identitySchema, mentionItemSchema, mentionsMapSchema } from "./public-page.schemas.js";
 
 const supportSchema = {
   type: "object",
@@ -36,6 +36,8 @@ const commentNodeSchema = {
     up: { type: "integer" },
     down: { type: "integer" },
     identity: identitySchema,
+    /** Viewer-resolved mention chips (absent when content has no tokens). */
+    mentions: mentionsMapSchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
   required: ["id", "author", "handle", "tier", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
