@@ -10,14 +10,21 @@ import { expect } from "chai";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 
-import { encodeUuidV4Base59 } from "@oursay/encode";
+import { encodeUuidV4Base59, decodeUuidV4Base59 } from "@oursay/encode";
 import { CivicHttpClient, DevPasskeyConnector, IdentitySession } from "@oursay/identity/client";
 import type { ThreadRef } from "@oursay/identity";
 import {
   BlockSettler,
   blockConfig,
+  computeChainTipHash,
+  contentCommitment,
+  hashLeaf,
+  merkleRoot,
   registerJurisdiction,
+  txHashOf,
+  verifyEnvelope,
   type JurisdictionGates,
+  type TxEnvelope,
 } from "@oursay/public-record";
 import { civicConfig } from "../src/config.js";
 import { injectFetch } from "./helpers/inject-fetch.js";
@@ -56,6 +63,54 @@ async function settleChain(w: World) {
   await w.services.connectLedger();
   const settler = new BlockSettler(w.services.recordStore, w.services.ledger, CHAIN_ID, blockConfig);
   return settler.flushPendingSettlement();
+}
+
+/** Post once and settle; returns the settled block height for this flush. */
+async function settleOnePost(
+  w: World,
+  email: string,
+  seed: string,
+  content: { title: string; body: string },
+): Promise<number> {
+  const m = await enrolledPoster(w, email, seed);
+  await m.client.createPost(m.t, content);
+  const headers = await settleChain(w);
+  expect(headers.length).to.be.greaterThan(0);
+  return headers[headers.length - 1]!.blockHeight;
+}
+
+type ExplorerBlock = {
+  height: number;
+  txCount: number;
+  fromSeq: number;
+  toSeq: number;
+  bundleMerkleRoot: string;
+  chainTipHash: string;
+  prevChainTipHash: string | null;
+  prevBlockRoot: string | null;
+  immudbRoot: { db: string; txHashHex: string; txId: number };
+};
+
+type ExplorerTx = {
+  seq: number;
+  envelope: string;
+  txHash: string;
+  contentHash: string;
+  salt: string | null;
+  content: unknown;
+  withheld: boolean;
+};
+
+async function getExplorerBlock(w: World, height: number): Promise<ExplorerBlock> {
+  const res = await w.app.inject({ method: "GET", url: `/v1/explorer/${CHAIN_ID}/blocks/${height}` });
+  expect(res.statusCode).to.equal(200);
+  return res.json() as ExplorerBlock;
+}
+
+async function getExplorerBlockTxs(w: World, height: number): Promise<ExplorerTx[]> {
+  const res = await w.app.inject({ method: "GET", url: `/v1/explorer/${CHAIN_ID}/txs?block=${height}` });
+  expect(res.statusCode).to.equal(200);
+  return (res.json() as { items: ExplorerTx[] }).items;
 }
 
 describe("38 explorer read: chain / blocks / txs / tx", () => {
@@ -155,6 +210,137 @@ describe("38 explorer read: chain / blocks / txs / tx", () => {
     expect(tx.content).to.equal(null);
     expect(tx.contentHash).to.be.a("string").and.not.empty;
     expect(tx.envelope).to.be.a("string").and.not.empty;
+  });
+
+  it("auditor can recompute contentHash and verify envelope from tx endpoint", async () => {
+    const m = await enrolledPoster(w, "explorer-verify@example.com", "explorer-verify");
+    const ref = await m.client.createPost(m.t, {
+      title: "Verify me",
+      body: "salt+content must reproduce the commitment",
+    });
+    await settleChain(w);
+
+    const txRes = await w.app.inject({
+      method: "GET",
+      url: `/v1/explorer/${CHAIN_ID}/tx/${encodeUuidV4Base59(ref.txId)}`,
+    });
+    expect(txRes.statusCode).to.equal(200);
+    const tx = txRes.json();
+    expect(tx.withheld).to.equal(false);
+    expect(tx.salt).to.be.a("string").and.not.empty;
+    expect(tx.content).to.deep.equal({
+      title: "Verify me",
+      body: "salt+content must reproduce the commitment",
+    });
+
+    // Storage id is UUID; explorer returns Base59 — commitment uses the UUID (as at append time).
+    const txIdUuid = decodeUuidV4Base59(tx.txId);
+    expect(txIdUuid).to.equal(ref.txId);
+    expect(contentCommitment({ id: txIdUuid, salt: tx.salt, content: tx.content })).to.equal(tx.contentHash);
+
+    const env = JSON.parse(tx.envelope) as TxEnvelope;
+    expect(env.txId).to.equal(ref.txId);
+    expect(env.contentHash).to.equal(tx.contentHash);
+    expect(verifyEnvelope(env), "envelope signature / WebAuthn assertion").to.equal(true);
+    expect(txHashOf(env)).to.equal(tx.txHash);
+  });
+
+  it("auditor can recompute block merkle root from txs?block=N", async () => {
+    const height = await settleOnePost(w, "explorer-merkle@example.com", "explorer-merkle", {
+      title: "Merkle",
+      body: "rebuild root from explorer txs",
+    });
+    const block = await getExplorerBlock(w, height);
+    const txs = await getExplorerBlockTxs(w, height);
+
+    expect(txs.length).to.equal(block.txCount);
+    expect(txs.map((t) => t.seq)).to.deep.equal([...txs].sort((x, y) => x.seq - y.seq).map((t) => t.seq));
+    expect(txs[0]!.seq).to.be.greaterThan(block.fromSeq);
+    expect(txs[txs.length - 1]!.seq).to.equal(block.toSeq);
+
+    for (const t of txs) {
+      expect(hashLeaf(t.envelope)).to.equal(t.txHash);
+      const env = JSON.parse(t.envelope) as TxEnvelope;
+      expect(verifyEnvelope(env)).to.equal(true);
+      if (!t.withheld) {
+        expect(t.salt).to.be.a("string");
+        expect(contentCommitment({ id: env.txId, salt: t.salt!, content: t.content })).to.equal(t.contentHash);
+      }
+    }
+
+    expect(merkleRoot(txs.map((t) => hashLeaf(t.envelope)))).to.equal(block.bundleMerkleRoot);
+  });
+
+  it("auditor can verify chainTipHash fold on a block header", async () => {
+    const height = await settleOnePost(w, "explorer-tip-fold@example.com", "explorer-tip-fold", {
+      title: "Tip fold",
+      body: "prev tip ‖ merkle root",
+    });
+    const block = await getExplorerBlock(w, height);
+    expect(computeChainTipHash(block.prevChainTipHash, block.bundleMerkleRoot)).to.equal(block.chainTipHash);
+  });
+
+  it("auditor can verify tip fold from GET /v1/explorer/:chainId alone", async () => {
+    await settleOnePost(w, "explorer-chain-tip-fold@example.com", "explorer-chain-tip-fold", {
+      title: "Chain tip fold",
+      body: "tip carries prevChainTipHash + immudbRoot",
+    });
+    const chainRes = await w.app.inject({ method: "GET", url: `/v1/explorer/${CHAIN_ID}` });
+    expect(chainRes.statusCode).to.equal(200);
+    const { tip } = chainRes.json();
+    expect(tip).to.not.equal(null);
+    expect(computeChainTipHash(tip.prevChainTipHash, tip.bundleMerkleRoot)).to.equal(tip.chainTipHash);
+    expect(tip.immudbRoot).to.include.keys("db", "txId", "txHashHex");
+  });
+
+  it("auditor can verify consecutive block link from /blocks/:height", async () => {
+    // Two settlements → two linked headers (immudb keeps prior history; we only check these two).
+    const heightA = await settleOnePost(w, "explorer-link-a@example.com", "explorer-link-a", {
+      title: "Link A",
+      body: "first",
+    });
+    const heightB = await settleOnePost(w, "explorer-link-b@example.com", "explorer-link-b", {
+      title: "Link B",
+      body: "second",
+    });
+    expect(heightB).to.equal(heightA + 1);
+
+    const blockA = await getExplorerBlock(w, heightA);
+    const blockB = await getExplorerBlock(w, heightB);
+
+    // Publish prevAnchorHash is not on the explorer DTO — check header link fields only.
+    expect(blockB.height).to.equal(blockA.height + 1);
+    expect(blockB.fromSeq).to.equal(blockA.toSeq);
+    expect(blockB.prevBlockRoot).to.equal(blockA.bundleMerkleRoot);
+    expect(blockB.prevChainTipHash).to.equal(blockA.chainTipHash);
+  });
+
+  it("chain tip and /blocks list agree with the tip block", async () => {
+    const height = await settleOnePost(w, "explorer-tip-agree@example.com", "explorer-tip-agree", {
+      title: "Tip agree",
+      body: "chain vs blocks",
+    });
+    const tipBlock = await getExplorerBlock(w, height);
+
+    const chainRes = await w.app.inject({ method: "GET", url: `/v1/explorer/${CHAIN_ID}` });
+    expect(chainRes.statusCode).to.equal(200);
+    const chain = chainRes.json();
+    expect(chain.tipHeight).to.equal(height);
+    expect(chain.tip.chainTipHash).to.equal(tipBlock.chainTipHash);
+    expect(chain.tip.bundleMerkleRoot).to.equal(tipBlock.bundleMerkleRoot);
+    expect(chain.tip.prevChainTipHash).to.equal(tipBlock.prevChainTipHash);
+    expect(chain.tip.prevBlockRoot).to.equal(tipBlock.prevBlockRoot);
+    expect(chain.tip.immudbRoot).to.deep.equal(tipBlock.immudbRoot);
+
+    const blocksRes = await w.app.inject({
+      method: "GET",
+      url: `/v1/explorer/${CHAIN_ID}/blocks?limit=1`,
+    });
+    expect(blocksRes.statusCode).to.equal(200);
+    const listed = blocksRes.json();
+    expect(listed.tipHeight).to.equal(height);
+    expect(listed.items[0].height).to.equal(height);
+    expect(listed.items[0].chainTipHash).to.equal(tipBlock.chainTipHash);
   });
 
   it("returns 404 for missing block and 400 for bad tx id", async () => {

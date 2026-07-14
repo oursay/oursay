@@ -34,19 +34,47 @@ const immudbRootSchema = {
   required: ["db", "txId", "txHashHex"],
 } as const;
 
+const attestationSchema = {
+  type: "object",
+  properties: {
+    pubkey: { type: "string" },
+    signature: { type: "string" },
+  },
+  required: ["pubkey", "signature"],
+} as const;
+
 const chainTipSchema = {
   type: "object",
   nullable: true,
+  description: "Settled tip header — enough to recompute chainTipHash = H(prevTip ‖ bundleMerkleRoot).",
   properties: {
     height: { type: "integer" },
     chainTipHash: { type: "string" },
     bundleMerkleRoot: { type: "string" },
+    prevBlockRoot: { type: "string", nullable: true },
+    prevChainTipHash: { type: "string", nullable: true },
+    immudbRoot: immudbRootSchema,
     capturedAt: { type: "string" },
     fromSeq: { type: "integer" },
     toSeq: { type: "integer" },
     txCount: { type: "integer" },
+    proposer: { type: "string", nullable: true },
+    attestations: { type: "array", items: attestationSchema },
   },
-  required: ["height", "chainTipHash", "bundleMerkleRoot", "capturedAt", "fromSeq", "toSeq", "txCount"],
+  required: [
+    "height",
+    "chainTipHash",
+    "bundleMerkleRoot",
+    "prevBlockRoot",
+    "prevChainTipHash",
+    "immudbRoot",
+    "capturedAt",
+    "fromSeq",
+    "toSeq",
+    "txCount",
+    "proposer",
+    "attestations",
+  ],
 } as const;
 
 const chainResponse = {
@@ -75,6 +103,12 @@ const blockSchema = {
     prevBlockRoot: { type: "string", nullable: true },
     prevChainTipHash: { type: "string", nullable: true },
     immudbRoot: immudbRootSchema,
+    proposer: { type: "string", nullable: true, description: "Reserved attesting actor (null in stage 1)." },
+    attestations: {
+      type: "array",
+      items: attestationSchema,
+      description: "Reserved block attestations (empty in stage 1).",
+    },
     capturedAt: { type: "string" },
     status: { type: "string", enum: ["settled"] },
     typeCounts: typeCountsSchema,
@@ -90,6 +124,8 @@ const blockSchema = {
     "prevBlockRoot",
     "prevChainTipHash",
     "immudbRoot",
+    "proposer",
+    "attestations",
     "capturedAt",
     "status",
     "typeCounts",

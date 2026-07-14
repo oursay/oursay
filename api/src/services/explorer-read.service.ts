@@ -3,6 +3,7 @@
 // Censorship: withhold content when redacted/erased (R17–R19); never return salt.
 
 import type {
+  BlockAttestation,
   BlockHeader,
   LedgerConnector,
   PrivateStore,
@@ -26,14 +27,20 @@ export interface ExplorerTypeCounts {
   result?: number;
 }
 
+/** Tip header slice — enough to recompute chainTipHash fold without a second block fetch. */
 export interface ExplorerChainTip {
   height: number;
   chainTipHash: string;
   bundleMerkleRoot: string;
+  prevBlockRoot: string | null;
+  prevChainTipHash: string | null;
+  immudbRoot: { db: string; txId: number; txHashHex: string };
   capturedAt: string;
   fromSeq: number;
   toSeq: number;
   txCount: number;
+  proposer: string | null;
+  attestations: BlockAttestation[];
 }
 
 export interface ExplorerChainView {
@@ -56,6 +63,8 @@ export interface ExplorerBlockView {
   prevBlockRoot: string | null;
   prevChainTipHash: string | null;
   immudbRoot: { db: string; txId: number; txHashHex: string };
+  proposer: string | null;
+  attestations: BlockAttestation[];
   capturedAt: string;
   status: ExplorerBlockStatus;
   typeCounts: ExplorerTypeCounts;
@@ -141,9 +150,28 @@ function toBlockView(header: BlockHeader, typeCounts: ExplorerTypeCounts): Explo
     prevBlockRoot: header.prevBlockRoot,
     prevChainTipHash: header.prevChainTipHash,
     immudbRoot: header.immudbRoot,
+    proposer: header.proposer,
+    attestations: header.attestations,
     capturedAt: header.capturedAt,
     status: "settled",
     typeCounts,
+  };
+}
+
+function toChainTip(header: BlockHeader): ExplorerChainTip {
+  return {
+    height: header.blockHeight,
+    chainTipHash: header.chainTipHash,
+    bundleMerkleRoot: header.bundleMerkleRoot,
+    prevBlockRoot: header.prevBlockRoot,
+    prevChainTipHash: header.prevChainTipHash,
+    immudbRoot: header.immudbRoot,
+    capturedAt: header.capturedAt,
+    fromSeq: header.fromSeq,
+    toSeq: header.toSeq,
+    txCount: header.txCount,
+    proposer: header.proposer,
+    attestations: header.attestations,
   };
 }
 
@@ -168,15 +196,7 @@ export class ExplorerReadService {
     return {
       chainId,
       tipHeight: tip.blockHeight,
-      tip: {
-        height: tip.blockHeight,
-        chainTipHash: tip.chainTipHash,
-        bundleMerkleRoot: tip.bundleMerkleRoot,
-        capturedAt: tip.capturedAt,
-        fromSeq: tip.fromSeq,
-        toSeq: tip.toSeq,
-        txCount: tip.txCount,
-      },
+      tip: toChainTip(tip),
       status: "active",
       typeCounts,
       pendingTxCount: pending.count,

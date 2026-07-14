@@ -2339,6 +2339,8 @@ paths:
                   tip:
                     type: object
                     nullable: true
+                    description: Settled tip header — enough to recompute chainTipHash = H(prevTip ‖
+                      bundleMerkleRoot).
                     properties:
                       height:
                         type: integer
@@ -2346,6 +2348,25 @@ paths:
                         type: string
                       bundleMerkleRoot:
                         type: string
+                      prevBlockRoot:
+                        type: string
+                        nullable: true
+                      prevChainTipHash:
+                        type: string
+                        nullable: true
+                      immudbRoot:
+                        type: object
+                        properties:
+                          db:
+                            type: string
+                          txId:
+                            type: integer
+                          txHashHex:
+                            type: string
+                        required:
+                          - db
+                          - txId
+                          - txHashHex
                       capturedAt:
                         type: string
                       fromSeq:
@@ -2354,14 +2375,34 @@ paths:
                         type: integer
                       txCount:
                         type: integer
+                      proposer:
+                        type: string
+                        nullable: true
+                      attestations:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            pubkey:
+                              type: string
+                            signature:
+                              type: string
+                          required:
+                            - pubkey
+                            - signature
                     required:
                       - height
                       - chainTipHash
                       - bundleMerkleRoot
+                      - prevBlockRoot
+                      - prevChainTipHash
+                      - immudbRoot
                       - capturedAt
                       - fromSeq
                       - toSeq
                       - txCount
+                      - proposer
+                      - attestations
                   status:
                     type: string
                     enum:
@@ -2523,6 +2564,23 @@ paths:
                             - db
                             - txId
                             - txHashHex
+                        proposer:
+                          type: string
+                          nullable: true
+                          description: Reserved attesting actor (null in stage 1).
+                        attestations:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              pubkey:
+                                type: string
+                              signature:
+                                type: string
+                            required:
+                              - pubkey
+                              - signature
+                          description: Reserved block attestations (empty in stage 1).
                         capturedAt:
                           type: string
                         status:
@@ -2571,6 +2629,8 @@ paths:
                         - prevBlockRoot
                         - prevChainTipHash
                         - immudbRoot
+                        - proposer
+                        - attestations
                         - capturedAt
                         - status
                         - typeCounts
@@ -2676,6 +2736,23 @@ paths:
                       - db
                       - txId
                       - txHashHex
+                  proposer:
+                    type: string
+                    nullable: true
+                    description: Reserved attesting actor (null in stage 1).
+                  attestations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        pubkey:
+                          type: string
+                        signature:
+                          type: string
+                      required:
+                        - pubkey
+                        - signature
+                    description: Reserved block attestations (empty in stage 1).
                   capturedAt:
                     type: string
                   status:
@@ -2724,6 +2801,8 @@ paths:
                   - prevBlockRoot
                   - prevChainTipHash
                   - immudbRoot
+                  - proposer
+                  - attestations
                   - capturedAt
                   - status
                   - typeCounts
