@@ -17,6 +17,8 @@ export type {
   AuthorRootsQuery,
   AuthorActivityRow,
   StoredTx,
+  StoredTxRef,
+  OutboxStatus,
   AppendTxInput,
   ThreadBindingRow,
   MentionMapRow,

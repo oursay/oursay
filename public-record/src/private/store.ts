@@ -70,6 +70,16 @@ export interface StoredTx {
   erasedAt: string | null;
 }
 
+/** Settlement queue status on `record_outbox` (pending pool vs settled `sent`). */
+export type OutboxStatus = "pending" | "sent";
+
+/** Point-read of one tx plus its outbox chain tag / settlement status (explorer / auditor). */
+export interface StoredTxRef {
+  tx: StoredTx;
+  chainId: string;
+  outboxStatus: OutboxStatus;
+}
+
 /** What `appendTx` needs: the envelope fields + the raw (erasable) content + salt. */
 export interface AppendTxInput {
   txId: string;
@@ -675,6 +685,42 @@ export class PrivateStore {
       [chainId, fromExclusive, toInclusive],
     );
     return r.rows.map(mapStoredTx);
+  }
+
+  /** Point-read one transaction with its outbox `chain_id` + settlement status. */
+  async getTx(txId: string): Promise<StoredTxRef | undefined> {
+    const r = await this.pool.query(
+      `SELECT t.*, o.chain_id AS outbox_chain_id, o.status AS outbox_status
+       FROM record_tx t JOIN record_outbox o ON o.tx_id = t.tx_id
+       WHERE t.tx_id = $1`,
+      [txId],
+    );
+    if (r.rows.length === 0) return undefined;
+    const row = r.rows[0];
+    return {
+      tx: mapStoredTx(row),
+      chainId: row.outbox_chain_id as string,
+      outboxStatus: row.outbox_status as OutboxStatus,
+    };
+  }
+
+  /**
+   * Per-`RecordType` counts of **settled** (`outbox.status = 'sent'`) txs for one chain — explorer
+   * chain summary. Types with zero count are omitted.
+   */
+  async countSettledTxTypes(chainId: string): Promise<Partial<Record<RecordType, number>>> {
+    const r = await this.pool.query(
+      `SELECT t.type, COUNT(*)::int AS count
+       FROM record_tx t JOIN record_outbox o ON o.tx_id = t.tx_id
+       WHERE o.chain_id = $1 AND o.status = 'sent'
+       GROUP BY t.type`,
+      [chainId],
+    );
+    const out: Partial<Record<RecordType, number>> = {};
+    for (const row of r.rows) {
+      out[row.type as RecordType] = Number(row.count);
+    }
+    return out;
   }
 
   /**

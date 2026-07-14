@@ -2311,6 +2311,846 @@ paths:
                       - message
                 required:
                   - error
+  /v1/explorer/{chainId}:
+    get:
+      summary: Explorer chain tip + settled type counts
+      tags:
+        - explorer
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: chainId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chainId:
+                    type: string
+                  tipHeight:
+                    type: integer
+                    nullable: true
+                  tip:
+                    type: object
+                    nullable: true
+                    properties:
+                      height:
+                        type: integer
+                      chainTipHash:
+                        type: string
+                      bundleMerkleRoot:
+                        type: string
+                      capturedAt:
+                        type: string
+                      fromSeq:
+                        type: integer
+                      toSeq:
+                        type: integer
+                      txCount:
+                        type: integer
+                    required:
+                      - height
+                      - chainTipHash
+                      - bundleMerkleRoot
+                      - capturedAt
+                      - fromSeq
+                      - toSeq
+                      - txCount
+                  status:
+                    type: string
+                    enum:
+                      - empty
+                      - active
+                  typeCounts:
+                    type: object
+                    description: Per-record-type settled tx counts (zero omitted).
+                    additionalProperties:
+                      type: integer
+                      minimum: 0
+                    properties:
+                      post:
+                        type: integer
+                        minimum: 0
+                      comment:
+                        type: integer
+                        minimum: 0
+                      reaction:
+                        type: integer
+                        minimum: 0
+                      petition:
+                        type: integer
+                        minimum: 0
+                      petition_signature:
+                        type: integer
+                        minimum: 0
+                      poll:
+                        type: integer
+                        minimum: 0
+                      vote:
+                        type: integer
+                        minimum: 0
+                      result:
+                        type: integer
+                        minimum: 0
+                  pendingTxCount:
+                    type: integer
+                required:
+                  - chainId
+                  - tipHeight
+                  - tip
+                  - status
+                  - typeCounts
+                  - pendingTxCount
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/explorer/{chainId}/blocks:
+    get:
+      summary: List settled blocks (newest first)
+      tags:
+        - explorer
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          in: query
+          name: limit
+          required: false
+        - schema:
+            type: integer
+            minimum: 0
+            default: 0
+          in: query
+          name: offset
+          required: false
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: chainId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tipHeight:
+                    type: integer
+                    nullable: true
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        chainId:
+                          type: string
+                        height:
+                          type: integer
+                        fromSeq:
+                          type: integer
+                        toSeq:
+                          type: integer
+                        txCount:
+                          type: integer
+                        bundleMerkleRoot:
+                          type: string
+                        chainTipHash:
+                          type: string
+                        prevBlockRoot:
+                          type: string
+                          nullable: true
+                        prevChainTipHash:
+                          type: string
+                          nullable: true
+                        immudbRoot:
+                          type: object
+                          properties:
+                            db:
+                              type: string
+                            txId:
+                              type: integer
+                            txHashHex:
+                              type: string
+                          required:
+                            - db
+                            - txId
+                            - txHashHex
+                        capturedAt:
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - settled
+                        typeCounts:
+                          type: object
+                          description: Per-record-type settled tx counts (zero omitted).
+                          additionalProperties:
+                            type: integer
+                            minimum: 0
+                          properties:
+                            post:
+                              type: integer
+                              minimum: 0
+                            comment:
+                              type: integer
+                              minimum: 0
+                            reaction:
+                              type: integer
+                              minimum: 0
+                            petition:
+                              type: integer
+                              minimum: 0
+                            petition_signature:
+                              type: integer
+                              minimum: 0
+                            poll:
+                              type: integer
+                              minimum: 0
+                            vote:
+                              type: integer
+                              minimum: 0
+                            result:
+                              type: integer
+                              minimum: 0
+                      required:
+                        - chainId
+                        - height
+                        - fromSeq
+                        - toSeq
+                        - txCount
+                        - bundleMerkleRoot
+                        - chainTipHash
+                        - prevBlockRoot
+                        - prevChainTipHash
+                        - immudbRoot
+                        - capturedAt
+                        - status
+                        - typeCounts
+                required:
+                  - tipHeight
+                  - items
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/explorer/{chainId}/blocks/{height}:
+    get:
+      summary: One settled block header + type counts
+      tags:
+        - explorer
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: chainId
+          required: true
+        - schema:
+            type: integer
+            minimum: 1
+          in: path
+          name: height
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  chainId:
+                    type: string
+                  height:
+                    type: integer
+                  fromSeq:
+                    type: integer
+                  toSeq:
+                    type: integer
+                  txCount:
+                    type: integer
+                  bundleMerkleRoot:
+                    type: string
+                  chainTipHash:
+                    type: string
+                  prevBlockRoot:
+                    type: string
+                    nullable: true
+                  prevChainTipHash:
+                    type: string
+                    nullable: true
+                  immudbRoot:
+                    type: object
+                    properties:
+                      db:
+                        type: string
+                      txId:
+                        type: integer
+                      txHashHex:
+                        type: string
+                    required:
+                      - db
+                      - txId
+                      - txHashHex
+                  capturedAt:
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - settled
+                  typeCounts:
+                    type: object
+                    description: Per-record-type settled tx counts (zero omitted).
+                    additionalProperties:
+                      type: integer
+                      minimum: 0
+                    properties:
+                      post:
+                        type: integer
+                        minimum: 0
+                      comment:
+                        type: integer
+                        minimum: 0
+                      reaction:
+                        type: integer
+                        minimum: 0
+                      petition:
+                        type: integer
+                        minimum: 0
+                      petition_signature:
+                        type: integer
+                        minimum: 0
+                      poll:
+                        type: integer
+                        minimum: 0
+                      vote:
+                        type: integer
+                        minimum: 0
+                      result:
+                        type: integer
+                        minimum: 0
+                required:
+                  - chainId
+                  - height
+                  - fromSeq
+                  - toSeq
+                  - txCount
+                  - bundleMerkleRoot
+                  - chainTipHash
+                  - prevBlockRoot
+                  - prevChainTipHash
+                  - immudbRoot
+                  - capturedAt
+                  - status
+                  - typeCounts
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/explorer/{chainId}/txs:
+    get:
+      summary: List txs in a settled block (`?block=N`)
+      tags:
+        - explorer
+      parameters:
+        - schema:
+            type: integer
+            minimum: 1
+          in: query
+          name: block
+          required: true
+          description: Settled block height whose txs to list.
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: chainId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blockHeight:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      description: Explorer tx row. `txId` / entity ids are Base59 when UUID v4.
+                        Salt+content are returned together for commitment
+                        verify; both null when redacted/erased.
+                      properties:
+                        txId:
+                          type: string
+                        seq:
+                          type: integer
+                        type:
+                          type: string
+                          enum:
+                            - post
+                            - comment
+                            - reaction
+                            - petition
+                            - petition_signature
+                            - poll
+                            - vote
+                            - result
+                        op:
+                          type: string
+                          enum:
+                            - create
+                            - update
+                            - delete
+                        entityId:
+                          type: string
+                        parentType:
+                          type: string
+                          nullable: true
+                        parentId:
+                          type: string
+                          nullable: true
+                        authorPubkey:
+                          type: string
+                        createdAt:
+                          type: string
+                        contentHash:
+                          type: string
+                        txHash:
+                          type: string
+                        prevHash:
+                          type: string
+                          nullable: true
+                        blockHeight:
+                          type: integer
+                          nullable: true
+                        status:
+                          type: string
+                          enum:
+                            - pending
+                            - settled
+                        withheld:
+                          type: boolean
+                        isRedacted:
+                          type: boolean
+                        isErased:
+                          type: boolean
+                        salt:
+                          type: string
+                          nullable: true
+                          description: Content salt for contentHash recompute; null when withheld (same
+                            rule as content).
+                        content:
+                          description: Public content; null when withheld.
+                          nullable: true
+                        envelope:
+                          type: string
+                          description: Canonical envelope JSON (commitment leaf input).
+                      required:
+                        - txId
+                        - seq
+                        - type
+                        - op
+                        - entityId
+                        - parentType
+                        - parentId
+                        - authorPubkey
+                        - createdAt
+                        - contentHash
+                        - txHash
+                        - prevHash
+                        - blockHeight
+                        - status
+                        - withheld
+                        - isRedacted
+                        - isErased
+                        - salt
+                        - content
+                        - envelope
+                required:
+                  - blockHeight
+                  - items
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/explorer/{chainId}/tx/{txId}:
+    get:
+      summary: One tx by Base59 (or UUID v4) id
+      tags:
+        - explorer
+      parameters:
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: chainId
+          required: true
+        - schema:
+            type: string
+            minLength: 1
+          in: path
+          name: txId
+          required: true
+          description: Base59 or UUID v4 transaction id.
+      responses:
+        "200":
+          description: Explorer tx row. `txId` / entity ids are Base59 when UUID v4.
+            Salt+content are returned together for commitment verify; both null
+            when redacted/erased.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Explorer tx row. `txId` / entity ids are Base59 when UUID v4.
+                  Salt+content are returned together for commitment verify; both
+                  null when redacted/erased.
+                properties:
+                  txId:
+                    type: string
+                  seq:
+                    type: integer
+                  type:
+                    type: string
+                    enum:
+                      - post
+                      - comment
+                      - reaction
+                      - petition
+                      - petition_signature
+                      - poll
+                      - vote
+                      - result
+                  op:
+                    type: string
+                    enum:
+                      - create
+                      - update
+                      - delete
+                  entityId:
+                    type: string
+                  parentType:
+                    type: string
+                    nullable: true
+                  parentId:
+                    type: string
+                    nullable: true
+                  authorPubkey:
+                    type: string
+                  createdAt:
+                    type: string
+                  contentHash:
+                    type: string
+                  txHash:
+                    type: string
+                  prevHash:
+                    type: string
+                    nullable: true
+                  blockHeight:
+                    type: integer
+                    nullable: true
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - settled
+                  withheld:
+                    type: boolean
+                  isRedacted:
+                    type: boolean
+                  isErased:
+                    type: boolean
+                  salt:
+                    type: string
+                    nullable: true
+                    description: Content salt for contentHash recompute; null when withheld (same
+                      rule as content).
+                  content:
+                    description: Public content; null when withheld.
+                    nullable: true
+                  envelope:
+                    type: string
+                    description: Canonical envelope JSON (commitment leaf input).
+                required:
+                  - txId
+                  - seq
+                  - type
+                  - op
+                  - entityId
+                  - parentType
+                  - parentId
+                  - authorPubkey
+                  - createdAt
+                  - contentHash
+                  - txHash
+                  - prevHash
+                  - blockHeight
+                  - status
+                  - withheld
+                  - isRedacted
+                  - isErased
+                  - salt
+                  - content
+                  - envelope
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/public/posts:
     get:
       summary: Browse posts (Beliefs), newest first. Filters are echoed, not resolved
@@ -9118,6 +9958,9 @@ tags:
     description: "Unauthenticated public reads: the civic record
       (browse/detail/counts) and the area catalog (jurisdictions + district
       boundaries)"
+  - name: explorer
+    description: "Unauthenticated auditor/explorer reads: chain tip, blocks, and txs
+      (not a full sync/stream)"
   - name: profile
     description: Private account profile
   - name: me

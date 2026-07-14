@@ -19,6 +19,7 @@ const STATUS: Record<ErrorCode, number> = {
   conflict: 409,
   kyc_reverification_required: 409,
   unprocessable: 422,
+  unavailable: 503,
   not_implemented: 501,
   rate_limited: 429,
   otp_max_attempts: 429,

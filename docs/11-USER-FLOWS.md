@@ -52,7 +52,7 @@ where relevant, **End (error/abandon)**.
 | 5. Browse & read | Built (API) | Lists + detail + counts (geo/tier/k-anon resolved on counts only). |
 | 6. Anonymity & privacy | Mixed | Per-thread pseudonym Built; reveal + visibility cascade Planned. |
 | 7. Official / MLA | Planned | Auto-profiles + claim + sentiment dashboard are fast-follow/future. |
-| 8. Auditor / transparency | Partial | Record exists; signed count manifests + full sync endpoint are gaps. |
+| 8. Auditor / transparency | Partial | Explorer block/tx reads shipped; signed count manifests + full sync/stream remain gaps. |
 
 ## Personas
 
@@ -699,7 +699,13 @@ flowchart TD
 **Entry:** Auditor tooling (not the app UI).
 
 1. Pull a full sync/stream of the record beyond the app read endpoints  `-> (gap: full sync/stream endpoint not exposed)`
-   - branch (interim): reconstruct from public read endpoints (5.x) — incomplete for audit-grade.
+   - branch (interim): reconstruct from public civic reads (5.x) **and** the unauthenticated explorer surface:
+     - `GET /v1/explorer/:chainId` — tip + settled type counts
+     - `GET /v1/explorer/:chainId/blocks` — settled block list
+     - `GET /v1/explorer/:chainId/blocks/:height` — one block
+     - `GET /v1/explorer/:chainId/txs?block=:height` — txs in a block
+     - `GET /v1/explorer/:chainId/tx/:txId` — one tx (Base59 or UUID v4)
+     Explorer is inefficient-by-design for MVP; it is **not** a full sync/stream.
 
 **End (success, when shipped):** Local full copy for offline verification.
 
@@ -732,7 +738,7 @@ All trace to existing tags; **none implemented here** (this is a documentation p
 - **Per-action gates config** — encodes the resolved eligibility matrices (act / signMin / official for 3.x–4.x), incl. the jurisdiction-residency and official-role gate kinds — `[align-w3-gates-schema]` (absorbs `[code-participation-act-eligibility]`).
 - **My-district auth context** (5.5) — `[mvp-c4c-my-district]`; **date filters** — `[mvp-c4b-date-filters]`; **action-time snapshots** — `[mvp-c4-action-snapshots]`.
 - **Formal `result` entity** at poll close (5.4) — `[mvp-c12-poll-results]`.
-- **Signed count manifests** + **full record sync** + **count amendments** (8.x) — `[mvp-c13-signed-count-snapshots]`, `[mvp-c14-count-amendments]`.
+- **Signed count manifests** + **full record sync** + **count amendments** (8.x) — `[mvp-c13-signed-count-snapshots]`, `[mvp-c14-count-amendments]`. Interim: `GET /v1/explorer/:chainId/{blocks,txs,tx}` for block/tx reads (not sync).
 - **Visibility schema + reveal** (6.1b–6.4: account default, per-thread override, persona pages, profile 404s, reveal) — `[align-w3-gates-schema]` / `[align-w4-api-surface]` (supersedes `[code-privacy-schema]`).
 - **Least-resistance registration** (1.1: slim `otp/verify` — handle required, display name/full name/address optional, over_18 checkbox) — `[align-w3-gates-schema]`.
 - **Official profiles / claim / sentiment** (7.x) — fast-follow, no tag yet.

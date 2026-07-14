@@ -19,7 +19,8 @@ export type ErrorCode =
   | "kyc_reverification_required"
   | "not_implemented"
   | "conflict"
-  | "unprocessable";
+  | "unprocessable"
+  | "unavailable";
 
 export class ServiceError extends Error {
   constructor(

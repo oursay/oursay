@@ -14,6 +14,7 @@ import { registerErrorHandler } from "./errors.js";
 import { registerAuthRoutes } from "./routes/auth.routes.js";
 import { registerCivicDeviceRoutes } from "./routes/civic-device.routes.js";
 import { registerCivicRecordRoutes } from "./routes/civic-record.routes.js";
+import { registerExplorerRoutes } from "./routes/explorer.routes.js";
 import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
@@ -65,6 +66,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
         { name: "recovery", description: "Account recovery via email OTP" },
         { name: "civic", description: "Civic signing device keys (public key only; separate from login passkeys)" },
         { name: "public", description: "Unauthenticated public reads: the civic record (browse/detail/counts) and the area catalog (jurisdictions + district boundaries)" },
+        { name: "explorer", description: "Unauthenticated auditor/explorer reads: chain tip, blocks, and txs (not a full sync/stream)" },
         { name: "profile", description: "Private account profile" },
         { name: "me", description: "Authenticated self-scoped account surface" },
         { name: "kyc", description: "Identity and residency verification (Didit sessions, platform residency attest)" },
@@ -92,6 +94,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerLoginRoutes(app, services);
   registerCivicDeviceRoutes(app, services);
   registerCivicRecordRoutes(app, services);
+  registerExplorerRoutes(app, services);
   registerPublicRecordReadRoutes(app, services);
   registerPublicFeedRoutes(app, services);
   registerPublicRecordDetailRoutes(app, services);

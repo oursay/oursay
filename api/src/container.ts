@@ -10,7 +10,9 @@ import { jurisdictions } from "@oursay/jurisdiction-data";
 import {
   PrivateStore,
   PublicChain,
+  PgWireLedgerConnector,
   RecordService,
+  immudbPgConfig,
   registerJurisdiction,
 } from "@oursay/public-record";
 import {
@@ -27,7 +29,7 @@ import {
   type MailerVendor,
 } from "./config.js";
 import type { Db } from "./db.js";
-import { systemNow, type Now } from "./errors.js";
+import { ServiceError, systemNow, type Now } from "./errors.js";
 import { CivicDeviceRepo } from "./repo/civic-device.repo.js";
 import { GeocodeRepo } from "./repo/geocode.repo.js";
 import { KycRepo } from "./repo/kyc.repo.js";
@@ -42,6 +44,7 @@ import { SessionRepo } from "./repo/session.repo.js";
 import { UserRepo } from "./repo/user.repo.js";
 import { AreaCatalogService } from "./services/area-catalog.service.js";
 import { AuthService } from "./services/auth.service.js";
+import { ExplorerReadService } from "./services/explorer-read.service.js";
 import { CivicDeviceService } from "./services/civic-device.service.js";
 import { CivicRecordService } from "./services/civic-record.service.js";
 import { GateService } from "./services/gate.service.js";
@@ -154,6 +157,12 @@ export interface Services {
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
    *  official boundary geometry). Official electoral boundaries only — no private points. */
   areaCatalogService: AreaCatalogService;
+  /** immudb ledger connector (block headers / envelopes). Lazy-connected for explorer reads. */
+  ledger: PgWireLedgerConnector;
+  /** Connect the ledger (idempotent). Used by explorer and by tests that settle blocks. */
+  connectLedger: () => Promise<void>;
+  /** Unauthenticated explorer / auditor READ (blocks + txs) over the public record. */
+  explorerReadService: ExplorerReadService;
   /** The public-record private store backing the civic engine (read access for tests/projections). */
   recordStore: PrivateStore;
 }
@@ -245,6 +254,31 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     signedEnvelopeMaxAgeSec: civicConfig.signedEnvelopeMaxAgeSec,
   });
   const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
+
+  // immudb ledger for explorer / auditor block reads. Connect lazily on first explorer call so
+  // auth-only local work can start without immudb; explorer returns 503 when unreachable.
+  const ledger = new PgWireLedgerConnector(immudbPgConfig);
+  let ledgerConnected = false;
+  const connectLedger = async (): Promise<void> => {
+    if (ledgerConnected) return;
+    try {
+      await ledger.connect();
+      ledgerConnected = true;
+    } catch (err) {
+      // Tests (or a prior settler) may already have connected the shared client.
+      if (await ledger.healthcheck()) {
+        ledgerConnected = true;
+        return;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new ServiceError("unavailable", `public-record ledger unavailable: ${msg}`);
+    }
+  };
+  const explorerReadService = new ExplorerReadService({
+    store: recordStore,
+    ledger,
+    ensureLedgerConnected: connectLedger,
+  });
 
   // Geo: ONE process-lived GeoStore (its own small pool, mirroring recordStore) — the schema is
   // already ensured by Db.init(), so we don't re-init or close it here. RegionResolver is the
@@ -393,6 +427,9 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     officialSeatClaimService,
     profilePageService,
     areaCatalogService,
+    ledger,
+    connectLedger,
+    explorerReadService,
     recordStore,
   };
 }

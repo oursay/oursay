@@ -25,6 +25,7 @@ stable — especially jurisdiction policy, membership, and how platform counts a
 | Client SDK | `@oursay/identity` `CivicHttpClient` |
 | Settlement | Worker settles `oursay-global` + `ab-ca-gov` (`WORKER_CHAIN_IDS`) |
 | Public read | `GET /v1/public/{posts,petitions,polls}` list, `/:id` detail, `/:id/counts` |
+| Explorer / auditor (interim) | `GET /v1/explorer/:chainId` tip + type counts; `/blocks`, `/blocks/:height`, `/txs?block=`, `/tx/:txId` (Base59). **Not** a full sync/stream — that remains a launch gap |
 | Browse/detail tallies | Post reactions are **unfiltered** totals; petition/poll signature/vote scalars are policy-gated (null + `countGating` under a withholding/tier-gating jurisdiction) but never geo/tier-*filtered* on list/detail (by design — see below) |
 
 ### Phase C — geography and count filtering (landed on `geo-foundation`)
@@ -89,6 +90,7 @@ membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI s
 | **`[mvp-c12-poll-results]`** | No derived `result` entity when a poll closes | Spec §8.4 formal outcome surface. |
 | **`[mvp-c13-signed-count-snapshots]`** | R26 — no platform-signed count manifests | Filtered aggregates are recomputed on read; nothing signed to detect silent tampering. |
 | **`[mvp-c14-count-amendments]`** | No auditable recount / invalidate-validate overlay | Formal corrections without silent SQL drift. |
+| Full public-record sync/stream | Still deferred (PRD Phase E / US-SYS-8) | Interim: `/v1/explorer/:chainId` block/tx reads only — inefficient MVP, not bulk sync |
 | **`[mvp-c-kyc-provider]`** | Equifax (etc.) not implemented; recovery re-verify incomplete | Real residency tier and provider-signed rows (R27). |
 
 ### App and ops (Phase D / E — not backend geo)
