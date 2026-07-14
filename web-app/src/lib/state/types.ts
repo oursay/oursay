@@ -88,6 +88,8 @@ export interface AppState {
   accountDisplayName?: string;
   /** Live-session bio from `/v1/profile` (`profile_details`). */
   accountBio?: string;
+  /** Live-session DiceBear icon_type from `/v1/profile`. */
+  accountIconType?: string;
   /** Account-default profile visibility (persisted; docs/09 cascade base). */
   accountVisibility: AuthorVisibility;
   /** Enrolled account-login passkeys (live API or mock wireframe). */

@@ -20,6 +20,7 @@ export interface AccountContext {
   handle: string;
   displayName: string;
   bio: string;
+  iconType: string;
   kycTier: VerificationTier;
   isOfficial: boolean;
   accountVisibility: AuthorVisibility;
@@ -40,6 +41,7 @@ export interface ProfileIdentityPatch {
   handle?: string;
   displayName?: string;
   bio?: string;
+  iconType?: string;
 }
 
 const KYC_CYCLE: Array<{ tier: VerificationTier; token: string }> = [
@@ -83,6 +85,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
       handle: string | null;
       displayName: string | null;
       bio?: string;
+      iconType?: string;
       visibility: AuthorVisibility;
     }>("/v1/profile"),
     apiGet<{ districts: string[] }>("/v1/me/districts"),
@@ -108,6 +111,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     handle,
     displayName: profile.displayName?.trim() || handle,
     bio: typeof profile.bio === "string" ? profile.bio : "",
+    iconType: typeof profile.iconType === "string" ? profile.iconType : "thumbs",
     kycTier,
     isOfficial: publicSelf?.official ?? false,
     accountVisibility: profile.visibility,

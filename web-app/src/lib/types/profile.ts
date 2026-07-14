@@ -78,6 +78,8 @@ export interface PublicProfile {
   tier: VerificationTier;
   /** Short freeform bio shown at the top of the profile. */
   bio: string;
+  /** DiceBear style id (user allowlist; default thumbs). */
+  iconType?: string;
   /** Rough account age for the support bar caption, e.g. "3 years", "7 months". */
   ageLabel: string;
   /** Aggregate agree/disagree + content totals for the support bar. */

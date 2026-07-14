@@ -4,6 +4,7 @@ import {
   personDistricts,
   THREAD_VISIBILITY_OVERRIDES,
 } from "@/lib/mock";
+import { DEFAULT_USER_ICON_TYPE } from "@/lib/avatar";
 import { wireHandle } from "@/lib/handle";
 import { isMockOnly } from "./client";
 import { jurisdictionSlugs } from "./geo-scope";
@@ -156,6 +157,7 @@ export function resolveAuthorIdentity(
       isPersona: false,
       isSelf: true,
       seed: wireHandle(handle) ?? handle,
+      iconType: DEFAULT_USER_ICON_TYPE,
       threadId,
       seenByOthersAs:
         ownVisibility === "public" ? undefined : personaFor(handle, threadId),
@@ -175,6 +177,7 @@ export function resolveAuthorIdentity(
       isPersona: false,
       isSelf: false,
       seed: wire,
+      iconType: DEFAULT_USER_ICON_TYPE,
       threadId,
     };
   }

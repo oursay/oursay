@@ -129,6 +129,7 @@ function mapIdentity(raw: Record<string, unknown>): AuthorIdentity {
     isPersona: Boolean(raw.isPersona),
     isSelf: Boolean(raw.isSelf),
     seed,
+    iconType: raw.iconType != null ? String(raw.iconType) : undefined,
     threadId: String(raw.threadId),
     seenByOthersAs: raw.seenByOthersAs as string | undefined,
   };
@@ -313,6 +314,7 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
     roles,
     tier: tokenToTier(String(raw.tier), official),
     bio: String(raw.bio ?? ""),
+    iconType: String(raw.iconType ?? "thumbs"),
     ageLabel: String(raw.ageLabel ?? ""),
     support: {
       agrees: supportRaw?.agrees ?? 0,

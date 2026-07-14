@@ -1,18 +1,54 @@
 import { Avatar, Style } from "@dicebear/core";
+import disco from "@dicebear/styles/disco.json";
+import glass from "@dicebear/styles/glass.json";
 import initialFace from "@dicebear/styles/initial-face.json";
+import rings from "@dicebear/styles/rings.json";
+import shapeGrid from "@dicebear/styles/shape-grid.json";
+import shapes from "@dicebear/styles/shapes.json";
+import stripes from "@dicebear/styles/stripes.json";
+import thumbs from "@dicebear/styles/thumbs.json";
+import triangles from "@dicebear/styles/triangles.json";
 
 /**
- * Deterministic generated avatars (offline SVG data URIs) — DiceBear v10,
- * `initial-face` style. Real accounts seed by handle; per-thread personas seed
- * by the persona name, so an anonymized author's avatar leaks nothing about
- * their real identity and stays stable within a thread. DiceBear is isolated
- * behind this module so the style (or library) can be swapped in one place.
+ * Deterministic generated avatars (offline SVG data URIs) — DiceBear v10.
+ * Personas → initial-face; official seats → disco; accounts → user allowlist
+ * (default thumbs). Real accounts seed by handle; personas seed by persona name.
  */
 
-const STYLE = new Style(initialFace);
+export const PERSONA_ICON_TYPE = "initial-face" as const;
+export const OFFICIAL_SEAT_ICON_TYPE = "disco" as const;
+
+export const USER_ICON_TYPES = [
+  "glass",
+  "rings",
+  "shape-grid",
+  "shapes",
+  "stripes",
+  "thumbs",
+  "triangles",
+] as const;
+
+export type UserIconType = (typeof USER_ICON_TYPES)[number];
+export type IconType = UserIconType | typeof PERSONA_ICON_TYPE | typeof OFFICIAL_SEAT_ICON_TYPE;
+
+export const DEFAULT_USER_ICON_TYPE: UserIconType = "thumbs";
+
+const STYLE_DEFS: Record<IconType, unknown> = {
+  "initial-face": initialFace,
+  disco,
+  glass,
+  rings,
+  "shape-grid": shapeGrid,
+  shapes,
+  stripes,
+  thumbs,
+  triangles,
+};
+
+const STYLES = new Map<IconType, Style>();
 const CACHE = new Map<string, string>();
 
-/** Brand purple ramp (shades 200–950) — DiceBear picks one per seed. */
+/** Brand purple ramp (shades 200–950) — DiceBear picks one per seed when supported. */
 const BACKGROUND_COLORS = [
   "ddd6fe", // brand-200
   "c4b5fd", // brand-300
@@ -25,13 +61,38 @@ const BACKGROUND_COLORS = [
   "2e1065", // brand-950
 ];
 
-export function avatarDataUri(seed: string): string {
-  const cached = CACHE.get(seed);
+export function isUserIconType(v: string): v is UserIconType {
+  return (USER_ICON_TYPES as readonly string[]).includes(v);
+}
+
+export function normalizeUserIconType(raw: string | null | undefined): UserIconType {
+  if (raw && isUserIconType(raw)) return raw;
+  return DEFAULT_USER_ICON_TYPE;
+}
+
+function styleFor(iconType: IconType): Style {
+  let style = STYLES.get(iconType);
+  if (!style) {
+    style = new Style(STYLE_DEFS[iconType]);
+    STYLES.set(iconType, style);
+  }
+  return style;
+}
+
+function resolveIconType(raw: string | null | undefined): IconType {
+  if (raw === PERSONA_ICON_TYPE || raw === OFFICIAL_SEAT_ICON_TYPE) return raw;
+  return normalizeUserIconType(raw);
+}
+
+export function avatarDataUri(seed: string, iconType?: string | null): string {
+  const resolved = resolveIconType(iconType);
+  const key = `${resolved}:${seed}`;
+  const cached = CACHE.get(key);
   if (cached) return cached;
-  const uri = new Avatar(STYLE, {
+  const uri = new Avatar(styleFor(resolved), {
     seed,
     backgroundColor: BACKGROUND_COLORS,
   }).toDataUri();
-  CACHE.set(seed, uri);
+  CACHE.set(key, uri);
   return uri;
 }

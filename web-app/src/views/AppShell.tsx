@@ -69,6 +69,7 @@ import {
 } from "@/lib/kyc/verifyAsk";
 import { tierMatchedVerifyChoice } from "@/lib/kyc/tierUpdate";
 import { MY_HANDLE, MY_NAME } from "@/lib/mock/constants";
+import { DEFAULT_USER_ICON_TYPE, type UserIconType } from "@/lib/avatar";
 
 type DonationOpen = "public" | "kyc" | null;
 type PendingKyc =
@@ -388,6 +389,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <Avatar
         name={account?.name ?? "Account"}
         seed={account?.handle ?? "account"}
+        iconType={state.accountIconType}
         size="sm"
         className="size-10!"
       />
@@ -550,6 +552,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onClose={app.closeProfile}
         name={account?.name ?? "Account"}
         handle={account?.handle ?? ""}
+        iconType={state.accountIconType}
         kycTier={state.kycTier}
         accountVisibility={state.accountVisibility}
         onChangeVisibility={app.setAccountVisibility}
@@ -697,6 +700,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           handle: account?.handle ?? (isMockOnly() ? MY_HANDLE : ""),
           displayName: account?.name ?? (isMockOnly() ? MY_NAME : ""),
           bio: state.accountBio ?? "",
+          iconType: (state.accountIconType as UserIconType) ?? DEFAULT_USER_ICON_TYPE,
         }}
         onSubmit={app.submitEditProfile}
       />

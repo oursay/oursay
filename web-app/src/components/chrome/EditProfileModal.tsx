@@ -2,12 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { Button, Modal, ModalField } from "@/components/ui";
+import {
+  avatarDataUri,
+  DEFAULT_USER_ICON_TYPE,
+  USER_ICON_TYPES,
+  type UserIconType,
+  normalizeUserIconType,
+} from "@/lib/avatar";
 import { displayHandle, wireHandle } from "@/lib/handle";
 
 export interface EditProfileFormData {
   handle: string;
   displayName: string;
   bio: string;
+  iconType: UserIconType;
 }
 
 interface EditProfileModalProps {
@@ -20,9 +28,19 @@ interface EditProfileModalProps {
 
 const BIO_MAX = 280;
 
+const STYLE_LABELS: Record<UserIconType, string> = {
+  glass: "Glass",
+  rings: "Rings",
+  "shape-grid": "Shape Grid",
+  shapes: "Shapes",
+  stripes: "Stripes",
+  thumbs: "Thumbs",
+  triangles: "Triangles",
+};
+
 /**
- * Edit OurSay-owned public identity (handle, display name, bio).
- * Change Email and Profile Icon are future — shown disabled.
+ * Edit OurSay-owned public identity (handle, display name, bio, profile icon).
+ * Change Email remains future — shown disabled.
  */
 export function EditProfileModal({
   open,
@@ -34,21 +52,27 @@ export function EditProfileModal({
   const [handle, setHandle] = useState(initial.handle);
   const [displayName, setDisplayName] = useState(initial.displayName);
   const [bio, setBio] = useState(initial.bio);
+  const [iconType, setIconType] = useState<UserIconType>(
+    normalizeUserIconType(initial.iconType),
+  );
 
   useEffect(() => {
     if (!open) return;
     setHandle(initial.handle);
     setDisplayName(initial.displayName);
     setBio(initial.bio);
-  }, [open, initial.handle, initial.displayName, initial.bio]);
+    setIconType(normalizeUserIconType(initial.iconType));
+  }, [open, initial.handle, initial.displayName, initial.bio, initial.iconType]);
 
   const wire = wireHandle(handle) ?? "";
+  const previewSeed = wire || "preview";
   const canSave =
     !busy &&
     wire.length > 0 &&
     (wire !== wireHandle(initial.handle) ||
       displayName.trim() !== initial.displayName.trim() ||
-      bio.trim() !== initial.bio.trim());
+      bio.trim() !== initial.bio.trim() ||
+      iconType !== normalizeUserIconType(initial.iconType));
 
   return (
     <Modal open={open} onClose={busy ? () => undefined : onClose} title="Edit Profile" mobileFull>
@@ -78,15 +102,45 @@ export function EditProfileModal({
           hint={`${bio.length}/${BIO_MAX}`}
         />
 
+        <div>
+          <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+            Profile Icon
+          </p>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+            {USER_ICON_TYPES.map((style) => {
+              const selected = style === iconType;
+              return (
+                <button
+                  key={style}
+                  type="button"
+                  disabled={busy}
+                  aria-label={STYLE_LABELS[style]}
+                  aria-pressed={selected}
+                  onClick={() => setIconType(style)}
+                  className={`flex flex-col items-center gap-1 rounded-lg border p-1.5 ${
+                    selected
+                      ? "border-brand-500 bg-brand-100"
+                      : "border-border bg-surface-muted hover:border-brand-300"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element -- static data URI */}
+                  <img
+                    src={avatarDataUri(previewSeed, style)}
+                    alt=""
+                    className="size-10 rounded-full"
+                  />
+                  <span className="w-full truncate text-center text-[9px] text-muted">
+                    {STYLE_LABELS[style]}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="space-y-1.5 rounded-lg border border-border bg-surface-muted p-3 opacity-60">
           <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Change Email</p>
           <p className="text-xs text-muted">Coming soon — email change is not available yet.</p>
-        </div>
-        <div className="space-y-1.5 rounded-lg border border-border bg-surface-muted p-3 opacity-60">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-muted">Profile Icon</p>
-          <p className="text-xs text-muted">
-            Coming soon — choose a DiceBear style for your avatar.
-          </p>
         </div>
 
         <div className="flex gap-2 pt-1">
@@ -101,6 +155,7 @@ export function EditProfileModal({
                 handle: wire,
                 displayName: displayName.trim(),
                 bio: bio.trim(),
+                iconType,
               })
             }
           >
@@ -111,3 +166,5 @@ export function EditProfileModal({
     </Modal>
   );
 }
+
+export { DEFAULT_USER_ICON_TYPE };

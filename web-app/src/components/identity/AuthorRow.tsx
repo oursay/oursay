@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { VenetianMask } from "lucide-react";
 import { Avatar } from "@/components/ui";
+import { PERSONA_ICON_TYPE } from "@/lib/avatar";
 import type {
   AuthorIdentity,
   PillDisplayMode,
@@ -73,6 +74,7 @@ export function AuthorRow({
   const isComment = layout === "comment";
   const isPersona = identity?.isPersona ?? false;
   const avatarSeed = identity?.seed ?? handle ?? author;
+  const avatarIconType = isPersona ? PERSONA_ICON_TYPE : identity?.iconType;
   const badges = (
     <AuthorBadgeGroup
       signTier={signTier}
@@ -134,7 +136,7 @@ export function AuthorRow({
             disabled={!onAuthorClick}
             className="shrink-0 self-start disabled:cursor-default"
           >
-            <Avatar name={author} seed={avatarSeed} size="md" />
+            <Avatar name={author} seed={avatarSeed} iconType={avatarIconType} size="md" />
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-1.5">
@@ -171,7 +173,7 @@ export function AuthorRow({
         disabled={!onAuthorClick}
         className="flex min-w-0 items-center gap-2 text-left disabled:cursor-default"
       >
-        <Avatar name={author} seed={avatarSeed} size="sm" />
+        <Avatar name={author} seed={avatarSeed} iconType={avatarIconType} size="sm" />
         <span className="min-w-0">
           <span className="flex items-baseline gap-1.5">
             <span className="truncate text-sm font-semibold text-ink">{author}</span>

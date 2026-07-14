@@ -157,6 +157,7 @@ describe("live /v1/me adapters", () => {
       handle: "pat_civic",
       displayName: "Pat",
       bio: "Hello",
+      iconType: "glass",
     });
   });
 

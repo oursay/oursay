@@ -47,6 +47,8 @@ interface ProfileModalProps {
   onClose: () => void;
   name: string;
   handle: string;
+  /** DiceBear style for the account avatar. */
+  iconType?: string;
   kycTier: VerificationTier;
   /** Account-default profile visibility (docs/09 cascade base). */
   accountVisibility?: AuthorVisibility;
@@ -335,6 +337,7 @@ export function ProfileModal({
   onClose,
   name,
   handle,
+  iconType,
   kycTier,
   accountVisibility = "anonymous",
   onChangeVisibility,
@@ -377,7 +380,7 @@ export function ProfileModal({
             onClick={onViewProfile}
             className="flex w-full items-center gap-3 rounded-lg p-1 text-left hover:bg-surface-muted"
           >
-            <Avatar name={name} seed={handle} size="lg" />
+            <Avatar name={name} seed={handle} iconType={iconType} size="lg" />
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-ink">{name}</p>
               <p className="truncate text-sm text-muted">{displayHandle(handle)}</p>

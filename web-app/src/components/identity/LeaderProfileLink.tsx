@@ -1,7 +1,7 @@
 "use client";
 
-import { IdCardLanyard } from "lucide-react";
 import { Avatar } from "@/components/ui";
+import { OFFICIAL_SEAT_ICON_TYPE } from "@/lib/avatar";
 import { claimedUserHandleForSeat } from "@/lib/official-seat";
 import type { OfficialLeaderRole } from "@/lib/types/jurisdiction";
 
@@ -14,7 +14,7 @@ interface LeaderProfileLinkProps {
   onClick: () => void;
   /** Header title bar vs compact riding row. */
   size?: "md" | "sm";
-  /** When false, show id-card icon instead of avatar. */
+  /** When false, seat is unclaimed — still disco, seeded by seat handle. */
   claimed?: boolean;
   leaderRole?: OfficialLeaderRole;
 }
@@ -25,7 +25,7 @@ function roleLabel(role: OfficialLeaderRole): string {
   return "MLA";
 }
 
-/** Avatar + representative name, right-aligned. Unclaimed seats use id-card + name from roster. */
+/** Disco avatar + representative name, right-aligned (official seat chrome). */
 export function LeaderProfileLink({
   name,
   handle,
@@ -39,9 +39,8 @@ export function LeaderProfileLink({
     size === "sm" ? "text-[11px] font-medium text-ink" : "text-xs font-medium text-ink";
   const displayName = name.trim() || roleLabel(leaderRole);
   const avatarSeed = claimed
-    ? (claimedUserHandle ?? claimedUserHandleForSeat(handle) ?? handle)
-    : undefined;
-  const iconSize = size === "sm" ? 14 : 16;
+    ? (claimedUserHandle ?? claimedUserHandleForSeat(handle) ?? handle ?? displayName)
+    : (handle ?? displayName);
 
   return (
     <button
@@ -49,16 +48,12 @@ export function LeaderProfileLink({
       onClick={onClick}
       className="flex shrink-0 items-center gap-1.5 hover:opacity-80"
     >
-      {claimed ? (
-        <Avatar name={displayName} seed={avatarSeed} size="sm" />
-      ) : (
-        <span
-          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-300"
-          aria-hidden
-        >
-          <IdCardLanyard size={iconSize} className="text-ink" />
-        </span>
-      )}
+      <Avatar
+        name={displayName}
+        seed={avatarSeed}
+        iconType={OFFICIAL_SEAT_ICON_TYPE}
+        size="sm"
+      />
       <span className={`whitespace-nowrap ${textClass}`}>{displayName}</span>
     </button>
   );

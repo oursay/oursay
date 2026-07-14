@@ -150,7 +150,7 @@ export function ProfileView({
     <div className="space-y-1 p-3">
       <header className="rounded-xl border border-border bg-surface px-3 pt-3 pb-1">
         <div className="flex items-center gap-3">
-          <Avatar name={profile.name} seed={profile.handle} size="lg" />
+          <Avatar name={profile.name} seed={profile.handle} iconType={profile.iconType} size="lg" />
           <div className="min-w-0 flex-1">
             {/* Pill shares the name row (right-justified, like posts) so the
                 role line below keeps the full width for long district names. */}

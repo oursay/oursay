@@ -1,4 +1,4 @@
-import { avatarDataUri } from "@/lib/avatar";
+import { avatarDataUri, DEFAULT_USER_ICON_TYPE } from "@/lib/avatar";
 
 type Size = "sm" | "md" | "lg";
 
@@ -16,19 +16,27 @@ interface AvatarProps {
    * name for anonymized authors. Falls back to `name`.
    */
   seed?: string;
+  /** DiceBear style id (user allowlist, initial-face, or disco). Defaults to thumbs. */
+  iconType?: string | null;
   size?: Size;
   className?: string;
 }
 
 /** Deterministic generated avatar (DiceBear, offline data URI). */
-export function Avatar({ name, seed, size = "md", className = "" }: AvatarProps) {
+export function Avatar({
+  name,
+  seed,
+  iconType = DEFAULT_USER_ICON_TYPE,
+  size = "md",
+  className = "",
+}: AvatarProps) {
   return (
     <span
       className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-300 ${SIZES[size]} ${className}`}
       aria-hidden
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- static data URI */}
-      <img src={avatarDataUri(seed ?? name)} alt="" className="size-full" />
+      <img src={avatarDataUri(seed ?? name, iconType)} alt="" className="size-full" />
     </span>
   );
 }

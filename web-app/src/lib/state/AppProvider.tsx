@@ -488,6 +488,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountHandle: account.handle,
         accountDisplayName: account.displayName,
         accountBio: account.bio,
+        accountIconType: account.iconType,
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
@@ -622,6 +623,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountHandle: account.handle,
         accountDisplayName: account.displayName,
         accountBio: account.bio,
+        accountIconType: account.iconType,
         accountVisibility: account.accountVisibility,
         subscriptions: account.subscriptions,
         signing: account.signing,
@@ -651,6 +653,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         accountHandle: undefined,
         accountDisplayName: undefined,
         accountBio: undefined,
+        accountIconType: undefined,
         authModal: authNone,
         profileOpen: false,
         editProfileOpen: false,
@@ -2074,6 +2077,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           accountHandle: data.handle,
           accountDisplayName: data.displayName || data.handle,
           accountBio: data.bio,
+          accountIconType: data.iconType,
         });
         notify("Profile saved (demo).");
         return;
@@ -2082,6 +2086,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handle: data.handle,
         displayName: data.displayName || data.handle,
         bio: data.bio,
+        iconType: data.iconType,
       })
         .then(() => fetchAccountContext())
         .then((account) => {

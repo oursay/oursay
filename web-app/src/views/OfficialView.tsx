@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BadgeCheck, IdCardLanyard, User } from "lucide-react";
+import { BadgeCheck, User } from "lucide-react";
 import { getOfficialProfile, type OfficialProfile } from "@/lib/api/official";
 import { isMockOnly } from "@/lib/api/client";
+import { OFFICIAL_SEAT_ICON_TYPE } from "@/lib/avatar";
 import {
   ActivityRow,
   Avatar,
@@ -122,20 +123,12 @@ export function OfficialView({ handle }: { handle: string }) {
     <div className="space-y-1 p-3">
       <header className="rounded-xl border border-border bg-surface px-3 pt-3 pb-3">
         <div className="flex items-center gap-3">
-          {profile.claimed ? (
             <Avatar
               name={profile.representativeName}
-              seed={claimedUserHandle}
+              seed={claimedUserHandle ?? profile.handle ?? profile.role}
+              iconType={OFFICIAL_SEAT_ICON_TYPE}
               size="lg"
             />
-          ) : (
-            <span
-              className="inline-flex size-13 shrink-0 items-center justify-center rounded-full bg-brand-300"
-              aria-hidden
-            >
-              <IdCardLanyard size={28} className="text-ink" />
-            </span>
-          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate font-bold text-ink">{profile.role}</p>

@@ -15,6 +15,8 @@ export interface AuthorIdentity {
   isSelf: boolean;
   /** Avatar seed: real handle when revealed, persona name otherwise. */
   seed: string;
+  /** DiceBear style when revealed/self; omitted for personas (client uses initial-face). */
+  iconType?: string;
   /** Root record id of the thread this identity was resolved within. */
   threadId: string;
   /**
