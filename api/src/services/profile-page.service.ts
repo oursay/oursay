@@ -14,6 +14,7 @@ import {
 } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 import { displayNameFor, normalizeHandle } from "../helpers/handle.js";
+import { effectiveUserIconType } from "../helpers/icon-type.js";
 import { resolveContentMentions } from "../helpers/resolve-mentions.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
@@ -66,7 +67,7 @@ export interface ProfileHeaderDto {
   tier: KycTier;
   official: boolean;
   bio: string;
-  /** DiceBear style id for this account (user allowlist; default thumbs). */
+  /** DiceBear style id for this account (effective for KYC tier; default bottts-neutral). */
   iconType: string;
   ageLabel: string;
   support: ProfileSupportDto;
@@ -150,7 +151,7 @@ export class ProfilePageService {
       tier,
       official,
       bio: ctx.bio,
-      iconType: ctx.iconType,
+      iconType: effectiveUserIconType(ctx.iconType, tier !== "unverified"),
       ageLabel: formatAgeLabel(ctx.createdAt),
       support,
     };

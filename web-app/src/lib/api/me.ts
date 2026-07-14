@@ -111,7 +111,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     handle,
     displayName: profile.displayName?.trim() || handle,
     bio: typeof profile.bio === "string" ? profile.bio : "",
-    iconType: typeof profile.iconType === "string" ? profile.iconType : "thumbs",
+    iconType: typeof profile.iconType === "string" ? profile.iconType : "bottts-neutral",
     kycTier,
     isOfficial: publicSelf?.official ?? false,
     accountVisibility: profile.visibility,

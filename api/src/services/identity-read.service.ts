@@ -25,6 +25,7 @@ import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import { displayNameFor } from "../helpers/handle.js";
+import { effectiveUserIconType } from "../helpers/icon-type.js";
 import { normalizeTier, type KycTier } from "../types/kyc.js";
 import { normalizeVisibility, type AuthorVisibility } from "../types/visibility.js";
 import type { ParticipantGeoService } from "./participant-geo.service.js";
@@ -390,12 +391,13 @@ export class ReadResolution {
       const slug = await this.d.geoStore.districtSlugContaining(j.id, point, asOf);
       if (slug) homeDistricts.add(slug);
     }
+    const tier = normalizeTier(tierRaw);
     const facts: AuthorFacts = {
       handle: wireHandle(user?.handle),
       displayName: user?.displayName ?? displayNameFor(user?.handle ?? null, null) ?? "Unknown",
-      iconType: user?.iconType ?? "thumbs",
+      iconType: effectiveUserIconType(user?.iconType, tier !== "unverified"),
       accountVisibility: normalizeVisibility(profile?.visibility),
-      tier: normalizeTier(tierRaw),
+      tier,
       officialIn,
       homeDistricts: [...homeDistricts],
     };

@@ -314,7 +314,7 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
     roles,
     tier: tokenToTier(String(raw.tier), official),
     bio: String(raw.bio ?? ""),
-    iconType: String(raw.iconType ?? "thumbs"),
+    iconType: String(raw.iconType ?? "bottts-neutral"),
     ageLabel: String(raw.ageLabel ?? ""),
     support: {
       agrees: supportRaw?.agrees ?? 0,

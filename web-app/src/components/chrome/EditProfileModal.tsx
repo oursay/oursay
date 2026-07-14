@@ -1,12 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { BadgeCheck } from "lucide-react";
 import { Button, Modal, ModalField } from "@/components/ui";
 import {
   avatarDataUri,
   DEFAULT_USER_ICON_TYPE,
-  USER_ICON_TYPES,
+  UNVERIFIED_USER_ICON_TYPE,
+  VERIFIED_USER_ICON_TYPES,
   type UserIconType,
+  type VerifiedUserIconType,
+  effectiveUserIconType,
   normalizeUserIconType,
 } from "@/lib/avatar";
 import { displayHandle, wireHandle } from "@/lib/handle";
@@ -24,11 +28,15 @@ interface EditProfileModalProps {
   initial: EditProfileFormData;
   onSubmit: (data: EditProfileFormData) => void | Promise<void>;
   busy?: boolean;
+  /** Session KYC tier > 0 unlocks the verified style picker. */
+  verified?: boolean;
+  /** Opens Get Verified (closes Edit Profile externally). */
+  onGetVerified?: () => void;
 }
 
 const BIO_MAX = 280;
 
-const STYLE_LABELS: Record<UserIconType, string> = {
+const STYLE_LABELS: Record<VerifiedUserIconType, string> = {
   thumbs: "Thumbs",
   rings: "Rings",
   "shape-grid": "Shape Grid",
@@ -40,6 +48,7 @@ const STYLE_LABELS: Record<UserIconType, string> = {
 /**
  * Edit OurSay-owned public identity (handle, display name, bio, profile icon).
  * Change Email remains future — shown disabled.
+ * Unverified accounts are locked to bottts-neutral with a Get Verified upsell.
  */
 export function EditProfileModal({
   open,
@@ -47,12 +56,14 @@ export function EditProfileModal({
   initial,
   onSubmit,
   busy = false,
+  verified = false,
+  onGetVerified,
 }: EditProfileModalProps) {
   const [handle, setHandle] = useState(initial.handle);
   const [displayName, setDisplayName] = useState(initial.displayName);
   const [bio, setBio] = useState(initial.bio);
   const [iconType, setIconType] = useState<UserIconType>(
-    normalizeUserIconType(initial.iconType),
+    effectiveUserIconType(initial.iconType, verified),
   );
 
   useEffect(() => {
@@ -60,18 +71,19 @@ export function EditProfileModal({
     setHandle(initial.handle);
     setDisplayName(initial.displayName);
     setBio(initial.bio);
-    setIconType(normalizeUserIconType(initial.iconType));
-  }, [open, initial.handle, initial.displayName, initial.bio, initial.iconType]);
+    setIconType(effectiveUserIconType(initial.iconType, verified));
+  }, [open, initial.handle, initial.displayName, initial.bio, initial.iconType, verified]);
 
   const wire = wireHandle(handle) ?? "";
   const previewSeed = wire || "preview";
+  const initialIcon = effectiveUserIconType(initial.iconType, verified);
   const canSave =
     !busy &&
     wire.length > 0 &&
     (wire !== wireHandle(initial.handle) ||
       displayName.trim() !== initial.displayName.trim() ||
       bio.trim() !== initial.bio.trim() ||
-      iconType !== normalizeUserIconType(initial.iconType));
+      iconType !== initialIcon);
 
   return (
     <Modal open={open} onClose={busy ? () => undefined : onClose} title="Edit Profile" mobileFull>
@@ -105,44 +117,71 @@ export function EditProfileModal({
           <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">
             Profile Icon
           </p>
-          <div className="grid grid-cols-3 gap-3">
-            {USER_ICON_TYPES.map((style) => {
-              const selected = style === iconType;
-              return (
-                <button
-                  key={style}
-                  type="button"
+          {verified ? (
+            <div className="grid grid-cols-3 gap-3">
+              {VERIFIED_USER_ICON_TYPES.map((style) => {
+                const selected = style === iconType;
+                return (
+                  <button
+                    key={style}
+                    type="button"
+                    disabled={busy}
+                    aria-label={STYLE_LABELS[style]}
+                    aria-pressed={selected}
+                    onClick={() => setIconType(style)}
+                    className="flex flex-col items-center gap-1"
+                  >
+                    <span
+                      className={`inline-flex size-12 items-center justify-center overflow-hidden rounded-full ${
+                        selected
+                          ? "border-4 border-brand-500"
+                          : "border-2 border-border hover:border-brand-300"
+                      }`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element -- static data URI */}
+                      <img
+                        src={avatarDataUri(previewSeed, style)}
+                        alt=""
+                        className="size-full rounded-full"
+                      />
+                    </span>
+                    <span
+                      className={`w-full truncate text-center text-[9px] ${
+                        selected ? "font-medium text-ink" : "text-muted"
+                      }`}
+                    >
+                      {STYLE_LABELS[style]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-brand-500">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- static data URI */}
+                  <img
+                    src={avatarDataUri(previewSeed, UNVERIFIED_USER_ICON_TYPE)}
+                    alt=""
+                    className="size-full rounded-full"
+                  />
+                </span>
+                <p className="text-sm font-medium text-ink">Want more icons?</p>
+              </div>
+              {onGetVerified ? (
+                <Button
+                  size="sm"
+                  icon={BadgeCheck}
                   disabled={busy}
-                  aria-label={STYLE_LABELS[style]}
-                  aria-pressed={selected}
-                  onClick={() => setIconType(style)}
-                  className="flex flex-col items-center gap-1"
+                  onClick={onGetVerified}
+                  className="rounded-full!"
                 >
-                  <span
-                    className={`inline-flex size-12 items-center justify-center overflow-hidden rounded-full ${
-                      selected
-                        ? "border-3 border-brand-500"
-                        : "border-2 border-border hover:border-brand-300"
-                    }`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- static data URI */}
-                    <img
-                      src={avatarDataUri(previewSeed, style)}
-                      alt=""
-                      className="size-full rounded-full"
-                    />
-                  </span>
-                  <span
-                    className={`w-full truncate text-center text-[9px] ${
-                      selected ? "font-medium text-ink" : "text-muted"
-                    }`}
-                  >
-                    {STYLE_LABELS[style]}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+                  Get Verified
+                </Button>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className="space-y-1.5 rounded-lg border border-border bg-surface-muted p-3 opacity-60">
@@ -162,7 +201,7 @@ export function EditProfileModal({
                 handle: wire,
                 displayName: displayName.trim(),
                 bio: bio.trim(),
-                iconType,
+                iconType: verified ? normalizeUserIconType(iconType) : UNVERIFIED_USER_ICON_TYPE,
               })
             }
           >

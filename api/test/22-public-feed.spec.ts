@@ -100,6 +100,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     const svc = seeder(w);
     const author = await makeAccount(w, { handle: "@jane", displayName: "Jane" });
     await w.services.repos.profile.setVisibility(author.userId, "public");
+    await w.services.kycService.attest(author.userId, "identity_verified");
     await w.services.repos.user.setIconType(author.userId, "rings");
     const post = await svc.create({ type: "post", author: "pk-jane", content: { title: "Hello", body: "hi" } });
     await link(w, "pk-jane", author.userId, post.entityId);

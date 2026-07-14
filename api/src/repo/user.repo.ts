@@ -20,7 +20,7 @@ export interface UserRecord {
   displayName: string;
   /** Flat bio from profile_details (defaults to ""). */
   bio: string;
-  /** DiceBear style for user profiles (allowlist; default thumbs). */
+  /** DiceBear style for user profiles (allowlist; default bottts-neutral). */
   iconType: UserIconType;
   /** Raw profile_details blob (for merge writes). */
   profileDetails: UserProfileDetails;

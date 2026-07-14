@@ -4,7 +4,10 @@ import {
   DEFAULT_USER_ICON_TYPE,
   OFFICIAL_SEAT_ICON_TYPE,
   PERSONA_ICON_TYPE,
+  UNVERIFIED_USER_ICON_TYPE,
   USER_ICON_TYPES,
+  VERIFIED_USER_ICON_TYPES,
+  effectiveUserIconType,
 } from "./avatar";
 
 describe("avatarDataUri (DiceBear multi-style)", () => {
@@ -14,9 +17,10 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
     expect(avatarDataUri("alex_morgan", "thumbs")).toBe(a);
   });
 
-  it("defaults unset style to thumbs", () => {
-    expect(DEFAULT_USER_ICON_TYPE).toBe("thumbs");
-    expect(avatarDataUri("alex_morgan")).toBe(avatarDataUri("alex_morgan", "thumbs"));
+  it("defaults unset style to bottts-neutral", () => {
+    expect(DEFAULT_USER_ICON_TYPE).toBe("bottts-neutral");
+    expect(UNVERIFIED_USER_ICON_TYPE).toBe("bottts-neutral");
+    expect(avatarDataUri("alex_morgan")).toBe(avatarDataUri("alex_morgan", "bottts-neutral"));
   });
 
   it("different seeds produce different avatars", () => {
@@ -38,11 +42,15 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
     expect(avatarDataUri("seat", OFFICIAL_SEAT_ICON_TYPE).startsWith("data:")).toBe(true);
   });
 
-  it("user allowlist has six choosable styles with thumbs first", () => {
-    expect(USER_ICON_TYPES).toHaveLength(6);
-    expect(USER_ICON_TYPES[0]).toBe("thumbs");
+  it("locks unverified accounts to bottts-neutral and unlocks six verified styles", () => {
+    expect(effectiveUserIconType("rings", false)).toBe("bottts-neutral");
+    expect(effectiveUserIconType("rings", true)).toBe("rings");
+    expect(VERIFIED_USER_ICON_TYPES).toHaveLength(6);
+    expect(VERIFIED_USER_ICON_TYPES[0]).toBe("thumbs");
+    expect(USER_ICON_TYPES).toContain("bottts-neutral");
     expect(USER_ICON_TYPES).not.toContain("glass");
     expect(USER_ICON_TYPES).not.toContain("initial-face");
     expect(USER_ICON_TYPES).not.toContain("disco");
+    expect(avatarDataUri("alex_morgan", "bottts-neutral").startsWith("data:")).toBe(true);
   });
 });

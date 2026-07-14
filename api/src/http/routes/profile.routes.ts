@@ -5,8 +5,14 @@ import type { FastifyInstance } from "fastify";
 import { ServiceError } from "../../errors.js";
 import type { Services } from "../../container.js";
 import { handleFormatError, normalizeHandle } from "../../helpers/handle.js";
-import { isUserIconType, USER_ICON_TYPES } from "../../helpers/icon-type.js";
+import {
+  canChooseUserIconType,
+  effectiveUserIconType,
+  isUserIconType,
+  USER_ICON_TYPES,
+} from "../../helpers/icon-type.js";
 import { BIO_MAX, DISPLAY_NAME_MAX } from "../../repo/user.repo.js";
+import { normalizeTier } from "../../types/kyc.js";
 import { AUTHOR_VISIBILITIES } from "../../types/visibility.js";
 import { bearerSecurity, errorSchema } from "../schemas.js";
 
@@ -44,17 +50,19 @@ export interface PatchProfileBody {
 }
 
 async function buildProfileResponse(services: Services, userId: string) {
-  const [user, profile] = await Promise.all([
+  const [user, profile, tierRaw] = await Promise.all([
     services.repos.user.getById(userId),
     services.repos.profile.getByUserId(userId),
+    services.repos.kyc.latestTier(userId),
   ]);
   if (!profile) throw new ServiceError("not_found", "Profile not found");
+  const verified = normalizeTier(tierRaw) !== "unverified";
   return {
     userId,
     handle: user?.handle ?? null,
     displayName: user?.displayName ?? null,
     bio: user?.bio ?? "",
-    iconType: user?.iconType ?? "thumbs",
+    iconType: effectiveUserIconType(user?.iconType, verified),
     email: profile.email,
     over18: profile.over18,
     visibility: profile.visibility,
@@ -129,6 +137,14 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
       if (body.iconType !== undefined) {
         if (!isUserIconType(body.iconType)) {
           throw new ServiceError("validation", "Invalid iconType");
+        }
+        const tier = normalizeTier(await services.repos.kyc.latestTier(userId));
+        const verified = tier !== "unverified";
+        if (!canChooseUserIconType(body.iconType, verified)) {
+          throw new ServiceError(
+            "validation",
+            "Verify your identity to choose a profile icon style",
+          );
         }
         await services.repos.user.setIconType(userId, body.iconType);
       }

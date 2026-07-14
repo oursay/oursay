@@ -709,6 +709,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       <EditProfileModal
         open={state.editProfileOpen}
         onClose={app.closeEditProfile}
+        verified={state.kycTier > 0}
+        onGetVerified={() => {
+          app.closeEditProfile();
+          app.openVerify();
+        }}
         initial={{
           handle: account?.handle ?? (isMockOnly() ? MY_HANDLE : ""),
           displayName: account?.name ?? (isMockOnly() ? MY_NAME : ""),

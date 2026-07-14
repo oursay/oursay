@@ -58,6 +58,7 @@ describe("29 public profile: visibility gate, posts, activity", () => {
     const svc = seeder(w);
     const author = await makeAccount(w, { handle: "@public", displayName: "Public User" });
     await w.services.repos.profile.setVisibility(author.userId, "public");
+    await w.services.kycService.attest(author.userId, "identity_verified");
     await w.services.repos.user.setIconType(author.userId, "stripes");
     const post = await svc.create({ type: "post", author: "pk-pub", content: { title: "Hello", body: "b" } });
     await link(w, "pk-pub", author.userId, post.entityId);

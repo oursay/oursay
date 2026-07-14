@@ -188,8 +188,9 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     expect(userId).to.be.a("string");
   });
 
-  it("PATCH /v1/profile updates handle, displayName, bio, and iconType", async () => {
+  it("PATCH /v1/profile updates handle, displayName, bio, and iconType (verified)", async () => {
     const { userId, token } = await fullSessionAccount(w, "patch@example.com");
+    await w.services.kycService.attest(userId, "identity_verified");
     const res = await w.app.inject({
       method: "PATCH",
       url: "/v1/profile",
@@ -218,8 +219,29 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     expect(user?.iconType).to.equal("rings");
   });
 
+  it("PATCH /v1/profile locks unverified accounts to bottts-neutral", async () => {
+    const { token } = await fullSessionAccount(w, "unvicon@example.com");
+    const denied = await w.app.inject({
+      method: "PATCH",
+      url: "/v1/profile",
+      headers: bearer(token),
+      payload: { iconType: "rings" },
+    });
+    expect(denied.statusCode).to.equal(400);
+
+    const ok = await w.app.inject({
+      method: "PATCH",
+      url: "/v1/profile",
+      headers: bearer(token),
+      payload: { iconType: "bottts-neutral" },
+    });
+    expect(ok.statusCode).to.equal(200, ok.body);
+    expect(ok.json().iconType).to.equal("bottts-neutral");
+  });
+
   it("PATCH /v1/profile rejects an invalid iconType", async () => {
-    const { token } = await fullSessionAccount(w, "badicon@example.com");
+    const { userId, token } = await fullSessionAccount(w, "badicon@example.com");
+    await w.services.kycService.attest(userId, "identity_verified");
     const res = await w.app.inject({
       method: "PATCH",
       url: "/v1/profile",

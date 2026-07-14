@@ -1,4 +1,5 @@
 import { Avatar, Style } from "@dicebear/core";
+import botttsNeutral from "@dicebear/styles/bottts-neutral.json";
 import disco from "@dicebear/styles/disco.json";
 import initialFace from "@dicebear/styles/initial-face.json";
 import rings from "@dicebear/styles/rings.json";
@@ -10,14 +11,17 @@ import triangles from "@dicebear/styles/triangles.json";
 
 /**
  * Deterministic generated avatars (offline SVG data URIs) — DiceBear v10.
- * Personas → initial-face; official seats → disco; accounts → user allowlist
- * (default thumbs). Real accounts seed by handle; personas seed by persona name.
+ * Personas → initial-face; official seats → disco; unverified accounts →
+ * bottts-neutral; verified accounts → VERIFIED_USER_ICON_TYPES (or bottts-neutral until they pick).
+ * Real accounts seed by handle; personas seed by persona name.
  */
 
 export const PERSONA_ICON_TYPE = "initial-face" as const;
 export const OFFICIAL_SEAT_ICON_TYPE = "disco" as const;
 
-export const USER_ICON_TYPES = [
+export const UNVERIFIED_USER_ICON_TYPE = "bottts-neutral" as const;
+
+export const VERIFIED_USER_ICON_TYPES = [
   "thumbs",
   "rings",
   "shape-grid",
@@ -26,12 +30,20 @@ export const USER_ICON_TYPES = [
   "triangles",
 ] as const;
 
+export type VerifiedUserIconType = (typeof VERIFIED_USER_ICON_TYPES)[number];
+
+export const USER_ICON_TYPES = [
+  UNVERIFIED_USER_ICON_TYPE,
+  ...VERIFIED_USER_ICON_TYPES,
+] as const;
+
 export type UserIconType = (typeof USER_ICON_TYPES)[number];
 export type IconType = UserIconType | typeof PERSONA_ICON_TYPE | typeof OFFICIAL_SEAT_ICON_TYPE;
 
-export const DEFAULT_USER_ICON_TYPE: UserIconType = "thumbs";
+export const DEFAULT_USER_ICON_TYPE: UserIconType = UNVERIFIED_USER_ICON_TYPE;
 
 const STYLE_DEFS: Record<IconType, unknown> = {
+  "bottts-neutral": botttsNeutral,
   "initial-face": initialFace,
   disco,
   rings,
@@ -58,6 +70,10 @@ const BACKGROUND_COLORS = [
   "2e1065", // brand-950
 ];
 
+export function isVerifiedUserIconType(v: string): v is VerifiedUserIconType {
+  return (VERIFIED_USER_ICON_TYPES as readonly string[]).includes(v);
+}
+
 export function isUserIconType(v: string): v is UserIconType {
   return (USER_ICON_TYPES as readonly string[]).includes(v);
 }
@@ -65,6 +81,14 @@ export function isUserIconType(v: string): v is UserIconType {
 export function normalizeUserIconType(raw: string | null | undefined): UserIconType {
   if (raw && isUserIconType(raw)) return raw;
   return DEFAULT_USER_ICON_TYPE;
+}
+
+export function effectiveUserIconType(
+  raw: string | null | undefined,
+  verified: boolean,
+): UserIconType {
+  if (!verified) return UNVERIFIED_USER_ICON_TYPE;
+  return normalizeUserIconType(raw);
 }
 
 function styleFor(iconType: IconType): Style {
