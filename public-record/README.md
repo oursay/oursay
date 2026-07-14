@@ -93,8 +93,7 @@ A **`ledgerId`** (UUID, env `LEDGER_ID`) names **one immudb instance** — and t
 - **Production `chainId`:** a stable, human-auditable slug — e.g. `ab-ca-gov`. Set via `CHAIN_ID` / `WORKER_CHAIN_IDS` and never reuse for a new genesis (bump a suffix, e.g. `ab-ca-gov-v2`).
 - **Dev / test:** fresh UUID `ledgerId` and/or fresh slug/`randomUUID()` chainIds as needed; each chain still gets its own database so block heights start clean without resetting immudb.
 - Library default chain slug is `oursay-global`; the API civic default is `ab-ca-gov`.
-- The published `AnchorRecord.chainId` always matches the settled block header's `chainId`, and
-  `verifyChain(anchors, expectedChainId)` lets an auditor bind a record to the genesis they expect.
+- The published `AnchorRecord.chainId` always matches the settled block header's `chainId`, and `verifyChain(anchors, expectedChainId)` lets an auditor bind a record to the genesis they expect.
 
 ## Content model
 

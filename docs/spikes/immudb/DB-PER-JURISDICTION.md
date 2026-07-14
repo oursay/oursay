@@ -37,8 +37,7 @@ Postgres (shared) ── record_tx / outbox / content (erase still works)
 | Connect with `database=` | Supported (reconnect path) |
 | Drop/unload database | Confirm at build; may need `immuadmin` / unload + archive dir |
 
-Default open-file limits allow on the order of ~250 databases per process; raise `LimitNOFILE` for
-large fleets. Tests must drop per-run databases at teardown.
+Default open-file limits allow on the order of ~250 databases per process; raise `LimitNOFILE` for large fleets. Tests must drop per-run databases at teardown.
 
 ## Out of scope this loop
 
