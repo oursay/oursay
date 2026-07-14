@@ -183,16 +183,62 @@ export interface FeedRootRow extends EntityState {
 
 /** Unified-feed query options. `types` restricts root types (absent ⇒ all four); `jurisdictions`
  *  restricts by thread audience jurisdiction (rows with no binding count as `defaultJurisdiction`);
- *  `signedMin` floors the projected sign tier; `beforeSeq` is the exclusive cursor (head seq). */
+ *  `districts` restricts by entity_audience seat slugs (jurisdiction-wide roots with no audience
+ *  rows are excluded); `signedMin` floors the projected sign tier; `beforeSeq` is the exclusive
+ *  cursor (head seq). */
 export interface FeedRootsQuery {
   types?: RecordType[];
   jurisdictions?: string[];
+  /** Affected seat slugs; a root matches when any of its audience rows is in the set. */
+  districts?: string[];
   /** The jurisdiction unbound threads belong to for filtering (the deployment default). */
   defaultJurisdiction: string;
   signedMin?: number;
   beforeSeq?: number;
   limit: number;
 }
+
+/** Filters shared by {@link PrivateStore.listFeedRoots} and {@link PrivateStore.countFeedRoots}. */
+export type FeedRootsFilter = Omit<FeedRootsQuery, "beforeSeq" | "limit">;
+
+function feedRootsWhere(
+  q: FeedRootsFilter & { beforeSeq?: number },
+  params: unknown[],
+): string {
+  let where = `es.type = ANY($1) AND es.parent_id IS NULL AND NOT es.is_deleted`;
+  if (q.signedMin != null && q.signedMin > 0) {
+    params.push(q.signedMin);
+    where += ` AND es.sign_tier >= $${params.length}`;
+  }
+  if (q.beforeSeq != null) {
+    params.push(q.beforeSeq);
+    where += ` AND es.head_seq < $${params.length}`;
+  }
+  if (q.jurisdictions && q.jurisdictions.length > 0) {
+    params.push(q.jurisdictions, q.defaultJurisdiction);
+    where += ` AND COALESCE(tk.jurisdiction, ea.jurisdiction_id, $${params.length}) = ANY($${params.length - 1})`;
+  }
+  if (q.districts && q.districts.length > 0) {
+    params.push(q.districts);
+    where += ` AND EXISTS (
+      SELECT 1 FROM entity_audience aud
+      WHERE aud.entity_id = es.entity_id::text AND aud.district_slug = ANY($${params.length})
+    )`;
+  }
+  return where;
+}
+
+const FEED_ROOTS_FROM = `FROM entity_state es
+       LEFT JOIN LATERAL (
+         -- thread_id is TEXT while entity ids are UUID; cast for the column-to-column compare.
+         SELECT jurisdiction FROM thread_keys WHERE thread_id = es.entity_id::text ORDER BY jurisdiction ASC LIMIT 1
+       ) tk ON true
+       LEFT JOIN LATERAL (
+         SELECT jurisdiction_id FROM entity_audience WHERE entity_id = es.entity_id::text LIMIT 1
+       ) ea ON true
+       LEFT JOIN LATERAL (
+         SELECT MIN(created_at) AS first_created_at FROM record_tx WHERE entity_id = es.entity_id AND op = 'create'
+       ) fc ON true`;
 
 /** Profile posts query ([align-w4-api-surface] P5): LIVE roots authored by any of the user's
  *  per-thread persona pubkeys. Results are excluded — a Result is a system outcome, not a user post. */
@@ -433,41 +479,32 @@ export class PrivateStore {
   async listFeedRoots(q: FeedRootsQuery): Promise<FeedRootRow[]> {
     const types = q.types && q.types.length > 0 ? q.types : ["post", "petition", "poll", "result"];
     const params: unknown[] = [types, q.limit];
-    let where =
-      `es.type = ANY($1) AND es.parent_id IS NULL AND NOT es.is_deleted`;
-    if (q.signedMin != null && q.signedMin > 0) {
-      params.push(q.signedMin);
-      where += ` AND es.sign_tier >= $${params.length}`;
-    }
-    if (q.beforeSeq != null) {
-      params.push(q.beforeSeq);
-      where += ` AND es.head_seq < $${params.length}`;
-    }
-    if (q.jurisdictions && q.jurisdictions.length > 0) {
-      params.push(q.jurisdictions, q.defaultJurisdiction);
-      where += ` AND COALESCE(tk.jurisdiction, ea.jurisdiction_id, $${params.length}) = ANY($${params.length - 1})`;
-    }
+    const where = feedRootsWhere(q, params);
     const r = await this.pool.query(
       `SELECT es.*,
               COALESCE(tk.jurisdiction, ea.jurisdiction_id) AS thread_jurisdiction,
               fc.first_created_at
-       FROM entity_state es
-       LEFT JOIN LATERAL (
-         -- thread_id is TEXT while entity ids are UUID; cast for the column-to-column compare.
-         SELECT jurisdiction FROM thread_keys WHERE thread_id = es.entity_id::text ORDER BY jurisdiction ASC LIMIT 1
-       ) tk ON true
-       LEFT JOIN LATERAL (
-         SELECT jurisdiction_id FROM entity_audience WHERE entity_id = es.entity_id::text LIMIT 1
-       ) ea ON true
-       LEFT JOIN LATERAL (
-         SELECT MIN(created_at) AS first_created_at FROM record_tx WHERE entity_id = es.entity_id AND op = 'create'
-       ) fc ON true
+       ${FEED_ROOTS_FROM}
        WHERE ${where}
        ORDER BY es.head_seq DESC
        LIMIT $2`,
       params,
     );
     return r.rows.map(mapFeedRootRow);
+  }
+
+  /** Count of LIVE roots matching the same filters as {@link listFeedRoots} (no cursor). */
+  async countFeedRoots(q: FeedRootsFilter): Promise<number> {
+    const types = q.types && q.types.length > 0 ? q.types : ["post", "petition", "poll", "result"];
+    const params: unknown[] = [types];
+    const where = feedRootsWhere(q, params);
+    const r = await this.pool.query(
+      `SELECT COUNT(*)::int AS count
+       ${FEED_ROOTS_FROM}
+       WHERE ${where}`,
+      params,
+    );
+    return Number(r.rows[0].count);
   }
 
   /** Every (pubkey, threadId) persona key registered for one account. Empty when the user has never

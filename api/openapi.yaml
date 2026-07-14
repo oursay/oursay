@@ -5467,6 +5467,18 @@ paths:
           required: false
           description: Jurisdiction id filter; repeatable. Absent = all.
         - schema:
+            anyOf:
+              - type: string
+              - type: array
+                items:
+                  type: string
+          in: query
+          name: districts
+          required: false
+          description: Affected district slug filter; repeatable. A root matches when any
+            audience row is in the set (jurisdiction-wide roots with no audience
+            rows are excluded).
+        - schema:
             type: integer
             minimum: 0
             maximum: 3
@@ -5701,9 +5713,14 @@ paths:
                     type: string
                     nullable: true
                     description: Pass back as `cursor`; null = no more rows.
+                  total:
+                    type: integer
+                    description: Full filtered feed size under the same query filters (browse-list
+                      page.total convention); not the length of items.
                 required:
                   - items
                   - nextCursor
+                  - total
         "400":
           description: Default Response
           content:

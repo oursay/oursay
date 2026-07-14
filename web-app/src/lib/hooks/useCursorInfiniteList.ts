@@ -20,6 +20,8 @@ export interface UseCursorInfiniteListResult<T> {
   loadingMore: boolean;
   hasMore: boolean;
   error: string | null;
+  /** Filtered list size when the API/mock reports it (browse-list `page.total`). */
+  total: number | null;
   loadMore: () => void;
 }
 
@@ -48,6 +50,7 @@ export function useCursorInfiniteList<T>({
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
 
   const cursorRef = useRef<string | null>(null);
   const inFlightRef = useRef(false);
@@ -64,13 +67,12 @@ export function useCursorInfiniteList<T>({
     if (!enabled) {
       cursorRef.current = null;
       inFlightRef.current = false;
-      // Avoid setState when already idle — inline getItemId/fetchPage would
-      // otherwise retrigger this effect every render via applyPage deps.
       setItems((prev) => (prev.length === 0 ? prev : []));
       setLoading((prev) => (prev ? false : prev));
       setLoadingMore((prev) => (prev ? false : prev));
       setHasMore((prev) => (prev ? false : prev));
       setError((prev) => (prev == null ? prev : null));
+      setTotal((prev) => (prev == null ? prev : null));
       onItemsChangeRef.current?.([]);
       return;
     }
@@ -83,19 +85,18 @@ export function useCursorInfiniteList<T>({
     setLoadingMore(false);
     setHasMore(false);
     setError(null);
+    setTotal(null);
     onItemsChangeRef.current?.([]);
 
     fetchPageRef
       .current(null)
       .then((page) => {
         if (!active) return;
-        setItems((prev) => {
-          const merged = page.items;
-          onItemsChangeRef.current?.(merged);
-          return merged;
-        });
+        setItems(page.items);
+        onItemsChangeRef.current?.(page.items);
         cursorRef.current = page.nextCursor;
         setHasMore(page.nextCursor !== null);
+        if (typeof page.total === "number") setTotal(page.total);
       })
       .catch((e: unknown) => {
         if (!active) return;
@@ -110,8 +111,6 @@ export function useCursorInfiniteList<T>({
     return () => {
       active = false;
     };
-    // fetchPage / getItemId / onItemsChange are read via refs so unstable
-    // inline callbacks do not retrigger the load loop.
   }, [resetKey, enabled]);
 
   const loadMore = useCallback(() => {
@@ -131,6 +130,7 @@ export function useCursorInfiniteList<T>({
         });
         cursorRef.current = page.nextCursor;
         setHasMore(page.nextCursor !== null);
+        if (typeof page.total === "number") setTotal(page.total);
       })
       .catch((e: unknown) => {
         setError(e instanceof Error ? e.message : "Failed to load more");
@@ -141,5 +141,5 @@ export function useCursorInfiniteList<T>({
       });
   }, []);
 
-  return { items, loading, loadingMore, hasMore, error, loadMore };
+  return { items, loading, loadingMore, hasMore, error, total, loadMore };
 }

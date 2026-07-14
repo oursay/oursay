@@ -38,7 +38,7 @@ async function feed(w: World, qs = "", token?: string) {
     headers: token ? { authorization: `Bearer ${token}` } : {},
   });
   expect(res.statusCode).to.equal(200, res.body);
-  return res.json() as { items: any[]; nextCursor: string | null };
+  return res.json() as { items: any[]; nextCursor: string | null; total: number };
 }
 
 describe("22 public feed: unified list, viewer-optional identity, filters, cursor", () => {
@@ -66,6 +66,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     const body = await feed(w);
     expect(body.items.map((i) => i.id)).to.deep.equal([result.entityId, poll.entityId, petition.entityId, post.entityId]);
     expect(body.nextCursor).to.equal(null);
+    expect(body.total).to.equal(4);
 
     const p = body.items[3];
     expect(p.type).to.equal("post");
@@ -161,9 +162,11 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
 
     const types = await feed(w, "?types=post");
     expect(types.items.map((i) => i.id)).to.deep.equal([gPost.entityId]);
+    expect(types.total).to.equal(1);
 
     const jur = await feed(w, "?jurisdictions=ab-ca-gov");
     expect(jur.items.map((i) => i.id)).to.deep.equal([abPet.entityId]);
+    expect(jur.total).to.equal(1);
     expect(jur.items[0].jurisdiction).to.equal("ab-ca-gov");
     // ab-ca-gov tier-gates signature counts: the feed never filters by tier ⇒ scalar withheld.
     expect(jur.items[0].sig).to.equal(null);
@@ -171,10 +174,13 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     // tierMin=2: only the residency-verified author's row survives.
     const tiered = await feed(w, "?tierMin=2");
     expect(tiered.items.map((i) => i.id)).to.deep.equal([abPet.entityId]);
+    expect(tiered.total).to.equal(1);
     expect(tiered.items[0].tier).to.equal("residency_verified");
 
     // signedMin=1: all dev-path rows are quick (sign_tier 0) ⇒ empty page.
-    expect((await feed(w, "?signedMin=1")).items).to.deep.equal([]);
+    const signed = await feed(w, "?signedMin=1");
+    expect(signed.items).to.deep.equal([]);
+    expect(signed.total).to.equal(0);
   });
 
   it("paginates with an opaque cursor (no skips or repeats)", async () => {
@@ -186,9 +192,11 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     const page1 = await feed(w, "?limit=2");
     expect(page1.items.map((i) => i.id)).to.deep.equal([ids[4], ids[3]]);
     expect(page1.nextCursor).to.be.a("string");
+    expect(page1.total).to.equal(5);
 
     const page2 = await feed(w, `?limit=2&cursor=${page1.nextCursor}`);
     expect(page2.items.map((i) => i.id)).to.deep.equal([ids[2], ids[1]]);
+    expect(page2.total).to.equal(5);
 
     const page3 = await feed(w, `?limit=2&cursor=${page2.nextCursor}`);
     expect(page3.items.map((i) => i.id)).to.deep.equal([ids[0]]);

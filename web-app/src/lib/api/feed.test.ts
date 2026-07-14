@@ -36,10 +36,12 @@ describe("listFeedItems", () => {
     const page1 = await listFeedItems({});
     expect(page1.items.length).toBe(25);
     expect(page1.nextCursor).not.toBeNull();
+    expect(page1.total).toBe(POSTS.length);
 
     const page2 = await listFeedItems({ cursor: page1.nextCursor });
     expect(page2.items.length).toBeGreaterThan(0);
     expect(page1.items[0]?.id).not.toBe(page2.items[0]?.id);
+    expect(page2.total).toBe(POSTS.length);
   });
 });
 

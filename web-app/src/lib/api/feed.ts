@@ -43,6 +43,44 @@ async function resolveFeedFilter(
   return { scope, viewer, filter };
 }
 
+/** Wire query filters for live `/v1/public/feed` — scope pins jurisdiction/district. */
+function liveFeedQueryParts(
+  scope: FeedScope,
+  filter: FeedFilterParams,
+): {
+  jurisdictions?: string[];
+  districts?: string[];
+  types?: string[];
+  tierMin?: number;
+  signedMin?: number;
+} {
+  const types = filter.types?.map(kindToWireType);
+  const tierMin = filter.tierMin;
+  const signedMin = filter.signedFilter;
+
+  if (scope === "jurisdiction" && filter.jurisdiction) {
+    return {
+      jurisdictions: [filter.jurisdiction],
+      types,
+      tierMin,
+      signedMin,
+    };
+  }
+  if (scope === "district" && filter.districtSlug) {
+    return {
+      districts: [filter.districtSlug],
+      types,
+      tierMin,
+      signedMin,
+    };
+  }
+
+  const jurisdictions = filter.jurisdictions
+    ?.filter((j) => j.included)
+    .map((j) => j.id);
+  return { jurisdictions, types, tierMin, signedMin };
+}
+
 async function listFeedItemsMock(params: ListFeedParams): Promise<CursorPage<FeedItem>> {
   const { scope, viewer, filter } = await resolveFeedFilter(params);
   const limit = params.limit ?? PAGE_SIZE;
@@ -55,35 +93,38 @@ async function listFeedItemsMock(params: ListFeedParams): Promise<CursorPage<Fee
 async function listFeedItemsLive(params: ListFeedParams): Promise<CursorPage<FeedItem>> {
   const { scope, viewer, filter } = await resolveFeedFilter(params);
   const limit = params.limit ?? PAGE_SIZE;
-
-  const jurisdictions = filter.jurisdictions
-    ?.filter((j) => j.included)
-    .map((j) => j.id);
-  const types = filter.types?.map(kindToWireType);
+  const wire = liveFeedQueryParts(scope, filter);
 
   const kept: FeedItem[] = [];
   let apiCursor = params.cursor ?? undefined;
   let nextCursor: string | null = null;
+  let total: number | undefined;
 
-  // Client geography/district filters can thin a page; scan until we fill
-  // `limit` matched rows or the API is exhausted.
+  // Client geography filters can thin a page; scan until we fill `limit`
+  // matched rows or the API is exhausted. Prefer API `total` (filter-aligned).
   while (kept.length < limit) {
     const qs = buildQuery({
-      jurisdictions,
-      types,
-      tierMin: filter.tierMin,
-      signedMin: filter.signedFilter,
+      jurisdictions: wire.jurisdictions,
+      districts: wire.districts,
+      types: wire.types,
+      tierMin: wire.tierMin,
+      signedMin: wire.signedMin,
       cursor: apiCursor,
       limit,
     });
 
-    const res = await apiGet<{ items: Record<string, unknown>[]; nextCursor: string | null }>(
-      `/v1/public/feed${qs}`,
-    );
+    const res = await apiGet<{
+      items: Record<string, unknown>[];
+      nextCursor: string | null;
+      total: number;
+    }>(`/v1/public/feed${qs}`);
     if (!res?.items.length) {
       nextCursor = null;
+      if (typeof res?.total === "number") total = res.total;
       break;
     }
+
+    if (typeof res.total === "number") total = res.total;
 
     for (const raw of res.items) {
       // Live feed items already carry server-resolved identity (incl. iconType).
@@ -99,14 +140,14 @@ async function listFeedItemsLive(params: ListFeedParams): Promise<CursorPage<Fee
 
   return {
     items: kept.slice(0, limit),
-    // Under-filled and exhausted ⇒ done; otherwise continue from the last API page.
     nextCursor: kept.length < limit ? null : nextCursor,
+    total,
   };
 }
 
 /**
  * The unified feed / jurisdiction / district list. Applies the read-model
- * `matches` filter and returns a cursor page of records.
+ * `matches` filter and returns a cursor page of records (with optional total).
  */
 export async function listFeedItems(
   params: ListFeedParams = {},

@@ -76,6 +76,9 @@ const typesQuery = {
 const jurisdictionsQuery = {
   anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
 } as const;
+const districtsQuery = {
+  anyOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
+} as const;
 
 function asList<T>(raw: unknown): T[] | undefined {
   if (Array.isArray(raw)) return raw as T[];
@@ -97,6 +100,11 @@ export function registerPublicFeedRoutes(app: FastifyInstance, services: Service
           properties: {
             types: { ...typesQuery, description: "Root type filter; repeatable. Absent = all four." },
             jurisdictions: { ...jurisdictionsQuery, description: "Jurisdiction id filter; repeatable. Absent = all." },
+            districts: {
+              ...districtsQuery,
+              description:
+                "Affected district slug filter; repeatable. A root matches when any audience row is in the set (jurisdiction-wide roots with no audience rows are excluded).",
+            },
             tierMin: {
               type: "integer",
               minimum: 0,
@@ -122,8 +130,13 @@ export function registerPublicFeedRoutes(app: FastifyInstance, services: Service
             properties: {
               items: { type: "array", items: feedItemSchema },
               nextCursor: { type: "string", nullable: true, description: "Pass back as `cursor`; null = no more rows." },
+              total: {
+                type: "integer",
+                description:
+                  "Full filtered feed size under the same query filters (browse-list page.total convention); not the length of items.",
+              },
             },
-            required: ["items", "nextCursor"],
+            required: ["items", "nextCursor", "total"],
           },
           400: errorSchema,
         },
@@ -134,6 +147,7 @@ export function registerPublicFeedRoutes(app: FastifyInstance, services: Service
       const query: FeedQuery = {
         types: asList(q.types),
         jurisdictions: asList(q.jurisdictions),
+        districts: asList(q.districts),
         tierMin: q.tierMin as FeedQuery["tierMin"],
         signedMin: q.signedMin as number | undefined,
         cursor: q.cursor as string | undefined,

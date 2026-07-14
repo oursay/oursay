@@ -56,6 +56,7 @@ export function DistrictView({
     loadingMore,
     hasMore,
     error,
+    total,
     loadMore,
   } = useCursorInfiniteList<FeedItem>({
     resetKey,
@@ -129,7 +130,13 @@ export function DistrictView({
       <CollapsibleSection
         icon={Newspaper}
         label="Feed"
-        count={items.length > 0 || loading ? String(items.length) : undefined}
+        count={
+          total != null
+            ? String(total)
+            : items.length > 0 || loading
+              ? String(items.length)
+              : undefined
+        }
         open={feedOpen}
         onToggle={() => setFeedOpen((v) => !v)}
       >

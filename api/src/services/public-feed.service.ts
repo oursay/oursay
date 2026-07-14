@@ -40,6 +40,8 @@ const SCAN_BATCH = 50;
 
 export interface FeedQuery {
   jurisdictions?: string[];
+  /** Affected district slugs (entity_audience); omitted ⇒ no district filter. */
+  districts?: string[];
   types?: RootType[];
   /** Author verification floor (web-app Verified ladder): 0 any · 1 identity · 2 residency ·
    *  3 official (role, not a tier). */
@@ -91,6 +93,11 @@ export interface FeedResponse {
   items: FeedItemDto[];
   /** Pass back as `cursor` for the next page; null ⇒ no more rows. */
   nextCursor: string | null;
+  /**
+   * Full size of the filtered feed (same filters as this page), matching the
+   * legacy browse-list `page.total` convention — not the size of `items`.
+   */
+  total: number;
 }
 
 export interface PublicFeedServiceDeps {
@@ -105,6 +112,16 @@ export class PublicFeedService {
     const limit = Math.min(Math.max(1, Math.trunc(query.limit ?? DEFAULT_LIMIT)), MAX_LIMIT);
     const tierMin = query.tierMin ?? 0;
     const res = this.d.identityReadService.begin(viewer);
+    const storeFilter = {
+      types: query.types as RecordType[] | undefined,
+      jurisdictions: query.jurisdictions,
+      districts: query.districts,
+      defaultJurisdiction: DEFAULT_JURISDICTION,
+      signedMin: query.signedMin,
+    };
+
+    // Page and filtered total in parallel (total matches browse-list `page.total`).
+    const totalPromise = this.countFiltered(storeFilter, tierMin, viewer);
 
     // Scan newest-first in batches; the author-tier floor drops rows post-query, so keep fetching
     // until limit+1 rows survive (the +1 detects the next page) or the log is exhausted.
@@ -112,10 +129,7 @@ export class PublicFeedService {
     let beforeSeq = parseCursor(query.cursor);
     for (;;) {
       const rows = await this.d.recordStore.listFeedRoots({
-        types: query.types as RecordType[] | undefined,
-        jurisdictions: query.jurisdictions,
-        defaultJurisdiction: DEFAULT_JURISDICTION,
-        signedMin: query.signedMin,
+        ...storeFilter,
         beforeSeq,
         limit: SCAN_BATCH,
       });
@@ -130,9 +144,49 @@ export class PublicFeedService {
     }
 
     const page = kept.slice(0, limit);
-    const items = await this.feedItemsFromRoots(page.map(({ row, resolved }) => ({ row, resolved })));
+    const [items, total] = await Promise.all([
+      this.feedItemsFromRoots(page.map(({ row, resolved }) => ({ row, resolved }))),
+      totalPromise,
+    ]);
     const nextCursor = kept.length > limit ? String(page[page.length - 1].row.headSeq) : null;
-    return { items, nextCursor };
+    return { items, nextCursor, total };
+  }
+
+  /** Count roots under the same filters as {@link list} (incl. author tierMin). */
+  private async countFiltered(
+    storeFilter: {
+      types?: RecordType[];
+      jurisdictions?: string[];
+      districts?: string[];
+      defaultJurisdiction: string;
+      signedMin?: number;
+    },
+    tierMin: number,
+    viewer: ApiViewer,
+  ): Promise<number> {
+    if (tierMin <= 0) {
+      return this.d.recordStore.countFeedRoots(storeFilter);
+    }
+
+    // Author tier is post-query — walk the filtered log and apply the same rank floor as list.
+    const res = this.d.identityReadService.begin(viewer);
+    let total = 0;
+    let beforeSeq: number | undefined;
+    for (;;) {
+      const rows = await this.d.recordStore.listFeedRoots({
+        ...storeFilter,
+        beforeSeq,
+        limit: SCAN_BATCH,
+      });
+      for (const row of rows) {
+        const resolved = await this.resolveRow(row, res);
+        const rank = resolved.author.official ? 3 : kycRank(resolved.author.tier);
+        if (rank >= tierMin) total += 1;
+      }
+      if (rows.length < SCAN_BATCH) break;
+      beforeSeq = rows[rows.length - 1].headSeq;
+    }
+    return total;
   }
 
   /** Build FeedItem-shaped rows for authored roots (profile Posts tab reuses this). */
