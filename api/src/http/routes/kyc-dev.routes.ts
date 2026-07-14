@@ -2,8 +2,7 @@
 // via the configured provider (the stub in dev/CI), so manual QA and tests can place a user at a tier
 // without a raw INSERT into kyc_attestations. Registered ONLY when NODE_ENV !== "production" (see
 // server.ts), mirroring the /walk guard. `hide: true` keeps it out of the committed OpenAPI spec (the
-// dump runs in dev mode) — it is dev plumbing, not part of the API contract. No business logic here —
-// it is a thin wrapper over KycService.
+// dump runs in dev mode) — it is dev plumbing, not part of the API contract.
 
 import type { FastifyInstance } from "fastify";
 import { ServiceError } from "../../errors.js";
@@ -39,5 +38,24 @@ export function registerKycDevRoutes(app: FastifyInstance, services: Services): 
       if (!result) throw new ServiceError("forbidden", "KYC provider declined the attestation");
       return result;
     },
+  );
+
+  /** Didit-mimic stub POA: private seed point + residency_verified (no prior address required). */
+  app.post(
+    "/v1/dev/kyc/poa",
+    {
+      preHandler: app.requireFullScope,
+      schema: {
+        hide: true,
+        response: {
+          200: {
+            type: "object",
+            properties: { tier: { type: "string", enum: KYC_TIERS } },
+            required: ["tier"],
+          },
+        },
+      },
+    },
+    async (req) => services.kycSessionService.approveStubPoa(req.user!.userId),
   );
 }

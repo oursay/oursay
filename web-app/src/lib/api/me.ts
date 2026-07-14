@@ -211,15 +211,23 @@ export async function patchProfile(body: ProfileIdentityPatch): Promise<void> {
 }
 
 /**
- * Award residency verification (platform attest / Didit POA path).
- * Uses `POST /v1/kyc/residency/attest` when available; dev-attest fallback.
+ * Stub/dev Didit-mimic POA (`POST /v1/dev/kyc/poa`): awards residency + private seed point.
+ * Does not require a prior profile address (unlike platform `/v1/kyc/residency/attest`).
+ */
+export async function stubApprovePoa(): Promise<void> {
+  await apiPost("/v1/dev/kyc/poa", {});
+}
+
+/**
+ * Platform self-attest residency when a geocoded point already sits inside the jurisdiction.
+ * Uses `POST /v1/kyc/residency/attest`; falls back to stub Didit-mimic POA when the route is missing.
  */
 export async function attestResidency(): Promise<void> {
   try {
     await apiPost("/v1/kyc/residency/attest", { consent: true });
   } catch (e) {
     if (e instanceof ApiError && (e.status === 404 || e.status === 501)) {
-      await apiPost("/v1/dev/kyc/attest", { tier: "residency_verified" });
+      await stubApprovePoa();
       return;
     }
     throw e;

@@ -12,6 +12,7 @@ import {
   postShareMark,
   putJurisdictionMemberships,
   putThreadVisibility,
+  stubApprovePoa,
 } from "./me";
 
 function mockFetch(handler: (url: string, init?: RequestInit) => Response | Promise<Response>) {
@@ -175,14 +176,14 @@ describe("live /v1/me adapters", () => {
     ]);
   });
 
-  it("attestResidency falls back to dev attest when route is missing", async () => {
+  it("attestResidency falls back to stub POA when platform attest route is missing", async () => {
     let calls = 0;
     mockFetch((url, init) => {
       calls++;
       if (url.includes("/v1/kyc/residency/attest")) {
         return Promise.resolve(new Response("not found", { status: 404 }));
       }
-      expect(url).toContain("/v1/dev/kyc/attest");
+      expect(url).toContain("/v1/dev/kyc/poa");
       expect(init?.method).toBe("POST");
       return Promise.resolve(
         new Response(JSON.stringify({ tier: "residency_verified" }), { status: 200 }),
@@ -190,6 +191,17 @@ describe("live /v1/me adapters", () => {
     });
     await attestResidency();
     expect(calls).toBe(2);
+  });
+
+  it("stubApprovePoa posts Didit-mimic stub POA", async () => {
+    mockFetch((url, init) => {
+      expect(url).toContain("/v1/dev/kyc/poa");
+      expect(init?.method).toBe("POST");
+      return Promise.resolve(
+        new Response(JSON.stringify({ tier: "residency_verified" }), { status: 200 }),
+      );
+    });
+    await stubApprovePoa();
   });
 
   it("devAttestKyc awards official role from residency without re-attesting KYC", async () => {

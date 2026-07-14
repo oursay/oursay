@@ -7369,7 +7369,8 @@ paths:
                   - error
   /v1/profile:
     get:
-      summary: Get the authenticated user's own profile (private PII)
+      summary: Get the authenticated user's own profile (account contact + public
+        identity)
       tags:
         - profile
       security: *a1
@@ -7392,14 +7393,8 @@ paths:
                     type:
                       - "null"
                       - string
-                  firstName:
-                    type:
-                      - "null"
-                      - string
-                  lastName:
-                    type:
-                      - "null"
-                      - string
+                  bio:
+                    type: string
                   email:
                     type: string
                   over18:
@@ -7415,40 +7410,12 @@ paths:
                       - my_jurisdiction
                       - id_verified
                       - public
-                  address:
-                    type: object
-                    properties:
-                      line1:
-                        type:
-                          - "null"
-                          - string
-                      line2:
-                        type:
-                          - "null"
-                          - string
-                      city:
-                        type:
-                          - "null"
-                          - string
-                      province:
-                        type:
-                          - "null"
-                          - string
-                      postalCode:
-                        type:
-                          - "null"
-                          - string
-                      country:
-                        type: string
-                      memo:
-                        type:
-                          - "null"
-                          - string
                 required:
                   - userId
                   - email
                   - over18
                   - visibility
+                  - bio
         "401":
           description: Default Response
           content:
@@ -7510,8 +7477,8 @@ paths:
                 required:
                   - error
     patch:
-      summary: Update private profile fields (best-effort geocode refresh when address
-        changes)
+      summary: Update handle, display name, and/or bio (not legal name or street
+        address)
       tags:
         - profile
       requestBody:
@@ -7521,40 +7488,17 @@ paths:
             schema:
               type: object
               properties:
-                firstName:
-                  type:
-                    - string
-                    - "null"
-                lastName:
-                  type:
-                    - string
-                    - "null"
-                line1:
-                  type:
-                    - string
-                    - "null"
-                line2:
-                  type:
-                    - string
-                    - "null"
-                city:
-                  type:
-                    - string
-                    - "null"
-                province:
-                  type:
-                    - string
-                    - "null"
-                postalCode:
-                  type:
-                    - string
-                    - "null"
-                country:
+                handle:
                   type: string
-                memo:
-                  type:
-                    - string
-                    - "null"
+                  minLength: 1
+                  maxLength: 31
+                  description: Wire or @-prefixed handle
+                displayName:
+                  type: string
+                  maxLength: 80
+                bio:
+                  type: string
+                  maxLength: 280
               additionalProperties: false
       security: *a1
       responses:
@@ -7576,14 +7520,8 @@ paths:
                     type:
                       - "null"
                       - string
-                  firstName:
-                    type:
-                      - "null"
-                      - string
-                  lastName:
-                    type:
-                      - "null"
-                      - string
+                  bio:
+                    type: string
                   email:
                     type: string
                   over18:
@@ -7599,40 +7537,12 @@ paths:
                       - my_jurisdiction
                       - id_verified
                       - public
-                  address:
-                    type: object
-                    properties:
-                      line1:
-                        type:
-                          - "null"
-                          - string
-                      line2:
-                        type:
-                          - "null"
-                          - string
-                      city:
-                        type:
-                          - "null"
-                          - string
-                      province:
-                        type:
-                          - "null"
-                          - string
-                      postalCode:
-                        type:
-                          - "null"
-                          - string
-                      country:
-                        type: string
-                      memo:
-                        type:
-                          - "null"
-                          - string
                 required:
                   - userId
                   - email
                   - over18
                   - visibility
+                  - bio
         "401":
           description: Default Response
           content:
@@ -7674,6 +7584,26 @@ paths:
                 required:
                   - error
         "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "409":
           description: Default Response
           content:
             application/json:

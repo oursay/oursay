@@ -5,6 +5,7 @@ import { ServiceError } from "../errors.js";
 import type { KycSessionRepo } from "../repo/kyc-session.repo.js";
 import type { KycTier } from "../types/kyc.js";
 import type { GeocodeService } from "./geocode.service.js";
+import { DEV_STRATHCONA_POINT } from "./geocode/stub-provider.js";
 import type { DiditKycProvider } from "./kyc/didit-provider.js";
 import type {
   EphemeralPoaLocation,
@@ -103,6 +104,26 @@ export class KycSessionService {
       );
     }
     return this.d.kycService.award(userId, "residency_verified", jurisdictionId, "platform");
+  }
+
+  /**
+   * Stub/dev Didit-mimic POA: award residency_verified and upsert the seed Strathcona point.
+   * Does not require a prior profile address or geocode row (unlike attestPlatformResidency).
+   */
+  async approveStubPoa(userId: string): Promise<{ tier: KycTier }> {
+    try {
+      await this.d.geocodeService.applyResidencyLocation(
+        userId,
+        { kind: "coords", lon: DEV_STRATHCONA_POINT.lon, lat: DEV_STRATHCONA_POINT.lat },
+        "stub",
+      );
+    } catch (e) {
+      console.warn("[kyc] stub_poa_geocode_error", {
+        userId,
+        error: e instanceof Error ? e.name : "unknown",
+      });
+    }
+    return this.d.kycService.award(userId, "residency_verified", "AB", "stub");
   }
 
   async handleDiditWebhook(rawBody: string, headers: Record<string, string | undefined>): Promise<void> {

@@ -49,7 +49,11 @@ Workflow 03 is `biometric_authentication`: liveness + 1:1 face match against the
 
 ### Platform residency (stub/dev)
 
-`POST /v1/kyc/residency/attest` awards `residency_verified` with provider `platform` when the user’s private geocode point falls inside the jurisdiction. When `KYC_PROVIDER=didit`, product residency verification uses workflow **02** instead.
+`POST /v1/kyc/residency/attest` awards `residency_verified` with provider `platform` when the user’s private geocode point falls inside the jurisdiction.
+
+**Preferred stub/dev residency (Didit mimic):** `POST /v1/dev/kyc/poa` awards `residency_verified` with provider `stub` and upserts the seed Strathcona private point — same shape as Didit POA Approved (tier + point), with no prior profile address required. The web app’s Verify → Residency path uses this when `KYC_PROVIDER=stub`.
+
+When `KYC_PROVIDER=didit`, product residency verification uses workflow **02** instead.
 
 Code: `api/src/services/kyc/`, `api/src/services/kyc-session.service.ts`, `api/src/http/routes/kyc.routes.ts`, `api/src/services/recovery.service.ts`.
 
@@ -200,7 +204,7 @@ npm test -w @oursay/api -- --grep "05 recovery"
 3. Open the returned `url` and complete verification (sandbox credits).
 4. `GET /v1/kyc/didit/session/:sessionId` until `status` is `approved` and `tier` is `identity_verified`.
 5. For Didit residency: `{ "workflowKind": "poa" }` (requires `DIDIT_WORKFLOW_POA`). On Approved, confirm `residency_verified` **and** (when Didit returns coords or a geocodable address) a row in `auth.profile_geocodes` — street text must not appear on `auth.profiles` from this path.
-6. For stub/dev residency without Didit POA: ensure a private geocode point exists (e.g. prior registration/dev setup), then `POST /v1/kyc/residency/attest` with `{ "consent": true }`. Do **not** write street address via `PATCH /v1/profile`.
+6. For stub/dev Didit-mimic residency (default `KYC_PROVIDER=stub`): `POST /v1/dev/kyc/poa` awards `residency_verified` and writes the seed Strathcona private point — no prior profile address required. Platform self-attest (`POST /v1/kyc/residency/attest`) still requires an existing in-jurisdiction point.
 
 ---
 

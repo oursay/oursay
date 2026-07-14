@@ -86,14 +86,19 @@ export class GeocodeService {
   }
 
   /**
-   * POA / residency path: ephemeral Didit intake → private point. Best-effort; callers should catch.
-   * Prefer Didit coords (provider "didit"); else geocode seam (stub/geocodio). Never writes profile street.
+   * POA / residency path: ephemeral Didit (or stub-mimic) intake → private point. Best-effort.
+   * Prefer document_location coords; else geocode seam from structured address. Never writes profile street.
    * Does not clear an existing point when intake is missing or below the address gate.
+   * `@param coordProvider` — label stored on the geocode row for coords intake (default `"didit"`).
    */
-  async applyResidencyLocation(userId: string, intake: EphemeralPoaLocation | null): Promise<GeocodeResult> {
+  async applyResidencyLocation(
+    userId: string,
+    intake: EphemeralPoaLocation | null,
+    coordProvider: string = "didit",
+  ): Promise<GeocodeResult> {
     if (!intake) return { status: "skipped" };
     if (intake.kind === "coords") {
-      return this.upsertRoundedPoint(userId, intake.lon, intake.lat, "didit", null);
+      return this.upsertRoundedPoint(userId, intake.lon, intake.lat, coordProvider, null);
     }
     if (!hasGeocodableAddress(intake.addr)) return { status: "skipped" };
     return this.applyAddressKeepOnMiss(userId, intake.addr);

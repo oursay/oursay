@@ -9,8 +9,9 @@ import type { NormalizedAddress } from "../../helpers/address.js";
 import type { GeocodeHit, GeocodeProvider } from "./provider.js";
 
 /** Dev seed postal → Edmonton-Strathcona interior (see api/scripts/seed-data/content.ts). */
-const DEV_STRATHCONA_POSTAL = "T6E 2A1";
-const DEV_STRATHCONA_POINT = { lon: -113.52, lat: 53.52 };
+export const DEV_STRATHCONA_POSTAL = "T6E 2A1";
+/** Optimistic stub POA / Didit-mimic point inside edmonton-strathcona (lon, lat). */
+export const DEV_STRATHCONA_POINT = { lon: -113.52, lat: 53.52 };
 
 // Alberta-ish bounding box (lon/lat). Points land inside Alberta so downstream point-in-polygon wiring
 // has something plausible to chew on; exact placement is meaningless (it's a stub).
