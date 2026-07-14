@@ -2,31 +2,42 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui";
-import { accountIdentity, readSession, useApp } from "@/lib/state";
+import { accountIdentity, useApp } from "@/lib/state";
 import { ProfileView } from "./ProfileView";
 
 /**
  * The signed-in account's own public profile (/profile/self). Logged out it
  * auto-opens the auth chooser once, leaving a message + reopen button behind
- * the modal.
+ * the modal. Waits for session hydration so a refresh does not flash the
+ * chooser before a live session resolves.
  */
 export function SelfProfileView() {
   const app = useApp();
-  const { loggedIn } = app.state;
+  const { loggedIn, authReady } = app.state;
   const { openAuth, setPageJurisdiction } = app;
   const identity = accountIdentity(app.state);
 
   // Ref-guarded so the modal pops only on arrival — logging out while on the
-  // page must not re-open it. state.loggedIn is stale-false until the
-  // provider's cookie hydration effect runs (after this child effect), so
-  // consult the persisted session directly before popping the modal.
+  // page must not re-open it. Skip until authReady so pre-hydration
+  // loggedIn=false does not open the chooser.
   const autoOpened = useRef(false);
   useEffect(() => {
     setPageJurisdiction(null);
-    if (autoOpened.current) return;
+  }, [setPageJurisdiction]);
+
+  useEffect(() => {
+    if (!authReady || autoOpened.current) return;
     autoOpened.current = true;
-    if (!loggedIn && !readSession().loggedIn) openAuth();
-  }, [loggedIn, openAuth, setPageJurisdiction]);
+    if (!loggedIn) openAuth();
+  }, [authReady, loggedIn, openAuth]);
+
+  if (!authReady) {
+    return (
+      <div className="flex flex-col items-center gap-3 p-10 text-center">
+        <p className="text-sm text-muted">Loading profile…</p>
+      </div>
+    );
+  }
 
   if (!loggedIn) {
     return (

@@ -80,6 +80,11 @@ export interface ShareTarget {
 export interface AppState {
   // Session / viewer.
   loggedIn: boolean;
+  /**
+   * True once mount hydration has resolved `loggedIn` (mock cookie or live
+   * `/v1/auth/session`). Until then, treat logout UI / auto-open auth as pending.
+   */
+  authReady: boolean;
   kycTier: VerificationTier;
   viewerDistricts: string[];
   /** Live-session wire handle (no leading @). */

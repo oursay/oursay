@@ -202,6 +202,7 @@ const MOCK_PASSKEYS: AuthPasskey[] = [
 /** Pre-hydration defaults (exported for state-derivation tests). */
 export const INITIAL_APP_STATE: AppState = {
   loggedIn: false,
+  authReady: false,
   kycTier: 0,
   viewerDistricts: [],
   accountVisibility: "anonymous",
@@ -460,6 +461,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...s,
         subscriptions: readSubscriptions(),
         loggedIn: session.loggedIn,
+        authReady: true,
         kycTier: session.kycTier,
         viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
         accountVisibility: session.accountVisibility,
@@ -469,33 +471,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     let active = true;
-    fetchAccountContext().then((account) => {
+    const markLoggedOut = () => {
       if (!active) return;
-      if (!account) {
-        setState((s) => ({
-          ...s,
-          subscriptions: readSubscriptions(),
-          theme: readTheme(),
-        }));
-        return;
-      }
-      userIdRef.current = account.userId;
       setState((s) => ({
         ...s,
-        loggedIn: true,
-        kycTier: account.kycTier,
-        viewerDistricts: account.viewerDistricts,
-        accountHandle: account.handle,
-        accountDisplayName: account.displayName,
-        accountBio: account.bio,
-        accountIconType: account.iconType,
-        accountVisibility: account.accountVisibility,
-        subscriptions: account.subscriptions,
-        signing: account.signing,
+        subscriptions: readSubscriptions(),
         theme: readTheme(),
+        authReady: true,
       }));
-      void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
-    });
+    };
+    fetchAccountContext()
+      .then((account) => {
+        if (!active) return;
+        if (!account) {
+          markLoggedOut();
+          return;
+        }
+        userIdRef.current = account.userId;
+        setState((s) => ({
+          ...s,
+          loggedIn: true,
+          authReady: true,
+          kycTier: account.kycTier,
+          viewerDistricts: account.viewerDistricts,
+          accountHandle: account.handle,
+          accountDisplayName: account.displayName,
+          accountBio: account.bio,
+          accountIconType: account.iconType,
+          accountVisibility: account.accountVisibility,
+          subscriptions: account.subscriptions,
+          signing: account.signing,
+          theme: readTheme(),
+          authModal: authNone,
+        }));
+        void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
+      })
+      .catch(markLoggedOut);
     return () => {
       active = false;
     };
