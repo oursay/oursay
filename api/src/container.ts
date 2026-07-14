@@ -157,9 +157,9 @@ export interface Services {
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
    *  official boundary geometry). Official electoral boundaries only — no private points. */
   areaCatalogService: AreaCatalogService;
-  /** immudb ledger connector (block headers / envelopes). Lazy-connected for explorer reads. */
+  /** immudb ledger connector — explorer reads + `PublicChain` pool gate (txId existence). Lazy-connected. */
   ledger: PgWireLedgerConnector;
-  /** Connect the ledger (idempotent). Used by explorer and by tests that settle blocks. */
+  /** Connect the ledger (idempotent). Used by explorer, civic pool gate, and settle tests. */
   connectLedger: () => Promise<void>;
   /** Unauthenticated explorer / auditor READ (blocks + txs) over the public record. */
   explorerReadService: ExplorerReadService;
@@ -248,15 +248,10 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   // same Postgres; its tables are created by Db.init() (PrivateStore.init).
   const platformBindingPrivKeyHex = opts.platformBindingPrivKeyHex ?? civicConfig.platformBindingPrivKeyHex;
   const recordStore = new PrivateStore(pgConfig);
-  const recordSvc = new RecordService(new PublicChain(recordStore, civicConfig.chainId), recordStore, {
-    platformBindingPrivKeyHex,
-    requireDeviceSigner: true,
-    signedEnvelopeMaxAgeSec: civicConfig.signedEnvelopeMaxAgeSec,
-  });
-  const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
 
-  // immudb ledger for explorer / auditor block reads. Connect lazily on first explorer call so
-  // auth-only local work can start without immudb; explorer returns 503 when unreachable.
+  // immudb ledger for explorer reads AND the pool write gate (`PublicChain.append` rejects txIds
+  // already on chain). Connect lazily on first use so auth-only local work can start without
+  // immudb; civic submit + explorer return 503 when unreachable (fail closed — never pool blindly).
   const ledger = new PgWireLedgerConnector(immudbPgConfig);
   let ledgerConnected = false;
   const connectLedger = async (): Promise<void> => {
@@ -274,6 +269,17 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
       throw new ServiceError("unavailable", `public-record ledger unavailable: ${msg}`);
     }
   };
+
+  const recordSvc = new RecordService(
+    new PublicChain(recordStore, civicConfig.chainId, ledger, connectLedger),
+    recordStore,
+    {
+      platformBindingPrivKeyHex,
+      requireDeviceSigner: true,
+      signedEnvelopeMaxAgeSec: civicConfig.signedEnvelopeMaxAgeSec,
+    },
+  );
+  const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
   const explorerReadService = new ExplorerReadService({
     store: recordStore,
     ledger,

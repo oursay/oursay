@@ -44,7 +44,11 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
     const chainId = randomUUID();
     // enforceSigningPolicy:false — this spec exercises the legacy p256 device-signer path on forced
     // types (vote); the webauthn-es256 hard requirement is covered in webauthn-envelope.spec.
-    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0, enforceSigningPolicy: false });
+    svc = new RecordService(new PublicChain(store, chainId, connector), store, {
+      platformBindingPrivKeyHex: platformPriv,
+      signedEnvelopeMaxAgeSec: 0,
+      enforceSigningPolicy: false,
+    });
     settler = new BlockSettler(store, connector, chainId, blockConfig);
   });
 
@@ -225,7 +229,7 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
   });
 
   it("requireDeviceSigner: a gated service rejects a persona-signed envelope with no device signer", async () => {
-    const gated = new RecordService(new PublicChain(store, randomUUID()), store, {
+    const gated = new RecordService(new PublicChain(store, randomUUID(), connector), store, {
       platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0, requireDeviceSigner: true,
     });
     const u = await newUser();

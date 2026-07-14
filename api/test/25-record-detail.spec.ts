@@ -12,7 +12,10 @@ import { makeAccount } from "./helpers/account.js";
 import { resetWorld, type World } from "./helpers/world.js";
 
 function seeder(w: World): RecordService {
-  return new RecordService(new PublicChain(w.services.recordStore, randomUUID()), w.services.recordStore);
+  return new RecordService(
+    new PublicChain(w.services.recordStore, randomUUID(), w.services.ledger, w.services.connectLedger),
+    w.services.recordStore,
+  );
 }
 
 /** Link a dev-path pubkey to an account for one thread (what a real join writes). Pubkeys are globally

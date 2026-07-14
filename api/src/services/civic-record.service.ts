@@ -21,7 +21,15 @@ import type {
   PreparedAppend,
   SignedSubmission,
 } from "@oursay/identity";
-import { actionForType, isRootType, opAllowed, requiredSignScheme, rulesOf } from "@oursay/public-record";
+import {
+  actionForType,
+  isRootType,
+  LedgerUnavailableError,
+  opAllowed,
+  requiredSignScheme,
+  rulesOf,
+  TxIdAlreadyOnChainError,
+} from "@oursay/public-record";
 import type { Op, PrivateStore, RecordType, Ref, TxEnvelope } from "@oursay/public-record";
 import type { GeoStore, RegionResolver } from "@oursay/geo";
 import { ServiceError } from "../errors.js";
@@ -492,6 +500,12 @@ function normalizeMentions(raw: MentionCandidate[] | undefined): MentionCandidat
  *  (envelope/binding validation messages carry no secrets). A ServiceError passes through unchanged. */
 function asServiceError(err: unknown, fallbackCode: "validation"): ServiceError {
   if (err instanceof ServiceError) return err;
+  if (err instanceof TxIdAlreadyOnChainError) {
+    return new ServiceError("conflict", err.message, { txId: err.txId });
+  }
+  if (err instanceof LedgerUnavailableError) {
+    return new ServiceError("unavailable", err.message);
+  }
   const message = err instanceof Error ? err.message : "civic write failed";
   return new ServiceError(fallbackCode, message);
 }

@@ -40,7 +40,11 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     const chainId = randomUUID();
     // enforceSigningPolicy:false — this spec exercises the raw p256 path on forced types (vote/
     // petition_signature); the webauthn-es256 hard requirement is covered in webauthn-envelope.spec.
-    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0, enforceSigningPolicy: false });
+    svc = new RecordService(new PublicChain(store, chainId, connector), store, {
+      platformBindingPrivKeyHex: platformPriv,
+      signedEnvelopeMaxAgeSec: 0,
+      enforceSigningPolicy: false,
+    });
     settler = new BlockSettler(store, connector, chainId, blockConfig);
   });
 
@@ -341,10 +345,11 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
   it("freshness gate: accepts a fresh createdAt, rejects an expired one and excessive future skew", async () => {
     const NOW = Date.parse("2026-06-19T12:00:00.000Z");
     // a dedicated service with the gate ON (120s max age, 60s future skew) + an injected clock.
-    const gated = new RecordService(new PublicChain(store, randomUUID()), store, {
+    const gated = new RecordService(new PublicChain(store, randomUUID(), connector), store, {
       platformBindingPrivKeyHex: platformPriv,
       signedEnvelopeMaxAgeSec: 120,
       signedEnvelopeFutureSkewSec: 60,
+      enforceSigningPolicy: false,
       now: () => NOW,
     });
 

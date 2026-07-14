@@ -73,6 +73,9 @@ Settlement and anchoring are **distinct** steps (contributor §3.4).
   - Unverified: Postgres only
 - Published results are derived/published, not user-appended (contributor §8.4).
 - Public language: no "blockchain/wallet/on-chain" in user-facing copy (contributor §11.5).
+- **Pool gate:** before enqueue, `PublicChain.append` rejects any `txId` that already has a row on
+  immudb (`getEnvelope`). Outbox/`record_tx` are not a durable mirror of the never-reset ledger;
+  fail closed if the ledger is unreachable during that check.
 
 ## Permissions
 

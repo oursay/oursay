@@ -2311,6 +2311,46 @@ paths:
                       - message
                 required:
                   - error
+        "409":
+          description: txId already exists on the public record (or other conflict)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "503":
+          description: Public-record ledger unavailable (pool gate fail-closed)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/explorer/{chainId}:
     get:
       summary: Explorer chain tip + settled type counts

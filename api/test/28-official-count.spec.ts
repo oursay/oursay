@@ -27,7 +27,10 @@ const ALBERTA_2019_SHP = join(
 );
 
 function seeder(w: World, chainId = randomUUID()): RecordService {
-  return new RecordService(new PublicChain(w.services.recordStore, chainId), w.services.recordStore);
+  return new RecordService(
+    new PublicChain(w.services.recordStore, chainId, w.services.ledger, w.services.connectLedger),
+    w.services.recordStore,
+  );
 }
 
 async function link(w: World, pubkey: string, userId: string, threadId: string, jurisdiction: string) {

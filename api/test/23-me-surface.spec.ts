@@ -120,7 +120,10 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
 
   it("PUT /v1/me/threads/:id/visibility sets and clears per-thread override", async () => {
     const { userId, token } = await fullSessionAccount(w, "threadvis@example.com");
-    const svc = new RecordService(new PublicChain(w.services.recordStore, randomUUID()), w.services.recordStore);
+    const svc = new RecordService(
+      new PublicChain(w.services.recordStore, randomUUID(), w.services.ledger, w.services.connectLedger),
+      w.services.recordStore,
+    );
     const post = await svc.create({ type: "post", author: "pk-tv", content: { title: "T", body: "b" } });
     await w.services.recordStore.registerThreadBinding({
       threadPubkey: "pk-tv",

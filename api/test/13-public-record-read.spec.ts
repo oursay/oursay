@@ -11,7 +11,10 @@ import { resetWorld, type World } from "./helpers/world.js";
 
 /** A dev-path writer over the shared record store (unsigned; one fresh chain id per call). */
 function seeder(w: World): RecordService {
-  return new RecordService(new PublicChain(w.services.recordStore, randomUUID()), w.services.recordStore);
+  return new RecordService(
+    new PublicChain(w.services.recordStore, randomUUID(), w.services.ledger, w.services.connectLedger),
+    w.services.recordStore,
+  );
 }
 
 describe("13 public record read: browse, detail, counts, filter echo (geo resolution in spec 16)", () => {

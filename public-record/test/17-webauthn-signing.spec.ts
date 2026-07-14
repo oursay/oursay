@@ -16,6 +16,7 @@ import { buildThreadBindingInputs } from "../src/identity/binding.js";
 import { signBinding, signCredentialAuth } from "../src/identity/platform-binding.js";
 import { DEFAULT_GATES, registerJurisdiction, requiredSignScheme } from "../src/jurisdiction.js";
 import { PublicChain } from "../src/ledger/chain.js";
+import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import { RecordService } from "../src/record.js";
 import { type RecordType, type TxEnvelope } from "../src/schema/types.js";
@@ -165,15 +166,20 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
   const kycTier = "residency_verified";
 
   let store: PrivateStore;
+  let connector: PgWireLedgerConnector;
   let svc: RecordService;
 
   before(async () => {
     const w = await getWorld();
     store = w.store;
+    connector = w.connector;
     await store.reset();
     const chainId = randomUUID();
     // Default enforceSigningPolicy:true — the production civic path.
-    svc = new RecordService(new PublicChain(store, chainId), store, { platformBindingPrivKeyHex: platformPriv, signedEnvelopeMaxAgeSec: 0 });
+    svc = new RecordService(new PublicChain(store, chainId, connector), store, {
+      platformBindingPrivKeyHex: platformPriv,
+      signedEnvelopeMaxAgeSec: 0,
+    });
   });
 
   interface U { userId: string; nsecret: Uint8Array; lm: Uint8Array }

@@ -25,6 +25,7 @@ export type {
   MentionIndexRow,
 } from "./private/store.js";
 export { PublicChain, txHashOf } from "./ledger/chain.js";
+export { TxIdAlreadyOnChainError, LedgerUnavailableError } from "./ledger/errors.js";
 
 // Connectors (pluggable transport to the append-only chain)
 export { PgWireLedgerConnector } from "./ledger/pgwire.connector.js";

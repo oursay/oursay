@@ -42,7 +42,7 @@ export async function getWorld(): Promise<World> {
   await store.init();
   await store.reset();
   const chainId = randomUUID();
-  const chain = new PublicChain(store, chainId);
+  const chain = new PublicChain(store, chainId, connector);
   const settler = new BlockSettler(store, connector, chainId, blockConfig);
   world = { connector, store, chain, svc: new RecordService(chain, store), settler, chainId };
   return world;
@@ -57,7 +57,7 @@ export async function getWorld(): Promise<World> {
 export async function freshChainWorld(cfg = blockConfig): Promise<ChainWorld> {
   const { store, connector } = await getWorld();
   const chainId = randomUUID();
-  const svc = new RecordService(new PublicChain(store, chainId), store);
+  const svc = new RecordService(new PublicChain(store, chainId, connector), store);
   const settler = new BlockSettler(store, connector, chainId, cfg);
   const publisher = new AnchorPublisher(connector, new BundleAssembler(store), chainId);
   return { chainId, svc, settler, publisher };

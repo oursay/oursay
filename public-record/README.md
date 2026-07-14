@@ -277,7 +277,7 @@ throwaway temp dir — nothing is committed.
 | `src/schema/ledger.sql.ts` | immudb `record_chain` (commitments) + `record_blocks` (block headers) DDL |
 | `src/crypto/*` | canonical JSON + salted commitment + RFC-6962 Merkle (promoted from immudb-test) |
 | `src/ledger/connector.ts` · `pgwire.connector.ts` | pluggable chain transport (immudb pg-wire); tx + block batch/fetch |
-| `src/ledger/chain.ts` | `PublicChain` — pooled write (private store + pending outbox; no per-tx chain write) |
+| `src/ledger/chain.ts` | `PublicChain` — pooled write (private store + pending outbox; refuses txIds already on immudb; no per-tx chain write) |
 | `src/ledger/settler.ts` | `BlockSettler` — settle the pool into a block (trigger policy + crash-safe retry) |
 | `src/private/store.ts` | `PrivateStore` — event log + pool stats + redact/erase + fold queries + public reads |
 | `src/record.ts` | `RecordService` — validated CRUD + governance + semantic helpers |

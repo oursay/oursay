@@ -200,7 +200,14 @@ export function registerCivicRecordRoutes(app: FastifyInstance, services: Servic
           required: ["envelope", "salt", "content"],
           additionalProperties: false,
         },
-        response: { 201: refSchema, 400: errorSchema, 401: errorSchema, 403: errorSchema },
+        response: {
+          201: refSchema,
+          400: errorSchema,
+          401: errorSchema,
+          403: errorSchema,
+          409: errorSchema,
+          503: errorSchema,
+        },
       },
     },
     async (req, reply) => {

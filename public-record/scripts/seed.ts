@@ -33,7 +33,7 @@ async function main(): Promise<void> {
   await store.init();
   await store.reset();
   const chainId = randomUUID(); // fresh genesis per seed run (immudb is never reset)
-  const svc = new RecordService(new PublicChain(store, chainId), store);
+  const svc = new RecordService(new PublicChain(store, chainId, connector), store);
 
   console.log("\n=== seeding ===");
 

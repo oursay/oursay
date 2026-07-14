@@ -57,7 +57,7 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     await store.init();
     await store.reset();
     const chainId = randomUUID();
-    const svc = new RecordService(new PublicChain(store, chainId), store, {
+    const svc = new RecordService(new PublicChain(store, chainId, connector), store, {
       platformBindingPrivKeyHex: platformPriv,
       signedEnvelopeMaxAgeSec: 0,
     });
