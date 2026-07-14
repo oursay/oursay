@@ -20,7 +20,7 @@ import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import { RecordService } from "../src/record.js";
 import { type RecordType, type TxEnvelope } from "../src/schema/types.js";
-import { getWorld, rejects } from "./helpers/world.js";
+import { getWorld, reclaimChains, rejects } from "./helpers/world.js";
 
 const RP_ID = "localhost";
 const ORIGIN = "http://localhost";
@@ -172,9 +172,12 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
   before(async () => {
     const w = await getWorld();
     store = w.store;
-    connector = w.connector;
     await store.reset();
+    await reclaimChains();
     const chainId = randomUUID();
+    await w.ledger.createDatabaseFor(chainId);
+    w.createdChainIds.push(chainId);
+    connector = await w.ledger.getConnector(chainId);
     // Default enforceSigningPolicy:true — the production civic path.
     svc = new RecordService(new PublicChain(store, chainId, connector), store, {
       platformBindingPrivKeyHex: platformPriv,

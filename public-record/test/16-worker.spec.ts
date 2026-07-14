@@ -6,7 +6,6 @@ import { FileAnchorTarget } from "../src/anchor/file.target.js";
 import { everyNBlocks } from "../src/anchor/target.js";
 import type { BlockConfig } from "../src/config.js";
 import type { BlockHeader } from "../src/ledger/connector.js";
-import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import type { RecordService } from "../src/record.js";
 import {
@@ -223,12 +222,10 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
 
   describe("tick() over real wiring", () => {
     let store: PrivateStore;
-    let connector: PgWireLedgerConnector;
 
     before(async () => {
       const w = await getWorld();
       store = w.store;
-      connector = w.connector;
     });
     beforeEach(async () => {
       await store.reset();
@@ -261,8 +258,8 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       const summary = await worker.tick();
 
       // Each chain settled exactly its own pooled txs into block 1 (chain isolation).
-      const headerA = (await connector.fetchLatestBlock(a.chainId))!;
-      const headerB = (await connector.fetchLatestBlock(b.chainId))!;
+      const headerA = (await a.connector.fetchLatestBlock(a.chainId))!;
+      const headerB = (await b.connector.fetchLatestBlock(b.chainId))!;
       expect(headerA.blockHeight).to.equal(1);
       expect(headerA.txCount, "chain A settled its 3 txs, not B's").to.equal(3);
       expect(headerB.blockHeight).to.equal(1);

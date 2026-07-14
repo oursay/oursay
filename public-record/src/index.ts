@@ -28,7 +28,10 @@ export { PublicChain, txHashOf } from "./ledger/chain.js";
 export { TxIdAlreadyOnChainError, LedgerUnavailableError } from "./ledger/errors.js";
 
 // Connectors (pluggable transport to the append-only chain)
-export { PgWireLedgerConnector } from "./ledger/pgwire.connector.js";
+export { PgWireLedgerConnector, ensureDatabaseExists, dropDatabase, listImmudbDatabases } from "./ledger/pgwire.connector.js";
+export type { PgWireLedgerConnectorOptions } from "./ledger/pgwire.connector.js";
+export { LedgerInstance } from "./ledger/instance.js";
+export type { ForkLineage } from "./ledger/instance.js";
 export type { LedgerConnector, LedgerRoot, RowVerification, ChainRow, BlockHeader, BlockAttestation } from "./ledger/connector.js";
 
 // Block settlement (pool → append-only chain, on the trigger policy)
@@ -161,6 +164,7 @@ export {
   pgConfig,
   outboxConfig,
   chainConfig,
+  ledgerConfig,
   jurisdictionConfig,
   blockConfig,
   anchorTargetsConfig,
@@ -169,11 +173,14 @@ export {
   workerChainConfigs,
   identityConfig,
   paths,
+  dbNameForChain,
+  isLedgerIdUuid,
 } from "./config.js";
 export type {
   PgConfig,
   OutboxConfig,
   ChainConfig,
+  LedgerConfig,
   BlockConfig,
   AnchorTargetsConfig,
   EvmAnchorConfig,

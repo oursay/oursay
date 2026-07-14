@@ -3,17 +3,18 @@
  * Header-only — no Postgres required.
  *   npx tsx public-record/scripts/manual-evm-publish.ts
  */
-import { AnchorPublisher } from "../src/anchor/publisher.js";
-import { createEvmTargetsForChains } from "../src/anchor/evm.target.js";
-import { evmAnchorConfig, immudbPgConfig } from "../src/config.js";
-import { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { BundleAssembler } from "../src/anchor/assembler.js";
+import { createEvmTargetsForChains } from "../src/anchor/evm.target.js";
+import { AnchorPublisher } from "../src/anchor/publisher.js";
+import { evmAnchorConfig } from "../src/config.js";
+import { LedgerInstance } from "../src/ledger/instance.js";
 
 const chainId = process.env.MANUAL_CHAIN_ID?.trim() || "ab-ca-gov";
 
 async function main(): Promise<void> {
   console.log("[manual-evm] config", {
     chainId,
+    ledgerId: evmAnchorConfig.ledgerId,
     rpcUrl: evmAnchorConfig.rpcUrl,
     contractAddress: evmAnchorConfig.contractAddress,
     networkChainId: evmAnchorConfig.networkChainId,
@@ -22,8 +23,9 @@ async function main(): Promise<void> {
     throw new Error("no EVM_CONTRACT_ADDRESS / address file — is evm-anchor dev:up running?");
   }
 
-  const connector = new PgWireLedgerConnector(immudbPgConfig);
-  await connector.connect();
+  const ledger = new LedgerInstance();
+  await ledger.createDatabaseFor(chainId);
+  const connector = await ledger.getConnector(chainId);
 
   const latest = await connector.fetchLatestBlock(chainId);
   console.log(
@@ -58,7 +60,7 @@ async function main(): Promise<void> {
       : null,
   );
 
-  await connector.close();
+  await ledger.close();
 }
 
 main().catch((err) => {

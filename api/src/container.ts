@@ -10,11 +10,11 @@ import { jurisdictions } from "@oursay/jurisdiction-data";
 import {
   PrivateStore,
   PublicChain,
-  PgWireLedgerConnector,
+  LedgerInstance,
   RecordService,
-  immudbPgConfig,
   registerJurisdiction,
 } from "@oursay/public-record";
+import type { PgWireLedgerConnector } from "@oursay/public-record";
 import {
   civicConfig,
   geocodeConfig,
@@ -157,10 +157,14 @@ export interface Services {
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
    *  official boundary geometry). Official electoral boundaries only — no private points. */
   areaCatalogService: AreaCatalogService;
-  /** immudb ledger connector — explorer reads + `PublicChain` pool gate (txId existence). Lazy-connected. */
+  /** immudb instance (ledgerId) — one host, many jurisdiction databases. */
+  ledgerInstance: LedgerInstance;
+  /** Civic-chain connector (lazy). Prefer getLedger(chainId) for multi-chain. */
   ledger: PgWireLedgerConnector;
-  /** Connect the ledger (idempotent). Used by explorer, civic pool gate, and settle tests. */
-  connectLedger: () => Promise<void>;
+  /** Connect a chain's immudb database (defaults to civic CHAIN_ID). Idempotent per chain. */
+  connectLedger: (chainId?: string) => Promise<void>;
+  /** Resolve the connector for a jurisdiction chain. */
+  getLedger: (chainId: string) => Promise<PgWireLedgerConnector>;
   /** Unauthenticated explorer / auditor READ (blocks + txs) over the public record. */
   explorerReadService: ExplorerReadService;
   /** The public-record private store backing the civic engine (read access for tests/projections). */
@@ -249,29 +253,26 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const platformBindingPrivKeyHex = opts.platformBindingPrivKeyHex ?? civicConfig.platformBindingPrivKeyHex;
   const recordStore = new PrivateStore(pgConfig);
 
-  // immudb ledger for explorer reads AND the pool write gate (`PublicChain.append` rejects txIds
-  // already on chain). Connect lazily on first use so auth-only local work can start without
-  // immudb; civic submit + explorer return 503 when unreachable (fail closed — never pool blindly).
-  const ledger = new PgWireLedgerConnector(immudbPgConfig);
-  let ledgerConnected = false;
-  const connectLedger = async (): Promise<void> => {
-    if (ledgerConnected) return;
+  // immudb: one LedgerInstance (UUID ledgerId); each jurisdiction chainId → its own database.
+  // Connect lazily on first use so auth-only local work can start without immudb; civic submit +
+  // explorer return 503 when unreachable (fail closed — never pool blindly).
+  const ledgerInstance = new LedgerInstance();
+  const ledger = ledgerInstance.getOrCreateConnector(civicConfig.chainId);
+  const getLedger = async (chainId: string): Promise<PgWireLedgerConnector> => {
     try {
-      await ledger.connect();
-      ledgerConnected = true;
+      await ledgerInstance.createDatabaseFor(chainId);
+      return await ledgerInstance.getConnector(chainId);
     } catch (err) {
-      // Tests (or a prior settler) may already have connected the shared client.
-      if (await ledger.healthcheck()) {
-        ledgerConnected = true;
-        return;
-      }
       const msg = err instanceof Error ? err.message : String(err);
       throw new ServiceError("unavailable", `public-record ledger unavailable: ${msg}`);
     }
   };
+  const connectLedger = async (chainId: string = civicConfig.chainId): Promise<void> => {
+    await getLedger(chainId);
+  };
 
   const recordSvc = new RecordService(
-    new PublicChain(recordStore, civicConfig.chainId, ledger, connectLedger),
+    new PublicChain(recordStore, civicConfig.chainId, ledger, () => connectLedger(civicConfig.chainId)),
     recordStore,
     {
       platformBindingPrivKeyHex,
@@ -282,7 +283,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const identityRegistry = new IdentityRegistry({ store: recordStore, svc: recordSvc, platformBindingPrivKeyHex });
   const explorerReadService = new ExplorerReadService({
     store: recordStore,
-    ledger,
+    getLedger,
     ensureLedgerConnected: connectLedger,
   });
 
@@ -433,8 +434,10 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     officialSeatClaimService,
     profilePageService,
     areaCatalogService,
+    ledgerInstance,
     ledger,
     connectLedger,
+    getLedger,
     explorerReadService,
     recordStore,
   };

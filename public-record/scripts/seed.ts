@@ -13,9 +13,9 @@ import { AnchorPublisher } from "../src/anchor/publisher.js";
 import { FileAnchorTarget } from "../src/anchor/file.target.js";
 import { everyNBlocks } from "../src/anchor/target.js";
 import { verifyChain } from "../src/anchor/verify.js";
-import { blockConfig, immudbPgConfig, pgConfig } from "../src/config.js";
+import { blockConfig, pgConfig } from "../src/config.js";
 import { PublicChain } from "../src/ledger/chain.js";
-import { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
+import { LedgerInstance } from "../src/ledger/instance.js";
 import { BlockSettler } from "../src/ledger/settler.js";
 import { PrivateStore } from "../src/private/store.js";
 import { getThread } from "../src/projection.js";
@@ -27,15 +27,17 @@ function isoFromNow(ms: number): string {
 }
 
 async function main(): Promise<void> {
-  const connector = new PgWireLedgerConnector(immudbPgConfig);
-  await connector.connect();
+  const ledger = new LedgerInstance();
   const store = new PrivateStore(pgConfig);
   await store.init();
   await store.reset();
-  const chainId = randomUUID(); // fresh genesis per seed run (immudb is never reset)
+  const chainId = randomUUID(); // fresh genesis per seed run
+  await ledger.createDatabaseFor(chainId);
+  const connector = await ledger.getConnector(chainId);
   const svc = new RecordService(new PublicChain(store, chainId, connector), store);
 
   console.log("\n=== seeding ===");
+  console.log(`ledgerId=${ledger.ledgerId} chainId=${chainId} db=${connector.databaseName}`);
 
   // A belief (generic `post`), with discussion + reactions.
   const post = await svc.create({ type: "post", author: "alice", content: { title: "Bike lanes", body: "We should add protected bike lanes on Main St." } });
@@ -99,7 +101,7 @@ async function main(): Promise<void> {
   for (const h of headers) {
     console.log(
       `  block ${h.blockHeight}: seq (${h.fromSeq}, ${h.toSeq}], ${h.txCount} tx,` +
-        ` root ${h.bundleMerkleRoot.slice(0, 12)}…, tip ${h.chainTipHash.slice(0, 12)}…`,
+        ` root ${h.bundleMerkleRoot.slice(0, 12)}…, tip ${h.chainTipHash.slice(0, 12)}…, immudb db=${h.immudbRoot.db}`,
     );
   }
 
@@ -120,6 +122,7 @@ async function main(): Promise<void> {
   }
 
   await connector.close();
+  await ledger.close();
   await store.close();
   console.log("\ndone.\n");
 }

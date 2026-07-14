@@ -15,7 +15,7 @@ import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import { RecordService } from "../src/record.js";
 import { DELETE_MARKER, type RecordType, type TxEnvelope } from "../src/schema/types.js";
-import { getWorld, rejects } from "./helpers/world.js";
+import { getWorld, reclaimChains, rejects } from "./helpers/world.js";
 
 /**
  * The signed write path across the full CREATE surface (phase 2a): root creates (post/poll/petition)
@@ -35,9 +35,12 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
   before(async () => {
     const w = await getWorld();
     store = w.store;
-    connector = w.connector;
     await store.reset();
+    await reclaimChains();
     const chainId = randomUUID();
+    await w.ledger.createDatabaseFor(chainId);
+    w.createdChainIds.push(chainId);
+    connector = await w.ledger.getConnector(chainId);
     // enforceSigningPolicy:false — this spec exercises the raw p256 path on forced types (vote/
     // petition_signature); the webauthn-es256 hard requirement is covered in webauthn-envelope.spec.
     svc = new RecordService(new PublicChain(store, chainId, connector), store, {

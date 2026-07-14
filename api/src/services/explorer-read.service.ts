@@ -96,9 +96,10 @@ export interface ExplorerTxView {
 
 export interface ExplorerDeps {
   store: PrivateStore;
-  ledger: LedgerConnector;
-  /** Ensures immudb is connected; throws ServiceError unavailable on failure. */
-  ensureLedgerConnected: () => Promise<void>;
+  /** Resolve the immudb connector for a jurisdiction chain (each chain = its own database). */
+  getLedger: (chainId: string) => Promise<LedgerConnector>;
+  /** Ensures the chain's immudb database is connected; throws ServiceError unavailable on failure. */
+  ensureLedgerConnected: (chainId: string) => Promise<void>;
 }
 
 function typeCountsFromTxs(txs: StoredTx[]): ExplorerTypeCounts {
@@ -179,8 +180,9 @@ export class ExplorerReadService {
   constructor(private readonly d: ExplorerDeps) {}
 
   async getChain(chainId: string): Promise<ExplorerChainView> {
-    await this.d.ensureLedgerConnected();
-    const tip = await this.d.ledger.fetchLatestBlock(chainId);
+    await this.d.ensureLedgerConnected(chainId);
+    const ledger = await this.d.getLedger(chainId);
+    const tip = await ledger.fetchLatestBlock(chainId);
     const typeCounts = await this.d.store.countSettledTxTypes(chainId);
     const pending = await this.d.store.getPendingPoolStats(chainId);
     if (!tip) {
@@ -207,14 +209,15 @@ export class ExplorerReadService {
     chainId: string,
     opts: { limit: number; offset: number },
   ): Promise<{ items: ExplorerBlockView[]; tipHeight: number | null }> {
-    await this.d.ensureLedgerConnected();
-    const tip = await this.d.ledger.fetchLatestBlock(chainId);
+    await this.d.ensureLedgerConnected(chainId);
+    const ledger = await this.d.getLedger(chainId);
+    const tip = await ledger.fetchLatestBlock(chainId);
     if (!tip) return { items: [], tipHeight: null };
 
     const items: ExplorerBlockView[] = [];
     // Newest-first tip-down walk; skip `offset` heights then take `limit`.
     for (let h = tip.blockHeight - opts.offset; h >= 1 && items.length < opts.limit; h--) {
-      const header = await this.d.ledger.fetchBlockByHeight(chainId, h);
+      const header = await ledger.fetchBlockByHeight(chainId, h);
       if (!header) continue;
       const txs = await this.d.store.getTxsBySeqRange(chainId, header.fromSeq, header.toSeq);
       items.push(toBlockView(header, typeCountsFromTxs(txs)));
@@ -223,22 +226,24 @@ export class ExplorerReadService {
   }
 
   async getBlock(chainId: string, height: number): Promise<ExplorerBlockView> {
-    await this.d.ensureLedgerConnected();
+    await this.d.ensureLedgerConnected(chainId);
     if (!Number.isInteger(height) || height < 1) {
       throw new ServiceError("validation", "block height must be a positive integer");
     }
-    const header = await this.d.ledger.fetchBlockByHeight(chainId, height);
+    const ledger = await this.d.getLedger(chainId);
+    const header = await ledger.fetchBlockByHeight(chainId, height);
     if (!header) throw new ServiceError("not_found", `block ${height} not found on chain ${chainId}`);
     const txs = await this.d.store.getTxsBySeqRange(chainId, header.fromSeq, header.toSeq);
     return toBlockView(header, typeCountsFromTxs(txs));
   }
 
   async listTxsByBlock(chainId: string, blockHeight: number): Promise<{ blockHeight: number; items: ExplorerTxView[] }> {
-    await this.d.ensureLedgerConnected();
+    await this.d.ensureLedgerConnected(chainId);
     if (!Number.isInteger(blockHeight) || blockHeight < 1) {
       throw new ServiceError("validation", "block must be a positive integer");
     }
-    const header = await this.d.ledger.fetchBlockByHeight(chainId, blockHeight);
+    const ledger = await this.d.getLedger(chainId);
+    const header = await ledger.fetchBlockByHeight(chainId, blockHeight);
     if (!header) throw new ServiceError("not_found", `block ${blockHeight} not found on chain ${chainId}`);
     const txs = await this.d.store.getTxsBySeqRange(chainId, header.fromSeq, header.toSeq);
     return {
@@ -248,7 +253,7 @@ export class ExplorerReadService {
   }
 
   async getTx(chainId: string, txIdRaw: string): Promise<ExplorerTxView> {
-    await this.d.ensureLedgerConnected();
+    await this.d.ensureLedgerConnected(chainId);
     let txId: string;
     try {
       txId = decodeExplorerId(txIdRaw);
@@ -267,10 +272,11 @@ export class ExplorerReadService {
 
   /** Walk tip → genesis for the header whose `(fromSeq, toSeq]` contains `seq`. MVP O(tip). */
   private async findBlockHeightForSeq(chainId: string, seq: number): Promise<number | null> {
-    const tip = await this.d.ledger.fetchLatestBlock(chainId);
+    const ledger = await this.d.getLedger(chainId);
+    const tip = await ledger.fetchLatestBlock(chainId);
     if (!tip) return null;
     for (let h = tip.blockHeight; h >= 1; h--) {
-      const header = await this.d.ledger.fetchBlockByHeight(chainId, h);
+      const header = await ledger.fetchBlockByHeight(chainId, h);
       if (!header) continue;
       if (seq > header.fromSeq && seq <= header.toSeq) return header.blockHeight;
     }

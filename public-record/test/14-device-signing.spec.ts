@@ -16,7 +16,7 @@ import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import { RecordService } from "../src/record.js";
 import { type RecordType, type TxEnvelope } from "../src/schema/types.js";
-import { getWorld, rejects } from "./helpers/world.js";
+import { getWorld, reclaimChains, rejects } from "./helpers/world.js";
 
 /**
  * Method 3 (§5.4) multi-device / cross-device editing. A verified user enrols several hardware-backed
@@ -39,9 +39,12 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
   before(async () => {
     const w = await getWorld();
     store = w.store;
-    connector = w.connector;
     await store.reset();
+    await reclaimChains();
     const chainId = randomUUID();
+    await w.ledger.createDatabaseFor(chainId);
+    w.createdChainIds.push(chainId);
+    connector = await w.ledger.getConnector(chainId);
     // enforceSigningPolicy:false — this spec exercises the legacy p256 device-signer path on forced
     // types (vote); the webauthn-es256 hard requirement is covered in webauthn-envelope.spec.
     svc = new RecordService(new PublicChain(store, chainId, connector), store, {

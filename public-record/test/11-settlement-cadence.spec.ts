@@ -6,7 +6,6 @@ import { FileAnchorTarget } from "../src/anchor/file.target.js";
 import { everyNBlocks } from "../src/anchor/target.js";
 import { verifyBlock, verifyChain } from "../src/anchor/verify.js";
 import type { BlockConfig } from "../src/config.js";
-import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import type { RecordService } from "../src/record.js";
 import { freshChainWorld, getWorld } from "./helpers/world.js";
@@ -21,12 +20,10 @@ const cadenceCfg: BlockConfig = {
 
 describe("11 settlement cadence: count/age triggers, per-target publish cadence, chain isolation", () => {
   let store: PrivateStore;
-  let connector: PgWireLedgerConnector;
 
   before(async () => {
     const w = await getWorld();
     store = w.store;
-    connector = w.connector;
   });
 
   beforeEach(async () => {
@@ -45,7 +42,7 @@ describe("11 settlement cadence: count/age triggers, per-target publish cadence,
   }
 
   it("count trigger: holds below N, then settles, capping the block at maxBlockTxs", async () => {
-    const { chainId, svc, settler } = await freshChainWorld(cadenceCfg);
+    const { chainId, svc, settler, connector } = await freshChainWorld(cadenceCfg);
     const now = Date.now();
 
     await makePosts(svc, 2);
@@ -150,9 +147,9 @@ describe("11 settlement cadence: count/age triggers, per-target publish cadence,
     const bHeaders = await b.settler.flushPendingSettlement();
     expect(bHeaders.length).to.equal(1);
     expect(bHeaders[0].txCount).to.equal(2);
-    expect((await connector.fetchLatestBlock(a.chainId))!.blockHeight).to.equal(1);
-    expect((await connector.fetchLatestBlock(b.chainId))!.blockHeight).to.equal(1);
-    for (const p of aPosts) expect(await connector.getEnvelope(p.txId)).to.not.equal(undefined);
-    for (const p of bPosts) expect(await connector.getEnvelope(p.txId)).to.not.equal(undefined);
+    expect((await a.connector.fetchLatestBlock(a.chainId))!.blockHeight).to.equal(1);
+    expect((await b.connector.fetchLatestBlock(b.chainId))!.blockHeight).to.equal(1);
+    for (const p of aPosts) expect(await a.connector.getEnvelope(p.txId)).to.not.equal(undefined);
+    for (const p of bPosts) expect(await b.connector.getEnvelope(p.txId)).to.not.equal(undefined);
   });
 });

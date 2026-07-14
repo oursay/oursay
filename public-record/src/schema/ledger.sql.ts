@@ -7,6 +7,15 @@
 
 export const TABLE = "record_chain";
 export const BLOCKS_TABLE = "record_blocks";
+/** Append-only genesis/meta bind: ledgerId + chainId (and optional fork lineage). Tamper-evident. */
+export const META_TABLE = "ledger_meta";
+
+export const META_DDL = `
+CREATE TABLE IF NOT EXISTS ${META_TABLE} (
+  meta_key   VARCHAR[64],
+  meta_value VARCHAR[256],
+  PRIMARY KEY (meta_key)
+)`;
 
 // `chain_id` labels which chain (genesis/network) a commitment belongs to. Each jurisdiction is its
 // own immudb *database* (snake_case of the slug) under one instance/`ledgerId` — see

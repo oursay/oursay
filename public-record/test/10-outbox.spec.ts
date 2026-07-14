@@ -149,12 +149,10 @@ async function rejects(p: Promise<unknown>): Promise<boolean> {
  */
 describe("10 settlement: durable pool → chain, idempotent and crash-safe", () => {
   let store: Awaited<ReturnType<typeof getWorld>>["store"];
-  let connector: Awaited<ReturnType<typeof getWorld>>["connector"];
 
   before(async () => {
     const w = await getWorld();
     store = w.store;
-    connector = w.connector;
   });
 
   beforeEach(async () => {
@@ -162,7 +160,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("append only pools the tx; it reaches the chain on settlement", async () => {
-    const { svc, settler } = await freshChainWorld();
+    const { svc, settler, connector } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "alice", content: { title: "Test post", body: "pool v1" } });
 
     expect(await recordTxExists(post.txId), "record_tx written").to.equal(true);
@@ -176,7 +174,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("recovers an orphaned pool tx: pending → settle → chain verifies", async () => {
-    const { svc, settler } = await freshChainWorld();
+    const { svc, settler, connector } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "bob", content: { title: "Test post", body: "orphan" } });
 
     // Verification must FAIL while the commitment is unsettled.
@@ -198,7 +196,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("is idempotent: a pre-delivered commitment and a re-settle never double-write", async () => {
-    const { chainId, svc, settler } = await freshChainWorld();
+    const { chainId, svc, settler, connector } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "carol", content: { title: "Test post", body: "idem" } });
 
     // Simulate "commitment already on the chain but outbox not yet marked" (crash between).
@@ -221,7 +219,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("reconciles a crash after the header but before the mark: no new block, just marks sent", async () => {
-    const { chainId, svc, settler } = await freshChainWorld();
+    const { chainId, svc, settler, connector } = await freshChainWorld();
     const post = await svc.create({ type: "post", author: "dave", content: { title: "Test post", body: "recon" } });
     const header1 = (await settler.settleBlock())!;
     expect(header1.blockHeight).to.equal(1);
@@ -240,7 +238,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     // maxBlockTxs the reopened (already-settled) rows fill the first settle window — the drain must
     // still reach the genuinely-pending rows rather than stopping after a reconcile-only pass (F1).
     const tinyCfg = { maxPending: 0, maxPendingAgeMs: 0, maxBlockTxs: 2, minTxs: 1 };
-    const { chainId, svc, settler } = await freshChainWorld(tinyCfg);
+    const { chainId, svc, settler, connector } = await freshChainWorld(tinyCfg);
     const settled = await Promise.all(
       [0, 1].map((i) => svc.create({ type: "post", author: "erin", content: { title: "Test post", body: `s${i}` } })),
     );
@@ -294,7 +292,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("retries the batch while immudb is healthy until it lands (retryAttempts)", async () => {
-    const { chainId, svc } = await freshChainWorld();
+    const { chainId, svc, connector } = await freshChainWorld();
     const ref = await svc.create({ type: "post", author: "grace", content: { title: "Test post", body: "retry" } });
 
     const flaky = new FlakyConnector(connector, 2, [true]); // two failures, then success
@@ -310,7 +308,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("backs off and re-healthchecks while immudb is down, then settles on recovery", async () => {
-    const { chainId, svc } = await freshChainWorld();
+    const { chainId, svc, connector } = await freshChainWorld();
     const ref = await svc.create({ type: "post", author: "heidi", content: { title: "Test post", body: "down-then-up" } });
 
     const flaky = new FlakyConnector(connector, 1, [false, false, true]);
@@ -338,7 +336,7 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
   });
 
   it("0 means indefinite: keeps re-healthchecking past the finite limit until recovery", async () => {
-    const { chainId, svc } = await freshChainWorld();
+    const { chainId, svc, connector } = await freshChainWorld();
     const ref = await svc.create({ type: "post", author: "judy", content: { title: "Test post", body: "indefinite" } });
 
     // Down for FOUR checks — a finite limit of 3 would give up, but 0 = indefinite must hold on.

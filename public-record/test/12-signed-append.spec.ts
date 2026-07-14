@@ -15,7 +15,7 @@ import type { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
 import type { PrivateStore } from "../src/private/store.js";
 import { RecordService } from "../src/record.js";
 import type { TxEnvelope } from "../src/schema/types.js";
-import { getWorld, rejects } from "./helpers/world.js";
+import { getWorld, reclaimChains, rejects } from "./helpers/world.js";
 import { jurisdictionMaster } from "./fixtures/identity-vectors.js";
 
 /**
@@ -43,9 +43,12 @@ describe("12 signed append: register → sign → appendSigned → settle (verif
   before(async () => {
     const w = await getWorld();
     store = w.store;
-    connector = w.connector;
     await store.reset();
+    await reclaimChains();
     chainId = randomUUID();
+    await w.ledger.createDatabaseFor(chainId);
+    w.createdChainIds.push(chainId);
+    connector = await w.ledger.getConnector(chainId);
     svc = new RecordService(new PublicChain(store, chainId, connector), store, {
       platformBindingPubKeyHex: platformPub,
       signedEnvelopeMaxAgeSec: 0,

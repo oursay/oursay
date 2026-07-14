@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,13 @@ function env(name: string, fallback: string): string {
   return v && v.length > 0 ? v : fallback;
 }
 
+/** RFC 4122 UUID (any version). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isLedgerIdUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
 export interface PgConfig {
   host: string;
   port: number;
@@ -24,7 +32,11 @@ export interface PgConfig {
   database: string;
 }
 
-/** immudb 1.11.0 reached over its PostgreSQL wire protocol — the public append-only chain. */
+/**
+ * Host/user/password for the immudb instance. `database` here is only the admin/bootstrap DB
+ * (`defaultdb`) used to CREATE/DROP jurisdiction databases — each chain connects to its own DB via
+ * {@link dbNameForChain} (see docs/spikes/immudb/DB-PER-JURISDICTION.md).
+ */
 export const immudbPgConfig: PgConfig = {
   host: env("IMMUDB_PG_HOST", "127.0.0.1"),
   port: Number(env("IMMUDB_PG_PORT", "5443")),
@@ -32,6 +44,48 @@ export const immudbPgConfig: PgConfig = {
   password: env("IMMUDB_PG_PASSWORD", "immudb"),
   database: env("IMMUDB_PG_DATABASE", "defaultdb"),
 };
+
+/**
+ * One immudb instance = one ledgerId = one external anchor (EVM) contract.
+ * Must be a UUID — never a human slug. Set once per deployment via LEDGER_ID.
+ * When unset, an ephemeral UUID is generated for this process (local/test only); multi-process
+ * stacks (api + worker) must share a durable LEDGER_ID in env.
+ */
+export interface LedgerConfig {
+  ledgerId: string;
+}
+
+function resolveLedgerId(): string {
+  const raw = process.env.LEDGER_ID?.trim();
+  if (raw) {
+    if (!isLedgerIdUuid(raw)) {
+      throw new Error(`LEDGER_ID must be a UUID (got ${JSON.stringify(raw)})`);
+    }
+    return raw;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error('LEDGER_ID is required when NODE_ENV=production (durable UUID for this immudb instance)');
+  }
+  return randomUUID();
+}
+
+export const ledgerConfig: LedgerConfig = {
+  ledgerId: resolveLedgerId(),
+};
+
+/**
+ * Immudb database name for a jurisdiction chain slug (or test UUID chainId):
+ * `j_` + snake_case (lowercase, non-alphanumeric → `_`).
+ * Leading `j_` keeps names valid unquoted SQL identifiers even when the slug/UUID starts with a digit.
+ * Does not encode ledgerId. Example: `ab-ca-gov` → `j_ab_ca_gov`.
+ */
+export function dbNameForChain(chainId: string): string {
+  const body = chainId.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  if (!body) throw new Error(`dbNameForChain: empty result from chainId ${JSON.stringify(chainId)}`);
+  const name = `j_${body}`;
+  if (name.length > 128) throw new Error(`dbNameForChain: name exceeds 128 chars for chainId ${JSON.stringify(chainId)}`);
+  return name;
+}
 
 /** Postgres — the private, mutable store (record_tx event log + raw content). */
 export const pgConfig: PgConfig = {
@@ -64,10 +118,9 @@ export const outboxConfig: OutboxConfig = {
 };
 
 /**
- * The chain (genesis/network) identity. immudb is append-only and never reset, so block headers are
- * keyed by `(chainId, blockHeight)`: a stable `chainId` per deployment, a fresh one per test/seed run
- * (see BLOCKS_DDL). Stages 2–3 (consortium / open network) replace this single id with an on-record,
- * agreed genesis — the seam is the same.
+ * The chain (jurisdiction) identity — a human-auditable slug. Each chain is its own immudb database
+ * (see {@link dbNameForChain}) under the instance identified by {@link ledgerConfig}. Stages 2–3
+ * replace genesis agreement; the seam is the same.
  */
 export interface ChainConfig {
   chainId: string;
@@ -156,6 +209,11 @@ export interface EvmAnchorConfig {
   contractAddress: string;
   /** EVM network id passed to JsonRpcProvider (not a public-record civic chain id). */
   networkChainId: number;
+  /**
+   * Same UUID as {@link ledgerConfig.ledgerId}: one SettlementAnchor deployment belongs to one
+   * immudb instance. Validation/documentation only — not in the on-chain header hash.
+   */
+  ledgerId: string;
 }
 
 export const evmAnchorConfig: EvmAnchorConfig = {
@@ -169,6 +227,7 @@ export const evmAnchorConfig: EvmAnchorConfig = {
     ),
   ),
   networkChainId: Math.max(1, Number(env("EVM_CHAIN_ID", "31337"))),
+  ledgerId: ledgerConfig.ledgerId,
   contractAddress: (() => {
     const fromEnv = env("EVM_CONTRACT_ADDRESS", env("EVM_ANCHOR_ADDRESS", ""));
     if (fromEnv) return fromEnv;

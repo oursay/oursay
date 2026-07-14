@@ -23,6 +23,9 @@
     "posttest": "npm run db:test:down",
     "seed": "tsx scripts/seed.ts",
     "worker": "tsx scripts/worker.ts",
+    "jurisdiction:add": "tsx scripts/jurisdiction-add.ts",
+    "jurisdiction:fork": "tsx scripts/jurisdiction-fork.ts",
+    "jurisdiction:remove": "tsx scripts/jurisdiction-remove.ts",
     "evm:compile": "npm run sync:abi -w @oursay/evm-anchor",
     "test": "mocha",
     "typecheck": "tsc --noEmit"

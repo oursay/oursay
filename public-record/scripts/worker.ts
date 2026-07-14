@@ -11,6 +11,8 @@
  *
  * EVM: start the local node with `npm run dev:up -w @oursay/evm-anchor` (auto-deploys; writes
  * `evm-anchor/.evm/address`). ethers stays inside EvmAnchorTarget — this script only wires config.
+ *
+ * Each chain uses its own immudb database under one LedgerInstance (ledgerId).
  */
 import { BundleAssembler } from "../src/anchor/assembler.js";
 import { AnchorPublisher } from "../src/anchor/publisher.js";
@@ -19,24 +21,27 @@ import { FileAnchorTarget } from "../src/anchor/file.target.js";
 import { everyNBlocks, type AnchorTarget } from "../src/anchor/target.js";
 import {
   evmAnchorConfig,
-  immudbPgConfig,
   outboxConfig,
   pgConfig,
   workerChainConfigs,
   workerConfig,
 } from "../src/config.js";
-import { PgWireLedgerConnector } from "../src/ledger/pgwire.connector.js";
+import { LedgerInstance } from "../src/ledger/instance.js";
 import { BlockSettler } from "../src/ledger/settler.js";
 import { PrivateStore } from "../src/private/store.js";
 import { type ChainRunner, SettlementWorker } from "../src/worker/settlement-worker.js";
 
 async function main(): Promise<void> {
-  const connector = new PgWireLedgerConnector(immudbPgConfig);
-  await connector.connect();
+  const ledger = new LedgerInstance();
   const store = new PrivateStore(pgConfig);
   await store.init(); // NOT reset() — the worker is non-destructive
 
   const chainConfigs = workerChainConfigs();
+  // Ensure each jurisdiction DB exists + genesis meta before settlement.
+  for (const c of chainConfigs) {
+    await ledger.createDatabaseFor(c.chainId);
+  }
+
   // One shared NonceManager across all chains (inside createEvmTargetsForChains).
   const sharedEvmTargets = createEvmTargetsForChains(
     chainConfigs.map((c) => ({ chainId: c.chainId, evmEveryNBlocks: c.evmEveryNBlocks })),
@@ -46,20 +51,22 @@ async function main(): Promise<void> {
     sharedEvmTargets.map((t, i) => [chainConfigs[i].chainId, t] as const),
   );
 
-  const runners: ChainRunner[] = chainConfigs.map((c) => {
+  const runners: ChainRunner[] = [];
+  for (const c of chainConfigs) {
+    const connector = await ledger.getConnector(c.chainId);
     const targets: AnchorTarget[] = [
       new FileAnchorTarget(c.anchorDir, everyNBlocks(c.fileEveryNBlocks)),
     ];
     const evm = evmTargetByChainId.get(c.chainId);
     if (evm) targets.push(evm);
-    return {
+    runners.push({
       chainId: c.chainId,
       blockConfig: c.blockConfig,
       settler: new BlockSettler(store, connector, c.chainId, c.blockConfig, outboxConfig),
       publisher: new AnchorPublisher(connector, new BundleAssembler(store), c.chainId),
       targets,
-    };
-  });
+    });
+  }
 
   const worker = new SettlementWorker({
     runners,
@@ -80,7 +87,7 @@ async function main(): Promise<void> {
     worker.stop();
     await runPromise.catch((err) => console.error("[worker] run loop error during shutdown:", err));
     await store.close();
-    await connector.close();
+    await ledger.close();
     console.log("[worker] closed. bye.");
     process.exit(0);
   };
