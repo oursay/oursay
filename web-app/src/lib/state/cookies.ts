@@ -7,6 +7,7 @@ import type {
   VerificationTier,
 } from "@/lib/types";
 import {
+  ALBERTA_ID,
   DEFAULT_SIGNING,
   GLOBAL_ID,
   SIGN_ACTIONS,
@@ -23,12 +24,13 @@ const SIGNING_COOKIE = "oursay-signing";
 const THREAD_ANON_COOKIE = "oursay-thread-anon";
 const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
-/** Logged-out default — Global only (works without an account, like the wireframe). */
+/** Logged-out / first-visit default: subscribed to Global + Alberta, feed scoped to Alberta. */
 export const DEFAULT_SUBSCRIPTIONS: JurisdictionMembership[] = [
-  { id: GLOBAL_ID, included: true },
+  { id: GLOBAL_ID, included: false },
+  { id: ALBERTA_ID, included: true },
 ];
 
-/** Read persisted subscriptions, or Global-only when no cookie is set. */
+/** Read persisted subscriptions, or the Alberta-selected default when no cookie is set. */
 export function readSubscriptions(): JurisdictionMembership[] {
   if (typeof document === "undefined") return DEFAULT_SUBSCRIPTIONS;
   const match = document.cookie

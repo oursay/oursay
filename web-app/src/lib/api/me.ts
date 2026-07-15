@@ -13,6 +13,7 @@ import { ALBERTA_ID, DEFAULT_SIGNING, GLOBAL_ID } from "@/lib/types";
 import type { SignAction, SignMethod } from "@/lib/types";
 import { ApiError, apiGet, apiPatch, apiPost, apiPut, buildQuery } from "./client";
 import { MY_DISTRICTS } from "@/lib/mock";
+import { readSubscriptions } from "@/lib/state/cookies";
 import { tokenToTier } from "./map";
 
 export interface AccountContext {
@@ -64,9 +65,11 @@ export function mapSigningPrefs(raw: Record<string, string>): SigningPrefs {
 function mergeSubscriptions(serverIds: string[]): JurisdictionMembership[] {
   const ids = new Set(serverIds);
   if (!ids.has(GLOBAL_ID)) ids.add(GLOBAL_ID);
+  // Prefer cookie include flags; otherwise Alberta selected, Global subscribed but not in feed.
+  const cookieFlags = new Map(readSubscriptions().map((s) => [s.id, s.included]));
   return [...ids].map((id) => ({
     id,
-    included: id === GLOBAL_ID || id === ALBERTA_ID,
+    included: cookieFlags.has(id) ? cookieFlags.get(id)! : id === ALBERTA_ID,
   }));
 }
 

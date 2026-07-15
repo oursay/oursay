@@ -12,7 +12,7 @@ export async function getJurisdictionMembership(): Promise<
 > {
   if (isMockOnly()) {
     return [
-      { id: GLOBAL_ID, included: true },
+      { id: GLOBAL_ID, included: false },
       { id: ALBERTA_ID, included: true },
     ];
   }
@@ -29,6 +29,7 @@ export async function getJurisdictionMembership(): Promise<
   const includedById = new Map(cookieSubs.map((s) => [s.id, s.included]));
   return server.jurisdictionIds.map((id) => ({
     id,
-    included: includedById.get(id) ?? id === GLOBAL_ID,
+    // Cookie wins; otherwise default Alberta into the feed (not Global).
+    included: includedById.get(id) ?? id === ALBERTA_ID,
   }));
 }

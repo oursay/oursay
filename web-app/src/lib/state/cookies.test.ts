@@ -29,16 +29,19 @@ describe("subscription cookie round-trip", () => {
     expect(readSubscriptions()).toEqual(subs);
   });
 
-  it("falls back to Global-only when no cookie is set", () => {
+  it("falls back to Global+Alberta (Alberta selected) when no cookie is set", () => {
     expect(readSubscriptions()).toEqual(DEFAULT_SUBSCRIPTIONS);
+    expect(DEFAULT_SUBSCRIPTIONS).toEqual([
+      { id: GLOBAL_ID, included: false },
+      { id: ALBERTA_ID, included: true },
+    ]);
   });
 
-  it("falls back to Global-only on a malformed cookie", () => {
+  it("falls back to the default set on a malformed cookie", () => {
     document.cookie = "oursay-subs=not-json";
     expect(readSubscriptions()).toEqual(DEFAULT_SUBSCRIPTIONS);
   });
 });
-
 describe("session cookie round-trip", () => {
   beforeEach(stubDocument);
   afterEach(() => {
