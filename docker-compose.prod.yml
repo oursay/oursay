@@ -1,0 +1,284 @@
+# OurSay full production stack (monorepo root).
+#
+#   Traefik  — HTTPS (Let's Encrypt), no dashboard; host :80/:443 only
+#   site     — oursay.ca + www.oursay.ca
+#   web-app  — demo.oursay.ca + app.oursay.ca
+#   api      — api.oursay.ca
+#   public-record — immudb + PostGIS + settlement worker (Docker network only)
+#
+# Bring-up:  npm run prod:up
+# Tear-down: npm run prod:down   (does NOT wipe volumes)
+#
+# See docs/VPS-PRODUCTION-STACK.md
+
+name: oursay
+
+networks:
+  proxy:
+    name: oursay-proxy
+  data:
+    name: oursay-data
+    internal: true
+
+volumes:
+  traefik-letsencrypt:
+    name: oursay_traefik_letsencrypt
+  immudb-data:
+    name: oursay_public_record_immudb
+  pg-data:
+    name: oursay_public_record_pg
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: oursay-traefik
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=oursay-proxy
+      - --ping=true
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge=true
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL:?set TRAEFIK_ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+      # Dashboard / API intentionally omitted — do not expose Traefik UI.
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+    networks:
+      - proxy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "traefik",
+          "healthcheck",
+          "--ping",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # immudb 1.11.0 over the PostgreSQL wire protocol — not published / not Traefik-routed.
+  immudb:
+    image: codenotary/immudb:1.11.0
+    container_name: oursay-public-record-immudb
+    restart: unless-stopped
+    environment:
+      IMMUDB_ADDRESS: "0.0.0.0"
+      IMMUDB_PGSQL_SERVER: "true"
+    volumes:
+      - immudb-data:/var/lib/immudb
+    networks:
+      - data
+    healthcheck:
+      test: ["CMD", "immuadmin", "status"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+  # PostGIS — private mutable store; Docker network only.
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: oursay-public-record-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PGUSER:-oursay}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-oursay}
+      POSTGRES_DB: ${PGDATABASE:-oursay_public_record}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${PGUSER:-oursay} -d ${PGDATABASE:-oursay_public_record}",
+        ]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+      start_period: 3s
+
+  worker:
+    build:
+      context: .
+      dockerfile: public-record/Dockerfile.worker
+    container_name: oursay-public-record-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: public-record/.env
+        required: false
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${PGUSER:-oursay}
+      PGPASSWORD: ${PGPASSWORD:-oursay}
+      PGDATABASE: ${PGDATABASE:-oursay_public_record}
+      IMMUDB_PG_HOST: immudb
+      IMMUDB_PG_PORT: "5432"
+      IMMUDB_PG_USER: immudb
+      IMMUDB_PG_PASSWORD: immudb
+      IMMUDB_PG_DATABASE: defaultdb
+      FILE_ANCHOR_DIR: /repo/public-record/.anchors
+      WORKER_CHAIN_IDS: ${WORKER_CHAIN_IDS:-oursay-global,ab-ca-gov}
+    volumes:
+      - ./public-record/.anchors:/repo/public-record/.anchors
+    networks:
+      # data = DBs; proxy = optional egress (EVM RPC) without Traefik labels.
+      - data
+      - proxy
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    container_name: oursay-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      immudb:
+        condition: service_healthy
+      traefik:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: api/.env
+        required: false
+      - path: public-record/.env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${PGUSER:-oursay}
+      PGPASSWORD: ${PGPASSWORD:-oursay}
+      PGDATABASE: ${PGDATABASE:-oursay_public_record}
+      IMMUDB_PG_HOST: immudb
+      IMMUDB_PG_PORT: "5432"
+      IMMUDB_PG_USER: immudb
+      IMMUDB_PG_PASSWORD: immudb
+      IMMUDB_PG_DATABASE: defaultdb
+      CHAIN_ID: ${CHAIN_ID:-ab-ca-gov}
+      JURISDICTION_ID: ${JURISDICTION_ID:-ab-ca-gov}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-oursay.ca}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://demo.oursay.ca,https://app.oursay.ca}
+      SESSION_COOKIE_SECURE: "true"
+    networks:
+      - proxy
+      - data
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=oursay-proxy
+      - traefik.http.routers.api.rule=Host(`api.${BASE_DOMAIN:-oursay.ca}`)
+      - traefik.http.routers.api.entrypoints=websecure
+      - traefik.http.routers.api.tls.certresolver=letsencrypt
+      - traefik.http.services.api.loadbalancer.server.port=8080
+      - traefik.http.services.api.loadbalancer.healthcheck.path=/healthz
+      - traefik.http.services.api.loadbalancer.healthcheck.interval=10s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 45s
+
+  site:
+    build:
+      context: .
+      dockerfile: site/Dockerfile
+    container_name: oursay-site
+    restart: unless-stopped
+    depends_on:
+      traefik:
+        condition: service_healthy
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=oursay-proxy
+      - traefik.http.routers.site.rule=Host(`${BASE_DOMAIN:-oursay.ca}`) || Host(`www.${BASE_DOMAIN:-oursay.ca}`)
+      - traefik.http.routers.site.entrypoints=websecure
+      - traefik.http.routers.site.tls.certresolver=letsencrypt
+      - traefik.http.services.site.loadbalancer.server.port=80
+      - traefik.http.services.site.loadbalancer.healthcheck.path=/healthz
+      - traefik.http.services.site.loadbalancer.healthcheck.interval=10s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "http://127.0.0.1:80/healthz",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  web-app:
+    build:
+      context: .
+      dockerfile: web-app/Dockerfile
+    container_name: oursay-web-app
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+      traefik:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_MOCK_ONLY: "0"
+      OURSAY_API_URL: http://api:8080
+    networks:
+      - proxy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=oursay-proxy
+      - traefik.http.routers.webapp.rule=Host(`demo.${BASE_DOMAIN:-oursay.ca}`) || Host(`app.${BASE_DOMAIN:-oursay.ca}`)
+      - traefik.http.routers.webapp.entrypoints=websecure
+      - traefik.http.routers.webapp.tls.certresolver=letsencrypt
+      - traefik.http.services.webapp.loadbalancer.server.port=3000
+      - traefik.http.services.webapp.loadbalancer.healthcheck.path=/
+      - traefik.http.services.webapp.loadbalancer.healthcheck.interval=10s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 45s

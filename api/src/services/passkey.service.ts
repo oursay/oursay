@@ -98,7 +98,7 @@ export class PasskeyService {
       verification = await verifyRegistrationResponse({
         response: input.response,
         expectedChallenge: challenge,
-        expectedOrigin: this.rp.origin,
+        expectedOrigin: this.rp.origins,
         expectedRPID: this.rp.rpID,
         requireUserVerification: this.rp.requireUserVerification,
       });
@@ -221,7 +221,7 @@ export class PasskeyService {
       verification = await verifyAuthenticationResponse({
         response: input.response,
         expectedChallenge: challenge,
-        expectedOrigin: this.rp.origin,
+        expectedOrigin: this.rp.origins,
         expectedRPID: this.rp.rpID,
         credential: {
           id: cred.credentialId,

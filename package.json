@@ -25,7 +25,9 @@
   "scripts": {
     "dev": "npm run dev --workspace site",
     "build": "npm run build --workspace site",
-    "preview": "npm run preview --workspace site"
+    "preview": "npm run preview --workspace site",
+    "prod:up": "node scripts/prod-up.mjs",
+    "prod:down": "node scripts/prod-down.mjs"
   },
   "engines": {
     "node": ">=20"

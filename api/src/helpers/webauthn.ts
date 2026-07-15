@@ -6,7 +6,8 @@ import { webauthnConfig } from "../config.js";
 export interface RelyingParty {
   rpID: string;
   rpName: string;
-  origin: string;
+  /** Allowed origin(s) for @simplewebauthn `expectedOrigin`. */
+  origins: string[];
   requireUserVerification: boolean;
 }
 
@@ -14,7 +15,7 @@ export function relyingParty(): RelyingParty {
   return {
     rpID: webauthnConfig.rpID,
     rpName: webauthnConfig.rpName,
-    origin: webauthnConfig.origin,
+    origins: webauthnConfig.origins,
     requireUserVerification: webauthnConfig.requireUserVerification,
   };
 }

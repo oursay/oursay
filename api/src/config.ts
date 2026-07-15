@@ -229,17 +229,37 @@ export function publicCountsKAnon(): { min: number; default: number } {
 export interface WebAuthnConfig {
   rpID: string;
   rpName: string;
+  /**
+   * Allowed browser page origin(s) for WebAuthn ceremonies (not the API listen origin).
+   * Parsed from comma-separated `WEBAUTHN_ORIGIN` (e.g. demo + app production hosts).
+   */
+  origins: string[];
+  /** First entry of `origins` — OTP deep-links and SoftAuthenticator fixtures. */
   origin: string;
   /** Require the authenticator's user-verification flag (biometric/PIN). Forced on in production;
    *  in dev/test it defaults on but may be disabled via WEBAUTHN_REQUIRE_UV=false. */
   requireUserVerification: boolean;
 }
 
+function parseWebAuthnOrigins(raw: string): string[] {
+  const list = raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (list.length === 0) {
+    throw new Error("WEBAUTHN_ORIGIN must list at least one origin");
+  }
+  return list;
+}
+
+const webauthnOrigins = parseWebAuthnOrigins(env("WEBAUTHN_ORIGIN", "http://localhost:3000"));
+
 export const webauthnConfig: WebAuthnConfig = {
   rpID: env("WEBAUTHN_RP_ID", "localhost"),
   rpName: env("WEBAUTHN_RP_NAME", "OurSay"),
-  // Browser page origin (web-app :3000), not the API listen port. /walk on the API needs :8080.
-  origin: env("WEBAUTHN_ORIGIN", "http://localhost:3000"),
+  // Browser page origin(s) (web-app), not the API listen port. /walk on the API needs :8080.
+  origins: webauthnOrigins,
+  origin: webauthnOrigins[0]!,
   requireUserVerification: isProduction ? true : env("WEBAUTHN_REQUIRE_UV", "true") === "true",
 };
 
