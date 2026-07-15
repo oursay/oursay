@@ -45,17 +45,33 @@ function seatRevisionId(seatHandle: string, boundaryYear: number): string {
   return `${seatHandle}-${boundaryYear}`;
 }
 
+/**
+ * OpenNorth / Assembly display names sometimes lag Elections Alberta renames.
+ * Map year-less catalog slugs → the district_slug written by boundary ingest.
+ * Seat handles stay catalog-stable; only the geo join key is remapped.
+ */
+const DISTRICT_SLUG_ALIASES: Readonly<Record<string, string>> = {
+  // EA 2023 VA boundaries use Calgary-Bhullar-McCall; OpenNorth still says Calgary-McCall.
+  "calgary-mccall": "calgary-bhullar-mccall",
+};
+
+function resolveDistrictSlug(slug: string | null): string | null {
+  if (!slug) return null;
+  return DISTRICT_SLUG_ALIASES[slug] ?? slug;
+}
+
 function toUpsert(
   entry: OfficialSeatCatalogEntry,
   opts: IngestOfficialSeatsOptions,
 ): OfficialSeatUpsert {
+  const districtSlug = resolveDistrictSlug(entry.districtSlug);
   return {
     id: seatRevisionId(entry.seatHandle, opts.boundaryYear),
     jurisdictionId: entry.jurisdictionId,
     seatKind: entry.seatKind,
     title: seatTitle(entry),
     seatHandle: entry.seatHandle,
-    districtSlug: entry.districtSlug,
+    districtSlug,
     districtShortSlug: entry.districtShortSlug,
     leaderRole: entry.leaderRole ?? null,
     effectiveDate: opts.effectiveDate,
