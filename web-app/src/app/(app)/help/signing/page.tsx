@@ -36,10 +36,12 @@ export default function SigningHelpPage() {
 
       <HelpSection title="What you see is what you sign">
         <p>
-          Before a vote, signature, or post commits, OurSay shows you the exact content being
-          signed — the plain-language statement, the technical fields, and any warnings that
-          apply to you. Nothing is added or changed after you confirm. If it isn&apos;t on that
-          screen, you didn&apos;t sign it.
+          Before a vote, signature, or post commits under Ask or Passkey signing, OurSay shows
+          you the exact content being signed — the plain-language statement, the technical
+          fields, and any warnings that apply to you. Nothing is added or changed after you
+          confirm. If it isn&apos;t on that screen, you didn&apos;t sign it. Quick Sign (including
+          after you choose &ldquo;Remember my choice&rdquo; on the Ask screen) skips that prompt
+          for that action; Passkey still confirms and opens your device&apos;s passkey prompt.
         </p>
       </HelpSection>
 

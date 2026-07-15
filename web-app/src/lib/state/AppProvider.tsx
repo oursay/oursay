@@ -26,6 +26,7 @@ import {
   DEFAULT_SIGNING,
   GLOBAL_ID,
   POST_SUB_ACTIONS,
+  applyRememberedSignChoice,
   effectiveSignMethod,
 } from "@/lib/types";
 import {
@@ -385,7 +386,8 @@ export interface AppApi {
   closeCompose: () => void;
 
   // Unified civic signing confirmation.
-  confirmSigning: (sign: CivicSignMode) => void;
+  /** Confirm with Quick or Passkey; when `remember`, persist that method for the pending action first. */
+  confirmSigning: (sign: CivicSignMode, opts?: { remember?: boolean }) => void;
   closeSigningConfirm: () => void;
 
   // Post reply composer.
@@ -1449,9 +1451,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const confirmSigning = useCallback(
-    (sign: CivicSignMode) => {
+    (sign: CivicSignMode, opts?: { remember?: boolean }) => {
       const commit = pendingCommit.current;
       if (!commit) return;
+      // Persist Ask → Quick/Passkey before the write so the next act skips the chooser
+      // when Quick is remembered (Passkey still opens this modal for WYSIWYS + WebAuthn).
+      const action = state.signingConfirm?.action;
+      if (opts?.remember && action) {
+        setState((s) => ({
+          ...s,
+          signing: applyRememberedSignChoice(s.signing, action, sign, true),
+        }));
+      }
       if (sign === "passkey" && !isMockOnly()) {
         const threadId = state.signingConfirm?.threadId;
         const userId = userIdRef.current;
@@ -1541,6 +1552,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         {
           wysiwys,
           showQuickSign: method === "ask",
+          action,
           threadId: wysiwysInput.input.threadId,
         },
         commit,

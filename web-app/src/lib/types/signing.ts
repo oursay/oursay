@@ -3,9 +3,11 @@ import type { RecordKind } from "./records";
 /**
  * How a civic action is authorised on this device.
  *
- *   ask     — prompt each time (Quick Sign vs Sign with Passkey chooser)
+ *   ask     — prompt each time (Quick Sign vs Sign with Passkey chooser);
+ *             "Remember my choice" on that modal persists Quick or Passkey
  *   quick   — derived-key "quick sign", no prompt (signTier 0)
- *   passkey — WebAuthn passkey, always (signTier 1)
+ *   passkey — WebAuthn passkey, always (signTier 1); still shows the WYSIWYS
+ *             confirm + OS passkey popup (the Ask chooser alone can be skipped)
  *
  * A jurisdiction may mandate a stronger method than the account default; the
  * effective method is never *less* secure than the jurisdiction floor
@@ -108,4 +110,18 @@ export function effectiveSignMethod(
   jurisdictionRequirement: SignMethod,
 ): SignMethod {
   return strongestSignMethod(pref, jurisdictionRequirement);
+}
+
+/**
+ * Apply "Remember my choice" from the Ask chooser: set one action to Quick or
+ * Passkey. Returns the prior prefs unchanged when `remember` is false.
+ */
+export function applyRememberedSignChoice(
+  prefs: SigningPrefs,
+  action: SignAction,
+  sign: "quick" | "passkey",
+  remember: boolean,
+): SigningPrefs {
+  if (!remember) return prefs;
+  return { ...prefs, [action]: sign };
 }

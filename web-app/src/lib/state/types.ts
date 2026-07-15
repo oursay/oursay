@@ -7,6 +7,7 @@ import type {
   GeoFilterMode,
   JurisdictionMembership,
   RecordKind,
+  SignAction,
   SigningPrefs,
   SignTier,
   SignedFilterLevel,
@@ -36,6 +37,8 @@ export interface SigningConfirmRequest {
   wysiwys: WysiwysPayload;
   /** False when effective method is passkey-only (Quick Sign hidden). */
   showQuickSign: boolean;
+  /** Civic action whose Ask preference may be updated via "Remember my choice". */
+  action: SignAction;
   /** Thread id for passkey busy-phase pre-check (per-device thread credential). */
   threadId: string;
 }

@@ -679,8 +679,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           }
         }
         showQuickSign={state.signingConfirm?.showQuickSign ?? false}
-        onQuickSign={() => app.confirmSigning("quick")}
-        onPasskeySign={() => app.confirmSigning("passkey")}
+        onQuickSign={(remember) => app.confirmSigning("quick", { remember })}
+        onPasskeySign={(remember) => app.confirmSigning("passkey", { remember })}
         passkeyBusy={choosePasskeyBusy}
       />
       <AddJurisdictionModal
