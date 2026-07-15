@@ -70,9 +70,11 @@ services:
         condition: service_healthy
       immudb:
         condition: service_healthy
-    # Loads EVM_* (and other overrides) from public-record/.env when present.
+    # Loads LEDGER_ID / EVM_* from public-record/.env and repo-root .env when present.
     env_file:
       - path: .env
+        required: false
+      - path: ../.env
         required: false
     environment:
       PGHOST: postgres
@@ -96,6 +98,7 @@ services:
       EVM_CONTRACT_ADDRESS_FILE: ${EVM_CONTRACT_ADDRESS_FILE:-/repo/evm-anchor/.evm/address}
       EVM_ANCHOR_PRIVATE_KEY: ${EVM_ANCHOR_PRIVATE_KEY:-}
       WORKER_CHAIN_IDS: ${WORKER_CHAIN_IDS:-oursay-global,ab-ca-gov}
+      # LEDGER_ID from env_file (.env / ../.env) — do not set empty here or it overrides the file.
     volumes:
       # Named volume — not a host bind mount. A local `npm run worker` writing
       # public-record/.anchors must not poison the container worker (epoch skew → crash loop).

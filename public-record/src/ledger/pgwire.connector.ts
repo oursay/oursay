@@ -52,6 +52,8 @@ export class PgWireLedgerConnector implements LedgerConnector {
   private readonly instance: PgConfig;
   private readonly fork?: PgWireLedgerConnectorOptions["fork"];
   private client: pg.Client | null = null;
+  /** Serializes first connect so concurrent callers share one attempt (and failures clear cleanly). */
+  private connectInflight: Promise<void> | null = null;
 
   constructor(opts: PgWireLedgerConnectorOptions) {
     this.instance = opts.instance;
@@ -81,6 +83,20 @@ export class PgWireLedgerConnector implements LedgerConnector {
 
   async connect(): Promise<void> {
     if (this.client) return;
+    if (this.connectInflight) return this.connectInflight;
+    this.connectInflight = this.connectOnce().finally(() => {
+      this.connectInflight = null;
+    });
+    return this.connectInflight;
+  }
+
+  /**
+   * Open the jurisdiction DB and finish genesis meta before publishing {@link client}.
+   * On failure the client is closed and cleared so a later connect retries ensureMeta
+   * (never skip a ledger_id mismatch after a half-ready first attempt).
+   */
+  private async connectOnce(): Promise<void> {
+    if (this.client) return;
     await ensureDatabaseExists(this.instance, this.databaseName);
     const client = new pg.Client({
       host: this.instance.host,
@@ -90,11 +106,18 @@ export class PgWireLedgerConnector implements LedgerConnector {
       database: this.databaseName,
     });
     await client.connect();
+    // requireClient() needs this.client during DDL/meta; clear + close if anything fails.
     this.client = client;
-    await client.query(LEDGER_DDL);
-    await client.query(BLOCKS_DDL);
-    await client.query(META_DDL);
-    await this.ensureMeta();
+    try {
+      await client.query(LEDGER_DDL);
+      await client.query(BLOCKS_DDL);
+      await client.query(META_DDL);
+      await this.ensureMeta();
+    } catch (err) {
+      this.client = null;
+      await client.end().catch(() => {});
+      throw err;
+    }
   }
 
   /** Read ledger_meta value (undefined if absent). */

@@ -36,6 +36,8 @@ export function errorBody(code: string, message: string, details?: unknown): Err
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((err: any, req: FastifyRequest, reply: FastifyReply) => {
     if (isServiceError(err)) {
+      // Fail-closed upstream (e.g. ledger pool gate) — keep the detail in logs; client still gets the body.
+      if (err.code === "unavailable") req.log.warn({ err }, err.message);
       reply.status(STATUS[err.code] ?? 400).send(errorBody(err.code, err.message, err.details));
       return;
     }

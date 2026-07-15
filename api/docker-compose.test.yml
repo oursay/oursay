@@ -18,6 +18,9 @@ services:
         condition: service_healthy
     ports:
       - "8081:8080"
+    env_file:
+      - path: ../public-record/.env
+        required: false
     environment:
       NODE_ENV: test
       PORT: "8080"
@@ -39,6 +42,7 @@ services:
       JURISDICTION_ID: ab-ca-gov
       PUBLIC_COUNTS_K_ANONYMITY_MIN: "0"
       PUBLIC_COUNTS_K_ANONYMITY_DEFAULT: "0"
+      # LEDGER_ID comes from env_file (public-record/.env) when present.
     command: ["sh", "-c", "npm run openapi:dump -w @oursay/api && npm run dev -w @oursay/api"]
     healthcheck:
       test:

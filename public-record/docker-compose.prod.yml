@@ -60,6 +60,11 @@ services:
         condition: service_healthy
       immudb:
         condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+      - path: ../.env
+        required: false
     environment:
       PGHOST: postgres
       PGPORT: "5432"
@@ -73,6 +78,7 @@ services:
       IMMUDB_PG_DATABASE: defaultdb
       FILE_ANCHOR_DIR: /repo/public-record/.anchors
       WORKER_CHAIN_IDS: oursay-global,ab-ca-gov
+      # LEDGER_ID from env_file (required in production — must match immudb ledger_meta).
     volumes:
       - ./.anchors:/repo/public-record/.anchors
     restart: unless-stopped

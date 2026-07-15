@@ -26,6 +26,9 @@ services:
         required: false
       - path: ../.env
         required: false
+      # Same LEDGER_ID as worker/seed (public-record/.env). Required for civic submit pool gate.
+      - path: ../public-record/.env
+        required: false
     environment:
       NODE_ENV: development
       PORT: "8080"
@@ -44,6 +47,7 @@ services:
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-http://localhost:3000}
       CHAIN_ID: ab-ca-gov
       JURISDICTION_ID: ab-ca-gov
+      # LEDGER_ID from env_file (../.env / public-record/.env) — must match worker + ledger_meta.
     # Dump OpenAPI snapshot, then run the dev server (tsx, non-production).
     command: ["sh", "-c", "npm run openapi:dump -w @oursay/api && npm run dev -w @oursay/api"]
     healthcheck:
