@@ -1,5 +1,8 @@
 # Civic web-app (Next.js) — production `next start`.
 # Build context is the monorepo root (see docker-compose.prod.yml).
+#
+# NEXT_PUBLIC_* must be passed as build-args (Next inlines them at `next build`).
+# Runtime `environment:` alone will NOT enable donation modals / demo banner.
 FROM node:22-bookworm-slim AS build
 
 WORKDIR /repo
@@ -21,9 +24,21 @@ COPY evm-anchor/package.json ./evm-anchor/
 
 RUN npm ci
 
-# Live mode against the compose-network API (rewrites baked at build time).
-ENV NEXT_PUBLIC_MOCK_ONLY=0
-ENV OURSAY_API_URL=http://api:8080
+ARG NEXT_PUBLIC_MOCK_ONLY=0
+ARG OURSAY_API_URL=http://api:8080
+ARG NEXT_PUBLIC_SHOW_DEMO_BANNER=false
+ARG NEXT_PUBLIC_GITHUB_SPONSORS_URL=https://github.com/sponsors/oursay
+ARG NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC=true
+ARG NEXT_PUBLIC_SHOW_DONATION_MODAL_KYC=true
+ARG NEXT_PUBLIC_SHOW_DONATION_BANNER=false
+
+ENV NEXT_PUBLIC_MOCK_ONLY=$NEXT_PUBLIC_MOCK_ONLY
+ENV OURSAY_API_URL=$OURSAY_API_URL
+ENV NEXT_PUBLIC_SHOW_DEMO_BANNER=$NEXT_PUBLIC_SHOW_DEMO_BANNER
+ENV NEXT_PUBLIC_GITHUB_SPONSORS_URL=$NEXT_PUBLIC_GITHUB_SPONSORS_URL
+ENV NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC=$NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC
+ENV NEXT_PUBLIC_SHOW_DONATION_MODAL_KYC=$NEXT_PUBLIC_SHOW_DONATION_MODAL_KYC
+ENV NEXT_PUBLIC_SHOW_DONATION_BANNER=$NEXT_PUBLIC_SHOW_DONATION_BANNER
 
 RUN npm run build -w @oursay/web-app
 
@@ -32,10 +47,11 @@ FROM node:22-bookworm-slim AS runner
 WORKDIR /repo
 
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_MOCK_ONLY=0
-ENV OURSAY_API_URL=http://api:8080
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# Keep URLs available for any server-side reads; client flags were baked above.
+ENV NEXT_PUBLIC_MOCK_ONLY=0
+ENV OURSAY_API_URL=http://api:8080
 
 COPY --from=build /repo /repo
 
