@@ -274,26 +274,37 @@ export class PgWireLedgerConnector implements LedgerConnector {
   }
 }
 
+/** True when CREATE DATABASE failed because the DB is already present (immudb wording varies). */
+function isAlreadyExistsError(message: string): boolean {
+  // Do NOT match bare "exist" — that also matches "doesn't exist" / "selected db doesn't exists".
+  return /already exists|duplicate (key|database)/i.test(message);
+}
+
 /** CREATE DATABASE if missing (from admin/bootstrap connection). Idempotent. */
 export async function ensureDatabaseExists(instance: PgConfig, databaseName: string): Promise<void> {
+  const adminDb = instance.database || "defaultdb";
   const admin = new pg.Client({
     host: instance.host,
     port: instance.port,
     user: instance.user,
     password: instance.password,
-    database: instance.database || "defaultdb",
+    database: adminDb,
   });
-  await admin.connect();
   try {
-    const lit = databaseName.replace(/'/g, "''");
+    await admin.connect();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `immudb admin connect failed (database=${JSON.stringify(adminDb)}): ${msg}`,
+    );
+  }
+  try {
     try {
       await admin.query(`CREATE DATABASE ${quoteIdent(databaseName)}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // Already exists — tolerate. Exact wording varies across immudb versions.
-      if (!/already exists|exist|duplicate/i.test(msg)) throw err;
+      if (!isAlreadyExistsError(msg)) throw err;
     }
-    void lit;
   } finally {
     await admin.end();
   }

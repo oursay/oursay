@@ -84,6 +84,28 @@ docker compose -f docker-compose.prod.yml -p oursay ps
 
 Expect HTTPS (valid Let’s Encrypt certs), `api` `/healthz` with `"db":"ok"`, and no listening sockets on the host for 5432 / immudb.
 
+### First civic write (immudb jurisdiction DBs)
+
+Each jurisdiction is its own immudb database (`ab-ca-gov` → `j_ab_ca_gov`, `oursay-global` → `j_oursay_global`). The **worker** creates them on startup for `WORKER_CHAIN_IDS`; the API also creates `CHAIN_ID` lazily on the first submit.
+
+If posting fails with `503` / `selected db doesn't exists`:
+
+```bash
+# Confirm what api/worker actually see
+docker compose -f docker-compose.prod.yml -p oursay exec api printenv \
+  IMMUDB_PG_HOST IMMUDB_PG_PORT IMMUDB_PG_DATABASE CHAIN_ID LEDGER_ID
+
+docker compose -f docker-compose.prod.yml -p oursay logs worker --tail 80
+
+# Force-create jurisdiction DBs (idempotent)
+docker compose -f docker-compose.prod.yml -p oursay exec worker \
+  npm run jurisdiction:add -w @oursay/public-record -- ab-ca-gov
+docker compose -f docker-compose.prod.yml -p oursay exec worker \
+  npm run jurisdiction:add -w @oursay/public-record -- oursay-global
+```
+
+Then retry the post.
+
 ## Updates
 
 ```bash
