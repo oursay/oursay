@@ -38,12 +38,14 @@ Stored wire keys match `@dicebear/styles/<name>.json`. **Product rules by surfac
 |---------|-------|-----------|
 | Persona (anonymous / persona page) | `initial-face` (hard-wired) | no |
 | Official seat chrome | `disco` (hard-wired) | no |
-| User profile / revealed author (unverified) | always `bottts-neutral` | no — Get Verified unlocks chooser |
+| User profile / revealed author (unverified) | `bottts-neutral` (hard-wired; **`icon_type` null / absent**) | no — Get Verified unlocks chooser |
 | User profile / revealed author (verified) | one of the verified allowlist below | yes via `PATCH /v1/profile` |
 
-**Unverified lock:** display + PATCH are forced to **`bottts-neutral`**. Missing or invalid → **`bottts-neutral`**.
+**Unverified:** no stored choice (same idea as persona / seat hard-wires). Reads expose hard-wired `bottts-neutral`. `PATCH` **ignores** `iconType` (does not error).
 
-**Verified allowlist (PATCH-able):** `thumbs` · `rings` · `shape-grid` · `shapes` · `stripes` · `triangles` (verified accounts may keep `bottts-neutral` until they pick).
+**Verified / official default:** missing, invalid, or leftover `bottts-neutral` → **`thumbs`**.
+
+**Verified allowlist (PATCH-able / stored):** `thumbs` · `rings` · `shape-grid` · `shapes` · `stripes` · `triangles`. Official role (membership) unlocks the same picker as KYC.
 
 ### Derived (not stored on user row)
 
@@ -119,4 +121,4 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
 - Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) — enforcement on public profile surfaces; reveal model replaces the old persona `claimed`/`claimed_at` flow.
 - **Official role** — platform-assigned, revocable `official` role (on the user/jurisdiction membership) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier.
-- **Profile Icon** — unverified locked to `bottts-neutral`; verified users pick from the six-style allowlist; personas stay `initial-face`, official seats stay `disco` (not user-pickable).
+- **Profile Icon** — unverified hard-wires `bottts-neutral` with null storage; verified users pick from the six-style allowlist; personas stay `initial-face`, official seats stay `disco` (not user-pickable).

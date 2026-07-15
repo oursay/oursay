@@ -6,12 +6,12 @@ import { Button, Modal, ModalField } from "@/components/ui";
 import {
   avatarDataUri,
   DEFAULT_USER_ICON_TYPE,
+  DEFAULT_VERIFIED_USER_ICON_TYPE,
   UNVERIFIED_USER_ICON_TYPE,
   VERIFIED_USER_ICON_TYPES,
   type UserIconType,
   type VerifiedUserIconType,
   effectiveUserIconType,
-  normalizeUserIconType,
 } from "@/lib/avatar";
 import { displayHandle, wireHandle } from "@/lib/handle";
 
@@ -19,13 +19,22 @@ export interface EditProfileFormData {
   handle: string;
   displayName: string;
   bio: string;
-  iconType: UserIconType;
+  /** Omitted when unverified (hard-wired bottts; not stored). */
+  iconType?: UserIconType;
+}
+
+interface EditProfileInitial {
+  handle: string;
+  displayName: string;
+  bio: string;
+  /** Effective or stored style from account context (may be hard-wired bottts). */
+  iconType?: string | null;
 }
 
 interface EditProfileModalProps {
   open: boolean;
   onClose: () => void;
-  initial: EditProfileFormData;
+  initial: EditProfileInitial;
   onSubmit: (data: EditProfileFormData) => void | Promise<void>;
   busy?: boolean;
   /** Session KYC tier > 0 unlocks the verified style picker. */
@@ -48,7 +57,7 @@ const STYLE_LABELS: Record<VerifiedUserIconType, string> = {
 /**
  * Edit OurSay-owned public identity (handle, display name, bio, profile icon).
  * Change Email remains future — shown disabled.
- * Unverified accounts are locked to bottts-neutral with a Get Verified upsell.
+ * Unverified accounts hard-wire bottts-neutral (not stored) with a Get Verified upsell.
  */
 export function EditProfileModal({
   open,
@@ -63,7 +72,9 @@ export function EditProfileModal({
   const [displayName, setDisplayName] = useState(initial.displayName);
   const [bio, setBio] = useState(initial.bio);
   const [iconType, setIconType] = useState<UserIconType>(
-    effectiveUserIconType(initial.iconType, verified),
+    verified
+      ? (effectiveUserIconType(initial.iconType, true) as UserIconType)
+      : DEFAULT_VERIFIED_USER_ICON_TYPE,
   );
 
   useEffect(() => {
@@ -71,19 +82,23 @@ export function EditProfileModal({
     setHandle(initial.handle);
     setDisplayName(initial.displayName);
     setBio(initial.bio);
-    setIconType(effectiveUserIconType(initial.iconType, verified));
+    if (verified) {
+      setIconType(effectiveUserIconType(initial.iconType, true) as UserIconType);
+    }
   }, [open, initial.handle, initial.displayName, initial.bio, initial.iconType, verified]);
 
   const wire = wireHandle(handle) ?? "";
   const previewSeed = wire || "preview";
-  const initialIcon = effectiveUserIconType(initial.iconType, verified);
+  const initialIcon = verified
+    ? (effectiveUserIconType(initial.iconType, true) as UserIconType)
+    : null;
   const canSave =
     !busy &&
     wire.length > 0 &&
     (wire !== wireHandle(initial.handle) ||
       displayName.trim() !== initial.displayName.trim() ||
       bio.trim() !== initial.bio.trim() ||
-      iconType !== initialIcon);
+      (verified && iconType !== initialIcon));
 
   return (
     <Modal open={open} onClose={busy ? () => undefined : onClose} title="Edit Profile" mobileFull>
@@ -173,9 +188,9 @@ export function EditProfileModal({
                 <Button
                   size="sm"
                   icon={BadgeCheck}
+                  fullWidth
                   disabled={busy}
                   onClick={onGetVerified}
-                  className="rounded-full!"
                 >
                   Get Verified
                 </Button>
@@ -201,7 +216,7 @@ export function EditProfileModal({
                 handle: wire,
                 displayName: displayName.trim(),
                 bio: bio.trim(),
-                iconType: verified ? normalizeUserIconType(iconType) : UNVERIFIED_USER_ICON_TYPE,
+                ...(verified ? { iconType } : {}),
               })
             }
           >

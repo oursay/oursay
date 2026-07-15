@@ -70,8 +70,6 @@ import {
 } from "@/lib/kyc/verifyAsk";
 import { tierMatchedVerifyChoice } from "@/lib/kyc/tierUpdate";
 import { MY_HANDLE, MY_NAME } from "@/lib/mock/constants";
-import { DEFAULT_USER_ICON_TYPE, type UserIconType } from "@/lib/avatar";
-
 type DonationOpen = "public" | "kyc" | null;
 type PendingKyc =
   | { kind: "verify"; choice: VerifyChoice }
@@ -718,7 +716,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           handle: account?.handle ?? (isMockOnly() ? MY_HANDLE : ""),
           displayName: account?.name ?? (isMockOnly() ? MY_NAME : ""),
           bio: state.accountBio ?? "",
-          iconType: (state.accountIconType as UserIconType) ?? DEFAULT_USER_ICON_TYPE,
+          iconType: state.accountIconType,
         }}
         onSubmit={app.submitEditProfile}
       />

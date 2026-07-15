@@ -2116,7 +2116,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         handle: data.handle,
         displayName: data.displayName || data.handle,
         bio: data.bio,
-        iconType: data.iconType,
+        ...(data.iconType !== undefined ? { iconType: data.iconType } : {}),
       })
         .then(() => fetchAccountContext())
         .then((account) => {

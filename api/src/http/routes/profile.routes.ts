@@ -10,6 +10,7 @@ import {
   effectiveUserIconType,
   isUserIconType,
   USER_ICON_TYPES,
+  WIRE_USER_ICON_TYPES,
 } from "../../helpers/icon-type.js";
 import { BIO_MAX, DISPLAY_NAME_MAX } from "../../repo/user.repo.js";
 import { normalizeTier } from "../../types/kyc.js";
@@ -23,7 +24,8 @@ const profileResponseSchema = {
     handle: { type: ["string", "null"] },
     displayName: { type: ["string", "null"] },
     bio: { type: "string" },
-    iconType: { type: "string", enum: [...USER_ICON_TYPES] },
+    /** Effective display style (bottts-neutral hard-wire when unverified; never stored as bottts). */
+    iconType: { type: "string", enum: [...WIRE_USER_ICON_TYPES] },
     email: { type: "string" },
     over18: { type: "boolean", description: "Self-attested age gate; KYC re-verifies. No DOB is stored." },
     visibility: { type: "string", enum: AUTHOR_VISIBILITIES },
@@ -37,6 +39,7 @@ const patchProfileBodySchema = {
     handle: { type: "string", minLength: 1, maxLength: 31, description: "Wire or @-prefixed handle" },
     displayName: { type: "string", maxLength: DISPLAY_NAME_MAX },
     bio: { type: "string", maxLength: BIO_MAX },
+    /** Ignored when unverified; otherwise must be a verified allowlist style. */
     iconType: { type: "string", enum: [...USER_ICON_TYPES] },
   },
   additionalProperties: false,
@@ -49,14 +52,24 @@ export interface PatchProfileBody {
   iconType?: string;
 }
 
+async function accountVerified(services: Services, userId: string): Promise<boolean> {
+  const [tierRaw, memberships] = await Promise.all([
+    services.repos.kyc.latestTier(userId),
+    services.repos.membership.listForUser(userId),
+  ]);
+  return (
+    normalizeTier(tierRaw) !== "unverified" ||
+    memberships.some((m) => m.role === "official")
+  );
+}
+
 async function buildProfileResponse(services: Services, userId: string) {
-  const [user, profile, tierRaw] = await Promise.all([
+  const [user, profile, verified] = await Promise.all([
     services.repos.user.getById(userId),
     services.repos.profile.getByUserId(userId),
-    services.repos.kyc.latestTier(userId),
+    accountVerified(services, userId),
   ]);
   if (!profile) throw new ServiceError("not_found", "Profile not found");
-  const verified = normalizeTier(tierRaw) !== "unverified";
   return {
     userId,
     handle: user?.handle ?? null,
@@ -135,18 +148,11 @@ export function registerProfileRoutes(app: FastifyInstance, services: Services):
       }
 
       if (body.iconType !== undefined) {
-        if (!isUserIconType(body.iconType)) {
-          throw new ServiceError("validation", "Invalid iconType");
+        const verified = await accountVerified(services, userId);
+        // Unverified: no stored icon — strip the field (do not error).
+        if (verified && isUserIconType(body.iconType) && canChooseUserIconType(body.iconType, true)) {
+          await services.repos.user.setIconType(userId, body.iconType);
         }
-        const tier = normalizeTier(await services.repos.kyc.latestTier(userId));
-        const verified = tier !== "unverified";
-        if (!canChooseUserIconType(body.iconType, verified)) {
-          throw new ServiceError(
-            "validation",
-            "Verify your identity to choose a profile icon style",
-          );
-        }
-        await services.repos.user.setIconType(userId, body.iconType);
       }
 
       return buildProfileResponse(services, userId);

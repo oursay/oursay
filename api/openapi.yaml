@@ -55,6 +55,10 @@ paths:
       summary: Request an email one-time code (registration, recovery, or gated login)
       tags:
         - auth
+      description: For purpose=registration, include `profile` (handle + over18) to
+        reserve the handle and enable cross-session verify with email+code only.
+        Omitting profile on resend reuses the active draft for that email when
+        present.
       requestBody:
         required: true
         content:
@@ -72,6 +76,59 @@ paths:
                     - recovery
                     - login
                   default: registration
+                profile:
+                  type: object
+                  description: "Least-resistance registration (C3): handle + over-18 checkbox
+                    required; everything else optional behind a helper (the KYC
+                    step collects missing name/address before verification). No
+                    date of birth."
+                  properties:
+                    handle:
+                      type: string
+                      description: REQUIRED unique username (wire form, no @). 3–30 chars of letters,
+                        digits, hyphens, underscores; must contain ≥1 letter.
+                        Cannot match an official seat handle or persona name.
+                    displayName:
+                      type: string
+                      description: Optional public display text; falls back to the handle without its
+                        '@'.
+                    over18:
+                      type: boolean
+                      description: Self-attested 18+ checkbox (must be true). KYC re-verifies; no DOB
+                        is stored.
+                    firstName:
+                      type: string
+                      description: Optional private PII (KYC); never publicly surfaced.
+                    lastName:
+                      type: string
+                      description: Optional private PII (KYC); never publicly surfaced.
+                    address:
+                      type: object
+                      description: Address components (Canada-centric storage; the front-end owns
+                        localized labels). No district binding is stored.
+                      properties:
+                        line1:
+                          type: string
+                        line2:
+                          type: string
+                        city:
+                          type: string
+                        province:
+                          type: string
+                          description: Province/territory.
+                        postalCode:
+                          type: string
+                        country:
+                          type: string
+                          description: ISO country code; defaults to CA.
+                        memo:
+                          type: string
+                          description: Free field for jurisdiction-specific edge cases.
+                      additionalProperties: false
+                  required:
+                    - handle
+                    - over18
+                  additionalProperties: false
               required:
                 - email
               additionalProperties: false
@@ -95,6 +152,26 @@ paths:
                 required:
                   - status
         "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
           description: Default Response
           content:
             application/json:
@@ -156,9 +233,12 @@ paths:
                   - error
   /v1/auth/otp/verify:
     post:
-      summary: Verify a registration code with a profile body to create the account
+      summary: Verify a registration code to create the account
       tags:
         - auth
+      description: "`profile` is optional when a draft was stored at OTP request
+        (cross-session). When provided, it overrides the draft for account
+        creation."
       requestBody:
         required: true
         content:
@@ -181,8 +261,9 @@ paths:
                   properties:
                     handle:
                       type: string
-                      description: REQUIRED unique username (wire form, no @). Letters, digits,
-                        hyphens, underscores; 1–30 chars.
+                      description: REQUIRED unique username (wire form, no @). 3–30 chars of letters,
+                        digits, hyphens, underscores; must contain ≥1 letter.
+                        Cannot match an official seat handle or persona name.
                     displayName:
                       type: string
                       description: Optional public display text; falls back to the handle without its
@@ -227,7 +308,6 @@ paths:
               required:
                 - email
                 - code
-                - profile
               additionalProperties: false
       responses:
         "201":
@@ -8763,6 +8843,7 @@ paths:
                   iconType:
                     type: string
                     enum:
+                      - bottts-neutral
                       - thumbs
                       - rings
                       - shape-grid
@@ -8909,6 +8990,7 @@ paths:
                   iconType:
                     type: string
                     enum:
+                      - bottts-neutral
                       - thumbs
                       - rings
                       - shape-grid

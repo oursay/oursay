@@ -12,16 +12,16 @@ import triangles from "@dicebear/styles/triangles.json";
 /**
  * Deterministic generated avatars (offline SVG data URIs) — DiceBear v10.
  * Personas → initial-face; official seats → disco; unverified accounts →
- * bottts-neutral; verified accounts → VERIFIED_USER_ICON_TYPES (or bottts-neutral until they pick).
+ * bottts-neutral (hard-wired, not stored); verified → USER_ICON_TYPES (default thumbs).
  * Real accounts seed by handle; personas seed by persona name.
  */
 
 export const PERSONA_ICON_TYPE = "initial-face" as const;
 export const OFFICIAL_SEAT_ICON_TYPE = "disco" as const;
-
 export const UNVERIFIED_USER_ICON_TYPE = "bottts-neutral" as const;
 
-export const VERIFIED_USER_ICON_TYPES = [
+/** Choosable + storable styles (verified / official accounts only). */
+export const USER_ICON_TYPES = [
   "thumbs",
   "rings",
   "shape-grid",
@@ -30,17 +30,21 @@ export const VERIFIED_USER_ICON_TYPES = [
   "triangles",
 ] as const;
 
-export type VerifiedUserIconType = (typeof VERIFIED_USER_ICON_TYPES)[number];
-
-export const USER_ICON_TYPES = [
-  UNVERIFIED_USER_ICON_TYPE,
-  ...VERIFIED_USER_ICON_TYPES,
-] as const;
-
 export type UserIconType = (typeof USER_ICON_TYPES)[number];
-export type IconType = UserIconType | typeof PERSONA_ICON_TYPE | typeof OFFICIAL_SEAT_ICON_TYPE;
 
-export const DEFAULT_USER_ICON_TYPE: UserIconType = UNVERIFIED_USER_ICON_TYPE;
+export const VERIFIED_USER_ICON_TYPES = USER_ICON_TYPES;
+export type VerifiedUserIconType = UserIconType;
+
+export const DEFAULT_VERIFIED_USER_ICON_TYPE: UserIconType = "thumbs";
+
+export type IconType =
+  | UserIconType
+  | typeof PERSONA_ICON_TYPE
+  | typeof OFFICIAL_SEAT_ICON_TYPE
+  | typeof UNVERIFIED_USER_ICON_TYPE;
+
+/** Hard-wire / Avatar fallback when nothing else applies. */
+export const DEFAULT_USER_ICON_TYPE: IconType = UNVERIFIED_USER_ICON_TYPE;
 
 const STYLE_DEFS: Record<IconType, unknown> = {
   "bottts-neutral": botttsNeutral,
@@ -70,25 +74,31 @@ const BACKGROUND_COLORS = [
   "2e1065", // brand-950
 ];
 
-export function isVerifiedUserIconType(v: string): v is VerifiedUserIconType {
-  return (VERIFIED_USER_ICON_TYPES as readonly string[]).includes(v);
-}
-
 export function isUserIconType(v: string): v is UserIconType {
   return (USER_ICON_TYPES as readonly string[]).includes(v);
 }
 
-export function normalizeUserIconType(raw: string | null | undefined): UserIconType {
+export const isVerifiedUserIconType = isUserIconType;
+
+export function parseStoredUserIconType(
+  raw: string | null | undefined,
+): UserIconType | null {
   if (raw && isUserIconType(raw)) return raw;
-  return DEFAULT_USER_ICON_TYPE;
+  return null;
 }
 
+/** Unverified → bottts (hard-wire); verified → stored style or thumbs. */
 export function effectiveUserIconType(
   raw: string | null | undefined,
   verified: boolean,
-): UserIconType {
+): IconType {
   if (!verified) return UNVERIFIED_USER_ICON_TYPE;
-  return normalizeUserIconType(raw);
+  return parseStoredUserIconType(raw) ?? DEFAULT_VERIFIED_USER_ICON_TYPE;
+}
+
+/** @deprecated prefer parseStoredUserIconType + effectiveUserIconType */
+export function normalizeUserIconType(raw: string | null | undefined): IconType {
+  return parseStoredUserIconType(raw) ?? DEFAULT_USER_ICON_TYPE;
 }
 
 function styleFor(iconType: IconType): Style {
@@ -101,8 +111,14 @@ function styleFor(iconType: IconType): Style {
 }
 
 function resolveIconType(raw: string | null | undefined): IconType {
-  if (raw === PERSONA_ICON_TYPE || raw === OFFICIAL_SEAT_ICON_TYPE) return raw;
-  return normalizeUserIconType(raw);
+  if (
+    raw === PERSONA_ICON_TYPE ||
+    raw === OFFICIAL_SEAT_ICON_TYPE ||
+    raw === UNVERIFIED_USER_ICON_TYPE
+  ) {
+    return raw;
+  }
+  return parseStoredUserIconType(raw) ?? DEFAULT_USER_ICON_TYPE;
 }
 
 export function avatarDataUri(seed: string, iconType?: string | null): string {

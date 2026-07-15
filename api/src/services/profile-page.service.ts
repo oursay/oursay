@@ -151,7 +151,7 @@ export class ProfilePageService {
       tier,
       official,
       bio: ctx.bio,
-      iconType: effectiveUserIconType(ctx.iconType, tier !== "unverified"),
+      iconType: effectiveUserIconType(ctx.iconType, tier !== "unverified" || official),
       ageLabel: formatAgeLabel(ctx.createdAt),
       support,
     };
@@ -504,7 +504,8 @@ interface ProfileCtx {
   handleWire: string;
   displayName: string;
   bio: string;
-  iconType: string;
+  /** Stored allowlist style, or null when hard-wired / unset. */
+  iconType: string | null;
   createdAt: string;
   pubkeys: string[];
 }

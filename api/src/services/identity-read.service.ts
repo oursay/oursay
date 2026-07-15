@@ -392,10 +392,11 @@ export class ReadResolution {
       if (slug) homeDistricts.add(slug);
     }
     const tier = normalizeTier(tierRaw);
+    const verifiedForIcon = tier !== "unverified" || officialIn.size > 0;
     const facts: AuthorFacts = {
       handle: wireHandle(user?.handle),
       displayName: user?.displayName ?? displayNameFor(user?.handle ?? null, null) ?? "Unknown",
-      iconType: effectiveUserIconType(user?.iconType, tier !== "unverified"),
+      iconType: effectiveUserIconType(user?.iconType, verifiedForIcon),
       accountVisibility: normalizeVisibility(profile?.visibility),
       tier,
       officialIn,

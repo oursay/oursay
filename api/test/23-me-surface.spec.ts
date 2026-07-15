@@ -219,24 +219,35 @@ describe("23 me surface: jurisdictions, prefs, visibility, districts, shares, pr
     expect(user?.iconType).to.equal("rings");
   });
 
-  it("PATCH /v1/profile locks unverified accounts to bottts-neutral", async () => {
-    const { token } = await fullSessionAccount(w, "unvicon@example.com");
-    const denied = await w.app.inject({
+  it("PATCH /v1/profile ignores iconType for unverified accounts (no store, no error)", async () => {
+    const { userId, token } = await fullSessionAccount(w, "unvicon@example.com");
+    const res = await w.app.inject({
       method: "PATCH",
       url: "/v1/profile",
       headers: bearer(token),
-      payload: { iconType: "rings" },
+      payload: { iconType: "rings", displayName: "Unv" },
     });
-    expect(denied.statusCode).to.equal(400);
+    expect(res.statusCode).to.equal(200, res.body);
+    expect(res.json().displayName).to.equal("Unv");
+    expect(res.json().iconType).to.equal("bottts-neutral");
+    const user = await w.services.repos.user.getById(userId);
+    expect(user?.iconType).to.equal(null);
+    expect(user?.profileDetails.icon_type).to.equal(undefined);
+  });
 
-    const ok = await w.app.inject({
-      method: "PATCH",
+  it("GET /v1/profile defaults verified accounts with null icon_type to thumbs", async () => {
+    const { userId, token } = await fullSessionAccount(w, "upgradeicon@example.com");
+    await w.services.repos.user.clearIconType(userId);
+    await w.services.kycService.attest(userId, "residency_verified");
+    const res = await w.app.inject({
+      method: "GET",
       url: "/v1/profile",
       headers: bearer(token),
-      payload: { iconType: "bottts-neutral" },
     });
-    expect(ok.statusCode).to.equal(200, ok.body);
-    expect(ok.json().iconType).to.equal("bottts-neutral");
+    expect(res.statusCode).to.equal(200, res.body);
+    expect(res.json().iconType).to.equal("thumbs");
+    const user = await w.services.repos.user.getById(userId);
+    expect(user?.iconType).to.equal(null);
   });
 
   it("PATCH /v1/profile rejects an invalid iconType", async () => {

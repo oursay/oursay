@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   avatarDataUri,
   DEFAULT_USER_ICON_TYPE,
+  DEFAULT_VERIFIED_USER_ICON_TYPE,
   OFFICIAL_SEAT_ICON_TYPE,
   PERSONA_ICON_TYPE,
   UNVERIFIED_USER_ICON_TYPE,
   USER_ICON_TYPES,
-  VERIFIED_USER_ICON_TYPES,
   effectiveUserIconType,
+  parseStoredUserIconType,
 } from "./avatar";
 
 describe("avatarDataUri (DiceBear multi-style)", () => {
@@ -17,7 +18,7 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
     expect(avatarDataUri("alex_morgan", "thumbs")).toBe(a);
   });
 
-  it("defaults unset style to bottts-neutral", () => {
+  it("defaults unset style to bottts-neutral hard-wire", () => {
     expect(DEFAULT_USER_ICON_TYPE).toBe("bottts-neutral");
     expect(UNVERIFIED_USER_ICON_TYPE).toBe("bottts-neutral");
     expect(avatarDataUri("alex_morgan")).toBe(avatarDataUri("alex_morgan", "bottts-neutral"));
@@ -42,15 +43,17 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
     expect(avatarDataUri("seat", OFFICIAL_SEAT_ICON_TYPE).startsWith("data:")).toBe(true);
   });
 
-  it("locks unverified accounts to bottts-neutral and unlocks six verified styles", () => {
+  it("does not store bottts; unverified hard-wires, verified defaults to thumbs", () => {
+    expect(parseStoredUserIconType("bottts-neutral")).toBeNull();
+    expect(parseStoredUserIconType(undefined)).toBeNull();
+    expect(parseStoredUserIconType("rings")).toBe("rings");
+    expect(effectiveUserIconType(null, false)).toBe("bottts-neutral");
     expect(effectiveUserIconType("rings", false)).toBe("bottts-neutral");
+    expect(effectiveUserIconType(null, true)).toBe("thumbs");
+    expect(effectiveUserIconType("bottts-neutral", true)).toBe("thumbs");
     expect(effectiveUserIconType("rings", true)).toBe("rings");
-    expect(VERIFIED_USER_ICON_TYPES).toHaveLength(6);
-    expect(VERIFIED_USER_ICON_TYPES[0]).toBe("thumbs");
-    expect(USER_ICON_TYPES).toContain("bottts-neutral");
-    expect(USER_ICON_TYPES).not.toContain("glass");
-    expect(USER_ICON_TYPES).not.toContain("initial-face");
-    expect(USER_ICON_TYPES).not.toContain("disco");
-    expect(avatarDataUri("alex_morgan", "bottts-neutral").startsWith("data:")).toBe(true);
+    expect(DEFAULT_VERIFIED_USER_ICON_TYPE).toBe("thumbs");
+    expect(USER_ICON_TYPES).toHaveLength(6);
+    expect(USER_ICON_TYPES).not.toContain("bottts-neutral");
   });
 });
