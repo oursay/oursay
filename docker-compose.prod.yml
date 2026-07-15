@@ -129,18 +129,19 @@ services:
       - path: public-record/.env
         required: false
     environment:
-      PGHOST: postgres
-      PGPORT: "5432"
+      PGHOST: ${PGHOST:-postgres}
+      PGPORT: ${PGPORT:-5432}
       PGUSER: ${PGUSER:-oursay}
       PGPASSWORD: ${PGPASSWORD:-oursay}
       PGDATABASE: ${PGDATABASE:-oursay_public_record}
-      IMMUDB_PG_HOST: immudb
-      IMMUDB_PG_PORT: "5432"
-      IMMUDB_PG_USER: immudb
-      IMMUDB_PG_PASSWORD: immudb
-      IMMUDB_PG_DATABASE: defaultdb
+      IMMUDB_PG_HOST: ${IMMUDB_PG_HOST:-immudb}
+      IMMUDB_PG_PORT: ${IMMUDB_PG_PORT:-5432}
+      IMMUDB_PG_USER: ${IMMUDB_PG_USER:-immudb}
+      IMMUDB_PG_PASSWORD: ${IMMUDB_PG_PASSWORD:-immudb}
+      IMMUDB_PG_DATABASE: ${IMMUDB_PG_DATABASE:-defaultdb}
       FILE_ANCHOR_DIR: /repo/public-record/.anchors
       WORKER_CHAIN_IDS: ${WORKER_CHAIN_IDS:-oursay-global,ab-ca-gov}
+      LEDGER_ID: ${LEDGER_ID:-00000000-0000-4000-8000-000000000000}
     volumes:
       - ./public-record/.anchors:/repo/public-record/.anchors
     networks:
@@ -172,21 +173,21 @@ services:
       NODE_ENV: production
       PORT: "8080"
       HOST: "0.0.0.0"
-      PGHOST: postgres
-      PGPORT: "5432"
+      PGHOST: ${PGHOST:-postgres}
+      PGPORT: ${PGPORT:-5432}
       PGUSER: ${PGUSER:-oursay}
       PGPASSWORD: ${PGPASSWORD:-oursay}
       PGDATABASE: ${PGDATABASE:-oursay_public_record}
-      IMMUDB_PG_HOST: immudb
-      IMMUDB_PG_PORT: "5432"
-      IMMUDB_PG_USER: immudb
-      IMMUDB_PG_PASSWORD: immudb
-      IMMUDB_PG_DATABASE: defaultdb
+      IMMUDB_PG_HOST: ${IMMUDB_PG_HOST:-immudb}
+      IMMUDB_PG_PORT: ${IMMUDB_PG_PORT:-5432}
+      IMMUDB_PG_USER: ${IMMUDB_PG_USER:-immudb}
+      IMMUDB_PG_PASSWORD: ${IMMUDB_PG_PASSWORD:-immudb}
+      IMMUDB_PG_DATABASE: ${IMMUDB_PG_DATABASE:-defaultdb}
       CHAIN_ID: ${CHAIN_ID:-ab-ca-gov}
       JURISDICTION_ID: ${JURISDICTION_ID:-ab-ca-gov}
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-oursay.ca}
       WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://demo.oursay.ca,https://app.oursay.ca}
-      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
     networks:
       - proxy
       - data
@@ -259,7 +260,10 @@ services:
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_MOCK_ONLY: "0"
-      OURSAY_API_URL: http://api:8080
+      NEXT_PUBLIC_DEMO_BANNER_ENABLED: ${NEXT_PUBLIC_DEMO_BANNER_ENABLED:-false}
+      NEXT_PUBLIC_GITHUB_SPONSORS_URL: ${NEXT_PUBLIC_GITHUB_SPONSORS_URL:-https://github.com/sponsors/oursay}
+      NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC: ${NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC:-true}
+      NEXT_PUBLIC_SHOW_DONATION_MODAL_KYC: ${NEXT_PUBLIC_SHOW_DONATION_MODAL_KYC:-true}
     networks:
       - proxy
     labels:
