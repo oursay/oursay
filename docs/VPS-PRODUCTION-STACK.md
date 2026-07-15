@@ -114,6 +114,7 @@ Certificates are stored in the `oursay_traefik_letsencrypt` volume. Renewal is h
 1. Confirm DNS points at this VPS and ports 80/443 are reachable from the internet.
 2. Check Traefik logs for ACME / rate-limit errors.
 3. Ensure `TRAEFIK_ACME_EMAIL` is set in `.env`.
+4. If logs say `client version 1.24 is too old` against Docker Engine 29+, Traefik cannot read container labels — use **Traefik ≥ v3.6.1** (compose pins `traefik:v3.6.6`). Then `docker compose … up -d --pull always traefik` (or full `prod:up`).
 
 ## Security checklist
 

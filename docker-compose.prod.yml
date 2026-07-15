@@ -30,7 +30,8 @@ volumes:
 
 services:
   traefik:
-    image: traefik:v3.3
+    # v3.6.1+ auto-negotiates Docker API (Docker Engine 29+ rejects Traefik's old 1.24 client).
+    image: traefik:v3.6.6
     container_name: oursay-traefik
     restart: unless-stopped
     command:
