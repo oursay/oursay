@@ -52,10 +52,12 @@ function recordDetailToFeedItem(
     attachedPoll: detail.attachedPoll,
     identity: detail.identity,
     authorGeo: detail.authorGeo,
+    ...(detail.mentions ? { mentions: detail.mentions } : {}),
   };
 }
 
-function buildPreview(
+/** Build a share-card preview from a publicly projected detail + comments. */
+export function buildSharePreview(
   target: ShareTarget,
   detail: RecordDetail,
   comments: CommentNode[],
@@ -90,7 +92,7 @@ async function getPublicSharePreviewMock(
   const recordId = recordIdFromShareTarget(target);
   const result = await getRecordDetail(recordId, { viewer: ANON_VIEWER });
   if (!result) return null;
-  return buildPreview(target, result.detail, result.comments);
+  return buildSharePreview(target, result.detail, result.comments);
 }
 
 async function getPublicSharePreviewLive(
@@ -105,7 +107,7 @@ async function getPublicSharePreviewLive(
 
   const detail = mapRecordDetail(res.detail);
   const comments = res.comments.map(mapCommentNode);
-  return buildPreview(target, detail, comments);
+  return buildSharePreview(target, detail, comments);
 }
 
 /**
