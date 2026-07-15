@@ -68,6 +68,17 @@ describe("03 secure-store: PRF-unavailable fallback master (non-extractable AES 
     expect(bytesToHex(b)).to.equal(bytesToHex(a));
   });
 
+  it("put/get/delete round-trips a known PRF-sized secret", async () => {
+    const store = new WebCryptoMasterStore(new MemoryKeyStore());
+    const prf = globalThis.crypto.getRandomValues(new Uint8Array(32));
+    await store.put("prf-user", prf);
+    const loaded = await store.get("prf-user");
+    expect(loaded).to.not.equal(null);
+    expect(bytesToHex(loaded!)).to.equal(bytesToHex(prf));
+    await store.delete("prf-user");
+    expect(await store.get("prf-user")).to.equal(null);
+  });
+
   it("persists no plaintext master and a non-extractable wrapping key", async () => {
     const keyStore = new MemoryKeyStore();
     const master = await new WebCryptoMasterStore(keyStore).getOrCreate("user-1");

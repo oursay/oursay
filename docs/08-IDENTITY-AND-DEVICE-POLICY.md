@@ -459,7 +459,11 @@ never raw bytes the app can read).
 
 1. **Authenticate** with the account-login passkey (proves the session). Its WebAuthn **PRF** (or the
    secure-storage fallback) seeds the per-(user, jurisdiction) **nullifier root** only — this is the
-   one "unlock once" step, kept **separate from envelope signing**.
+   one "unlock once" step, kept **separate from envelope signing**. After login the PRF root is held
+   in memory / tab `sessionStorage` and also sealed in IndexedDB (same non-extractable wrap as the
+   secure-store fallback) so a cookie-session restore (hard refresh / new tab) can soft-sign without
+   another WebAuthn prompt; logout clears the seal. Quick Sign uses that unlocked soft key with no
+   further authenticator UI.
 2. **Join thread** → create the thread's **own WebAuthn passkey** (`navigator.credentials.create`, UV
    + resident key). Its public key is the author *Pₜ*; the private key never leaves the authenticator.
    Platform stores the **public** key only (registered as `thread_keys` + the binding + a

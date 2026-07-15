@@ -13,6 +13,10 @@ export {
   savePrfRootSession,
   loadPrfRootSession,
   clearPrfRootSession,
+  savePrfRootDurable,
+  loadPrfRootDurable,
+  clearPrfRootDurable,
+  resolvePrfRoot,
 } from "./custody-binding.js";
 export type { CustodyBinding, CustodyUnlockSource } from "./custody-binding.js";
 export { ThreadPasskeyStore } from "./thread-passkey-store.js";

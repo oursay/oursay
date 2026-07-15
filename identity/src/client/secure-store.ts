@@ -20,6 +20,12 @@
 /** Yields a stable 32-byte derivation master for `name`, creating + persisting it on first use. */
 export interface SecureMasterStore {
   getOrCreate(name: string): Promise<Uint8Array>;
+  /** Persist a known 32-byte secret (e.g. a PRF root cached after login). Overwrites if present. */
+  put(name: string, master: Uint8Array): Promise<void>;
+  /** Read a previously stored secret, or null when absent. */
+  get(name: string): Promise<Uint8Array | null>;
+  /** Drop a persisted secret (logout / revoke). */
+  delete(name: string): Promise<void>;
 }
 
 /** A persisted master: ciphertext + IV, sealed under a non-extractable AES-GCM `wrappingKey`. */
@@ -34,6 +40,7 @@ export interface WrappedMaster {
 export interface KeyStore {
   get(id: string): Promise<WrappedMaster | undefined>;
   put(id: string, value: WrappedMaster): Promise<void>;
+  delete(id: string): Promise<void>;
 }
 
 function subtle(): SubtleCrypto {
@@ -55,6 +62,22 @@ export class WebCryptoMasterStore implements SecureMasterStore {
     const master = globalThis.crypto.getRandomValues(new Uint8Array(32));
     await this.store.put(name, await wrap(master));
     return master;
+  }
+
+  async put(name: string, master: Uint8Array): Promise<void> {
+    if (master.length !== 32) {
+      throw new Error(`secure-store.put: expected 32-byte master, got ${master.length}`);
+    }
+    await this.store.put(name, await wrap(master));
+  }
+
+  async get(name: string): Promise<Uint8Array | null> {
+    const existing = await this.store.get(name);
+    return existing ? unwrap(existing) : null;
+  }
+
+  async delete(name: string): Promise<void> {
+    await this.store.delete(name);
   }
 }
 
@@ -79,6 +102,9 @@ export class MemoryKeyStore implements KeyStore {
   }
   async put(id: string, value: WrappedMaster): Promise<void> {
     this.map.set(id, value);
+  }
+  async delete(id: string): Promise<void> {
+    this.map.delete(id);
   }
 }
 
@@ -120,6 +146,20 @@ export class IndexedDbKeyStore implements KeyStore {
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(this.storeName, "readwrite");
         tx.objectStore(this.storeName).put(value, id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  }
+
+  async delete(id: string): Promise<void> {
+    const db = await this.open();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction(this.storeName, "readwrite");
+        tx.objectStore(this.storeName).delete(id);
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });

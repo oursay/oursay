@@ -1,15 +1,17 @@
 /**
-* Civic custody bootstrap — binds account-login passkey to civic signing material.
-*/
+ * Civic custody bootstrap — binds account-login passkey to civic signing material.
+ */
 
 import {
   IdentitySession,
   WebPasskeyConnector,
   loadCustodyBinding,
-  loadPrfRootSession,
+  resolvePrfRoot,
   saveCustodyBinding,
   savePrfRootSession,
+  savePrfRootDurable,
   clearPrfRootSession,
+  clearPrfRootDurable,
   type CustodyUnlockSource,
 } from "@oursay/identity/client/browser";
 
@@ -26,7 +28,10 @@ export function clearCachedCustodySession(): void {
   const userId = cachedCustodyUserId;
   cachedCustodySession = null;
   cachedCustodyUserId = null;
-  if (userId) clearPrfRootSession(userId);
+  if (userId) {
+    clearPrfRootSession(userId);
+    void clearPrfRootDurable(userId);
+  }
 }
 
 function cacheCustodySession(userId: string, session: IdentitySession): IdentitySession {
@@ -35,18 +40,21 @@ function cacheCustodySession(userId: string, session: IdentitySession): Identity
   return session;
 }
 
+function connector(): WebPasskeyConnector {
+  const rpId = typeof location !== "undefined" ? location.hostname : "localhost";
+  return new WebPasskeyConnector({ rpId });
+}
+
 /**
  * Persist custody binding after account passkey login/register and warm the in-memory session
  * so the first civic write (e.g. a reaction) needs no additional WebAuthn prompt.
  */
-
 export async function bootstrapCivicCustody(
   userId: string,
   credentialIdHex: string,
   prfRoot: Uint8Array | null,
 ): Promise<void> {
-  const rpId = typeof location !== "undefined" ? location.hostname : "localhost";
-  const conn = new WebPasskeyConnector({ rpId });
+  const conn = connector();
 
   let unlockSource: CustodyUnlockSource;
   let session: IdentitySession;
@@ -54,6 +62,7 @@ export async function bootstrapCivicCustody(
   if (prfRoot) {
     unlockSource = "prf";
     savePrfRootSession(userId, prfRoot);
+    await savePrfRootDurable(userId, prfRoot);
     session = new IdentitySession(
       conn.buildSessionFromPrfRoot({ userId, credentialIdHex, prfRoot }),
     );
@@ -70,52 +79,73 @@ export async function bootstrapCivicCustody(
 
   saveCustodyBinding(userId, { credentialIdHex, unlockSource });
   cacheCustodySession(userId, session);
-
 }
 
-/** Warm custody from a saved binding (e.g. after cookie session restore). Silent when possible. */
+/**
+ * Unlock custody without WebAuthn when possible (session PRF, durable PRF, or secure-store).
+ * Returns null when an interactive passkey assertion would be required.
+ */
+export async function trySilentCustodySession(
+  userId: string,
+): Promise<IdentitySession | null> {
+  const cached = getCachedCustodySession(userId);
+  if (cached) return cached;
 
+  const binding = loadCustodyBinding(userId);
+  if (!binding) return null;
+
+  const conn = connector();
+
+  if (binding.unlockSource === "prf") {
+    const prfRoot = await resolvePrfRoot(userId);
+    if (!prfRoot) return null;
+    return cacheCustodySession(
+      userId,
+      new IdentitySession(
+        conn.buildSessionFromPrfRoot({
+          userId,
+          credentialIdHex: binding.credentialIdHex,
+          prfRoot,
+        }),
+      ),
+    );
+  }
+
+  // secure-store: IndexedDB unwrap — no navigator.credentials.
+  return cacheCustodySession(
+    userId,
+    new IdentitySession(
+      await conn.unlockFromAccountCredential({
+        userId,
+        credentialIdHex: binding.credentialIdHex,
+        unlockSource: "secure-store",
+      }),
+    ),
+  );
+}
+
+/** Warm custody from a saved binding (e.g. after cookie session restore). Never prompts WebAuthn. */
 export async function warmCivicCustody(userId: string): Promise<void> {
   if (getCachedCustodySession(userId)) return;
-  // loadCustodySession does its own binding lookup, so we don't pre-load it here (was a double read).
-  // The only expected failure while warming is "no saved binding yet", which we swallow.
   try {
-    await loadCustodySession(userId);
+    await trySilentCustodySession(userId);
   } catch {
-    // No saved binding (or unlock unavailable) — the next civic write will prompt.
+    // Unlock unavailable — the next civic write may prompt once, then soft-sign thereafter.
   }
 }
 
-/** Load or unlock civic custody for civic writes (uses cache when available). */
-
+/** Load or unlock civic custody for civic writes (uses silent paths first). */
 export async function loadCustodySession(userId: string): Promise<IdentitySession> {
-  const cached = getCachedCustodySession(userId);
-  if (cached) return cached;
+  const silent = await trySilentCustodySession(userId);
+  if (silent) return silent;
 
   const binding = loadCustodyBinding(userId);
   if (!binding) {
     throw new Error("Sign in with your passkey to participate — civic signing requires passkey login.");
   }
 
-  const rpId = typeof location !== "undefined" ? location.hostname : "localhost";
-  const conn = new WebPasskeyConnector({ rpId });
-
-  if (binding.unlockSource === "prf") {
-    const prfRoot = loadPrfRootSession(userId);
-    if (prfRoot) {
-      return cacheCustodySession(
-        userId,
-        new IdentitySession(
-          conn.buildSessionFromPrfRoot({
-            userId,
-            credentialIdHex: binding.credentialIdHex,
-            prfRoot,
-          }),
-        ),
-      );
-    }
-  }
-
+  // Last resort: interactive unlock (PRF devices after logout-without-durable, etc.).
+  const conn = connector();
   const session = new IdentitySession(
     await conn.unlockFromAccountCredential({
       userId,
@@ -125,6 +155,7 @@ export async function loadCustodySession(userId: string): Promise<IdentitySessio
   );
   if (conn.lastUnlockSource === "prf" && conn.lastPrfRoot) {
     savePrfRootSession(userId, conn.lastPrfRoot);
+    await savePrfRootDurable(userId, conn.lastPrfRoot);
   }
   return cacheCustodySession(userId, session);
 }
