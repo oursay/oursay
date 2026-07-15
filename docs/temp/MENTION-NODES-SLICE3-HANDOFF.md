@@ -94,7 +94,7 @@ Suggested embed helper home: shared util next to encode (`buildMentionToken`) ca
 
 | Layer | Work |
 |-------|------|
-| Compose surfaces | Root compose ([`ComposeFlow.tsx`](../../web-app/src/components/chrome/ComposeFlow.tsx)) + reply composer ([`ReplyComposer.tsx`](../../web-app/src/components/content/ReplyComposer.tsx) / PostView reply path). Typeahead on `@` → candidate `{ kind: "persona", personaName }` or `{ kind: "profile", userId/handle }`. |
+| Compose surfaces | Root compose ([`ComposeFlow.tsx`](../../web-app/src/components/chrome/ComposeFlow.tsx)) uses `MentionComposer` on Statement/Title, Details, and poll Question (roster via `mentionRosterForNewThread` — seeds self). Reply composer ([`ReplyComposer.tsx`](../../web-app/src/components/content/ReplyComposer.tsx) / PostView) uses in-thread roster. Typeahead on `@` → candidate `{ kind: "persona", personaName }` or `{ kind: "profile", userId/handle }`. |
 | [`web-app/src/lib/api/civic.ts`](../../web-app/src/lib/api/civic.ts) | Thread candidates through `civicComment` / root create helpers into SDK append. Today `civicComment` only passes `{ body }` — extend to carry mentions. |
 | State / AppProvider | Wherever compose submit is orchestrated ([`AppProvider.tsx`](../../web-app/src/lib/state/AppProvider.tsx) calls `civicComment`) — collect mention candidates from the editor, not by re-parsing free text after the fact unless that is the chosen model (ask). |
 

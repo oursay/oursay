@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { User } from "lucide-react";
@@ -36,6 +36,7 @@ import { GLOBAL_ID } from "@/lib/types";
 import { rootTypesForJurisdiction } from "@/lib/compose-eligibility";
 import { jurisdictionWidePost, resolveGeography } from "@/lib/read-model";
 import { accountIdentity, authEmailOf, scopedFeedFilterFromState, useApp } from "@/lib/state";
+import { mentionRosterForNewThread } from "@/lib/mentions/roster";
 import type { RecordKind } from "@/lib/types";
 import {
   jurisdictionPath,
@@ -94,6 +95,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const loginPasskeyBusy = passkeyBusy?.anchor === "login" ? passkeyBusy.phase : null;
   const profilePasskeyBusy = passkeyBusy?.anchor === "profile" ? passkeyBusy.phase : null;
   const choosePasskeyBusy = passkeyBusy?.anchor === "choose" ? passkeyBusy.phase : null;
+
+  const composeMentionRoster = useMemo(() => {
+    const identity = accountIdentity(state);
+    return mentionRosterForNewThread({
+      handle: identity?.handle,
+      displayName: identity?.name,
+    });
+  }, [state.loggedIn, state.accountHandle, state.accountDisplayName]);
 
   const [donationOpen, setDonationOpen] = useState<DonationOpen>(null);
   const [pendingKyc, setPendingKyc] = useState<PendingKyc>(null);
@@ -664,6 +673,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onComposeTitleChange={app.setComposeTitle}
         onComposeBodyChange={app.setComposeBody}
         onComposePollOptionsChange={app.setComposePollOptions}
+        mentionRoster={composeMentionRoster}
         onPost={app.submitCompose}
       />
       <ChooseSignModal

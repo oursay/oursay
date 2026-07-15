@@ -48,7 +48,7 @@ import { nextSignedFilterLevel } from "@/lib/types/sign-tier";
 import { nextGeoFilterMode } from "@/lib/types";
 import { shareBaseCount } from "@/lib/share";
 import { resolveComposeMentionsFields } from "@/lib/mentions/compose";
-import { emptyMentionRoster } from "@/lib/mentions/roster";
+import { mentionRosterForNewThread } from "@/lib/mentions/roster";
 import type {
   AppState,
   ShareTarget,
@@ -1924,12 +1924,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const selfHandle =
       wireHandle(state.accountHandle) ?? (isMockOnly() ? MY_HANDLE : "you");
     const threadId = crypto.randomUUID();
-    // New-thread roster is empty — unmatched @ → Someone (still tokenized).
+    // New-thread roster seeds self so typeahead + resolve match Ask compose UX.
     const fieldOrder = kind === "poll" ? ["title"] : ["title", "body"];
     const resolved = resolveComposeMentionsFields(
       { title, body },
       fieldOrder,
-      emptyMentionRoster(),
+      mentionRosterForNewThread({
+        handle: selfHandle,
+        displayName: state.accountDisplayName,
+      }),
     );
     const composeTitleFinal = resolved.fields.title ?? title;
     const composeBodyFinal = resolved.fields.body ?? body;
@@ -2015,6 +2018,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state.kycTier,
     state.accountVisibility,
     state.composeVisibility,
+    state.accountHandle,
+    state.accountDisplayName,
     runSigned,
     runCivicWrite,
     closeCompose,

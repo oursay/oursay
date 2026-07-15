@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mentionRosterFromThread } from "./roster";
+import { mentionRosterForNewThread, mentionRosterFromThread } from "./roster";
 import type { CommentNode, RecordDetail } from "@/lib/types";
 
 describe("mentionRosterFromThread", () => {
@@ -63,5 +63,23 @@ describe("mentionRosterFromThread", () => {
     const entry = roster.profiles.find((p) => p.label === "ableg");
     expect(entry?.display).toBe("ableg");
     expect(entry?.aliases).toContain("Alberta Legislature");
+  });
+});
+
+describe("mentionRosterForNewThread", () => {
+  it("seeds the signed-in profile for self-@ on new posts", () => {
+    const roster = mentionRosterForNewThread({
+      handle: "alex_morgan",
+      displayName: "Alex Morgan",
+    });
+    expect(roster.personas).toHaveLength(0);
+    expect(roster.profiles).toHaveLength(1);
+    expect(roster.profiles[0]?.display).toBe("alex_morgan");
+    expect(roster.profiles[0]?.aliases).toContain("Alex Morgan");
+  });
+
+  it("returns empty when no handle is available", () => {
+    expect(mentionRosterForNewThread({}).profiles).toHaveLength(0);
+    expect(mentionRosterForNewThread({ handle: "  " }).profiles).toHaveLength(0);
   });
 });

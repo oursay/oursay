@@ -19,10 +19,13 @@ import {
   PollComposeBody,
 } from "@/components/ui";
 import { AnonymityDropdown } from "@/components/identity";
+import { MentionComposer } from "@/components/content/MentionComposer";
 import { AffectedDistrictsSelector } from "./AffectedDistrictsSelector";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
 import { ALBERTA_ID } from "@/lib/types";
 import type { AuthorVisibility, DistrictSummary, RecordKind, VerificationTier } from "@/lib/types";
+import type { MentionRoster } from "@/lib/mentions/compose";
+import { emptyMentionRoster } from "@/lib/mentions/roster";
 
 export type ComposeStep = "where" | "type" | "compose";
 
@@ -58,6 +61,8 @@ interface ComposeFlowProps {
   onComposeTitleChange?: (v: string) => void;
   onComposeBodyChange?: (v: string) => void;
   onComposePollOptionsChange?: (v: string[]) => void;
+  /** Typeahead roster for `@` in title/body/question (new-thread usually seeds self). */
+  mentionRoster?: MentionRoster;
   /** Submits (Global) or opens the passkey confirmation (Alberta). */
   onPost?: () => void;
 }
@@ -66,6 +71,41 @@ const PICKER_TITLES: Record<"where" | "type", string> = {
   where: "Where do you want to post?",
   type: "What do you want to post?",
 };
+
+const MENTION_FIELD_CLASS =
+  "rounded-lg border border-border bg-surface-muted";
+
+function ComposeMentionField({
+  label,
+  value,
+  onChange,
+  roster,
+  placeholder,
+  rows,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  roster: MentionRoster;
+  placeholder?: string;
+  rows: number;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">
+        {label}
+      </span>
+      <MentionComposer
+        value={value}
+        onChange={onChange}
+        roster={roster}
+        placeholder={placeholder}
+        rows={rows}
+        className={MENTION_FIELD_CLASS}
+      />
+    </label>
+  );
+}
 
 /**
  * Compose flow: jurisdiction pick -> type pick -> type-specific editor.
@@ -100,6 +140,7 @@ export function ComposeFlow({
   onComposeTitleChange,
   onComposeBodyChange,
   onComposePollOptionsChange,
+  mentionRoster = emptyMentionRoster(),
   onPost,
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
@@ -340,10 +381,16 @@ export function ComposeFlow({
           ) : null}
 
           {selectedType === "poll" ? (
-            <PollComposeBody options={pollOptions} onChange={setPollOptions} />
+            <PollComposeBody
+              options={pollOptions}
+              onChange={setPollOptions}
+              question={composeTitle}
+              onQuestionChange={(v) => onComposeTitleChange?.(v)}
+              mentionRoster={mentionRoster}
+            />
           ) : (
             <>
-              <ModalField
+              <ComposeMentionField
                 label={selectedType === "statement" ? "Statement" : "Title"}
                 placeholder={
                   selectedType === "petition"
@@ -351,19 +398,21 @@ export function ComposeFlow({
                     : "A clear headline…"
                 }
                 value={composeTitle}
-                onChange={(e) => onComposeTitleChange?.(e.target.value)}
+                onChange={(v) => onComposeTitleChange?.(v)}
+                roster={mentionRoster}
+                rows={2}
               />
-              <ModalField
+              <ComposeMentionField
                 label="Details"
                 placeholder={
                   selectedType === "petition"
                     ? "Write your petition…"
                     : "Justify your statement in detail…"
                 }
-                multiline
-                rows={4}
                 value={composeBody}
-                onChange={(e) => onComposeBodyChange?.(e.target.value)}
+                onChange={(v) => onComposeBodyChange?.(v)}
+                roster={mentionRoster}
+                rows={4}
               />
             </>
           )}

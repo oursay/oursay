@@ -1,6 +1,8 @@
 "use client";
 
 import { Plus, X } from "lucide-react";
+import { MentionComposer } from "@/components/content/MentionComposer";
+import type { MentionRoster } from "@/lib/mentions/compose";
 import { ModalField } from "./ModalField";
 
 interface PollComposeBodyProps {
@@ -11,9 +13,17 @@ interface PollComposeBodyProps {
   /** Petition-attached polls label the question field differently. */
   questionLabel?: string;
   questionPlaceholder?: string;
+  /** Poll question text (root compose binds this to composeTitle). */
+  question?: string;
+  onQuestionChange?: (value: string) => void;
+  /** When set, the question field supports `@` typeahead. */
+  mentionRoster?: MentionRoster;
 }
 
 const MIN_OPTIONS = 2;
+
+const MENTION_FIELD_CLASS =
+  "rounded-lg border border-border bg-surface-muted";
 
 /**
  * Poll editor body: question + growable option rows. Shared by the Global
@@ -25,10 +35,36 @@ export function PollComposeBody({
   maxOptions = 10,
   questionLabel = "Question",
   questionPlaceholder = "Ask a yes/no or multiple-choice question…",
+  question = "",
+  onQuestionChange,
+  mentionRoster,
 }: PollComposeBodyProps) {
   return (
     <div className="space-y-4">
-      <ModalField label={questionLabel} placeholder={questionPlaceholder} />
+      {mentionRoster && onQuestionChange ? (
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">
+            {questionLabel}
+          </span>
+          <MentionComposer
+            value={question}
+            onChange={onQuestionChange}
+            roster={mentionRoster}
+            placeholder={questionPlaceholder}
+            rows={2}
+            className={MENTION_FIELD_CLASS}
+          />
+        </label>
+      ) : onQuestionChange ? (
+        <ModalField
+          label={questionLabel}
+          placeholder={questionPlaceholder}
+          value={question}
+          onChange={(e) => onQuestionChange(e.target.value)}
+        />
+      ) : (
+        <ModalField label={questionLabel} placeholder={questionPlaceholder} />
+      )}
 
       <div className="space-y-2">
         <span className="block text-[11px] font-bold uppercase tracking-wide text-muted">

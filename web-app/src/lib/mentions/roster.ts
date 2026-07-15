@@ -105,7 +105,22 @@ export function mentionRosterFromThread(
   };
 }
 
-/** Empty roster (new-thread compose) — every `@` resolves to Someone client-side. */
+/** Empty roster — every `@` resolves to Someone client-side. */
 export function emptyMentionRoster(): MentionRoster {
   return { personas: [], profiles: [] };
+}
+
+/**
+ * Roster for new-thread compose (Statement / Petition / Poll). Seeds the
+ * signed-in profile so self-`@` typeahead works; there is no in-thread roster
+ * yet. Typed handles still tokenize on submit (Someone if unresolved).
+ */
+export function mentionRosterForNewThread(opts: {
+  handle?: string | null;
+  displayName?: string | null;
+}): MentionRoster {
+  const profiles = new Map<string, MentionRosterEntry>();
+  const handle = opts.handle?.replace(/^@/, "").trim();
+  if (handle) addProfile(profiles, handle, opts.displayName);
+  return { personas: [], profiles: [...profiles.values()] };
 }
