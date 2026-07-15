@@ -312,7 +312,7 @@ export class CivicHttpClient {
     });
     if (!res.ok) {
       const errBody = await parseBody(res);
-      const detail = typeof errBody === "object" && errBody && "message" in errBody ? String((errBody as { message: unknown }).message) : res.statusText;
+      const detail = civicErrorMessage(errBody) ?? res.statusText;
       throw new CivicHttpError(res.status, errBody, `${method} ${path} failed (${res.status}): ${detail}`);
     }
     if (res.status === 204) return undefined as T;
@@ -328,4 +328,17 @@ async function parseBody(res: Response): Promise<unknown> {
   } catch {
     return text;
   }
+}
+
+/** Prefer `{ error: { message } }` (API shape), then a top-level `message`. */
+function civicErrorMessage(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") return undefined;
+  const o = body as Record<string, unknown>;
+  const nested = o.error;
+  if (nested && typeof nested === "object" && "message" in nested) {
+    const m = (nested as { message: unknown }).message;
+    if (typeof m === "string" && m.length > 0) return m;
+  }
+  if (typeof o.message === "string" && o.message.length > 0) return o.message;
+  return undefined;
 }

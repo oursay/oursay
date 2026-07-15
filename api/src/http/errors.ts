@@ -36,16 +36,16 @@ export function errorBody(code: string, message: string, details?: unknown): Err
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((err: any, req: FastifyRequest, reply: FastifyReply) => {
     if (isServiceError(err)) {
-      // Fail-closed upstream (e.g. ledger pool gate) — keep the detail in logs; client still gets the body.
-      if (err.code === "unavailable") req.log.warn({ err }, err.message);
+      // Client-visible failures: keep detail in logs (503 ledger, 400 validation, 403 gates, …).
+      if (err.code === "unavailable" || err.code === "validation" || err.code === "forbidden") {
+        req.log.warn({ err, code: err.code, details: err.details }, err.message);
+      }
       reply.status(STATUS[err.code] ?? 400).send(errorBody(err.code, err.message, err.details));
       return;
     }
     // Fastify validation errors (schema) → 400.
     if (err.validation) {
-      if (process.env.NODE_ENV !== "production" && req.url.includes("/otp/verify")) {
-        req.log.warn({ validation: err.validation }, "OTP verify rejected (request schema)");
-      }
+      req.log.warn({ validation: err.validation }, err.message);
       reply.status(400).send(errorBody("validation", err.message, err.validation));
       return;
     }
