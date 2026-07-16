@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { jurisdictionAllowsVoteChange } from "@/lib/signing";
+import { relTime, useNow } from "@/lib/read-model";
 import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
 import { Button } from "@/components/ui";
 import { ScopeTag } from "./ScopeTag";
@@ -12,6 +13,7 @@ import { RecordCard } from "./RecordCard";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
 import { MentionText } from "./MentionText";
+import { TimestampWithAnchor } from "./TimestampWithAnchor";
 
 interface FeedCardProps {
   item: FeedItem;
@@ -64,6 +66,7 @@ export function FeedCard({
   onJurisdictionClick,
   onDistrictClick,
 }: FeedCardProps) {
+  const now = useNow();
   const [expanded, setExpanded] = useState(false);
   const multiDistrict = item.districts.length > 1;
   const scopeProps = {
@@ -113,6 +116,18 @@ export function FeedCard({
             <h3 className="text-[15px] font-bold text-ink">
               <MentionText text={item.title} mentions={item.mentions} linkable={false} />
             </h3>
+            {item.ts ? (
+              <p className="mt-0.5 text-xs text-muted">
+                <TimestampWithAnchor
+                  time={relTime(item.ts, now)}
+                  externallyAnchored={item.externallyAnchored}
+                />
+              </p>
+            ) : item.externallyAnchored ? (
+              <p className="mt-0.5 text-xs text-muted">
+                <TimestampWithAnchor time="" externallyAnchored />
+              </p>
+            ) : null}
             <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
               <MentionText
                 text={item.body.join(" ")}

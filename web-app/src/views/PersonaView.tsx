@@ -7,6 +7,7 @@ import { getPersonaProfile } from "@/lib/api";
 import type { PersonaProfile } from "@/lib/api";
 import type { CommentNode } from "@/lib/types";
 import { relTime, useNow } from "@/lib/read-model";
+import { TimestampWithAnchor } from "@/components/content/TimestampWithAnchor";
 import { PERSONA_ICON_TYPE } from "@/lib/avatar";
 import { Avatar, CommentCard, FeedCard, VerificationPill } from "@/components";
 import {
@@ -206,7 +207,12 @@ export function PersonaView({ personaName }: { personaName: string }) {
                   tier={node.tier}
                   signTier={node.signTier}
                   identity={node.identity}
-                  timestamp={relTime(node.ts, now)}
+                  timestamp={
+                    <TimestampWithAnchor
+                      time={relTime(node.ts, now)}
+                      externallyAnchored={node.externallyAnchored}
+                    />
+                  }
                   body={
                     <>
                       {node.body.map((line, li) => (

@@ -212,6 +212,8 @@ export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
   if (raw.goal != null) item.goal = raw.goal as number;
   if (raw.edits != null) item.edits = raw.edits as number;
   if (raw.signTier != null) item.signTier = raw.signTier as SignTier;
+  if (raw.ts != null) item.ts = String(raw.ts);
+  if (raw.externallyAnchored === true) item.externallyAnchored = true;
   const opts = mapOptions(raw.options);
   if (opts) item.options = opts;
   const poll = mapAttachedPoll(raw.attachedPoll);
@@ -241,6 +243,7 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
       ? mapIdentity(raw.identity as Record<string, unknown>)
       : undefined,
   };
+  if (raw.externallyAnchored === true) detail.externallyAnchored = true;
   if (raw.up != null) detail.up = raw.up as number;
   if (raw.down != null) detail.down = raw.down as number;
   if (raw.sig != null) detail.sig = raw.sig as number;
@@ -278,6 +281,7 @@ export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
       ? mapIdentity(raw.identity as Record<string, unknown>)
       : undefined,
   };
+  if (raw.externallyAnchored === true) node.externallyAnchored = true;
   if (raw.edits != null) node.edits = raw.edits as number;
   if (raw.signTier != null) node.signTier = raw.signTier as SignTier;
   if (raw._my != null) node._my = raw._my as "up" | "down" | null;

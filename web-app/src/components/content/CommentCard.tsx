@@ -14,7 +14,7 @@ interface CommentCardProps {
   authorGeo?: AuthorGeoRelation;
   /** Viewer-resolved author identity (persona / self affordances). */
   identity?: AuthorIdentity;
-  timestamp: string;
+  timestamp: ReactNode;
   depth?: number;
   body: ReactNode;
   up: number;

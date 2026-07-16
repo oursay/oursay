@@ -87,6 +87,11 @@ export interface FeedItemDto {
   edits: number;
   /** Original create time, ISO (display; ordering is the cursor's concern). */
   ts: string;
+  /**
+   * True when this entity's create commitment is covered by an external public-witness
+   * anchor (not merely settled on the internal ledger).
+   */
+  externallyAnchored: boolean;
 }
 
 export interface FeedResponse {
@@ -203,12 +208,15 @@ export class PublicFeedService {
       }),
     );
     const ids = resolved.map(({ row }) => row.entityId);
-    const [editCounts, commentCounts] = await Promise.all([
+    const [editCounts, commentCounts, anchored] = await Promise.all([
       this.d.recordStore.getEditCounts(ids),
       this.d.recordStore.getCommentCounts(ids),
+      this.d.recordStore.getExternallyAnchoredFlags(ids),
     ]);
     return Promise.all(
-      resolved.map(({ row, resolved: r }) => this.toDto(row, r, editCounts, commentCounts)),
+      resolved.map(({ row, resolved: r }) =>
+        this.toDto(row, r, editCounts, commentCounts, anchored),
+      ),
     );
   }
 
@@ -231,6 +239,7 @@ export class PublicFeedService {
     r: Resolved,
     editCounts: Map<string, number>,
     commentCounts: Map<string, number>,
+    anchored: Map<string, boolean>,
   ): Promise<FeedItemDto> {
     const view = toPublicView(row);
     const type = row.type as RootType;
@@ -252,6 +261,7 @@ export class PublicFeedService {
       comments: commentCounts.get(row.entityId) ?? 0,
       edits: editCounts.get(row.entityId) ?? 0,
       ts: row.firstCreatedAt,
+      externallyAnchored: anchored.get(row.entityId) ?? false,
     };
 
     if (!view.withheld) {

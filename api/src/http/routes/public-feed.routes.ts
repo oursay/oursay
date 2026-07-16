@@ -58,10 +58,16 @@ const feedItemSchema = {
     comments: { type: "integer", description: "Live comment count, all nesting depths." },
     edits: { type: "integer", description: "Revision count (update transactions)." },
     ts: { type: "string", description: "Original create time, ISO." },
+    externallyAnchored: {
+      type: "boolean",
+      description:
+        "True when this entity's create commitment is covered by an external public-witness anchor (not merely settled on the internal ledger).",
+    },
   },
   required: [
     "id", "type", "jurisdiction", "tier", "official", "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "comments", "edits", "ts",
+    "externallyAnchored",
   ],
 } as const;
 

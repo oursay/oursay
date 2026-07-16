@@ -141,7 +141,7 @@ export class BlockSettler {
 
     // (2) Commit the header, then (3) clear the pool. Only now is the block durable on the chain.
     await this.connector.appendBlock(header);
-    await this.store.markOutboxSentBatch(batch.map((p) => p.txId));
+    await this.store.markOutboxSentBatch(batch.map((p) => p.txId), header.blockHeight);
     return header;
   }
 

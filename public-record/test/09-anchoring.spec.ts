@@ -338,7 +338,7 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
       expect(e.height).to.equal(1);
       expect(e.expectedRoot).to.equal(good.bundleMerkleRoot);
       expect(e.actualRoot).to.equal(badRoot);
-      expect(e.targetKind).to.equal("FileAnchorTarget");
+      expect(e.targetKind).to.equal("file");
     }
   });
 

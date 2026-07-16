@@ -63,7 +63,7 @@ async function main(): Promise<void> {
       chainId: c.chainId,
       blockConfig: c.blockConfig,
       settler: new BlockSettler(store, connector, c.chainId, c.blockConfig, outboxConfig),
-      publisher: new AnchorPublisher(connector, new BundleAssembler(store), c.chainId),
+      publisher: new AnchorPublisher(connector, new BundleAssembler(store), c.chainId, store),
       targets,
     });
   }

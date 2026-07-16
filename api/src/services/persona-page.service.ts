@@ -66,6 +66,11 @@ export class PersonaPageService {
     const tree = await this.collectTree(resolved.threadId, 1);
     const editCounts = tree.length > 0 ? await this.d.recordStore.getEditCounts(collectIds(tree)) : new Map();
     const comments = await this.collectAuthoredComments(tree, resolved.pubkey, res, ctx, editCounts);
+    const commentIds = comments.map((c) => c.id);
+    const anchored = await this.d.recordStore.getExternallyAnchoredFlags(commentIds);
+    for (const c of comments) {
+      c.externallyAnchored = anchored.get(c.id) ?? false;
+    }
     const activityRows = await this.d.recordStore.listAuthorActivity([resolved.pubkey], { limit: 100 });
     const activity = await this.d.profilePageService.mapAuthorActivityRows(activityRows);
 
@@ -160,6 +165,7 @@ export class PersonaPageService {
       authorGeo: author.authorGeo,
       ts: node.state.createdAt,
       edits: editCounts.get(node.state.entityId) ?? 0,
+      externallyAnchored: false,
       signTier: node.state.signTier,
       body: view.withheld ? [] : paras(commentBody(view.content)),
       withheld: view.withheld,

@@ -14,6 +14,9 @@ import type { AnchorRecord, BlockBundle } from "./types.js";
  * gap/out-of-order in heights throws — the target never silently re-anchors overlapping ranges.
  */
 export class FileAnchorTarget implements AnchorTarget {
+  readonly kind = "file";
+  /** Local / platform-controlled replica — does not count as a public-witness trust root. */
+  readonly publicWitness = false;
   private readonly anchorsPath: string;
   private readonly blocksDir: string;
 

@@ -294,7 +294,7 @@ export class PrivateStore {
     assertDestructiveAllowed("PrivateStore.reset()");
     // mention_map first: unresolved rows (NULL user) are not CASCADE-cleared via users alone.
     await this.pool.query(
-      "TRUNCATE mention_index, mention_map, record_outbox, record_tx, thread_signers, thread_civic_credentials, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users CASCADE",
+      "TRUNCATE mention_index, mention_map, record_outbox, record_tx, thread_signers, thread_civic_credentials, device_keys, thread_bindings, nullifier_attestations, thread_keys, jurisdiction_master_keys, kyc_attestations, users, anchor_publish_cursor CASCADE",
     );
   }
 
@@ -388,13 +388,86 @@ export class PrivateStore {
     return r.rows.map((row) => ({ txId: row.tx_id, seq: Number(row.seq), payload: row.payload as ChainRow }));
   }
 
-  /** Mark a whole settled block's commitments sent in one statement (atomic with respect to readers). */
-  async markOutboxSentBatch(txIds: string[]): Promise<void> {
+  /** Mark a whole settled block's commitments sent in one statement (atomic with respect to readers).
+   * When `blockHeight` is provided (normal settle path), stamp it for externally-anchored checks. */
+  async markOutboxSentBatch(txIds: string[], blockHeight?: number): Promise<void> {
     if (txIds.length === 0) return;
+    if (blockHeight != null) {
+      await this.pool.query(
+        `UPDATE record_outbox SET status = 'sent', sent_at = now(), block_height = $2 WHERE tx_id = ANY($1::uuid[])`,
+        [txIds, blockHeight],
+      );
+      return;
+    }
     await this.pool.query(
       `UPDATE record_outbox SET status = 'sent', sent_at = now() WHERE tx_id = ANY($1::uuid[])`,
       [txIds],
     );
+  }
+
+  /**
+   * Advance (or create) the publish tip for a public-witness target. Tips only move forward.
+   */
+  async upsertAnchorPublishCursor(chainId: string, targetKind: string, tipHeight: number): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO anchor_publish_cursor (chain_id, target_kind, tip_height, updated_at)
+       VALUES ($1, $2, $3, now())
+       ON CONFLICT (chain_id, target_kind) DO UPDATE
+         SET tip_height = GREATEST(anchor_publish_cursor.tip_height, EXCLUDED.tip_height),
+             updated_at = now()`,
+      [chainId, targetKind, tipHeight],
+    );
+  }
+
+  /** Max public-witness tip height per chain (any target_kind). Missing chains → omitted. */
+  async getPublicWitnessTips(chainIds: string[]): Promise<Map<string, number>> {
+    const out = new Map<string, number>();
+    if (chainIds.length === 0) return out;
+    const r = await this.pool.query(
+      `SELECT chain_id, MAX(tip_height)::int AS tip
+       FROM anchor_publish_cursor
+       WHERE chain_id = ANY($1::text[])
+       GROUP BY chain_id`,
+      [chainIds],
+    );
+    for (const row of r.rows) {
+      out.set(row.chain_id as string, Number(row.tip));
+    }
+    return out;
+  }
+
+  /**
+   * Whether each entity's create commitment is covered by a public-witness anchor tip.
+   * Pending / unsettled / unknown height → false. File-only publish does not write the cursor,
+   * so settlement alone never lights the flag.
+   */
+  async getExternallyAnchoredFlags(entityIds: string[]): Promise<Map<string, boolean>> {
+    const out = new Map<string, boolean>();
+    for (const id of entityIds) out.set(id, false);
+    if (entityIds.length === 0) return out;
+
+    const r = await this.pool.query(
+      `SELECT DISTINCT ON (t.entity_id)
+          t.entity_id, o.chain_id, o.status, o.block_height
+       FROM record_tx t
+       JOIN record_outbox o ON o.tx_id = t.tx_id
+       WHERE t.entity_id = ANY($1::uuid[]) AND t.op = 'create'
+       ORDER BY t.entity_id, t.seq ASC`,
+      [entityIds],
+    );
+
+    const chainIds = [...new Set(r.rows.map((row) => row.chain_id as string))];
+    const tips = await this.getPublicWitnessTips(chainIds);
+
+    for (const row of r.rows) {
+      const entityId = row.entity_id as string;
+      if (row.status !== "sent") continue;
+      const height = row.block_height != null ? Number(row.block_height) : null;
+      if (height == null || height < 1) continue;
+      const tip = tips.get(row.chain_id as string) ?? 0;
+      if (tip >= height) out.set(entityId, true);
+    }
+    return out;
   }
 
   /** Record a failed relay attempt; the row stays pending for the next sweep. */

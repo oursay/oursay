@@ -106,7 +106,7 @@ describe("20 db-per-jurisdiction", function () {
 
     const anchorDir = mkdtempSync(join(tmpdir(), "oursay-dbjur-"));
     const target = new FileAnchorTarget(anchorDir, everyNBlocks(1));
-    const publisher = new AnchorPublisher(connB, new BundleAssembler(w.store), chainB);
+    const publisher = new AnchorPublisher(connB, new BundleAssembler(w.store), chainB, w.store);
     await publisher.publish(target);
     const report = verifyChain(await target.listAnchors(), chainB);
     expect(report.ok).to.equal(true);

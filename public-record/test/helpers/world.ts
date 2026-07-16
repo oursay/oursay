@@ -100,7 +100,7 @@ export async function freshChainWorld(cfg = blockConfig): Promise<ChainWorld> {
   const connector = await w.ledger.getConnector(chainId);
   const svc = new RecordService(new PublicChain(w.store, chainId, connector), w.store);
   const settler = new BlockSettler(w.store, connector, chainId, cfg);
-  const publisher = new AnchorPublisher(connector, new BundleAssembler(w.store), chainId);
+  const publisher = new AnchorPublisher(connector, new BundleAssembler(w.store), chainId, w.store);
   return { chainId, svc, settler, publisher, connector };
 }
 

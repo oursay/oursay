@@ -30,6 +30,11 @@ export interface CommentNode {
   authorGeo?: AuthorGeoRelation;
   /** ISO created time -> relTime(). */
   ts: string;
+  /**
+   * True when this comment's create commitment is covered by an external public-witness
+   * anchor. Absent on mock corpus → treat as false.
+   */
+  externallyAnchored?: boolean;
   /** Revision count -> "N edits" affordance; absent/0 means never revised. */
   edits?: number;
   /** Action signing tier for this comment — see FeedItem.signTier. */

@@ -13,7 +13,7 @@ interface RecordCardHeaderProps {
   authorGeo?: AuthorGeoRelation;
   /** Record rows: stacked @handle. Comment rows: inline relative time. */
   handle?: string;
-  timestamp?: string;
+  timestamp?: ReactNode;
   variant?: "record" | "comment";
   /** Comment nesting depth (1 = root); drives badge display modes. */
   depth?: number;

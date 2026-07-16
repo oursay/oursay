@@ -177,6 +177,9 @@ export function computeEvmHeaderHash(fields: {
  * Option 1 / on-chain `sha256(prev‖root)`.
  */
 export class EvmAnchorTarget implements AnchorTarget {
+  readonly kind = "evm";
+  /** External public infrastructure — covers the product externally-anchored badge. */
+  readonly publicWitness = true;
   /** EVM stores headers only; catch-up must not require BundleAssembler / Postgres txs. */
   readonly headerOnly = true;
   readonly publishPolicy: AnchorPublishPolicy;

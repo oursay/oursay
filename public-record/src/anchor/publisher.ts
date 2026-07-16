@@ -1,13 +1,14 @@
 import { chainConfig } from "../config.js";
 import { canonicalJson, sha256Hex } from "../crypto/commitment.js";
 import type { BlockHeader, LedgerConnector } from "../ledger/connector.js";
+import type { PrivateStore } from "../private/store.js";
 import type { BundleAssembler } from "./assembler.js";
 import { AnchorIntegrityError } from "./errors.js";
 import type { AnchorTarget } from "./target.js";
 import type { AnchorRecord, BlockBundle } from "./types.js";
 
-function targetKind(target: AnchorTarget): string {
-  return target.constructor?.name || "AnchorTarget";
+function targetKindLabel(target: AnchorTarget): string {
+  return target.kind || target.constructor?.name || "AnchorTarget";
 }
 
 /** Build a header-only bundle from a settled block (no Postgres rebuild; empty entries). */
@@ -49,12 +50,16 @@ export function headerOnlyBundle(
  * Header-only targets (`target.headerOnly`, e.g. EVM) publish from the settled header without
  * rebuilding envelopes from Postgres — required for catch-up after ephemeral chain redeploy when
  * early private-store rows may no longer exist.
+ *
+ * When `store` is provided and `target.publicWitness` is true, successful publishes advance
+ * `anchor_publish_cursor` so product surfaces can expose `externallyAnchored` without RPC.
  */
 export class AnchorPublisher {
   constructor(
     private readonly connector: LedgerConnector,
     private readonly assembler: BundleAssembler,
     private readonly chainId: string = chainConfig.chainId,
+    private readonly store?: PrivateStore,
   ) {}
 
   /**
@@ -80,7 +85,7 @@ export class AnchorPublisher {
         height: tipHeight,
         expectedRoot: platform.bundleMerkleRoot,
         actualRoot: targetAnchor.bundleMerkleRoot,
-        targetKind: targetKind(target),
+        targetKind: targetKindLabel(target),
       });
     }
   }
@@ -92,6 +97,12 @@ export class AnchorPublisher {
   ): Promise<BlockBundle> {
     if (target.headerOnly) return headerOnlyBundle(header, prevAnchor);
     return this.assembler.assemble(header, prevAnchor);
+  }
+
+  private async recordPublicWitnessTip(target: AnchorTarget, published: number[]): Promise<void> {
+    if (!this.store || !target.publicWitness || published.length === 0) return;
+    const tip = published[published.length - 1]!;
+    await this.store.upsertAnchorPublishCursor(this.chainId, target.kind, tip);
   }
 
   /** Publish every settled-but-unpublished block to `target`, in order. Returns the heights published. */
@@ -120,6 +131,7 @@ export class AnchorPublisher {
     } else {
       for (const bundle of bundles) await target.publish(bundle);
     }
+    await this.recordPublicWitnessTip(target, published);
     return published;
   }
 

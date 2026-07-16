@@ -104,6 +104,13 @@ export interface FeedItem {
   identity?: AuthorIdentity;
   /** Opaque mention tokens → server display; absent when content has no tokens. */
   mentions?: MentionsMap;
+  /** Original create time, ISO — shown on feed cards with the external-anchor badge. */
+  ts?: string;
+  /**
+   * True when this entity's create commitment is covered by an external public-witness
+   * anchor. Absent on mock corpus → treat as false.
+   */
+  externallyAnchored?: boolean;
 }
 
 /**
@@ -128,6 +135,11 @@ export interface RecordDetail {
   /** ISO created time; rendered via relTime(). Display-only, not the ordering source. */
   ts: string;
   edits: number;
+  /**
+   * True when this entity's create commitment is covered by an external public-witness
+   * anchor. Absent on mock corpus → treat as false.
+   */
+  externallyAnchored?: boolean;
   /** Action signing tier — see FeedItem.signTier. */
   signTier?: SignTier;
 

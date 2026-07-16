@@ -109,7 +109,7 @@ async function main(): Promise<void> {
   console.log("\n=== external anchoring ===");
   const anchorDir = mkdtempSync(join(tmpdir(), "oursay-seed-anchor-"));
   const target = new FileAnchorTarget(anchorDir, everyNBlocks(1));
-  const publisher = new AnchorPublisher(connector, new BundleAssembler(store), chainId);
+  const publisher = new AnchorPublisher(connector, new BundleAssembler(store), chainId, store);
   const published = await publisher.publish(target);
   console.log(`published block(s) ${JSON.stringify(published)} to ${anchorDir}`);
   const chain = verifyChain(await target.listAnchors());

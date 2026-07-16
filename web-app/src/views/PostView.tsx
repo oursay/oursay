@@ -13,6 +13,7 @@ import {
 } from "@/lib/types";
 import { jurisdictionAllowsVoteChange } from "@/lib/signing";
 import { relTime, useNow } from "@/lib/read-model";
+import { TimestampWithAnchor } from "@/components/content/TimestampWithAnchor";
 import {
   GRADUATION_CHAIN,
   MY_HANDLE,
@@ -274,7 +275,12 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               <h1 className="text-lg font-bold text-ink">
                 <MentionText text={detail.title} mentions={detail.mentions} />
               </h1>
-              <p className="mt-0.5 text-xs text-muted">{relTime(detail.ts, now)}</p>
+              <p className="mt-0.5 text-xs text-muted">
+                <TimestampWithAnchor
+                  time={relTime(detail.ts, now)}
+                  externallyAnchored={detail.externallyAnchored}
+                />
+              </p>
             </div>
             <div className="mt-3 space-y-1 text-sm text-ink-soft">
               {detail.body.map((line, i) => (

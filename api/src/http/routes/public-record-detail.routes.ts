@@ -51,6 +51,11 @@ const commentNodeSchema = {
     authorGeo: authorGeoSchema,
     ts: { type: "string" },
     edits: { type: "integer" },
+    externallyAnchored: {
+      type: "boolean",
+      description:
+        "True when this entity's create commitment is covered by an external public-witness anchor (not merely settled on the internal ledger).",
+    },
     signTier: { type: "integer" },
     body: { type: "array", items: { type: "string" } },
     withheld: { type: "boolean" },
@@ -61,7 +66,7 @@ const commentNodeSchema = {
     mentions: mentionsMapSchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
-  required: ["id", "author", "handle", "tier", "official", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
+  required: ["id", "author", "handle", "tier", "official", "authorGeo", "ts", "edits", "externallyAnchored", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
 const detailSchema = {
@@ -86,6 +91,11 @@ const detailSchema = {
     mentions: mentionsMapSchema,
     ts: { type: "string" },
     edits: { type: "integer" },
+    externallyAnchored: {
+      type: "boolean",
+      description:
+        "True when this entity's create commitment is covered by an external public-witness anchor (not merely settled on the internal ledger).",
+    },
     up: { type: "integer" },
     down: { type: "integer" },
     sig: { type: "integer", nullable: true },
@@ -106,6 +116,7 @@ const detailSchema = {
   required: [
     "id", "type", "jurisdiction", "tier", "official", "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "ts", "edits",
+    "externallyAnchored",
   ],
 } as const;
 

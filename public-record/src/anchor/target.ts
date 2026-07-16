@@ -29,6 +29,15 @@ export function everyNBlocks(n: number): AnchorPublishPolicy {
  * via fork / wipe / redeploy — never by rewriting the tip in place.
  */
 export interface AnchorTarget {
+  /** Stable cursor key for this target kind (e.g. `"evm"`, `"file"`). */
+  readonly kind: string;
+
+  /**
+   * When true, successful publishes advance `anchor_publish_cursor` and may light the product
+   * "externally anchored" badge. EVM is publicWitness; local/platform file targets are not.
+   */
+  readonly publicWitness?: boolean;
+
   /** This target's publish cadence (consulted by AnchorPublisher.maybePublish). */
   readonly publishPolicy: AnchorPublishPolicy;
 

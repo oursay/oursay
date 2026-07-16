@@ -69,6 +69,38 @@ describe("mapFeedItem", () => {
     expect(item.identity?.iconType).toBe("rings");
   });
 
+  it("carries ts and externallyAnchored when present", () => {
+    const item = mapFeedItem({
+      id: "p1",
+      type: "post",
+      jurisdiction: "oursay-global",
+      tier: "unverified",
+      official: false,
+      signTier: 0,
+      appliesToDistrictIds: [],
+      author: "A",
+      handle: "a",
+      identity: {
+        display: "A",
+        handle: "a",
+        isPersona: false,
+        isSelf: false,
+        seed: "a",
+        threadId: "t",
+      },
+      authorGeo: "none",
+      title: "Hi",
+      body: [],
+      withheld: false,
+      comments: 0,
+      edits: 0,
+      ts: "2026-01-01T00:00:00Z",
+      externallyAnchored: true,
+    });
+    expect(item.ts).toBe("2026-01-01T00:00:00Z");
+    expect(item.externallyAnchored).toBe(true);
+  });
+
   it("strips leading @ from API handles", () => {
     const item = mapFeedItem({
       id: "x2",

@@ -11,6 +11,7 @@ export type SharePreviewRecord = {
   item: FeedItem;
   /** ISO created time — share cards show the hard calendar date. */
   ts: string;
+  externallyAnchored?: boolean;
 };
 
 export type SharePreviewComment = {
@@ -55,6 +56,7 @@ function recordDetailToFeedItem(
     identity: detail.identity,
     authorGeo: detail.authorGeo,
     ...(detail.mentions ? { mentions: detail.mentions } : {}),
+    ...(detail.externallyAnchored ? { externallyAnchored: true } : {}),
   };
 }
 
@@ -69,6 +71,7 @@ export function buildSharePreview(
       variant: "record",
       item: recordDetailToFeedItem(detail, countCommentNodes(comments)),
       ts: detail.ts,
+      externallyAnchored: detail.externallyAnchored,
     };
   }
 

@@ -30,6 +30,7 @@ const commentNodeSchema = {
     authorGeo: { type: "string", enum: ["none", "home", "affected", "jurisdiction"] },
     ts: { type: "string" },
     edits: { type: "integer" },
+    externallyAnchored: { type: "boolean" },
     signTier: { type: "integer" },
     body: { type: "array", items: { type: "string" } },
     withheld: { type: "boolean" },
@@ -40,7 +41,7 @@ const commentNodeSchema = {
     mentions: mentionsMapSchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
-  required: ["id", "author", "handle", "tier", "authorGeo", "ts", "edits", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
+  required: ["id", "author", "handle", "tier", "authorGeo", "ts", "edits", "externallyAnchored", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
 export function registerPublicPersonaRoutes(app: FastifyInstance, services: Services): void {

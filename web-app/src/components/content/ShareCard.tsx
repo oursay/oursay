@@ -14,6 +14,7 @@ import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
 import { CommentCard } from "./CommentCard";
 import { MentionText } from "./MentionText";
+import { TimestampWithAnchor } from "./TimestampWithAnchor";
 
 interface ShareCardProps {
   preview: SharePreview;
@@ -55,7 +56,12 @@ export function ShareCard({
         signTier={node.signTier}
         authorGeo={node.authorGeo}
         identity={node.identity}
-        timestamp={absDate(node.ts)}
+        timestamp={
+          <TimestampWithAnchor
+            time={absDate(node.ts)}
+            externallyAnchored={node.externallyAnchored}
+          />
+        }
         depth={depth}
         body={
           <div className="space-y-1">
@@ -79,6 +85,7 @@ export function ShareCard({
     <ShareRecordCard
       item={preview.item}
       ts={preview.ts}
+      externallyAnchored={preview.externallyAnchored}
       shareReactionProps={shareReactionProps}
     />
   );
@@ -87,10 +94,12 @@ export function ShareCard({
 function ShareRecordCard({
   item,
   ts,
+  externallyAnchored,
   shareReactionProps,
 }: {
   item: FeedItem;
   ts: string;
+  externallyAnchored?: boolean;
   shareReactionProps: {
     selectedReaction: "up" | "down" | null;
     highlightReactionPill: boolean;
@@ -121,7 +130,9 @@ function ShareRecordCard({
           <h3 className="text-[15px] font-bold text-ink">
             <MentionText text={item.title} mentions={item.mentions} linkable={false} />
           </h3>
-          <p className="mt-0.5 text-xs text-muted">{absDate(ts)}</p>
+          <p className="mt-0.5 text-xs text-muted">
+            <TimestampWithAnchor time={absDate(ts)} externallyAnchored={externallyAnchored} />
+          </p>
           <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
             <MentionText
               text={item.body.join(" ")}

@@ -38,10 +38,12 @@ const feedItemSchema = {
     comments: { type: "integer" },
     edits: { type: "integer" },
     ts: { type: "string" },
+    externallyAnchored: { type: "boolean" },
   },
   required: [
     "id", "type", "jurisdiction", "tier", "official", "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "comments", "edits", "ts",
+    "externallyAnchored",
   ],
 } as const;
 

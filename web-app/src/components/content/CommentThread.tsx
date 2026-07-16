@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { COMMENT_MAX_DEPTH } from "@/lib/types";
 import type { CommentNode, ViewerContext, VerificationTier } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
+import { TimestampWithAnchor } from "./TimestampWithAnchor";
 import { CommentCard } from "./CommentCard";
 import { MentionText } from "./MentionText";
 
@@ -75,7 +76,12 @@ export function CommentThread({
               signTier={node.signTier}
               authorGeo={node.authorGeo}
               identity={node.identity}
-              timestamp={relTime(node.ts, now)}
+              timestamp={
+                <TimestampWithAnchor
+                  time={relTime(node.ts, now)}
+                  externallyAnchored={node.externallyAnchored}
+                />
+              }
               depth={depth}
               body={
                 <>

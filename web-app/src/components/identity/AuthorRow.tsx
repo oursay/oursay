@@ -23,8 +23,8 @@ interface AuthorRowProps {
   authorGeo?: AuthorGeoRelation;
   signedMode?: PillDisplayMode;
   kycMode?: PillDisplayMode;
-  /** Relative time label (comment layout renders it inline after the name). */
-  timestamp?: string;
+  /** Relative/absolute time (comment layout); may include an anchor badge. */
+  timestamp?: ReactNode;
   /** card = feed/post author block; comment = "Name • time" with right-aligned pill. */
   layout?: "card" | "comment";
   /** Row-2 right slot for card layout (jurisdiction / district scope tag). */

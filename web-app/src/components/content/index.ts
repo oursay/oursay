@@ -26,3 +26,4 @@ export * from "./FeedCard";
 export * from "./ShareCard";
 export * from "./CommentThread";
 export * from "./RecordTypeSection";
+export * from "./TimestampWithAnchor";

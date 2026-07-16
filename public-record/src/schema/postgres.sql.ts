@@ -60,6 +60,20 @@ CREATE TABLE IF NOT EXISTS record_outbox (
 -- Idempotent migration for a persistent dev DB created before chain_id existed.
 ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS chain_id TEXT NOT NULL DEFAULT 'oursay-global';
 CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enqueued_at) WHERE status = 'pending';
+-- Settled block height (set when the settler marks the outbox sent). Used to compare against
+-- public-witness anchor tips without walking immudb headers on every feed/detail read.
+ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS block_height INT;
+
+-- Per-chain tip of each public-witness anchor target (EVM today). Advanced by AnchorPublisher
+-- after a successful publish when target.publicWitness is true. Product "externallyAnchored"
+-- is true when an entity's create tx block_height <= MAX(tip) for its chain.
+CREATE TABLE IF NOT EXISTS anchor_publish_cursor (
+  chain_id    TEXT NOT NULL,
+  target_kind TEXT NOT NULL,
+  tip_height  INT  NOT NULL,
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (chain_id, target_kind)
+);
 
 -- Identity (verified-tier append path). Primitives promoted into public-record/src/identity/*.
 -- NOTE: session/passkey_credential tables (auth milestone) and encrypted PII (email_enc, salt_t_enc;

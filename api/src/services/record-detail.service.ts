@@ -54,6 +54,11 @@ export interface RecordDetailDto {
   mentions?: MentionsMap;
   ts: string;
   edits: number;
+  /**
+   * True when this entity's create commitment is covered by an external public-witness
+   * anchor (not merely settled on the internal ledger).
+   */
+  externallyAnchored: boolean;
 
   up?: number;
   down?: number;
@@ -83,6 +88,11 @@ export interface CommentNodeDto {
   authorGeo: AuthorGeoRelation;
   ts: string;
   edits: number;
+  /**
+   * True when this comment's create commitment is covered by an external public-witness
+   * anchor (not merely settled on the internal ledger).
+   */
+  externallyAnchored: boolean;
   signTier: number;
   body: string[];
   withheld: boolean;
@@ -119,6 +129,7 @@ export class RecordDetailService {
       this.buildDetail(root, res, ctx, my),
       this.buildComments(id, res, ctx, my),
     ]);
+    await this.stampExternallyAnchored(detail, comments);
     return { detail, comments };
   }
 
@@ -128,7 +139,21 @@ export class RecordDetailService {
     const res = this.d.identityReadService.begin(viewer);
     const ctx = await this.rootContext(id, root);
     const my = new ViewerState(this.d.recordStore, viewer, id);
-    return this.buildComments(id, res, ctx, my);
+    const comments = await this.buildComments(id, res, ctx, my);
+    await this.stampExternallyAnchored(null, comments);
+    return comments;
+  }
+
+  private async stampExternallyAnchored(
+    detail: RecordDetailDto | null,
+    comments: CommentNodeDto[],
+  ): Promise<void> {
+    const ids: string[] = [];
+    if (detail) ids.push(detail.id);
+    collectCommentIds(comments, ids);
+    const flags = await this.d.recordStore.getExternallyAnchoredFlags(ids);
+    if (detail) detail.externallyAnchored = flags.get(detail.id) ?? false;
+    applyCommentAnchored(comments, flags);
   }
 
   private async requireRoot(id: string): Promise<EntityState> {
@@ -174,6 +199,7 @@ export class RecordDetailService {
       withheld: view.withheld,
       ts: root.createdAt,
       edits: editCounts.get(root.entityId) ?? 0,
+      externallyAnchored: false,
     };
 
     if (!view.withheld) {
@@ -273,6 +299,7 @@ export class RecordDetailService {
       authorGeo: author.authorGeo,
       ts: node.state.createdAt,
       edits: editCounts.get(node.state.entityId) ?? 0,
+      externallyAnchored: false,
       signTier: node.state.signTier,
       body,
       withheld: view.withheld,
@@ -312,6 +339,20 @@ function flattenIds(nodes: RawNode[]): string[] {
   };
   walk(nodes);
   return ids;
+}
+
+function collectCommentIds(comments: CommentNodeDto[], into: string[]): void {
+  for (const c of comments) {
+    into.push(c.id);
+    collectCommentIds(c.replies, into);
+  }
+}
+
+function applyCommentAnchored(comments: CommentNodeDto[], flags: Map<string, boolean>): void {
+  for (const c of comments) {
+    c.externallyAnchored = flags.get(c.id) ?? false;
+    applyCommentAnchored(c.replies, flags);
+  }
 }
 
 function isRootType(type: string): type is RootType {
