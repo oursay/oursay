@@ -350,6 +350,7 @@ describe("09 anchoring: settle to the chain, publish to a target, verify offline
     // In-memory EVM-like target: headerOnly, no bundle store.
     const anchors: AnchorRecord[] = [];
     const headerOnlyTarget: AnchorTarget = {
+      kind: "evm",
       headerOnly: true,
       publishPolicy: everyNBlocks(2),
       async publish(bundle) {

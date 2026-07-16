@@ -3,17 +3,39 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect } from "chai";
 import { FileAnchorTarget } from "../src/anchor/file.target.js";
-import { everyNBlocks, type AnchorTarget } from "../src/anchor/target.js";
+import { everyNBlocks, type AnchorPublishPolicy, type AnchorTarget } from "../src/anchor/target.js";
+import type { AnchorRecord, BlockBundle } from "../src/anchor/types.js";
 import type { PrivateStore } from "../src/private/store.js";
 import { freshChainWorld, getWorld } from "./helpers/world.js";
 
 /**
- * Minimal public-witness stub: same publish surface as file, but advances
- * `anchor_publish_cursor` via AnchorPublisher when `publicWitness` is true.
+ * Public-witness stub: reuses a {@link FileAnchorTarget} for the append-only store but presents as
+ * an EVM-kind, `publicWitness: true` target so publishing advances `anchor_publish_cursor`.
  */
-class PublicWitnessFileTarget extends FileAnchorTarget {
-  override readonly kind = "evm";
-  override readonly publicWitness = true;
+class PublicWitnessFileTarget implements AnchorTarget {
+  readonly kind = "evm";
+  readonly publicWitness = true;
+  private readonly inner: FileAnchorTarget;
+
+  constructor(baseDir: string, readonly publishPolicy: AnchorPublishPolicy) {
+    this.inner = new FileAnchorTarget(baseDir, publishPolicy);
+  }
+
+  publish(bundle: BlockBundle): Promise<void> {
+    return this.inner.publish(bundle);
+  }
+  fetchLatestAnchor(): Promise<AnchorRecord | undefined> {
+    return this.inner.fetchLatestAnchor();
+  }
+  fetchAnchor(blockHeight: number): Promise<AnchorRecord | undefined> {
+    return this.inner.fetchAnchor(blockHeight);
+  }
+  fetchBundle(blockHeight: number): Promise<BlockBundle | undefined> {
+    return this.inner.fetchBundle(blockHeight);
+  }
+  listAnchors(): Promise<AnchorRecord[]> {
+    return this.inner.listAnchors();
+  }
 }
 
 describe("externallyAnchored: public-witness tip vs file-only publish", () => {
