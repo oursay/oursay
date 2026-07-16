@@ -31,7 +31,7 @@ export function OtpVerify({
   let helperText =
     mode === "recovery"
       ? "Re-enrolls this device's passkey, then you'll be prompted to sign in."
-      : "Registers this device's passkey and signs you in.";
+      : "Creates a passkey on this device, then signs you in with it.";
 
   if (process.env.NODE_ENV === "development") helperText += " Dev: read the code from the API server console."
 

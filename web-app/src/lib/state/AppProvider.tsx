@@ -100,6 +100,7 @@ import {
   verifyRegistrationOtp,
   type AuthPasskey,
 } from "@/lib/api/auth";
+import { withPostEnrollLoginSettle } from "@/lib/api/passkey-enroll-login";
 import {
   fetchKycProvider,
   runDiditHostedFlow,
@@ -1214,22 +1215,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Shared tail for the OTP paths that end signed-in with a passkey (registration
   // and gated login both run the identical enroll → passkey-login → hydrate → apply
   // sequence; only the login-email hint and the success copy differ).
+  //
+  // After enroll, login is targeted (email → allowCredentials) and settles briefly so
+  // Android/GPM can surface the new resident key before get(). Discovery failures
+  // retry login only — never a second create().
   const finishPasskeyLogin = useCallback(
     async (successMsg: string, email?: string) => {
       beginPasskeyBusy("otp", "creating");
+      let enrolled = false;
       try {
         await enrollPasskey();
+        enrolled = true;
         setPasskeyPhase("authorizing");
-        const login = await loginWithPasskey(email);
+        const login = await withPostEnrollLoginSettle(() => loginWithPasskey(email));
         userIdRef.current = login.userId;
         const account = await fetchAccountContext();
         applyAccount(account);
         notify(successMsg);
+      } catch (e) {
+        if (enrolled) {
+          // Passkey is on the account; do not re-prompt create. User signs in next.
+          set({ authModal: authLogin(email) });
+          const detail =
+            e instanceof ApiError
+              ? e.message
+              : e instanceof Error
+                ? e.message
+                : "Sign-in failed.";
+          notify(`Passkey saved — tap Sign in to continue. (${detail})`);
+          return;
+        }
+        throw e;
       } finally {
         endPasskeyBusy();
       }
     },
-    [applyAccount, notify, beginPasskeyBusy, setPasskeyPhase, endPasskeyBusy],
+    [applyAccount, notify, beginPasskeyBusy, setPasskeyPhase, endPasskeyBusy, set],
   );
   const completeOtp = useCallback(
     (code?: string) => {
@@ -1340,7 +1361,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           );
           clearRegistrationDraft();
           userIdRef.current = reg.userId;
-          await finishPasskeyLogin("Account created — signed in with passkey.");
+          // Pass email so login/options includes allowCredentials — Android discovery of a
+          // brand-new resident key is unreliable with empty allowCredentials.
+          await finishPasskeyLogin("Account created — signed in with passkey.", email);
         } catch (e) {
           const msg = e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Registration failed.";
           notify(msg);

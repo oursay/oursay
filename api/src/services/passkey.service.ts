@@ -76,7 +76,14 @@ export class PasskeyService {
       userDisplayName: input.userDisplayName,
       attestationType: "none",
       excludeCredentials: existing.map((c) => ({ id: c.credentialId, transports: splitTransports(c.transports) })),
-      authenticatorSelection: { residentKey: "preferred", userVerification: "preferred" },
+      // residentKey required: usernameless login needs a discoverable passkey. Android/GPM
+      // can create a non-discoverable credential under "preferred", then fail the immediate
+      // post-enroll assertion with empty allowCredentials.
+      authenticatorSelection: {
+        residentKey: "required",
+        requireResidentKey: true,
+        userVerification: "preferred",
+      },
     });
     await this.storeChallenge(options.challenge, "register", input.userId, null);
     return options;

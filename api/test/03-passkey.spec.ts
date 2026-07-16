@@ -34,6 +34,8 @@ describe("03 passkey: enroll, login, failures", () => {
       userName: "passkey@example.com",
       userDisplayName: "Passkey User",
     });
+    expect(regOptions.authenticatorSelection?.residentKey).to.equal("required");
+    expect(regOptions.authenticatorSelection?.requireResidentKey).to.equal(true);
     const reg = await w.services.passkeyService.registerVerify({ userId, response: auth.register(regOptions.challenge) });
     expect(reg.credentialId).to.be.a("string");
 
