@@ -48,6 +48,7 @@ describe("buildSharePreview mentions", () => {
     if (preview?.variant !== "record") return;
 
     expect(preview.item.mentions).toEqual(publicMentions);
+    expect(preview.ts).toBe(detailWithMention.ts);
 
     // Same path ShareCard uses: chips resolve to the public profile display.
     const titleSegs = mentionSegments(

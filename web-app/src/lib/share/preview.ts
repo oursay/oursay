@@ -9,6 +9,8 @@ import { parseCommentShareKey, recordIdFromShareTarget, findCommentForSharePrevi
 export type SharePreviewRecord = {
   variant: "record";
   item: FeedItem;
+  /** ISO created time — share cards show the hard calendar date. */
+  ts: string;
 };
 
 export type SharePreviewComment = {
@@ -66,6 +68,7 @@ export function buildSharePreview(
     return {
       variant: "record",
       item: recordDetailToFeedItem(detail, countCommentNodes(comments)),
+      ts: detail.ts,
     };
   }
 

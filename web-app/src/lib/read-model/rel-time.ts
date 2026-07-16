@@ -1,4 +1,12 @@
 /**
+ * Absolute calendar date for share cards and anywhere a fixed label is preferred
+ * over a ticking relative string. Uses the ISO date prefix (UTC calendar day).
+ */
+export function absDate(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+/**
  * Relative timestamp label:
  *   < 2m        -> "just now"
  *   < 60m       -> "Nm ago"
@@ -18,5 +26,5 @@ export function relTime(iso: string, now: Date): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days <= 6) return `${days}d ago`;
-  return iso.slice(0, 10);
+  return absDate(iso);
 }

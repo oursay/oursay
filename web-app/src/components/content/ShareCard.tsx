@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { jurisdictionAllowsVoteChange } from "@/lib/signing";
-import { relTime, useNow } from "@/lib/read-model";
+import { absDate } from "@/lib/read-model";
 import type { FeedItem } from "@/lib/types";
 import type { SharePreview } from "@/lib/share/preview";
 import { ScopeTag } from "./ScopeTag";
@@ -26,7 +26,6 @@ export function ShareCard({
   preview,
   selectedReaction = null,
 }: ShareCardProps) {
-  const now = useNow();
   const [reactionEmphasis, setReactionEmphasis] = useState<"both" | "my">(
     () => (selectedReaction ? "my" : "both"),
   );
@@ -56,7 +55,7 @@ export function ShareCard({
         signTier={node.signTier}
         authorGeo={node.authorGeo}
         identity={node.identity}
-        timestamp={relTime(node.ts, now)}
+        timestamp={absDate(node.ts)}
         depth={depth}
         body={
           <div className="space-y-1">
@@ -79,6 +78,7 @@ export function ShareCard({
   return (
     <ShareRecordCard
       item={preview.item}
+      ts={preview.ts}
       shareReactionProps={shareReactionProps}
     />
   );
@@ -86,9 +86,11 @@ export function ShareCard({
 
 function ShareRecordCard({
   item,
+  ts,
   shareReactionProps,
 }: {
   item: FeedItem;
+  ts: string;
   shareReactionProps: {
     selectedReaction: "up" | "down" | null;
     highlightReactionPill: boolean;
@@ -119,6 +121,7 @@ function ShareRecordCard({
           <h3 className="text-[15px] font-bold text-ink">
             <MentionText text={item.title} mentions={item.mentions} linkable={false} />
           </h3>
+          <p className="mt-0.5 text-xs text-muted">{absDate(ts)}</p>
           <p className="mt-1 line-clamp-2 text-sm text-ink-soft">
             <MentionText
               text={item.body.join(" ")}
