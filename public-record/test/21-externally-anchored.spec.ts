@@ -60,8 +60,10 @@ describe("externallyAnchored: public-witness tip vs file-only publish", () => {
 
     let flags = await store.getExternallyAnchoredFlags([entityId]);
     expect(flags.get(entityId), "pending → false").to.equal(false);
+    expect((await store.getTx(created.txId))!.tx.blockHeight, "height unset while pending").to.equal(null);
 
     await settler.settleBlock();
+    expect((await store.getTx(created.txId))!.tx.blockHeight, "mirrored after settle").to.equal(1);
     flags = await store.getExternallyAnchoredFlags([entityId]);
     expect(flags.get(entityId), "settled but no public tip → false").to.equal(false);
 

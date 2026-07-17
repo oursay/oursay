@@ -24,22 +24,36 @@ See [01-CONTRIBUTOR-SPEC.md §11](../../01-CONTRIBUTOR-SPEC.md) and [REQUIREMENT
 
 ### record_outbox (settlement queue)
 
+Clearable pool only — **no** durable `block_height` (height lives on the settled commitment).
+
 | Field | Type | Required | Meaning |
 |-------|------|----------|---------|
 | `tx_id` | UUID | yes | FK → `record_tx` |
 | `chain_id` | TEXT | yes | Target jurisdiction chain |
-| `payload` | JSONB | yes | ChainRow — commitments + envelope only |
+| `payload` | JSONB | yes | ChainRow commitments + envelope (height stamped at settle, not stored in payload) |
 | `status` | `pending` \| `sent` | yes | Settlement state |
 | `attempts`, `last_error` | | | Retry metadata |
 | `enqueued_at`, `sent_at` | TIMESTAMPTZ | | |
 
+### record_tx (Postgres private mirror)
+
+Append-only event log with erasable plaintext. After settle, `block_height` mirrors the immudb stamp for cheap product reads.
+
+| Field | Type | Required | Meaning |
+|-------|------|----------|---------|
+| `block_height` | INT | no (NULL until settle) | Settled block containing this tx |
+
 ### record_chain (immudb)
 
-Commitment rows — no plaintext.
+Commitment rows — no plaintext. Each settled row carries `block_height` (stamped when the batch is written).
 
 ### record_blocks
 
-Settlement block headers with Merkle root over entries; `(chain_id, block_height)` PK.
+Settlement block headers with Merkle root over entries; `(chain_id, block_height)` PK. Seq window `(from_seq, to_seq]` remains the auditor membership proof.
+
+### anchor_publish_cursor
+
+Per-chain tip of each **public-witness** anchor target (EVM today). Advanced by `AnchorPublisher` when `target.publicWitness` is true. Product `externallyAnchored` is a **bool**: entity create tx settled with `block_height >= 1` and tip ≥ that height. File-only publish does not write the cursor.
 
 ## States & lifecycle
 
@@ -47,14 +61,13 @@ Settlement block headers with Merkle root over entries; `(chain_id, block_height
 [record_tx insert + outbox pending]
         │ BlockSettler (count/age trigger)
         ▼
-[outbox sent — commitment on immudb]
-        │ anchor cadence
+[record_chain + record_tx.block_height stamped; outbox sent]
+        │ anchor cadence (publicWitness → cursor tip)
         ▼
-[external anchor published (e.g. Ethereum)]
+[external anchor published (e.g. Ethereum); externallyAnchored may light]
 ```
 
 Settlement and anchoring are **distinct** steps (contributor §3.4).
-
 ## Relationships
 
 | Related | Cardinality | Notes |

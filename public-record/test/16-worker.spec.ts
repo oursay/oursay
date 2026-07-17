@@ -266,6 +266,16 @@ describe("16 worker: deadline-aware loop drives settle + anchor across chains", 
       expect(headerB.txCount, "chain B settled its 2 txs, not A's").to.equal(2);
       expect(summary.published.map((p) => p.chainId).sort()).to.deep.equal([a.chainId, b.chainId].sort());
 
+      // Height mirrored onto record_tx for every settled commitment on both chains.
+      const pendingA = await store.getPendingPoolStats(a.chainId);
+      const pendingB = await store.getPendingPoolStats(b.chainId);
+      expect(pendingA.count).to.equal(0);
+      expect(pendingB.count).to.equal(0);
+      const txsA = await store.getTxsBySeqRange(a.chainId, 0, headerA.toSeq);
+      const txsB = await store.getTxsBySeqRange(b.chainId, 0, headerB.toSeq);
+      expect(txsA.every((t) => t.blockHeight === 1)).to.equal(true);
+      expect(txsB.every((t) => t.blockHeight === 1)).to.equal(true);
+
       // Anchor artifacts landed for each chain's target.
       for (const t of [ta, tb]) {
         expect(existsSync(join(t.dir, "anchors.jsonl"))).to.equal(true);

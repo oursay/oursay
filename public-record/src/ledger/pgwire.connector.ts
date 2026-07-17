@@ -143,11 +143,12 @@ export class PgWireLedgerConnector implements LedgerConnector {
   async appendTx(chainId: string, row: ChainRow): Promise<void> {
     this.assertChain(chainId);
     // immudb dislikes NULLs in indexed VARCHAR columns; absent parent fields become "".
+    // block_height is INTEGER; unset/legacy → 0 (settler always passes a real height ≥ 1).
     await this.requireClient().query(
       `INSERT INTO ${TABLE}
         (tx_id, chain_id, type, entity_id, op, parent_type, parent_id, parent_revision_hash,
-         author_pubkey, signature, created_at, prev_hash, content_hash, tx_hash, envelope)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+         author_pubkey, signature, created_at, prev_hash, content_hash, tx_hash, envelope, block_height)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
       [
         row.txId,
         chainId,
@@ -164,16 +165,19 @@ export class PgWireLedgerConnector implements LedgerConnector {
         row.contentHash,
         row.txHash,
         row.envelope,
+        row.blockHeight ?? 0,
       ],
     );
   }
 
-  async appendTxBatch(chainId: string, rows: ChainRow[]): Promise<void> {
+  async appendTxBatch(chainId: string, rows: ChainRow[], blockHeight: number): Promise<void> {
     this.assertChain(chainId);
     // Idempotent: skip rows already on the chain (crash-after-batch / re-settle safety). The
     // getEnvelope guard is the fast path; immudb's tx_id PRIMARY KEY is the backstop.
     for (const row of rows) {
-      if ((await this.getEnvelope(row.txId)) === undefined) await this.appendTx(chainId, row);
+      if ((await this.getEnvelope(row.txId)) === undefined) {
+        await this.appendTx(chainId, { ...row, blockHeight });
+      }
     }
   }
 
@@ -243,6 +247,16 @@ export class PgWireLedgerConnector implements LedgerConnector {
     const r = await this.requireClient().query(`SELECT envelope FROM ${TABLE} WHERE tx_id = '${lit}'`);
     if (r.rows.length === 0) return undefined;
     return r.rows[0].envelope as string;
+  }
+
+  async getBlockHeightForTx(txId: string): Promise<number | null> {
+    const lit = txId.replace(/'/g, "''");
+    const r = await this.requireClient().query(
+      `SELECT block_height FROM ${TABLE} WHERE tx_id = '${lit}'`,
+    );
+    if (r.rows.length === 0) return null;
+    const h = Number(r.rows[0].block_height);
+    return Number.isFinite(h) && h >= 1 ? h : null;
   }
 
   async state(): Promise<LedgerRoot> {

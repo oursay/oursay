@@ -35,6 +35,9 @@ CREATE INDEX IF NOT EXISTS record_tx_parent_rev ON record_tx (parent_revision_ha
 CREATE INDEX IF NOT EXISTS record_tx_type       ON record_tx (type);
 -- Idempotent migration for a persistent dev DB created before the nullifier column existed.
 ALTER TABLE record_tx ADD COLUMN IF NOT EXISTS nullifier TEXT;
+-- Settled block height (mirrored from immudb record_chain at settle). NULL until the settler stamps it.
+ALTER TABLE record_tx ADD COLUMN IF NOT EXISTS block_height INT;
+CREATE INDEX IF NOT EXISTS record_tx_block_height ON record_tx (block_height) WHERE block_height IS NOT NULL;
 
 -- Settlement pool / transactional outbox. Each record_tx insert atomically enqueues its commitment
 -- here (same Postgres transaction) as 'pending', so a crash before settlement can never orphan a
@@ -60,13 +63,12 @@ CREATE TABLE IF NOT EXISTS record_outbox (
 -- Idempotent migration for a persistent dev DB created before chain_id existed.
 ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS chain_id TEXT NOT NULL DEFAULT 'oursay-global';
 CREATE INDEX IF NOT EXISTS record_outbox_pending ON record_outbox (chain_id, enqueued_at) WHERE status = 'pending';
--- Settled block height (set when the settler marks the outbox sent). Used to compare against
--- public-witness anchor tips without walking immudb headers on every feed/detail read.
-ALTER TABLE record_outbox ADD COLUMN IF NOT EXISTS block_height INT;
+-- Height moved to record_tx / record_chain; drop denormalized outbox column on reused volumes.
+ALTER TABLE record_outbox DROP COLUMN IF EXISTS block_height;
 
 -- Per-chain tip of each public-witness anchor target (EVM today). Advanced by AnchorPublisher
 -- after a successful publish when target.publicWitness is true. Product "externallyAnchored"
--- is true when an entity's create tx block_height <= MAX(tip) for its chain.
+-- is true when an entity's create tx record_tx.block_height <= MAX(tip) for its chain.
 CREATE TABLE IF NOT EXISTS anchor_publish_cursor (
   chain_id    TEXT NOT NULL,
   target_kind TEXT NOT NULL,

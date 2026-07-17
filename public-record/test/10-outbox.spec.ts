@@ -47,6 +47,29 @@ async function reopenOutbox(txId: string): Promise<void> {
   }
 }
 
+/** Clear the Postgres height mirror (crash between chain stamp and markTxBlockHeightBatch). */
+async function clearTxBlockHeight(txId: string): Promise<void> {
+  const raw = new pg.Client(pgConfig);
+  await raw.connect();
+  try {
+    await raw.query(`UPDATE record_tx SET block_height = NULL WHERE tx_id = $1`, [txId]);
+  } finally {
+    await raw.end();
+  }
+}
+
+async function txBlockHeight(txId: string): Promise<number | null> {
+  const raw = new pg.Client(pgConfig);
+  await raw.connect();
+  try {
+    const r = await raw.query(`SELECT block_height FROM record_tx WHERE tx_id = $1`, [txId]);
+    if (r.rows.length === 0 || r.rows[0].block_height == null) return null;
+    return Number(r.rows[0].block_height);
+  } finally {
+    await raw.end();
+  }
+}
+
 /** A connector whose immudb is unreachable: every chain op fails, nothing is committed. */
 class DownConnector implements LedgerConnector {
   readonly transport = "pgwire" as const;
@@ -66,6 +89,9 @@ class DownConnector implements LedgerConnector {
   }
   async fetchBlockByHeight(): Promise<BlockHeader | undefined> {
     return undefined;
+  }
+  async getBlockHeightForTx(): Promise<number | null> {
+    return null;
   }
   async healthcheck(): Promise<boolean> {
     return false;
@@ -100,10 +126,10 @@ class FlakyConnector implements LedgerConnector {
   appendTx(chainId: string, row: ChainRow): Promise<void> {
     return this.real.appendTx(chainId, row);
   }
-  async appendTxBatch(chainId: string, rows: ChainRow[]): Promise<void> {
+  async appendTxBatch(chainId: string, rows: ChainRow[], blockHeight: number): Promise<void> {
     this.batchCalls += 1;
     if (this.batchCalls <= this.failBatches) throw new Error("immudb batch failed (flaky)");
-    return this.real.appendTxBatch(chainId, rows);
+    return this.real.appendTxBatch(chainId, rows, blockHeight);
   }
   appendBlock(header: BlockHeader): Promise<void> {
     return this.real.appendBlock(header);
@@ -113,6 +139,9 @@ class FlakyConnector implements LedgerConnector {
   }
   fetchBlockByHeight(chainId: string, h: number): Promise<BlockHeader | undefined> {
     return this.real.fetchBlockByHeight(chainId, h);
+  }
+  getBlockHeightForTx(txId: string): Promise<number | null> {
+    return this.real.getBlockHeightForTx(txId);
   }
   async healthcheck(): Promise<boolean> {
     const i = this.healthCalls++;
@@ -202,11 +231,13 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     // Simulate "commitment already on the chain but outbox not yet marked" (crash between).
     const [mine] = (await store.getPendingForSettlement(chainId, 100)).filter((p) => p.txId === post.txId);
     expect(mine, "pending payload available").to.not.equal(undefined);
-    await connector.appendTxBatch(chainId, [mine.payload]);
+    await connector.appendTxBatch(chainId, [mine.payload], 1);
 
     // Settlement's batch append is idempotent — it skips the already-present row, no duplicate insert.
     await settler.settleBlock();
     expect(await outboxStatus(post.txId), "marked sent via the idempotency guard").to.equal("sent");
+    expect(await txBlockHeight(post.txId), "Postgres mirror stamped").to.equal(1);
+    expect(await connector.getBlockHeightForTx(post.txId), "chain row stamped").to.equal(1);
 
     // Backstop: a raw duplicate append of the same row WOULD throw — proving idempotency mattered.
     let dupThrew = false;
@@ -223,14 +254,31 @@ describe("10 settlement: durable pool → chain, idempotent and crash-safe", () 
     const post = await svc.create({ type: "post", author: "dave", content: { title: "Test post", body: "recon" } });
     const header1 = (await settler.settleBlock())!;
     expect(header1.blockHeight).to.equal(1);
+    expect(await txBlockHeight(post.txId)).to.equal(1);
 
-    // The header landed, but pretend the outbox mark was lost (crash). Re-settling must NOT make a
-    // second block for the same txs — it reconciles them as already-settled and marks them sent.
+    // The header landed, but pretend the outbox mark + Postgres height mirror were lost (crash).
+    // Re-settling must NOT make a second block — it reconciles from immudb height onto record_tx.
     await reopenOutbox(post.txId);
+    await clearTxBlockHeight(post.txId);
+    expect(await txBlockHeight(post.txId)).to.equal(null);
+
     const header2 = await settler.settleBlock();
     expect(header2, "nothing new to block").to.equal(null);
     expect(await outboxStatus(post.txId), "reconciled to sent").to.equal("sent");
+    expect(await txBlockHeight(post.txId), "height remirrored from chain").to.equal(1);
     expect((await connector.fetchLatestBlock(chainId))!.blockHeight, "still one block").to.equal(1);
+  });
+
+  it("settle stamps block_height on record_tx and record_chain", async () => {
+    const { svc, settler, connector } = await freshChainWorld();
+    const post = await svc.create({ type: "post", author: "dave", content: { title: "Height", body: "stamp" } });
+    expect(await txBlockHeight(post.txId), "unset before settle").to.equal(null);
+
+    const header = (await settler.settleBlock())!;
+    expect(header.blockHeight).to.equal(1);
+    expect(await txBlockHeight(post.txId)).to.equal(1);
+    expect(await connector.getBlockHeightForTx(post.txId)).to.equal(1);
+    expect(await outboxStatus(post.txId)).to.equal("sent");
   });
 
   it("a full reconcile window still fully drains (no early stop)", async () => {

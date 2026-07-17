@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS ${TABLE} (
   content_hash         VARCHAR[64],
   tx_hash              VARCHAR[64],
   envelope             VARCHAR[8192],
+  block_height         INTEGER,
   PRIMARY KEY (tx_id)
 )`;
 

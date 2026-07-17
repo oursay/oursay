@@ -68,6 +68,8 @@ export interface StoredTx {
   content: unknown;
   redactedAt: string | null;
   erasedAt: string | null;
+  /** Settled block height mirrored from immudb; null until settle. */
+  blockHeight: number | null;
 }
 
 /** Settlement queue status on `record_outbox` (pending pool vs settled `sent`). */
@@ -388,20 +390,21 @@ export class PrivateStore {
     return r.rows.map((row) => ({ txId: row.tx_id, seq: Number(row.seq), payload: row.payload as ChainRow }));
   }
 
-  /** Mark a whole settled block's commitments sent in one statement (atomic with respect to readers).
-   * When `blockHeight` is provided (normal settle path), stamp it for externally-anchored checks. */
-  async markOutboxSentBatch(txIds: string[], blockHeight?: number): Promise<void> {
+  /** Mark a whole settled block's commitments sent in one statement (atomic with respect to readers). */
+  async markOutboxSentBatch(txIds: string[]): Promise<void> {
     if (txIds.length === 0) return;
-    if (blockHeight != null) {
-      await this.pool.query(
-        `UPDATE record_outbox SET status = 'sent', sent_at = now(), block_height = $2 WHERE tx_id = ANY($1::uuid[])`,
-        [txIds, blockHeight],
-      );
-      return;
-    }
     await this.pool.query(
       `UPDATE record_outbox SET status = 'sent', sent_at = now() WHERE tx_id = ANY($1::uuid[])`,
       [txIds],
+    );
+  }
+
+  /** Mirror settled block height onto Postgres `record_tx` (cheap feed/detail/explorer reads). */
+  async markTxBlockHeightBatch(txIds: string[], blockHeight: number): Promise<void> {
+    if (txIds.length === 0) return;
+    await this.pool.query(
+      `UPDATE record_tx SET block_height = $2 WHERE tx_id = ANY($1::uuid[])`,
+      [txIds, blockHeight],
     );
   }
 
@@ -448,7 +451,7 @@ export class PrivateStore {
 
     const r = await this.pool.query(
       `SELECT DISTINCT ON (t.entity_id)
-          t.entity_id, o.chain_id, o.status, o.block_height
+          t.entity_id, o.chain_id, o.status, t.block_height
        FROM record_tx t
        JOIN record_outbox o ON o.tx_id = t.tx_id
        WHERE t.entity_id = ANY($1::uuid[]) AND t.op = 'create'
@@ -1807,6 +1810,7 @@ function mapStoredTx(row: pg.QueryResultRow): StoredTx {
     content: row.content,
     redactedAt: row.redacted_at ? new Date(row.redacted_at).toISOString() : null,
     erasedAt: row.erased_at ? new Date(row.erased_at).toISOString() : null,
+    blockHeight: row.block_height != null ? Number(row.block_height) : null,
   };
 }
 

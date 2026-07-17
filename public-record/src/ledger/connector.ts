@@ -34,6 +34,8 @@ export interface ChainRow {
   contentHash: string;
   txHash: string;
   envelope: string; // canonical JSON of the TxEnvelope — the verified value
+  /** Settled block height; stamped at `appendTxBatch`, not stored in the outbox payload. */
+  blockHeight?: number;
 }
 
 /**
@@ -78,11 +80,11 @@ export interface LedgerConnector {
   appendTx(chainId: string, row: ChainRow): Promise<void>;
 
   /**
-   * Append a batch of commitment rows at settlement, all tagged to `chainId`. Idempotent: a row
-   * already present (by tx_id) is skipped, so a re-run after a crash mid-batch never double-writes
-   * / violates the PRIMARY KEY.
+   * Append a batch of commitment rows at settlement, all tagged to `chainId` and stamped with
+   * `blockHeight`. Idempotent: a row already present (by tx_id) is skipped, so a re-run after a
+   * crash mid-batch never double-writes / violates the PRIMARY KEY.
    */
-  appendTxBatch(chainId: string, rows: ChainRow[]): Promise<void>;
+  appendTxBatch(chainId: string, rows: ChainRow[], blockHeight: number): Promise<void>;
 
   /**
    * Append a settled block's header. Idempotent on `(chainId, blockHeight)`: re-settling the same
@@ -95,6 +97,12 @@ export interface LedgerConnector {
 
   /** A settled block header by height (the publisher's source when assembling a bundle). */
   fetchBlockByHeight(chainId: string, blockHeight: number): Promise<BlockHeader | undefined>;
+
+  /**
+   * Settled block height stamped on a `record_chain` row, or null if absent / unset.
+   * Used by crash-reconcile to mirror height onto Postgres without inventing it.
+   */
+  getBlockHeightForTx(txId: string): Promise<number | null>;
 
   /** Liveness probe — true if the chain is reachable. Used by the settlement retry policy. */
   healthcheck(): Promise<boolean>;

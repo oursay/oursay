@@ -46,6 +46,9 @@ class DeadGetEnvelopeLedger implements LedgerConnector {
   async fetchBlockByHeight(): Promise<BlockHeader | undefined> {
     return undefined;
   }
+  async getBlockHeightForTx(): Promise<number | null> {
+    return null;
+  }
   async healthcheck(): Promise<boolean> {
     return false;
   }

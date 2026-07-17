@@ -34,11 +34,12 @@ export interface SettleOptions {
  * agreed blocks, not one row at a time. The block tip lives on immudb (keyed by `chainId`), so the
  * next block chains deterministically onto the last.
  *
- * Crash-safe and idempotent. The write order is: (1) batch-append commitments (idempotent — already
- * present rows are skipped), (2) append the header (idempotent on `(chainId, height)`), (3) mark the
- * pool sent. A crash at any point leaves the rows pending and a re-run completes them without
- * double-writing. The rare "header landed but pool not yet marked" case is reconciled up front:
- * pending rows already covered by the settled tip are marked sent rather than re-blocked.
+ * Crash-safe and idempotent. The write order is: (1) batch-append commitments stamped with
+ * `blockHeight` (idempotent — already present rows are skipped), (2) append the header (idempotent
+ * on `(chainId, height)`), (3) mirror height onto Postgres `record_tx`, (4) mark the pool sent.
+ * A crash at any point leaves the rows pending and a re-run completes them without double-writing.
+ * The rare "header landed but pool not yet marked" case is reconciled up front: pending rows already
+ * covered by the settled tip are mirrored from immudb height onto `record_tx` then marked sent.
  *
  * Resilient: a failed chain append triggers the same healthcheck-gated retry policy as the old relay
  * (default "3-3-3", see {@link OutboxConfig}; `0` = indefinite). If immudb stays unreachable the
@@ -102,6 +103,19 @@ export class BlockSettler {
       const alreadySettled = pending.filter((p) => p.seq <= fromSeq);
       const fresh = pending.filter((p) => p.seq > fromSeq);
       if (alreadySettled.length > 0) {
+        // Mirror heights from immudb (already stamped at append) onto record_tx, then clear the pool.
+        const byHeight = new Map<number, string[]>();
+        for (const p of alreadySettled) {
+          const h = await this.connector.getBlockHeightForTx(p.txId);
+          if (h != null && h >= 1) {
+            const ids = byHeight.get(h) ?? [];
+            ids.push(p.txId);
+            byHeight.set(h, ids);
+          }
+        }
+        for (const [h, ids] of byHeight) {
+          await this.store.markTxBlockHeightBatch(ids, h);
+        }
         await this.store.markOutboxSentBatch(alreadySettled.map((p) => p.txId));
       }
       if (fresh.length > 0) {
@@ -117,15 +131,20 @@ export class BlockSettler {
     const leaves = batch.map((p) => hashLeaf(p.payload.envelope));
     const bundleMerkleRoot = merkleRoot(leaves);
 
-    // (1) Commit the commitments (idempotent), with the immudb-down retry policy. Capture the ledger
-    // root AFTER the batch lands so the header witnesses the post-append state.
-    await this.appendBatchWithRetry(batch.map((p) => p.payload));
+    const blockHeight = (prev?.blockHeight ?? 0) + 1;
+
+    // (1) Commit the commitments stamped with height (idempotent), with the immudb-down retry policy.
+    // Capture the ledger root AFTER the batch lands so the header witnesses the post-append state.
+    await this.appendBatchWithRetry(
+      batch.map((p) => ({ ...p.payload, blockHeight })),
+      blockHeight,
+    );
     const immu = await this.connector.state();
 
     const prevChainTipHash = prev?.chainTipHash ?? null;
     const header: BlockHeader = {
       chainId: this.chainId,
-      blockHeight: (prev?.blockHeight ?? 0) + 1,
+      blockHeight,
       fromSeq,
       toSeq,
       txCount: batch.length,
@@ -139,9 +158,13 @@ export class BlockSettler {
       capturedAt: opts.capturedAt ?? new Date().toISOString(),
     };
 
-    // (2) Commit the header, then (3) clear the pool. Only now is the block durable on the chain.
+    // (2) Commit the header, (3) mirror height onto record_tx, (4) clear the pool.
     await this.connector.appendBlock(header);
-    await this.store.markOutboxSentBatch(batch.map((p) => p.txId), header.blockHeight);
+    await this.store.markTxBlockHeightBatch(
+      batch.map((p) => p.txId),
+      header.blockHeight,
+    );
+    await this.store.markOutboxSentBatch(batch.map((p) => p.txId));
     return header;
   }
 
@@ -166,8 +189,8 @@ export class BlockSettler {
    * indefinite), resuming as soon as it recovers. Throws if it ultimately cannot deliver — the pool
    * is left intact for the next settle. `appendTxBatch` is idempotent, so retries never double-write.
    */
-  private async appendBatchWithRetry(rows: ChainRow[]): Promise<void> {
-    if (await this.tryAppend(rows)) return;
+  private async appendBatchWithRetry(rows: ChainRow[], blockHeight: number): Promise<void> {
+    if (await this.tryAppend(rows, blockHeight)) return;
 
     const { retryAttempts, healthcheckAttempts, healthcheckWaitMs } = this.retry;
     let healthFailures = 0;
@@ -175,7 +198,7 @@ export class BlockSettler {
       if (await this.connector.healthcheck()) {
         healthFailures = 0;
         for (let attempt = 0; retryAttempts === 0 || attempt < retryAttempts; attempt++) {
-          if (await this.tryAppend(rows)) return;
+          if (await this.tryAppend(rows, blockHeight)) return;
         }
         throw new Error("settlement append failed repeatedly while immudb was healthy");
       }
@@ -187,9 +210,9 @@ export class BlockSettler {
     }
   }
 
-  private async tryAppend(rows: ChainRow[]): Promise<boolean> {
+  private async tryAppend(rows: ChainRow[], blockHeight: number): Promise<boolean> {
     try {
-      await this.connector.appendTxBatch(this.chainId, rows);
+      await this.connector.appendTxBatch(this.chainId, rows, blockHeight);
       return true;
     } catch {
       return false;
