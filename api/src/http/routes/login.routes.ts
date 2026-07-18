@@ -30,7 +30,11 @@ export function registerLoginRoutes(app: FastifyInstance, services: Services): v
     },
     async (req, reply) => {
       const result = await services.loginService.enable({ userId: req.user!.userId });
-      reply.status(202).send({ status: "sent", expiresAt: result.expiresAt });
+      reply.status(202).send({
+        status: "sent",
+        expiresAt: result.expiresAt,
+        delivery: result.delivery,
+      });
     },
   );
 

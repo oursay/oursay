@@ -51,20 +51,28 @@ export interface VerifyRegistrationResult {
   session: SessionInfo;
 }
 
-export interface EnableLoginResult {
+/** 202 body from OTP request / login enable when a code may have been issued. */
+export interface OtpSentResult {
   status: "sent";
-  expiresAt: string;
+  expiresAt?: string;
+  /** Where the code went: real mail vs noop console echo. */
+  delivery?: "inbox" | "console";
+}
+
+export type EnableLoginResult = OtpSentResult & { expiresAt: string };
+export type EnableRecoveryResult = OtpSentResult;
+
+/** Toast copy after a successful OTP send, keyed by mailer delivery channel. */
+export function otpSentToast(delivery?: OtpSentResult["delivery"]): string {
+  return delivery === "inbox"
+    ? "Code sent — check your inbox."
+    : "Code sent — check the API server console in dev.";
 }
 
 export interface VerifyLoginResult {
   status: "passkey_enroll";
   userId: string;
   session: SessionInfo;
-}
-
-export interface EnableRecoveryResult {
-  status: "sent";
-  expiresAt?: string;
 }
 
 export interface VerifyRecoveryResult {
@@ -77,8 +85,8 @@ export interface VerifyRecoveryResult {
 export async function requestRegistrationOtp(
   email: string,
   profile?: RegistrationProfile,
-): Promise<void> {
-  await apiPost("/v1/auth/otp/request", {
+): Promise<OtpSentResult> {
+  const body = await apiPost<OtpSentResult>("/v1/auth/otp/request", {
     email,
     purpose: "registration",
     ...(profile
@@ -94,6 +102,7 @@ export async function requestRegistrationOtp(
         }
       : {}),
   });
+  return body ?? { status: "sent" };
 }
 
 /** Verify registration OTP. `profile` optional when a server draft was stored at request time. */

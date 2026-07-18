@@ -14,8 +14,12 @@ import { errorSchema, otpSentResponseSchema, profileInputSchema } from "../schem
 
 type OtpPurpose = "registration" | "recovery" | "login";
 
-function otpSentBody(result: OtpRequestResult | null): { status: "sent"; expiresAt?: string } {
-  return result ? { status: "sent", expiresAt: result.expiresAt } : { status: "sent" };
+function otpSentBody(
+  result: OtpRequestResult | null,
+): { status: "sent"; expiresAt?: string; delivery?: OtpRequestResult["delivery"] } {
+  return result
+    ? { status: "sent", expiresAt: result.expiresAt, delivery: result.delivery }
+    : { status: "sent" };
 }
 
 export function registerOtpRoutes(app: FastifyInstance, services: Services): void {

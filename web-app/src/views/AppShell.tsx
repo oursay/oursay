@@ -266,13 +266,21 @@ export function AppShell({ children }: { children: ReactNode }) {
     void (async () => {
       try {
         if (otpMode === "recovery") {
-          await requestRecoveryOtp(email);
-          app.notify("A new recovery code has been sent — check API server console in dev.");
+          const res = await requestRecoveryOtp(email);
+          app.notify(
+            res.delivery === "inbox"
+              ? "A new recovery code has been sent — check your inbox."
+              : "A new recovery code has been sent — check API server console in dev.",
+          );
           return;
         }
         if (otpMode === "login") {
-          await requestLoginOtp(email);
-          app.notify("A new sign-in code has been sent — check API server console in dev.");
+          const res = await requestLoginOtp(email);
+          app.notify(
+            res.delivery === "inbox"
+              ? "A new sign-in code has been sent — check your inbox."
+              : "A new sign-in code has been sent — check API server console in dev.",
+          );
           return;
         }
         const draft = loadRegistrationDraft();
@@ -280,8 +288,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           draft?.email?.trim().toLowerCase() === email.toLowerCase() && draft.handle?.trim()
             ? registrationProfileForApi(draft)
             : undefined;
-        await requestRegistrationOtp(email, profile);
-        app.notify("A new verification code has been sent — check API server console in dev.");
+        const res = await requestRegistrationOtp(email, profile);
+        app.notify(
+          res.delivery === "inbox"
+            ? "A new verification code has been sent — check your inbox."
+            : "A new verification code has been sent — check API server console in dev.",
+        );
       } catch (e: unknown) {
         const msg =
           e instanceof Error ? e.message : "Resend failed.";

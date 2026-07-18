@@ -4,7 +4,7 @@
 // Registration requests may attach reserved_handle + profile_json for cross-session verify.
 
 import { randomUUID } from "node:crypto";
-import type { OtpConfig } from "../config.js";
+import type { MailerVendor, OtpConfig } from "../config.js";
 import { ServiceError, systemNow, type Now } from "../errors.js";
 import { expiryFrom, generateOtp, hashOtp, hexEqual, newOtpSalt } from "../helpers/otp.js";
 import { isPlausibleEmail, normalizeEmail } from "../helpers/email.js";
@@ -12,6 +12,13 @@ import type { OtpPurpose, OtpRepo, RegistrationOtpDraft } from "../repo/otp.repo
 import type { RateLimitRepo } from "../repo/ratelimit.repo.js";
 import type { MailerService, MailRole } from "./mailer/mailer.js";
 import { buildOtpMailTemplate, otpContinueUrl } from "./mailer/otp-mail-template.js";
+
+/** Where the user should look for the code — noop echoes to the API console; real vendors deliver mail. */
+export type OtpDelivery = "inbox" | "console";
+
+export function otpDeliveryForVendor(vendor: MailerVendor): OtpDelivery {
+  return vendor === "noop" ? "console" : "inbox";
+}
 
 export interface OtpServiceDeps {
   otpRepo: OtpRepo;
@@ -38,6 +45,8 @@ export interface VerifiedEmail {
 /** Result of issuing an OTP. `expiresAt` is ISO-8601 (UTC) — the code is invalid after this instant. */
 export interface OtpRequestResult extends VerifiedEmail {
   expiresAt: string;
+  /** Hint for client toast copy: real mail vs noop console echo. */
+  delivery: OtpDelivery;
 }
 
 export interface OtpRequestInput {
@@ -106,14 +115,19 @@ export class OtpService {
       expiresInMinutes: minutes,
       continueUrl,
     });
-    await this.d.mailer.send(ROLE[input.purpose], {
+    const { vendor } = await this.d.mailer.send(ROLE[input.purpose], {
       to: email,
       subject: mail.subject,
       text: mail.text,
       html: mail.html,
     });
 
-    return { email, emailCanonical: canonical, expiresAt: expiresAt.toISOString() };
+    return {
+      email,
+      emailCanonical: canonical,
+      expiresAt: expiresAt.toISOString(),
+      delivery: otpDeliveryForVendor(vendor),
+    };
   }
 
   /** True if an active (unconsumed, unexpired) code exists for this (email, purpose). Used to gate

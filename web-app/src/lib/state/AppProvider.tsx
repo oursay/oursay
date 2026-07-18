@@ -93,6 +93,7 @@ import {
   enableLogin,
   requestRegistrationOtp,
   requestRecoveryOtp,
+  otpSentToast,
   revokePasskey as apiRevokePasskey,
   updatePasskeyLabel,
   verifyLoginOtp,
@@ -720,9 +721,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const expiresCopy = Number.isNaN(expiry.getTime())
           ? ""
           : ` (expires ${expiry.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })})`;
-        notify(
-          `Email login enabled — OTP sent${expiresCopy}.${process.env.NODE_ENV === "development" ? " Dev: read the code from the API server console." : ""}`,
-        );
+        const where =
+          res.delivery === "inbox"
+            ? " Check your inbox."
+            : process.env.NODE_ENV === "development"
+              ? " Dev: read the code from the API server console."
+              : "";
+        notify(`Email login enabled — OTP sent${expiresCopy}.${where}`);
       })
       .catch((e: Error) => notify(e.message));
   }, [notify]);
@@ -1158,9 +1163,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       authDraftRef.current = payload;
       saveRegistrationDraft(payload);
       void requestRegistrationOtp(payload.email, registrationProfileForApi(payload))
-        .then(() => {
+        .then((res) => {
           set({ authModal: authOtp("registration", payload.email) });
-          notify("Code sent — check the API server console in dev.");
+          notify(otpSentToast(res.delivery));
         })
         .catch((e: unknown) => {
           const msg =
@@ -1196,9 +1201,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
 
       void requestRecoveryOtp(trimmed)
-        .then(() => {
+        .then((res) => {
           set({ authModal: authOtp("recovery", trimmed) });
-          notify("Code sent — check the API server console in dev.");
+          notify(otpSentToast(res.delivery));
         })
         .catch((e: unknown) => {
           const msg =

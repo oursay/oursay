@@ -72,7 +72,7 @@ export const webauthnJson = { type: "object", additionalProperties: true } as co
 
 export const bearerSecurity: Array<Record<string, string[]>> = [{ bearerAuth: [] }, { cookieAuth: [] }];
 
-/** 202 body for OTP request routes. `expiresAt` is present when a code was actually issued. */
+/** 202 body for OTP request routes. `expiresAt` / `delivery` are present when a code was actually issued. */
 export const otpSentResponseSchema = {
   type: "object",
   properties: {
@@ -81,6 +81,12 @@ export const otpSentResponseSchema = {
       type: "string",
       format: "date-time",
       description: "UTC instant after which the issued code is invalid (matches OTP_TTL_SEC).",
+    },
+    delivery: {
+      type: "string",
+      enum: ["inbox", "console"],
+      description:
+        "Where the code was delivered: `inbox` (Postmark/SMTP/SES) or `console` (noop mailer echo).",
     },
   },
   required: ["status"],
