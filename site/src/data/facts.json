@@ -73,11 +73,11 @@
   },
   {
     "id": "oursay-build-cost",
-    "value": "~$100,000",
-    "claim": "OurSay estimates the platform can be built for roughly $100,000 — and, because it is open source, the same code can be reused by any jurisdiction rather than rebuilt from scratch for each vote. This is OurSay's own projection, not an external figure.",
-    "sourceName": "OurSay estimate",
+    "value": "~$15,000",
+    "claim": "OurSay built the platform for roughly $15,000 — and, because it is open source, the same code can be reused by any jurisdiction rather than rebuilt from scratch for each vote. This is OurSay's own figure, not an external estimate.",
+    "sourceName": "OurSay",
     "sourceUrl": "https://github.com/OurSay/oursay",
     "date": "2026",
-    "confidence": "OurSay estimate"
+    "confidence": "OurSay figure"
   }
 ]
