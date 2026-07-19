@@ -16,7 +16,7 @@ interface AvatarProps {
    * name for anonymized authors. Falls back to `name`.
    */
   seed?: string;
-  /** DiceBear style id (user allowlist, initial-face, or disco). Defaults to bottts-neutral. */
+  /** DiceBear style id (user allowlist, bottts / initial-face, or disco). Defaults to bottts-neutral. */
   iconType?: string | null;
   size?: Size;
   className?: string;

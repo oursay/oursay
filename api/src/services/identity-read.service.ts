@@ -45,7 +45,7 @@ export interface AuthorIdentityDto {
   isPersona: boolean;
   isSelf: boolean;
   seed: string;
-  /** DiceBear style when revealed/self; omitted for personas. */
+  /** DiceBear style when revealed/self; omitted for personas (client: effectivePersonaIconType). */
   iconType?: string;
   threadId: string;
   seenByOthersAs?: string;

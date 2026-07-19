@@ -13,7 +13,7 @@ export const identitySchema = {
     isPersona: { type: "boolean" },
     isSelf: { type: "boolean" },
     seed: { type: "string" },
-    /** DiceBear style when revealed/self; omitted for personas. */
+    /** DiceBear style when revealed/self; omitted for personas (client: effectivePersonaIconType). */
     iconType: { type: "string" },
     threadId: { type: "string" },
     seenByOthersAs: { type: "string" },

@@ -5,8 +5,10 @@ import {
   DEFAULT_VERIFIED_USER_ICON_TYPE,
   OFFICIAL_SEAT_ICON_TYPE,
   PERSONA_ICON_TYPE,
+  UNVERIFIED_PERSONA_ICON_TYPE,
   UNVERIFIED_USER_ICON_TYPE,
   USER_ICON_TYPES,
+  effectivePersonaIconType,
   effectiveUserIconType,
   parseStoredUserIconType,
 } from "./avatar";
@@ -38,9 +40,24 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
 
   it("hard-wires persona and official seat style constants", () => {
     expect(PERSONA_ICON_TYPE).toBe("initial-face");
+    expect(UNVERIFIED_PERSONA_ICON_TYPE).toBe("bottts");
     expect(OFFICIAL_SEAT_ICON_TYPE).toBe("disco");
     expect(avatarDataUri("persona", PERSONA_ICON_TYPE).startsWith("data:")).toBe(true);
+    expect(avatarDataUri("persona", UNVERIFIED_PERSONA_ICON_TYPE).startsWith("data:")).toBe(
+      true,
+    );
     expect(avatarDataUri("seat", OFFICIAL_SEAT_ICON_TYPE).startsWith("data:")).toBe(true);
+  });
+
+  it("plain bottts differs from bottts-neutral for the same seed", () => {
+    expect(avatarDataUri("BraveOtter42", "bottts")).not.toBe(
+      avatarDataUri("BraveOtter42", "bottts-neutral"),
+    );
+  });
+
+  it("effectivePersonaIconType: unverified → bottts, verified → initial-face", () => {
+    expect(effectivePersonaIconType(false)).toBe("bottts");
+    expect(effectivePersonaIconType(true)).toBe("initial-face");
   });
 
   it("does not store bottts; unverified hard-wires, verified defaults to thumbs", () => {
@@ -55,5 +72,6 @@ describe("avatarDataUri (DiceBear multi-style)", () => {
     expect(DEFAULT_VERIFIED_USER_ICON_TYPE).toBe("thumbs");
     expect(USER_ICON_TYPES).toHaveLength(6);
     expect(USER_ICON_TYPES).not.toContain("bottts-neutral");
+    expect(USER_ICON_TYPES).not.toContain("bottts");
   });
 });

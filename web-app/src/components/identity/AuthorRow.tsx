@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { VenetianMask } from "lucide-react";
 import { Avatar } from "@/components/ui";
-import { PERSONA_ICON_TYPE } from "@/lib/avatar";
+import { effectivePersonaIconType } from "@/lib/avatar";
 import type {
   AuthorIdentity,
   PillDisplayMode,
@@ -74,7 +74,11 @@ export function AuthorRow({
   const isComment = layout === "comment";
   const isPersona = identity?.isPersona ?? false;
   const avatarSeed = identity?.seed ?? handle ?? author;
-  const avatarIconType = isPersona ? PERSONA_ICON_TYPE : identity?.iconType;
+  // Personas: style from civic tier (bottts unverified / initial-face verified).
+  // Profiles: server-resolved iconType on identity.
+  const avatarIconType = isPersona
+    ? effectivePersonaIconType(tier >= 1)
+    : identity?.iconType;
   const badges = (
     <AuthorBadgeGroup
       signTier={signTier}

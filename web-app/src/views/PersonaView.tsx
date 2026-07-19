@@ -8,7 +8,7 @@ import type { PersonaProfile } from "@/lib/api";
 import type { CommentNode } from "@/lib/types";
 import { relTime, useNow } from "@/lib/read-model";
 import { TimestampWithAnchor } from "@/components/content/TimestampWithAnchor";
-import { PERSONA_ICON_TYPE } from "@/lib/avatar";
+import { effectivePersonaIconType } from "@/lib/avatar";
 import { Avatar, CommentCard, FeedCard, VerificationPill } from "@/components";
 import {
   ActivityRow,
@@ -108,7 +108,12 @@ export function PersonaView({ personaName }: { personaName: string }) {
     <div className="space-y-1 p-3">
       <header className="rounded-xl border border-border bg-surface px-3 pt-3 pb-1">
         <div className="flex items-center gap-3">
-          <Avatar name={profile.name} seed={profile.name} iconType={PERSONA_ICON_TYPE} size="lg" />
+          <Avatar
+            name={profile.name}
+            seed={profile.name}
+            iconType={effectivePersonaIconType(profile.tier >= 1)}
+            size="lg"
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="flex min-w-0 items-center gap-1.5 truncate font-bold text-ink">

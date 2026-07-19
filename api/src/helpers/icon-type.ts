@@ -1,6 +1,7 @@
 // Shared dicebear icon_type for users.profile_details (HTTP: iconType).
-// Personas hard-wire initial-face; official seats hard-wire disco; unverified users
-// hard-wire bottts-neutral — none of those are stored or PATCHable.
+// Personas are client hard-wires from civic tier (unverified → bottts, verified →
+// initial-face); official seats hard-wire disco; unverified users hard-wire
+// bottts-neutral — none of those are stored or PATCHable.
 //
 // Stored / PATCH-able allowlist is verified styles only (default thumbs when verified + unset).
 

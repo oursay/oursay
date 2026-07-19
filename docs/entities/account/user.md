@@ -36,7 +36,8 @@ Stored wire keys match `@dicebear/styles/<name>.json`. **Product rules by surfac
 
 | Surface | Style | Choosable |
 |---------|-------|-----------|
-| Persona (anonymous / persona page) | `initial-face` (hard-wired) | no |
+| Persona (anonymous / persona page), **unverified** author | `bottts` (hard-wired) | no |
+| Persona (anonymous / persona page), **verified** author | `initial-face` (hard-wired) | no |
 | Official seat chrome | `disco` (hard-wired) | no |
 | User profile / revealed author (unverified) | `bottts-neutral` (hard-wired; **`icon_type` null / absent**) | no — Get Verified unlocks chooser |
 | User profile / revealed author (verified) | one of the verified allowlist below | yes via `PATCH /v1/profile` |
@@ -121,4 +122,4 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
 - Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) — enforcement on public profile surfaces; reveal model replaces the old persona `claimed`/`claimed_at` flow.
 - **Official role** — platform-assigned, revocable `official` role (on the user/jurisdiction membership) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier.
-- **Profile Icon** — unverified hard-wires `bottts-neutral` with null storage; verified users pick from the six-style allowlist; personas stay `initial-face`, official seats stay `disco` (not user-pickable).
+- **Profile Icon** — unverified hard-wires `bottts-neutral` with null storage; verified users pick from the six-style allowlist; personas hard-wire `bottts` (unverified) or `initial-face` (verified) from civic tier; official seats stay `disco` (not user-pickable).

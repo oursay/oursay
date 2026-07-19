@@ -1,4 +1,5 @@
 import { Avatar, Style } from "@dicebear/core";
+import bottts from "@dicebear/styles/bottts.json";
 import botttsNeutral from "@dicebear/styles/bottts-neutral.json";
 import disco from "@dicebear/styles/disco.json";
 import initialFace from "@dicebear/styles/initial-face.json";
@@ -11,12 +12,21 @@ import triangles from "@dicebear/styles/triangles.json";
 
 /**
  * Deterministic generated avatars (offline SVG data URIs) — DiceBear v10.
- * Personas → initial-face; official seats → disco; unverified accounts →
- * bottts-neutral (hard-wired, not stored); verified → USER_ICON_TYPES (default thumbs).
+ *
+ * Hard-wires (never stored / not PATCHable):
+ *   - Unverified user profile → bottts-neutral
+ *   - Unverified persona → bottts (plain; distinct from profile robots)
+ *   - Verified persona → initial-face
+ *   - Official seat chrome → disco
+ * Verified users choose from USER_ICON_TYPES (default thumbs).
+ *
  * Real accounts seed by handle; personas seed by persona name.
  */
 
+/** Verified / KYC-attested persona hard-wire. */
 export const PERSONA_ICON_TYPE = "initial-face" as const;
+/** Unverified persona hard-wire — plain bottts, parallel to unverified profiles. */
+export const UNVERIFIED_PERSONA_ICON_TYPE = "bottts" as const;
 export const OFFICIAL_SEAT_ICON_TYPE = "disco" as const;
 export const UNVERIFIED_USER_ICON_TYPE = "bottts-neutral" as const;
 
@@ -40,6 +50,7 @@ export const DEFAULT_VERIFIED_USER_ICON_TYPE: UserIconType = "thumbs";
 export type IconType =
   | UserIconType
   | typeof PERSONA_ICON_TYPE
+  | typeof UNVERIFIED_PERSONA_ICON_TYPE
   | typeof OFFICIAL_SEAT_ICON_TYPE
   | typeof UNVERIFIED_USER_ICON_TYPE;
 
@@ -47,6 +58,7 @@ export type IconType =
 export const DEFAULT_USER_ICON_TYPE: IconType = UNVERIFIED_USER_ICON_TYPE;
 
 const STYLE_DEFS: Record<IconType, unknown> = {
+  bottts,
   "bottts-neutral": botttsNeutral,
   "initial-face": initialFace,
   disco,
@@ -87,13 +99,21 @@ export function parseStoredUserIconType(
   return null;
 }
 
-/** Unverified → bottts (hard-wire); verified → stored style or thumbs. */
+/** Unverified → bottts-neutral (hard-wire); verified → stored style or thumbs. */
 export function effectiveUserIconType(
   raw: string | null | undefined,
   verified: boolean,
 ): IconType {
   if (!verified) return UNVERIFIED_USER_ICON_TYPE;
   return parseStoredUserIconType(raw) ?? DEFAULT_VERIFIED_USER_ICON_TYPE;
+}
+
+/**
+ * Persona style from the author's civic tier (still public when identity is masked).
+ * Unverified (tier 0) → bottts; verified (tier ≥ 1) → initial-face.
+ */
+export function effectivePersonaIconType(verified: boolean): IconType {
+  return verified ? PERSONA_ICON_TYPE : UNVERIFIED_PERSONA_ICON_TYPE;
 }
 
 /** @deprecated prefer parseStoredUserIconType + effectiveUserIconType */
@@ -113,6 +133,7 @@ function styleFor(iconType: IconType): Style {
 function resolveIconType(raw: string | null | undefined): IconType {
   if (
     raw === PERSONA_ICON_TYPE ||
+    raw === UNVERIFIED_PERSONA_ICON_TYPE ||
     raw === OFFICIAL_SEAT_ICON_TYPE ||
     raw === UNVERIFIED_USER_ICON_TYPE
   ) {
