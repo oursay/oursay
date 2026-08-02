@@ -1,13 +1,8 @@
 # OurSay — Contributor Reference: Product Specification
 
-> **Purpose of this document:** This is the canonical reference for all contributors to OurSay.
-> When a design question arises — about features, user flows, data relationships, or system
-> behaviour — consult this document first. It describes *what* the system does and *why*, not
-> *how* to implement it. Schema design, API structure, and frontend layout are decisions left
-> to contributor judgment, informed by this specification.
+> **Purpose of this document:** This is the canonical reference for all contributors to OurSay. When a design question arises — about features, user flows, data relationships, or system behaviour — consult this document first. It describes *what* the system does and *why*, not *how* to implement it. Schema design, API structure, and frontend layout are decisions left to contributor judgment, informed by this specification.
 >
-> If a significant design decision is not answered here, discuss it in a GitHub issue or RFC,
-> then update this document before closing the issue.
+> If a significant design decision is not answered here, discuss it in a GitHub issue or RFC, then update this document before closing the issue.
 
 ---
 
