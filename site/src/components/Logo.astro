@@ -1,31 +1,35 @@
 ---
 interface Props {
   class?: string;
+  /** `branded` = purple tile + grey ring / white check (nav). `dark` = transparent light ring / violet check (footer). */
+  variant?: "branded" | "dark";
 }
-const { class: extra = "" } = Astro.props;
+const { class: extra = "", variant = "branded" } = Astro.props;
+const dark = variant === "dark";
 ---
 
 <a href="/" class={`group inline-flex items-center gap-2 ${extra}`} aria-label="OurSay home">
-  <!-- Speech mark + check = "verified say" -->
   <svg
     viewBox="0 0 32 32"
-    class="h-7 w-7 text-brand-600"
+    class="h-7 w-7"
     fill="none"
     aria-hidden="true"
   >
-    <path
-      d="M6 4h20a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H13l-6 5v-5H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"
-      fill="currentColor"
-    />
-    <path
-      d="m11 13 3.2 3.2L21 9.5"
-      stroke="white"
-      stroke-width="2.4"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
+    {dark ? null : <rect width="32" height="32" rx="7" fill="#7c3aed" />}
+    <g transform="translate(4 4)" stroke-linecap="round" stroke-linejoin="round">
+      <path
+        d="M21.801 10A10 10 0 1 1 17 3.335"
+        stroke={dark ? "#f1f5f9" : "#111827"}
+        stroke-width="2"
+      />
+      <path
+        d="m9 11 3 3L22 4"
+        stroke={dark ? "#8b5cf6" : "#ffffff"}
+        stroke-width="3"
+      />
+    </g>
   </svg>
-  <span class="text-lg font-bold tracking-tight text-slate-900">
-    Our<span class="text-brand-600">Say</span>
+  <span class={`text-lg font-bold tracking-tight ${dark ? "text-white" : "text-slate-900"}`}>
+    Our<span class={dark ? "text-brand-400" : "text-brand-600"}>Say</span>
   </span>
 </a>
