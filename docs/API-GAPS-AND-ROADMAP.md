@@ -1,16 +1,10 @@
 # API gaps and pre-UI roadmap
 
-> **📍 For the product horizon (Current → MVP → V1 → V2), see [`ROADMAP.md`](./ROADMAP.md).** This
-> file is the granular, backend-facing companion: what `@oursay/api` does today, what is stubbed or
-> missing, and the phase-tagged work behind it. It is **not** deprecated — `ROADMAP.md` links here for
-> detail.
+> **📍 For the product horizon (Current → MVP → V1 → V2), see [`ROADMAP.md`](./ROADMAP.md).** This file is the granular, backend-facing companion: what `@oursay/api` does today, what is stubbed or missing, and the phase-tagged work behind it. It is **not** deprecated — `ROADMAP.md` links here for detail.
 
-What `@oursay/api` and the civic read/write surface **do today**, what is **stubbed or missing**, and
-suggested **backend work before Phase D (web app)**. UI planning stays deferred until these seams are
-stable — especially jurisdiction policy, membership, and how platform counts are advertised.
+What `@oursay/api` and the civic read/write surface **do today**, what is **stubbed or missing**, and suggested **backend work before Phase D (web app)**. UI planning stays deferred until these seams are stable — especially jurisdiction policy, membership, and how platform counts are advertised.
 
-**See also:** [`api/README.md`](../api/README.md) (operational detail) · [`REGION-MODEL.md`](./REGION-MODEL.md)
-(region-first filtering) · [`GLOSSARY.md`](./GLOSSARY.md) · [`01-CONTRIBUTOR-SPEC.md`](./01-CONTRIBUTOR-SPEC.md) §6–7
+**See also:** [`api/README.md`](../api/README.md) (operational detail) · [`REGION-MODEL.md`](./REGION-MODEL.md) (region-first filtering) · [`GLOSSARY.md`](./GLOSSARY.md) · [`01-CONTRIBUTOR-SPEC.md`](./01-CONTRIBUTOR-SPEC.md) §6–7
 
 ---
 
@@ -45,14 +39,9 @@ stable — especially jurisdiction policy, membership, and how platform counts a
 | Count exposure (`countGating`) | Per-jurisdiction `JurisdictionConfig.counts` drives `none`/`withheld`/`tier-gated` on petition/poll list+detail+counts; `ab-ca-gov` tier-gates vote/signature scalars, `oursay-global` is permissive |
 | Area catalog (`[mvp-c6-area-catalog]`) | Public `GET /v1/public/jurisdictions` index + effective-dated district directory (`…/jurisdictions/:id/districts?asOf=`) + official boundary geometry (`…/districts/:revisionId/geometry`, or `?include=geometry`). Official `geo.districts` revisions only — no user points, no `geo.regions` presets, no freeform district-id query |
 
-**Intentional UX split:** geo and tier **count** filtering apply only on **`GET …/:id/counts`**. List and thread
-detail endpoints parse `scope`/`tier` but do not filter embedded tallies (`applied.geo` / `applied.tier`
-stay false there). Clients that need scoped numbers must call `/counts`.
+**Intentional UX split:** geo and tier **count** filtering apply only on **`GET …/:id/counts`**. List and thread detail endpoints parse `scope`/`tier` but do not filter embedded tallies (`applied.geo` / `applied.tier` stay false there). Clients that need scoped numbers must call `/counts`.
 
-**Separate from count filtering (target, Phase D alignment):** read DTOs carry a per-author
-**`authorGeo` relation** (`home`/`affected`/`jurisdiction`/`none`) resolved server-side per viewer —
-public reads accept an **optional session** for this; the relation enum is the only residence
-signal that ever leaves the API. See [REGION-MODEL.md](./REGION-MODEL.md) "Author-geo relations".
+**Separate from count filtering (target, Phase D alignment):** read DTOs carry a per-author **`authorGeo` relation** (`home`/`affected`/`jurisdiction`/`none`) resolved server-side per viewer — public reads accept an **optional session** for this; the relation enum is the only residence signal that ever leaves the API. See [REGION-MODEL.md](./REGION-MODEL.md) "Author-geo relations".
 
 ---
 
@@ -71,10 +60,7 @@ Grouped by dependency. Tags are proposed agent-loop names.
 
 ### MVP foundation (multi-jurisdiction)
 
-The **foundation** here is launch scope (see `[ROADMAP.md](./ROADMAP.md)` MVP and `[PRD.md](./PRD.md)` §3/§6):
-membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI selector + unified-feed
-**components** (which work with a single active chain). A *populated* multi-chain feed is best-effort.
-(`[mvp-c11-ever-in-region]` below is a later filter mode, not foundation — V1.)
+The **foundation** here is launch scope (see `[ROADMAP.md](./ROADMAP.md)` MVP and `[PRD.md](./PRD.md)` §3/§6): membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI selector + unified-feed **components** (which work with a single active chain). A *populated* multi-chain feed is best-effort. (`[mvp-c11-ever-in-region]` below is a later filter mode, not foundation — V1.)
 
 | Tag | Gap | Why it matters |
 |-----|-----|----------------|
@@ -132,10 +118,7 @@ membership, root↔jurisdiction binding + `oursay-global` fallback, and the UI s
 7. [mvp-c12-poll-results] → [mvp-c13-signed-count-snapshots] → [mvp-c14-count-amendments]
       Trust layer; can trail alpha if counts are honestly labelled “live recompute”.
 
-Phase D (web app) after 2–4 (or agreed subset): browse/detail + `/counts` panel. Build the
-jurisdiction-selector + unified-feed **components** now — they work with a single active chain, and a
-hidden/one-option selector is far cheaper than retrofitting one later. A *populated* multi-chain feed
-waits on 6 (`[mvp-c10-multi-jurisdiction]` + `[mvp-c10b-membership]`).
+Phase D (web app) after 2–4 (or agreed subset): browse/detail + `/counts` panel. Build the jurisdiction-selector + unified-feed **components** now — they work with a single active chain, and a hidden/one-option selector is far cheaper than retrofitting one later. A *populated* multi-chain feed waits on 6 (`[mvp-c10-multi-jurisdiction]` + `[mvp-c10b-membership]`).
 ```
 
 ---
@@ -146,10 +129,7 @@ waits on 6 (`[mvp-c10-multi-jurisdiction]` + `[mvp-c10b-membership]`).
 - **Coarse public API** — fixed `GeoScope` enum on unauthenticated routes; custom regions are internal or authenticated.
 - **No district on the user row** — geocode point + dynamic `contains`; optional snapshots at action time.
 - **Private linkage** — persona/nullifier → user never on public responses.
-- **Relations, never locations** — the one sanctioned per-author residence signal on DTOs is the
-  viewer-relative `authorGeo` **relation enum** (`home`/`affected`/`jurisdiction`/`none`; `home`
-  only for residency-verified viewers), computed server-side. Raw author districts/points are
-  never serialized; action-geo snapshots store **relationship booleans**, not points.
+- **Relations, never locations** — the one sanctioned per-author residence signal on DTOs is the viewer-relative `authorGeo` **relation enum** (`home`/`affected`/`jurisdiction`/`none`; `home` only for residency-verified viewers), computed server-side. Raw author districts/points are never serialized; action-geo snapshots store **relationship booleans**, not points.
 
 ---
 

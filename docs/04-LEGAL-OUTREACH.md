@@ -1,21 +1,15 @@
 # OurSay.ca — Legal Outreach Templates
 
 > **How to use this document:**
-> Two email versions are provided — one for lawyers who have publicly spoken in favour of
-> Alberta sovereignty or separation, and one that is party-neutral. Both solicit free
-> legal consultation in the public interest. Both include the same list of specific
-> questions drawn from the platform documentation.
+> Two email versions are provided — one for lawyers who have publicly spoken in favour of Alberta sovereignty or separation, and one that is party-neutral. Both solicit free legal consultation in the public interest. Both include the same list of specific questions drawn from the platform documentation.
 >
-> Customize all items in `[square brackets]` before sending. These are cold outreach
-> emails — keep them concise and let the legal questions do the work.
+> Customize all items in `[square brackets]` before sending. These are cold outreach emails — keep them concise and let the legal questions do the work.
 
 ---
 
 ## Questions Identified from Platform Documentation
 
-*These are the legal questions that should be answered before the platform launches. They are
-woven into both email versions below, but are listed here for reference when working with legal
-counsel.*
+*These are the legal questions that should be answered before the platform launches. They are woven into both email versions below, but are listed here for reference when working with legal counsel.*
 
 **1. Platform Classification**
 The platform is currently described as "civic infrastructure" and a "civic platform." Does this framing create legal risk — implied quasi-governmental status, proximity to election law, or unintended regulatory classification? Would registration as a social media platform centered on political discussion be legally cleaner, with verification offered as a paid feature? What classification minimizes regulatory exposure while preserving the platform's mission?

@@ -1,23 +1,17 @@
 # OurSay.ca — Outreach Template: Audience-Specific Talking Points
 
 > **How to use this document:**
-> This is a template for outreach to elected officials, political influencers, media figures,
-> and civic institutions. Each section is a standalone email body tailored to a specific
-> audience's core values and concerns.
+> This is a template for outreach to elected officials, political influencers, media figures, and civic institutions. Each section is a standalone email body tailored to a specific audience's core values and concerns.
 >
-> **To use:** Select the section for your recipient, copy the shared opening, the
-> audience-specific body, and the shared closing. Review and customize all items marked in
-> `[square brackets]`. Send as plain text or light HTML — no attachments, no tracking pixels.
+> **To use:** Select the section for your recipient, copy the shared opening, the audience-specific body, and the shared closing. Review and customize all items marked in `[square brackets]`. Send as plain text or light HTML — no attachments, no tracking pixels.
 >
-> All versions are written as an open letter from the OurSay.ca community. No individual
-> signature is required.
+> All versions are written as an open letter from the OurSay.ca community. No individual signature is required.
 
 ---
 
 ## SHARED OPENING
 
-> *Use this opening with every audience version. It establishes context without assuming
-> familiarity and sets a non-partisan tone.*
+> *Use this opening with every audience version. It establishes context without assuming familiarity and sets a non-partisan tone.*
 
 ---
 

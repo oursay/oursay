@@ -1,13 +1,8 @@
 # OurSay Roadmap
 
-A horizon view: **Current → MVP → V1 → V2**, getting deliberately vaguer downstream. This is the
-product/architecture arc; for the granular backend gap list and phase tags see
-[`API-GAPS-AND-ROADMAP.md`](./API-GAPS-AND-ROADMAP.md), and for the agent task prompts see
-the local agent playbooks. <!-- see .agents/MVP-PROMPTS.md and .agents/CODE-ALIGNMENT-PROMPTS.md -->
+A horizon view: **Current → MVP → V1 → V2**, getting deliberately vaguer downstream. This is the product/architecture arc; for the granular backend gap list and phase tags see [`API-GAPS-AND-ROADMAP.md`](./API-GAPS-AND-ROADMAP.md), and for the agent task prompts see the local agent playbooks. <!-- see .agents/MVP-PROMPTS.md and .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
-Vocabulary follows [`GLOSSARY.md`](./GLOSSARY.md): canonical **record types** (`post`, `petition`,
-`poll`, `result`, `vote`, `petition_signature`) with per-jurisdiction **labels** (Alberta: Statement,
-Petition, Poll, Result; district label `riding`).
+Vocabulary follows [`GLOSSARY.md`](./GLOSSARY.md): canonical **record types** (`post`, `petition`, `poll`, `result`, `vote`, `petition_signature`) with per-jurisdiction **labels** (Alberta: Statement, Petition, Poll, Result; district label `riding`).
 
 ---
 
@@ -25,8 +20,7 @@ The civic engine, read/write seams, and the web app (wired to the live API) all 
 
 ## MVP — to launch (Alberta)
 
-The doc-locked target the sanity sweep aligns to; several items are documented **gaps** with
-code-alignment prompts. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
+The doc-locked target the sanity sweep aligns to; several items are documented **gaps** with code-alignment prompts. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 - **Vocabulary & content model** — `JurisdictionConfig.labels` + `contentLimits`; `PostContent` `title` required (≤200) / `body` optional (≤2000).
 - **Thread audience** — `appliesToRegion` (district/revision/region/union, keyed off `district_slug`; **shipped**) and `appliesToVerified` (tier set); `appliesToDistrictIds` **kept** as the region's served district-slug projection, maintained by the `entity_audience` projection (promoted from V1 performance work to MVP — it powers per-thread district resolution and district pages).

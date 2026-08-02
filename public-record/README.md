@@ -1,45 +1,16 @@
 # @oursay/public-record
 
-The OurSay public record: civic actions modelled as **event-sourced CRUD over an append-only
-verifiable chain**. Every create / edit / delete is a signed transaction that is never
-physically removed; current state is a **fold** over that log. Writes are first **pooled** in a
-**mutable Postgres** store (which also holds the raw content); the **append-only chain** (immudb)
-receives the commitments — and a block header — only at **block settlement**, and external anchor
-targets publish those blocks on their own cadence.
+The OurSay public record: civic actions modelled as **event-sourced CRUD over an append-only verifiable chain**. Every create / edit / delete is a signed transaction that is never physically removed; current state is a **fold** over that log. Writes are first **pooled** in a **mutable Postgres** store (which also holds the raw content); the **append-only chain** (immudb) receives the commitments — and a block header — only at **block settlement**, and external anchor targets publish those blocks on their own cadence.
 
-> Status: **schema + verification chain + block settlement & anchoring (dev)**. Pooled writes,
-> the settlement boundary, an offline verifier, and a **file** `AnchorTarget` are implemented and
-> tested. **External** anchoring — publishing roots to infra we do not control (Git transparency
-> log, EVM, Solana) — is not yet wired; that is the earliest point we can claim third-party
-> verifiability (testnet during development, production targets later).
+> Status: **schema + verification chain + block settlement & anchoring (dev)**. Pooled writes, the settlement boundary, an offline verifier, and a **file** `AnchorTarget` are implemented and tested. **External** anchoring — publishing roots to infra we do not control (Git transparency log, EVM, Solana) — is not yet wired; that is the earliest point we can claim third-party verifiability (testnet during development, production targets later).
 >
-> **Identity (implemented — full verified write path):** real **per-thread P-256 signing** is wired
-> for **every civic op**. A client derives a per-thread key (HKDF from a jurisdiction master), runs
-> `prepareAppend` for the server-derived fields, signs a canonical `TxEnvelope`, and
-> `RecordService.appendSigned` verifies the signature, the private platform **registration binding**
-> (opaque per-thread commitment, `binding_sig` re-verified), the content-model rules, thread-scope,
-> and optimistic concurrency before the action enters the existing pool → settle path.
-> - **2a — creates:** post/poll/petition + comment/reaction/vote/petition_signature. A
->   **platform-attested nullifier** (`H(level-secret, parentId)`) is the authoritative
->   one-per-`(user, parent)` dedupe — minted on the **create** only.
-> - **2b — updates/deletes:** signed edits, vote-change, signature-revoke, deletes. Author-match is
->   **cryptographic** (the signature proves control of the entity's thread key). Singleton
->   update/delete **carry the original nullifier forward** (never re-minted); stale `prevHash` or a
->   moved parent revision is rejected (reject-and-retry).
-> - **Freshness gate:** `appendSigned` rejects a signed envelope whose `createdAt` is too old (or too
->   far ahead of the server clock) — configurable via `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120;
->   `0` disables). Uses the existing `createdAt` (already signed) — no schema/wire change.
-> See `src/identity/*`, `threadCommitment` in `src/crypto/commitment.js`, and suites
-> `10-identity-crypto`, `12-signed-append`, `13-signed-ops`. The **unsigned dev path**
-> (`create/update/delete/react/vote`) is retained for dev/seeds.
+> **Identity (implemented — full verified write path):** real **per-thread P-256 signing** is wired for **every civic op**. A client derives a per-thread key (HKDF from a jurisdiction master), runs `prepareAppend` for the server-derived fields, signs a canonical `TxEnvelope`, and `RecordService.appendSigned` verifies the signature, the private platform **registration binding** (opaque per-thread commitment, `binding_sig` re-verified), the content-model rules, thread-scope, and optimistic concurrency before the action enters the existing pool → settle path.
+> - **2a — creates:** post/poll/petition + comment/reaction/vote/petition_signature. A **platform-attested nullifier** (`H(level-secret, parentId)`) is the authoritative one-per-`(user, parent)` dedupe — minted on the **create** only.
+> - **2b — updates/deletes:** signed edits, vote-change, signature-revoke, deletes. Author-match is **cryptographic** (the signature proves control of the entity's thread key). Singleton update/delete **carry the original nullifier forward** (never re-minted); stale `prevHash` or a moved parent revision is rejected (reject-and-retry).
+> - **Freshness gate:** `appendSigned` rejects a signed envelope whose `createdAt` is too old (or too far ahead of the server clock) — configurable via `SIGNED_ENVELOPE_MAX_AGE_SEC` (default 120; `0` disables). Uses the existing `createdAt` (already signed) — no schema/wire change.
+> See `src/identity/*`, `threadCommitment` in `src/crypto/commitment.js`, and suites `10-identity-crypto`, `12-signed-append`, `13-signed-ops`. The **unsigned dev path** (`create/update/delete/react/vote`) is retained for dev/seeds.
 >
-> **Now in progress:** the HTTP account API — [`@oursay/api`](../api/README.md) — covers email-OTP
-> registration, passkey **sessions**, and recovery (it shares this package's Postgres; see below).
-> **Still later (NOT done):** full **KYC provider** integration (only a tier stub today),
-> **claim/unclaim** (R8/R9), **selective reveal** / user-signed bindings (R11), and at-rest PII/KMS
-> encryption. See [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
-> Product policy for device signing and user data:
-> [`../docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md).
+> **Now in progress:** the HTTP account API — [`@oursay/api`](../api/README.md) — covers email-OTP registration, passkey **sessions**, and recovery (it shares this package's Postgres; see below). **Still later (NOT done):** full **KYC provider** integration (only a tier stub today), **claim/unclaim** (R8/R9), **selective reveal** / user-signed bindings (R11), and at-rest PII/KMS encryption. See [`PROPOSAL.md`](./PROPOSAL.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md). Product policy for device signing and user data: [`../docs/08-IDENTITY-AND-DEVICE-POLICY.md`](../docs/08-IDENTITY-AND-DEVICE-POLICY.md).
 
 ## Architecture
 
@@ -61,29 +32,11 @@ targets publish those blocks on their own cadence.
                                                      (offline, vs an independently-fetched root)
 ```
 
-- **Pool, then settle.** `append` writes the private row and atomically enqueues its commitment
-  (`record_outbox`, status `pending`) — nothing touches the chain yet. A **block** is settled from
-  the pool when the trigger fires (≥ `BLOCK_MAX_PENDING` pending **or** the oldest has waited
-  `BLOCK_MAX_PENDING_AGE_HOURS`, whichever first; never empty): its commitments are batch-appended
-  to `record_chain` and a header lands in `record_blocks`. The age trigger is **operational cadence
-  only** — it decides *when* to cut a block, never transaction order.
-- **Per-entity hash chain.** Each transaction's signed envelope carries `prevHash` = the prior
-  transaction *of the same entity*, so an entity's history is an unbroken chain. The chain (immudb)
-  provides the global append-only witness + the anchorable root.
-- **Block tip on the chain, chain-scoped.** `record_blocks` is keyed by `(chainId, blockHeight)` —
-  a genesis/network id so one never-reset immudb can host many chains (one per governing body; a
-  stable id per deployment, a fresh id per test/seed run). `record_chain` and the settlement pool
-  (`record_outbox`) carry the same `chainId`, so a settler drains/commits only its own chain; the
-  published `AnchorRecord` carries it too, and `verifyChain(anchors, chainId)` binds an audit to one
-  genesis. Each block carries a `chainTipHash` (cumulative fold of the prior tip + this block's
-  Merkle root) so "is the whole chain intact?" is one walk from genesis, plus reserved
-  `proposer`/`attestations` for a future custodian quorum. (Postgres fold-on-read views stay
-  single-tenant — one Postgres per body; multi-tenant content views are out of scope.)
-- **Two stores.** immudb commits hashes; Postgres holds the data. Deleting appends a `delete`
-  tx (state tombstoned); **erasing** destroys the plaintext + salt while the chain still
-  verifies from hashes alone.
-- **Signatures are stubbed** in this phase (`authorPubkey`/`signature` fields + author-match by
-  equality); the per-entity hashing/verification is real.
+- **Pool, then settle.** `append` writes the private row and atomically enqueues its commitment (`record_outbox`, status `pending`) — nothing touches the chain yet. A **block** is settled from the pool when the trigger fires (≥ `BLOCK_MAX_PENDING` pending **or** the oldest has waited `BLOCK_MAX_PENDING_AGE_HOURS`, whichever first; never empty): its commitments are batch-appended to `record_chain` and a header lands in `record_blocks`. The age trigger is **operational cadence only** — it decides *when* to cut a block, never transaction order.
+- **Per-entity hash chain.** Each transaction's signed envelope carries `prevHash` = the prior transaction *of the same entity*, so an entity's history is an unbroken chain. The chain (immudb) provides the global append-only witness + the anchorable root.
+- **Block tip on the chain, chain-scoped.** `record_blocks` is keyed by `(chainId, blockHeight)` — a genesis/network id so one never-reset immudb can host many chains (one per governing body; a stable id per deployment, a fresh id per test/seed run). `record_chain` and the settlement pool (`record_outbox`) carry the same `chainId`, so a settler drains/commits only its own chain; the published `AnchorRecord` carries it too, and `verifyChain(anchors, chainId)` binds an audit to one genesis. Each block carries a `chainTipHash` (cumulative fold of the prior tip + this block's Merkle root) so "is the whole chain intact?" is one walk from genesis, plus reserved `proposer`/`attestations` for a future custodian quorum. (Postgres fold-on-read views stay single-tenant — one Postgres per body; multi-tenant content views are out of scope.)
+- **Two stores.** immudb commits hashes; Postgres holds the data. Deleting appends a `delete` tx (state tombstoned); **erasing** destroys the plaintext + salt while the chain still verifies from hashes alone.
+- **Signatures are stubbed** in this phase (`authorPubkey`/`signature` fields + author-match by equality); the per-entity hashing/verification is real.
 
 ### Ledger + chain identity (`LEDGER_ID`, `CHAIN_ID`)
 
@@ -107,16 +60,9 @@ A **`ledgerId`** (UUID, env `LEDGER_ID`) names **one immudb instance** — and t
 | `petition_signature` | petition | create, delete (revoke) | final by default; revoke gated by rules + deadline |
 | `vote` | poll | create, update (change) | final by default; change gated by rules + deadline |
 
-**Governance.** A poll/petition's `create` sets its `rules`; a **platform-signed** update can
-change them. Vote-change and signature-revoke are FINAL by default (the real-world analog) and
-only permitted when `rules.allowChange`/`allowRevoke` + a future `deadline` opt in (per
-riding/region).
+**Governance.** A poll/petition's `create` sets its `rules`; a **platform-signed** update can change them. Vote-change and signature-revoke are FINAL by default (the real-world analog) and only permitted when `rules.allowChange`/`allowRevoke` + a future `deadline` opt in (per riding/region).
 
-**Dual attachment targeting.** Comments and reactions record BOTH the parent **entity**
-(`parentId`, follows edits) and the exact parent **revision** (`parentRevisionHash`). Counts are
-exposed both ways — `reaction_counts_by_entity` and `reaction_counts_by_revision` — so support
-stays bound to the content it endorsed (editing a post does not transfer endorsements to the new
-text).
+**Dual attachment targeting.** Comments and reactions record BOTH the parent **entity** (`parentId`, follows edits) and the exact parent **revision** (`parentRevisionHash`). Counts are exposed both ways — `reaction_counts_by_entity` and `reaction_counts_by_revision` — so support stays bound to the content it endorsed (editing a post does not transfer endorsements to the new text).
 
 ## Run
 
@@ -129,16 +75,9 @@ npm run seed    --workspace public-record   # hands-on dev DB: prints folded sta
 npm run db:down --workspace public-record   # tear down dev stack (wipes volumes; blocked when NODE_ENV=production)
 ```
 
-Integration tests use a **separate Docker stack** (`docker-compose.test.yml`: `oursay-test-public-record-pg` on
-**5444**, `oursay-test-public-record-immudb` on **5445**) so `TRUNCATE` isolation does not wipe the dev seed on
-**5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test-public-record`, so
-dev and test stacks do not replace each other) and tears it down with volumes via `posttest`
-(`db:test:down`). Mocha loads repo-root `.env.test` before package config (see
-`scripts/load-test-env.ts`).
+Integration tests use a **separate Docker stack** (`docker-compose.test.yml`: `oursay-test-public-record-pg` on **5444**, `oursay-test-public-record-immudb` on **5445**) so `TRUNCATE` isolation does not wipe the dev seed on **5442**. `npm test` auto-starts the test stack via `pretest` (compose project `oursay-test-public-record`, so dev and test stacks do not replace each other) and tears it down with volumes via `posttest` (`db:test:down`). Mocha loads repo-root `.env.test` before package config (see `scripts/load-test-env.ts`).
 
-Destructive npm scripts (`db:down`, `seed`, `reset`) and `PrivateStore.reset()` refuse to run when
-`NODE_ENV=production`. Raw `docker compose down -v` is not gated — production hosts must not expose
-the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` §11).
+Destructive npm scripts (`db:down`, `seed`, `reset`) and `PrivateStore.reset()` refuse to run when `NODE_ENV=production`. Raw `docker compose down -v` is not gated — production hosts must not expose the Docker socket to app processes (see `docs/08-IDENTITY-AND-DEVICE-POLICY.md` §11).
 
 Host ports so stacks can run side-by-side:
 
@@ -148,47 +87,23 @@ Host ports so stacks can run side-by-side:
 | test | `docker-compose.test.yml` | **5444** | **5445** | **8083** |
 | prod | `docker-compose.prod.yml` | *(internal only)* | *(internal only)* | *(none)* |
 
-Prod does **not** publish Postgres/immudb to the host — only containers on the compose
-network (API / worker) can connect. Dev/test keep host ports for local tooling and
-host-run tests/seed.
+Prod does **not** publish Postgres/immudb to the host — only containers on the compose network (API / worker) can connect. Dev/test keep host ports for local tooling and host-run tests/seed.
 
-No `.env` is needed for local dev; package defaults match `docker-compose.dev.yml`. Prod app
-config: repo-root `.env.prod.example`.
+No `.env` is needed for local dev; package defaults match `docker-compose.dev.yml`. Prod app config: repo-root `.env.prod.example`.
 
-**PostGIS.** The Postgres service runs the **`postgis/postgis:16`** image (a superset of `postgres:16`)
-so [`@oursay/geo`](../geo/README.md) can `CREATE EXTENSION postgis` for district-boundary geometry. If
-you previously ran the plain `postgres:16-alpine` image, `db:up` recreates the container on the new
-image; the named data volume is **reused** (same PG 16 major — no `down -v` needed) and the extension is
-created idempotently by `GeoStore.init()`.
+**PostGIS.** The Postgres service runs the **`postgis/postgis:16`** image (a superset of `postgres:16`) so [`@oursay/geo`](../geo/README.md) can `CREATE EXTENSION postgis` for district-boundary geometry. If you previously ran the plain `postgres:16-alpine` image, `db:up` recreates the container on the new image; the named data volume is **reused** (same PG 16 major — no `down -v` needed) and the extension is created idempotently by `GeoStore.init()`.
 
-**Shared with [`@oursay/api`](../api/README.md).** The account API uses this same Postgres instance,
-adding its own **`auth` schema** (profiles, passkey credentials, sessions, OTPs) FK'd to
-`public.users`, and the **`geo` schema** (`@oursay/geo`: PostGIS districts + regions). `npm run db:up
--w @oursay/api` delegates here, so one `db:up` serves all packages.
+**Shared with [`@oursay/api`](../api/README.md).** The account API uses this same Postgres instance, adding its own **`auth` schema** (profiles, passkey credentials, sessions, OTPs) FK'd to `public.users`, and the **`geo` schema** (`@oursay/geo`: PostGIS districts + regions). `npm run db:up -w @oursay/api` delegates here, so one `db:up` serves all packages.
 
 ## Block settlement & anchoring (dev) — external targets future
 
-Two decoupled phases. **Settlement** drains the pending pool into a block on the append-only chain
-(`record_chain` commitments + a `record_blocks` header) when the trigger fires. **Publication**
-replicates settled blocks to a pluggable `AnchorTarget` on each target's own cadence. Each block
-carries an app-level `bundleMerkleRoot` over its envelopes (offline verification), the `immudbRoot`
-captured after the batch (ledger witness), and chaining metadata (`prevBlockRoot`,
-`prevChainTipHash`, the cumulative `chainTipHash`, and `prevAnchorHash` linking published anchors).
+Two decoupled phases. **Settlement** drains the pending pool into a block on the append-only chain (`record_chain` commitments + a `record_blocks` header) when the trigger fires. **Publication** replicates settled blocks to a pluggable `AnchorTarget` on each target's own cadence. Each block carries an app-level `bundleMerkleRoot` over its envelopes (offline verification), the `immudbRoot` captured after the batch (ledger witness), and chaining metadata (`prevBlockRoot`, `prevChainTipHash`, the cumulative `chainTipHash`, and `prevAnchorHash` linking published anchors).
 
-**Settlement trigger** (`BlockConfig`, env-tunable): settle when `≥ BLOCK_MAX_PENDING` txs are
-pending **or** the oldest pending tx has waited `≥ BLOCK_MAX_PENDING_AGE_HOURS` — whichever comes
-first, never empty, capped at `BLOCK_MAX_TXS` per block. `0` disables a dimension. The trigger is
-invoked explicitly (`maybeSettleBlock`); the **settlement worker** below drives it on a schedule.
+**Settlement trigger** (`BlockConfig`, env-tunable): settle when `≥ BLOCK_MAX_PENDING` txs are pending **or** the oldest pending tx has waited `≥ BLOCK_MAX_PENDING_AGE_HOURS` — whichever comes first, never empty, capped at `BLOCK_MAX_TXS` per block. `0` disables a dimension. The trigger is invoked explicitly (`maybeSettleBlock`); the **settlement worker** below drives it on a schedule.
 
 ### The settlement worker — `npm run worker` (run beside the API)
 
-`scripts/worker.ts` is a long-running process that drives **pool → settle → publish** for a SET of
-chains, reusing `BlockSettler` + `AnchorPublisher` (no second settlement path). Per tick it drains a
-chain's eligible blocks, publishes settled-but-unpublished blocks on the target's cadence, then sleeps
-until the **next age deadline** across chains — with a `WORKER_MAX_IDLE_MS` polling floor that catches
-the count trigger between writes (the stand-in for a future Postgres `LISTEN/NOTIFY`). It is
-non-destructive (never `store.reset()`), so it runs in any `NODE_ENV`; `SIGTERM`/`SIGINT` finish the
-in-flight tick, then close cleanly.
+`scripts/worker.ts` is a long-running process that drives **pool → settle → publish** for a SET of chains, reusing `BlockSettler` + `AnchorPublisher` (no second settlement path). Per tick it drains a chain's eligible blocks, publishes settled-but-unpublished blocks on the target's cadence, then sleeps until the **next age deadline** across chains — with a `WORKER_MAX_IDLE_MS` polling floor that catches the count trigger between writes (the stand-in for a future Postgres `LISTEN/NOTIFY`). It is non-destructive (never `store.reset()`), so it runs in any `NODE_ENV`; `SIGTERM`/`SIGINT` finish the in-flight tick, then close cleanly.
 
 ```bash
 npm run db:up  --workspace public-record     # Postgres + immudb
@@ -196,32 +111,15 @@ npm run dev    --workspace @oursay/api        # civic HTTP POOLS writes under it
 npm run worker --workspace public-record      # settles + anchors WORKER_CHAIN_IDS (incl. ab-ca-gov)
 ```
 
-Or set `AUTO_START_WORKER=1` in `public-record/.env` (or the environment) so `npm run db:up` /
-`db:prod:up` (or `npm run up` / `prod:up` from `@oursay/api`) also starts the settlement worker
-**container** (compose profile `worker`). Anchors are bind-mounted to `public-record/.anchors` on
-the host. Do not also run a host `npm run worker` against the same stack (single proposer per chain).
+Or set `AUTO_START_WORKER=1` in `public-record/.env` (or the environment) so `npm run db:up` / `db:prod:up` (or `npm run up` / `prod:up` from `@oursay/api`) also starts the settlement worker **container** (compose profile `worker`). Anchors are bind-mounted to `public-record/.anchors` on the host. Do not also run a host `npm run worker` against the same stack (single proposer per chain).
 
-The HTTP API can be started as a container on the same compose project via
-`npm run up -w @oursay/api` (includes this stack; see [`api/README.md`](../api/README.md)).
+The HTTP API can be started as a container on the same compose project via `npm run up -w @oursay/api` (includes this stack; see [`api/README.md`](../api/README.md)).
 
-**The zero-config story:** civic HTTP (the API) pools every civic write under **one** chain — its
-`CHAIN_ID`, default **`ab-ca-gov`** (the launch jurisdiction). The worker settles
-**`WORKER_CHAIN_IDS`**, default **`oursay-global,ab-ca-gov`** — `oursay-global` (the universal record)
-plus `ab-ca-gov`. Because `ab-ca-gov` is in both, the API's writes are settled + anchored with no extra
-config; `oursay-global` is enabled but simply has no writer yet (settling an empty chain is a cheap
-no-op). Each chain publishes to `<FILE_ANCHOR_DIR>/<chainId>/` (default
-`public-record/.anchors/<chainId>/`), with per-chain settlement overrides via `BLOCK_*__<CHAIN_ID>`
-env vars (see `.env.example`).
+**The zero-config story:** civic HTTP (the API) pools every civic write under **one** chain — its `CHAIN_ID`, default **`ab-ca-gov`** (the launch jurisdiction). The worker settles **`WORKER_CHAIN_IDS`**, default **`oursay-global,ab-ca-gov`** — `oursay-global` (the universal record) plus `ab-ca-gov`. Because `ab-ca-gov` is in both, the API's writes are settled + anchored with no extra config; `oursay-global` is enabled but simply has no writer yet (settling an empty chain is a cheap no-op). Each chain publishes to `<FILE_ANCHOR_DIR>/<chainId>/` (default `public-record/.anchors/<chainId>/`), with per-chain settlement overrides via `BLOCK_*__<CHAIN_ID>` env vars (see `.env.example`).
 
-**Single proposer:** the settler is not concurrency-safe per chain, so run **exactly one** worker per
-chain. To scale, partition `WORKER_CHAIN_IDS` across worker processes (one chain each) — never two
-workers on the same chain. Leader election / HA for a single chain is a stage-2 consensus concern.
-(Containerizing the worker is done — compose profile `worker` on `db:up` / `db:prod:up`, or via
-`npm run up -w @oursay/api` which includes this stack.)
+**Single proposer:** the settler is not concurrency-safe per chain, so run **exactly one** worker per chain. To scale, partition `WORKER_CHAIN_IDS` across worker processes (one chain each) — never two workers on the same chain. Leader election / HA for a single chain is a stage-2 consensus concern. (Containerizing the worker is done — compose profile `worker` on `db:up` / `db:prod:up`, or via `npm run up -w @oursay/api` which includes this stack.)
 
-**What ships today:** `FileAnchorTarget` writes append-only local files (default every **1** settled
-block). `EvmAnchorTarget` publishes headers to `SettlementAnchor` (default every **2** blocks) when
-`EVM_CONTRACT_ADDRESS` / `evm-anchor/.evm/address` is set. Start the local node separately:
+**What ships today:** `FileAnchorTarget` writes append-only local files (default every **1** settled block). `EvmAnchorTarget` publishes headers to `SettlementAnchor` (default every **2** blocks) when `EVM_CONTRACT_ADDRESS` / `evm-anchor/.evm/address` is set. Start the local node separately:
 
 ```powershell
 npm run dev:up -w @oursay/evm-anchor   # Hardhat + auto-deploy → .evm/address
@@ -229,13 +127,9 @@ npm run db:up -w @oursay/public-record
 npm run worker -w @oursay/public-record
 ```
 
-Host env (see `.env.example`): `EVM_RPC_URL`, `EVM_CONTRACT_ADDRESS`, `EVM_ANCHOR_PRIVATE_KEY`,
-`EVM_CHAIN_ID` (Hardhat network id, default `31337` — not a civic `CHAIN_ID`).
-After contract changes: `npm run evm:compile -w @oursay/public-record` (compiles Hardhat + copies ABI).
+Host env (see `.env.example`): `EVM_RPC_URL`, `EVM_CONTRACT_ADDRESS`, `EVM_ANCHOR_PRIVATE_KEY`, `EVM_CHAIN_ID` (Hardhat network id, default `31337` — not a civic `CHAIN_ID`). After contract changes: `npm run evm:compile -w @oursay/public-record` (compiles Hardhat + copies ABI).
 
-**What does not ship yet (external anchoring):** connectors that push anchors to infrastructure
-we do not control in production — **Git** transparency log, public **EVM** L1/L2, **Solana**. The
-local Hardhat path is the EVM plugin for development.
+**What does not ship yet (external anchoring):** connectors that push anchors to infrastructure we do not control in production — **Git** transparency log, public **EVM** L1/L2, **Solana**. The local Hardhat path is the EVM plugin for development.
 
 ```ts
 // 1. Pool writes (RecordService.create/update/... → PublicChain.append) accumulate in Postgres.
@@ -257,9 +151,7 @@ verifyEntry(bundle.entries[0], anchor, anchor.bundleMerkleRoot); // a single ent
 verifyChain(await target.listAnchors(), chainId);                // whole chain (bound to a genesis) → { ok, tipHash }
 ```
 
-`FileAnchorTarget` writes human-readable, git-friendly files (an append-only `anchors.jsonl`
-index + one bundle file per block). Anchor output dirs are gitignored. Suites 09/11 use a
-throwaway temp dir — nothing is committed.
+`FileAnchorTarget` writes human-readable, git-friendly files (an append-only `anchors.jsonl` index + one bundle file per block). Anchor output dirs are gitignored. Suites 09/11 use a throwaway temp dir — nothing is committed.
 
 ## Layout
 
