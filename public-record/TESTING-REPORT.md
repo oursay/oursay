@@ -1,47 +1,17 @@
 # public-record — testing report
 
-_First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0**
-(PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via
-tsx). **104 tests across 17 suites, all green.** Real **per-thread P-256 signing** is wired for the
-**full verified write path** — all creates (2a) and updates/deletes (2b) — via
-`prepareAppend` + `RecordService.appendSigned` + `identity/*`; the unsigned dev path is retained for
-seeds. The per-entity hash chain, the **pool → block-settlement**
-boundary (chain-scoped by `chainId`), the file target + publish cadence, and the offline verifier are
-real. **External** anchoring (Git / EVM / Solana) is not yet implemented._
+_First end-to-end exercise of the event-sourced public record. Stack: immudb **1.11.0** (PostgreSQL wire protocol) + Postgres **16** in Docker; tests in Mocha/Chai (TypeScript via tsx). **104 tests across 17 suites, all green.** Real **per-thread P-256 signing** is wired for the **full verified write path** — all creates (2a) and updates/deletes (2b) — via `prepareAppend` + `RecordService.appendSigned` + `identity/*`; the unsigned dev path is retained for seeds. The per-entity hash chain, the **pool → block-settlement** boundary (chain-scoped by `chainId`), the file target + publish cadence, and the offline verifier are real. **External** anchoring (Git / EVM / Solana) is not yet implemented._
 
 ## TL;DR
 
-- **The model works.** Create/edit/delete are append-only transactions; current state is a
-  fold over the log; the append-only chain (immudb) holds only commitments while the raw
-  content lives in mutable Postgres. All 104 tests pass.
-- **Writes are pooled, then settled in blocks (durable + crash-safe).** `append` writes the
-  private row and **atomically enqueues** the commitment (`record_outbox`, `pending`) in one
-  Postgres transaction — nothing reaches the chain yet. A **block** is settled from the pool when
-  the trigger fires (≥ N pending **or** the oldest waited ≥ X hours; never empty; capped at
-  `BLOCK_MAX_TXS`): its commitments are batch-appended to `record_chain` and a header lands in
-  `record_blocks`, then the pool is marked sent. Settlement is **idempotent and crash-safe** — a
-  crash mid-batch, after the header, or before the mark is reconciled on the next settle without
-  double-writing — and a failed batch applies the **healthcheck-gated retry policy** (default
-  "3-3-3", env-configurable; `0` = indefinite). See suite 10.
-- **Block settlement + publish cadence works (dev).** Blocks settle on a count/age trigger; an
-  `AnchorPublisher` replicates settled blocks to a **file** target on a per-target cadence (every
-  N blocks, in order); an **offline verifier** checks a single entry, a whole block, or the whole
-  chain (`verifyChain` → tip) against a root read from that target — no DB/immudb at verify time.
-  See suites 09 and 11. **External** anchoring (publishing to Git / EVM testnet / production
-  chain) is still future; that is when we can claim verification without trusting the platform.
-- **Platform removal without breaking the audit trail is implemented and tested** (your
-  question): **redaction** withholds plaintext from every response while **retaining** the raw
-  in the mutable store; **erasure** destroys it. In both cases the commitment stands in and the
-  chain still verifies. See suite 08.
-- **Tampering with the mutable store is detected** (the commitment no longer matches), while
-  **true erasure still verifies** on hashes alone. See suite 06.
-- **Comments and reactions on roots and on comments are covered** (your question): comments on
-  post/petition/poll and comment-on-comment (depth ≤ 3); reactions on post and on comment.
-  See suites 02 and 07.
-- **Governance works**: votes/signatures are final by default; change/revoke is gated by the
-  entity's rules + deadline; a platform-signed rules update flips a forbidden change to allowed.
-- **Anti-manipulation works**: editing a parent does not transfer the support its old content
-  earned to the new content (revision-pinned vs entity-pinned counts).
+- **The model works.** Create/edit/delete are append-only transactions; current state is a fold over the log; the append-only chain (immudb) holds only commitments while the raw content lives in mutable Postgres. All 104 tests pass.
+- **Writes are pooled, then settled in blocks (durable + crash-safe).** `append` writes the private row and **atomically enqueues** the commitment (`record_outbox`, `pending`) in one Postgres transaction — nothing reaches the chain yet. A **block** is settled from the pool when the trigger fires (≥ N pending **or** the oldest waited ≥ X hours; never empty; capped at `BLOCK_MAX_TXS`): its commitments are batch-appended to `record_chain` and a header lands in `record_blocks`, then the pool is marked sent. Settlement is **idempotent and crash-safe** — a crash mid-batch, after the header, or before the mark is reconciled on the next settle without double-writing — and a failed batch applies the **healthcheck-gated retry policy** (default "3-3-3", env-configurable; `0` = indefinite). See suite 10.
+- **Block settlement + publish cadence works (dev).** Blocks settle on a count/age trigger; an `AnchorPublisher` replicates settled blocks to a **file** target on a per-target cadence (every N blocks, in order); an **offline verifier** checks a single entry, a whole block, or the whole chain (`verifyChain` → tip) against a root read from that target — no DB/immudb at verify time. See suites 09 and 11. **External** anchoring (publishing to Git / EVM testnet / production chain) is still future; that is when we can claim verification without trusting the platform.
+- **Platform removal without breaking the audit trail is implemented and tested** (your question): **redaction** withholds plaintext from every response while **retaining** the raw in the mutable store; **erasure** destroys it. In both cases the commitment stands in and the chain still verifies. See suite 08.
+- **Tampering with the mutable store is detected** (the commitment no longer matches), while **true erasure still verifies** on hashes alone. See suite 06.
+- **Comments and reactions on roots and on comments are covered** (your question): comments on post/petition/poll and comment-on-comment (depth ≤ 3); reactions on post and on comment. See suites 02 and 07.
+- **Governance works**: votes/signatures are final by default; change/revoke is gated by the entity's rules + deadline; a platform-signed rules update flips a forbidden change to allowed.
+- **Anti-manipulation works**: editing a parent does not transfer the support its old content earned to the new content (revision-pinned vs entity-pinned counts).
 
 ---
 
@@ -72,15 +42,9 @@ AnchorPublisher.maybePublish(target)                     [PUBLISH — per-target
   └─►  FileAnchorTarget : anchors.jsonl + blocks/block-NNNNN.json  (every N blocks, in order)
 ```
 
-Reads are **fold-on-read**: SQL views (`entity_state`, `reaction_counts_by_entity`/`_by_revision`,
-`petition_signature_counts`, `poll_results`) compute current state from the log. Public
-responses go through `toPublicView` / `getThread`, which **withhold** content for redacted or
-erased entities (the hash stands in).
+Reads are **fold-on-read**: SQL views (`entity_state`, `reaction_counts_by_entity`/`_by_revision`, `petition_signature_counts`, `poll_results`) compute current state from the log. Public responses go through `toPublicView` / `getThread`, which **withhold** content for redacted or erased entities (the hash stands in).
 
-Verification (`verifyEntityChain`) walks an entity's transactions and checks: (1) each stored
-envelope hashes to its recorded `txHash`, (2) the `prevHash` chain is unbroken, (3) immudb's
-committed envelope matches and `immudb_verify_row` passes, (4) revealed content recomputes its
-commitment (erased entries pass on hash alone).
+Verification (`verifyEntityChain`) walks an entity's transactions and checks: (1) each stored envelope hashes to its recorded `txHash`, (2) the `prevHash` chain is unbroken, (3) immudb's committed envelope matches and `immudb_verify_row` passes, (4) revealed content recomputes its commitment (erased entries pass on hash alone).
 
 A real seed run (`npm run seed`) ends like this:
 
@@ -105,29 +69,17 @@ chain verification — post: OK (2 tx) · poll: OK (1 tx) · petition: OK (1 tx)
 
 **Yes — implemented and tested (suite 08).** Two distinct operations:
 
-- **Redaction** (`store.redact(txId)`): sets `redacted_at`. The raw content **stays** in
-  Postgres (retained for lawful access), but every public response withholds it — `getEntityStatePublic`
-  and `getThread` return `content: null`, `withheld: true`, and the `contentHash` in its place.
-  The append-only chain is untouched, so verification still passes. The test asserts the
-  withheld text never appears in the thread response **and** that an internal read still holds
-  the retained raw, **and** that the chain verifies.
-- **Erasure** (`store.erase(txId)`): nulls `content` + `salt`. The plaintext is physically
-  gone; the public view still withholds, the internal read is now also empty, and the chain
-  **still verifies on hashes alone** (the verdict for that tx is `contentMatches: "erased"`).
+- **Redaction** (`store.redact(txId)`): sets `redacted_at`. The raw content **stays** in Postgres (retained for lawful access), but every public response withholds it — `getEntityStatePublic` and `getThread` return `content: null`, `withheld: true`, and the `contentHash` in its place. The append-only chain is untouched, so verification still passes. The test asserts the withheld text never appears in the thread response **and** that an internal read still holds the retained raw, **and** that the chain verifies.
+- **Erasure** (`store.erase(txId)`): nulls `content` + `salt`. The plaintext is physically gone; the public view still withholds, the internal read is now also empty, and the chain **still verifies on hashes alone** (the verdict for that tx is `contentMatches: "erased"`).
 
-This is the "the data always exists as a commitment, but we don't distribute it" guarantee:
-the timestamp, author key, parent, and all metadata stay public; only the message is replaced
-by its hash.
+This is the "the data always exists as a commitment, but we don't distribute it" guarantee: the timestamp, author key, parent, and all metadata stay public; only the message is replaced by its hash.
 
 ### b) Comments and reactions on root entities and on comments
 
 **Yes — covered (suites 02 and 07).**
-- Comments attach to **posts, petitions, polls** (roots) and to **other comments** (nested),
-  with **depth ≤ 3** enforced (a 4th level is rejected).
-- Reactions attach to **posts** and **comments** — and are **rejected** on petitions/polls (to
-  avoid confusing a reaction with official support).
-- Suite 07 assembles a real thread: a post with a top-level comment, a nested reply, and
-  reaction tallies.
+- Comments attach to **posts, petitions, polls** (roots) and to **other comments** (nested), with **depth ≤ 3** enforced (a 4th level is rejected).
+- Reactions attach to **posts** and **comments** — and are **rejected** on petitions/polls (to avoid confusing a reaction with official support).
+- Suite 07 assembles a real thread: a post with a top-level comment, a nested reply, and reaction tallies.
 
 ---
 
@@ -153,15 +105,9 @@ by its hash.
 | 15 jurisdiction | 7 | layered rule resolution (jurisdiction default ⊕ entity override: applies default when unset, lets the entity tighten/opt-in, prefers entity deadline else default, carries `appliesToDistrictIds` untouched); router defaults to the deployment's configured jurisdiction and resolves a registered id, falling back to the default for unknown ids |
 | 16 worker | 6 | the `SettlementWorker` loop **drives** the existing settler/publisher (no second settlement path): `tick()` drains all eligible blocks then publishes then records the trigger state per chain; a throwing chain is isolated (others still settle); `computeNextWakeMs` picks the nearest age deadline clamped to `[minInterval, maxIdle]` and falls back to `maxIdle` for empty/below-threshold pools (the count-trigger safety net); `run()`/`stop()` lifecycle with a controllable sleeper; **integration** — two chains settle + anchor only their own pooled txs (chain isolation through the publish path) |
 
-**Sibling package — [`@oursay/api`](../api/README.md): 23 tests (8 suites).** The account API runs its
-own `mocha` integration suite against this same Postgres: email-OTP registration (ordering + age
-gate), WebAuthn passkey enroll/login (real `@simplewebauthn/server` + software authenticator),
-OTP recovery (incl. prior-session revoke), rate limiting, mailer role routing/failover, an HTTP
-golden-path (register → enroll → logout → login → profile, plus cookie-only auth), and the dev
-`/walk` static harness. Run: `npm run test -w @oursay/api`.
+**Sibling package — [`@oursay/api`](../api/README.md): 23 tests (8 suites).** The account API runs its own `mocha` integration suite against this same Postgres: email-OTP registration (ordering + age gate), WebAuthn passkey enroll/login (real `@simplewebauthn/server` + software authenticator), OTP recovery (incl. prior-session revoke), rate limiting, mailer role routing/failover, an HTTP golden-path (register → enroll → logout → login → profile, plus cookie-only auth), and the dev `/walk` static harness. Run: `npm run test -w @oursay/api`.
 
-Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record`
-(suite 10-identity-crypto also runs standalone without the DB).
+Run: `npm run db:up --workspace public-record` then `npm run test --workspace public-record` (suite 10-identity-crypto also runs standalone without the DB).
 
 ---
 
@@ -190,34 +136,12 @@ Run: `npm run db:up --workspace public-record` then `npm run test --workspace pu
 
 ## 5. What is NOT yet covered (honest gaps)
 
-- **Real signatures — full verified write path.** Real per-thread **P-256** signing + verification
-  are wired for **every civic op** — creates (2a) and updates/deletes (2b) — via `prepareAppend` +
-  `RecordService.appendSigned` + `identity/*` (suites 10/12/13), gated on a registered platform
-  binding, with the nullifier as the authoritative singleton dedupe (mint on create; carried forward
-  on singleton update/delete). The **unsigned dev path** (`signature: "unsigned"`, pubkey-equality
-  author check) is **retained for dev/seeds**. Production auth/session that drives the signed path
-  end-to-end (passkey sessions, the API) is still future.
-- **External anchoring (not yet).** Block settlement, publication, offline verify, and a **file**
-  `AnchorTarget` are implemented (suites 09/11) — the dev/test primitive. **Still future:** Git
-  transparency-log, **EVM** (testnet in dev, production L1/L2 later), and **Solana** connectors
-  that publish roots to infra we do not control. Until those ship and are verified, we cannot
-  claim R14 “without trusting the platform.” immudb `verifyRow` remains server-side.
-- **Offline verifier scope (deferred).** The offline verifier proves **Merkle inclusion + reveal**
-  against the anchored root. It does **not** yet re-check each tx's per-entity `prevHash` witness
-  (that linkage is verified live in `verifyEntityChain`). A documented follow-up.
-- **Concurrency.** The per-entity `prevHash` assumes a single writer per entity (sequential).
-  Concurrent writes to the same entity would need optimistic locking — untested.
-- **Settlement scheduling** is now driven by the `SettlementWorker` (suite 16, `npm run worker`): a
-  deadline-aware loop that invokes `maybeSettleBlock` / `maybePublish` for a set of chains, sleeping
-  until the next age deadline with a `WORKER_MAX_IDLE_MS` polling floor for the count trigger. Write
-  atomicity is solved (suite 10): the private write + commitment enqueue are one Postgres transaction,
-  and `BlockSettler` settles the pool into blocks idempotently and crash-safely (healthcheck-gated
-  retry/back-off, default "3-3-3", `0` = indefinite). **Still future:** an event-driven wake (Postgres
-  `LISTEN/NOTIFY`) to replace the polling floor, and HA/leader-election so >1 worker can serve one
-  chain (today: exactly one worker per chain — the settler is single-proposer).
-- **Redaction granularity.** Redaction targets a transaction (a revision). Withholding the
-  *current* content means redacting the head revision; redacting an older revision withholds
-  only that revision. Bulk "redact this entity and all its revisions" is not a single call yet.
+- **Real signatures — full verified write path.** Real per-thread **P-256** signing + verification are wired for **every civic op** — creates (2a) and updates/deletes (2b) — via `prepareAppend` + `RecordService.appendSigned` + `identity/*` (suites 10/12/13), gated on a registered platform binding, with the nullifier as the authoritative singleton dedupe (mint on create; carried forward on singleton update/delete). The **unsigned dev path** (`signature: "unsigned"`, pubkey-equality author check) is **retained for dev/seeds**. Production auth/session that drives the signed path end-to-end (passkey sessions, the API) is still future.
+- **External anchoring (not yet).** Block settlement, publication, offline verify, and a **file** `AnchorTarget` are implemented (suites 09/11) — the dev/test primitive. **Still future:** Git transparency-log, **EVM** (testnet in dev, production L1/L2 later), and **Solana** connectors that publish roots to infra we do not control. Until those ship and are verified, we cannot claim R14 “without trusting the platform.” immudb `verifyRow` remains server-side.
+- **Offline verifier scope (deferred).** The offline verifier proves **Merkle inclusion + reveal** against the anchored root. It does **not** yet re-check each tx's per-entity `prevHash` witness (that linkage is verified live in `verifyEntityChain`). A documented follow-up.
+- **Concurrency.** The per-entity `prevHash` assumes a single writer per entity (sequential). Concurrent writes to the same entity would need optimistic locking — untested.
+- **Settlement scheduling** is now driven by the `SettlementWorker` (suite 16, `npm run worker`): a deadline-aware loop that invokes `maybeSettleBlock` / `maybePublish` for a set of chains, sleeping until the next age deadline with a `WORKER_MAX_IDLE_MS` polling floor for the count trigger. Write atomicity is solved (suite 10): the private write + commitment enqueue are one Postgres transaction, and `BlockSettler` settles the pool into blocks idempotently and crash-safely (healthcheck-gated retry/back-off, default "3-3-3", `0` = indefinite). **Still future:** an event-driven wake (Postgres `LISTEN/NOTIFY`) to replace the polling floor, and HA/leader-election so >1 worker can serve one chain (today: exactly one worker per chain — the settler is single-proposer).
+- **Redaction granularity.** Redaction targets a transaction (a revision). Withholding the *current* content means redacting the head revision; redacting an older revision withholds only that revision. Bulk "redact this entity and all its revisions" is not a single call yet.
 - **KYC tiers, sponsorships, geographic filtering** — not in this phase.
 
 ---

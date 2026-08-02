@@ -139,19 +139,13 @@ This generalizes the `immudb-test` `Ledger.append()` flow to (a) carry the per-t
 
 ## 4. The client connector layer (the key seam)
 
-The explicit requirement: **offer both gRPC and pg connectors in the future** without
-reworking everything above them. FINDINGS §5 is decisive here:
+The explicit requirement: **offer both gRPC and pg connectors in the future** without reworking everything above them. FINDINGS §5 is decisive here:
 
-- The **architecture is version- and transport-independent** — commitments + external Merkle
-  anchoring + private store do not depend on immudb's internal proof wire format.
-- The **recommended production transport is immudb 1.11.0 over the Postgres wire protocol**
-  with a maintained `pg` client (server-side `immudb_state()` / `immudb_verify_row()`).
-- The **gRPC verified API** adds operator-independent, client-side, real-time tamper
-  detection (a watchdog between anchor points) but the Node SDK is dead and only verifies
-  against immudb ≤ 1.1.x — so it is an **optional** connector, not the default.
+- The **architecture is version- and transport-independent** — commitments + external Merkle anchoring + private store do not depend on immudb's internal proof wire format.
+- The **recommended production transport is immudb 1.11.0 over the Postgres wire protocol** with a maintained `pg` client (server-side `immudb_state()` / `immudb_verify_row()`).
+- The **gRPC verified API** adds operator-independent, client-side, real-time tamper detection (a watchdog between anchor points) but the Node SDK is dead and only verifies against immudb ≤ 1.1.x — so it is an **optional** connector, not the default.
 
-So we put an interface between `PublicLedger` and immudb. Everything above the interface
-(append, export, verify, anchor) is connector-agnostic.
+So we put an interface between `PublicLedger` and immudb. Everything above the interface (append, export, verify, anchor) is connector-agnostic.
 
 ### 4.1 The interface
 
