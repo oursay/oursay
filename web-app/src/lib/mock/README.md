@@ -1,13 +1,8 @@
 # Mock corpus — wireframe DATA block port
 
-This folder is a faithful, typed port of the sample data embedded in
-[`wireframes/mobile/oursay-mobile.svg`](../../../../wireframes/mobile/oursay-mobile.svg)
-(the `DATA` block, roughly lines 1557–1888). It is the read-model contract the
-UI renders against today; every field maps to a real OurSay entity (see
-[`docs/entities/`](../../../../docs/entities/README.md)) or is flagged UI-only.
+This folder is a faithful, typed port of the sample data embedded in [`wireframes/mobile/oursay-mobile.svg`](../../../../wireframes/mobile/oursay-mobile.svg) (the `DATA` block, roughly lines 1557–1888). It is the read-model contract the UI renders against today; every field maps to a real OurSay entity (see [`docs/entities/`](../../../../docs/entities/README.md)) or is flagged UI-only.
 
-The single deterministic clock is `NOW = 2026-06-30T09:41:00` (`constants.ts`),
-matching the wireframe so `relTime()` resolves identically in tests and render.
+The single deterministic clock is `NOW = 2026-06-30T09:41:00` (`constants.ts`), matching the wireframe so `relTime()` resolves identically in tests and render.
 
 ## Files
 
@@ -48,19 +43,13 @@ matching the wireframe so `relTime()` resolves identically in tests and render.
 
 ### UI-only fields (no entity attribute)
 
-- `ts` as an **ordering** source — display only; the record's true ordering is
-  server-side. `relTime()` uses it purely to render `Nm/Nh/Nd ago` or an
-  absolute date.
+- `ts` as an **ordering** source — display only; the record's true ordering is server-side. `relTime()` uses it purely to render `Nm/Nh/Nd ago` or an absolute date.
 - `activity[].icon` — a glyph id override for the Activity row.
-- Synthetic `id` — see below; the wireframe navigates to representative samples,
-  not by real record id.
+- Synthetic `id` — see below; the wireframe navigates to representative samples, not by real record id.
 
 ## Synthetic id lookup (handle/title → id)
 
-The wireframe `POSTS[]` rows carry **no id** (navigation is representative-target,
-not id-based). This port assigns a stable synthetic `id` to every row and detail
-sample so `getRecordDetail(id, kind)` can resolve one. Ids are shared where the
-same record appears in both the feed corpus and a detail sample.
+The wireframe `POSTS[]` rows carry **no id** (navigation is representative-target, not id-based). This port assigns a stable synthetic `id` to every row and detail sample so `getRecordDetail(id, kind)` can resolve one. Ids are shared where the same record appears in both the feed corpus and a detail sample.
 
 | id | kind | author (handle) | title |
 |----|------|-----------------|-------|
@@ -88,9 +77,6 @@ Detail-only samples (graduation chain continuation, not in `POSTS[]`):
 | `poll-river-path` | poll | Twin the river-valley path — fund it in 2027? (`POST_POLL`) |
 | `res-river-path` | result | Result: River-valley path twinning vote (`POST_RESULT`) |
 
-Profile-authored samples carry `prof-`-prefixed ids
-(`prof-rae-ravine`, `prof-rae-footbridge`, `prof-rae-priority`, `prof-rae-townhall`).
+Profile-authored samples carry `prof-`-prefixed ids (`prof-rae-ravine`, `prof-rae-footbridge`, `prof-rae-priority`, `prof-rae-townhall`).
 
-`getRecordDetail(id, kind)` resolves ids that match a `POST_TYPES` sample; other
-feed ids fall back to the representative sample for their kind (mirroring the
-wireframe's representative-target navigation).
+`getRecordDetail(id, kind)` resolves ids that match a `POST_TYPES` sample; other feed ids fall back to the representative sample for their kind (mirroring the wireframe's representative-target navigation).
