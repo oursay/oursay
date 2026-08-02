@@ -1,25 +1,14 @@
 # OurSay — User Flows
 
-> **Purpose:** The screen-by-screen / step-by-step **journey** layer — the bridge between
-> [`10-USER-STORIES.md`](10-USER-STORIES.md) (what a role wants + acceptance) and wireframes (what
-> screens to draw and how a user moves between them). Each flow is a sequence of steps, the screen/state
-> at each step, the decision branches, the end states, and the API/entity behind each step.
+> **Purpose:** The screen-by-screen / step-by-step **journey** layer — the bridge between [`10-USER-STORIES.md`](10-USER-STORIES.md) (what a role wants + acceptance) and wireframes (what screens to draw and how a user moves between them). Each flow is a sequence of steps, the screen/state at each step, the decision branches, the end states, and the API/entity behind each step.
 >
 > **Audience:** Design (wireframes), front-end, product.
 
 ## Where this sits (precedence)
 
-This doc **defers to** the documents that own the rules and never redefines them — same precedence as the
-stories layer: [`GLOSSARY.md`](GLOSSARY.md) (vocabulary) → [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md)
-(`R1`–`R28`) → [`entities/`](entities/README.md) (object structure) → [`PRD.md`](PRD.md) §4–§7 →
-[`01-CONTRIBUTOR-SPEC.md`](01-CONTRIBUTOR-SPEC.md). It also defers to [`10-USER-STORIES.md`](10-USER-STORIES.md):
-every flow here implements one or more `US-*` stories and cites them.
+This doc **defers to** the documents that own the rules and never redefines them — same precedence as the stories layer: [`GLOSSARY.md`](GLOSSARY.md) (vocabulary) → [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md) (`R1`–`R28`) → [`entities/`](entities/README.md) (object structure) → [`PRD.md`](PRD.md) §4–§7 → [`01-CONTRIBUTOR-SPEC.md`](01-CONTRIBUTOR-SPEC.md). It also defers to [`10-USER-STORIES.md`](10-USER-STORIES.md): every flow here implements one or more `US-*` stories and cites them.
 
-This is **not** the per-screen flow-spec layer (states, components, copy) that
-[`10-USER-STORIES.md`](10-USER-STORIES.md) reserves for `docs/frontend/`. This doc sits **above** that:
-it maps the journeys *between* screens so wireframes know which screens must exist and how they connect.
-Screen names here are **functional** (`[screen: OTP + profile form]`), not layouts — layout is the
-wireframe's job.
+This is **not** the per-screen flow-spec layer (states, components, copy) that [`10-USER-STORIES.md`](10-USER-STORIES.md) reserves for `docs/frontend/`. This doc sits **above** that: it maps the journeys *between* screens so wireframes know which screens must exist and how they connect. Screen names here are **functional** (`[screen: OTP + profile form]`), not layouts — layout is the wireframe's job.
 
 ## Legend
 
@@ -33,13 +22,9 @@ wireframe's job.
 
 **Step notation:**
 `N. <user action>  [screen: …] / [state: …]   -> METHOD /v1/…` (or `-> entity` when no HTTP surface).
-`branch:` lines capture decisions and error/abandon paths. Each flow ends with **End (success)** and,
-where relevant, **End (error/abandon)**.
+`branch:` lines capture decisions and error/abandon paths. Each flow ends with **End (success)** and, where relevant, **End (error/abandon)**.
 
-> ⚠️ **No product UI exists yet.** The application web app is **Phase D** (not built). Every "Built"
-> tag below means the *API* is built and exercised by the dev harness `api/web/walktest/` (`/walk`), not
-> that a styled screen exists. Screen names describe the UI the wireframes will define on top of those
-> APIs.
+> ⚠️ **No product UI exists yet.** The application web app is **Phase D** (not built). Every "Built" tag below means the *API* is built and exercised by the dev harness `api/web/walktest/` (`/walk`), not that a styled screen exists. Screen names describe the UI the wireframes will define on top of those APIs.
 
 ## Status summary
 
@@ -56,8 +41,7 @@ where relevant, **End (error/abandon)**.
 
 ## Personas
 
-Concrete roles (from [`10-USER-STORIES.md`](10-USER-STORIES.md) §Roles; tiers are **set membership**,
-not a ladder):
+Concrete roles (from [`10-USER-STORIES.md`](10-USER-STORIES.md) §Roles; tiers are **set membership**, not a ladder):
 
 | Persona | Account? | Tier | Launch timing | Can do (headline) |
 |---------|----------|------|---------------|-------------------|
@@ -73,14 +57,11 @@ not a ladder):
 
 **Eligibility is three axes** (carried from stories §2; the jurisdiction's per-action `gates[action]`, set per jurisdiction per record type — see [jurisdiction.md](entities/partitioning/jurisdiction.md)): **act** (may the member perform the action at all, optionally minus a deny list), **signMin** (minimum sign method; the account preference may raise it), and **platform count** (`gates[action].platformCount` — is the action *included in the platform-count totals*, layered with the thread's `appliesToVerified`). The platform count is a **counting floor after the action, never a participation barrier**: anyone the act gate admits is welcome, and below-floor actions sit in the unverified counts until the author verifies. Flows note where a gate decides a branch.
 
-> **Terminology:** in these flows "post" in UI copy means any root record (statement, petition,
-> poll, result); the record type `post` means a statement only — "statement post" where mixed
-> ([GLOSSARY.md](GLOSSARY.md)).
+> **Terminology:** in these flows "post" in UI copy means any root record (statement, petition, poll, result); the record type `post` means a statement only — "statement post" where mixed ([GLOSSARY.md](GLOSSARY.md)).
 
 ## Eligibility matrices (who may act, per jurisdiction)
 
-Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5 — **resolved 2026-07-03**
-(locked jurisdiction configs; encoding is `[align-w3-gates-schema]`).
+Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5 — **resolved 2026-07-03** (locked jurisdiction configs; encoding is `[align-w3-gates-schema]`).
 
 ### `ab-ca-gov` (Alberta) — partial ladder · `labels.district = riding`
 
@@ -105,8 +86,7 @@ Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5 — **
 
 ### `some-strict` (reference, private, future) — full ladder
 
-All actions `residency-verified`; `create poll = ∅` (graduation-only); residency-gated subscribe. See
-stories §5 for the matrix; flows below note strict-only deltas where relevant.
+All actions `residency-verified`; `create poll = ∅` (graduation-only); residency-gated subscribe. See stories §5 for the matrix; flows below note strict-only deltas where relevant.
 
 ---
 
@@ -132,9 +112,7 @@ flowchart LR
 
 ## 1. Account & auth
 
-Session scopes gate what a step may do: **registration** (enroll first passkey only) · **login**
-(enroll-only) · **recovery** (enroll fresh passkey only, revokes prior sessions) · **full** (all civic
-actions). [`entities/auth/session.md`](entities/auth/session.md).
+Session scopes gate what a step may do: **registration** (enroll first passkey only) · **login** (enroll-only) · **recovery** (enroll fresh passkey only, revokes prior sessions) · **full** (all civic actions). [`entities/auth/session.md`](entities/auth/session.md).
 
 ```mermaid
 flowchart TD
@@ -279,8 +257,7 @@ flowchart TD
 
 ## 2. Verification (KYC tiers)
 
-Tiers are set membership: `unverified` → `identity_verified` (name + age) and/or `residency_verified`
-(identity + address → inferred district). [`entities/account/verification.md`](entities/account/verification.md).
+Tiers are set membership: `unverified` → `identity_verified` (name + age) and/or `residency_verified` (identity + address → inferred district). [`entities/account/verification.md`](entities/account/verification.md).
 Residency verification is **not** electoral eligibility.
 
 ```mermaid
@@ -317,8 +294,7 @@ flowchart TD
 
 ### 2.2 KYC re-verification during recovery  ·  Verified  ·  Built  ·  US-SYS-5
 
-See 1.5 verified branch. Soft-ask donation before opening Didit biometric workflow 03 (`DIDIT_WORKFLOW_RECOVER`); on Approved unlocks passkey
-re-enroll; existing attestations remain. Requires `KYC_PROVIDER=didit`.
+See 1.5 verified branch. Soft-ask donation before opening Didit biometric workflow 03 (`DIDIT_WORKFLOW_RECOVER`); on Approved unlocks passkey re-enroll; existing attestations remain. Requires `KYC_PROVIDER=didit`.
 
 ### 2.3 Peer-sponsor another user's verification  ·  any  ·  Planned (paid-verify contingency)
 
@@ -329,9 +305,7 @@ Documented in contributor §5.6; **inactive while verification is free**; only r
 
 ## 3. Civic content — create
 
-All writes go through the same three-step civic path. Audience (`jurisdictionId` + `appliesToRegion` +
-`appliesToVerified`) is declared on the **root** entity and inherited by children; it may narrow, never
-widen. Verified actions land on-ledger; unverified stay in Postgres only.
+All writes go through the same three-step civic path. Audience (`jurisdictionId` + `appliesToRegion` + `appliesToVerified`) is declared on the **root** entity and inherited by children; it may narrow, never widen. Verified actions land on-ledger; unverified stay in Postgres only.
 
 ```mermaid
 flowchart TD
@@ -404,9 +378,7 @@ flowchart TD
 3. **Automatic:** at the configured threshold (fixed number or percent of the jurisdiction's verified users — platform-decided from jurisdiction config at creation, never author-set) the poll is **forced** — it auto-starts whether or not an official agrees, deadline per `deadlineSource`.  **(gap: graduation engine not built — `[code-jurisdiction-graduation]`)**
 4. **Manual (AB):** an official-role holder may graduate the petition into its poll **at any point** (promote early)  `[screen: Promote to poll (official)]`.
 
-In every path the **proposing user remains the poll's author**, and the petition is untouched —
-signing stays open, and the petition's **deadline is its only closing** (not the threshold, not a
-manual graduation).
+In every path the **proposing user remains the poll's author**, and the petition is untouched — signing stays open, and the petition's **deadline is its only closing** (not the threshold, not a manual graduation).
 
 **End (success, when shipped):** Poll graduates with the weight of a successful petition.
 **End (interim):** Link is informational; no auto-start. In `oursay-global`, the poll can also follow direct-create (3.3).
@@ -415,13 +387,7 @@ manual graduation).
 
 ## 4. Civic content — participate
 
-Same join → prepare → submit path (3.0). Signatures and votes are **changeable by default** at the
-platform layer (loose defaults are intentional) — a jurisdiction tightens to final via its config
-(`ab-ca-gov`: final; `oursay-global`: changeable/revocable before deadline). Every action is signed
-at the jurisdiction's floor or stronger — the effective method is the strongest of the account's
-per-action preference (quick/ask/passkey) and `gates[action].signMin`. Alberta floors signatures
-and votes at hardware-backed `webauthn-es256` (per-action user verification); `oursay-global`
-accepts quick-sign (`p256`).
+Same join → prepare → submit path (3.0). Signatures and votes are **changeable by default** at the platform layer (loose defaults are intentional) — a jurisdiction tightens to final via its config (`ab-ca-gov`: final; `oursay-global`: changeable/revocable before deadline). Every action is signed at the jurisdiction's floor or stronger — the effective method is the strongest of the account's per-action preference (quick/ask/passkey) and `gates[action].signMin`. Alberta floors signatures and votes at hardware-backed `webauthn-es256` (per-action user verification); `oursay-global` accepts quick-sign (`p256`).
 
 ```mermaid
 flowchart TD
@@ -551,10 +517,7 @@ flowchart TD
 **End (success):** Honest tier/geo breakdown with k-anon protection.
 **Notes:** Date-range filters echoed but not resolved (`[mvp-c4b-date-filters]`). Action-time tier/geo snapshots are a gap; counts use current tier/address (`[mvp-c4-action-snapshots]`).
 
-Separately from aggregate counts, every served record/comment carries the author's **`authorGeo`
-relation** (`home` / `affected` / `jurisdiction` / `none` — the only residence signal on any DTO;
-`home` resolves only for residency-verified viewers). See
-[REGION-MODEL.md](REGION-MODEL.md) "Author-geo relations".
+Separately from aggregate counts, every served record/comment carries the author's **`authorGeo` relation** (`home` / `affected` / `jurisdiction` / `none` — the only residence signal on any DTO; `home` resolves only for residency-verified viewers). See [REGION-MODEL.md](REGION-MODEL.md) "Author-geo relations".
 
 ### 5.6 Browse jurisdictions & district map  ·  Guest+  ·  Built  ·  US-AB-2
 
@@ -568,9 +531,7 @@ relation** (`home` / `affected` / `jurisdiction` / `none` — the only residence
 
 ## 6. Anonymity & privacy
 
-Participation is **pseudonymous by default** under a per-thread persona `Pₜ`; cross-thread activity is
-unlinked without an explicit reveal. [`08-IDENTITY-AND-DEVICE-POLICY.md`](08-IDENTITY-AND-DEVICE-POLICY.md) §4,
-[`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md).
+Participation is **pseudonymous by default** under a per-thread persona `Pₜ`; cross-thread activity is unlinked without an explicit reveal. [`08-IDENTITY-AND-DEVICE-POLICY.md`](08-IDENTITY-AND-DEVICE-POLICY.md) §4, [`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md).
 
 ```mermaid
 flowchart TD
@@ -584,17 +545,11 @@ flowchart TD
   VIS --> RES{"anonymous / officials / my_district / public (shipped set)"}
 ```
 
-Where visibility is derived, remember the trust shape: the platform sits in a **privileged
-position** — it knows the exact identity of every record author, and shares it only with the
-viewers the author's setting allows ([09-ACCOUNT-PRIVACY-MODEL.md](09-ACCOUNT-PRIVACY-MODEL.md)).
+Where visibility is derived, remember the trust shape: the platform sits in a **privileged position** — it knows the exact identity of every record author, and shares it only with the viewers the author's setting allows ([09-ACCOUNT-PRIVACY-MODEL.md](09-ACCOUNT-PRIVACY-MODEL.md)).
 
 ### 6.1 Pseudonymous-by-default  ·  Registered  ·  Built  ·  US-CAP-9
 
-Established at thread join (3.0). The public record shows only `Pₜ` + signature — never the account id or
-a cross-thread correlation. Product surfaces show the persona's globally-unique **display name** and a
-thread-scoped **persona page** (the anonymous mirror of a profile: tier pill, support bar, that
-thread's comments/activity/mentions; nothing derivable cross-thread) — see
-[thread-persona.md](entities/civic-identity/thread-persona.md).
+Established at thread join (3.0). The public record shows only `Pₜ` + signature — never the account id or a cross-thread correlation. Product surfaces show the persona's globally-unique **display name** and a thread-scoped **persona page** (the anonymous mirror of a profile: tier pill, support bar, that thread's comments/activity/mentions; nothing derivable cross-thread) — see [thread-persona.md](entities/civic-identity/thread-persona.md).
 
 ### 6.1b Per-thread visibility at compose/reply  ·  Registered  ·  Demo-specified (backend pending)  ·  US-CAP-9
 
@@ -604,13 +559,11 @@ thread's comments/activity/mentions; nothing derivable cross-thread) — see
    - the override wins outright — it may **narrow or widen** the account default;
    - widening (more visible than the default) raises a **warning dialog** before it applies.
 
-**End (success):** `effectiveVisibility = thread ?? account ?? anonymous` for this thread. Backend
-storage (`thread_bindings.visibility`) is `[align-w3-gates-schema]`.
+**End (success):** `effectiveVisibility = thread ?? account ?? anonymous` for this thread. Backend storage (`thread_bindings.visibility`) is `[align-w3-gates-schema]`.
 
 ### 6.2 Platform reveal (link / unlink persona ↔ profile)  ·  Registered  ·  Planned  ·  US-CAP-9
 
-The **retroactive** act — changing a past thread's visibility after the fact (going-forward
-visibility is chosen at compose, 6.1b).
+The **retroactive** act — changing a past thread's visibility after the fact (going-forward visibility is chosen at compose, 6.1b).
 
 **Entry:** Thread or profile → "Show this is me here".
 
@@ -655,8 +608,7 @@ flowchart TD
 
 ### 7.1 Auto-generated profile + disclaimer  ·  Guest+ viewing  ·  Planned  ·  US-AB-3
 
-At launch, read-only MLA profiles are generated from public record (87 in Alberta), each with a
-disclaimer: *"generated from public record; [Name] has not endorsed this platform and may be unaware."*
+At launch, read-only MLA profiles are generated from public record (87 in Alberta), each with a disclaimer: *"generated from public record; [Name] has not endorsed this platform and may be unaware."*
 `[screen: Official profile (unclaimed)]`. Auto-generation is fast-follow scope.
 
 ### 7.2 Claim a profile  ·  Official  ·  Planned (fast-follow)  ·  US-AB-3
@@ -720,8 +672,7 @@ flowchart TD
 
 ### 8.3 Detect censorship  ·  Auditor (holding a copy)  ·  Built (record) / Partial (full proof tooling)  ·  US-SYS-9
 
-1. Every action — including removed comments — carries a commitment + ledger hash; removal is an
-   append-only entry, not a silent deletion.
+1. Every action — including removed comments — carries a commitment + ledger hash; removal is an append-only entry, not a silent deletion.
 2. With a held copy + salt/receipt, prove prior content + timestamp.
 
 **End (success):** Improper removal is provable against the append-only history.
@@ -746,6 +697,4 @@ All trace to existing tags; **none implemented here** (this is a documentation p
 
 ---
 
-_Per-screen flow specs (states, components, copy) belong under `docs/frontend/` as each screen is built;
-this doc maps the journeys those screens connect. Keep it in sync with [`10-USER-STORIES.md`](10-USER-STORIES.md)
-and [`API-GAPS-AND-ROADMAP.md`](API-GAPS-AND-ROADMAP.md) as gaps close._
+_Per-screen flow specs (states, components, copy) belong under `docs/frontend/` as each screen is built; this doc maps the journeys those screens connect. Keep it in sync with [`10-USER-STORIES.md`](10-USER-STORIES.md) and [`API-GAPS-AND-ROADMAP.md`](API-GAPS-AND-ROADMAP.md) as gaps close._

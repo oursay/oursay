@@ -1,14 +1,8 @@
 # OurSay — Identity, Privacy & Device Policy
 
-_What we are building for user identity, device signing, and privacy — in plain English.
-Use this document when changing auth, user data, the public record, or client key handling.
-It captures product intent from design review (June 2026) and should stay aligned with
-[`01-CONTRIBUTOR-SPEC.md`](./01-CONTRIBUTOR-SPEC.md), [`VALUES.md`](./VALUES.md),
-[`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md), and
-[`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md)._
+_What we are building for user identity, device signing, and privacy — in plain English. Use this document when changing auth, user data, the public record, or client key handling. It captures product intent from design review (June 2026) and should stay aligned with [`01-CONTRIBUTOR-SPEC.md`](./01-CONTRIBUTOR-SPEC.md), [`VALUES.md`](./VALUES.md), [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md), and [`../public-record/REQUIREMENTS.md`](../public-record/REQUIREMENTS.md)._
 
-> **Status:** normative for product and engineering direction. Where this document and the
-> running code disagree, treat the gap as work to do — not as permission to drift.
+> **Status:** normative for product and engineering direction. Where this document and the running code disagree, treat the gap as work to do — not as permission to drift.
 
 ---
 
@@ -16,10 +10,8 @@ It captures product intent from design review (June 2026) and should stay aligne
 
 - **Before** adding user tables, passkey flows, or signing code, check Sections 2–6.
 - **Before** changing thread registration, bindings, or nullifiers, check Sections 3–4, 5, and 8.
-- **When** a trade-off arises (e.g. convenience vs. non-exportable keys), Sections 5–6 state
-  which side we prefer.
-- Technical requirements live in `public-record/REQUIREMENTS.md`; this document explains
-  *why* in language stakeholders and new contributors can follow.
+- **When** a trade-off arises (e.g. convenience vs. non-exportable keys), Sections 5–6 state which side we prefer.
+- Technical requirements live in `public-record/REQUIREMENTS.md`; this document explains *why* in language stakeholders and new contributors can follow.
 
 ---
 
@@ -27,53 +19,30 @@ It captures product intent from design review (June 2026) and should stay aligne
 
 ### Account vs. civic identity
 
-- A **passkey** (or other auth factor) proves *who is logged in*. It does **not** sign
-  civic actions directly.
-- For each **jurisdiction** they belong to (e.g. `ab-ca-gov`, `ca-gov`; each carries a
-  governmental *level* as a property — see docs/01 §6.0) the user has **signing material on
-  their device** from which **per-thread keys** are produced.
-- For each **thread** they join (a post, poll, or petition — the root of that conversation),
-  they use a **thread key**: a pseudonymous public key that appears on the public record.
+- A **passkey** (or other auth factor) proves *who is logged in*. It does **not** sign civic actions directly.
+- For each **jurisdiction** they belong to (e.g. `ab-ca-gov`, `ca-gov`; each carries a governmental *level* as a property — see docs/01 §6.0) the user has **signing material on their device** from which **per-thread keys** are produced.
+- For each **thread** they join (a post, poll, or petition — the root of that conversation), they use a **thread key**: a pseudonymous public key that appears on the public record.
 
 ### Two production signing methods; one passkey per thread on the passkey path
 
-> **Implemented (Option A + mvp-a5b), reframed 2026-07-04.** There are **two production signing
-> methods**, and the jurisdiction's per-action floor (`gates[action].signMin`) plus the account's
-> per-action preference (quick | ask | passkey — **strongest wins**) decide which is used:
+> **Implemented (Option A + mvp-a5b), reframed 2026-07-04.** There are **two production signing methods**, and the jurisdiction's per-action floor (`gates[action].signMin`) plus the account's per-action preference (quick | ask | passkey — **strongest wins**) decide which is used:
 >
-> - **Passkey path (`webauthn-es256`)** — one WebAuthn passkey credential per (device, thread).
->   The stable thread persona **Pₜ** is the envelope's `authorPubkey` (first-wins per
->   `(user, thread)` at join); each device's passkey pubkey is the envelope's **`signerPubkey`**.
->   **Every** civic append is a fresh user-verifying assertion bound to the signing digest,
->   verified against `signerPubkey`, not Pₜ. No silent "sign many" after a single unlock — the
->   user verifies (Touch ID / Windows Hello / etc.) on each action.
-> - **Quick-sign path (`p256`)** — the derived thread key signs directly, no per-action prompt.
->   The original design below; kept as a first-class method, not a legacy remnant. It is the floor
->   for every action on `oursay-global` and for comments/reactions on `ab-ca-gov`.
+> - **Passkey path (`webauthn-es256`)** — one WebAuthn passkey credential per (device, thread). The stable thread persona **Pₜ** is the envelope's `authorPubkey` (first-wins per `(user, thread)` at join); each device's passkey pubkey is the envelope's **`signerPubkey`**. **Every** civic append is a fresh user-verifying assertion bound to the signing digest, verified against `signerPubkey`, not Pₜ. No silent "sign many" after a single unlock — the user verifies (Touch ID / Windows Hello / etc.) on each action.
+> - **Quick-sign path (`p256`)** — the derived thread key signs directly, no per-action prompt. The original design below; kept as a first-class method, not a legacy remnant. It is the floor for every action on `oursay-global` and for comments/reactions on `ab-ca-gov`.
 >
-> The account-login passkey still unlocks once to seed the singleton **nullifier root** only. Read
-> surfaces project the outcome per transaction as **`signTier`** (0 quick · 1 passkey · 2/3
-> biometric future). See §3.1, §5.4, and §6.
+> The account-login passkey still unlocks once to seed the singleton **nullifier root** only. Read surfaces project the outcome per transaction as **`signTier`** (0 quick · 1 passkey · 2/3 biometric future). See §3.1, §5.4, and §6.
 
-_Original design (now the production **quick-sign** path):_ Users did **not**
-register a new passkey for every thread. They authenticated once (or with a small set of devices),
-then **registered a derived thread key** the first time they participated in a thread, and that key
-signed comments, votes, reactions, and other record entries.
+_Original design (now the production **quick-sign** path):_ Users did **not** register a new passkey for every thread. They authenticated once (or with a small set of devices), then **registered a derived thread key** the first time they participated in a thread, and that key signed comments, votes, reactions, and other record entries.
 
 ### One pseudonym per thread (default)
 
-By default, all of a user’s actions in one thread should appear under **one thread public
-key** — one pseudonym for that conversation. They stay anonymous to the public unless they
-choose to link that activity to their real identity (see Section 4).
+By default, all of a user’s actions in one thread should appear under **one thread public key** — one pseudonym for that conversation. They stay anonymous to the public unless they choose to link that activity to their real identity (see Section 4).
 
 ### Platform never holds private keys
 
-The platform may store **public** keys and **private bindings** (proof that a key belongs to
-a verified account, without publishing which account). It must **never** hold private signing
-keys, derivation secrets, or anything that lets us sign on a user’s behalf.
+The platform may store **public** keys and **private bindings** (proof that a key belongs to a verified account, without publishing which account). It must **never** hold private signing keys, derivation secrets, or anything that lets us sign on a user’s behalf.
 
-We also avoid storing **wrapped private key blobs** on the server as a convenience — even
-encrypted, that blurs the line of custody we want to keep clear.
+We also avoid storing **wrapped private key blobs** on the server as a convenience — even encrypted, that blurs the line of custody we want to keep clear.
 
 ---
 
@@ -81,28 +50,19 @@ encrypted, that blurs the line of custody we want to keep clear.
 
 ### Every envelope is signed on the device
 
-Every entry appended to the verified public record must be **cryptographically signed on the
-user’s device** before it reaches the server. The server checks the signature, registration,
-content commitment, and applicable rules — it does not sign for the user.
+Every entry appended to the verified public record must be **cryptographically signed on the user’s device** before it reaches the server. The server checks the signature, registration, content commitment, and applicable rules — it does not sign for the user.
 
 ### Thread key scope
 
-- A thread key is scoped to one **root thread** (the post, poll, or petition that started
-  the conversation).
-- Comments, votes, and reactions on that thread use the **same registered thread key** for
-  that user (unless a deliberate multi-device policy applies — see Section 6).
+- A thread key is scoped to one **root thread** (the post, poll, or petition that started the conversation).
+- Comments, votes, and reactions on that thread use the **same registered thread key** for that user (unless a deliberate multi-device policy applies — see Section 6).
 
 ### Singleton actions (votes, reactions, petition signatures)
 
-Some actions are **one per person per target** (e.g. one vote per poll, one reaction per
-comment). These use an opaque **nullifier** so anyone can confirm there is no double
-counting without learning who voted twice.
+Some actions are **one per person per target** (e.g. one vote per poll, one reaction per comment). These use an opaque **nullifier** so anyone can confirm there is no double counting without learning who voted twice.
 
-- Nullifiers are tied to the **person** (via platform attestation to a verified account),
-  not merely to a thread public key.
-- If two devices could produce different nullifiers for the same user, we must still allow
-  only **one** active singleton action per user per parent — the platform enforces one
-  nullifier per `(user, parent)`.
+- Nullifiers are tied to the **person** (via platform attestation to a verified account), not merely to a thread public key.
+- If two devices could produce different nullifiers for the same user, we must still allow only **one** active singleton action per user per parent — the platform enforces one nullifier per `(user, parent)`.
 
 ### What can be edited (Alberta / default product rules)
 
@@ -114,22 +74,13 @@ Under default rules (including the Alberta launch intent):
 | Votes | Yes | Only if the poll allows it, before deadline | No |
 | Petition signatures | Yes | No | Only if `allowChange` permits revoke, before deadline |
 
-Different jurisdictions may tighten or relax these via **per-entity or per-deployment
-rules** in future; the platform should support configuration, not hard-code one province forever.
+Different jurisdictions may tighten or relax these via **per-entity or per-deployment rules** in future; the platform should support configuration, not hard-code one province forever.
 
 ### Who can edit my posts? (Pₜ is public; authorization is not)
 
-**Pₜ** (the thread persona pubkey) appears on every envelope as `authorPubkey`. Anyone reading
-the public record — or a future anchored chain leaf — can copy it. That is intentional: Pₜ is an
-**attribution label** (“this post belongs to persona X in this thread”), not a secret capability
-token. On product surfaces the persona also carries a human-readable **persona display name**
-(globally unique, minted at join, stored alongside `thread_keys.pubkey`) so anonymous authors are
-consistently nameable within a thread — see
-[thread-persona.md](entities/civic-identity/thread-persona.md).
+**Pₜ** (the thread persona pubkey) appears on every envelope as `authorPubkey`. Anyone reading the public record — or a future anchored chain leaf — can copy it. That is intentional: Pₜ is an **attribution label** (“this post belongs to persona X in this thread”), not a secret capability token. On product surfaces the persona also carries a human-readable **persona display name** (globally unique, minted at join, stored alongside `thread_keys.pubkey`) so anonymous authors are consistently nameable within a thread — see [thread-persona.md](entities/civic-identity/thread-persona.md).
 
-Knowing Pₜ does **not** let someone edit your content. An attacker can build an update envelope
-with `authorPubkey = your Pₜ`, but they still must pass every gate below before `appendSigned`
-accepts the transaction.
+Knowing Pₜ does **not** let someone edit your content. An attacker can build an update envelope with `authorPubkey = your Pₜ`, but they still must pass every gate below before `appendSigned` accepts the transaction.
 
 #### What an observer can learn from the ledger
 
@@ -139,32 +90,17 @@ accepts the transaction.
 | `signerPubkey` (= the device that signed that tx) | Which credentials may sign as Pₜ |
 | Envelope fields (content hash, prevHash, nullifier, …) | `credential_sig` attestations at join |
 
-Cross-thread, an outsider still cannot link your personas across threads without separate
-authorization (§4).
+Cross-thread, an outsider still cannot link your personas across threads without separate authorization (§4).
 
 #### Authorization gates (in order)
 
-1. **Author-match (on-record rule).** For an update or delete, the envelope's `authorPubkey`
-   must equal the entity head's `authorPubkey`. The attacker must claim **your** Pₜ — which they
-   can read from the chain — but that alone authorizes nothing.
+1. **Author-match (on-record rule).** For an update or delete, the envelope's `authorPubkey` must equal the entity head's `authorPubkey`. The attacker must claim **your** Pₜ — which they can read from the chain — but that alone authorizes nothing.
 
-2. **WebAuthn assertion (cryptography).** Under `webauthn-es256`, every append carries a fresh
-   user-verifying assertion verified against **`signerPubkey`**, not Pₜ. The challenge is bound to
-   `signingDigest(envelope)` (entity id, content, prevHash, both pubkeys, timestamp, …), so
-   assertions cannot be replayed onto different content. Pₜ's private key is **not** used on this
-   path; only an enrolled device passkey can produce a valid assertion.
+2. **WebAuthn assertion (cryptography).** Under `webauthn-es256`, every append carries a fresh user-verifying assertion verified against **`signerPubkey`**, not Pₜ. The challenge is bound to `signingDigest(envelope)` (entity id, content, prevHash, both pubkeys, timestamp, …), so assertions cannot be replayed onto different content. Pₜ's private key is **not** used on this path; only an enrolled device passkey can produce a valid assertion.
 
-3. **Credential enrollment (private registry).** `signerPubkey` must resolve to a row in
-   `thread_civic_credentials` that is non-revoked, scoped to the same `(user, thread)` as Pₜ, and
-   whose `persona_pubkey` equals the envelope's `authorPubkey`. Rows are created only at **join**
-   (authenticated, first-wins Pₜ per `(user, thread)`), with a platform `credential_sig` over
-   `(Pₜ, signerPubkey, threadId, jurisdiction, commitment)` re-verified on every append. An
-   attacker cannot enroll their passkey under your Pₜ without your account session, and cannot
-   forge `credential_sig` without the platform binding key.
+3. **Credential enrollment (private registry).** `signerPubkey` must resolve to a row in `thread_civic_credentials` that is non-revoked, scoped to the same `(user, thread)` as Pₜ, and whose `persona_pubkey` equals the envelope's `authorPubkey`. Rows are created only at **join** (authenticated, first-wins Pₜ per `(user, thread)`), with a platform `credential_sig` over `(Pₜ, signerPubkey, threadId, jurisdiction, commitment)` re-verified on every append. An attacker cannot enroll their passkey under your Pₜ without your account session, and cannot forge `credential_sig` without the platform binding key.
 
-4. **API session (HTTP path).** `CivicRecordService.submit` additionally requires the caller's
-   session `userId` to own both the persona (`thread_keys`) and the signer credential. A foreign
-   account receives `403` even if they guess Pₜ.
+4. **API session (HTTP path).** `CivicRecordService.submit` additionally requires the caller's session `userId` to own both the persona (`thread_keys`) and the signer credential. A foreign account receives `403` even if they guess Pₜ.
 
 #### Decision flow (attacker with ledger copy only)
 
@@ -184,18 +120,11 @@ flowchart TD
 
 #### Honest limits (what this model does and does not prove)
 
-- **Offline verifiers** (Value 1: read a chain leaf and verify crypto without the platform) can
-  check assertion validity, challenge binding, and author-match on the envelope. Full **device
-  authorization** (credential enrollment) lives in the private registry today; a standalone
-  offline check cannot replay that gate until credential attestations are published in settlement
-  metadata (future, out of current scope).
-- **Compromise** still wins: stolen unlocked device + valid session, or a credential not yet
-  revoked. The model assumes hardware-backed keys and user verification (UV) per civic action.
+- **Offline verifiers** (Value 1: read a chain leaf and verify crypto without the platform) can check assertion validity, challenge binding, and author-match on the envelope. Full **device authorization** (credential enrollment) lives in the private registry today; a standalone offline check cannot replay that gate until credential attestations are published in settlement metadata (future, out of current scope).
+- **Compromise** still wins: stolen unlocked device + valid session, or a credential not yet revoked. The model assumes hardware-backed keys and user verification (UV) per civic action.
 - **Governance** may forbid edits even for the real author (poll deadline, vote-change rules, etc.).
 
-**Summary:** Pₜ on the ledger answers *who the post is attributed to*; enrolled device credentials
-plus per-append WebAuthn answer *who may act for that persona*. Copying a public pubkey from the
-chain provides neither.
+**Summary:** Pₜ on the ledger answers *who the post is attributed to*; enrolled device credentials plus per-append WebAuthn answer *who may act for that persona*. Copying a public pubkey from the chain provides neither.
 
 ---
 
@@ -203,42 +132,31 @@ chain provides neither.
 
 ### Anonymous by default
 
-Participation in a thread is **pseudonymous on the public record**. Published envelopes
-carry a thread public key and signature — not a name, user id, or cross-thread link.
+Participation in a thread is **pseudonymous on the public record**. Published envelopes carry a thread public key and signature — not a name, user id, or cross-thread link.
 
-Nothing public — not the nullifier, not the envelope, not settlement metadata — should
-let an outsider connect one user’s activity **across different threads** without
-authorization.
+Nothing public — not the nullifier, not the envelope, not settlement metadata — should let an outsider connect one user’s activity **across different threads** without authorization.
 
 ### The link exists privately — and users may prove it
 
-“Private linkability” means the mapping **account ↔ thread key** is **not published by
-default**. It does **not** mean users can never prove they wrote something.
+“Private linkability” means the mapping **account ↔ thread key** is **not published by default**. It does **not** mean users can never prove they wrote something.
 
 Users must be able to:
 
 - **Self-audit** — show that their copy of an action matches the public record.
 - **Claim ownership** (future) — publicly say “this thread’s activity is mine,” reversibly.
-- **Selectively reveal** (future) — authorize a specific third party (e.g. Elections Alberta,
-  a court, an auditor) to verify **specific threads only**, without exposing all their activity.
+- **Selectively reveal** (future) — authorize a specific third party (e.g. Elections Alberta, a court, an auditor) to verify **specific threads only**, without exposing all their activity.
 
-Until claim and selective-reveal flows are built, proof to a third party may require manual
-cooperation; the **design intent** is user-controlled disclosure, not permanent anonymity
-and not platform-only disclosure.
+Until claim and selective-reveal flows are built, proof to a third party may require manual cooperation; the **design intent** is user-controlled disclosure, not permanent anonymity and not platform-only disclosure.
 
 ### Residual risk (honest limit)
 
-Heavy public activity plus fine-grained geographic exposure can allow **inference** about
-who someone is. That is a product and UX problem, not something we fix by putting identity
-on the ledger. See [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md).
+Heavy public activity plus fine-grained geographic exposure can allow **inference** about who someone is. That is a product and UX problem, not something we fix by putting identity on the ledger. See [`06-PRIVACY-REVIEW.md`](./06-PRIVACY-REVIEW.md).
 
 ---
 
 ## 5. Target architecture (greenfield review)
 
-_This section records a structured design review (June 2026) **without** tying choices to the
-current codebase. It defines where we want to end up and how to get there. Use it when planning
-user strategy, auth, and record wire formats._
+_This section records a structured design review (June 2026) **without** tying choices to the current codebase. It defines where we want to end up and how to get there. Use it when planning user strategy, auth, and record wire formats._
 
 ### 5.1 What we are trying to achieve
 
@@ -266,8 +184,7 @@ Thread persona (public id in T)    ← “who wrote this in this thread” on th
 Message / vote envelope            ← what auditors verify on the chain
 ```
 
-**Device keys** sit between human and persona: they **act for** the persona but are not
-necessarily the same as the persona’s public key on the ledger.
+**Device keys** sit between human and persona: they **act for** the persona but are not necessarily the same as the persona’s public key on the ledger.
 
 ### 5.3 Approaches considered
 
@@ -279,132 +196,65 @@ necessarily the same as the persona’s public key on the ledger.
 | **4** | Anonymous credentials / zero-knowledge membership | **Permanent ideal goal** (see §5.5). After KYC, user holds a credential; votes/actions include ZK proofs of membership + unique nullifier per poll; minimal platform trust for dedupe. |
 | **5** | Published on-chain device authorization graph | ~~Publish which device keys may act for which thread persona.~~ **Ruled out** — see below. |
 
-**Method 5 — ruled out.** Publishing a graph of device public keys authorized across threads
-creates a **cross-thread correlator**: the same device key appearing in two threads lets an
-observer link activity across those threads without user consent. Any design that puts a
-stable device-level identifier on the public record (or in widely replicated settlement
-metadata) in more than one thread is **not viable** for OurSay. Cross-device authorization
-must stay **private**, **thread-scoped**, or **user-initiated reveal** — never a global
-device fingerprint on the ledger.
+**Method 5 — ruled out.** Publishing a graph of device public keys authorized across threads creates a **cross-thread correlator**: the same device key appearing in two threads lets an observer link activity across those threads without user consent. Any design that puts a stable device-level identifier on the public record (or in widely replicated settlement metadata) in more than one thread is **not viable** for OurSay. Cross-device authorization must stay **private**, **thread-scoped**, or **user-initiated reveal** — never a global device fingerprint on the ledger.
 
 ### 5.4 Recommended build direction: Method 3
 
-> **Implemented variant — Option A + mvp-a5b persona/signer split (WebAuthn).** The production path
-> realizes Method 3 *in full*: a stable thread persona **Pₜ** is the on-record **`authorPubkey`**,
-> while each device's per-thread WebAuthn passkey is the envelope's **`signerPubkey`** (REQUIRED on
-> `webauthn-es256`). Pₜ is allocated **first-wins** per `(user, thread)` at join: the first device's
-> signer pubkey becomes Pₜ; every subsequent device of the same user is enrolled as an **additional
-> credential under that same Pₜ** in `thread_civic_credentials` (one row per device signer). Each
-> civic append is a per-action user-verifying assertion (`signScheme: "webauthn-es256"`); the
-> assertion is verified against `signerPubkey`, not `authorPubkey`. The jurisdiction signing policy
-> sets a **per-action minimum sign method** (`gates[action].signMin`) — `ab-ca-gov` floors
-> post/vote/petition_signature at passkey, `oursay-global` floors everything at quick — and the
-> account's per-action preference can only raise it (strongest wins). The record engine's
-> derived-`p256` verifier is the production **quick-sign** path wherever the floor allows it.
-> *(History: an earlier platform-wide hard-require of webauthn-es256 for `vote`/`petition_signature`
-> was replaced by these per-jurisdiction gates; the code still enforces the old rule — see
-> `[align-w3-gates-schema]`.)*
+> **Implemented variant — Option A + mvp-a5b persona/signer split (WebAuthn).** The production path realizes Method 3 *in full*: a stable thread persona **Pₜ** is the on-record **`authorPubkey`**, while each device's per-thread WebAuthn passkey is the envelope's **`signerPubkey`** (REQUIRED on `webauthn-es256`). Pₜ is allocated **first-wins** per `(user, thread)` at join: the first device's signer pubkey becomes Pₜ; every subsequent device of the same user is enrolled as an **additional credential under that same Pₜ** in `thread_civic_credentials` (one row per device signer). Each civic append is a per-action user-verifying assertion (`signScheme: "webauthn-es256"`); the assertion is verified against `signerPubkey`, not `authorPubkey`. The jurisdiction signing policy sets a **per-action minimum sign method** (`gates[action].signMin`) — `ab-ca-gov` floors post/vote/petition_signature at passkey, `oursay-global` floors everything at quick — and the account's per-action preference can only raise it (strongest wins). The record engine's derived-`p256` verifier is the production **quick-sign** path wherever the floor allows it. *(History: an earlier platform-wide hard-require of webauthn-es256 for `vote`/`petition_signature` was replaced by these per-jurisdiction gates; the code still enforces the old rule — see `[align-w3-gates-schema]`.)*
 >
-> **Cross-device edit (rule 6) just works.** Because every device signs as the same Pₜ, the engine's
-> author-match (`validateUpdate`: `head.authorPubkey === actor`) passes for any of the user's
-> enrolled signers — no synced passkey required. Authorization is enforced server-side: the device's
-> `signerPubkey` must resolve to a registered, non-revoked `thread_civic_credentials` row whose
-> `persona_pubkey` equals the envelope's `authorPubkey` and whose `(user_id, thread_id)` match Pₜ's.
-> A platform attestation (`credential_sig`) over `(Pₜ, signerPubkey, threadId, jurisdiction,
-> commitment)` is bound at join and re-verified on every append (defense-in-depth, mirroring
-> `binding_sig`). Singleton **dedupe** is still per-(user, jurisdiction): the shared nullifier root
-> blocks a second device from double-voting on the same poll. The user↔Pₜ link and Pₜ↔signer
-> attestations remain **private** (`thread_bindings` + `thread_civic_credentials`), never on the
-> public record.
+> **Cross-device edit (rule 6) just works.** Because every device signs as the same Pₜ, the engine's author-match (`validateUpdate`: `head.authorPubkey === actor`) passes for any of the user's enrolled signers — no synced passkey required. Authorization is enforced server-side: the device's `signerPubkey` must resolve to a registered, non-revoked `thread_civic_credentials` row whose `persona_pubkey` equals the envelope's `authorPubkey` and whose `(user_id, thread_id)` match Pₜ's. A platform attestation (`credential_sig`) over `(Pₜ, signerPubkey, threadId, jurisdiction, commitment)` is bound at join and re-verified on every append (defense-in-depth, mirroring `binding_sig`). Singleton **dedupe** is still per-(user, jurisdiction): the shared nullifier root blocks a second device from double-voting on the same poll. The user↔Pₜ link and Pₜ↔signer attestations remain **private** (`thread_bindings` + `thread_civic_credentials`), never on the public record.
 >
-> **Account recovery (revocation model).** Recovery should **revoke** the user's
-> `thread_civic_credentials` rows (each device's signers) but **preserve** `thread_keys` and
-> `thread_bindings` (Pₜ stays stable per `(user, thread)`). After recovery the user re-authorizes
-> per thread by enrolling a fresh device credential under the SAME Pₜ — no on-record author change.
-> Warn the user that until they re-authorize a thread, edits/votes/signatures from that thread are
-> read-only; the persona remains theirs, but no signer can act for it.
+> **Account recovery (revocation model).** Recovery should **revoke** the user's `thread_civic_credentials` rows (each device's signers) but **preserve** `thread_keys` and `thread_bindings` (Pₜ stays stable per `(user, thread)`). After recovery the user re-authorizes per thread by enrolling a fresh device credential under the SAME Pₜ — no on-record author change. Warn the user that until they re-authorize a thread, edits/votes/signatures from that thread are read-only; the persona remains theirs, but no signer can act for it.
 
 **Use Method 3 when implementing user strategy and the first production auth path.**
 
 Concrete rules:
 
 1. **Verify once** → human record (KYC tier, geographic areas).
-2. **Enroll device** → hardware-backed key *Dᵢ* (passkey / secure enclave) linked to user;
-   many passkeys per account allowed.
-3. **Join thread** → allocate stable thread persona *Pₜ* (public author id for that thread);
-   register with platform; *Pₜ* must not be derivable across threads by public observers.
-4. **Post comment** → envelope carries `authorPubkey = Pₜ` and, on the passkey path,
-   `signerPubkey = Dᵢ` (this device's per-thread WebAuthn passkey pubkey),
-   `signScheme = "webauthn-es256"`, and the assertion; on the quick-sign path Pₜ signs directly
-   (`p256`). Which path applies = strongest of account pref and jurisdiction floor. No nullifier.
-5. **Vote / singleton action** → same, plus opaque **nullifier** *N* unique per (user, poll);
-   chain rejects duplicate *N* on the same parent; any enrolled *Dᵢ* for that user reuses *N*
-   to change a vote when rules allow.
-6. **Edit / delete** → allowed when governance permits and the envelope's `signerPubkey` is any
-   *Dᵢ* registered (and non-revoked) under the **same Pₜ** as the original entity's
-   `authorPubkey` (i.e. any of the user's enrolled devices for that thread, not necessarily the
-   one that created the entity). Cross-device edit is the normal path, not an edge case.
-7. **Reveal identity** (optional, future) → user-controlled opening linking *Pₜ* to real-world
-   identity for chosen threads only (R11).
+2. **Enroll device** → hardware-backed key *Dᵢ* (passkey / secure enclave) linked to user; many passkeys per account allowed.
+3. **Join thread** → allocate stable thread persona *Pₜ* (public author id for that thread); register with platform; *Pₜ* must not be derivable across threads by public observers.
+4. **Post comment** → envelope carries `authorPubkey = Pₜ` and, on the passkey path, `signerPubkey = Dᵢ` (this device's per-thread WebAuthn passkey pubkey), `signScheme = "webauthn-es256"`, and the assertion; on the quick-sign path Pₜ signs directly (`p256`). Which path applies = strongest of account pref and jurisdiction floor. No nullifier.
+5. **Vote / singleton action** → same, plus opaque **nullifier** *N* unique per (user, poll); chain rejects duplicate *N* on the same parent; any enrolled *Dᵢ* for that user reuses *N* to change a vote when rules allow.
+6. **Edit / delete** → allowed when governance permits and the envelope's `signerPubkey` is any *Dᵢ* registered (and non-revoked) under the **same Pₜ** as the original entity's `authorPubkey` (i.e. any of the user's enrolled devices for that thread, not necessarily the one that created the entity). Cross-device edit is the normal path, not an edge case.
+7. **Reveal identity** (optional, future) → user-controlled opening linking *Pₜ* to real-world identity for chosen threads only (R11).
 
 **Why Method 3 first**
 
-- Satisfies multi-passkey, hardware signing, cross-device edit, and user-level dedupe without
-  cloning one private key across phones.
+- Satisfies multi-passkey, hardware signing, cross-device edit, and user-level dedupe without cloning one private key across phones.
 - Auditors verify signatures, `author = Pₜ`, and nullifier uniqueness on polls.
 - Wire format can reserve fields later needed for ZK presentations (§5.5).
 
 **Sacrifices accepted on the way to Method 4**
 
-- Nullifier consistency across devices requires a **per-(user, jurisdiction) nullifier root** —
-  issued once at verification, derived from a primary passkey PRF, or synced via user-controlled
-  encrypted backup — not independent per-device roots for singleton actions. Keying by jurisdiction
-  (not by governmental level) keeps singleton dedupe independent across same-level jurisdictions.
-- “One person one vote” still trusts **KYC + platform nullifier attestation** until ZK
-  replaces that slot.
-- Envelope may carry both **author** (thread persona) and **signer** (device key) — slightly
-  richer than a single pubkey, but device pubkeys must **not** be reused as cross-thread linkage
-  on the public record.
+- Nullifier consistency across devices requires a **per-(user, jurisdiction) nullifier root** — issued once at verification, derived from a primary passkey PRF, or synced via user-controlled encrypted backup — not independent per-device roots for singleton actions. Keying by jurisdiction (not by governmental level) keeps singleton dedupe independent across same-level jurisdictions.
+- “One person one vote” still trusts **KYC + platform nullifier attestation** until ZK replaces that slot.
+- Envelope may carry both **author** (thread persona) and **signer** (device key) — slightly richer than a single pubkey, but device pubkeys must **not** be reused as cross-thread linkage on the public record.
 
 ### 5.5 Permanent ideal goal: Method 4 (zero-knowledge credentials)
 
-**Product direction:** treat **anonymous credentials / ZK membership proofs** as the
-**long-term target**, not an optional enhancement. Method 3 is the **compatible on-ramp**;
-Method 4 is what we build toward when investing in user strategy and cryptography.
+**Product direction:** treat **anonymous credentials / ZK membership proofs** as the **long-term target**, not an optional enhancement. Method 3 is the **compatible on-ramp**; Method 4 is what we build toward when investing in user strategy and cryptography.
 
 **Shape of the end state**
 
-- After verification, the user holds a **credential** (e.g. BBS+ or equivalent) attesting
-  membership in a defined set (“verified residents of …”) without revealing which member they
-  are on each action.
+- After verification, the user holds a **credential** (e.g. BBS+ or equivalent) attesting membership in a defined set (“verified residents of …”) without revealing which member they are on each action.
 - To vote on poll *P* in thread *T*, the client publishes a **zero-knowledge proof** showing:
   - the credential is valid and not revoked,
-  - a **nullifier** unique to *(credential, P)* so double voting is **publicly** detectable
-    without trusting the platform’s database,
-  - optional binding to thread persona *Pₜ* so auditors tie the vote to the public identifier
-    in that thread.
-- **Multiple devices:** each enrolls *Dᵢ*; credential material is **re-provisioned** or
-  **split** per device via blind issuance — without publishing a device graph that links
-  threads (avoid Method 5 failure mode).
-- **Cross-device edit:** proofs or signatures show authorization under the same **user /
-  credential subject**, not the same device key appearing as a global id on the chain.
+  - a **nullifier** unique to *(credential, P)* so double voting is **publicly** detectable without trusting the platform’s database,
+  - optional binding to thread persona *Pₜ* so auditors tie the vote to the public identifier in that thread.
+- **Multiple devices:** each enrolls *Dᵢ*; credential material is **re-provisioned** or **split** per device via blind issuance — without publishing a device graph that links threads (avoid Method 5 failure mode).
+- **Cross-device edit:** proofs or signatures show authorization under the same **user / credential subject**, not the same device key appearing as a global id on the chain.
 
 **Why this is the ideal**
 
-- **Minimizes trust** for dedupe and membership: observers verify proofs and nullifier sets,
-  not “the platform says so.”
-- **Strongest per-thread anonymity** compatible with “no double voting” — unlinkable across
-  polls and threads except where the user chooses to reveal.
-- Aligns with [`05-TRUST-REVIEW.md`](./05-TRUST-REVIEW.md) roadmap (multi-provider attestations,
-  electoral integration) and REQUIREMENTS **R27**.
+- **Minimizes trust** for dedupe and membership: observers verify proofs and nullifier sets, not “the platform says so.”
+- **Strongest per-thread anonymity** compatible with “no double voting” — unlinkable across polls and threads except where the user chooses to reveal.
+- Aligns with [`05-TRUST-REVIEW.md`](./05-TRUST-REVIEW.md) roadmap (multi-provider attestations, electoral integration) and REQUIREMENTS **R27**.
 
 **Costs and prerequisites**
 
 - Substantial crypto engineering, mobile performance work, and auditor tooling.
-- Issuer trust (KYC / electoral authority) remains; ZK removes **platform** as dedupe bottleneck,
-  not the need for verified membership.
-- Schema and envelope design **today** should leave a clear slot for “membership proof” to
-  replace or augment platform nullifier attestation without breaking the record model.
+- Issuer trust (KYC / electoral authority) remains; ZK removes **platform** as dedupe bottleneck, not the need for verified membership.
+- Schema and envelope design **today** should leave a clear slot for “membership proof” to replace or augment platform nullifier attestation without breaking the record model.
 
 ### 5.6 Comparison at a glance
 
@@ -422,61 +272,36 @@ Method 4 is what we build toward when investing in user strategy and cryptograph
 - **Per-device thread personas without user-level dedupe** — breaks “user is the boundary” for votes.
 - **One account-level public key on all threads** — destroys per-thread anonymity.
 - **Platform-held private signing keys** or server-side signing on behalf of users.
-- **On-chain or widely published device authorization graphs** that reuse the same device
-  identifier across threads (Method 5).
+- **On-chain or widely published device authorization graphs** that reuse the same device identifier across threads (Method 5).
 
 ---
 
 ## 6. Device and key custody (near-term implementation)
 
-These are **hard preferences** from product review. Near-term work should align with
-**§5.4 (Method 3)** while keeping wire formats compatible with **§5.5 (Method 4)**.
+These are **hard preferences** from product review. Near-term work should align with **§5.4 (Method 3)** while keeping wire formats compatible with **§5.5 (Method 4)**.
 
-1. **Private keys stay on the device** — signing happens only on hardware or in a
-   non-exportable software key slot, not on the server.
-2. **Prefer non-exportable keys** over asking users to manage, export, or sync a “master
-   secret” file.
+1. **Private keys stay on the device** — signing happens only on hardware or in a non-exportable software key slot, not on the server.
+2. **Prefer non-exportable keys** over asking users to manage, export, or sync a “master secret” file.
 3. **The platform must not have the keys** — public keys and attestations only.
-4. **Separate passkeys on separate phones are acceptable** — syncing the same identity
-   across devices is desirable but **not** a hard requirement.
+4. **Separate passkeys on separate phones are acceptable** — syncing the same identity across devices is desirable but **not** a hard requirement.
 
 ### Why this matters
 
-The current reference implementation derives thread keys from a 32-byte per-jurisdiction secret
-(the jurisdiction master) and signs with library code that reads raw key bytes. That is fine for tests and prototypes.
-**Production web clients should move toward keys the app cannot read as bytes** — e.g.
-Web Crypto `CryptoKey` with `extractable: false`, backed by the secure enclave where the
-OS provides it.
+The current reference implementation derives thread keys from a 32-byte per-jurisdiction secret (the jurisdiction master) and signs with library code that reads raw key bytes. That is fine for tests and prototypes.
+**Production web clients should move toward keys the app cannot read as bytes** — e.g. Web Crypto `CryptoKey` with `extractable: false`, backed by the secure enclave where the OS provides it.
 
 ### Preferred production approach — passkey path (implemented: Option A — per-thread WebAuthn passkey)
 
-The flow below is the **passkey** signing path. The **quick-sign** path (derived `p256` thread key,
-no per-action prompt) is equally production — used wherever the jurisdiction floor is `quick` and
-the account prefers it — and follows the same custody direction (non-exportable `CryptoKey`,
-never raw bytes the app can read).
+The flow below is the **passkey** signing path. The **quick-sign** path (derived `p256` thread key, no per-action prompt) is equally production — used wherever the jurisdiction floor is `quick` and the account prefers it — and follows the same custody direction (non-exportable `CryptoKey`, never raw bytes the app can read).
 
 **Per-thread non-exportable passkeys + per-action user verification:**
 
-1. **Authenticate** with the account-login passkey (proves the session). Its WebAuthn **PRF** (or the
-   secure-storage fallback) seeds the per-(user, jurisdiction) **nullifier root** only — this is the
-   one "unlock once" step, kept **separate from envelope signing**. After login the PRF root is held
-   in memory / tab `sessionStorage` and also sealed in IndexedDB (same non-extractable wrap as the
-   secure-store fallback) so a cookie-session restore (hard refresh / new tab) can soft-sign without
-   another WebAuthn prompt; logout clears the seal. Quick Sign uses that unlocked soft key with no
-   further authenticator UI.
-2. **Join thread** → create the thread's **own WebAuthn passkey** (`navigator.credentials.create`, UV
-   + resident key). Its public key is the author *Pₜ*; the private key never leaves the authenticator.
-   Platform stores the **public** key only (registered as `thread_keys` + the binding + a
-   `thread_civic_credentials` revoke row).
-3. **Sign each envelope** with a fresh **user-verifying assertion** from that thread passkey
-   (`navigator.credentials.get`, UV required); the assertion challenge is the envelope's signing
-   digest. The record carries `author = Pₜ`, `signScheme = "webauthn-es256"`, the assertion in
-   `webauthn`, and (where needed) the per-(user, jurisdiction) nullifier for singletons. No
-   `signerPubkey`.
+1. **Authenticate** with the account-login passkey (proves the session). Its WebAuthn **PRF** (or the secure-storage fallback) seeds the per-(user, jurisdiction) **nullifier root** only — this is the one "unlock once" step, kept **separate from envelope signing**. After login the PRF root is held in memory / tab `sessionStorage` and also sealed in IndexedDB (same non-extractable wrap as the secure-store fallback) so a cookie-session restore (hard refresh / new tab) can soft-sign without another WebAuthn prompt; logout clears the seal. Quick Sign uses that unlocked soft key with no further authenticator UI.
+2. **Join thread** → create the thread's **own WebAuthn passkey** (`navigator.credentials.create`, UV + resident key). Its public key is the author *Pₜ*; the private key never leaves the authenticator. Platform stores the **public** key only (registered as `thread_keys` + the binding + a `thread_civic_credentials` revoke row).
+3. **Sign each envelope** with a fresh **user-verifying assertion** from that thread passkey (`navigator.credentials.get`, UV required); the assertion challenge is the envelope's signing digest. The record carries `author = Pₜ`, `signScheme = "webauthn-es256"`, the assertion in `webauthn`, and (where needed) the per-(user, jurisdiction) nullifier for singletons. No `signerPubkey`.
 4. **Reserve proof slot** in envelope/attestation for future ZK membership presentations (§5.5).
 
-The app persists only browser-local **handles** (the credential id + public key in
-`ThreadPasskeyStore`), never raw private scalars.
+The app persists only browser-local **handles** (the credential id + public key in `ThreadPasskeyStore`), never raw private scalars.
 
 ### How to seed the jurisdiction root (without a user-managed master file)
 
@@ -486,36 +311,23 @@ The app persists only browser-local **handles** (the credential id + public key 
 | **Non-exportable generateKey** | When PRF is unavailable: create a jurisdiction root in Web Crypto once per device; store only a key handle, not bytes. |
 | **Passkey largeBlob** | Optional future path: small secret stored on the authenticator for the same credential only. |
 
-**Explicitly deprioritized:** asking users to download, print, or email a master key;
-server-side escrow of encrypted private keys.
+**Explicitly deprioritized:** asking users to download, print, or email a master key; server-side escrow of encrypted private keys.
 
 ### Passkey sync vs. “add device”
 
-- **Same passkey synced** (e.g. iCloud Keychain on two iPhones): may share the same *Dᵢ* or
-  the same nullifier root derivation — same thread persona *Pₜ* per thread.
-- **New passkey on a second phone (“add device”)**: enroll second *Dᵢ*; same user privately;
-  same *Pₜ* and same nullifier root per §5.4. Cross-device edit uses any enrolled *Dᵢ*.
-  **Do not** publish a device graph linking threads (§5.3, Method 5 ruled out).
+- **Same passkey synced** (e.g. iCloud Keychain on two iPhones): may share the same *Dᵢ* or the same nullifier root derivation — same thread persona *Pₜ* per thread.
+- **New passkey on a second phone (“add device”)**: enroll second *Dᵢ*; same user privately; same *Pₜ* and same nullifier root per §5.4. Cross-device edit uses any enrolled *Dᵢ*. **Do not** publish a device graph linking threads (§5.3, Method 5 ruled out).
 
-We do **not** require independent device keys per thread; we **do** require that whichever
-path we ship keeps private keys off the platform and signs on device.
+We do **not** require independent device keys per thread; we **do** require that whichever path we ship keeps private keys off the platform and signs on device.
 
 ### Account-login auth: passkeys + the three OTP purposes (server, `@oursay/api`)
 
-Account login (proving *who is signed in*) is deliberately separate from civic signing (§2). Two key
-families, two tables:
+Account login (proving *who is signed in*) is deliberately separate from civic signing (§2). Two key families, two tables:
 
-- **Account-login passkeys** → `auth.passkey_credentials`. The preferred, day-to-day factor. A user
-  may enroll **several** (one per device); each is independent and the platform stores only public
-  credential metadata. In the **web client golden path**, the account-login passkey also seeds civic
-  custody (PRF or secure-storage fallback) — no separate civic passkey enrollment.
-- **Civic device keys** → `public.device_keys` (legacy *Dᵢ* registry). **Client-deprecated** — the
-  production signing path uses `thread_civic_credentials` only. `POST/GET /v1/civic/devices` remain
-  as an optional HTTP registry for backward compat but are not called by join/prepare/submit.
+- **Account-login passkeys** → `auth.passkey_credentials`. The preferred, day-to-day factor. A user may enroll **several** (one per device); each is independent and the platform stores only public credential metadata. In the **web client golden path**, the account-login passkey also seeds civic custody (PRF or secure-storage fallback) — no separate civic passkey enrollment.
+- **Civic device keys** → `public.device_keys` (legacy *Dᵢ* registry). **Client-deprecated** — the production signing path uses `thread_civic_credentials` only. `POST/GET /v1/civic/devices` remain as an optional HTTP registry for backward compat but are not called by join/prepare/submit.
 
-**Email OTP is never a standing login method.** It exists for exactly three **purposes**, all sent
-through one request endpoint (`POST /v1/auth/otp/request`, discriminated by `purpose`) so there is a
-single send path with no duplicate routes:
+**Email OTP is never a standing login method.** It exists for exactly three **purposes**, all sent through one request endpoint (`POST /v1/auth/otp/request`, discriminated by `purpose`) so there is a single send path with no duplicate routes:
 
 | Purpose | Trigger / gate | Verify | Session | Revokes others? |
 |---------|----------------|--------|---------|-----------------|
@@ -523,18 +335,9 @@ single send path with no duplicate routes:
 | `recovery` | lost passkey; sent only if the account exists (no enumeration) | `POST /v1/auth/recovery/verify` | **recovery** (enroll-only) | **yes** — security reset |
 | `login` | **gated** cross-device sign-in; sent only while an enable window is open | `POST /v1/auth/login/verify` | **login** (enroll-only) | **no** — additive |
 
-**Gated login (the new-device path).** Most of the time login OTP is *disabled*: a new/unenrolled
-device cannot sign in with email alone. A **trusted device** (a valid **full** session **with** an
-enrolled passkey) opens the window via `POST /v1/auth/login/enable`, which emails a `login` code. The
-window is the active `login` OTP itself — short-lived (bounded by `OTP_TTL_SEC`, default 10 min) and
-one per account (issuing a new one invalidates the prior). The new device redeems the code at
-`POST /v1/auth/login/verify` → a **limited `login`-scoped** session that may **only** enroll a
-passkey; the device then logs in with that passkey for full access. Without an open window, a bare
-`login` request sends nothing and verify fails — no enumeration, no bypass of the passkey requirement.
+**Gated login (the new-device path).** Most of the time login OTP is *disabled*: a new/unenrolled device cannot sign in with email alone. A **trusted device** (a valid **full** session **with** an enrolled passkey) opens the window via `POST /v1/auth/login/enable`, which emails a `login` code. The window is the active `login` OTP itself — short-lived (bounded by `OTP_TTL_SEC`, default 10 min) and one per account (issuing a new one invalidates the prior). The new device redeems the code at `POST /v1/auth/login/verify` → a **limited `login`-scoped** session that may **only** enroll a passkey; the device then logs in with that passkey for full access. Without an open window, a bare `login` request sends nothing and verify fails — no enumeration, no bypass of the passkey requirement.
 
-This separates cleanly from **recovery**: gated login is *additive* (the holder still has access on a
-trusted device, so other sessions are kept), while recovery assumes *lost access* and revokes every
-prior session. Both end in a new passkey.
+This separates cleanly from **recovery**: gated login is *additive* (the holder still has access on a trusted device, so other sessions are kept), while recovery assumes *lost access* and revokes every prior session. Both end in a new passkey.
 
 ---
 
@@ -557,17 +360,11 @@ prior session. Both end in a new passkey.
 
 These points from the broader alignment review belong in the same picture:
 
-- **Anyone** should be able to audit the record from published data and anchors; old copies
-  help detect censorship if the platform withholds new data.
+- **Anyone** should be able to audit the record from published data and anchors; old copies help detect censorship if the platform withholds new data.
 - **Double voting** must be detectable publicly (nullifiers + tallies).
-- **Tamper resistance**: mutable store holds content; the chain holds commitments; anchors
-  prove history. Editing content without a new signed transaction must fail verification.
-- **Trust surface for tallies**: residency and age for *filtered counts* ultimately trust
-  verified identity data — the platform should publish enough signed detail that individuals
-  can check they were included or excluded fairly. Tier- and region-filtered signed counts
-  are MVP requirements but not fully built yet.
-- **External anchoring** (not only our servers) is required before we claim full
-  trustlessness; see [`05-TRUST-REVIEW.md`](./05-TRUST-REVIEW.md).
+- **Tamper resistance**: mutable store holds content; the chain holds commitments; anchors prove history. Editing content without a new signed transaction must fail verification.
+- **Trust surface for tallies**: residency and age for *filtered counts* ultimately trust verified identity data — the platform should publish enough signed detail that individuals can check they were included or excluded fairly. Tier- and region-filtered signed counts are MVP requirements but not fully built yet.
+- **External anchoring** (not only our servers) is required before we claim full trustlessness; see [`05-TRUST-REVIEW.md`](./05-TRUST-REVIEW.md).
 
 ---
 
@@ -580,19 +377,13 @@ Many checks should eventually be **configurable per jurisdiction**, with platfor
 - Whether votes or signatures are changeable (the intentionally loose platform default) or final (a per-jurisdiction tightening, e.g. `ab-ca-gov`).
 - Whether comments are limited to one per thread per user (default: many comments allowed).
 
-A **jurisdiction** (docs/01 §6.0) is 1:1 with a chain and now carries its `level` plus default
-gating **rules** (`public-record/src/jurisdiction.ts`). Gating resolves as the jurisdiction's
-defaults **⊕** an entity's own overrides (`governance.ts` `resolveRules`) — e.g. whether a vote may
-change or a signature be revoked. Remaining gates (envelope freshness, unverified-user permissions,
-one-comment-per-thread) are still global environment config; folding them into `JurisdictionConfig`
-is the next step.
+A **jurisdiction** (docs/01 §6.0) is 1:1 with a chain and now carries its `level` plus default gating **rules** (`public-record/src/jurisdiction.ts`). Gating resolves as the jurisdiction's defaults **⊕** an entity's own overrides (`governance.ts` `resolveRules`) — e.g. whether a vote may change or a signature be revoked. Remaining gates (envelope freshness, unverified-user permissions, one-comment-per-thread) are still global environment config; folding them into `JurisdictionConfig` is the next step.
 
 ---
 
 ## 10. Implementation status (honest snapshot)
 
-Use this when prioritizing work; see [`../public-record/TESTING-REPORT.md`](../public-record/TESTING-REPORT.md)
-for test detail.
+Use this when prioritizing work; see [`../public-record/TESTING-REPORT.md`](../public-record/TESTING-REPORT.md) for test detail.
 
 | Area | Status |
 |------|--------|
@@ -623,29 +414,14 @@ for test detail.
 | Tier- and region-filtered signed counts (R24–R26) | Not built |
 | ZK membership credentials (Method 4 — ideal goal) | **Not started; wire slot reserved (envelope `proof` + `nullifier_attestations.membership_proof`), rejected until built (§5.5)** |
 
-**Implementation note (library).** Under Option A + mvp-a5b the published author is the stable thread
-persona **Pₜ** (`authorPubkey`); each device's per-thread WebAuthn passkey is `signerPubkey`. Device
-pubkeys are distinct per `(device, thread)` so the same physical device shows no cross-thread
-correlator on the record — Method 5 (§5.3) stays ruled out. The user↔Pₜ and Pₜ↔signer links live only
-in the private registry (`thread_keys` + `thread_bindings` + `thread_civic_credentials`), never on the
-envelope. `appendSigned` (the `webauthn-es256` branch) verifies the per-append assertion against
-`signerPubkey`, requires UV, checks the challenge equals the signing digest, and requires a registered
-non-revoked credential under Pₜ with a valid `credential_sig`. See §3.1. The `p256` branch
-(derived thread key signing directly) is the production **quick-sign** path wherever the
-jurisdiction floor allows it.
-The reserved ZK slot is **reserve-and-
-reject**: an envelope that actually carries `proof` is rejected until Method 4 verification
-exists. **Still for Method 4:** real credential issuance + ZK proof generation/verification to
-replace platform nullifier attestation as the dedupe trust root.
+**Implementation note (library).** Under Option A + mvp-a5b the published author is the stable thread persona **Pₜ** (`authorPubkey`); each device's per-thread WebAuthn passkey is `signerPubkey`. Device pubkeys are distinct per `(device, thread)` so the same physical device shows no cross-thread correlator on the record — Method 5 (§5.3) stays ruled out. The user↔Pₜ and Pₜ↔signer links live only in the private registry (`thread_keys` + `thread_bindings` + `thread_civic_credentials`), never on the envelope. `appendSigned` (the `webauthn-es256` branch) verifies the per-append assertion against `signerPubkey`, requires UV, checks the challenge equals the signing digest, and requires a registered non-revoked credential under Pₜ with a valid `credential_sig`. See §3.1. The `p256` branch (derived thread key signing directly) is the production **quick-sign** path wherever the jurisdiction floor allows it.
+The reserved ZK slot is **reserve-and-reject**: an envelope that actually carries `proof` is rejected until Method 4 verification exists. **Still for Method 4:** real credential issuance + ZK proof generation/verification to replace platform nullifier attestation as the dedupe trust root.
 
 ---
 
 ## 11. Production data retention
 
-The civic record is **append-only by design**. Wiping live Postgres rows, Docker volumes, or chain
-state in production is **prohibited** — recovery is always **restore from backup** and/or **stand up
-a fresh node, replay anchors, and reconcile**; never `TRUNCATE` or `docker compose down -v` against
-production data.
+The civic record is **append-only by design**. Wiping live Postgres rows, Docker volumes, or chain state in production is **prohibited** — recovery is always **restore from backup** and/or **stand up a fresh node, replay anchors, and reconcile**; never `TRUNCATE` or `docker compose down -v` against production data.
 
 **In-repo guards (today).** `scripts/destructive-guard.ts` blocks when `NODE_ENV=production`:
 
@@ -656,8 +432,7 @@ production data.
 | `PrivateStore.reset()` | `TRUNCATE` all private tables |
 | `DevPasskeyConnector` | construct / `destroyAll()` (dev only) |
 
-There is **no** production override env var. To run destructive dev tooling, the process must not be
-in production mode.
+There is **no** production override env var. To run destructive dev tooling, the process must not be in production mode.
 
 **Before production (ops checklist — not enforced in code).**
 
@@ -668,8 +443,7 @@ in production mode.
 - [ ] `NODE_ENV=production` on all production Node processes (API, workers).
 - [ ] Secrets/IAM: only break-glass roles can drop databases; actions audited.
 
-Raw `docker` / `psql` / cloud-console deletes are **not** gated by npm — defense is infrastructure
-and access control.
+Raw `docker` / `psql` / cloud-console deletes are **not** gated by npm — defense is infrastructure and access control.
 
 ---
 
@@ -704,5 +478,4 @@ Before merging changes that touch identity or user data, confirm:
 
 ---
 
-_Last updated: June 2026 — identity alignment review, device-signing policy, and greenfield
-architecture review (Methods 1–5; build toward Method 3, ideal Method 4)._
+_Last updated: June 2026 — identity alignment review, device-signing policy, and greenfield architecture review (Methods 1–5; build toward Method 3, ideal Method 4)._

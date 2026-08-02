@@ -1,8 +1,6 @@
 # OurSay — User Stories
 
-> **Purpose:** The implementation-grade story layer. Each story states a role's goal *and the benefit*,
-> plus **acceptance criteria** an agent (or a person) can verify against, the **jurisdiction-tunable
-> knobs** involved, a **scope tag**, and **traces** to the authority that owns the rule.
+> **Purpose:** The implementation-grade story layer. Each story states a role's goal *and the benefit*, plus **acceptance criteria** an agent (or a person) can verify against, the **jurisdiction-tunable knobs** involved, a **scope tag**, and **traces** to the authority that owns the rule.
 >
 > **Audience:** Product, design, and engineering — especially front-end work.
 
@@ -16,35 +14,21 @@ This doc **defers to**, and never redefines, the documents that own the rules:
 4. [`PRD.md`](PRD.md) §4–§7 — personas, product-level stories, feature requirements
 5. [`01-CONTRIBUTOR-SPEC.md`](01-CONTRIBUTOR-SPEC.md) — behavioural narrative
 
-The PRD owns the *persona-level* story summary (§5). **This doc is the layer below it**: the same goals
-expressed as verifiable, traced stories that front-end and API work can be built and checked against. If
-a story here disagrees with anything above, the source above wins — fix the story.
+The PRD owns the *persona-level* story summary (§5). **This doc is the layer below it**: the same goals expressed as verifiable, traced stories that front-end and API work can be built and checked against. If a story here disagrees with anything above, the source above wins — fix the story.
 
-The next layer down — **per-screen flow specs** (states, components, copy) — will live under
-`docs/frontend/` and is written incrementally as each screen is built. This doc is not that; it is the
-goal + acceptance layer that those flow specs implement.
+The next layer down — **per-screen flow specs** (states, components, copy) — will live under `docs/frontend/` and is written incrementally as each screen is built. This doc is not that; it is the goal + acceptance layer that those flow specs implement.
 
 ## Roles
 
-Most stories use **concrete** roles that map to the trust vocabulary, not invented personas:
-`guest` (no account) · `registered` (account, unverified) · `identity-verified` · `residency-verified`
-· `subscriber` (a registered user who is a member of the named jurisdiction) · `official` (claimed MLA
-profile) · `auditor` · `journalist`. Tiers are **set membership**, not a ladder
-([`entities/account/verification.md`](entities/account/verification.md)).
+Most stories use **concrete** roles that map to the trust vocabulary, not invented personas: `guest` (no account) · `registered` (account, unverified) · `identity-verified` · `residency-verified` · `subscriber` (a registered user who is a member of the named jurisdiction) · `official` (claimed MLA profile) · `auditor` · `journalist`. Tiers are **set membership**, not a ladder ([`entities/account/verification.md`](entities/account/verification.md)).
 
 ### The parameterized role: `eligible member`
 
-For a civic *action*, **who may do it is jurisdiction config, not a fixed persona** — so a fixed role
-would be a category error. The §2 capability stories use a parameterized role:
+For a civic *action*, **who may do it is jurisdiction config, not a fixed persona** — so a fixed role would be a category error. The §2 capability stories use a parameterized role:
 
-> **`eligible member`** (for an action, in a jurisdiction) = the set of members the jurisdiction
-> authorizes to perform *that* action. It is **resolved from config**, varies per jurisdiction, and
-> **may be empty** (∅) — e.g. no one may *directly* create a poll under graduation-only rules; the poll
-> exists only by graduating a petition.
+> **`eligible member`** (for an action, in a jurisdiction) = the set of members the jurisdiction authorizes to perform *that* action. It is **resolved from config**, varies per jurisdiction, and **may be empty** (∅) — e.g. no one may *directly* create a poll under graduation-only rules; the poll exists only by graduating a petition.
 
-Eligibility has **three independent axes** — the jurisdiction's per-action gate
-(`gates[action]`, see [jurisdiction.md](entities/partitioning/jurisdiction.md)) — keep them
-distinct everywhere:
+Eligibility has **three independent axes** — the jurisdiction's per-action gate (`gates[action]`, see [jurisdiction.md](entities/partitioning/jurisdiction.md)) — keep them distinct everywhere:
 
 | Axis | Question | Source |
 |------|----------|--------|
@@ -52,13 +36,7 @@ distinct everywhere:
 | **signMin** | How strongly must the action be signed? | `gates[action].signMin` (`quick` \| `passkey`); the account's signing preference may raise but never lower it. |
 | **platform count** | Is this action **included in the platform-count totals**? | `gates[action].platformCount` (absent ⇒ same as act), layered with the thread's `appliesToVerified`. **A counting floor after the action, never a participation barrier** — anyone the act gate admits is welcome; below-floor actions are bunched into the unverified counts until the author verifies. The platform-count gate always uses the act gate as its floor. |
 
-"Public voting, verified-only platform counts" = act *anyone*, platformCount *residency*. "Verified
-participants only" = act *residency*. Same capability, separate config axes. **"Sign now, verify
-later"** = an open act gate with a stricter platform-count gate — the act lands immediately and is
-included in the platform count once (and while) the author meets it, recomputed at read time. Each
-jurisdiction's §3–§5 section opens with an **eligibility matrix** that sets the axes concretely.
-Gates apply to **all four root types** — `result` included (automated, attributed to the poll's
-author) — as well as attachments and singletons, per jurisdiction per record type.
+"Public voting, verified-only platform counts" = act *anyone*, platformCount *residency*. "Verified participants only" = act *residency*. Same capability, separate config axes. **"Sign now, verify later"** = an open act gate with a stricter platform-count gate — the act lands immediately and is included in the platform count once (and while) the author meets it, recomputed at read time. Each jurisdiction's §3–§5 section opens with an **eligibility matrix** that sets the axes concretely. Gates apply to **all four root types** — `result` included (automated, attributed to the poll's author) — as well as attachments and singletons, per jurisdiction per record type.
 
 ## Story format
 
@@ -75,19 +53,15 @@ author) — as well as attachments and singletons, per jurisdiction per record t
 
 **Canonical reminders** (so stories trace, not re-coin):
 - A user's ballot is a **`vote`**; the container is a **`poll`**. Signing is a **`petition_signature`**.
-- **Thread audience** = `jurisdictionId` + `appliesToRegion` + `appliesToVerified`, declared on a **root
-  entity** (`post`/`petition`/`poll`) and **inherited** by comments/reactions/votes/signatures; it may
-  **narrow** but never widen ([`GLOSSARY.md`](GLOSSARY.md), [`entities/partitioning/entity-rules.md`](entities/partitioning/entity-rules.md)).
-- **Reveal** links a pseudonymous persona to a profile: a **platform reveal** is reversible, an
-  **on-chain reveal** is permanent ([`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md)).
+- **Thread audience** = `jurisdictionId` + `appliesToRegion` + `appliesToVerified`, declared on a **root entity** (`post`/`petition`/`poll`) and **inherited** by comments/reactions/votes/signatures; it may **narrow** but never widen ([`GLOSSARY.md`](GLOSSARY.md), [`entities/partitioning/entity-rules.md`](entities/partitioning/entity-rules.md)).
+- **Reveal** links a pseudonymous persona to a profile: a **platform reveal** is reversible, an **on-chain reveal** is permanent ([`09-ACCOUNT-PRIVACY-MODEL.md`](09-ACCOUNT-PRIVACY-MODEL.md)).
 - **Ladder / graduation** semantics are per-jurisdiction ([`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)).
 
 ---
 
 ## 1. System-wide
 
-Behaviour that is genuinely not jurisdiction-specific (account, auth, audit, membership). Roles here are
-concrete because the gate is not jurisdiction config.
+Behaviour that is genuinely not jurisdiction-specific (account, auth, audit, membership). Roles here are concrete because the gate is not jurisdiction config.
 
 **US-SYS-1 — Register with email**  `[scope: MVP]`
 - **Story:** As a guest, I want to register an account with my email, so that I can participate beyond read-only browsing.
@@ -163,9 +137,7 @@ concrete because the gate is not jurisdiction config.
 
 ## 2. Capabilities (jurisdiction-parameterized)
 
-The civic capabilities, **mechanics stated once**. The *who* is the parameterized `eligible member`;
-each jurisdiction's matrix (§3–§5) resolves it. Unless a matrix says otherwise, **assume public-record
-inclusion** for verified actions.
+The civic capabilities, **mechanics stated once**. The *who* is the parameterized `eligible member`; each jurisdiction's matrix (§3–§5) resolves it. Unless a matrix says otherwise, **assume public-record inclusion** for verified actions.
 
 **US-CAP-1 — Create a statement**  `[scope: MVP]`
 - **Story:** As a member eligible to create a statement here, I want to create one (`post`), so that I can put a view to the community.
@@ -270,9 +242,7 @@ Partial ladder ([`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)). `grad
 | create `poll` | **official-role holders only** or via graduation | passkey | — | role gate, not a tier; officials may also promote a petition early (US-AB-1) |
 | `vote` | **jurisdiction residency** (residency-verified AND Alberta resident) | passkey | = act set | participation-gated; officials **may** vote |
 
-> Resolved 2026-07-03 (locked jurisdiction configs; see
-> [jurisdiction.md](entities/partitioning/jurisdiction.md) gates). Encoding in config/code is
-> `[align-w3-gates-schema]`.
+> Resolved 2026-07-03 (locked jurisdiction configs; see [jurisdiction.md](entities/partitioning/jurisdiction.md) gates). Encoding in config/code is `[align-w3-gates-schema]`.
 
 ### Deltas
 
@@ -328,8 +298,7 @@ The **open** model — `graduation.policy = open`; the fallback every account jo
 | create `poll` | any registered | quick | by tier | **standalone polls allowed** |
 | `vote` | any registered | quick | **ID-or-better** `{identity_verified, residency_verified}` | public voting; ID-verified platform count — below-floor ballots sit in the unverified counts |
 
-> Resolved 2026-07-03 (locked jurisdiction configs). "ID verification only" = the tier **set**
-> `{identity_verified, residency_verified}` (set membership; residency implies ID was checked).
+> Resolved 2026-07-03 (locked jurisdiction configs). "ID verification only" = the tier **set** `{identity_verified, residency_verified}` (set membership; residency implies ID was checked).
 
 ### Deltas
 
@@ -358,8 +327,7 @@ The **open** model — `graduation.policy = open`; the fallback every account jo
 
 ## 5. `some-strict`
 
-A **full-ladder**, **private** jurisdiction — the strictest reference model. Used to prove the
-configuration space, not a launch deployment.
+A **full-ladder**, **private** jurisdiction — the strictest reference model. Used to prove the configuration space, not a launch deployment.
 
 ### Eligibility matrix
 
@@ -402,5 +370,4 @@ Tracked so they are not lost; each has a home in the gap docs:
 
 ---
 
-_This doc grows as front-end work proceeds; add the per-screen flow specs under `docs/frontend/` rather
-than expanding stories into UI detail here._
+_This doc grows as front-end work proceeds; add the per-screen flow specs under `docs/frontend/` rather than expanding stories into UI detail here._
