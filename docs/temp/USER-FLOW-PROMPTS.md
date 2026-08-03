@@ -69,7 +69,7 @@ between the user stories (what users want) and wireframes (what screens to draw)
    - **Civic content (participate):** React (agree/disagree, switch) · Comment (threaded, depth ≤3, delete) · Sign petition (webauthn-es256, optional comment, finality/revoke) · Vote in poll (one option, anonymity flag, finality/change)
    - **Browse & read (Guest-capable):** Home/browse feed · Post detail (root + comments + tallies) · Petition detail · Poll detail/results · Counts with geo scope (jurisdiction / impacted-region / my-district / all-public) + tier breakdown + k-anonymity suppression · Browse jurisdictions/districts, district map geometry
    - **Anonymity & privacy:** Per-thread pseudonym default · Platform reveal (link/unlink persona ↔ profile, reversible) · On-chain reveal (Planned, nuclear) · Visibility cascade selection (Planned)
-   - **Official / MLA:** Auto-generated profile + disclaimer · Claim profile (fast-follow) · Constituent sentiment dashboard (fast-follow)
+   - **Official / MLA:** Auto-generated profile + disclaimer · Claim profile (fast-follow) · Constituent sentiment portal (fast-follow)
    - **Auditor / transparency:** Sync public record · Verify signed count manifests against external anchors · Detect censorship via commitments
 5. **Add a legend + status summary** up top so a reader can see at a glance what's Built vs Planned,
    and a **persona × action eligibility matrix** per jurisdiction (Alberta ladder vs oursay-global open) —

@@ -33,9 +33,9 @@ Future `#`/`@` links inside content bodies are a UI concern; the record layer st
 
 ## Poll count exposure & Media exclusivity window
 
-Poll surfaces respect jurisdiction **`counts`** (whether scalars may appear at all) and a per-poll **exposure mode**: **`live`** | **`delayed`** | **`blind_until_close`**. Host dashboards for polls they author may show running tallies even when public/embed mode is blind until close.
+Poll surfaces respect jurisdiction **`counts`** (whether scalars may appear at all) and a per-poll **exposure mode**: **`live`** | **`delayed`** | **`blind_until_close`**. Host **portals** for polls they author may show running tallies even when public/embed mode is blind until close.
 
-**Future (deferred):** optional **Media exclusivity window** after close — results withheld from the general public for **N business days** while **media-accredited** hosts/desks may access aggregates early; exact **N** and UX deferred (~2 business days discussed as an example). No API shapes invented here.
+**Future (deferred):** optional **Media exclusivity window** after close — results withheld from the general public for **N business days** while **media-accredited** hosts/desks may access aggregates early; exact **N** and UX deferred (~2 business days discussed as an example). No API shapes invented here. Host / Official / `admin` analytics surfaces are expected to converge on a **unified portal** over time.
 
 ## Custom reactions
 Reaction kinds beyond `✓`/`✗` (custom emoji) — future extension (R1).

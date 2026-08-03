@@ -45,9 +45,18 @@ Exact UI screens and API shapes for each tool are **not** specified here; this f
 - Cross-jurisdiction Official **role inheritance** (allowlisted) — see [future.md](./future.md).
 - Automated press-credential verification — V2+; still an admin-supervised path if added.
 
-## Unified portal (deferred — out of scope)
+## Unified portal (deferred — out of scope for current coding)
 
-A future **unified portal** may serve admins, Officials, Media, and auditors behind one entrypoint. **Do not** invent admin-panel IA, routes, or UX in this pass. If “admin panel” appears in planning, treat it as a **future task** only.
+A future **unified portal** is the intended home for role-scoped tools:
+
+| Audience | Portal uses (intent) |
+|----------|----------------------|
+| **Media** | Hosted-poll analytics & results; early exclusivity access when configured; embeds/exports for *their* items |
+| **Officials** | Constituency / affected-thread sentiment and responses |
+| **`admin`** | Redaction, user management, role assignment, accreditation-body catalog, Media accreditation grant/revoke, district/roster ops |
+| **Auditors** | (optional later) verification / recompute tooling entry |
+
+**Do not** invent portal IA, routes, or UX in the current Media/admin alignment pass. If “admin panel” or “dashboard” appears in planning, prefer **portal** wording and treat UI as a **future task**.
 
 ## Gaps
 

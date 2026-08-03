@@ -36,7 +36,7 @@ This is **not** the per-screen flow-spec layer (states, components, copy) that [
 | 4. Civic content — participate | Built (API) | react/comment/sign/vote via same submit path. |
 | 5. Browse & read | Built (API) | Lists + detail + counts (geo/tier/k-anon resolved on counts only). |
 | 6. Anonymity & privacy | Mixed | Per-thread pseudonym Built; reveal + visibility cascade Planned. |
-| 7. Official / MLA | Planned | Auto-profiles + claim + sentiment dashboard are fast-follow/future. |
+| 7. Official / MLA | Planned | Auto-profiles + claim + constituency sentiment **portal** are fast-follow/future. |
 | 8. Auditor / transparency | Partial | Explorer block/tx reads shipped; signed count manifests + full sync/stream remain gaps. |
 
 ## Personas
@@ -51,7 +51,7 @@ Concrete roles (from [`10-USER-STORIES.md`](10-USER-STORIES.md) §Roles; tiers a
 | **Residency-verified** | yes | `residency_verified` | MVP | As identity-verified, plus address-inferred district → my-district filters, district-distinguished counts. |
 | **Subscriber** | yes | any | MVP (foundation) | A registered user who is a *member* of a named jurisdiction; drives the jurisdiction selector. |
 | **Official (MLA)** | yes (claimed) | verified | fast-follow | Claim auto-generated profile; see constituency verified sentiment. Official role is **jurisdiction-scoped** (not portable). No moderation powers. |
-| **Media / Journalist (accredited + recognized)** | yes | any (+ Media mark) | fast-follow | Media mark when ≥1 valid accreditation exists; poll create where media-accredited (`recognizedAccreditationBodyIds` on the jurisdiction). Host dashboard for polls they author (aggregates). |
+| **Media / Journalist (accredited + recognized)** | yes | any (+ Media mark) | fast-follow | Media mark when ≥1 valid accreditation exists; poll create where media-accredited (`recognizedAccreditationBodyIds` on the jurisdiction). **Host portal** for polls they author (aggregates). |
 | **Auditor** | no | — | MVP | Sync the record, verify counts against anchors, detect censorship — no account required. |
 | **admin** | yes | — | off-surface | Moderation, accreditation-body catalog, Media accreditation grant/revoke, Official seat assignment; not a product-surface persona (no end-user flows here). |
 | **Electoral-validated** | yes | `electoral_validated` | future | Elections-Alberta tier; not launch. |
@@ -603,7 +603,7 @@ No moderation powers; officials are ordinary participants with a claimable profi
 flowchart TD
   AUTO["7.1 Auto profile + disclaimer (Planned)"] --> CLAIM["7.2 Claim profile (Planned)"]
   CLAIM -->|"verify as official"| CLAIMED(["Claimed profile"])
-  CLAIMED --> DASH["7.3 Sentiment dashboard (Planned)"]
+  CLAIMED --> PORTAL["7.3 Sentiment portal (Planned)"]
   DASH --> SENT(["Verified constituent sentiment by tier"])
 ```
 
@@ -621,11 +621,11 @@ At launch, read-only MLA profiles are generated from public record (87 in Albert
 
 **End (success):** Attributable participation. **Not built.**
 
-### 7.3 Constituency sentiment dashboard  ·  Official  ·  Planned (fast-follow)  ·  US-AB-4
+### 7.3 Constituency sentiment portal  ·  Official  ·  Planned (fast-follow)  ·  US-AB-4
 
 **Entry:** Claimed official → "My constituency".
 
-1. View threads whose `appliesToRegion` covers the official's **represented** district (or jurisdiction-wide) — in-district logic for officials is forced to the represented seat, never the home address  `[screen: Sentiment dashboard]`
+1. View threads whose `appliesToRegion` covers the official's **represented** district (or jurisdiction-wide) — in-district logic for officials is forced to the represented seat, never the home address  `[screen: Sentiment portal]`
 2. Breakdown by tier; respects `countGating` and `kAnonymityFloor` (narrow buckets suppressed).
 
 **End (success):** See verified constituent will without commissioning a poll. **Not built.**
