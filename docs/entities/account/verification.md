@@ -46,21 +46,19 @@ Each attestation is uniquely identified by `kyc_attestations.id` (UUID). A user'
 | `residency_verified` | Identity + address confirmed |
 | `electoral_validated` | Electoral authority confirmation (future) |
 
-Provider output mapping (contributor §5.2):
+Provider output mapping (contributor §5.2) — **KYC tiers only**. Official role and Media credentials are **not** provider outputs:
 
 | Provider output | Awarded |
 |-----------------|--------------|
 | Identity confirmed | `identity_verified` |
 | Identity + address | `residency_verified` |
-| Public official status | the **`official` role** — platform-assigned and revocable, **not a tier** (see below) |
 | Electoral authority | `electoral_validated` |
 
-**Official is a role, not a tier.** Authority (a seated MLA, an agency) is a platform-assigned,
-revocable **role** attached to the user/jurisdiction membership, used by role-gated actions (e.g.
-`ab-ca-gov` poll creation). Tiers stay pure KYC facts; the earlier `official_verified` tier idea is
-retired.
+**Official is a role, not a tier.** Authority (a seated MLA, an agency) is an **`admin`-assigned**, revocable **role** attached to the user/**jurisdiction** membership (seat-bound), used by role-gated actions (e.g. `ab-ca-gov` poll creation). Tiers stay pure KYC facts; the earlier `official_verified` tier idea is retired. Official is **not portable** across jurisdictions; cross-jurisdiction Official inheritance is **future** only ([account/future.md](./future.md)).
 
-**Obtaining the official role:** the platform **manually validates** the person — identity verification at minimum, residency preferred though not technically required (an official may live outside the district they represent, so in-district filter logic is **forced to the represented district**, never the home address/geopoint). `identity_verified` (min) + the official role together form the composite **official verification** status. Keep the suffixes distinct everywhere: **official role** (authority), **official verification** (role + KYC composite), **platform count** (the counting floor on totals — nothing to do with the role; in `ab-ca-gov`, role holders are denied petition signing at the act gate but **may vote**).
+**Obtaining the official role:** **`admin` manually validates** the person — identity verification at minimum, residency preferred though not technically required (an official may live outside the district they represent, so in-district filter logic is **forced to the represented district**, never the home address/geopoint). `identity_verified` (min) + the official role together form the composite **official verification** status. Keep the suffixes distinct everywhere: **official role** (authority), **official verification** (role + KYC composite), **platform count** (the counting floor on totals — nothing to do with the role; in `ab-ca-gov`, role holders are denied petition signing at the act gate but **may vote**).
+
+**Media mark is not a tier and not a forever-flag.** It is **derived** while the user holds ≥1 valid **Media accreditation** from a platform-catalog **accreditation body** ([media-accreditation.md](./media-accreditation.md), [accreditation-body.md](./accreditation-body.md)). Jurisdiction Media powers require a valid accreditation whose body is on OurSay’s `recognizedAccreditationBodyIds` for that jurisdiction. V1: **`admin`** records accreditations manually ([admin.md](./admin.md)); no automated press-doc verification.
 
 ### Account verification states (contributor §5.4)
 
@@ -137,7 +135,8 @@ Peer-sponsorship path *(deferred; paid-verify contingency only)*: `sponsored_pen
 - Recovery re-verify flow: verified accounts complete Didit biometric (`DIDIT_WORKFLOW_RECOVER`) before passkey re-enroll.
 - **Donation soft-ask** — GitHub Sponsors ask before Didit session open (verify / recover / re-verify); see [DONATION-FUNDED-VERIFY-HANDOFF.md](../../temp/DONATION-FUNDED-VERIFY-HANDOFF.md).
 - **Drop profile name/street-address columns** — migrate off storing KYC text PII locally; POA → geocode → point is wired (ephemeral Didit intake). Remaining work is retiring profile address columns / register-PATCH drift ([account/future.md](./future.md)).
-- **Official role storage** — the platform-assigned `official` role (role, not tier) has no column/assignment flow yet — `[align-w3-gates-schema]`.
+- **Official role storage** — the `admin`-assigned `official` role (role, not tier; jurisdiction/seat-bound) has no column/assignment flow yet — `[align-w3-gates-schema]`.
+- **Media accreditation bodies + accreditations** — catalog and user credentials not shipped — `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`.
 - **Jurisdiction-residency gate** — **implemented**: `residencyIn` requires `residency_verified` (or electoral) **and** a current point that maps to a district in the jurisdiction (`GateService` + `ParticipantGeoService`). **Residual product gap:** POA can award the tier when no point resolves — user looks verified but fails this gate and scoped geo counts. UX: distinguish with `MapPinX` (or similar). Details: [profile-geocode.md](./profile-geocode.md) (*Tier without point*).
 - Peer sponsorship / waitlist — deferred; only relevant under paid-verify contingency (contributor §5.6–5.7).
 - Equifax / electoral-roll provider tags — future only ([account/future.md](./future.md)).

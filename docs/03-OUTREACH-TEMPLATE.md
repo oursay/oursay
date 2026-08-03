@@ -198,6 +198,8 @@ It is a civic platform where verified Alberta residents — confirmed through id
 
 That means you can report on verified community opinion the same way you report on electoral results. Not "a poll of 1,200 respondents suggests." Not "an online petition has gathered signatures." "Here is what verified residents in [district] said, and here is the public record anyone can check."
 
+**Accredited Media on OurSay:** journalists who hold a valid accreditation from an **accreditation body** in OurSay’s catalog can receive a public **Media mark** (so readers know they are talking to a reporter). Where OurSay’s recognition list for the **`ab-ca-gov`** deployment includes that body, they may **host polls** and embeds under the platform’s Alberta jurisdiction gates — without claiming electoral authority. The Government of Alberta does not “recognize” bodies on OurSay; listing is **OurSay platform configuration**. Accreditation is recorded by OurSay operators after review; it is not a government press pass.
+
 **Alberta's sovereignty and federal overreach conversations are producing real civic energy right now.** The question every political reporter in this province is trying to answer — what do Albertans actually want, beneath the rhetoric on both sides — is exactly what OurSay is built to surface. With receipts.
 
 **Some stories worth considering:**

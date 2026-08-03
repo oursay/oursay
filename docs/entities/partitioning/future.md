@@ -17,8 +17,14 @@ Add per-jurisdiction **`labels`** (post/petition/poll/result/district user-facin
 → `[code-jurisdiction-labels-limits]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## Per-action gates + graduation config
-The per-action **`gates`** map (act / signMin / platformCount — including the jurisdiction-residency and official-role gate kinds) and the `graduation` promotion policy are now **target-specced in [jurisdiction.md](./jurisdiction.md)** with the locked launch matrices for `oursay-global` and `ab-ca-gov`; they absorb the earlier `createTier`/`actTier` sketches. Not yet in code.
-→ `[align-w3-gates-schema]`. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
+The per-action **`gates`** map (act / signMin / platformCount — including the jurisdiction-residency, official-role, and **media-accredited** gate kinds), **`recognizedAccreditationBodyIds`**, and the `graduation` promotion policy are now **target-specced in [jurisdiction.md](./jurisdiction.md)** with the locked launch matrices for `oursay-global` and `ab-ca-gov`; they absorb the earlier `createTier`/`actTier` sketches. Not yet in code. Media powers are credential-mediated ([../account/media-accreditation.md](../account/media-accreditation.md)) — not a per-jurisdiction gallery role.
+→ `[align-w3-gates-schema]`, `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
+
+## Poll count exposure & Media exclusivity window
+
+Per-poll **exposure mode** (when jurisdiction `counts` allow vote/signature scalars at all): **`live`** | **`delayed`** | **`blind_until_close`**. **Live** publishes block-settled tallies as they accumulate; **delayed** publishes only up to `now − delay`; **blind_until_close** withholds running totals (and optionally option breakdowns) from general public surfaces until the poll closes, while the ledger still accumulates votes.
+
+**Future (deferred):** optional **Media exclusivity window** after close — e.g. aggregate results withheld from the general public for **N business days** while **media-accredited** poll hosts or recognized media desks may access early; exact **N**, eligibility rules, and UX are not locked (planning discussions have used ~2 business days as an example). No API or config shape is specified here.
 
 ## Multi-jurisdiction regions
 A region is, in theory, multi-jurisdiction-capable; discussions remain jurisdiction-scoped for now. The cross-jurisdiction region path is future. Related: API container still uses a single deployment-default chain for some write paths ([mvp-c10-multi-jurisdiction]); user ↔ jurisdiction membership ([mvp-c10b-membership]).

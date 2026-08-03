@@ -107,7 +107,7 @@ Every production deployment must produce a publicly verifiable hash, published i
 
 ## 4. Verification Tiers & User Roles
 
-Participants exist on a spectrum from anonymous guests to officially validated public figures. Each tier has a distinct visual indicator in all interfaces. The exact icon design and visual treatment is left to frontend contributors — what matters is that each tier is visually distinguishable from all others at a glance.
+Participants exist on a spectrum from anonymous guests to verified residents, plus **roles** that are orthogonal to KYC tiers. Each **tier** has a distinct visual indicator in all interfaces. **Roles** (`admin`, Official on a jurisdiction, derived **Media mark**) are separate signals — never conflate them with KYC tiers. The exact icon design and visual treatment is left to frontend contributors — what matters is that each tier (and each role mark) is visually distinguishable at a glance.
 
 ### 4.1 Guest
 
@@ -129,13 +129,17 @@ KYC provider has confirmed identity and address. The user is assigned to one or 
 
 Distinct visual indicator from identity-verified and other tiers.
 
-### 4.5 Official / Public Figure Verified
+### 4.5 Official / Public Figure (jurisdiction role)
 
-Elected officials, public appointees, and other public figures verified through public record lookup. Their official role, jurisdiction, and affiliation (if applicable) are displayed on their profile. A prominent disclaimer must appear on any auto-generated official profile:
+Elected officials, public appointees, and other public figures verified through public record lookup and granted the **`official` role** on a **specific jurisdiction membership** (seat-bound). Their official role, jurisdiction, and affiliation (if applicable) are displayed on their profile **in that jurisdiction**. A prominent disclaimer must appear on any auto-generated official profile:
 
 > *This profile is generated from public record. [Name] has not endorsed this platform and may not be aware of this profile.*
 
 Officials can claim their profile, at which point the disclaimer is replaced with a "profile claimed" indicator. Officials have no moderation or administrative capabilities by default.
+
+**Not portable:** an Official in Alberta is not Official in another province. Cross-jurisdiction **Official role inheritance** (e.g. a future federal jurisdiction inheriting provincial premier seats) is **future** only — see [`entities/account/future.md`](entities/account/future.md).
+
+Assignment in V1 is **manual by `admin`** (identity verification at minimum). Official is a **role, not a KYC tier**.
 
 ### 4.6 Electorally Validated *(Future Tier)*
 
@@ -143,9 +147,21 @@ Available only where a direct integration with an official electoral authority e
 
 Distinct visual indicator, clearly differentiated from all other tiers. This is the designed future outcome of, for example, an Elections Alberta KYC integration. The pluggable provider architecture in Section 5 makes this achievable without platform restructuring. When this tier becomes available, it does not replace other tiers — it is an additional, optional upgrade path for users who want the highest verification level.
 
-### 4.7 Administrator
+### 4.7 admin (platform role)
 
-Access to moderation tools, user management, and system configuration. All administrative actions are logged and auditable. Administrators cannot alter vote counts, verification statuses, or distributed ledger records.
+Platform-wide operator role named **`admin`** (not `platform_admin`). V1 **manual** ops include moderation/redaction, district/roster maintenance, the **accreditation-body** catalog, **Media accreditation** grant/revoke, and **Official** seat/role assignment — full responsibility map in [`entities/account/admin.md`](entities/account/admin.md).
+
+All administrative actions are logged and auditable. Administrators cannot alter vote counts, verification statuses, or distributed ledger records.
+
+### 4.8 Media mark & Media accreditation
+
+**Media mark** — platform-wide public signal that the account is Media/journalist. **Derived** while the user holds ≥1 **valid** Media accreditation from a platform-catalog **accreditation body** (optional `expires_at`; null = no stated expiry). Visible across jurisdictions so readers know they are talking to a reporter even when the thread is outside a jurisdiction where that reporter has Media powers.
+
+**Media-accredited (in a jurisdiction)** — the user holds a currently valid accreditation whose accreditation body is listed on OurSay’s **`recognizedAccreditationBodyIds`** for that jurisdiction (platform configuration — not a government decision). Jurisdiction `gates` may allow media-accredited actors to create polls (and other Media-allowed acts) **only when** that list includes the body. The Media mark alone does **not** grant those powers.
+
+There is **no** journalist→jurisdiction assignment table and **no** per-jurisdiction gallery role. V1: **`admin`** records accreditations manually; automated press-document verification is **V2+** only.
+
+See [GLOSSARY.md](GLOSSARY.md) and the account entity specs above.
 
 ---
 
@@ -163,14 +179,15 @@ This enables:
 
 ### 5.2 Provider Capability Mapping
 
-Each provider declares what it can confirm. The platform maps provider output to verification tiers:
+Each provider declares what it can confirm. The platform maps provider output to **verification tiers only**:
 
 | Provider Output | Verification Tier Awarded |
 |---|---|
 | Identity confirmed (name, age 18+) | `identity_verified` |
 | Identity + address confirmed | `residency_verified` |
-| Public official status confirmed | the **`official` role** (platform-assigned, revocable — a role, not a tier) |
 | Electoral authority confirmation | `electoral_validated` |
+
+The **`official` role** and **Media accreditations** are **not** KYC provider outputs. They are assigned/recorded by **`admin`** (V1 manual). Do not map “public official status” or “press credential” through the KYC provider table.
 
 A provider that confirms only identity awards `identity_verified`. A provider that also confirms address awards `residency_verified`. The tier is determined by the provider's capability output, not by which provider is used.
 
@@ -400,7 +417,7 @@ Links are directional at creation but surfaced bidirectionally for navigation. L
 The four levels form a **ladder**. **Graduation** is the act of a lower level producing the next — a petition graduating into a poll, a poll deriving a result. Linkage (§8.5) is always optional, but **graduation semantics — who may create at each level, and whether climbing is required or automatic — are per-jurisdiction configuration** (`JurisdictionRules`; see [`entities/partitioning/jurisdiction.md`](entities/partitioning/jurisdiction.md)). Three reference models:
 
 - **Open (`oursay-global`).** Any registered member may create a root entity at **any** level directly — statement, petition, or poll — with no graduation gate. Creators may set custom deadlines/durations and control automatic promotion. Most permissive.
-- **Partial ladder (`ab-ca-gov`, Alberta).** Anyone may create a **statement** (passkey-signed); **residency-verified** members may create a **petition**; a member's **poll exists only by graduation** from a petition (the *threshold-triggered poll*, §16) — **seated official-role holders** (a platform-assigned role, not a KYC tier) may additionally create polls directly, and may **manually graduate a petition into its poll at any point** (promote early). At the configured threshold the poll is **forced whether or not an official agrees**; either way the **proposing user remains the poll's author**, and the petition is untouched — signing stays open, and only the petition's **deadline** closes it. The threshold is a fixed number or a percentage of the jurisdiction's verified users (moving or frozen at creation), decided by the platform from jurisdiction config at creation time — never author-set (AB plan: percentage-based moving target now; a fixed 10%-of-previous-provincial-election-valid-votes figure once the user base is large enough). The petition's creator may **pre-attach** the poll, which **starts on graduation**; the platform sets the poll's deadline (whether the source is an explicit deadline or an inferred duration is jurisdiction config — see open questions). A **result** derives at poll close (§8.4). Standalone polls by non-officials are not offered. *All of the above are platform configuration choices for the Alberta jurisdiction — not government requirements (§13.3).*
+- **Partial ladder (`ab-ca-gov`, Alberta).** Anyone may create a **statement** (passkey-signed); **residency-verified** members may create a **petition**; a member's **poll exists by graduation** from a petition (the *threshold-triggered poll*, §16) — **seated official-role holders** (an `admin`-assigned jurisdiction role, not a KYC tier) **and/or media-accredited** users (valid Media accreditation whose body is on OurSay’s `recognizedAccreditationBodyIds` for that jurisdiction) may additionally create polls directly. **Only an Official affected by the petition** (addressed recipient / affected-district or jurisdiction-level official for that thread — same “affected” sense as visibility `officials`) may **manually graduate** the petition into its poll early (promote early). At the configured threshold the poll is **forced whether or not an official agrees**; either way the **proposing user remains the poll's author**, and the petition is untouched — signing stays open, and only the petition's **deadline** closes it. The threshold is a fixed number or a percentage of the jurisdiction's verified users (moving or frozen at creation), decided by the platform from jurisdiction config at creation time — never author-set (AB plan: percentage-based moving target now; a fixed 10%-of-previous-provincial-election-valid-votes figure once the user base is large enough). The petition's creator may **pre-attach** the poll, which **starts on graduation**; the platform sets the poll's deadline (whether the source is an explicit deadline or an inferred duration is jurisdiction config — see open questions). A **result** derives at poll close (§8.4). Standalone polls by users who are neither Official nor media-accredited in the jurisdiction are not offered. *All of the above are platform configuration choices for the Alberta jurisdiction — not government requirements (§13.3).*
 - **Full ladder (`some-strict`).** Every level must be climbed in order; subscription is residency-gated (a private jurisdiction); writes and comments may be district-scoped (the thread audience `appliesToRegion` + `appliesToVerified`).
 
 A **threshold-triggered poll** is the *automatic graduation* of a petition into a poll, not a separate feature; §16 lists it among anticipated developments and this section is its canonical definition.

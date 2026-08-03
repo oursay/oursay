@@ -13,7 +13,7 @@ The platform **ships with exactly four values** (account default + per-thread ov
 | Value (ships) | Who may see the identity (name/handle/profile link) behind the author |
 |---|---|
 | `anonymous` | No one — always a per-thread persona. **The floor and the registration default.** |
-| `officials` | The **officials affected by the post**: the seated official(s) of the thread's affected district(s) **plus jurisdiction-level official-role holders of the thread's jurisdiction**. E.g. a post to Alberta touching 3 districts → those 3 MLAs *and* the premier (a jurisdiction-level official who is also an MLA of one riding) may see the author's profile on that thread. Resolved per record from the thread's audience — not from the author's home district. |
+| `officials` | The **officials affected by the post**: the seated official(s) of the thread's affected district(s) **plus jurisdiction-level official-role holders of the thread's jurisdiction**. E.g. a post to Alberta touching 3 districts → those 3 MLAs *and* the premier (a jurisdiction-level official who is also an MLA of one riding) may see the author's profile on that thread. Resolved per record from the thread's audience — not from the author's home address. Officials from **other** jurisdictions are out of scope (Official is not portable). The public **Media mark** (when present) is unrelated to this visibility value. |
 | `my_district` | Residency-verified members sharing one of the author's districts. |
 | `public` | Everyone. |
 

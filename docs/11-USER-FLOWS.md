@@ -50,9 +50,10 @@ Concrete roles (from [`10-USER-STORIES.md`](10-USER-STORIES.md) §Roles; tiers a
 | **Identity-verified** | yes | `identity_verified` | MVP | As registered, with actions counted at the identity-verified tier. |
 | **Residency-verified** | yes | `residency_verified` | MVP | As identity-verified, plus address-inferred district → my-district filters, district-distinguished counts. |
 | **Subscriber** | yes | any | MVP (foundation) | A registered user who is a *member* of a named jurisdiction; drives the jurisdiction selector. |
-| **Official (MLA)** | yes (claimed) | verified | fast-follow | Claim auto-generated profile; see constituency verified sentiment. No moderation powers. |
-| **Auditor / Journalist** | no | — | MVP | Sync the record, verify counts against anchors, cite district/tier counts. |
-| **Administrator** | n/a | — | off-surface | Moderation / user management; not a product-surface persona (no flows here). |
+| **Official (MLA)** | yes (claimed) | verified | fast-follow | Claim auto-generated profile; see constituency verified sentiment. Official role is **jurisdiction-scoped** (not portable). No moderation powers. |
+| **Media / Journalist (accredited + recognized)** | yes | any (+ Media mark) | fast-follow | Media mark when ≥1 valid accreditation exists; poll create where media-accredited (`recognizedAccreditationBodyIds` on the jurisdiction). Host dashboard for polls they author (aggregates). |
+| **Auditor** | no | — | MVP | Sync the record, verify counts against anchors, detect censorship — no account required. |
+| **admin** | yes | — | off-surface | Moderation, accreditation-body catalog, Media accreditation grant/revoke, Official seat assignment; not a product-surface persona (no end-user flows here). |
 | **Electoral-validated** | yes | `electoral_validated` | future | Elections-Alberta tier; not launch. |
 
 **Eligibility is three axes** (carried from stories §2; the jurisdiction's per-action `gates[action]`, set per jurisdiction per record type — see [jurisdiction.md](entities/partitioning/jurisdiction.md)): **act** (may the member perform the action at all, optionally minus a deny list), **signMin** (minimum sign method; the account preference may raise it), and **platform count** (`gates[action].platformCount` — is the action *included in the platform-count totals*, layered with the thread's `appliesToVerified`). The platform count is a **counting floor after the action, never a participation barrier**: anyone the act gate admits is welcome, and below-floor actions sit in the unverified counts until the author verifies. Flows note where a gate decides a branch.
@@ -71,7 +72,7 @@ Reused verbatim from [`10-USER-STORIES.md`](10-USER-STORIES.md) §3–§5 — **
 | react / comment | any registered subscriber | quick | by tier | quick-sign OK |
 | create `petition` | `residency-verified` | passkey | — | |
 | sign `petition` | **any registered**, official-role holders denied | passkey | **jurisdiction residency** | **sign now, verify later**; role holders excluded (reason `official_role`) |
-| create `poll` | **official-role holders only** or via graduation | passkey | — | role gate, not a tier; officials may promote a petition early |
+| create `poll` | **official-role holders and/or media-accredited** or via graduation | passkey | — | Official = jurisdiction role; Media = valid accreditation + recognized body; **affected Official** may promote a petition early |
 | `vote` | **jurisdiction residency** | passkey | = act set | participation-gated; officials **may** vote |
 
 ### `oursay-global` — open model (every account auto-joins)
@@ -361,7 +362,7 @@ flowchart TD
 
 **Entry:** "New poll".
 
-- branch (**Alberta**): create `poll` = **official role** → standalone creation blocked for non-officials (`[screen/poll button: not available]`); members' polls exist only by graduation (3.4 — forced at threshold, or promoted early by an official-role holder); a seated official composes directly (passkey-signed).
+- branch (**Alberta**): create `poll` = **official role OR media-accredited** → standalone creation blocked for others (`[screen/poll button: not available]`); members' polls exist only by graduation (3.4 — forced at threshold, or promoted early by an **Official affected by the petition**); a seated official or media-accredited host composes directly (passkey-signed).
 - branch (**oursay-global**): any registered may create (quick-sign OK).
 
 1. Compose: `question` (≤200) + `options[]` (2–10, each ≤100) + optional `description` (≤2000) + rules (`allowChange`, deadline, `appliesToVerified`)  `[screen: Compose poll]`
@@ -376,7 +377,7 @@ flowchart TD
 1. Link a poll definition to the petition  `[screen: Attach poll]`  `-> entity (poll linked to petition)`
 2. Set lifecycle controls (**`oursay-global`**, US-GLB-1): explicit deadline or duration, and opt the petition into/out of auto-graduation; defaults fall back to `defaultDeadline`.  `[screen: Lifecycle settings]`
 3. **Automatic:** at the configured threshold (fixed number or percent of the jurisdiction's verified users — platform-decided from jurisdiction config at creation, never author-set) the poll is **forced** — it auto-starts whether or not an official agrees, deadline per `deadlineSource`.  **(gap: graduation engine not built — `[code-jurisdiction-graduation]`)**
-4. **Manual (AB):** an official-role holder may graduate the petition into its poll **at any point** (promote early)  `[screen: Promote to poll (official)]`.
+4. **Manual (AB):** an **Official affected by the petition** may graduate the petition into its poll **at any point** (promote early)  `[screen: Promote to poll (official)]`.
 
 In every path the **proposing user remains the poll's author**, and the petition is untouched — signing stays open, and the petition's **deadline is its only closing** (not the threshold, not a manual graduation).
 
@@ -637,7 +638,7 @@ No account required. The trust model: independently recompute any published tota
 
 ```mermaid
 flowchart TD
-  AUD(["Auditor / journalist"]) --> SYNC["8.1 Sync record (Partial)"]
+  AUD(["Auditor"]) --> SYNC["8.1 Sync record (Partial)"]
   SYNC --> MAN["8.2 Fetch signed count manifests (Partial)"]
   MAN --> CHK["Recompute vs external anchor"]
   CHK -->|"match"| TRUST(["Citable audit reference"])
@@ -661,7 +662,9 @@ flowchart TD
 
 **End (success, when shipped):** Local full copy for offline verification.
 
-### 8.2 Verify published counts against anchors  ·  Auditor / Journalist  ·  Partial  ·  US-SYS-8, US-SYS-10
+### 8.2 Verify published counts against anchors  ·  Auditor  ·  Partial  ·  US-SYS-8, US-SYS-10
+
+**Notes:** Media / Journalist personas may **cite** district/tier counts via the same public read API and audit references; this flow is the independent recompute path for auditors holding a full record copy.
 
 1. Fetch **signed count manifests** for a poll/timestamp  `-> (gap: signed count snapshots — `[mvp-c13-signed-count-snapshots]`)`
 2. Check commitments → per-entity chains → roots against an independently obtained external anchor.
@@ -686,7 +689,7 @@ All trace to existing tags; **none implemented here** (this is a documentation p
 - **Street-address profile form** — retired; use Get Verified / ID Update / Residency Update (2.1) + KYC seam for point refresh.
 - **Real KYC provider** (Didit) + **recovery re-verify** (2.1, 2.2, 1.5) — `[code-didit-provider]`, `[mvp-c-kyc-provider]`.
 - **Graduation engine** petition→poll auto-start (3.4, US-AB-1) — `[code-jurisdiction-graduation]`.
-- **Per-action gates config** — encodes the resolved eligibility matrices (act / signMin / official for 3.x–4.x), incl. the jurisdiction-residency and official-role gate kinds — `[align-w3-gates-schema]` (absorbs `[code-participation-act-eligibility]`).
+- **Per-action gates config** — encodes the resolved eligibility matrices (act / signMin / official / media-accredited for 3.x–4.x), incl. the jurisdiction-residency, official-role, and media-accredited gate kinds plus `recognizedAccreditationBodyIds` — `[align-w3-gates-schema]` (absorbs `[code-participation-act-eligibility]`); Media catalog gaps `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`.
 - **My-district auth context** (5.5) — `[mvp-c4c-my-district]`; **date filters** — `[mvp-c4b-date-filters]`; **action-time snapshots** — `[mvp-c4-action-snapshots]`.
 - **Formal `result` entity** at poll close (5.4) — `[mvp-c12-poll-results]`.
 - **Signed count manifests** + **full record sync** + **count amendments** (8.x) — `[mvp-c13-signed-count-snapshots]`, `[mvp-c14-count-amendments]`. Interim: `GET /v1/explorer/:chainId/{blocks,txs,tx}` for block/tx reads (not sync).

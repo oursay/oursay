@@ -30,6 +30,7 @@ Two jurisdictions are the same if their `id` strings match. Primary key: `id` (i
 | `counts.votes` | boolean | yes | yes | Whether poll tallies are exposable |
 | `counts.signatures` | boolean | yes | yes | Whether petition scalars are exposable |
 | `counts.minTier` | string[] | no | yes | Tier-gated exposure subset |
+| `recognizedAccreditationBodyIds` | string[] | no | yes | **Target** — platform catalog accreditation-body ids on OurSay’s recognition list for Media powers; see below |
 | `labels` | map | no | yes | **Target** — user-facing labels per record type; see below |
 | `contentLimits` | map | no | yes | **Target** — hard content caps per type; see below |
 
@@ -46,6 +47,14 @@ Per-jurisdiction display labels for the canonical record types. Display only —
 | `district` | District | riding |
 
 `oursay-global` uses all defaults.
+
+### recognizedAccreditationBodyIds (Media powers, target)
+
+List of **accreditation body** ids from the platform catalog ([../account/accreditation-body.md](../account/accreditation-body.md)) on OurSay’s recognition list for this jurisdiction. A user is **media-accredited** here when they hold a currently valid [Media accreditation](../account/media-accreditation.md) whose `accreditation_body_id` is in this list.
+
+- Absent / empty ⇒ no one is media-accredited in this jurisdiction (platform **Media mark** may still show if they hold any valid catalog accreditation).
+- The **Media mark alone does not grant** poll create or other Media-gated acts — gates must allow `{ mediaAccredited: true }` (or equivalent) **and** recognition must match.
+- There is **no** journalist→jurisdiction assignment table and **no** per-jurisdiction gallery role.
 
 ### contentLimits (hard caps, target)
 
@@ -76,10 +85,11 @@ type GateActor =
   | "anyone"                         // any registered account
   | { tiers: KycTier[] }             // KYC tier set membership
   | { residencyIn: "jurisdiction" }  // residency_verified AND point ∈ jurisdiction region
-  | { role: "official" };            // platform-assigned role, not a tier
+  | { role: "official" }             // admin-assigned Official role on this jurisdiction membership — not a tier
+  | { mediaAccredited: true };       // valid Media accreditation whose body ∈ recognizedAccreditationBodyIds
 
 interface ActionGate {
-  act: GateActor;                    // who may perform the action at all
+  act: GateActor | GateActor[];      // who may perform the action; array = any-of (OR)
   deny?: GateActor[];                // subtractive — actors excluded from acting (e.g. AB denies official-role holders on petition_signature)
   signMin: "quick" | "passkey";      // minimum sign method; account pref may raise, never lower
   platformCount?: GateActor;         // who is included in platform-count totals (absent ⇒ same as act). A counting floor AFTER the action, never an act gate; its effective floor is always the act gate itself.
@@ -96,13 +106,15 @@ interface JurisdictionGates {
 Gates are set **per jurisdiction per record type** — the same jurisdiction may floor a
 `petition_signature` at passkey while leaving `comment` quick-signable.
 
+When `act` is an **array**, any matching actor may perform the action (OR). Example: AB poll create allows Official **or** media-accredited.
+
 Launch configs:
 
 | Gate | `oursay-global` | `ab-ca-gov` |
 |---|---|---|
 | `post` (create) | anyone · quick | anyone · **passkey (uv)** |
 | `petition` (create) | anyone · quick | residency-verified · passkey |
-| `poll` (create) | anyone · quick | **role: official** · passkey (or petition→poll graduation) |
+| `poll` (create) | anyone · quick | **official role OR media-accredited** · passkey (or petition→poll graduation) |
 | `result` | automated at poll close — attributed to the poll's author; mirrors `poll` | same |
 | `comment` / `reaction` | anyone · quick | anyone · quick |
 | `vote` | act: anyone · quick · platformCount `{identity_verified, residency_verified}` | act: **jurisdiction residency** · passkey |
@@ -114,7 +126,8 @@ Notes:
 
 - **Jurisdiction residency** = `residency_verified` AND geocoded point inside the jurisdiction's region (a gate kind, not a tier).
 - **`platformCount` is a counting floor, not a barrier.** Anyone the act gate admits is welcome to participate; actions below the floor land in the **unverified** counts until the author verifies to the required tier. Platform-count gates are recomputed at read time from current attestations, and always use the act gate as their floor.
-- **AB: official-role holders may not sign petitions** — `petition_signature` denies them at the act gate (submit rejected). Officials **may vote** (no deny on `vote`). A signature from someone who later gains the official role is excluded from the platform count with reason tag `official_role` — see the platform-count record ([record/future.md](../record/future.md)).
+- **AB: official-role holders may not sign petitions** — `petition_signature` denies them at the act gate (submit rejected). Officials **may vote** (no deny on `vote`). A signature from someone who later gains the official role is excluded from the platform count with reason tag `official_role` — see the platform-count record ([record/future.md](../record/future.md)). Media accreditation does **not** change this deny rule.
+- **Media mark vs media-accredited:** the platform-wide Media mark means the user holds some valid catalog accreditation; **`{ mediaAccredited: true }`** additionally requires the body’s id on this jurisdiction’s `recognizedAccreditationBodyIds`. Residency alone never grants Media powers.
 - **`result`** is created automatically (poll close / graduation) and **attributed to the poll's author** — the gate exists for the completeness of the per-root-type rule and mirrors `poll`.
 - `counts.minTier` (public count *exposure*) must stay consistent with `platformCount` — for `ab-ca-gov` that means dropping `identity_verified` from `minTier` (config change tracked in `[align-w3-gates-schema]`).
 
@@ -126,12 +139,11 @@ Notes:
 | `graduation.petitionToPoll.threshold` | `{ kind: "fixed", n: number }` \| `{ kind: "percentOfVerified", pct: number, basis: "atCreate" \| "moving" }` | Success trigger: a fixed count, or a percentage of the jurisdiction's verified users — frozen at creation time or a moving target. **Platform-decided from jurisdiction config at creation time; never author-set per entity.** |
 | `graduation.petitionToPoll.deadlineSource` | `"duration"` \| `"explicit"` | How the graduated poll's deadline is set. |
 
-At the threshold the poll is **forced** — it graduates whether or not an official agrees, and the **proposing user remains the poll's author**. In `ab-ca-gov`, an official-role holder may also **manually graduate a petition into a poll at any point** (promote early). Neither path touches the petition: signing stays open, and the petition's **deadline is its only closing** — not the threshold, not a manual graduation.
+At the threshold the poll is **forced** — it graduates whether or not an official agrees, and the **proposing user remains the poll's author**. In `ab-ca-gov`, **only an Official affected by the petition** (addressed recipient / affected-district or jurisdiction-level official for that thread — same “affected” sense as visibility `officials`) may also **manually graduate** a petition into a poll **at any point** (promote early). Neither path touches the petition: signing stays open, and the petition's **deadline is its only closing** — not the threshold, not a manual graduation.
 
 AB threshold plan: a percentage-based **moving** target until the user base crosses a set size, then a config change to an official **fixed** number — 10% of valid votes cast in the previous provincial election, or better — for poll graduation / petition success.
 
-Reference models: `oursay-global` = `policy: open`; `ab-ca-gov` = `policy: ladder` (polls also
-creatable directly by official-role holders via `gates.poll`); `some-strict` = `policy: ladder` for every level. Tracked as `[code-jurisdiction-graduation]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
+Reference models: `oursay-global` = `policy: open`; `ab-ca-gov` = `policy: ladder` (polls also creatable directly by official-role holders **and/or** media-accredited users via `gates.poll`); `some-strict` = `policy: ladder` for every level. Tracked as `[code-jurisdiction-graduation]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## States & lifecycle
 
@@ -166,7 +178,7 @@ Configuration object — no runtime state machine. Registered at API startup fro
 
 ## Examples
 
-**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, signMin: "passkey" }, petition_signature: { act: "anyone", deny: [{ role: "official" }], signMin: "passkey", platformCount: { residencyIn: "jurisdiction" } }, poll: { act: { role: "official" }, signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }` — note `rules.allowChange: false` tightens the loose platform default (`allowChange` default **true**) to final.
+**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, recognizedAccreditationBodyIds: ["ca-cja-example"], gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, signMin: "passkey" }, petition_signature: { act: "anyone", deny: [{ role: "official" }], signMin: "passkey", platformCount: { residencyIn: "jurisdiction" } }, poll: { act: [{ role: "official" }, { mediaAccredited: true }], signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }` — note `rules.allowChange: false` tightens the loose platform default (`allowChange` default **true**) to final; poll create is Official **or** media-accredited.
 
 **Invalid:** Using `level: "provincial"` as a partition key for signing keys or nullifier roots — level is metadata only.
 
@@ -184,6 +196,7 @@ Configuration object — no runtime state machine. Registered at API startup fro
 - **JurisdictionConfig shape drift** — code today is `{ id, level, label, rules, privacy?, counts? }` in `public-record/src/jurisdiction.ts`; `labels` (per-record-type user-facing labels) and `contentLimits` (hard caps per type) are **not yet** present. Tracked as `[code-jurisdiction-labels-limits]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md --> Note `label` (singular, the jurisdiction's own display name) is distinct from `labels` (the per-record-type map).
 - **[mvp-c10-multi-jurisdiction]**: API container still uses a single deployment-default chain for some write paths; worker is already multi-chain ([API-GAPS-AND-ROADMAP.md](../../API-GAPS-AND-ROADMAP.md)).
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription model yet — see [partitioning/future.md](./future.md).
-- **[align-w3-gates-schema]** (absorbs `[code-jurisdiction-graduation]` + `[code-participation-act-eligibility]`): the `gates` per-action map (act / deny / signMin / platformCount, incl. the jurisdiction-residency and official-role gate kinds), the `graduation` policy fields, and the removal of the `requiredSignScheme()` hard override are **target only** — `JurisdictionConfig` has none of them today, and no auto-graduation worker exists. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
-- **Official role** — the `role: "official"` gate needs a platform-assigned, revocable role on the user/jurisdiction membership (a **role, not a KYC tier**); no such column/flow exists yet.
+- **[align-w3-gates-schema]** (absorbs `[code-jurisdiction-graduation]` + `[code-participation-act-eligibility]`): the `gates` per-action map (act / deny / signMin / platformCount, incl. the jurisdiction-residency, official-role, and media-accredited gate kinds), the `graduation` policy fields, `recognizedAccreditationBodyIds`, and the removal of the `requiredSignScheme()` hard override are **target only** — `JurisdictionConfig` has none of them today, and no auto-graduation worker exists. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
+- **Official role** — the `role: "official"` gate needs an `admin`-assigned, revocable role on the user/jurisdiction membership (a **role, not a KYC tier**); no such column/flow exists yet.
+- **Media catalog + accreditations** — `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]` — see [../account/accreditation-body.md](../account/accreditation-body.md) and [../account/media-accreditation.md](../account/media-accreditation.md).
 - **[code-jurisdiction-binding-fallback]**: every root entity carries `jurisdictionId` in its audience, but the explicit **`oursay-global` fallback on create** (and its enforcement that no root is unbound) is not yet asserted in code.

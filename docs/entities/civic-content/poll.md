@@ -63,7 +63,7 @@ projection of the stake), and the viewer-resolved `authorGeo` relation — see
 [result published]
 ```
 
-Poll creation may also arrive by **graduation** from a petition: forced automatically at the configured threshold (whether or not an official agrees), or — in `ab-ca-gov` — promoted **early, at any point, by an official-role holder**. Either way the **proposing user remains the poll's author**, and the source petition stays open to its own deadline ([jurisdiction.md](../partitioning/jurisdiction.md) graduation).
+Poll creation may also arrive by **graduation** from a petition: forced automatically at the configured threshold (whether or not an official agrees), or — in `ab-ca-gov` — promoted **early by an Official affected by the petition** (same “affected” sense as visibility `officials`). Either way the **proposing user remains the poll's author**, and the source petition stays open to its own deadline ([jurisdiction.md](../partitioning/jurisdiction.md) graduation).
 
 ## Relationships
 
@@ -86,7 +86,7 @@ Poll creation may also arrive by **graduation** from a petition: forced automati
 
 | Action | Who |
 |--------|-----|
-| Create | Per jurisdiction `gates.poll.act` — `oursay-global`: any registered user; `ab-ca-gov`: **official-role holders only** (a platform-assigned role, not a KYC tier) or via petition→poll graduation |
+| Create | Per jurisdiction `gates.poll.act` — `oursay-global`: any registered user; `ab-ca-gov`: **official-role holders and/or media-accredited** users (OR act list; Official is an `admin`-assigned jurisdiction role, Media via valid accreditation + `recognizedAccreditationBodyIds` — neither is a KYC tier) or via petition→poll graduation. Hosted polls may be labeled with the author’s Media mark or Official seat when applicable. |
 | Vote | Per jurisdiction `gates.vote.act` — `oursay-global`: anyone; `ab-ca-gov`: jurisdiction residency (official-role holders **may** vote) |
 | Update poll | Author / platform governance |
 | Close | Deadline or administrator |

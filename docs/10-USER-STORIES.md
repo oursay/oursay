@@ -20,7 +20,7 @@ The next layer down — **per-screen flow specs** (states, components, copy) —
 
 ## Roles
 
-Most stories use **concrete** roles that map to the trust vocabulary, not invented personas: `guest` (no account) · `registered` (account, unverified) · `identity-verified` · `residency-verified` · `subscriber` (a registered user who is a member of the named jurisdiction) · `official` (claimed MLA profile) · `auditor` · `journalist`. Tiers are **set membership**, not a ladder ([`entities/account/verification.md`](entities/account/verification.md)).
+Most stories use **concrete** roles that map to the trust vocabulary, not invented personas: `guest` (no account) · `registered` (account, unverified) · `identity-verified` · `residency-verified` · `subscriber` (a registered user who is a member of the named jurisdiction) · `official` (claimed MLA profile / Official role on a jurisdiction) · `media` (derived Media mark from valid accreditation; media-accredited in a jurisdiction when a recognized accreditation body matches) · `admin` (platform operator) · `auditor` · `journalist` (alias for media-facing stories — see Media row). Tiers are **set membership**, not a ladder ([`entities/account/verification.md`](entities/account/verification.md)). Media credentials: [`entities/account/media-accreditation.md`](entities/account/media-accreditation.md).
 
 ### The parameterized role: `eligible member`
 
@@ -32,7 +32,7 @@ Eligibility has **three independent axes** — the jurisdiction's per-action gat
 
 | Axis | Question | Source |
 |------|----------|--------|
-| **act** | May this member perform the action at all? | `gates[action].act` — `anyone` / tier set / **jurisdiction residency** (residency-verified AND resident) / **role** (e.g. official role), optionally minus a `deny` list (AB: denies official-role holders on `petition_signature` only). Covers creation *and* participation. |
+| **act** | May this member perform the action at all? | `gates[action].act` — `anyone` / tier set / **jurisdiction residency** (residency-verified AND resident) / **official role** / **media-accredited** (valid accreditation whose body ∈ `recognizedAccreditationBodyIds`), optionally minus a `deny` list (AB: denies official-role holders on `petition_signature` only). Covers creation *and* participation. |
 | **signMin** | How strongly must the action be signed? | `gates[action].signMin` (`quick` \| `passkey`); the account's signing preference may raise but never lower it. |
 | **platform count** | Is this action **included in the platform-count totals**? | `gates[action].platformCount` (absent ⇒ same as act), layered with the thread's `appliesToVerified`. **A counting floor after the action, never a participation barrier** — anyone the act gate admits is welcome; below-floor actions are bunched into the unverified counts until the author verifies. The platform-count gate always uses the act gate as its floor. |
 
@@ -127,7 +127,7 @@ Behaviour that is genuinely not jurisdiction-specific (account, auth, audit, mem
 - **Traces:** PRD §7.7; `01-CONTRIBUTOR-SPEC.md` §10, §11.
 
 **US-SYS-10 — Journalist-grade trust**  `[scope: MVP]`
-- **Story:** As a journalist, I want district-level verified counts I can cite with an audit reference, so that I can report OurSay numbers the way I cite election results.
+- **Story:** As a journalist with a Media mark (valid accreditation), I want district-level verified counts I can cite with an audit reference, so that I can report OurSay numbers the way I cite election results. When media-accredited in the jurisdiction, I may also host polls the gates allow.
 - **Acceptance:** Public read API exposes counts by district and tier with an audit reference and **no PII**; closed-vote numbers are presented honestly (signed snapshot where available, otherwise labelled live recompute); narrow buckets are suppressed below the k-anonymity floor.
 - **Eligibility:** any viewer.
 - **Config knobs:** `counts` exposure + `privacy.kAnonymityFloor` per jurisdiction.
@@ -177,7 +177,7 @@ The civic capabilities, **mechanics stated once**. The *who* is the parameterize
 **US-CAP-6 — Attach / graduate a petition into a poll**  `[scope: MVP — graduation impl is a gap]`
 - **Story:** As a petition creator, I want to pre-attach a poll that starts if the petition succeeds, so that the community can decide the question formally.
 - **Acceptance:** the creator links a `poll` to the petition; where the jurisdiction sets `graduation.petitionToPoll`, the poll is **forced automatically** at the threshold (whether or not an official agrees), deadline set per `deadlineSource`; the **proposing user remains the poll's author**; graduation never closes the petition — signing stays open to the petition's own deadline (the only closing); otherwise the link is informational and the poll follows direct-create eligibility. The threshold is a fixed number or a percentage of the jurisdiction's verified users (moving or frozen at creation), decided by the platform from jurisdiction config at creation time — never author-set.
-- **Eligibility:** petition creator (to pre-attach); the graduation itself is automatic (no actor); in AB an **official-role holder may promote early, at any point** (US-AB-1).
+- **Eligibility:** petition creator (to pre-attach); the graduation itself is automatic (no actor); in AB **only an Official affected by the petition** may promote early (US-AB-1).
 - **Config knobs:** `graduation.policy`, `graduation.petitionToPoll` (threshold shape + deadline source).
 - **Traces:** PRD §1, §7.3; `01-CONTRIBUTOR-SPEC.md` §8.6; GLOSSARY *Ladder / graduation*; `[code-jurisdiction-graduation]`.
 
@@ -239,17 +239,17 @@ Partial ladder ([`01-CONTRIBUTOR-SPEC.md` §8.6](01-CONTRIBUTOR-SPEC.md)). `grad
 | react / comment | any registered subscriber | quick | by tier | quick-sign OK |
 | create `petition` | `residency-verified` | passkey | — | |
 | sign `petition` | **any registered**, official-role holders denied | passkey | **jurisdiction residency** | **sign now, verify later**; officials cannot sign (act gate) |
-| create `poll` | **official-role holders only** or via graduation | passkey | — | role gate, not a tier; officials may also promote a petition early (US-AB-1) |
+| create `poll` | **official-role holders and/or media-accredited** or via graduation | passkey | — | Official = jurisdiction role; Media = valid accreditation + recognized body; neither is a KYC tier; **affected Official** may promote a petition early (US-AB-1) |
 | `vote` | **jurisdiction residency** (residency-verified AND Alberta resident) | passkey | = act set | participation-gated; officials **may** vote |
 
 > Resolved 2026-07-03 (locked jurisdiction configs; see [jurisdiction.md](entities/partitioning/jurisdiction.md) gates). Encoding in config/code is `[align-w3-gates-schema]`.
 
 ### Deltas
 
-**US-AB-1 — Poll by graduation (forced at threshold, or promoted early by an official)**  `[scope: MVP — graduation impl is a gap]`
+**US-AB-1 — Poll by graduation (forced at threshold, or promoted early by an affected Official)**  `[scope: MVP — graduation impl is a gap]`
 - **Story:** As a petition creator, I want my attached poll to start when the petition reaches the signature threshold, so that polls configured for the Alberta jurisdiction carry the weight of a successful petition.
-- **Acceptance:** no standalone poll creation by non-officials (matrix: create `poll` = official role); a member's poll exists via `graduation.petitionToPoll` — **forced at the threshold whether or not an official agrees** — or via an **official-role holder manually graduating the petition at any point** (promote early); either way the **proposing user remains the poll's author**; graduation never affects the petition (signing stays open; only its deadline closes it); platform sets the poll deadline; a `result` derives at close, attributed to the poll's author.
-- **Eligibility:** official-role holders may create polls directly and may promote a petition early; for everyone else graduation is automatic.
+- **Acceptance:** no standalone poll creation by users who are neither Official nor media-accredited in the jurisdiction (matrix: create `poll` = official role OR media-accredited); a member's poll exists via `graduation.petitionToPoll` — **forced at the threshold whether or not an official agrees** — or via an **Official affected by the petition manually graduating the petition early** (promote early); either way the **proposing user remains the poll's author**; graduation never affects the petition (signing stays open; only its deadline closes it); platform sets the poll deadline; a `result` derives at close, attributed to the poll's author.
+- **Eligibility:** official-role holders and media-accredited users may create polls directly; **only an Official affected by the petition** may promote a petition early; for everyone else graduation is automatic.
 - **Config knobs:** `graduation.petitionToPoll` (threshold shape + deadline source). AB threshold plan: percent-of-verified moving target now; fixed number (10% of valid votes cast in the previous provincial election) once the user base is large enough.
 - **Traces:** §8.6; specializes US-CAP-6/US-CAP-7; `[code-jurisdiction-graduation]`.
 - **Open question:** deadline as explicit timestamp vs inferred duration → `graduation.petitionToPoll.deadlineSource`.
@@ -362,7 +362,7 @@ A **full-ladder**, **private** jurisdiction — the strictest reference model. U
 
 Tracked so they are not lost; each has a home in the gap docs:
 
-- **Per-action gates config** — the `gates[action]` map (act / signMin / platformCount, incl. jurisdiction-residency and official-role gate kinds) is now **specced** in [jurisdiction.md](entities/partitioning/jurisdiction.md) with the locked launch matrices above, but has no config/code encoding yet. (`[align-w3-gates-schema]`, absorbing `[code-participation-act-eligibility]`)
+- **Per-action gates config** — the `gates[action]` map (act / signMin / platformCount, incl. jurisdiction-residency, official-role, and media-accredited gate kinds) plus `recognizedAccreditationBodyIds` is now **specced** in [jurisdiction.md](entities/partitioning/jurisdiction.md) with the locked launch matrices above, but has no config/code encoding yet. (`[align-w3-gates-schema]`, absorbing `[code-participation-act-eligibility]`; Media: `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`)
 - **Graduation engine** — per-jurisdiction `graduation` config + auto petition→poll worker (`[code-jurisdiction-graduation]`).
 - **Jurisdiction binding + fallback** — assert every root binds to one jurisdiction, default `oursay-global` (`[code-jurisdiction-binding-fallback]`).
 - **Multi-jurisdiction UI seams** — selector + unified-feed components ship even with one active chain (`[mvp-c10b-membership]`, `[mvp-c10-multi-jurisdiction]`).

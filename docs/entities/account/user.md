@@ -121,5 +121,7 @@ Additional account states from contributor §5.4: `pending`, `failed`, `sponsore
 
 - **[mvp-c10b-membership]**: No user ↔ jurisdiction subscription (membership table + auto `oursay-global`) — see [account/future.md](./future.md).
 - Account visibility ([09-ACCOUNT-PRIVACY-MODEL.md](../../09-ACCOUNT-PRIVACY-MODEL.md)) — enforcement on public profile surfaces; reveal model replaces the old persona `claimed`/`claimed_at` flow.
-- **Official role** — platform-assigned, revocable `official` role (on the user/jurisdiction membership) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier.
+- **Official role** — `admin`-assigned, revocable `official` role on the user/jurisdiction membership (seat-bound; not portable) for role-gated actions (e.g. AB poll creation); a role, never a KYC tier. See [verification.md](./verification.md).
+- **admin (role)** — platform-wide operator role (`admin`, not `platform_admin`): moderation/redaction, districts, Official assignment, accreditation-body catalog, Media accreditation grants. Cannot alter ledger counts. Full scope: [admin.md](./admin.md); vocabulary: [GLOSSARY.md](../../GLOSSARY.md).
+- **Media mark / accreditation** — derived Media mark from valid [MediaAccreditation](./media-accreditation.md) rows; jurisdiction powers via OurSay’s `recognizedAccreditationBodyIds` ([accreditation-body.md](./accreditation-body.md)). Gaps: `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`.
 - **Profile Icon** — unverified hard-wires `bottts-neutral` with null storage; verified users pick from the six-style allowlist; personas hard-wire `bottts` (unverified) or `initial-face` (verified) from civic tier; official seats stay `disco` (not user-pickable).

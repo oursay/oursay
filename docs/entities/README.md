@@ -36,6 +36,9 @@ This library **formalizes** existing documentation; it does not replace it.
 | [User](./account/user.md) | — | — | `public.users` | [MVP] |
 | [Profile](./account/profile.md) | — | — | `auth.profiles` | [MVP] |
 | [Verification](./account/verification.md) | KYC attestation | — | `public.kyc_attestations` | [Gap] production provider |
+| [Admin](./account/admin.md) | admin role | — | account role (target) | [Gap] `[v1-admin-tools]` |
+| [AccreditationBody](./account/accreditation-body.md) | Press accreditation body | — | platform catalog (target) | [Gap] `[v1-media-accreditation-bodies]` |
+| [MediaAccreditation](./account/media-accreditation.md) | Media accreditation | — | `media_accreditations` (target) | [Gap] `[v1-media-accreditations]` |
 | [ProfileGeocode](./account/profile-geocode.md) | — | — | `auth.profile_geocodes` | [MVP] |
 | [Post](./civic-content/post.md) | Statement | `post` | `record_tx` | [MVP] |
 | [Petition](./civic-content/petition.md) | Petition | `petition` | `record_tx` | [MVP] |
@@ -63,6 +66,8 @@ This library **formalizes** existing documentation; it does not replace it.
 erDiagram
   User ||--o| Profile : has
   User ||--o{ Verification : attested
+  User ||--o{ MediaAccreditation : holds
+  AccreditationBody ||--o{ MediaAccreditation : issues
   User ||--o{ ThreadPersona : participates
   ThreadPersona ||--o{ ThreadCredential : signs_with
   Post ||--o{ Reaction : receives

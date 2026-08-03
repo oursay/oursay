@@ -78,7 +78,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 [responded]
 ```
 
-**The deadline is the only closing.** Reaching the graduation/success threshold does **not** close a petition, and neither does a manual graduation: at the configured threshold the linked poll is **forced** (whether or not an official agrees), and in `ab-ca-gov` an official-role holder may **promote the petition into a poll early, at any point** — in both cases the **proposing user remains the poll's author** and the petition stays open for signatures until its deadline. See [jurisdiction.md](../partitioning/jurisdiction.md) graduation.
+**The deadline is the only closing.** Reaching the graduation/success threshold does **not** close a petition, and neither does a manual graduation: at the configured threshold the linked poll is **forced** (whether or not an official agrees), and in `ab-ca-gov` an **Official affected by the petition** may **promote the petition into a poll early** — in both cases the **proposing user remains the poll's author** and the petition stays open for signatures until its deadline. See [jurisdiction.md](../partitioning/jurisdiction.md) graduation.
 
 ## Relationships
 
@@ -102,7 +102,7 @@ relation — see [entity-projection.md](../record/entity-projection.md).
 | Action | Who |
 |--------|-----|
 | Create | Per jurisdiction `gates.petition.act` — `oursay-global`: any registered user; `ab-ca-gov`: residency-verified |
-| Sign | Any registered user (**sign now, verify later**; platform count per `gates.petition_signature.platformCount`). **AB: official-role holders denied** at the act gate |
+| Sign | Any registered user (**sign now, verify later**; platform count per `gates.petition_signature.platformCount`). **AB: official-role holders denied** at the act gate. Media accreditation does **not** grant or remove petition-sign rights. |
 | Revoke signature | Signer, if rules permit |
 | Update | Author / platform governance |
 | Mark delivered | Administrator |

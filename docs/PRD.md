@@ -47,7 +47,7 @@ flowchart LR
 
 A **statement** is an informal expression of sentiment others agree or disagree with. A **petition** is a formal call to action addressed to a named authority. A **poll** is a formal question whose choices are final once cast. A **result** is the permanent, auditable outcome of a closed poll. A result can be traced back through the votes, petitions, and statements that shaped it.
 
-*Linkage* between levels is opt-in, but where a jurisdiction configures **graduation**, a linked petition can auto-promote to a poll once it reaches a verified-signature threshold. Who may create at each level, whether climbing the ladder is required, how strongly each action must be signed, and whose actions are included in the **platform count** (a counting floor after the action, never a participation barrier) are per-jurisdiction settings (the per-action gates; `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.6). For the Alberta jurisdiction (`ab-ca-gov`), the platform configures: anyone may post a statement (passkey-signed) or comment/react (quick-sign OK); anyone may **sign** a petition (counted in the platform count while residency-verified — sign now, verify later); residency verification is required to **vote**; residency-verified residents may create petitions; a member's poll is reached only by graduating a petition (seated officials may create polls directly). These are **platform policy choices**, not government requirements.
+*Linkage* between levels is opt-in, but where a jurisdiction configures **graduation**, a linked petition can auto-promote to a poll once it reaches a verified-signature threshold. Who may create at each level, whether climbing the ladder is required, how strongly each action must be signed, and whose actions are included in the **platform count** (a counting floor after the action, never a participation barrier) are per-jurisdiction settings (the per-action gates; `[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §8.6). For the Alberta jurisdiction (`ab-ca-gov`), the platform configures: anyone may post a statement (passkey-signed) or comment/react (quick-sign OK); anyone may **sign** a petition (counted in the platform count while residency-verified — sign now, verify later); residency verification is required to **vote**; residency-verified residents may create petitions; a member's poll is reached by graduating a petition, **or** seated Officials **and/or media-accredited** users may create polls directly (Media via valid accreditation whose body is on OurSay’s `recognizedAccreditationBodyIds` for `ab-ca-gov` — see `[GLOSSARY.md](GLOSSARY.md)`). Manual early graduation is **only** for an Official **affected by the petition**. These are **platform policy choices**, not government requirements.
 
 The defining feature is **verification**. Anyone can participate without verifying, and unverified participation counts and is publicly visible. Verified users have confirmed their identity and Alberta residency through a verification process, and their actions are distinguished by tier in every count and filter. The difference between "people who clicked a button" and "confirmed, identity-verified Alberta residents in a specific district" is what gives the platform its value, and OurSay makes that difference visible everywhere (`[02-PUBLIC-EXPLAINER.md](02-PUBLIC-EXPLAINER.md)`).
 
@@ -156,8 +156,8 @@ Explicitly out of scope for the July 18 soft launch. Listing these prevents the 
 | Verified resident      | An Albertan who has confirmed identity and residency | Share statements, sign petitions, vote, and see counts for their own district, with their verification reflected in totals      |
 | Unverified participant | An account holder who has not verified               | Participate fully, with a clear and honest distinction from verified totals                                                    |
 | Guest                  | Anyone browsing without an account                   | Read all public content, counts, and results; no action (`[01-CONTRIBUTOR-SPEC.md](01-CONTRIBUTOR-SPEC.md)` §4.1)              |
-| MLA / public official  | An elected representative for a constituency         | See the verified sentiment of residents in their riding, broken down by tier; later, claim a profile and respond on the record |
-| Journalist             | A reporter covering Alberta politics                 | Cite district-level verified counts the way they cite election results, with an audit path                                     |
+| MLA / public official  | An elected representative for a constituency         | See the verified sentiment of residents in their riding, broken down by tier; later, claim a profile and respond on the record. Official role is jurisdiction-scoped (not portable). |
+| Media / Journalist     | A reporter with optional Media accreditation         | Cite district-level verified counts with an audit path; **Media mark** when accreditation is valid; when **media-accredited** in the jurisdiction, host polls the gates allow |
 | Independent auditor    | A technically capable third party                    | Reproduce any published count from the public record without trusting OurSay's servers                                         |
 
 
@@ -190,9 +190,9 @@ Grouped by persona. Each story maps to a feature requirement in §7.
 - As an MLA, I can see what verified residents of my constituency think on a specific issue, broken down by verification tier, without commissioning a poll.
 - As an MLA, I can (fast-follow) claim the auto-generated profile for my constituency.
 
-**Journalist**
+**Media / Journalist**
 
-- As a journalist, I can pull district-level verified counts through the public read API and link readers to an audit reference.
+- As a journalist with a Media mark, I can pull district-level verified counts through the public read API and link readers to an audit reference; when media-accredited in the jurisdiction, I can host polls the gates allow.
 
 **Independent auditor**
 

@@ -10,10 +10,11 @@ _What information OurSay may disclose to each audience, the privacy shortcomings
 
 | Audience | May receive | Never receives |
 |---|---|---|
-| **Public** | The full **anonymized signed record** + the platform's signed attestation (audit anything); aggregate counts by area / tier; **complete copies** to keep for accountability. | Account/identity link, registration bindings, commitment openings, address, raw PII. |
-| **Media** | Everything the public gets, plus a read-only public API (post-launch) for dashboards and analysis. | Same as public. |
-| **Representatives** | Everything the public gets, **plus riding-filtered views** of comments/reactions for their area. | Account/identity link, binding openings, address mapping — **no per-user proof**. |
+| **Public** | The full **anonymized signed record** + the platform's signed attestation (audit anything); aggregate counts by area / tier; **complete copies** to keep for accountability; **Media mark** on profiles when derived from valid accreditation (public signal only). | Account/identity link, registration bindings, commitment openings, address, raw PII; internal accreditation notes. |
+| **Media** (mark + optional jurisdiction accreditation) | Everything the public gets; host dashboard **aggregates** for polls they are allowed to host (media-accredited in that jurisdiction); post-launch read-only research API for dashboards (aggregates). | Same identity secrets as public; **no** raw PII; **no** identity payloads; **no** microtargeting exports. |
+| **Representatives** | Everything the public gets, **plus riding-filtered views** of comments/reactions for their area. Official role is **jurisdiction-scoped** (not shown as Official in unrelated jurisdictions). | Account/identity link, binding openings, address mapping — **no per-user proof**. |
 | **Independent auditors** | Full record copies + verification tooling; KYC **attestation signatures** where a provider supports them; **per-thread, jurisdiction-scoped** identity disclosure (binding openings for specific threads) **only with the user's authorization**. | Anything a user has not authorized; cross-thread / cross-jurisdiction linkage. |
+| **admin** | Ops surfaces for accreditation bodies, Media accreditation grant/revoke, Official seat assignment, moderation logs. | Must not use admin access to alter ledger counts or forge attestations. |
 
 Key point: there is **no "counts-only" tier** — the signed record is public to everyone. What differs by role is only **riding-filtered convenience views** (representatives) and **user-authorized disclosure** (auditors). The protected secret is always the **identity link**.
 

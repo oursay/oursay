@@ -1,6 +1,6 @@
 # `@oursay/jurisdiction-data`
 
-Registerable per-jurisdiction configuration: gating **rules** (change/revoke, deadlines, signing), the **privacy** k-anonymity floor, and the **public count-exposure** policy. Each jurisdiction is a small TypeScript module exporting a `JurisdictionConfig` (the type lives in `@oursay/public-record`); `index.ts` re-exports them all as `jurisdictions: JurisdictionConfig[]`.
+Registerable per-jurisdiction configuration: gating **rules** (change/revoke, deadlines, signing), the **privacy** k-anonymity floor, the **public count-exposure** policy, and (target) **Media recognition** via `recognizedAccreditationBodyIds` (platform catalog body ids — see `docs/entities/account/accreditation-body.md` and `docs/entities/partitioning/jurisdiction.md`). Each jurisdiction is a small TypeScript module exporting a `JurisdictionConfig` (the type lives in `@oursay/public-record`); `index.ts` re-exports them all as `jurisdictions: JurisdictionConfig[]`.
 
 ```
 jurisdiction-data/
@@ -23,6 +23,10 @@ The API composition root (`api/src/container.ts`) imports `jurisdictions` and re
 - `true` + non-empty `minTier` ⇒ `countGating: "tier-gated"` — exposed only when the request restricts to a tier set ⊆ `minTier` (so list/detail, which never filter by tier, always withhold a gated scalar; only `/counts?tier=…` can unlock it).
 
 Reaction tallies are never gated here (they stay publicly visible).
+
+## Media recognition (target)
+
+`recognizedAccreditationBodyIds: string[]` (target — not yet on `JurisdictionConfig` in code) lists platform-catalog **accreditation-body** ids OurSay **chooses to list** for the deployment (e.g. on `ab-ca-gov`) for **media-accredited** gate actors (e.g. poll create). Empty/absent ⇒ no media-accredited powers here; users may still show a platform-wide **Media mark** if they hold any valid accreditation. There is no per-jurisdiction Media gallery role. Gaps: `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`, `[align-w3-gates-schema]`.
 
 ## Official seat roster (Alberta)
 

@@ -35,6 +35,14 @@ Registration requires **email OTP + handle + the over_18 checkbox** only; **disp
 ## Jurisdiction membership table
 A user ↔ jurisdiction membership table; every account auto-subscribed to **`oursay-global`** at registration. Future: subscription prompts after residency geocode yields a usable point. ([mvp-c10b-membership])
 
+**Official role on membership:** the `official` role (and seat binding) lives on this membership — **jurisdiction-scoped**, not platform-wide. An official in `ab-ca-gov` does not appear as Official in another province’s jurisdiction.
+
+**Official role inheritance (future):** a higher jurisdiction (e.g. future `ca-gov`) may **inherit** selected seats/roles from child jurisdictions (e.g. provincial premiers) so one seat claim can surface Official status where configured. Inheritance is explicit and allowlisted — never “all officials everywhere.” Until that ships, each jurisdiction assigns Official independently.
+
+**Media is not a membership role:** there is **no** per-jurisdiction gallery/media role on membership. Media uses [accreditation-body.md](./accreditation-body.md) + [media-accreditation.md](./media-accreditation.md) and jurisdiction `recognizedAccreditationBodyIds`.
+
+## Platform `admin` role (V1 manual ops)
+Platform-wide **`admin`** (not `platform_admin`) manually maintains: accreditation-body catalog, Media accreditation grant/revoke, Official seat/role assignment, moderation/redaction, and district roster ops — see [admin.md](./admin.md). No automation of Official or Media credential classes in V1.
 ## Profile PATCH
 `PATCH /v1/profile` updates OurSay-owned public identity: handle, display name, bio (in `users.profile_details` JSONB). **Do not** use it as a legal-name/street-address write path; residency re-verify / KYC seam supplies address for geocode refresh. Visibility stays on `PATCH /v1/me/visibility`. (`[mvp-c10c-profile-patch]` retargeted and shipped for identity fields.)
 

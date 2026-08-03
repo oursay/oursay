@@ -34,7 +34,7 @@ What an auditor **cannot** independently confirm today is that a given verified 
 - The public record is **auth-based**: any **authenticated** user may write to it. Authentication is **pluggable** — email, phone, or social login — and selectable per region / governing body.
 - A **Canadian carrier-based phone number** is the preferred factor where available: it is auditable by local authorities who already have established relationships with carriers, which raises the cost of large-scale fake accounts without adding a new trusted intermediary.
 - Only **verified** users are tied to an identity (via the KYC provider), and only their actions are appended to the **public verified record** (signed, on-ledger). **Unverified** authenticated participation stays **off-record** — referenced off-chain per the contributor spec (§9.1), not written to the public verified ledger as a verified entry.
-- Role-based views (representative / media / independent auditor) are derived from **public riding data only** — never from private identity.
+- Role-based views (representative / media / independent auditor) are derived from **public riding data only** — never from private identity. The **Media mark** is a public profile signal derived from valid Media accreditation (not a KYC tier). **Official** is a jurisdiction-scoped role (seat-bound), not portable across unrelated jurisdictions.
 
 Implication: write-access trust is "a real authenticated account," which is cheap; the *meaning* attached to a write (verified, resident of riding X) is where the KYC trust enters.
 
