@@ -17,14 +17,25 @@ export function registerAuthRoutes(app: FastifyInstance, services: Services): vo
         response: {
           200: {
             type: "object",
-            properties: { userId: { type: "string", format: "uuid" }, scope: { type: "string", enum: ["full", "recovery", "login", "registration", "recovery_kyc"] } },
-            required: ["userId", "scope"],
+            properties: {
+              userId: { type: "string", format: "uuid" },
+              scope: { type: "string", enum: ["full", "recovery", "login", "registration", "recovery_kyc"] },
+              platformRoles: {
+                type: "array",
+                items: { type: "string" },
+                description: "Platform-scoped roles on the account (`admin` today). Empty when none.",
+              },
+            },
+            required: ["userId", "scope", "platformRoles"],
           },
           401: errorSchema,
         },
       },
     },
-    async (req) => ({ userId: req.user!.userId, scope: req.user!.scope }),
+    async (req) => {
+      const platformRoles = await services.repos.platformRole.listRoles(req.user!.userId);
+      return { userId: req.user!.userId, scope: req.user!.scope, platformRoles };
+    },
   );
 
   app.post(

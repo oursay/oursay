@@ -61,6 +61,8 @@ export interface FeedItemDto {
   tier: KycTier;
   /** Author holds the official role in this row's jurisdiction. */
   official: boolean;
+  /** Platform-scoped roles on the author account (`admin` today). */
+  platformRoles: string[];
   signTier: number;
   /** Affected seat slugs ([] ⇒ jurisdiction-wide). Served name per C2. */
   appliesToDistrictIds: string[];
@@ -250,6 +252,7 @@ export class PublicFeedService {
       jurisdiction: r.jurisdiction,
       tier: r.author.tier,
       official: r.author.official,
+      platformRoles: r.author.platformRoles,
       signTier: row.signTier,
       appliesToDistrictIds: r.appliesToDistrictIds,
       author: r.author.author,

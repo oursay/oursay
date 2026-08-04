@@ -48,6 +48,7 @@ export class Db {
     await this.pool.query(
       `TRUNCATE auth.otp_rate_limits, auth.kyc_sessions, auth.email_otp, auth.sessions, auth.webauthn_challenges,
                auth.passkey_credentials, auth.profile_geocode_history, auth.profile_geocodes, auth.profiles,
+               auth.account_roles,
                geo.regions, geo.districts,
                public.mention_index, public.mention_map,
                public.record_outbox, public.record_tx, public.users CASCADE`,

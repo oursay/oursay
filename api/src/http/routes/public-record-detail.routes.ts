@@ -48,6 +48,11 @@ const commentNodeSchema = {
     handle: { type: "string" },
     tier: { type: "string", enum: KYC_TIERS },
     official: { type: "boolean" },
+    platformRoles: {
+      type: "array",
+      items: { type: "string" },
+      description: "Platform-scoped roles on the author account (`admin` today).",
+    },
     authorGeo: authorGeoSchema,
     ts: { type: "string" },
     edits: { type: "integer" },
@@ -66,7 +71,7 @@ const commentNodeSchema = {
     mentions: mentionsMapSchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
-  required: ["id", "author", "handle", "tier", "official", "authorGeo", "ts", "edits", "externallyAnchored", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
+  required: ["id", "author", "handle", "tier", "official", "platformRoles", "authorGeo", "ts", "edits", "externallyAnchored", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
 const detailSchema = {
@@ -79,6 +84,11 @@ const detailSchema = {
     jurisdiction: { type: "string" },
     tier: { type: "string", enum: KYC_TIERS },
     official: { type: "boolean" },
+    platformRoles: {
+      type: "array",
+      items: { type: "string" },
+      description: "Platform-scoped roles on the author account (`admin` today).",
+    },
     signTier: { type: "integer" },
     appliesToDistrictIds: { type: "array", items: { type: "string" } },
     author: { type: "string" },
@@ -114,7 +124,7 @@ const detailSchema = {
     _vote: { type: "string", nullable: true, description: "The viewer's own voted option label on a poll; null when not voted." },
   },
   required: [
-    "id", "type", "jurisdiction", "tier", "official", "signTier", "appliesToDistrictIds",
+    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "ts", "edits",
     "externallyAnchored",
   ],

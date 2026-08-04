@@ -228,6 +228,28 @@ CREATE TABLE IF NOT EXISTS auth.jurisdiction_memberships (
 );
 CREATE INDEX IF NOT EXISTS jurisdiction_memberships_jur ON auth.jurisdiction_memberships (jurisdiction_id);
 
+-- Platform-scoped account roles ([v1-a-admin-role]). Orthogonal to KYC tiers AND to the
+-- jurisdiction-scoped Official role on auth.jurisdiction_memberships.
+--
+-- REJECTED: do NOT overload auth.jurisdiction_memberships with a synthetic jurisdiction_id =
+-- 'platform' row. Platform roles are platform-wide (no seat, no jurisdiction), while Official is
+-- jurisdiction- and seat-scoped; mixing them corrupts Official gates, geo, and me-route retention.
+--
+-- Anticipated role names (CHECK lists them for future widening; ONLY admin has behavior today):
+--   admin, dev, mod, auditor, support
+-- Bootstrap: the first admin grant may have granted_by_admin_id IS NULL (CLI / SSH elevate).
+CREATE TABLE IF NOT EXISTS auth.account_roles (
+  user_id             UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  role                TEXT NOT NULL,
+  granted_by_admin_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  granted_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, role)
+);
+CREATE INDEX IF NOT EXISTS account_roles_role_idx ON auth.account_roles (role);
+ALTER TABLE auth.account_roles DROP CONSTRAINT IF EXISTS account_roles_role_check;
+ALTER TABLE auth.account_roles ADD CONSTRAINT account_roles_role_check
+  CHECK (role IN ('admin', 'dev', 'mod', 'auditor', 'support'));
+
 -- C1: per-action signing preferences (quick | ask | passkey per SignAction). The gate floor is
 -- enforced server-side regardless; prefs only pick the method ABOVE the floor. JSONB keeps the
 -- action keyset a client concern (e.g. { "post": "ask", "vote": "passkey" }).

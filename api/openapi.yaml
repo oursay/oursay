@@ -149,6 +149,13 @@ paths:
                     format: date-time
                     description: UTC instant after which the issued code is invalid (matches
                       OTP_TTL_SEC).
+                  delivery:
+                    type: string
+                    enum:
+                      - inbox
+                      - console
+                    description: "Where the code was delivered: `inbox` (Postmark/SMTP/SES) or
+                      `console` (noop mailer echo)."
                 required:
                   - status
         "400":
@@ -1012,9 +1019,16 @@ paths:
                       - login
                       - registration
                       - recovery_kyc
+                  platformRoles:
+                    type: array
+                    items:
+                      type: string
+                    description: Platform-scoped roles on the account (`admin` today). Empty when
+                      none.
                 required:
                   - userId
                   - scope
+                  - platformRoles
         "401":
           description: Default Response
           content:
@@ -1421,6 +1435,13 @@ paths:
                     format: date-time
                     description: UTC instant after which the issued code is invalid (matches
                       OTP_TTL_SEC).
+                  delivery:
+                    type: string
+                    enum:
+                      - inbox
+                      - console
+                    description: "Where the code was delivered: `inbox` (Postmark/SMTP/SES) or
+                      `console` (noop mailer echo)."
                 required:
                   - status
         "401":
@@ -5634,6 +5655,11 @@ paths:
                         official:
                           type: boolean
                           description: Author holds the official ROLE in this jurisdiction (never a tier).
+                        platformRoles:
+                          type: array
+                          items:
+                            type: string
+                          description: Platform-scoped roles on the author account (`admin` today).
                         signTier:
                           type: integer
                           description: "Envelope sign-tier projection: 0 quick · 1 passkey (2/3 future)."
@@ -5771,12 +5797,18 @@ paths:
                         ts:
                           type: string
                           description: Original create time, ISO.
+                        externallyAnchored:
+                          type: boolean
+                          description: True when this entity's create commitment is covered by an external
+                            public-witness anchor (not merely settled on the
+                            internal ledger).
                       required:
                         - id
                         - type
                         - jurisdiction
                         - tier
                         - official
+                        - platformRoles
                         - signTier
                         - appliesToDistrictIds
                         - author
@@ -5789,6 +5821,7 @@ paths:
                         - comments
                         - edits
                         - ts
+                        - externallyAnchored
                   nextCursor:
                     type: string
                     nullable: true
@@ -5870,6 +5903,11 @@ paths:
                           - electoral_validated
                       official:
                         type: boolean
+                      platformRoles:
+                        type: array
+                        items:
+                          type: string
+                        description: Platform-scoped roles on the author account (`admin` today).
                       signTier:
                         type: integer
                       appliesToDistrictIds:
@@ -5955,6 +5993,11 @@ paths:
                         type: string
                       edits:
                         type: integer
+                      externallyAnchored:
+                        type: boolean
+                        description: True when this entity's create commitment is covered by an external
+                          public-witness anchor (not merely settled on the
+                          internal ledger).
                       up:
                         type: integer
                       down:
@@ -6021,6 +6064,7 @@ paths:
                       - jurisdiction
                       - tier
                       - official
+                      - platformRoles
                       - signTier
                       - appliesToDistrictIds
                       - author
@@ -6032,6 +6076,7 @@ paths:
                       - withheld
                       - ts
                       - edits
+                      - externallyAnchored
                   comments:
                     type: array
                     items:
@@ -6053,6 +6098,11 @@ paths:
                             - electoral_validated
                         official:
                           type: boolean
+                        platformRoles:
+                          type: array
+                          items:
+                            type: string
+                          description: Platform-scoped roles on the author account (`admin` today).
                         authorGeo:
                           type: string
                           enum:
@@ -6066,6 +6116,11 @@ paths:
                           type: string
                         edits:
                           type: integer
+                        externallyAnchored:
+                          type: boolean
+                          description: True when this entity's create commitment is covered by an external
+                            public-witness anchor (not merely settled on the
+                            internal ledger).
                         signTier:
                           type: integer
                         body:
@@ -6152,9 +6207,11 @@ paths:
                         - handle
                         - tier
                         - official
+                        - platformRoles
                         - authorGeo
                         - ts
                         - edits
+                        - externallyAnchored
                         - signTier
                         - body
                         - withheld
@@ -6227,6 +6284,11 @@ paths:
                             - electoral_validated
                         official:
                           type: boolean
+                        platformRoles:
+                          type: array
+                          items:
+                            type: string
+                          description: Platform-scoped roles on the author account (`admin` today).
                         authorGeo:
                           type: string
                           enum:
@@ -6240,6 +6302,11 @@ paths:
                           type: string
                         edits:
                           type: integer
+                        externallyAnchored:
+                          type: boolean
+                          description: True when this entity's create commitment is covered by an external
+                            public-witness anchor (not merely settled on the
+                            internal ledger).
                         signTier:
                           type: integer
                         body:
@@ -6326,9 +6393,11 @@ paths:
                         - handle
                         - tier
                         - official
+                        - platformRoles
                         - authorGeo
                         - ts
                         - edits
+                        - externallyAnchored
                         - signTier
                         - body
                         - withheld
@@ -6475,6 +6544,8 @@ paths:
                           type: string
                         edits:
                           type: integer
+                        externallyAnchored:
+                          type: boolean
                         signTier:
                           type: integer
                         body:
@@ -6554,6 +6625,7 @@ paths:
                         - authorGeo
                         - ts
                         - edits
+                        - externallyAnchored
                         - signTier
                         - body
                         - withheld
@@ -6986,6 +7058,11 @@ paths:
                       - electoral_validated
                   official:
                     type: boolean
+                  platformRoles:
+                    type: array
+                    items:
+                      type: string
+                    description: Platform-scoped roles on the account (`admin` today).
                   bio:
                     type: string
                   iconType:
@@ -7015,6 +7092,7 @@ paths:
                   - roles
                   - tier
                   - official
+                  - platformRoles
                   - bio
                   - iconType
                   - ageLabel
@@ -7115,6 +7193,11 @@ paths:
                             - electoral_validated
                         official:
                           type: boolean
+                        platformRoles:
+                          type: array
+                          items:
+                            type: string
+                          description: Platform-scoped roles on the author account (`admin` today).
                         signTier:
                           type: integer
                         appliesToDistrictIds:
@@ -7219,12 +7302,15 @@ paths:
                           type: integer
                         ts:
                           type: string
+                        externallyAnchored:
+                          type: boolean
                       required:
                         - id
                         - type
                         - jurisdiction
                         - tier
                         - official
+                        - platformRoles
                         - signTier
                         - appliesToDistrictIds
                         - author
@@ -7237,6 +7323,7 @@ paths:
                         - comments
                         - edits
                         - ts
+                        - externallyAnchored
                   nextCursor:
                     type: string
                     nullable: true

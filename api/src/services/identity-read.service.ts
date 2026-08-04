@@ -22,6 +22,7 @@ import {
 } from "@oursay/public-record";
 import type { KycRepo } from "../repo/kyc.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
+import type { PlatformRoleRepo } from "../repo/platform-role.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
 import type { UserRepo } from "../repo/user.repo.js";
 import { displayNameFor } from "../helpers/handle.js";
@@ -67,6 +68,8 @@ export interface ResolvedAuthor {
   tier: KycTier;
   /** Platform-assigned official role in the thread's jurisdiction (role, never a tier). */
   official: boolean;
+  /** Platform-scoped roles on the account (`admin` today). Empty when none. */
+  platformRoles: string[];
 }
 
 /** Server-resolved mention display for read DTOs (client chips/links only — Slice 3). */
@@ -111,6 +114,8 @@ interface AuthorFacts {
   tier: KycTier;
   /** Jurisdiction ids where the author holds the official role. */
   officialIn: Set<string>;
+  /** Platform-scoped roles (`admin` today). */
+  platformRoles: string[];
   /** Home seat slugs (officials: represented seat for that jurisdiction — Part 6 #5). */
   homeDistricts: string[];
 }
@@ -121,6 +126,7 @@ export interface IdentityReadServiceDeps {
   profileRepo: ProfileRepo;
   kycRepo: KycRepo;
   membershipRepo: MembershipRepo;
+  platformRoleRepo: PlatformRoleRepo;
   participantGeoService: ParticipantGeoService;
   geoStore: GeoStore;
   jurisdictions: JurisdictionConfig[];
@@ -160,6 +166,7 @@ export class ReadResolution {
         authorGeo: "none",
         tier: "unverified",
         official: false,
+        platformRoles: [],
       };
     }
 
@@ -167,6 +174,7 @@ export class ReadResolution {
     const authorGeo = await this.authorGeoRelation(facts.homeDistricts, ctx);
     const tier = facts.tier;
     const official = facts.officialIn.has(ctx.jurisdiction);
+    const platformRoles = facts.platformRoles;
 
     // Self: always revealed to self; the hint shows the persona out-of-scope viewers see instead.
     if (this.viewer.userId && link.userId === this.viewer.userId) {
@@ -187,6 +195,7 @@ export class ReadResolution {
         authorGeo,
         tier,
         official,
+        platformRoles,
       };
     }
 
@@ -207,6 +216,7 @@ export class ReadResolution {
         authorGeo,
         tier,
         official,
+        platformRoles,
       };
     }
 
@@ -217,6 +227,7 @@ export class ReadResolution {
       authorGeo,
       tier,
       official,
+      platformRoles,
     };
   }
 
@@ -366,11 +377,12 @@ export class ReadResolution {
   private async factsOf(userId: string): Promise<AuthorFacts> {
     const cached = this.facts.get(userId);
     if (cached) return cached;
-    const [user, profile, tierRaw, memberships, point] = await Promise.all([
+    const [user, profile, tierRaw, memberships, platformRoles, point] = await Promise.all([
       this.d.userRepo.getById(userId),
       this.d.profileRepo.getByUserId(userId),
       this.d.kycRepo.latestTier(userId),
       this.d.membershipRepo.listForUser(userId),
+      this.d.platformRoleRepo.listRoles(userId),
       this.d.participantGeoService.currentPoint(userId),
     ]);
     const officialIn = new Set(memberships.filter((m) => m.role === "official").map((m) => m.jurisdictionId));
@@ -400,6 +412,7 @@ export class ReadResolution {
       accountVisibility: normalizeVisibility(profile?.visibility),
       tier,
       officialIn,
+      platformRoles: [...platformRoles],
       homeDistricts: [...homeDistricts],
     };
     this.facts.set(userId, facts);

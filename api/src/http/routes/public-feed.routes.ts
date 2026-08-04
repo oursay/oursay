@@ -30,6 +30,11 @@ const feedItemSchema = {
     jurisdiction: { type: "string", description: 'Jurisdiction id, e.g. "oursay-global" | "ab-ca-gov".' },
     tier: { type: "string", enum: KYC_TIERS, description: "Author's canonical KYC tier token (client maps to its numeric ladder)." },
     official: { type: "boolean", description: "Author holds the official ROLE in this jurisdiction (never a tier)." },
+    platformRoles: {
+      type: "array",
+      items: { type: "string" },
+      description: "Platform-scoped roles on the author account (`admin` today).",
+    },
     signTier: { type: "integer", description: "Envelope sign-tier projection: 0 quick · 1 passkey (2/3 future)." },
     appliesToDistrictIds: { type: "array", items: { type: "string" }, description: "Affected seat slugs; [] = jurisdiction-wide." },
     author: { type: "string", description: "Anonymized display: real name when revealed, persona otherwise." },
@@ -65,7 +70,7 @@ const feedItemSchema = {
     },
   },
   required: [
-    "id", "type", "jurisdiction", "tier", "official", "signTier", "appliesToDistrictIds",
+    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "comments", "edits", "ts",
     "externallyAnchored",
   ],

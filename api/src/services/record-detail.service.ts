@@ -41,6 +41,8 @@ export interface RecordDetailDto {
   jurisdiction: string;
   tier: KycTier;
   official: boolean;
+  /** Platform-scoped roles on the author account (`admin` today). */
+  platformRoles: string[];
   signTier: number;
   appliesToDistrictIds: string[];
   author: string;
@@ -85,6 +87,8 @@ export interface CommentNodeDto {
   handle: string;
   tier: KycTier;
   official: boolean;
+  /** Platform-scoped roles on the author account (`admin` today). */
+  platformRoles: string[];
   authorGeo: AuthorGeoRelation;
   ts: string;
   edits: number;
@@ -189,6 +193,7 @@ export class RecordDetailService {
       jurisdiction: ctx.jurisdiction,
       tier: author.tier,
       official: author.official,
+      platformRoles: author.platformRoles,
       signTier: root.signTier,
       appliesToDistrictIds: ctx.affectedDistricts,
       author: author.author,
@@ -296,6 +301,7 @@ export class RecordDetailService {
       handle: author.handle,
       tier: author.tier,
       official: author.official,
+      platformRoles: author.platformRoles,
       authorGeo: author.authorGeo,
       ts: node.state.createdAt,
       edits: editCounts.get(node.state.entityId) ?? 0,
