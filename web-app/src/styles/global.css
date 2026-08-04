@@ -48,6 +48,11 @@
   --color-verify-tier-2: #2563eb; /* Residency — blue-check vibe */
   --color-verify-tier-3: #111827; /* Official — black */
 
+  /* Platform mark — brand-purple family, slightly deeper than CTA brand-600 for contrast on author rows. */
+  --color-mark-platform: #6d28d9; /* brand-700 */
+  --color-mark-platform-fg: #ffffff;
+  --color-mark-platform-muted: #5b21b6; /* brand-800 */
+
   /* Notice / danger surfaces — sign-modal FINAL warning, residency/affected boxes. */
   --color-notice-50: #fffbeb;
   --color-notice-200: #fde68a;
@@ -88,6 +93,10 @@ html.dark {
 
   /* Tier-3 "Official" is black in light mode; invert to a near-white chip. */
   --color-verify-tier-3: #e5e7eb;
+
+  /* Platform mark: lift one step on dark surfaces. */
+  --color-mark-platform: #8b5cf6;
+  --color-mark-platform-muted: #7c3aed;
 
   /* Notice / danger sit on dark now: deepen the fills, brighten the text. */
   --color-notice-50: #2a2109;

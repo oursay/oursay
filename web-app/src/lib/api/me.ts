@@ -24,6 +24,8 @@ export interface AccountContext {
   iconType: string;
   kycTier: VerificationTier;
   isOfficial: boolean;
+  /** Platform roles from session (`admin` today). */
+  platformRoles: string[];
   accountVisibility: AuthorVisibility;
   viewerDistricts: string[];
   signing: SigningPrefs;
@@ -75,9 +77,11 @@ function mergeSubscriptions(serverIds: string[]): JurisdictionMembership[] {
 
 /** Hydrate viewer state from live session + `/v1/me/*`. Returns null when logged out. */
 export async function fetchAccountContext(): Promise<AccountContext | null> {
-  let session: { userId: string; scope: string } | null;
+  let session: { userId: string; scope: string; platformRoles?: string[] } | null;
   try {
-    session = await apiGet<{ userId: string; scope: string }>("/v1/auth/session");
+    session = await apiGet<{ userId: string; scope: string; platformRoles?: string[] }>(
+      "/v1/auth/session",
+    );
   } catch {
     return null;
   }
@@ -103,11 +107,15 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
   const publicSelf = await apiGet<{
     tier: string;
     official: boolean;
+    platformRoles?: string[];
   }>(`/v1/public/profiles/${encodeURIComponent(handle)}`).catch(() => null);
 
   const kycTier = publicSelf
     ? tokenToTier(publicSelf.tier, publicSelf.official)
     : 0;
+
+  const platformRoles =
+    session.platformRoles ?? publicSelf?.platformRoles ?? [];
 
   return {
     userId: session.userId,
@@ -117,6 +125,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     iconType: typeof profile.iconType === "string" ? profile.iconType : "bottts-neutral",
     kycTier,
     isOfficial: publicSelf?.official ?? false,
+    platformRoles: Array.isArray(platformRoles) ? platformRoles : [],
     accountVisibility: profile.visibility,
     viewerDistricts: districtsRes?.districts ?? [],
     signing: signingRaw ? mapSigningPrefs(signingRaw) : { ...DEFAULT_SIGNING },

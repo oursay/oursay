@@ -68,7 +68,12 @@ interface VerificationPillProps {
   align?: "left" | "right";
 }
 
-/** Verification pill: glyph + label (full) or icon-only circle. Tier 0 renders nothing. */
+/**
+ * Verification pill: glyph + label (full) or icon-only circle. Tier 0 renders nothing.
+ *
+ * Naming: recommend consolidating *Pill → Mark in a follow-up
+ * (.agents/plans/V1-ROADMAP.md); do not rename in V1-A.
+ */
 export function VerificationPill({
   tier,
   authorGeo = "none",

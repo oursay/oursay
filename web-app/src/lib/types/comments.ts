@@ -1,4 +1,4 @@
-import type { AuthorIdentity } from "./identity";
+import type { AuthorIdentity, PlatformRole } from "./identity";
 import type { MentionsMap } from "./mentions";
 import type { SignTier } from "./sign-tier";
 import type { AuthorGeoRelation, VerificationTier } from "./verification";
@@ -17,6 +17,11 @@ export interface CommentNode {
   author: string;
   handle: string;
   tier: VerificationTier;
+  /**
+   * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
+   * TODO(marks[]): fold into AuthorMark[] — see .agents/plans/V1-ROADMAP.md.
+   */
+  platformRole?: PlatformRole | null;
   /**
    * Author's riding slug(s) — SERVER-INTERNAL (mock corpus + read-model
    * filtering only). A member's district is never shared with other members;

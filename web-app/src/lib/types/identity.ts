@@ -5,6 +5,11 @@
  * comment, and mention it returns, given the viewer's context; this object
  * carries the resolution so components can render persona affordances and
  * route taps to the right surface. Raw mock corpus objects never carry it.
+ *
+ * TODO(marks[]): unify Signed / Platform / Media / KYC into `marks: AuthorMark[]`
+ * on author DTOs (see .agents/plans/V1-ROADMAP.md Phase V1-A author mark model).
+ * V1-A ships a narrow `platformRole` sibling field instead — do not expand this
+ * identity object into a marks iterator until that migration.
  */
 export interface AuthorIdentity {
   /** Real display name when revealed/self; per-thread persona name otherwise. */
@@ -28,3 +33,10 @@ export interface AuthorIdentity {
    */
   seenByOthersAs?: string;
 }
+
+/**
+ * Narrow V1-A platform-role projection (route b). Wire field is `platformRoles: string[]`;
+ * client collapses to the single shipped role. TODO(marks[]): fold into AuthorMark[]
+ * (see .agents/plans/V1-ROADMAP.md).
+ */
+export type PlatformRole = "admin";

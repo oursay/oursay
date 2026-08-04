@@ -90,6 +90,7 @@ export function FeedCard({
           identity={item.identity}
           tier={item.tier}
           signTier={item.signTier}
+          platformRole={item.platformRole}
           authorGeo={item.authorGeo}
           onAuthorClick={onAuthorClick}
           onPersonaClick={onPersonaClick}

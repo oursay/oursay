@@ -74,6 +74,7 @@ export function CommentThread({
               author={node.author}
               tier={node.tier}
               signTier={node.signTier}
+              platformRole={node.platformRole}
               authorGeo={node.authorGeo}
               identity={node.identity}
               timestamp={

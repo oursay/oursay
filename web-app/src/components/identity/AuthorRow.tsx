@@ -7,6 +7,7 @@ import { effectivePersonaIconType } from "@/lib/avatar";
 import type {
   AuthorIdentity,
   PillDisplayMode,
+  PlatformRole,
   SignTier,
   VerificationTier,
 } from "@/lib/types";
@@ -19,6 +20,8 @@ interface AuthorRowProps {
   handle?: string;
   tier: VerificationTier;
   signTier?: SignTier;
+  /** Platform role mark — see AuthorBadgeGroup. */
+  platformRole?: PlatformRole | null;
   /** Residency author's spatial relation to the context. */
   authorGeo?: AuthorGeoRelation;
   signedMode?: PillDisplayMode;
@@ -53,13 +56,14 @@ function PersonaMark({ size = 12 }: { size?: number }) {
 }
 
 /**
- * Author identity row. Badge group [Signed][KYC] is right-justified (§2.4).
+ * Author identity row. Badge group [Signed][Platform][KYC] is right-justified (§2.4).
  */
 export function AuthorRow({
   author,
   handle,
   tier,
   signTier,
+  platformRole,
   authorGeo,
   signedMode = "icon",
   kycMode = "full",
@@ -83,6 +87,7 @@ export function AuthorRow({
     <AuthorBadgeGroup
       signTier={signTier}
       tier={tier}
+      platformRole={platformRole}
       authorGeo={authorGeo}
       signedMode={signedMode}
       kycMode={kycMode}

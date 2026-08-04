@@ -1,6 +1,7 @@
-import type { PillDisplayMode, SignTier, VerificationTier } from "@/lib/types";
+import type { PillDisplayMode, PlatformRole, SignTier, VerificationTier } from "@/lib/types";
 import { showsSignedPill } from "@/lib/types/sign-tier";
 import { SignedPill } from "./SignedPill";
+import { PlatformMark } from "./PlatformMark";
 import { VerificationPill } from "./VerificationPill";
 import type { AuthorGeoRelation } from "./VerificationPill";
 
@@ -23,6 +24,11 @@ export function authorBadgeModes(
 interface AuthorBadgeGroupProps {
   signTier?: SignTier;
   tier: VerificationTier;
+  /**
+   * Platform role mark (`admin`). TODO(marks[]): iterate AuthorMark[] instead of
+   * discrete props — see .agents/plans/V1-ROADMAP.md.
+   */
+  platformRole?: PlatformRole | null;
   /** Residency author's spatial relation to the context. */
   authorGeo?: AuthorGeoRelation;
   signedMode: PillDisplayMode;
@@ -30,24 +36,33 @@ interface AuthorBadgeGroupProps {
   align?: "left" | "right";
 }
 
-/** [Signed] [KYC] badge group, right-justified (§2.4). Order fixed: Signed left of KYC. */
+/**
+ * [Signed] [Platform] [KYC] badge group (§2.4). Order fixed:
+ * Signed → Platform → (Media reserved V1-B) → KYC.
+ *
+ * Naming: recommend consolidating *Pill → Mark in a follow-up
+ * (.agents/plans/V1-ROADMAP.md); do not rename in V1-A.
+ */
 export function AuthorBadgeGroup({
   signTier,
   tier,
+  platformRole,
   authorGeo,
   signedMode,
   kycMode,
   align = "left",
 }: AuthorBadgeGroupProps) {
   const showSigned = showsSignedPill(signTier);
+  const showPlatform = platformRole === "admin";
   const showKyc = tier > 0;
-  if (!showSigned && !showKyc) return null;
+  if (!showSigned && !showPlatform && !showKyc) return null;
 
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-0.5 ${align === "right" ? "ml-auto" : ""}`}
     >
       <SignedPill signTier={signTier} mode={signedMode} />
+      {showPlatform ? <PlatformMark mode={kycMode} /> : null}
       <VerificationPill tier={tier} authorGeo={authorGeo} mode={kycMode} />
     </span>
   );

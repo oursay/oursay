@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { AuthorIdentity, SignTier, VerificationTier } from "@/lib/types";
+import type { AuthorIdentity, PlatformRole, SignTier, VerificationTier } from "@/lib/types";
 import { AuthorRow, authorBadgeModes } from "@/components/identity";
 import type { AuthorGeoRelation } from "@/components/identity";
 
@@ -9,6 +9,7 @@ interface RecordCardHeaderProps {
   author: string;
   tier: VerificationTier;
   signTier?: SignTier;
+  platformRole?: PlatformRole | null;
   /** Residency author's spatial relation to the context. */
   authorGeo?: AuthorGeoRelation;
   /** Record rows: stacked @handle. Comment rows: inline relative time. */
@@ -30,6 +31,7 @@ export function RecordCardHeader({
   author,
   tier,
   signTier,
+  platformRole,
   authorGeo,
   handle,
   timestamp,
@@ -51,6 +53,7 @@ export function RecordCardHeader({
       identity={identity}
       tier={tier}
       signTier={signTier}
+      platformRole={platformRole}
       authorGeo={authorGeo}
       signedMode={signedMode}
       kycMode={kycMode}

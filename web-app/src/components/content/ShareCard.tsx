@@ -54,6 +54,7 @@ export function ShareCard({
         author={node.author}
         tier={node.tier}
         signTier={node.signTier}
+        platformRole={node.platformRole}
         authorGeo={node.authorGeo}
         identity={node.identity}
         timestamp={
@@ -115,6 +116,7 @@ function ShareRecordCard({
           identity={item.identity}
           tier={item.tier}
           signTier={item.signTier}
+          platformRole={item.platformRole}
           authorGeo={item.authorGeo}
           scopeSlot={
             <ScopeTag

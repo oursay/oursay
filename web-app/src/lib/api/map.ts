@@ -5,6 +5,7 @@
  */
 
 import type { AuthorIdentity } from "@/lib/types/identity";
+import type { PlatformRole } from "@/lib/types/identity";
 import type { ActivityItem, MentionItem, PublicProfile } from "@/lib/types/profile";
 import type { ProfileRoleTag } from "@/lib/types/role-tag";
 import type {
@@ -120,6 +121,12 @@ export function tokenToTier(token: string, official = false): VerificationTier {
   return TOKEN_TO_TIER[token as CanonicalTierToken] ?? 0;
 }
 
+/** Wire `platformRoles: string[]` → narrow client `platformRole` (V1-A route b). */
+export function mapPlatformRole(raw: unknown): PlatformRole | null {
+  if (!Array.isArray(raw)) return null;
+  return raw.includes("admin") ? "admin" : null;
+}
+
 function mapIdentity(raw: Record<string, unknown>): AuthorIdentity {
   const handle = mapOptionalWireHandle(raw.handle);
   const seed = wireHandle(String(raw.seed)) ?? String(raw.seed);
@@ -190,11 +197,13 @@ function mapAttachedPoll(raw: unknown): AttachedPoll | undefined {
 /** Map a feed-item-shaped wire row to {@link FeedItem}. */
 export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
   const official = Boolean(raw.official);
+  const platformRole = mapPlatformRole(raw.platformRoles);
   const item: FeedItem = {
     id: String(raw.id),
     kind: wireTypeToKind(String(raw.type)),
     jurisdiction: String(raw.jurisdiction),
     tier: tokenToTier(String(raw.tier), official),
+    platformRole,
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
     handle: mapWireHandle(raw.handle),
@@ -226,11 +235,13 @@ export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
 /** Map a record-detail-shaped wire row to {@link RecordDetail}. */
 export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
   const official = Boolean(raw.official);
+  const platformRole = mapPlatformRole(raw.platformRoles);
   const detail: RecordDetail = {
     id: String(raw.id),
     kind: wireTypeToKind(String(raw.type)),
     jurisdiction: String(raw.jurisdiction),
     tier: tokenToTier(String(raw.tier), official),
+    platformRole,
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
     handle: mapWireHandle(raw.handle),
@@ -266,11 +277,13 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
 /** Map a comment-node wire row (recursive). */
 export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
   const official = Boolean(raw.official);
+  const platformRole = mapPlatformRole(raw.platformRoles);
   const node: CommentNode = {
     ...(typeof raw.id === "string" ? { id: raw.id } : {}),
     author: String(raw.author),
     handle: mapWireHandle(raw.handle),
     tier: tokenToTier(String(raw.tier), official),
+    platformRole,
     ts: String(raw.ts),
     body: (raw.body as string[]) ?? [],
     up: (raw.up as number) ?? 0,
@@ -317,6 +330,7 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
     role: String(raw.role ?? ""),
     roles,
     tier: tokenToTier(String(raw.tier), official),
+    platformRole: mapPlatformRole(raw.platformRoles),
     bio: String(raw.bio ?? ""),
     iconType: String(raw.iconType ?? "bottts-neutral"),
     ageLabel: String(raw.ageLabel ?? ""),

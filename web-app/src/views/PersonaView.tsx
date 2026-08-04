@@ -211,6 +211,7 @@ export function PersonaView({ personaName }: { personaName: string }) {
                   author={node.author}
                   tier={node.tier}
                   signTier={node.signTier}
+                  platformRole={node.platformRole}
                   identity={node.identity}
                   timestamp={
                     <TimestampWithAnchor

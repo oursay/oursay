@@ -1,4 +1,4 @@
-import type { AuthorIdentity } from "./identity";
+import type { AuthorIdentity, PlatformRole } from "./identity";
 import type { MentionsMap } from "./mentions";
 import type { FeedItem } from "./records";
 import type { ProfileRoleTag } from "./role-tag";
@@ -82,6 +82,11 @@ export interface PublicProfile {
   /** Structured official role tags for collapsible profile display. */
   roles: ProfileRoleTag[];
   tier: VerificationTier;
+  /**
+   * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
+   * TODO(marks[]): fold into AuthorMark[] — see .agents/plans/V1-ROADMAP.md.
+   */
+  platformRole?: PlatformRole | null;
   /** Short freeform bio shown at the top of the profile. */
   bio: string;
   /** DiceBear style id (user allowlist; default bottts-neutral). */

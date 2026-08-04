@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { AuthorIdentity, SignTier, VerificationTier } from "@/lib/types";
+import type { AuthorIdentity, PlatformRole, SignTier, VerificationTier } from "@/lib/types";
 import type { AuthorGeoRelation } from "@/components/identity";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
@@ -10,6 +10,7 @@ interface CommentCardProps {
   author: string;
   tier: VerificationTier;
   signTier?: SignTier;
+  platformRole?: PlatformRole | null;
   /** Residency author's spatial relation to the open post. */
   authorGeo?: AuthorGeoRelation;
   /** Viewer-resolved author identity (persona / self affordances). */
@@ -42,6 +43,7 @@ export function CommentCard({
   author,
   tier,
   signTier,
+  platformRole,
   authorGeo,
   identity,
   timestamp,
@@ -69,6 +71,7 @@ export function CommentCard({
         author={author}
         tier={tier}
         signTier={signTier}
+        platformRole={platformRole}
         authorGeo={authorGeo}
         identity={identity}
         timestamp={timestamp}

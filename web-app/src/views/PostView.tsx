@@ -247,6 +247,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             identity={detail.identity}
             tier={detail.tier}
             signTier={detail.signTier}
+            platformRole={detail.platformRole}
             authorGeo={detail.authorGeo}
             onAuthorClick={() => router.push(authorPath(detail.identity, detail.handle))}
             onPersonaClick={

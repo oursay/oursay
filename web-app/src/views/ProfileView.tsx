@@ -10,7 +10,7 @@ import {
   listProfilePosts,
 } from "@/lib/api";
 import type { ActivityKind, PublicProfile } from "@/lib/types";
-import { Avatar, FeedCard, VerificationPill } from "@/components";
+import { Avatar, FeedCard, PlatformMark, VerificationPill } from "@/components";
 import { Button } from "@/components/ui";
 import {
   ActivityRow,
@@ -198,7 +198,10 @@ export function ProfileView({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <p className="truncate font-bold text-ink">{profile.name}</p>
-              <VerificationPill tier={displayTier} align="right" />
+              <span className="inline-flex shrink-0 items-center gap-0.5 ml-auto">
+                {profile.platformRole === "admin" ? <PlatformMark /> : null}
+                <VerificationPill tier={displayTier} />
+              </span>
             </div>
             <p className="truncate text-sm text-muted">{displayHandle(profile.handle)}</p>
             {displayTier === 3 && displayRoles.length > 0 ? (

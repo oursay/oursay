@@ -1,4 +1,4 @@
-import type { AuthorIdentity } from "./identity";
+import type { AuthorIdentity, PlatformRole } from "./identity";
 import type { MentionsMap } from "./mentions";
 import type { SignTier } from "./sign-tier";
 import type { AuthorGeoRelation, VerificationTier } from "./verification";
@@ -56,6 +56,11 @@ export interface FeedItem {
   /** Jurisdiction id, e.g. "oursay-global" | "ab-ca-gov" (label resolves via JUR_DATA). */
   jurisdiction: string;
   tier: VerificationTier;
+  /**
+   * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
+   * TODO(marks[]): fold into AuthorMark[] — see .agents/plans/V1-ROADMAP.md.
+   */
+  platformRole?: PlatformRole | null;
   /**
    * District slugs the record AFFECTS: [] jurisdiction-wide, [slug] one riding,
    * [slug,...] several. Served by the API as `appliesToDistrictIds`; the fetch
@@ -123,6 +128,11 @@ export interface RecordDetail {
   kind: RecordKind;
   jurisdiction: string;
   tier: VerificationTier;
+  /**
+   * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
+   * TODO(marks[]): fold into AuthorMark[] — see .agents/plans/V1-ROADMAP.md.
+   */
+  platformRole?: PlatformRole | null;
   districts: string[];
   /** Author's home riding slugs — SERVER-INTERNAL, see FeedItem.authorDistricts. */
   authorDistricts?: string[];
