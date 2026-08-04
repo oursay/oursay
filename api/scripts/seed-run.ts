@@ -6,6 +6,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ingestBoundaries, ingestOfficialSeats, oursayGlobalPlatformSeat, ShapefileSource, paths } from "@oursay/geo";
 import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
+import { SEED_ADMIN_HANDLE } from "./seed-data/people.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
 import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
 
@@ -95,6 +96,16 @@ async function main(): Promise<void> {
 
   const { people, posts, members } = await runSeedOrchestrator(world, defaultSeedRng);
 
+  const adminMember = members.get(SEED_ADMIN_HANDLE);
+  if (!adminMember) {
+    throw new Error(`seed admin handle missing from members: ${SEED_ADMIN_HANDLE}`);
+  }
+  const adminEmail = `${SEED_ADMIN_HANDLE}@seed.oursay.dev`;
+  console.log(`Granting platform admin → ${adminEmail}…`);
+  // Bootstrap grant: granted_by_admin_id stays NULL (same as CLI first admin).
+  await world.services.repos.platformRole.grant(adminMember.userId, "admin", null);
+  console.log(" done");
+
   const feed = await world.app.inject({ method: "GET", url: "/v1/public/feed?limit=80" });
   const feedCount =
     feed.statusCode === 200 ? ((feed.json() as { items?: unknown[] }).items?.length ?? 0) : 0;
@@ -105,11 +116,20 @@ async function main(): Promise<void> {
     ),
   );
 
+  const adminPosts = posts.filter((p) => p.authorHandle === SEED_ADMIN_HANDLE);
+
   const manifest = {
     seededAt: new Date().toISOString(),
     userCount: people.length,
     postCount: posts.length,
     feedItemCount: feedCount,
+    platformAdmin: {
+      handle: SEED_ADMIN_HANDLE,
+      email: adminEmail,
+      userId: adminMember.userId,
+      postSlugs: adminPosts.map((p) => p.slug),
+      note: "Bootstrap admin (platformRoles includes admin). Not an Official — Platform mark is orthogonal.",
+    },
     visibilityShowcase: visibilityShowcase.map((p) => ({
       handle: p.handle,
       email: `${p.handle}@seed.oursay.dev`,
@@ -156,6 +176,7 @@ async function main(): Promise<void> {
   console.log(`  posts:  ${posts.length}`);
   console.log(`  outbox: ${outboxCount} tx (worker settles 250/block; ≥500 → 2 blocks → EVM)`);
   console.log(`  feed:   ${feedCount} items (GET /v1/public/feed)`);
+  console.log(`  admin:  ${SEED_ADMIN_HANDLE} (${adminEmail}) — Platform mark on their posts/comments`);
   console.log(`  manifest: ${MANIFEST_PATH}`);
   console.log("\n  Visibility showcase:");
   for (const p of visibilityShowcase) {
@@ -167,6 +188,8 @@ async function main(): Promise<void> {
 
   await world.db.close();
   await world.app.close();
+  // Fastify/pg can leave open handles in some host setups; force exit after cleanup.
+  process.exit(0);
 }
 
 main().catch((err) => {

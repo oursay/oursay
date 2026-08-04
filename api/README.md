@@ -139,7 +139,7 @@ Host ports so stacks can run side-by-side (same offsets as public-record):
 
 Prod publishes only the API; Postgres/immudb are compose-network-only.
 
-`npm run seed -w @oursay/api` wipes auth + record rows (not production), ingests Alberta districts when `geo.districts` is empty, creates ~21 accounts with mixed visibility (`public`, `my_district`, `anonymous`, …), and writes dozens of statements/petitions/polls through the civic SDK. See `api/.oursay-dev/seed-manifest.json` after seeding — includes a dev address for Edmonton-Strathcona residency so you can see `my_district` vs `public` comment authors. Pair with `NEXT_PUBLIC_MOCK_ONLY=0` in the web-app for a live feed.
+`npm run seed -w @oursay/api` wipes auth + record rows (not production), ingests Alberta districts when `geo.districts` is empty, creates ~21 accounts with mixed visibility (`public`, `my_district`, `anonymous`, …), and writes dozens of statements/petitions/polls through the civic SDK. It also grants the platform `admin` role to `whyte_public@seed.oursay.dev` (public author with showcase posts/comments — not an Official) so the Platform mark is visible in the live feed. See `api/.oursay-dev/seed-manifest.json` after seeding — includes a `platformAdmin` block and a dev address for Edmonton-Strathcona residency so you can see `my_district` vs `public` comment authors. Pair with `NEXT_PUBLIC_MOCK_ONLY=0` in the web-app for a live feed.
 
 `npm run db:down` wipes Docker volumes — **destructive, dev-only**. The test reset and `db:down` are guarded by `scripts/destructive-guard.ts` and refuse to run under `NODE_ENV=production`.
 

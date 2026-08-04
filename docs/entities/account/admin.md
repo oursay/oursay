@@ -19,6 +19,7 @@ See [GLOSSARY.md](../../GLOSSARY.md) (**admin (role)**) and [01-CONTRIBUTOR-SPEC
 - **Table:** `auth.account_roles` (`user_id`, `role`, `granted_by_admin_id`, `granted_at`). Orthogonal to KYC and to jurisdiction Official on `auth.jurisdiction_memberships` (do not overload membership with a synthetic `platform` jurisdiction).
 - **Wire:** `platformRoles: string[]` on `GET /v1/auth/session`, public profile header, and feed / comment / record-detail author shapes.
 - **CLI:** `npm run admin:role -w @oursay/api -- grant|revoke|list` — production requires `OURSAY_ALLOW_PROD_ADMIN=1`. Bootstrap grant may leave `granted_by_admin_id` NULL.
+- **Dev seed:** `npm run seed -w @oursay/api` grants `admin` to `whyte_public@seed.oursay.dev` (showcase author with posts/comments; not Official) so the Platform mark appears in the live corpus.
 - **Portal HTTP tools** (`POST /v1/portal/admin/*`) remain future — Phase V1-C.
 
 ## Platform mark (web-app)

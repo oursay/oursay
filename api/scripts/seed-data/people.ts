@@ -30,6 +30,13 @@ export interface SeedPerson {
 export const GLOBAL_ID = "oursay-global";
 export const ALBERTA_ID = "ab-ca-gov";
 
+/**
+ * Bootstrap platform admin for the dev corpus ([v1-a-admin-role]).
+ * `whyte_public` is a residency-verified public author with showcase posts + author
+ * comments, and is not an Official — so the Platform mark stays orthogonal to seat/Official.
+ */
+export const SEED_ADMIN_HANDLE = "whyte_public";
+
 /** Fixed officials + visibility showcase accounts (mixed into the random pool). */
 export const SEED_ANCHORS: readonly SeedPerson[] = [
   {
