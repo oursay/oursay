@@ -8,7 +8,7 @@ Presentational React components that implement the mobile wireframe's chrome and
 |--------|----------|
 | `ui/` | Shared primitives: `Modal`, `Button`, `Avatar`, `NoticeBox`, `CheckboxRow`, `CollapsibleSection` |
 | `layout/` | Mobile shell: `AppHeader`, `ScrollBody`, `SafeFooter`, `Fab` |
-| `identity/` | `VerificationPill`, `AuthorRow` |
+| `identity/` | `VerificationPill`, `SignedPill`, `PlatformMark`, `AuthorBadgeGroup`, `AuthorRow` |
 | `content/` | `FeedCard`, `ScopeTag`, `ReactionButtons`, `PetitionProgress`, `PollOptions`, `CommentThread`, `EditCountLink`, `RecordTypeSection`, record-type icon/label maps |
 | `chrome/` | Modals & dropdowns: `FilterDropdown`, `JurisdictionSelector`, `AuthChooser`, `RegisterForm`, `OtpVerify`, `LoginChooser`, `ProfileModal`, `ComposeFlow`, `SignModal`, `AddJurisdictionModal` |
 | `utils/` | Pure helpers: `initials`, `formatCount` |
@@ -27,6 +27,7 @@ Each folder has a barrel `index.ts`; the top-level [`index.ts`](index.ts) re-exp
 ## Domain rules encoded here
 
 - **Verification tier 0 renders nothing** — `VerificationPill` returns `null` for public/unverified authors. Tiers 1–3 show a glyph + label and darken with tier.
+- **Platform mark** — authors with wire `platformRoles` including `admin` show a purple **Platform** mark (Lucide globe) via `PlatformMark`, slotted in `AuthorBadgeGroup` between Signed and KYC. Collapses to icon-only under the same depth rules as KYC. Recommend renaming `*Pill` → `Mark` in a follow-up (`.agents/plans/V1-ROADMAP.md`); do not rename in V1-A.
 - **Residency glyph ladder** — a residency author's (tier 2) pill refines by the server-resolved `authorGeo` relation: `map-pin-house` (viewer's own district, needs a residency-verified viewer) > `map-pin-check` (in the post's affected area) > `map-pinned` (in the post's jurisdiction, outside the affected area) > `map-pin`. Raw districts never reach the client.
 - **Inclusive Verified filter** — `FilterDropdown` cycles the ladder Any → Identity → Residency → Official (`tier >= selected`). My Districts needs a residency-verified viewer; Affected (post pages) and My Jurisdiction(s) (author-residence, all list scopes) are viewer-independent. An engaged geography "Only" pins the effective Verified floor to Residency.
 - **Social vs civic counts** — social counts (comments, reactions) thin as the Verified filter rises (`scaleSocial`); civic counts (signatures, votes) never thin — instead an additive "+N unverified" note appears (`civicExtra`).

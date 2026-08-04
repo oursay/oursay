@@ -152,3 +152,10 @@ W2 (`docs/temp/WEB-APP-GAPS.md` C8 + Part 6) re-shaped the mock layer to match t
 
 ### Unchanged
 - Personas (thread-scoped, `AdjectiveAnimalNN`) and the `authorGeo` relation shape are unchanged by W2. Visibility already ships the 4 picker values (`anonymous | all_officials | my_district | public`); the corpus retains future values for the de-anon demo.
+
+## Part 4 — Platform roles (V1-A)
+
+- **Wire:** `platformRoles: string[]` on `GET /v1/auth/session`, `GET /v1/public/profiles/{handle}`, and author surfaces that already carry `official` (feed items, record detail, comment nodes). Empty array when none. Role name is `admin` (never `platform_admin`).
+- **Client:** `mapPlatformRole` collapses the array to `platformRole: "admin" | null` on `FeedItem` / `RecordDetail` / `CommentNode` / `PublicProfile`. Orthogonal to KYC `tier` and jurisdiction Official.
+- **UI:** purple Platform mark (globe) in `AuthorBadgeGroup` — order Signed → Platform → KYC. TODO(marks[]): unify into `marks: AuthorMark[]` (see `.agents/plans/V1-ROADMAP.md`).
+- **Ops:** grant/revoke via `npm run admin:role -w @oursay/api` only in this phase — no HTTP mutation endpoints.

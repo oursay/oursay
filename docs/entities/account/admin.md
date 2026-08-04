@@ -11,8 +11,21 @@ See [GLOSSARY.md](../../GLOSSARY.md) (**admin (role)**) and [01-CONTRIBUTOR-SPEC
 | Layer | Name |
 |-------|------|
 | Product | Admin / operator |
-| Code (target) | `admin` role on the account |
+| Code | `admin` role on `auth.account_roles` |
 | Superseded | `platform_admin` |
+
+## Storage + elevation (landed — V1-A)
+
+- **Table:** `auth.account_roles` (`user_id`, `role`, `granted_by_admin_id`, `granted_at`). Orthogonal to KYC and to jurisdiction Official on `auth.jurisdiction_memberships` (do not overload membership with a synthetic `platform` jurisdiction).
+- **Wire:** `platformRoles: string[]` on `GET /v1/auth/session`, public profile header, and feed / comment / record-detail author shapes.
+- **CLI:** `npm run admin:role -w @oursay/api -- grant|revoke|list` — production requires `OURSAY_ALLOW_PROD_ADMIN=1`. Bootstrap grant may leave `granted_by_admin_id` NULL.
+- **Portal HTTP tools** (`POST /v1/portal/admin/*`) remain future — Phase V1-C.
+
+## Platform mark (web-app)
+
+Rendered on public bylines as the purple **Platform** mark (Lucide globe). Client maps wire `platformRoles` to a narrow `platformRole: "admin" | null` for V1-A.
+
+TODO(marks[]): unify Signed / Platform / Media / KYC into `marks: AuthorMark[]` — see `.agents/plans/V1-ROADMAP.md` Phase V1-A author mark model.
 
 ## Hard limits
 
@@ -37,7 +50,7 @@ Anything currently done by script or hand against production/demo data is in sco
 | **Jurisdiction config** | Deploy or update gates, recognition lists (`recognizedAccreditationBodyIds`), labels, content limits (today often via `@oursay/jurisdiction-data` + deploy) |
 | **Account / ops** | User management, recovery assistance, feature flags, incident response — as already done manually |
 
-Exact UI screens and API shapes for each tool are **not** specified here; this file is the responsibility map.
+Exact UI screens and API shapes for each tool are **not** specified here; this file is the responsibility map. Role storage + CLI elevate landed in V1-A; HTTP admin tools are V1-C.
 
 ## Future
 
@@ -60,5 +73,4 @@ A future **unified portal** is the intended home for role-scoped tools:
 
 ## Gaps
 
-- **[v1-admin-tools]** — replace script/DB-only ops with logged admin APIs/tools for the rows above (incremental).
-- Role storage for `admin` on the account — not shipped.
+- **[v1-admin-tools]** — HTTP/portal logged admin APIs for the responsibility rows above (V1-C+). Role storage + CLI elevate are done (V1-A).
