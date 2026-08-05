@@ -1,4 +1,6 @@
-import type { CSSProperties } from "react";
+"use client";
+
+import { useState, type CSSProperties } from "react";
 import {
   CodeXml,
   Gavel,
@@ -181,7 +183,7 @@ export type EntityMarkSpec =
 
 export type EntityMarkProps = EntityMarkSpec & {
   mode?: PillDisplayMode;
-} & Omit<React.HTMLAttributes<HTMLSpanElement>, "children">;
+} & Omit<React.HTMLAttributes<HTMLElement>, "children">;
 
 type EntityMarkBaseProps = {
   bgColor: string;
@@ -189,8 +191,18 @@ type EntityMarkBaseProps = {
   icon: React.ReactNode;
   label: string;
   mode: PillDisplayMode;
-} & Omit<React.HTMLAttributes<HTMLSpanElement>, "children">;
+} & Omit<React.HTMLAttributes<HTMLElement>, "children">;
 
+const FULL_CLASS =
+  "inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight";
+
+const ICON_CLASS =
+  "group inline-flex h-4 min-w-4 shrink-0 items-center justify-center gap-0.5 rounded-full px-0 text-[10px] font-medium leading-tight transition-[padding] hover:px-1.5 data-[expanded]:px-1.5";
+
+/**
+ * Shared mark chrome — full = static pill; icon = expandable circle that
+ * reveals the label on hover (pointer) or tap (touch), matching VerificationPill.
+ */
 export function EntityMarkBase({
   bgColor,
   fgColor,
@@ -206,16 +218,84 @@ export function EntityMarkBase({
     ...style,
   };
 
+  if (mode === "icon") {
+    return (
+      <ExpandableEntityMark
+        bgColor={bgColor}
+        fgColor={fgColor}
+        icon={icon}
+        label={label}
+        className={className}
+        style={style}
+        {...rest}
+      />
+    );
+  }
+
   return (
     <span
-      aria-label={label}
-      className={`inline-flex shrink-0 items-center gap-0.5 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight ${fgColor} ${className ?? ""}`}
+      className={`${FULL_CLASS} ${fgColor} ${className ?? ""}`}
       style={mergedStyle}
       {...rest}
     >
       {icon}
-      {mode === "full" ? label : null}
+      {label}
     </span>
+  );
+}
+
+/**
+ * Icon-only mark that reveals its full label on hover (pointer) or tap
+ * (touch). Full-form marks are static; only the icon variant expands.
+ */
+function ExpandableEntityMark({
+  bgColor,
+  fgColor,
+  icon,
+  label,
+  className,
+  style,
+  onClick,
+  onMouseLeave,
+  onBlur,
+  ...rest
+}: Omit<EntityMarkBaseProps, "mode">) {
+  const [expanded, setExpanded] = useState(false);
+
+  const mergedStyle: CSSProperties = {
+    backgroundColor: bgColor,
+    ...style,
+  };
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-expanded={expanded}
+      data-expanded={expanded || undefined}
+      onClick={(e) => {
+        // Keep the mark self-contained inside clickable cards.
+        e.stopPropagation();
+        setExpanded((v) => !v);
+        onClick?.(e);
+      }}
+      onMouseLeave={(e) => {
+        setExpanded(false);
+        onMouseLeave?.(e);
+      }}
+      onBlur={(e) => {
+        setExpanded(false);
+        onBlur?.(e);
+      }}
+      className={`${ICON_CLASS} ${fgColor} ${className ?? ""}`}
+      style={mergedStyle}
+      {...rest}
+    >
+      {icon}
+      <span className="hidden whitespace-nowrap group-hover:inline group-data-[expanded]:inline">
+        {label}
+      </span>
+    </button>
   );
 }
 
@@ -282,7 +362,13 @@ export function EntityMark({
     <EntityMarkBase
       bgColor={shadeToBg(resolved.hue, resolved.shade)}
       fgColor={shadeToFg(resolved.hue, resolved.shade)}
-      icon={<Icon size={10} aria-hidden />}
+      icon={
+        <Icon
+          size={10}
+          aria-hidden
+          className={mode === "icon" ? "shrink-0" : undefined}
+        />
+      }
       label={resolved.label}
       mode={mode}
       className={className}
