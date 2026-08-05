@@ -348,6 +348,67 @@ export class GeoStore {
     return r.rows[0].n as number;
   }
 
+  /** Claimed seats in force on `asOf` (any jurisdiction, or one when `jurisdictionId` is set). */
+  async listClaimedOfficialSeatsAsOf(
+    asOf: Date = new Date(),
+    jurisdictionId?: string,
+  ): Promise<OfficialSeatRow[]> {
+    const asOfDay = asOf.toISOString().slice(0, 10);
+    const r = jurisdictionId
+      ? await this.pool.query(
+          `SELECT * FROM (
+             SELECT DISTINCT ON (seat_handle)
+                    id,
+                    jurisdiction_id,
+                    seat_kind,
+                    title,
+                    seat_handle,
+                    district_slug,
+                    district_short_slug,
+                    leader_role,
+                    to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+                    boundary_year,
+                    role,
+                    representative_name,
+                    claimed_user_handle,
+                    source
+               FROM geo.official_seats
+              WHERE jurisdiction_id = $1
+                AND effective_date <= $2
+                AND claimed_user_handle IS NOT NULL
+              ORDER BY seat_handle, effective_date DESC
+           ) eff
+           ORDER BY jurisdiction_id, title, seat_handle`,
+          [jurisdictionId, asOfDay],
+        )
+      : await this.pool.query(
+          `SELECT * FROM (
+             SELECT DISTINCT ON (seat_handle)
+                    id,
+                    jurisdiction_id,
+                    seat_kind,
+                    title,
+                    seat_handle,
+                    district_slug,
+                    district_short_slug,
+                    leader_role,
+                    to_char(effective_date, 'YYYY-MM-DD') AS effective_date,
+                    boundary_year,
+                    role,
+                    representative_name,
+                    claimed_user_handle,
+                    source
+               FROM geo.official_seats
+              WHERE effective_date <= $1
+                AND claimed_user_handle IS NOT NULL
+              ORDER BY seat_handle, effective_date DESC
+           ) eff
+           ORDER BY jurisdiction_id, title, seat_handle`,
+          [asOfDay],
+        );
+    return r.rows.map(mapOfficialSeatRow);
+  }
+
   // ---- resolution ------------------------------------------------------------
 
   /** Whether a district revision id exists. */

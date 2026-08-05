@@ -19,6 +19,7 @@ See [GLOSSARY.md](../../GLOSSARY.md) (**admin (role)**) and [01-CONTRIBUTOR-SPEC
 - **Table:** `auth.account_roles` (`user_id`, `role`, `granted_by_admin_id`, `granted_at`). Orthogonal to KYC and to jurisdiction Official on `auth.jurisdiction_memberships` (do not overload membership with a synthetic `platform` jurisdiction).
 - **Wire:** `platformRoles: string[]` on `GET /v1/auth/session`, public profile header, and feed / comment / record-detail author shapes.
 - **CLI:** `npm run admin:role -w @oursay/api -- grant|revoke|list` — production requires `OURSAY_ALLOW_PROD_ADMIN=1`. Bootstrap grant may leave `granted_by_admin_id` NULL.
+- **Official seats CLI:** `npm run admin:seat -w @oursay/api -- claim|revoke|list` — claim/revoke by seat handle (jurisdiction taken from the seat row; same prod gate). Optional `--jurisdiction` on list; `--email` on revoke to confirm the current claimant.
 - **Dev seed:** `npm run seed -w @oursay/api` grants `admin` to `whyte_public@seed.oursay.dev` (showcase author with posts/comments; not Official) so the Platform mark appears in the live corpus.
 - **Portal HTTP tools** (`POST /v1/portal/admin/*`) remain future — Phase V1-C.
 
@@ -46,7 +47,7 @@ Anything currently done by script or hand against production/demo data is in sco
 |------|----------|
 | **Moderation / redaction** | Redact or remove user-facing content that violates guidelines; preserve ledger hashes / audit trail for removed items where the product already requires it |
 | **Geography** | Maintain district / boundary roster data for a jurisdiction (ingest, refresh, correct seat metadata) |
-| **Official** | Assign / revoke Official role and seat claim linkage on jurisdiction membership |
+| **Official** | Assign / revoke Official role and seat claim linkage on jurisdiction membership (`admin:seat` CLI; HTTP later) |
 | **Media** | Maintain **accreditation body** catalog; grant / revoke Media accreditations (`expires_at` optional) |
 | **Jurisdiction config** | Deploy or update gates, recognition lists (`recognizedAccreditationBodyIds`), labels, content limits (today often via `@oursay/jurisdiction-data` + deploy) |
 | **Account / ops** | User management, recovery assistance, feature flags, incident response — as already done manually |

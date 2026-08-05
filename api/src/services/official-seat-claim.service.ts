@@ -1,4 +1,5 @@
 // Platform-only official seat claims — links geo.official_seats to auth.jurisdiction_memberships.
+// Jurisdiction comes from the seat row (never hardcoded) so any ingested roster works.
 
 import type { GeoStore, OfficialSeatRow } from "@oursay/geo";
 import { ServiceError } from "../errors.js";
@@ -46,9 +47,72 @@ export class OfficialSeatClaimService {
       seat.districtSlug,
     );
   }
+
+  /**
+   * Release a roster seat: clear claimed_user_handle. If the former holder has no other claimed
+   * seats in that jurisdiction, revoke their official role there; otherwise keep official and
+   * re-point represented_district_slug to a remaining seat.
+   *
+   * Idempotent when the seat is already unclaimed. Optional expectedUserHandle / expectedUserId
+   * refuse the release when the current claimant does not match (ops safety).
+   */
+  async releaseSeat(
+    seatHandle: string,
+    opts: { expectedUserHandle?: string; expectedUserId?: string } = {},
+    asOf: Date = new Date(),
+  ): Promise<void> {
+    const seat = await this.d.geoStore.getOfficialSeatByHandle(seatHandle, asOf);
+    if (!seat) throw new ServiceError("not_found", `official seat not found: ${seatHandle}`);
+
+    const claimed = seat.claimedUserHandle?.replace(/^@/, "").trim() ?? null;
+    if (!claimed) return;
+
+    if (opts.expectedUserHandle) {
+      const expected = normalizeHandle(opts.expectedUserHandle);
+      if (!expected || claimed !== expected) {
+        throw new ServiceError(
+          "conflict",
+          `seat ${seatHandle} is claimed by @${claimed}, not @${expected ?? opts.expectedUserHandle}`,
+        );
+      }
+    }
+
+    if (opts.expectedUserId) {
+      const expectedUser = await this.d.userRepo.getById(opts.expectedUserId);
+      const expectedHandle = expectedUser ? normalizeHandle(expectedUser.handle) : null;
+      if (!expectedHandle || claimed !== expectedHandle) {
+        throw new ServiceError(
+          "conflict",
+          `seat ${seatHandle} is claimed by @${claimed}, not user ${opts.expectedUserId}`,
+        );
+      }
+    }
+
+    await this.d.geoStore.upsertOfficialSeat(seatRowToUpsert(seat, null));
+
+    const user = await this.d.userRepo.getByHandle(claimed);
+    if (!user) return;
+
+    const remaining = (
+      await this.d.geoStore.listOfficialSeatsByClaimedUserHandle(claimed, asOf)
+    ).filter((s) => s.jurisdictionId === seat.jurisdictionId);
+
+    if (remaining.length === 0) {
+      await this.d.membershipRepo.setRole(user.id, seat.jurisdictionId, null);
+      return;
+    }
+
+    const prefer = remaining.find((s) => s.districtSlug) ?? remaining[0]!;
+    await this.d.membershipRepo.setRole(
+      user.id,
+      seat.jurisdictionId,
+      "official",
+      prefer.districtSlug,
+    );
+  }
 }
 
-function seatRowToUpsert(seat: OfficialSeatRow, claimedUserHandle: string) {
+function seatRowToUpsert(seat: OfficialSeatRow, claimedUserHandle: string | null) {
   return {
     id: seat.id,
     jurisdictionId: seat.jurisdictionId,

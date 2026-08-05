@@ -64,4 +64,37 @@ describe("36 official seat claim", () => {
       expect((e as ServiceError).code).to.equal("conflict");
     }
   });
+
+  it("releaseSeat clears the claim and revokes official when no other seats remain", async () => {
+    const author = await makeAccount(w, { handle: "rae_nguyen" });
+    await w.services.officialSeatClaimService.claimSeat(author.userId, "ab-edm_strth");
+
+    await w.services.officialSeatClaimService.releaseSeat("ab-edm_strth");
+
+    const seat = await w.services.geoStore.getOfficialSeatByHandle("ab-edm_strth");
+    expect(seat?.claimedUserHandle).to.equal(null);
+
+    const membership = await w.services.repos.membership.get(author.userId, AB);
+    expect(membership?.role).to.equal(null);
+    expect(membership?.representedDistrictSlug).to.equal(null);
+  });
+
+  it("releaseSeat refuses when --email expected user does not match claimant", async () => {
+    const holder = await makeAccount(w, { handle: "rae_nguyen" });
+    const other = await makeAccount(w, { handle: "other_mla" });
+    await w.services.officialSeatClaimService.claimSeat(holder.userId, "ab-edm_strth");
+
+    try {
+      await w.services.officialSeatClaimService.releaseSeat("ab-edm_strth", {
+        expectedUserId: other.userId,
+      });
+      expect.fail("expected conflict");
+    } catch (e: unknown) {
+      expect(e).to.be.instanceOf(ServiceError);
+      expect((e as ServiceError).code).to.equal("conflict");
+    }
+
+    const seat = await w.services.geoStore.getOfficialSeatByHandle("ab-edm_strth");
+    expect(seat?.claimedUserHandle).to.equal("rae_nguyen");
+  });
 });

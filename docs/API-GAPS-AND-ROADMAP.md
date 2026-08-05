@@ -81,7 +81,7 @@ The **foundation** here is launch scope (see `[ROADMAP.md](./ROADMAP.md)` MVP an
 | **`[v1-media-accreditation-bodies]`** | No platform accreditation-body catalog | Prerequisite for Media accreditation and jurisdiction `recognizedAccreditationBodyIds` (GLOSSARY; `entities/account/accreditation-body.md`). |
 | **`[v1-media-accreditations]`** | No Media accreditation rows / derived Media mark / media-accredited gate | `admin` manual grant/revoke V1; `{ mediaAccredited: true }` on gates (`entities/account/media-accreditation.md`). |
 | **`[align-w3-gates-schema]`** (Media slice) | Gates + `recognizedAccreditationBodyIds` not in `JurisdictionConfig` yet | Official OR media-accredited poll create for `ab-ca-gov` is doctrine-only until encoded. |
-| **`[v1-admin-tools]`** | Role storage + CLI elevate landed (V1-A); HTTP/portal logged admin APIs still future (V1-C) | Moderation, districts, Official seats, accreditation catalog, Media grants — see `entities/account/admin.md`. |
+| **`[v1-admin-tools]`** | Role storage + admin/seat CLIs landed (V1-A); HTTP/portal logged admin APIs still future (V1-C) | Moderation, districts, accreditation catalog, Media grants — see `entities/account/admin.md`. |
 
 ### App and ops (Phase D / E — not backend geo)
 

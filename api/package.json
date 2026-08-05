@@ -13,6 +13,7 @@
     "start": "NODE_ENV=production tsx src/http/serve.ts",
     "cli": "tsx src/cli/index.ts",
     "admin:role": "tsx scripts/admin-role.ts",
+    "admin:seat": "tsx scripts/admin-seat.ts",
     "openapi:dump": "tsx scripts/openapi-dump.ts",
     "seed": "tsx scripts/seed.ts",
     "up": "tsx scripts/compose-up.ts oursay-dev-public-record docker-compose.dev.yml",
