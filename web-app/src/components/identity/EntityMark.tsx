@@ -58,17 +58,18 @@ const MARK_REGISTRY = {
       passkey: {
         icon: Key,
         label: "Passkey",
-        shade: 1,
+        /** Mid–deep honey; face/fingerprint step up, shade 10 still free. */
+        shade: 7,
       } satisfies MarkSubtypeEntry,
       fingerprint: {
         icon: Fingerprint,
         label: "Fingerprint",
-        shade: 1,
+        shade: 8,
       } satisfies MarkSubtypeEntry,
       face: {
         icon: ScanFace,
         label: "Face",
-        shade: 1,
+        shade: 9,
       } satisfies MarkSubtypeEntry,
     },
   },
@@ -98,7 +99,7 @@ const MARK_REGISTRY = {
       identity: {
         icon: IdCard,
         label: "Identity",
-        shade: 5,
+        shade: 1,
         contexts: {
           /**
            * ID issuer matches the post's jurisdiction (e.g. Alberta DL on an
@@ -107,13 +108,14 @@ const MARK_REGISTRY = {
           issuerJurisdiction: {
             icon: IdCard,
             label: "Affected",
-            shade: 7,
+            shade: 3,
           },
         },
       } satisfies MarkSubtypeEntry,
       residency: {
         icon: MapPin,
         label: "Residency",
+        /** Spread across 3→10 so geo steps (esp. affected→myDistrict) read clearly. */
         shade: 3,
         contexts: {
           jurisdiction: {
@@ -129,7 +131,7 @@ const MARK_REGISTRY = {
           myDistrict: {
             icon: MapPinHouse,
             label: "MyDistrict",
-            shade: 9,
+            shade: 10,
           },
         },
       } satisfies MarkSubtypeEntry,
@@ -317,25 +319,65 @@ function ExpandableEntityMark({
 }
 
 /**
+ * Static per-hue CSS vars — required so Tailwind's content scanner keeps the
+ * `@theme` tokens. A dynamic `var(--color-mark-${hue})` is invisible to the
+ * scanner; Official was tree-shaken out of light `:root` while `html.dark`
+ * still set the near-white override, so light mode got an invalid (white) bg.
+ */
+const MARK_ANCHOR: Record<MarkHue, string> = {
+  signing: "var(--color-mark-signing)",
+  platform: "var(--color-mark-platform)",
+  kyc: "var(--color-mark-kyc)",
+  media: "var(--color-mark-media)",
+  official: "var(--color-mark-official)",
+};
+
+const MARK_MIX: Record<MarkHue, string> = {
+  signing: "var(--color-mark-signing-mix)",
+  platform: "var(--color-mark-platform-mix)",
+  kyc: "var(--color-mark-kyc-mix)",
+  media: "var(--color-mark-media-mix)",
+  official: "var(--color-mark-official-mix)",
+};
+
+/**
  * Shade 10 = full hue anchor. Shades 1–9 mix toward `--color-mark-*-mix`
  * (white by default; Official uses black in dark mode so the inverted chip
- * darkens instead of bleaching). Shade 1 → ~50% hue, then ≈ +5.6% per step.
+ * darkens instead of bleaching). Shade 1 → 30% hue, shade 10 → 100%
+ * (≈7.8pp per step) so geo ladders like residency→affected→myDistrict
+ * stay visually distinct.
  */
 function shadeToBg(hue: MarkHue, shade: MarkShade): string {
-  const anchor = `var(--color-mark-${hue})`;
+  const anchor = MARK_ANCHOR[hue];
   if (shade === 10) return anchor;
-  const huePct = 50 + ((shade - 1) * 50) / 9;
-  return `color-mix(in oklch, ${anchor} ${huePct.toFixed(2)}%, var(--color-mark-${hue}-mix))`;
+  const huePct = 30 + ((shade - 1) * 70) / 9;
+  return `color-mix(in oklch, ${anchor} ${huePct.toFixed(2)}%, ${MARK_MIX[hue]})`;
 }
 
 /**
- * Official always uses `text-paper`: tracks the inverse of the page so it
- * stays legible when the official chip inverts. Colour hues: pale mixes →
- * ink; stronger fills → white.
+ * KYC label contrast barrier = base residency shade. Residency and lighter
+ * (identity, …) use dark text; jurisdiction and above use white. Tracks the
+ * registry so bumping residency shade moves the barrier with it.
+ */
+const KYC_DARK_TEXT_MAX_SHADE: MarkShade =
+  MARK_REGISTRY.kyc.subtypes.residency.shade;
+
+/**
+ * Foreground from fill strength (shade), not theme. Pale tints need a fixed
+ * dark (`text-mark-on-tint`) — `text-ink` flips in dark mode and washes out
+ * on light pastel chips. Signing is always light on honey. KYC flips at the
+ * residency shade (≤ dark, > white). Official uses `text-paper` so it tracks
+ * the page when the chip inverts light↔dark.
  */
 function shadeToFg(hue: MarkHue, shade: MarkShade): string {
   if (hue === "official") return "text-paper";
-  return shade <= 3 ? "text-ink" : "text-white";
+  if (hue === "signing") return "text-white";
+  if (hue === "kyc") {
+    return shade <= KYC_DARK_TEXT_MAX_SHADE
+      ? "text-mark-on-tint"
+      : "text-white";
+  }
+  return shade <= 3 ? "text-mark-on-tint" : "text-white";
 }
 
 function resolveMark(spec: EntityMarkSpec): {
@@ -358,6 +400,23 @@ function resolveMark(spec: EntityMarkSpec): {
     label: ctx?.label ?? subtype.label,
     shade: ctx?.shade ?? subtype.shade,
   };
+}
+
+/**
+ * Background CSS colour for a mark spec — shared with settings chrome
+ * (e.g. ProfileModal) so tier pills stay on EntityMark tokens.
+ */
+export function entityMarkBackground(spec: EntityMarkSpec): string {
+  const { hue, shade } = resolveMark(spec);
+  return shadeToBg(hue, shade);
+}
+
+/**
+ * Foreground utility class for a mark spec (theme-stable where required).
+ */
+export function entityMarkForeground(spec: EntityMarkSpec): string {
+  const { hue, shade } = resolveMark(spec);
+  return shadeToFg(hue, shade);
 }
 
 /**

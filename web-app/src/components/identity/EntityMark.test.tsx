@@ -1,9 +1,14 @@
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import {
   EntityMark,
   EntityMarkBase,
+  entityMarkBackground,
+  entityMarkForeground,
   type EntityMarkSpec,
 } from "@/components/identity/EntityMark";
 
@@ -13,7 +18,7 @@ function renderMark(spec: EntityMarkSpec & { mode?: "full" | "icon"; className?:
 
 /** Expected color-mix pct for shades 1–9 (shade 10 is the raw CSS var). */
 function huePct(shade: number): string {
-  return (50 + ((shade - 1) * 50) / 9).toFixed(2);
+  return (30 + ((shade - 1) * 70) / 9).toFixed(2);
 }
 
 describe("EntityMark registry labels", () => {
@@ -97,15 +102,46 @@ describe("EntityMark shade → background", () => {
     expect(html).not.toContain("color-mix");
   });
 
+  it("uses the official hue CSS var (static string — keeps @theme token)", () => {
+    const html = renderMark({ type: "official", subtype: "official" });
+    expect(html).toContain("background-color:var(--color-mark-official)");
+    expect(html).not.toContain("color-mix");
+  });
+
   it("mixes toward the hue mix token for shades under 10", () => {
-    // passkey = signing shade 1
-    const html = renderMark({ type: "signing", subtype: "passkey" });
+    // moderator = platform shade 1
+    const html = renderMark({ type: "platform", subtype: "moderator" });
     expect(html).toContain(
-      `color-mix(in oklch, var(--color-mark-signing) ${huePct(1)}%, var(--color-mark-signing-mix))`,
+      `color-mix(in oklch, var(--color-mark-platform) ${huePct(1)}%, var(--color-mark-platform-mix))`,
+    );
+  });
+
+  it("uses signing shade ladder 7→8→9 (passkey / fingerprint / face)", () => {
+    const passkey = renderMark({ type: "signing", subtype: "passkey" });
+    expect(passkey).toContain(
+      `color-mix(in oklch, var(--color-mark-signing) ${huePct(7)}%, var(--color-mark-signing-mix))`,
+    );
+
+    const fingerprint = renderMark({
+      type: "signing",
+      subtype: "fingerprint",
+    });
+    expect(fingerprint).toContain(
+      `color-mix(in oklch, var(--color-mark-signing) ${huePct(8)}%, var(--color-mark-signing-mix))`,
+    );
+
+    const face = renderMark({ type: "signing", subtype: "face" });
+    expect(face).toContain(
+      `color-mix(in oklch, var(--color-mark-signing) ${huePct(9)}%, var(--color-mark-signing-mix))`,
     );
   });
 
   it("uses residency context shade overrides", () => {
+    const residency = renderMark({ type: "kyc", subtype: "residency" });
+    expect(residency).toContain(
+      `color-mix(in oklch, var(--color-mark-kyc) ${huePct(3)}%, var(--color-mark-kyc-mix))`,
+    );
+
     const affected = renderMark({
       type: "kyc",
       subtype: "residency",
@@ -120,9 +156,8 @@ describe("EntityMark shade → background", () => {
       subtype: "residency",
       context: "myDistrict",
     });
-    expect(myDistrict).toContain(
-      `color-mix(in oklch, var(--color-mark-kyc) ${huePct(9)}%, var(--color-mark-kyc-mix))`,
-    );
+    expect(myDistrict).toContain("background-color:var(--color-mark-kyc)");
+    expect(myDistrict).not.toContain("color-mix");
   });
 
   it("keeps hue on the type family when context only changes shade", () => {
@@ -136,22 +171,49 @@ describe("EntityMark shade → background", () => {
 });
 
 describe("EntityMark shade → foreground", () => {
-  it("uses text-ink for pale mixes (shade ≤ 3)", () => {
-    const passkey = renderMark({ type: "signing", subtype: "passkey" });
-    expect(passkey).toContain("text-ink");
-    expect(passkey).not.toContain("text-white");
-
-    const residency = renderMark({ type: "kyc", subtype: "residency" });
-    expect(residency).toContain("text-ink");
+  it("uses theme-stable dark text on pale non-signing mixes (shade ≤ 3)", () => {
+    const mod = renderMark({ type: "platform", subtype: "moderator" });
+    expect(mod).toContain("text-mark-on-tint");
+    expect(mod).not.toContain("text-ink");
+    expect(mod).not.toContain("text-white");
   });
 
-  it("uses text-white for stronger fills (shade ≥ 4)", () => {
+  it("always uses text-white for signing (honey chip, both themes)", () => {
+    const passkey = renderMark({ type: "signing", subtype: "passkey" });
+    expect(passkey).toContain("text-white");
+    expect(passkey).not.toContain("text-mark-on-tint");
+    expect(passkey).not.toContain("text-ink");
+  });
+
+  it("uses text-white for stronger non-KYC fills (shade ≥ 4)", () => {
     const admin = renderMark({ type: "platform", subtype: "admin" });
     expect(admin).toContain("text-white");
     expect(admin).not.toContain("text-ink");
+    expect(admin).not.toContain("text-mark-on-tint");
+  });
 
+  it("uses dark text through residency, white from jurisdiction up", () => {
     const identity = renderMark({ type: "kyc", subtype: "identity" });
-    expect(identity).toContain("text-white");
+    expect(identity).toContain("text-mark-on-tint");
+
+    const residency = renderMark({ type: "kyc", subtype: "residency" });
+    expect(residency).toContain("text-mark-on-tint");
+    expect(residency).not.toContain("text-white");
+
+    const jurisdiction = renderMark({
+      type: "kyc",
+      subtype: "residency",
+      context: "jurisdiction",
+    });
+    expect(jurisdiction).toContain("text-white");
+    expect(jurisdiction).not.toContain("text-mark-on-tint");
+
+    const affected = renderMark({
+      type: "kyc",
+      subtype: "residency",
+      context: "affected",
+    });
+    expect(affected).toContain("text-white");
   });
 
   it("always uses text-paper for official", () => {
@@ -159,6 +221,99 @@ describe("EntityMark shade → foreground", () => {
     expect(html).toContain("text-paper");
     expect(html).not.toContain("text-ink");
     expect(html).not.toContain("text-white");
+    expect(html).not.toContain("text-mark-on-tint");
+  });
+});
+
+describe("entityMarkBackground / entityMarkForeground", () => {
+  it("matches EntityMark fills for KYC identity and residency", () => {
+    const identity = { type: "kyc", subtype: "identity" } as const;
+    const residency = { type: "kyc", subtype: "residency" } as const;
+
+    expect(entityMarkBackground(identity)).toBe(
+      `color-mix(in oklch, var(--color-mark-kyc) ${huePct(1)}%, var(--color-mark-kyc-mix))`,
+    );
+    expect(entityMarkForeground(identity)).toBe("text-mark-on-tint");
+
+    expect(entityMarkBackground(residency)).toBe(
+      `color-mix(in oklch, var(--color-mark-kyc) ${huePct(3)}%, var(--color-mark-kyc-mix))`,
+    );
+    expect(entityMarkForeground(residency)).toBe("text-mark-on-tint");
+    expect(
+      entityMarkForeground({
+        type: "kyc",
+        subtype: "residency",
+        context: "jurisdiction",
+      }),
+    ).toBe("text-white");
+  });
+});
+
+describe("Official mark theme tokens", () => {
+  const css = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../../styles/global.css"),
+    "utf8",
+  );
+
+  /** Slice from `@theme {` up to the following `html.dark {` (light tokens only). */
+  function themeBlock(): string {
+    const start = css.indexOf("@theme {");
+    const end = css.indexOf("html.dark {");
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    return css.slice(start, end);
+  }
+
+  /** Slice from `html.dark {` through its closing brace at indent 0. */
+  function darkBlock(): string {
+    const start = css.indexOf("html.dark {");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const after = css.slice(start);
+    const close = after.indexOf("\n}");
+    expect(close).toBeGreaterThan(0);
+    return after.slice(0, close + 2);
+  }
+
+  it("defines a dark slate Official chip in light @theme", () => {
+    // Light Official must be near-black — if tree-shaken, bg falls through to paper (white).
+    const theme = themeBlock();
+    expect(theme).toMatch(/--color-mark-official:\s*#111827/);
+    expect(theme).toMatch(/--color-mark-official-mix:\s*white/);
+  });
+
+  it("inverts Official to near-white under html.dark", () => {
+    const dark = darkBlock();
+    expect(dark).toMatch(/--color-mark-official:\s*#e5e7eb/);
+    expect(dark).toMatch(/--color-mark-official-mix:\s*black/);
+  });
+
+  it("keeps light and dark Official anchors distinct", () => {
+    const themeOfficial = themeBlock().match(
+      /--color-mark-official:\s*(#[0-9a-fA-F]+)/,
+    )?.[1];
+    const darkOfficial = darkBlock().match(
+      /--color-mark-official:\s*(#[0-9a-fA-F]+)/,
+    )?.[1];
+    expect(themeOfficial).toBe("#111827");
+    expect(darkOfficial).toBe("#e5e7eb");
+    expect(themeOfficial).not.toBe(darkOfficial);
+  });
+
+  it("does not lighten colour mark anchors under html.dark", () => {
+    const dark = darkBlock();
+    expect(dark).not.toMatch(/--color-mark-kyc:/);
+    expect(dark).not.toMatch(/--color-mark-signing:/);
+    expect(dark).not.toMatch(/--color-mark-platform:/);
+    expect(dark).not.toMatch(/--color-mark-media:/);
+  });
+
+  it("keeps pale-mark label colour theme-stable (not redefined in dark)", () => {
+    expect(themeBlock()).toMatch(/--color-mark-on-tint:\s*#111827/);
+    expect(darkBlock()).not.toMatch(/--color-mark-on-tint:/);
+  });
+
+  it("uses a deep honey signing anchor", () => {
+    expect(themeBlock()).toMatch(/--color-mark-signing:\s*#b8860b/);
   });
 });
 

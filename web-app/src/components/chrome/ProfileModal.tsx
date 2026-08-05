@@ -23,7 +23,12 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Avatar, Button, Modal } from "@/components/ui";
-import { VisibilityPicker } from "@/components/identity";
+import {
+  entityMarkBackground,
+  entityMarkForeground,
+  type EntityMarkSpec,
+  VisibilityPicker,
+} from "@/components/identity";
 import type { AuthPasskey } from "@/lib/api/auth";
 import { passkeyDisplayLabel } from "@/lib/api/auth";
 import type {
@@ -95,10 +100,10 @@ const KYC_ICON: Record<VerificationTier, LucideIcon> = {
   2: MapPin,
 };
 
-/** TODO(marks-band2): adopt EntityMark hue tokens for settings chrome. */
-const KYC_TIER_BG: Record<Exclude<VerificationTier, 0>, string> = {
-  1: "bg-verify-tier-1", // Identity — green
-  2: "bg-verify-tier-2", // Residency — blue
+/** KYC ladder → EntityMark specs (same fills as feed badges). */
+const KYC_MARK: Record<Exclude<VerificationTier, 0>, EntityMarkSpec> = {
+  1: { type: "kyc", subtype: "identity" },
+  2: { type: "kyc", subtype: "residency" },
 };
 
 /** Only the first two passkeys are listed; the rest collapse to "+N more". */
@@ -395,9 +400,20 @@ export function ProfileModal({
             <span
               className={`inline-flex min-h-9 flex-1 items-center gap-2 rounded-full px-4 text-sm font-medium ${
                 kycTier > 0
-                  ? `${KYC_TIER_BG[kycTier as Exclude<VerificationTier, 0>]} text-white`
+                  ? entityMarkForeground(
+                      KYC_MARK[kycTier as Exclude<VerificationTier, 0>],
+                    )
                   : "bg-ink-soft text-paper"
               }`}
+              style={
+                kycTier > 0
+                  ? {
+                      backgroundColor: entityMarkBackground(
+                        KYC_MARK[kycTier as Exclude<VerificationTier, 0>],
+                      ),
+                    }
+                  : undefined
+              }
             >
               <KycIcon size={15} aria-hidden />
               {KYC_LABEL[kycTier]}

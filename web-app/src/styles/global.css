@@ -50,23 +50,29 @@
 
   /*
     EntityMark hue anchors (shade 10 = full colour). Shades 1–9 mix the anchor
-    toward --color-mark-*-mix (white in light mode) from ~50% hue → 100% —
-    see shadeToBg in EntityMark.tsx. Dark mode redefines anchors; Official also
-    swaps its mix to black so lower shades darken the inverted (near-white) chip
-    instead of washing further toward white.
+    toward --color-mark-*-mix (white) from 30% hue → 100% — see shadeToBg in
+    EntityMark.tsx. Colour hues stay the same in dark mode (rich chips, not
+    lifted pastels); only Official inverts (near-white chip + mix→black).
+
+    Tailwind tree-shakes @theme tokens that never appear as static strings in
+    source — EntityMark must reference each --color-mark-* var literally (not
+    via `var(--color-mark-${hue})`), or light-mode Official disappears while
+    html.dark's near-white override remains.
   */
-  --color-mark-signing: #d97706; /* amber-600 */
+  --color-mark-signing: #b8860b; /* deep honey / darkgoldenrod */
   --color-mark-signing-mix: white;
-  --color-mark-platform: #6d28d9; /* brand-700 */
+  --color-mark-platform: #5b21b6; /* brand-800 */
   --color-mark-platform-mix: white;
   --color-mark-platform-fg: #ffffff;
-  --color-mark-platform-muted: #5b21b6; /* brand-800 — legacy PlatformMark */
-  --color-mark-kyc: #2563eb; /* blue-600 */
+  --color-mark-platform-muted: #4c1d95; /* brand-900 — legacy PlatformMark */
+  --color-mark-kyc: #1d4ed8; /* blue-700 — deep residency/identity blue */
   --color-mark-kyc-mix: white;
-  --color-mark-media: #db2777; /* pink-600 */
+  --color-mark-media: #be185d; /* pink-700 */
   --color-mark-media-mix: white;
   --color-mark-official: #111827; /* slate-900 */
   --color-mark-official-mix: white;
+  /* Pale (low-shade) mark label — always dark; must not track theme ink. */
+  --color-mark-on-tint: #111827;
 
   /* Notice / danger surfaces — sign-modal FINAL warning, residency/affected boxes. */
   --color-notice-50: #fffbeb;
@@ -110,15 +116,10 @@ html.dark {
   --color-verify-tier-3: #e5e7eb;
 
   /*
-    Mark hue anchors. Colour hues keep mixing toward white (pastel steps).
-    Official inverts like verify-tier-3 and mixes toward black so shade 1–9
-    darken the light chip instead of bleaching it.
+    Official only: invert like verify-tier-3 and mix toward black so shade
+    1–9 darken the light chip. Colour mark anchors stay at their @theme
+    values so chips stay deep in both themes.
   */
-  --color-mark-signing: #f59e0b;
-  --color-mark-platform: #8b5cf6;
-  --color-mark-platform-muted: #7c3aed;
-  --color-mark-kyc: #3b82f6;
-  --color-mark-media: #ec4899;
   --color-mark-official: #e5e7eb;
   --color-mark-official-mix: black;
 
