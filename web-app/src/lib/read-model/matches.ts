@@ -6,6 +6,7 @@ import type {
 } from "@/lib/types";
 import { GLOBAL_ID } from "@/lib/types";
 import { passesSignedFilter } from "@/lib/types/sign-tier";
+import { passesVerifiedFilter } from "@/lib/types/verification";
 import {
   inMyDistricts,
   isJurisdictionKeep,
@@ -19,7 +20,7 @@ import {
  * viewer + filter instead of global state. Encodes the filter matrix once:
  *
  *   record-type include  (all scopes)   -> kind must be in filter.types
- *   Verified ladder      (all scopes)   -> tier >= filter.tierMin (inclusive-upward)
+ *   Verified ladder      (all scopes)   -> passesVerifiedFilter (KYC or Official)
  *   Signed ladder        (all scopes)   -> signTier >= signedFilter (inclusive-upward)
  *   My Jurisdiction      (all scopes)   -> the AUTHOR's residence
  *                           (item.authorDistricts) against the scope's
@@ -51,14 +52,17 @@ export function matches(
   const tierMin = pinnedTierMin(filter.tierMin ?? 0, geo);
   const signMin = filter.signedFilter ?? 0;
   const passesRefine =
-    item.tier >= tierMin &&
+    passesVerifiedFilter(item, tierMin) &&
     (signMin === 0 || passesSignedFilter(item.signTier, signMin));
 
   const myMode = geo.myDistricts;
   const jurMode = geo.myJurisdiction;
   const jurDistricts = filter.geography?.jurisdictionDistricts ?? [];
   // My Jurisdiction reads the author's RESIDENCE, not the post's districts.
-  const author = { districts: item.authorDistricts, tier: item.tier };
+  const author = {
+    districts: item.authorDistricts,
+    official: item.official,
+  };
 
   if (scope === "feed") {
     if (filter.jurisdictions) {

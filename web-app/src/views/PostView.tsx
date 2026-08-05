@@ -246,6 +246,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             handle={detail.handle}
             identity={detail.identity}
             tier={detail.tier}
+            official={detail.official}
             signTier={detail.signTier}
             platformRole={detail.platformRole}
             authorGeo={detail.authorGeo}

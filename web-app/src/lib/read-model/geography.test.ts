@@ -343,7 +343,7 @@ const JUR = [
 ];
 
 const inJurAuthor = { districts: ["calgary-elbow"], tier: 2 as const };
-const officialNoDistrict = { districts: [] as string[], tier: 3 as const };
+const officialNoDistrict = { districts: [] as string[], official: true };
 const outOfProvince = { districts: [] as string[], tier: 2 as const };
 
 describe("authorGeoRelation — residency glyph ladder", () => {
@@ -389,7 +389,7 @@ describe("jurisdictionWidePost / isJurisdictionKeep", () => {
     expect(isJurisdictionKeep(inJurAuthor, JUR)).toBe(true);
     expect(isJurisdictionKeep(officialNoDistrict, JUR)).toBe(true);
     expect(isJurisdictionKeep(outOfProvince, JUR)).toBe(false);
-    expect(isJurisdictionKeep({ districts: ["yukon-riding"], tier: 2 }, JUR)).toBe(false);
+    expect(isJurisdictionKeep({ districts: ["yukon-riding"] }, JUR)).toBe(false);
   });
 });
 

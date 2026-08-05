@@ -1,6 +1,6 @@
 "use client";
 
-import type { RecordKind, VerificationTier } from "@/lib/types";
+import type { RecordKind, VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { ReactionButtons } from "./ReactionButtons";
 import { ReactionCountPill } from "./ReactionCountPill";
 import { EditCountLink } from "./EditCountLink";
@@ -27,7 +27,7 @@ interface RecordCardFooterProps {
   shareCount?: number;
   /** Viewer has already shared this record/comment (pill accent). */
   shared?: boolean;
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   onReact?: (dir: "up" | "down") => void;
   onReply?: () => void;
   onEditsClick?: () => void;

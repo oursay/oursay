@@ -230,7 +230,7 @@ describe("live /v1/me adapters", () => {
       );
     });
     const next = await devAttestKyc(2);
-    expect(next).toBe(3);
+    expect(next).toEqual({ kycTier: 2, isOfficial: true });
   });
 
   it("devAttestKyc revokes official role and attests unverified from official", async () => {
@@ -252,8 +252,8 @@ describe("live /v1/me adapters", () => {
         new Response(JSON.stringify({ tier: "unverified" }), { status: 200 }),
       );
     });
-    const next = await devAttestKyc(3);
-    expect(next).toBe(0);
+    const next = await devAttestKyc(2, true);
+    expect(next).toEqual({ kycTier: 0, isOfficial: false });
     expect(urls.some((u) => u.includes("/v1/dev/official/role"))).toBe(true);
     expect(urls.some((u) => u.includes("/v1/dev/kyc/attest"))).toBe(true);
   });

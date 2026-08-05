@@ -15,7 +15,7 @@ describe("mapPlatformRole", () => {
 });
 
 describe("AuthorBadgeGroup Platform mark", () => {
-  it("renders Platform label and globe when platformRole is admin", () => {
+  it("renders Admin mark when platformRole is admin", () => {
     const html = renderToStaticMarkup(
       createElement(AuthorBadgeGroup, {
         tier: 1,
@@ -24,10 +24,8 @@ describe("AuthorBadgeGroup Platform mark", () => {
         kycMode: "full",
       }),
     );
-    expect(html).toContain("data-testid=\"platform-mark\"");
-    expect(html).toContain("Platform");
-    // Lucide Globe renders an svg; lucide uses data-lucide or class lucide-globe.
-    expect(html).toMatch(/lucide-globe|class="lucide lucide-globe"/);
+    expect(html).toContain("Admin");
+    expect(html).toMatch(/lucide-globe/);
   });
 
   it("omits Platform mark when platformRole is absent", () => {
@@ -38,13 +36,25 @@ describe("AuthorBadgeGroup Platform mark", () => {
         kycMode: "full",
       }),
     );
-    expect(html).not.toContain("data-testid=\"platform-mark\"");
-    expect(html).not.toContain(">Platform<");
+    expect(html).not.toContain("Admin");
+  });
+
+  it("renders Official from official flag beside KYC", () => {
+    const html = renderToStaticMarkup(
+      createElement(AuthorBadgeGroup, {
+        tier: 2,
+        official: true,
+        signedMode: "icon",
+        kycMode: "full",
+      }),
+    );
+    expect(html).toContain("Official");
+    expect(html).toContain("Residency");
   });
 });
 
 describe("AuthorRow Platform mark", () => {
-  it("surfaces Platform mark through AuthorRow", () => {
+  it("surfaces Admin mark through AuthorRow", () => {
     const withMark = renderToStaticMarkup(
       createElement(AuthorRow, {
         author: "Ada Admin",
@@ -53,8 +63,7 @@ describe("AuthorRow Platform mark", () => {
         platformRole: "admin",
       }),
     );
-    expect(withMark).toContain("data-testid=\"platform-mark\"");
-    expect(withMark).toContain("Platform");
+    expect(withMark).toContain("Admin");
 
     const without = renderToStaticMarkup(
       createElement(AuthorRow, {
@@ -63,6 +72,6 @@ describe("AuthorRow Platform mark", () => {
         tier: 0,
       }),
     );
-    expect(without).not.toContain("data-testid=\"platform-mark\"");
+    expect(without).not.toContain("Admin");
   });
 });

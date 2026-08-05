@@ -1,14 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { AuthorIdentity, PlatformRole, SignTier, VerificationTier } from "@/lib/types";
-import type { AuthorGeoRelation } from "@/components/identity";
+import type { AuthorGeoRelation, AuthorIdentity, PlatformRole, SignTier, VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { RecordCardHeader } from "./RecordCardHeader";
 import { RecordCardFooter } from "./RecordCardFooter";
 
 interface CommentCardProps {
   author: string;
   tier: VerificationTier;
+  /** Official role flag (not a KYC tier). */
+  official?: boolean;
   signTier?: SignTier;
   platformRole?: PlatformRole | null;
   /** Residency author's spatial relation to the open post. */
@@ -22,7 +23,7 @@ interface CommentCardProps {
   down: number;
   selectedReaction?: "up" | "down" | null;
   edits?: number;
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   onAuthorClick?: () => void;
   onReact?: (dir: "up" | "down") => void;
   onReply?: () => void;
@@ -42,6 +43,7 @@ interface CommentCardProps {
 export function CommentCard({
   author,
   tier,
+  official,
   signTier,
   platformRole,
   authorGeo,
@@ -70,6 +72,7 @@ export function CommentCard({
       <RecordCardHeader
         author={author}
         tier={tier}
+        official={official}
         signTier={signTier}
         platformRole={platformRole}
         authorGeo={authorGeo}

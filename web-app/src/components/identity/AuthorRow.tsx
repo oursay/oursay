@@ -5,6 +5,7 @@ import { VenetianMask } from "lucide-react";
 import { Avatar } from "@/components/ui";
 import { effectivePersonaIconType } from "@/lib/avatar";
 import type {
+  AuthorGeoRelation,
   AuthorIdentity,
   PillDisplayMode,
   PlatformRole,
@@ -13,16 +14,22 @@ import type {
 } from "@/lib/types";
 import { displayHandle } from "@/lib/handle";
 import { AuthorBadgeGroup } from "./AuthorBadgeGroup";
-import type { AuthorGeoRelation } from "./VerificationPill";
 
+/**
+ * Author identity row. Badge group is right-justified (§2.4).
+ * TODO(entity-header): rename to EntityHeader when chrome + marks consolidate.
+ */
 interface AuthorRowProps {
   author: string;
   handle?: string;
   tier: VerificationTier;
+  /**
+   * Official role flag (not a KYC tier). May later widen to seat lists per
+   * jurisdiction.
+   */
+  official?: boolean;
   signTier?: SignTier;
-  /** Platform role mark — see AuthorBadgeGroup. */
   platformRole?: PlatformRole | null;
-  /** Residency author's spatial relation to the context. */
   authorGeo?: AuthorGeoRelation;
   signedMode?: PillDisplayMode;
   kycMode?: PillDisplayMode;
@@ -55,13 +62,11 @@ function PersonaMark({ size = 12 }: { size?: number }) {
   );
 }
 
-/**
- * Author identity row. Badge group [Signed][Platform][KYC] is right-justified (§2.4).
- */
 export function AuthorRow({
   author,
   handle,
   tier,
+  official,
   signTier,
   platformRole,
   authorGeo,
@@ -86,6 +91,7 @@ export function AuthorRow({
   const badges = (
     <AuthorBadgeGroup
       signTier={signTier}
+      official={official}
       tier={tier}
       platformRole={platformRole}
       authorGeo={authorGeo}

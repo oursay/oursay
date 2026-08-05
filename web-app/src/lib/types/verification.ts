@@ -1,18 +1,26 @@
 /**
- * Author verification tier.
+ * Author KYC verification tier (0–2 only). Official is a separate role flag
+ * on author DTOs (`official`), not a KYC rung.
  *
- * The wireframe uses a 0-3 numeric tier (`p.tier`) and the Verified filter
- * compares inclusively upward (`tier >= state.verified`). The canonical domain
- * model treats verification as set membership rather than a strict ladder (see
- * docs/entities/account/verification.md); the numeric tier here is a UI-facing
- * projection that preserves the wireframe's ordering for the filter ladder.
+ * The Verified Refine filter still has an Official step — that uses
+ * {@link VerifiedFilterLevel}, not this type.
  *
- *   0 Any        - no verification constraint (public + all tiers)
- *   1 Identity   - identity-verified
- *   2 Residency  - residency-verified
- *   3 Official   - MLA / government
+ *   0 unverified
+ *   1 identity-verified
+ *   2 residency-verified
  */
-export type VerificationTier = 0 | 1 | 2 | 3;
+export type VerificationTier = 0 | 1 | 2;
+
+/**
+ * Verified Refine filter ladder (inclusive-upward for KYC steps; Official is
+ * a role check). Level 3 means “official role”, not a KYC tier.
+ *
+ *   0 Any
+ *   1 Identity
+ *   2 Residency
+ *   3 Official (role)
+ */
+export type VerifiedFilterLevel = 0 | 1 | 2 | 3;
 
 /**
  * Identity-pill display mode. `full` = tight rounded pill with icon + label;
@@ -35,21 +43,20 @@ export type PillDisplayMode = "full" | "icon";
  * - "none"         no contextual relation (or below Residency — the tiers
  *                  themselves travel as `tier`)
  *
- * Officials (tier 3) are treated as residents of the district/jurisdiction
- * they represent for filtering, but display the gavel pill, not a geo glyph.
- * See read-model authorGeoRelation() for the resolution + drop-off rules.
+ * Officials (`official: true`) are treated as residents of the
+ * district/jurisdiction they represent for filtering, and show the Official
+ * mark (not a geo glyph). See read-model authorGeoRelation().
  */
 export type AuthorGeoRelation = "none" | "home" | "affected" | "jurisdiction";
 
-/** Wireframe-facing label per tier (KYC pills; filter ladder uses VERIFIED_LEVELS). */
+/** Wireframe-facing label per KYC tier. */
 export const TIER_LABEL: Record<VerificationTier, string> = {
   0: "None",
   1: "Identity",
   2: "Residency",
-  3: "Official",
 };
 
-/** Verified Refine filter ladder (inclusive-upward on author tier). */
+/** Verified Refine filter ladder labels (aligned with {@link VerifiedFilterLevel}). */
 export const VERIFIED_LEVELS = ["Any", "Identity", "Residency", "Official"] as const;
 export type VerifiedLevel = (typeof VERIFIED_LEVELS)[number];
 
@@ -60,10 +67,29 @@ export type CanonicalTierToken =
   | "residency_verified"
   | "electoral_validated";
 
-/** Numeric wireframe tier -> canonical API token. */
+/** Numeric KYC tier -> canonical API token. */
 export const TIER_TO_TOKEN: Record<VerificationTier, CanonicalTierToken> = {
   0: "unverified",
   1: "identity_verified",
   2: "residency_verified",
-  3: "electoral_validated",
 };
+
+/** Author fields the Verified Refine ladder reads. */
+export type VerifiedAuthor = {
+  tier: VerificationTier;
+  /** Official role flag (not a KYC tier). */
+  official?: boolean;
+};
+
+/**
+ * Verified Refine match: level 3 = official role; levels 1–2 are KYC floors
+ * (officials also pass, preserving the old grafted tier-3 inclusive behavior).
+ */
+export function passesVerifiedFilter(
+  author: VerifiedAuthor,
+  tierMin: VerifiedFilterLevel,
+): boolean {
+  if (tierMin === 0) return true;
+  if (tierMin === 3) return Boolean(author.official);
+  return author.tier >= tierMin || Boolean(author.official);
+}

@@ -37,16 +37,16 @@ describe("matches — record-type include", () => {
 });
 
 describe("matches — Verified ladder (inclusive-upward)", () => {
-  it("an Official filter hides residents (tier < 3)", () => {
+  it("an Official filter keeps only official-role authors", () => {
     const officialOnly = feed({ jurisdictions: ALL_SUBS, tierMin: 3 });
-    expect(officialOnly.every((p) => p.tier === 3)).toBe(true);
-    expect(officialOnly.some((p) => p.tier === 2)).toBe(false);
+    expect(officialOnly.length).toBeGreaterThan(0);
+    expect(officialOnly.every((p) => p.official)).toBe(true);
   });
 
   it("an ID filter still shows Residency and Official authors", () => {
     const idAndUp = feed({ jurisdictions: ALL_SUBS, tierMin: 1 });
-    expect(idAndUp.every((p) => p.tier >= 1)).toBe(true);
-    expect(idAndUp.some((p) => p.tier === 3)).toBe(true);
+    expect(idAndUp.every((p) => p.tier >= 1 || p.official)).toBe(true);
+    expect(idAndUp.some((p) => p.official)).toBe(true);
   });
 });
 
@@ -155,7 +155,7 @@ describe("matches — My Districts modes (feed)", () => {
         geography: { myDistricts: "inclusive", affected: "off" },
       }),
     );
-    expect(results.every((p) => p.tier >= 3)).toBe(true);
+    expect(results.every((p) => Boolean(p.official))).toBe(true);
   });
 });
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { jurisdictionAllowsVoteChange } from "@/lib/signing";
 import { relTime, useNow } from "@/lib/read-model";
-import type { FeedItem, ViewerContext, VerificationTier } from "@/lib/types";
+import type { FeedItem, ViewerContext, VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { Button } from "@/components/ui";
 import { ScopeTag } from "./ScopeTag";
 import { PetitionProgress } from "./PetitionProgress";
@@ -19,7 +19,7 @@ interface FeedCardProps {
   item: FeedItem;
   viewer: ViewerContext;
   /** Active Verified filter — thins social counts. */
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   hideJur?: boolean;
   hideDistrict?: boolean;
   resolveDistrict?: (slug: string) => string;
@@ -89,6 +89,7 @@ export function FeedCard({
           handle={item.handle}
           identity={item.identity}
           tier={item.tier}
+          official={item.official}
           signTier={item.signTier}
           platformRole={item.platformRole}
           authorGeo={item.authorGeo}

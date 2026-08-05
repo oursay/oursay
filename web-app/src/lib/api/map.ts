@@ -116,8 +116,7 @@ export function wireTypeToKind(type: string): RecordKind {
   return TYPE_TO_KIND[type as CanonicalRecordType] ?? "statement";
 }
 
-export function tokenToTier(token: string, official = false): VerificationTier {
-  if (official) return 3;
+export function tokenToTier(token: string): VerificationTier {
   return TOKEN_TO_TIER[token as CanonicalTierToken] ?? 0;
 }
 
@@ -202,7 +201,8 @@ export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
     id: String(raw.id),
     kind: wireTypeToKind(String(raw.type)),
     jurisdiction: String(raw.jurisdiction),
-    tier: tokenToTier(String(raw.tier), official),
+    tier: tokenToTier(String(raw.tier)),
+    official,
     platformRole,
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
@@ -240,7 +240,8 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
     id: String(raw.id),
     kind: wireTypeToKind(String(raw.type)),
     jurisdiction: String(raw.jurisdiction),
-    tier: tokenToTier(String(raw.tier), official),
+    tier: tokenToTier(String(raw.tier)),
+    official,
     platformRole,
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
@@ -282,7 +283,8 @@ export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
     ...(typeof raw.id === "string" ? { id: raw.id } : {}),
     author: String(raw.author),
     handle: mapWireHandle(raw.handle),
-    tier: tokenToTier(String(raw.tier), official),
+    tier: tokenToTier(String(raw.tier)),
+    official,
     platformRole,
     ts: String(raw.ts),
     body: (raw.body as string[]) ?? [],
@@ -329,7 +331,8 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
     handle: mapWireHandle(raw.handle),
     role: String(raw.role ?? ""),
     roles,
-    tier: tokenToTier(String(raw.tier), official),
+    tier: tokenToTier(String(raw.tier)),
+    official,
     platformRole: mapPlatformRole(raw.platformRoles),
     bio: String(raw.bio ?? ""),
     iconType: String(raw.iconType ?? "bottts-neutral"),

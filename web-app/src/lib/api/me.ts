@@ -110,9 +110,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     platformRoles?: string[];
   }>(`/v1/public/profiles/${encodeURIComponent(handle)}`).catch(() => null);
 
-  const kycTier = publicSelf
-    ? tokenToTier(publicSelf.tier, publicSelf.official)
-    : 0;
+  const kycTier = publicSelf ? tokenToTier(publicSelf.tier) : 0;
 
   const platformRoles =
     session.platformRoles ?? publicSelf?.platformRoles ?? [];
@@ -144,25 +142,27 @@ export async function devSetOfficialRole(assign: boolean): Promise<void> {
 
 /**
  * Dev Validate ID cycle (`POST /v1/dev/kyc/attest` + official role):
- *   0 → 1 → 2 → 3 (official role) → 0 (revoke official + unverified).
+ *   unverified → identity → residency → residency+official → unverified.
  */
-export async function devAttestKyc(currentTier: VerificationTier): Promise<VerificationTier> {
-  const next = ((currentTier + 1) % 4) as VerificationTier;
-
-  if (currentTier === 2 && next === 3) {
+export async function devAttestKyc(
+  currentTier: VerificationTier,
+  isOfficial = false,
+): Promise<{ kycTier: VerificationTier; isOfficial: boolean }> {
+  if (!isOfficial && currentTier === 2) {
     await devSetOfficialRole(true);
-    return 3;
+    return { kycTier: 2, isOfficial: true };
   }
 
-  if (currentTier === 3 && next === 0) {
+  if (isOfficial) {
     await devSetOfficialRole(false);
     await apiPost("/v1/dev/kyc/attest", { tier: "unverified" });
-    return 0;
+    return { kycTier: 0, isOfficial: false };
   }
 
+  const next = ((currentTier + 1) % 3) as VerificationTier;
   const entry = KYC_CYCLE[next] ?? KYC_CYCLE[0];
   await apiPost("/v1/dev/kyc/attest", { tier: entry.token });
-  return entry.tier;
+  return { kycTier: entry.tier, isOfficial: false };
 }
 
 /** Sync jurisdiction subscriptions to the server. */

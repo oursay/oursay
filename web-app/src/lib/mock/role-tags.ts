@@ -53,7 +53,7 @@ export function mockRoleTagsFor(handle: string, person: MockPerson): ProfileRole
 
   const role = person.role ?? "";
   const idx = role.indexOf(" · ");
-  if (person.tier === 3 && idx !== -1) {
+  if (person.official && idx !== -1) {
     const roleLabel = role.slice(0, idx);
     const placeLabel = role.slice(idx + 3);
     const districtSlug = person.districts?.[0] ?? null;

@@ -19,6 +19,7 @@ import type {
   SignAction,
   SignMethod,
   VerificationTier,
+  VerifiedFilterLevel,
   ViewerContext,
 } from "@/lib/types";
 import {
@@ -207,6 +208,7 @@ export const INITIAL_APP_STATE: AppState = {
   loggedIn: false,
   authReady: false,
   kycTier: 0,
+  isOfficial: false,
   viewerDistricts: [],
   accountVisibility: "anonymous",
   passkeys: MOCK_PASSKEYS,
@@ -277,7 +279,7 @@ function resolveGeoFromState(s: AppState): ResolvedGeography {
  * The Verified level display + inference use: pinned to Residency while a
  * geography exclusive is engaged, without touching the remembered selection.
  */
-function effectiveVerifiedFor(s: AppState): VerificationTier {
+function effectiveVerifiedFor(s: AppState): VerifiedFilterLevel {
   return pinnedTierMin(s.verified, resolveGeoFromState(s));
 }
 
@@ -290,7 +292,7 @@ export interface AppApi {
    * while a geography exclusive is engaged. Use this for display and any
    * tierMin-driven rendering; state.verified is only the remembered selection.
    */
-  effectiveVerified: VerificationTier;
+  effectiveVerified: VerifiedFilterLevel;
 
   // Session (demo — no real auth).
   demoLogin: () => void;
@@ -469,6 +471,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         loggedIn: session.loggedIn,
         authReady: true,
         kycTier: session.kycTier,
+        isOfficial: false,
         viewerDistricts: session.kycTier >= 2 ? MY_DISTRICTS : [],
         accountVisibility: session.accountVisibility,
         theme: readTheme(),
@@ -499,6 +502,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           loggedIn: true,
           authReady: true,
           kycTier: account.kycTier,
+          isOfficial: account.isOfficial,
           viewerDistricts: account.viewerDistricts,
           accountHandle: account.handle,
           accountDisplayName: account.displayName,
@@ -636,6 +640,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...s,
         loggedIn: true,
         kycTier: account.kycTier,
+        isOfficial: account.isOfficial,
         viewerDistricts: account.viewerDistricts,
         accountHandle: account.handle,
         accountDisplayName: account.displayName,
@@ -666,6 +671,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...s,
         loggedIn: false,
         kycTier: 0,
+        isOfficial: false,
         viewerDistricts: [],
         accountHandle: undefined,
         accountDisplayName: undefined,
@@ -956,7 +962,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // ladder to Residency, the visible cycle is Residency <-> Official.
     setState((s) => ({
       ...s,
-      verified: ((effectiveVerifiedFor(s) + 1) % 4) as VerificationTier,
+      verified: ((effectiveVerifiedFor(s) + 1) % 4) as VerifiedFilterLevel,
     }));
   }, []);
 

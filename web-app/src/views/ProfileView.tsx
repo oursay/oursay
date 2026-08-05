@@ -10,7 +10,7 @@ import {
   listProfilePosts,
 } from "@/lib/api";
 import type { ActivityKind, PublicProfile } from "@/lib/types";
-import { Avatar, FeedCard, PlatformMark, VerificationPill } from "@/components";
+import { Avatar, EntityMark, EntityMarkGroup, FeedCard } from "@/components";
 import { Button } from "@/components/ui";
 import {
   ActivityRow,
@@ -156,8 +156,9 @@ export function ProfileView({
   }
 
   const displayTier = self ? app.state.kycTier : profile.tier;
+  const displayOfficial = self ? app.state.isOfficial : Boolean(profile.official);
   const displayRoles: ProfileRoleTag[] =
-    self && displayTier === 3
+    self && displayOfficial
       ? [
           {
             roleLabel: "MLA",
@@ -199,12 +200,17 @@ export function ProfileView({
             <div className="flex items-center gap-2">
               <p className="truncate font-bold text-ink">{profile.name}</p>
               <span className="inline-flex shrink-0 items-center gap-0.5 ml-auto">
-                {profile.platformRole === "admin" ? <PlatformMark /> : null}
-                <VerificationPill tier={displayTier} />
+                <EntityMarkGroup
+                  tier={displayTier}
+                  official={displayOfficial}
+                  platformRole={profile.platformRole}
+                  signedMode="icon"
+                  kycMode="full"
+                />
               </span>
             </div>
             <p className="truncate text-sm text-muted">{displayHandle(profile.handle)}</p>
-            {displayTier === 3 && displayRoles.length > 0 ? (
+            {displayOfficial && displayRoles.length > 0 ? (
               <div className="mt-0.5 min-w-0">
                 <RoleTag
                   roles={displayRoles}

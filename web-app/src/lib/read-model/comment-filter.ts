@@ -5,6 +5,7 @@ import type {
   ViewerContext,
 } from "@/lib/types";
 import { passesSignedFilter } from "@/lib/types/sign-tier";
+import { passesVerifiedFilter } from "@/lib/types/verification";
 import { geographyKeep, pinnedTierMin, resolveGeography } from "./geography";
 
 /**
@@ -23,7 +24,7 @@ export function commentKeep(
   const tierMin = pinnedTierMin(filter.tierMin ?? 0, geo);
   const signMin = filter.signedFilter ?? 0;
   const passesRefine =
-    node.tier >= tierMin &&
+    passesVerifiedFilter(node, tierMin) &&
     (signMin === 0 || passesSignedFilter(node.signTier, signMin));
   return geographyKeep(
     node,

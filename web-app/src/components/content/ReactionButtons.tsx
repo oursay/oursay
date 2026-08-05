@@ -1,7 +1,7 @@
 "use client";
 
 import { scaleSocial } from "@/lib/read-model";
-import type { VerificationTier } from "@/lib/types";
+import type { VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { formatCount } from "@/components/utils";
 
 interface ReactionButtonsProps {
@@ -10,7 +10,7 @@ interface ReactionButtonsProps {
   /** The viewer's own exclusive reaction. */
   selected?: "up" | "down" | null;
   /** Active Verified filter — thins social counts on cards (§4.3). */
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   onReact?: (dir: "up" | "down") => void;
   disabled?: boolean;
 }

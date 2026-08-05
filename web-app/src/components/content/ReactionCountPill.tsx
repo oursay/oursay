@@ -1,14 +1,14 @@
 "use client";
 
 import { scaleSocial } from "@/lib/read-model";
-import type { VerificationTier } from "@/lib/types";
+import type { VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { formatCount } from "@/components/utils";
 
 interface ReactionCountPillProps {
   up: number;
   down: number;
   /** Active Verified filter — thins social counts on cards (§4.3). */
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   /** Viewer's reaction — highlights one segment when set. */
   selected?: "up" | "down" | null;
   /** When no selected side, fill both segments (share preview fallback). */

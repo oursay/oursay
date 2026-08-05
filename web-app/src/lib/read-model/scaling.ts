@@ -1,4 +1,4 @@
-import type { VerificationTier } from "@/lib/types";
+import type { VerifiedFilterLevel } from "@/lib/types";
 
 /**
  * Count scaling (wireframe SOCIAL_SCALE / CIVIC_UNVERIFIED_EXTRA).
@@ -11,18 +11,18 @@ import type { VerificationTier } from "@/lib/types";
  * but aren't in the platform count.
  */
 
-/** Social-count multiplier, indexed by tier (None · ID · Residency · Official). */
+/** Social-count multiplier, indexed by Verified filter level. */
 export const SOCIAL_SCALE = [1, 0.62, 0.34, 0.08] as const;
 
-/** Additive unverified-civic fraction, indexed by tier. */
+/** Additive unverified-civic fraction, indexed by Verified filter level. */
 export const CIVIC_UNVERIFIED_EXTRA = [0.35, 0.12, 0, 0] as const;
 
-/** Thin a social count for the active Verified tier. */
-export function scaleSocial(n: number, tierMin: VerificationTier): number {
+/** Thin a social count for the active Verified filter level. */
+export function scaleSocial(n: number, tierMin: VerifiedFilterLevel): number {
   return Math.max(0, Math.round(n * SOCIAL_SCALE[tierMin]));
 }
 
-/** The additive "+N unverified" civic count for the active Verified tier. */
-export function civicExtra(n: number, tierMin: VerificationTier): number {
+/** The additive "+N unverified" civic count for the active Verified filter level. */
+export function civicExtra(n: number, tierMin: VerifiedFilterLevel): number {
   return Math.round(n * CIVIC_UNVERIFIED_EXTRA[tierMin]);
 }

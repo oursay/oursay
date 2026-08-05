@@ -12,13 +12,19 @@ export interface AlbertaRiding {
 }
 
 import type { AuthorVisibility } from "@/lib/types/visibility";
+import type { VerificationTier } from "@/lib/types/verification";
 
 /** A mock persona referenced by posts, comments, and profiles. */
 export interface MockPerson {
   name: string;
   handle: string;
-  /** 0 None · 1 Identity · 2 Residency · 3 Official */
-  tier: 0 | 1 | 2 | 3;
+  /** KYC tier: 0 None · 1 Identity · 2 Residency. */
+  tier: VerificationTier;
+  /**
+   * Official role flag (not a KYC tier). May later widen to seat lists per
+   * jurisdiction.
+   */
+  official?: boolean;
   /** Home riding slug(s); absent for jurisdiction-wide officials. */
   districts?: string[];
   /** Profile role line, e.g. "MLA · Edmonton-Strathcona". */

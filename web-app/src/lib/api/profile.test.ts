@@ -5,7 +5,7 @@ import { getProfile } from "./profile";
 
 function viewer(kycTier: VerificationTier, extra: Partial<ViewerContext> = {}): ViewerContext {
   return {
-    loggedIn: kycTier > 0,
+    loggedIn: kycTier > 0 || extra.role === "official",
     kycTier,
     viewerDistricts: kycTier >= 2 ? ["edmonton-strathcona"] : [],
     ...extra,
@@ -43,14 +43,16 @@ describe("getProfile (self account seed)", () => {
 });
 
 describe("getProfile visibility gating (hide existence)", () => {
-  it("hides samd (all_officials) below tier 3 and resolves at tier 3", async () => {
+  it("hides samd (all_officials) without official role and resolves for officials", async () => {
     expect(await getProfile("samd", { viewer: viewer(0) })).toBeNull();
     expect(await getProfile("samd", { viewer: viewer(2) })).toBeNull();
-    expect((await getProfile("samd", { viewer: viewer(3) }))?.handle).toBe("samd");
+    expect(
+      (await getProfile("samd", { viewer: viewer(2, { role: "official" }) }))?.handle,
+    ).toBe("samd");
   });
 
-  it("hides pshah (my_district, calgary-elbow) from the edmonton viewer at every tier", async () => {
-    for (const t of [0, 1, 2, 3] as const) {
+  it("hides pshah (my_district, calgary-elbow) from the edmonton viewer at every KYC tier", async () => {
+    for (const t of [0, 1, 2] as const) {
       expect(await getProfile("pshah", { viewer: viewer(t) })).toBeNull();
     }
   });

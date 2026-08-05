@@ -97,6 +97,7 @@ function generateComments(postId: string): CommentNode[] {
       author: p.name,
       handle: p.handle,
       tier: p.tier,
+      official: p.official,
       districts: personDistricts(p.handle),
       ts: isoDaysAgo(1 + ((seed + i) % 12)),
       body: line,
@@ -114,6 +115,7 @@ function generateComments(postId: string): CommentNode[] {
           author: r.name,
           handle: r.handle,
           tier: r.tier,
+          official: r.official,
           districts: personDistricts(r.handle),
           ts: isoDaysAgo((seed + i) % 8),
           body: ["Thanks — I'll follow this thread."],
@@ -133,9 +135,17 @@ function generateComments(postId: string): CommentNode[] {
  * Stamp the author's home ridings (their residence, from the people registry)
  * onto a record. Kept separate from `districts` — the area the post AFFECTS —
  * so author-row glyphs and the My Jurisdiction filter read actual residence.
+ * Also fills `official` from the people registry when the row omitted it.
  */
-function withAuthorDistricts<T extends { handle: string }>(item: T): T {
-  return { ...item, authorDistricts: personDistricts(item.handle) };
+function withAuthorDistricts<T extends { handle: string; official?: boolean }>(
+  item: T,
+): T & { authorDistricts: string[] } {
+  const p = person(item.handle);
+  return {
+    ...item,
+    authorDistricts: personDistricts(item.handle),
+    ...(item.official == null && p.official ? { official: true } : null),
+  };
 }
 
 /**
@@ -163,6 +173,7 @@ function feedToDetail(item: FeedItem): RecordDetail {
     kind: item.kind,
     jurisdiction: item.jurisdiction,
     tier: item.tier,
+    official: item.official,
     districts: item.districts,
     authorDistricts: item.authorDistricts ?? personDistricts(item.handle),
     author: item.author,
@@ -276,7 +287,8 @@ function buildExtraPosts(): FeedItem[] {
       id: `stmt-mla-${riding.slug}`,
       kind: "statement",
       jurisdiction: ALBERTA_ID,
-      tier: 3,
+      tier: 2,
+      official: true,
       districts: [riding.slug],
       author: riding.mla.name,
       handle: riding.mla.handle,
@@ -312,6 +324,7 @@ function buildExtraPosts(): FeedItem[] {
       kind: "statement",
       jurisdiction: ALBERTA_ID,
       tier: p.tier,
+      official: p.official,
       districts: [riding.slug],
       author: p.name,
       handle: p.handle,
@@ -645,11 +658,13 @@ function buildProfiles(
       roles: mockRoleTagsFor(handle, {
         name: riding.mla.name,
         handle,
-        tier: 3,
+        tier: 2,
+      official: true,
         districts: [riding.slug],
         role: `MLA · ${riding.name}`,
       }),
-      tier: 3,
+      tier: 2,
+      official: true,
       bio: generateBio(handle, `MLA · ${riding.name}`),
       ageLabel: profileAgeLabel(handle),
       support: computeProfileSupport(handle, posts),
@@ -681,6 +696,7 @@ function buildProfiles(
       role: p.role ?? mockRoleLine(mockRoleTagsFor(handle, p)),
       roles: mockRoleTagsFor(handle, p),
       tier: p.tier,
+      official: p.official,
       bio: generateBio(handle, p.role ?? "Member"),
       ageLabel: profileAgeLabel(handle),
       support: computeProfileSupport(handle, posts),

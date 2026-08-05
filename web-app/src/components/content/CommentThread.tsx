@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { COMMENT_MAX_DEPTH } from "@/lib/types";
-import type { CommentNode, ViewerContext, VerificationTier } from "@/lib/types";
+import type { CommentNode, ViewerContext, VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { relTime } from "@/lib/read-model";
 import { TimestampWithAnchor } from "./TimestampWithAnchor";
 import { CommentCard } from "./CommentCard";
@@ -13,7 +13,7 @@ interface CommentThreadProps {
   viewer: ViewerContext;
   now: Date;
   /** Active Verified filter — thins comment reaction counts. */
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   depth?: number;
   maxDepth?: number;
   /** Leading @handle for a flattened max-depth reply (internal). */
@@ -73,6 +73,7 @@ export function CommentThread({
             <CommentCard
               author={node.author}
               tier={node.tier}
+              official={node.official}
               signTier={node.signTier}
               platformRole={node.platformRole}
               authorGeo={node.authorGeo}

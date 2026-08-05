@@ -7,6 +7,7 @@ import type {
   RecordKind,
   SignedFilterLevel,
   VerificationTier,
+  VerifiedFilterLevel,
   ViewerContext,
 } from "@/lib/types";
 import { nextGeoFilterMode, ALBERTA_ID, GLOBAL_ID } from "@/lib/types";
@@ -47,8 +48,8 @@ import {
   ResultOutcome,
   ScopeTag,
   ChooseSignModal,
-  VerificationPill,
-  SignedPill,
+  EntityMark,
+  EntityMarkGroup,
   AuthorBadgeGroup,
 } from "@/components";
 import type { ComposeStep } from "@/components";
@@ -59,7 +60,7 @@ const VIEWER: ViewerContext = {
   viewerDistricts: MY_DISTRICTS,
 };
 
-const TIER_MIN = 0 as VerificationTier;
+const TIER_MIN = 0 as VerifiedFilterLevel;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -109,7 +110,7 @@ export default function ComponentGallery() {
     "poll",
     "result",
   ]);
-  const [verified, setVerified] = useState<VerificationTier>(0);
+  const [verified, setVerified] = useState<VerifiedFilterLevel>(0);
   const [myDistricts, setMyDistricts] = useState<GeoFilterMode>("off");
   const [affected, setAffected] = useState<GeoFilterMode>("off");
   const [signedFilter, setSignedFilter] = useState<SignedFilterLevel>(0);
@@ -160,32 +161,39 @@ export default function ComponentGallery() {
           </div>
         </Section>
 
-        <Section title="Verification pills">
+        <Section title="Entity marks">
           <Row>
-            <VerificationPill tier={1} />
-            <VerificationPill tier={2} />
-            <VerificationPill tier={2} authorGeo="home" />
-            <VerificationPill tier={2} authorGeo="affected" />
-            <VerificationPill tier={2} authorGeo="jurisdiction" />
-            <VerificationPill tier={3} />
-            <VerificationPill tier={2} mode="icon" />
-            <VerificationPill tier={3} mode="icon" />
+            <EntityMark type="signing" subtype="passkey" />
+            <EntityMark type="kyc" subtype="identity" />
+            <EntityMark type="kyc" subtype="residency" />
+            <EntityMark type="kyc" subtype="residency" context="myDistrict" />
+            <EntityMark type="kyc" subtype="residency" context="affected" />
+            <EntityMark type="kyc" subtype="residency" context="jurisdiction" />
+            <EntityMark type="official" subtype="official" />
+            <EntityMark type="platform" subtype="admin" />
+            <EntityMark type="kyc" subtype="residency" mode="icon" />
+            <EntityMark type="official" subtype="official" mode="icon" />
             <span className="text-xs text-muted">
-              (residency glyph: map-pin · in-my-district · affected · in-jurisdiction; tier 0 renders nothing)
+              (Media reserved; KYC geo contexts refine residency)
             </span>
           </Row>
         </Section>
 
-        <Section title="Signed pill (signTier >= 1)">
-          <Row>
-            <SignedPill signTier={1} mode="full" />
-            <SignedPill signTier={1} mode="icon" />
-            <span className="text-xs text-muted">(signTier 0 renders nothing)</span>
-          </Row>
-        </Section>
-
-        <Section title="Author badge group">
+        <Section title="Entity mark group (Signed → Official → Platform → KYC)">
           <div className="space-y-3 rounded-lg border border-border bg-surface p-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-ink">Multi-mark (all present)</span>
+              <EntityMarkGroup
+                signTier={1}
+                official
+                platformRole="admin"
+                tier={2}
+                authorGeo="home"
+                signedMode="icon"
+                kycMode="full"
+                align="right"
+              />
+            </div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-semibold text-ink">Post card row</span>
               <AuthorBadgeGroup
@@ -207,10 +215,11 @@ export default function ComponentGallery() {
               />
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold text-ink">Nested comment</span>
+              <span className="text-sm font-semibold text-ink">Nested + official</span>
               <AuthorBadgeGroup
                 signTier={1}
-                tier={3}
+                official
+                tier={2}
                 signedMode="icon"
                 kycMode="icon"
                 align="right"
@@ -360,7 +369,7 @@ export default function ComponentGallery() {
                 onAllKinds={() => setIncludedKinds([...oneOfEach])}
                 verifiedLevel={verified}
                 onCycleVerified={() =>
-                  setVerified((v) => ((v + 1) % 4) as VerificationTier)
+                  setVerified((v) => ((v + 1) % 4) as VerifiedFilterLevel)
                 }
                 myDistricts={myDistricts}
                 onCycleMyDistricts={() => setMyDistricts(nextGeoFilterMode)}

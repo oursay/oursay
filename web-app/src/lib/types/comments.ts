@@ -18,8 +18,12 @@ export interface CommentNode {
   handle: string;
   tier: VerificationTier;
   /**
+   * Official role in the thread's jurisdiction (role flag, not a KYC tier).
+   * May later widen to seat-/jurisdiction-scoped lists without changing mark type.
+   */
+  official?: boolean;
+  /**
    * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
-   * TODO(marks[]): fold into AuthorMark[] — see .agents/plans/V1-ROADMAP.md.
    */
   platformRole?: PlatformRole | null;
   /**

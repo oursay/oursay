@@ -15,7 +15,7 @@ const MY = ["edmonton-strathcona"];
 
 function viewer(kycTier: VerificationTier, extra: Partial<ViewerContext> = {}): ViewerContext {
   return {
-    loggedIn: kycTier > 0,
+    loggedIn: kycTier > 0 || extra.role === "official",
     kycTier,
     viewerDistricts: kycTier >= 2 ? MY : [],
     ...extra,
@@ -40,8 +40,8 @@ function item(handle: string, author: string, id = "stmt-x"): FeedItem {
 const PERSONA_SHAPE = /^[A-Z][A-Za-z]+\d{2,}$/;
 
 describe("anonymizeFeedItem — reveal waves by viewer tier", () => {
-  it("pshah (my_district, calgary-elbow) stays a persona at every tier for our viewer", () => {
-    for (const t of [0, 1, 2, 3] as const) {
+  it("pshah (my_district, calgary-elbow) stays a persona at every KYC tier for our viewer", () => {
+    for (const t of [0, 1, 2] as const) {
       const out = anonymizeFeedItem(item("pshah", "Priti Shah"), viewer(t));
       expect(out.identity?.isPersona).toBe(true);
       expect(out.author).toMatch(PERSONA_SHAPE);
@@ -63,19 +63,25 @@ describe("anonymizeFeedItem — reveal waves by viewer tier", () => {
     expect(anonymizeFeedItem(item("jvance", "Jordan Vance"), viewer(2)).identity?.isPersona).toBe(false);
   });
 
-  it("samd (all_officials) reveals at tier 3 — except on his narrowed thread", () => {
+  it("samd (all_officials) reveals to official-role viewers — except on his narrowed thread", () => {
     expect(anonymizeFeedItem(item("samd", "Sam Driver"), viewer(2)).identity?.isPersona).toBe(true);
-    expect(anonymizeFeedItem(item("samd", "Sam Driver"), viewer(3)).identity?.isPersona).toBe(false);
+    expect(
+      anonymizeFeedItem(item("samd", "Sam Driver"), viewer(2, { role: "official" })).identity
+        ?.isPersona,
+    ).toBe(false);
     // Thread override pet-sam-109st -> anonymous (thread override wins).
     const onOwnThread = anonymizeFeedItem(
       item("samd", "Sam Driver", "pet-sam-109st"),
-      viewer(3),
+      viewer(2, { role: "official" }),
     );
     expect(onOwnThread.identity?.isPersona).toBe(true);
   });
 
-  it("rosak (my_officials, calgary-elbow) stays a persona even for a tier-3 viewer", () => {
-    expect(anonymizeFeedItem(item("rosak", "Rosa Klein"), viewer(3)).identity?.isPersona).toBe(true);
+  it("rosak (my_officials, calgary-elbow) stays a persona even for an official viewer", () => {
+    expect(
+      anonymizeFeedItem(item("rosak", "Rosa Klein"), viewer(2, { role: "official" })).identity
+        ?.isPersona,
+    ).toBe(true);
   });
 
   it("dwhitecloud's widening thread override applies (thread widens the anonymous account)", () => {

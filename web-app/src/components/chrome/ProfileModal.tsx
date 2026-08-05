@@ -5,7 +5,6 @@ import { displayHandle } from "@/lib/handle";
 import {
   ChevronRight,
   Eye,
-  Gavel,
   Globe,
   Heart,
   IdCard,
@@ -83,26 +82,23 @@ interface ProfileModalProps {
   passkeyBusy?: PasskeyBusyPhase | null;
 }
 
-/** Wireframe KYC_TIERS — the account's own ladder, not the author pill labels. */
+/** Wireframe KYC_TIERS — the account's own ladder (Official is a separate role). */
 const KYC_LABEL: Record<VerificationTier, string> = {
   0: "Unverified",
   1: "Identity Verified",
   2: "Residency Verified",
-  3: "Official",
 };
 
 const KYC_ICON: Record<VerificationTier, LucideIcon> = {
   0: ShieldCheck,
   1: IdCard,
   2: MapPin,
-  3: Gavel,
 };
 
-/** Latest per-tier verification colours (mirrors VerificationPill's TIER_BG). */
+/** TODO(marks-band2): adopt EntityMark hue tokens for settings chrome. */
 const KYC_TIER_BG: Record<Exclude<VerificationTier, 0>, string> = {
   1: "bg-verify-tier-1", // Identity — green
   2: "bg-verify-tier-2", // Residency — blue
-  3: "bg-verify-tier-3", // Official — black
 };
 
 /** Only the first two passkeys are listed; the rest collapse to "+N more". */
@@ -399,9 +395,7 @@ export function ProfileModal({
             <span
               className={`inline-flex min-h-9 flex-1 items-center gap-2 rounded-full px-4 text-sm font-medium ${
                 kycTier > 0
-                  ? `${KYC_TIER_BG[kycTier as Exclude<VerificationTier, 0>]} ${
-                      kycTier === 3 ? "text-paper" : "text-white"
-                    }`
+                  ? `${KYC_TIER_BG[kycTier as Exclude<VerificationTier, 0>]} text-white`
                   : "bg-ink-soft text-paper"
               }`}
             >

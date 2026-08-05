@@ -19,6 +19,8 @@ function huePct(shade: number): string {
 describe("EntityMark registry labels", () => {
   it.each([
     [{ type: "signing", subtype: "passkey" }, "Passkey"],
+    [{ type: "signing", subtype: "fingerprint" }, "Fingerprint"],
+    [{ type: "signing", subtype: "face" }, "Face"],
     [{ type: "platform", subtype: "moderator" }, "Mod"],
     [{ type: "platform", subtype: "developer" }, "Dev"],
     [{ type: "platform", subtype: "admin" }, "Admin"],
@@ -163,6 +165,8 @@ describe("EntityMark shade → foreground", () => {
 describe("EntityMark icons", () => {
   it.each([
     [{ type: "signing", subtype: "passkey" }, /lucide-key/],
+    [{ type: "signing", subtype: "fingerprint" }, /lucide-fingerprint/],
+    [{ type: "signing", subtype: "face" }, /lucide-scan-face/],
     [{ type: "platform", subtype: "moderator" }, /lucide-shield-alert/],
     [{ type: "platform", subtype: "developer" }, /lucide-code-xml/],
     [{ type: "platform", subtype: "admin" }, /lucide-globe/],

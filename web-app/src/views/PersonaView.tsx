@@ -9,7 +9,7 @@ import type { CommentNode } from "@/lib/types";
 import { relTime, useNow } from "@/lib/read-model";
 import { TimestampWithAnchor } from "@/components/content/TimestampWithAnchor";
 import { effectivePersonaIconType } from "@/lib/avatar";
-import { Avatar, CommentCard, FeedCard, VerificationPill } from "@/components";
+import { Avatar, CommentCard, EntityMarkGroup, FeedCard } from "@/components";
 import {
   ActivityRow,
   MentionText,
@@ -124,7 +124,12 @@ export function PersonaView({ personaName }: { personaName: string }) {
                   aria-label="Anonymous persona"
                 />
               </p>
-              <VerificationPill tier={profile.tier} align="right" />
+              <EntityMarkGroup
+                tier={profile.tier}
+                signedMode="icon"
+                kycMode="full"
+                align="right"
+              />
             </div>
             <button
               type="button"

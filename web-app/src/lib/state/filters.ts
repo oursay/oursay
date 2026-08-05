@@ -12,7 +12,7 @@ export function viewerFromState(state: AppState): ViewerContext {
     loggedIn: state.loggedIn,
     kycTier: state.kycTier,
     viewerDistricts: state.viewerDistricts,
-    role: state.kycTier === 3 ? "official" : undefined,
+    role: state.isOfficial ? "official" : undefined,
     selfHandle: state.loggedIn
       ? (wireHandle(state.accountHandle) ?? (isMockOnly() ? MY_HANDLE : undefined))
       : undefined,

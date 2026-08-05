@@ -6,23 +6,41 @@ import type { MockPerson } from "./types";
  * Wireframe corpus authors and a few out-of-province residents.
  *
  * `visibility` spreads the demo's anonymity story (absent = public): as the
- * viewer cycles KYC 0→1→2→3 with home district edmonton-strathcona, authors
+ * viewer cycles KYC 0→1→2 with home district edmonton-strathcona, authors
  * de-anonymize in waves — id_verified at tier 1; my_jurisdiction and the
  * in-district my_district authors at tier 2 (pshah stays a persona: wrong
- * district); all_officials at tier 3 (rosak stays: not the viewer's district).
- * Story anchors (oursay, premier, weichen, hanao, MLAs) stay public so the
- * existing demo flows don't regress.
+ * district); all_officials when the viewer holds the official role (rosak
+ * stays: not the viewer's district). Story anchors (oursay, premier, weichen,
+ * hanao, MLAs) stay public so the existing demo flows don't regress.
  */
 const EXTRA_PEOPLE: MockPerson[] = [
   { name: "Dana Whitecloud", handle: "dwhitecloud", tier: 0, visibility: "anonymous" },
-  { name: "OurSay Stewards", handle: "oursay", tier: 3, role: "Platform · Global" },
+  {
+    name: "OurSay Stewards",
+    handle: "oursay",
+    tier: 2,
+    official: true,
+    role: "Platform · Global",
+  },
   { name: "Priya Anand", handle: "priya", tier: 1, visibility: "id_verified" },
   { name: "Marcus Lee", handle: "mlee", tier: 1, visibility: "my_jurisdiction" },
   // All demo accounts are FICTIONAL people. Real officials appear only as
   // unclaimed roster seats (public record + auto-bio disclaimer) — never as
   // registered accounts with authored content.
-  { name: "Hon. A. Premier", handle: "premier", tier: 3, role: "Premier · Alberta" },
-  { name: "Alberta Assembly", handle: "ableg", tier: 3, role: "Legislature · Alberta" },
+  {
+    name: "Hon. A. Premier",
+    handle: "premier",
+    tier: 2,
+    official: true,
+    role: "Premier · Alberta",
+  },
+  {
+    name: "Alberta Assembly",
+    handle: "ableg",
+    tier: 2,
+    official: true,
+    role: "Legislature · Alberta",
+  },
   {
     name: "Jordan Vance",
     handle: "jvance",
@@ -76,7 +94,8 @@ function mlaPerson(riding: (typeof ALBERTA_RIDINGS)[number]): MockPerson {
   return {
     name: riding.mla.name,
     handle: riding.mla.handle,
-    tier: 3,
+    tier: 2,
+    official: true,
     districts: [riding.slug],
     role: `MLA · ${riding.name}`,
   };

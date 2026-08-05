@@ -3,14 +3,18 @@ import type {
   FeedFilterParams,
   GeoFilterMode,
   VerificationTier,
+  VerifiedFilterLevel,
   ViewerContext,
 } from "@/lib/types";
 
 /** Anything the geography filters read: a record or comment with district slugs. */
 export interface DistrictBearing {
   districts?: string[];
-  /** Author tier — lets district-less officials count as jurisdiction residents. */
-  tier?: VerificationTier;
+  /**
+   * Official role flag — district-less officials count as jurisdiction
+   * residents. May later widen to seat lists per jurisdiction.
+   */
+  official?: boolean;
 }
 
 /** District slugs on a record/comment ([] when jurisdiction-wide or unknown). */
@@ -116,8 +120,8 @@ export function jurisdictionWidePost(
 /**
  * A resident of the scope's jurisdiction(s) — the My Jurisdiction "Only" keep.
  * The author's RESIDENCE districts decide (callers pass authorDistricts for
- * records; comment nodes carry residence already). District-less tier-3
- * officials are residents of the jurisdiction they represent and are kept;
+ * records; comment nodes carry residence already). District-less officials
+ * are residents of the jurisdiction they represent and are kept;
  * district-less non-officials (an address outside the modeled jurisdictions)
  * are exactly who the filter exists to drop.
  */
@@ -126,7 +130,7 @@ export function isJurisdictionKeep(
   jurisdictionDistricts: string[],
 ): boolean {
   const ds = node.districts ?? [];
-  if (ds.length === 0) return node.tier === 3;
+  if (ds.length === 0) return Boolean(node.official);
   return ds.some((s) => jurisdictionDistricts.includes(s));
 }
 
@@ -395,9 +399,9 @@ export function resolveGeography(
  * restores as soon as the exclusive is cycled away.
  */
 export function pinnedTierMin(
-  tierMin: VerificationTier,
+  tierMin: VerifiedFilterLevel,
   geo: ResolvedGeography,
-): VerificationTier {
+): VerifiedFilterLevel {
   const pinned =
     geo.myDistricts === "exclusive" ||
     geo.affected === "exclusive" ||

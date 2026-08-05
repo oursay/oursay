@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import {
   CodeXml,
+  Fingerprint,
   Gavel,
   Globe,
   IdCard,
@@ -13,6 +14,7 @@ import {
   MapPinHouse,
   MapPinned,
   NotebookPen,
+  ScanFace,
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -52,9 +54,20 @@ const MARK_REGISTRY = {
   signing: {
     hue: "signing" as const satisfies MarkHue,
     subtypes: {
+      /** Subtype label matches sign-tier strength (Passkey / Fingerprint / Face). */
       passkey: {
         icon: Key,
         label: "Passkey",
+        shade: 1,
+      } satisfies MarkSubtypeEntry,
+      fingerprint: {
+        icon: Fingerprint,
+        label: "Fingerprint",
+        shade: 1,
+      } satisfies MarkSubtypeEntry,
+      face: {
+        icon: ScanFace,
+        label: "Face",
         shade: 1,
       } satisfies MarkSubtypeEntry,
     },
@@ -157,7 +170,11 @@ export type EntityMarkType = keyof typeof MARK_REGISTRY;
 
 /** Discriminated mark identity — higher components choose `mode`. */
 export type EntityMarkSpec =
-  | { type: "signing"; subtype: "passkey"; context?: never }
+  | {
+      type: "signing";
+      subtype: "passkey" | "fingerprint" | "face";
+      context?: never;
+    }
   | {
       type: "platform";
       subtype: "moderator" | "developer" | "admin";
@@ -201,7 +218,7 @@ const ICON_CLASS =
 
 /**
  * Shared mark chrome — full = static pill; icon = expandable circle that
- * reveals the label on hover (pointer) or tap (touch), matching VerificationPill.
+ * reveals the label on hover (pointer) or tap (touch).
  */
 export function EntityMarkBase({
   bgColor,
@@ -312,9 +329,9 @@ function shadeToBg(hue: MarkHue, shade: MarkShade): string {
 }
 
 /**
- * Official always uses `text-paper` (same as VerificationPill): tracks the
- * inverse of the page so it stays legible when the official chip inverts.
- * Colour hues: pale mixes → ink; stronger fills → white.
+ * Official always uses `text-paper`: tracks the inverse of the page so it
+ * stays legible when the official chip inverts. Colour hues: pale mixes →
+ * ink; stronger fills → white.
  */
 function shadeToFg(hue: MarkHue, shade: MarkShade): string {
   if (hue === "official") return "text-paper";

@@ -1,7 +1,7 @@
 "use client";
 
 import { civicExtra } from "@/lib/read-model";
-import type { RecordOption, VerificationTier } from "@/lib/types";
+import type { RecordOption, VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { formatCount } from "@/components/utils";
 
 /** White/dark text split at the fill boundary — overlay clipped to the bar fill width. */
@@ -56,7 +56,7 @@ interface PollOptionsProps {
   /** OurSay's rules make votes final in some jurisdictions (e.g. Alberta) — locks the control and shows a notice. */
   isFinalJurisdiction?: boolean;
   /** Active Verified filter — drives the additive "+N unverified votes" note. */
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   onVote?: (label: string) => void;
 }
 

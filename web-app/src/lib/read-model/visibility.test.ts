@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { AuthorVisibility, VerificationTier, ViewerContext } from "@/lib/types";
 import { isRevealed, resolveVisibility, VISIBILITY_NARROWNESS } from "./visibility";
 
-function viewer(kycTier: VerificationTier, viewerDistricts: string[] = []): ViewerContext {
-  return { loggedIn: kycTier > 0, kycTier, viewerDistricts };
+function viewer(
+  kycTier: VerificationTier,
+  viewerDistricts: string[] = [],
+  role?: "official",
+): ViewerContext {
+  return { loggedIn: kycTier > 0 || role === "official", kycTier, viewerDistricts, role };
 }
 
 const MY = ["edmonton-strathcona"];
@@ -13,22 +17,24 @@ const GLOBAL: string[] = []; // district-less / Global author
 
 describe("isRevealed matrix", () => {
   it("public reveals to everyone including logged out", () => {
-    for (const t of [0, 1, 2, 3] as const) {
+    for (const t of [0, 1, 2] as const) {
       expect(isRevealed("public", ELSEWHERE, viewer(t))).toBe(true);
     }
+    expect(isRevealed("public", ELSEWHERE, viewer(2, MY, "official"))).toBe(true);
   });
 
   it("anonymous never reveals, even to overlapping officials", () => {
-    for (const t of [0, 1, 2, 3] as const) {
+    for (const t of [0, 1, 2] as const) {
       expect(isRevealed("anonymous", SHARED, viewer(t, MY))).toBe(false);
     }
+    expect(isRevealed("anonymous", SHARED, viewer(2, MY, "official"))).toBe(false);
   });
 
   it("id_verified reveals from tier 1 up, regardless of districts", () => {
     expect(isRevealed("id_verified", ELSEWHERE, viewer(0))).toBe(false);
     expect(isRevealed("id_verified", ELSEWHERE, viewer(1))).toBe(true);
     expect(isRevealed("id_verified", GLOBAL, viewer(2, MY))).toBe(true);
-    expect(isRevealed("id_verified", ELSEWHERE, viewer(3, MY))).toBe(true);
+    expect(isRevealed("id_verified", ELSEWHERE, viewer(2, MY, "official"))).toBe(true);
   });
 
   it("my_jurisdiction needs residency; Global authors count as shared", () => {
@@ -46,19 +52,19 @@ describe("isRevealed matrix", () => {
     expect(isRevealed("my_district", SHARED, viewer(1, MY))).toBe(false);
     expect(isRevealed("my_district", SHARED, viewer(2, MY))).toBe(true);
     expect(isRevealed("my_district", ELSEWHERE, viewer(2, MY))).toBe(false);
-    expect(isRevealed("my_district", ELSEWHERE, viewer(3, MY))).toBe(false);
+    expect(isRevealed("my_district", ELSEWHERE, viewer(2, MY, "official"))).toBe(false);
     expect(isRevealed("my_district", GLOBAL, viewer(2, MY))).toBe(false);
   });
 
-  it("all_officials reveals only to tier-3 viewers", () => {
+  it("all_officials reveals only to official-role viewers", () => {
     expect(isRevealed("all_officials", ELSEWHERE, viewer(2, MY))).toBe(false);
-    expect(isRevealed("all_officials", ELSEWHERE, viewer(3, MY))).toBe(true);
-    expect(isRevealed("all_officials", GLOBAL, viewer(3, MY))).toBe(true);
+    expect(isRevealed("all_officials", ELSEWHERE, viewer(2, MY, "official"))).toBe(true);
+    expect(isRevealed("all_officials", GLOBAL, viewer(2, MY, "official"))).toBe(true);
   });
 
   it("my_officials additionally requires a shared riding", () => {
-    expect(isRevealed("my_officials", SHARED, viewer(3, MY))).toBe(true);
-    expect(isRevealed("my_officials", ELSEWHERE, viewer(3, MY))).toBe(false);
+    expect(isRevealed("my_officials", SHARED, viewer(2, MY, "official"))).toBe(true);
+    expect(isRevealed("my_officials", ELSEWHERE, viewer(2, MY, "official"))).toBe(false);
     expect(isRevealed("my_officials", SHARED, viewer(2, MY))).toBe(false);
   });
 });

@@ -67,9 +67,12 @@ export function isRevealed(
     case "my_district":
       return viewer.kycTier >= 2 && overlaps(authorDistricts, viewer.viewerDistricts);
     case "all_officials":
-      return viewer.kycTier === 3;
+      return viewer.role === "official";
     case "my_officials":
-      return viewer.kycTier === 3 && overlaps(authorDistricts, viewer.viewerDistricts);
+      return (
+        viewer.role === "official" &&
+        overlaps(authorDistricts, viewer.viewerDistricts)
+      );
     case "anonymous":
       return false;
   }

@@ -1,6 +1,6 @@
 import type { RecordKind } from "./records";
 import type { SignedFilterLevel } from "./sign-tier";
-import type { VerificationTier } from "./verification";
+import type { VerifiedFilterLevel } from "./verification";
 
 /** List scope a matcher runs in (the wireframe's feed-bearing views). */
 export type FeedScope = "feed" | "jurisdiction" | "district";
@@ -36,7 +36,7 @@ export function nextGeoFilterMode(mode: GeoFilterMode): GeoFilterMode {
  * - affected is a Post-page comment filter only (see read-model/geography).
  * - myJurisdiction is AUTHOR-RESIDENCE based on every scope: does the post's /
  *   comment's author live in one of the scope's jurisdictions? District-less
- *   tier-3 officials count as residents of the jurisdiction they represent.
+ *   officials count as residents of the jurisdiction they represent.
  */
 export interface Geography {
   myDistricts: GeoFilterMode;
@@ -72,8 +72,11 @@ export interface FeedFilterParams {
   jurisdictions?: JurisdictionMembership[];
   /** Included record kinds. Undefined means "all kinds included". */
   types?: RecordKind[];
-  /** Minimum author tier, inclusive-upward (`tier >= tierMin`). */
-  tierMin?: VerificationTier;
+  /**
+   * Verified Refine ladder: KYC floors 1–2 (inclusive-upward; officials also
+   * pass) or 3 = Official role only. See {@link VerifiedFilterLevel}.
+   */
+  tierMin?: VerifiedFilterLevel;
   /** Geography filters. */
   geography?: Geography;
   /**

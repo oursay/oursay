@@ -12,10 +12,8 @@ describe("tierMatchedUpdate", () => {
     expect(tierMatchedVerifyChoice(1)).toBe("identity");
   });
 
-  it("maps residency and official to Residency Update / poa", () => {
+  it("maps residency to Residency Update / poa", () => {
     expect(tierMatchedUpdateLabel(2)).toBe("Residency Update");
     expect(tierMatchedVerifyChoice(2)).toBe("poa");
-    expect(tierMatchedUpdateLabel(3)).toBe("Residency Update");
-    expect(tierMatchedVerifyChoice(3)).toBe("poa");
   });
 });

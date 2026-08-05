@@ -53,6 +53,7 @@ export function ShareCard({
       <CommentCard
         author={node.author}
         tier={node.tier}
+        official={node.official}
         signTier={node.signTier}
         platformRole={node.platformRole}
         authorGeo={node.authorGeo}
@@ -115,6 +116,7 @@ function ShareRecordCard({
           handle={item.handle}
           identity={item.identity}
           tier={item.tier}
+          official={item.official}
           signTier={item.signTier}
           platformRole={item.platformRole}
           authorGeo={item.authorGeo}

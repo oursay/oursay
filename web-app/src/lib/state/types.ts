@@ -12,6 +12,7 @@ import type {
   SignTier,
   SignedFilterLevel,
   VerificationTier,
+  VerifiedFilterLevel,
 } from "@/lib/types";
 import type { ComposeStep } from "@/components";
 import type { AuthModal } from "./authModal";
@@ -89,6 +90,11 @@ export interface AppState {
    */
   authReady: boolean;
   kycTier: VerificationTier;
+  /**
+   * Official role for the signed-in viewer (orthogonal to KYC). May later
+   * widen to seat-/jurisdiction-scoped lists.
+   */
+  isOfficial: boolean;
   viewerDistricts: string[];
   /** Live-session wire handle (no leading @). */
   accountHandle?: string;
@@ -109,7 +115,7 @@ export interface AppState {
 
   // Feed / list filters.
   includedKinds: RecordKind[];
-  verified: VerificationTier;
+  verified: VerifiedFilterLevel;
   myDistricts: GeoFilterMode;
   affected: GeoFilterMode;
   /** Author-residence filter — see Geography.myJurisdiction. */

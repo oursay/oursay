@@ -27,13 +27,14 @@ import type {
   RecordKind,
   SignedFilterLevel,
   VerificationTier,
+  VerifiedFilterLevel,
   ViewerContext,
 } from "@/lib/types";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 
 /** Trailing glyph for Verified ladder steps (Any has no icon). */
-function verifiedLevelIcon(level: VerificationTier): LucideIcon | null {
+function verifiedLevelIcon(level: VerifiedFilterLevel): LucideIcon | null {
   return [null, IdCard, MapPin, Gavel][level] ?? null;
 }
 
@@ -92,7 +93,7 @@ interface FilterDropdownProps {
   onIsolateKind: (kind: RecordKind) => void;
   onAllKinds: () => void;
   /** Verified ladder index into VERIFIED_LEVELS (Any -> Identity -> Residency -> Official). */
-  verifiedLevel: VerificationTier;
+  verifiedLevel: VerifiedFilterLevel;
   onCycleVerified: () => void;
   /** Geography cycle: Off -> Include (broaden) -> Only (narrow) -> Off. */
   myDistricts: GeoFilterMode;

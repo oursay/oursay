@@ -9,10 +9,10 @@ import {
   ActivityRow,
   Avatar,
   Button,
+  EntityMark,
   FeedCard,
   MentionText,
   ProfileSupportBar,
-  VerificationPill,
 } from "@/components";
 import {
   authorPath,
@@ -160,7 +160,9 @@ export function OfficialView({ handle }: { handle: string }) {
               <p className="truncate font-bold text-ink">{profile.role}</p>
               {/* Verification badge only when the office holder actually claimed
                   the seat — an unclaimed roster listing asserts no verification. */}
-              {profile.claimed ? <VerificationPill tier={3} align="right" /> : null}
+              {profile.claimed ? (
+                <EntityMark type="official" subtype="official" mode="full" />
+              ) : null}
             </div>
             {representativeRow}
           </div>

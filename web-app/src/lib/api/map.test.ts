@@ -19,8 +19,9 @@ describe("tokenToTier", () => {
     expect(tokenToTier("electoral_validated")).toBe(2);
   });
 
-  it("maps official role to tier 3", () => {
-    expect(tokenToTier("residency_verified", true)).toBe(3);
+  it("does not graft official into KYC tier", () => {
+    expect(tokenToTier("residency_verified")).toBe(2);
+    expect(tokenToTier("identity_verified")).toBe(1);
   });
 });
 
@@ -338,7 +339,7 @@ describe("mapCommentNode", () => {
     expect(node.replies[0].body).toEqual(["reply"]);
   });
 
-  it("maps official flag to tier 3", () => {
+  it("maps official flag beside KYC tier", () => {
     const node = mapCommentNode({
       author: "Alberta Assembly",
       handle: "ableg",
@@ -361,6 +362,7 @@ describe("mapCommentNode", () => {
       },
       replies: [],
     });
-    expect(node.tier).toBe(3);
+    expect(node.tier).toBe(2);
+    expect(node.official).toBe(true);
   });
 });

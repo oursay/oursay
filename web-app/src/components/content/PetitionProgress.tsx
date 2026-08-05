@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { CircleCheckBig } from "lucide-react";
 import { civicExtra } from "@/lib/read-model";
-import type { AttachedPoll, VerificationTier } from "@/lib/types";
+import type { AttachedPoll, VerificationTier, VerifiedFilterLevel } from "@/lib/types";
 import { formatCount } from "@/components/utils";
 
 interface PetitionProgressProps {
@@ -12,7 +12,7 @@ interface PetitionProgressProps {
   /** A pre-attached poll flips the caption to a graduation tag. */
   attachedPoll?: AttachedPoll;
   /** Active Verified filter — drives the additive "+N unverified signatures" note. */
-  tierMin?: VerificationTier;
+  tierMin?: VerifiedFilterLevel;
   /** Sign CTA slot (parent supplies the button so the modal flow stays external). */
   children?: ReactNode;
 }
