@@ -1,6 +1,7 @@
 export * from "./VerificationPill";
 export * from "./SignedPill";
 export * from "./PlatformMark";
+export * from "./EntityMark";
 export * from "./AuthorBadgeGroup";
 export * from "./AuthorRow";
 export * from "./LeaderProfileLink";
