@@ -47,7 +47,8 @@ export class Db {
     assertDestructiveAllowed("Db.reset()");
     await this.pool.query(
       `TRUNCATE auth.otp_rate_limits, auth.kyc_sessions, auth.email_otp, auth.sessions, auth.webauthn_challenges,
-               auth.passkey_credentials, auth.profile_geocode_history, auth.profile_geocodes, auth.profiles,
+               auth.passkey_credentials, auth.ops_signing_keys, auth.platform_ops_pending,
+               auth.profile_geocode_history, auth.profile_geocodes, auth.profiles,
                auth.account_roles, auth.media_accreditations, auth.accreditation_bodies,
                geo.regions, geo.districts,
                public.mention_index, public.mention_map,

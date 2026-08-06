@@ -12,9 +12,9 @@
 //
 // Browser-safe: only @noble + Web-standard base64 (btoa/atob)/JSON, so it bundles for the client.
 
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, concatBytes, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { signingDigest } from "./envelope.js";
 import type { TxEnvelope, WebauthnAssertion } from "../schema/types.js";
 
@@ -56,6 +56,19 @@ export function verifyWebauthnAssertion(env: TxEnvelope): boolean {
   const wa = env.webauthn;
   if (!wa) return false;
   if (!env.signerPubkey) return false;
+  return verifyWebauthnAssertionForChallenge(wa, signingDigest(env), env.signerPubkey);
+}
+
+/**
+ * Verify a WebAuthn (ES256) assertion whose challenge is bound to an arbitrary digest (e.g. a
+ * platform-ops clear-request hash). Same UV / type / DER checks as {@link verifyWebauthnAssertion}.
+ */
+export function verifyWebauthnAssertionForChallenge(
+  wa: WebauthnAssertion,
+  challenge: Uint8Array,
+  signerPubkeyHex: string,
+): boolean {
+  if (!wa || !signerPubkeyHex) return false;
   try {
     const authData = base64urlDecode(wa.authenticatorData);
     const clientDataBytes = base64urlDecode(wa.clientDataJSON);
@@ -69,12 +82,10 @@ export function verifyWebauthnAssertion(env: TxEnvelope): boolean {
       challenge?: string;
     };
     if (clientData.type !== "webauthn.get") return false;
-    if (clientData.challenge !== base64urlEncode(signingDigest(env))) return false;
+    if (clientData.challenge !== base64urlEncode(challenge)) return false;
     const msgHash = sha256(concatBytes(authData, sha256(clientDataBytes)));
-    // Parse the DER ECDSA sig to compact r||s. lowS:false — WebAuthn authenticators may emit a
-    // high-S signature, which we must still accept.
     const sig = p256.Signature.fromDER(sigDer).toCompactRawBytes();
-    return p256.verify(sig, msgHash, hexToBytes(env.signerPubkey), { lowS: false });
+    return p256.verify(sig, msgHash, hexToBytes(signerPubkeyHex), { lowS: false });
   } catch {
     return false;
   }
@@ -114,7 +125,7 @@ export function buildWebauthnAssertion(input: BuildAssertionInput): WebauthnAsse
   return {
     authenticatorData: base64urlEncode(authData),
     clientDataJSON: base64urlEncode(clientDataBytes),
-    signature: base64urlEncode(sig.toDERRawBytes()),
+    signature: base64urlEncode(sig.toBytes('der')),
   };
 }
 

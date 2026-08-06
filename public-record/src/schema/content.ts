@@ -115,5 +115,32 @@ export function validateContent(type: RecordType, op: Op, content: unknown, juri
         }
       });
     }
+  } else if (type === "platform_ops") {
+    const c = (content ?? {}) as {
+      ds?: unknown;
+      v?: unknown;
+      kind?: unknown;
+      jurisdictionId?: unknown;
+      payload?: unknown;
+      adminAttestation?: unknown;
+      request?: unknown;
+    };
+    if (c.ds !== "oursay/v1/platform-ops") throw new Error("platform_ops.ds must be oursay/v1/platform-ops");
+    if (c.v !== 1) throw new Error("platform_ops.v must be 1");
+    if (c.kind !== "official_seat_claim" && c.kind !== "official_seat_revoke") {
+      throw new Error("platform_ops.kind is unsupported");
+    }
+    if (typeof c.jurisdictionId !== "string" || !c.jurisdictionId) {
+      throw new Error("platform_ops.jurisdictionId is required");
+    }
+    if (!c.payload || typeof c.payload !== "object" || Array.isArray(c.payload)) {
+      throw new Error("platform_ops.payload must be an object");
+    }
+    if (!c.adminAttestation || typeof c.adminAttestation !== "object") {
+      throw new Error("platform_ops.adminAttestation is required");
+    }
+    if (!c.request || typeof c.request !== "object") {
+      throw new Error("platform_ops.request is required");
+    }
   }
 }

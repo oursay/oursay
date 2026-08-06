@@ -76,8 +76,12 @@ export interface JurisdictionGraduation {
   officialEarlyPromotion?: boolean;
 }
 
-/** Every record type maps to the gate action that governs it. */
+/** Every civic record type maps to the gate action that governs it. `platform_ops` is not gated
+ *  here — it uses the platform-ops append path (admin role + platform envelope), not act gates. */
 export function actionForType(type: RecordType): GatedAction {
+  if (type === "platform_ops") {
+    throw new Error("platform_ops is not a gated civic action");
+  }
   return type as GatedAction;
 }
 
@@ -166,14 +170,12 @@ export const DEFAULT_CONTENT_LIMITS: JurisdictionContentLimits = {
  *  expiry policy is a per-jurisdiction extension point that will hang off this shape; `privacy`
  *  (k-anonymity floor) and `counts` (public count exposure) are the first such extensions.
  *
- *  FUTURE (transparency / audit): standing jurisdiction policy — gates, recognition lists, Official
- *  seat assign/change/revoke, record redaction, district ingestion/modification, and other platform
- *  sign-offs — should eventually be **admin-ingested into the DB** and mutated by appending
- *  **platform-signed attestations to the jurisdiction's chain**, with the same audit posture as
- *  civic public-record actions. Today's TypeScript registry (`@oursay/jurisdiction-data` +
- *  `registerJurisdiction`) is the interim deploy-time source of truth; see
- *  `docs/entities/partitioning/future.md` (Platform-signed jurisdiction policy) and
- *  `docs/entities/record/future.md` (Platform-signed records). */
+ *  FUTURE (transparency / audit): standing jurisdiction policy uses the **platform_ops** dual-sign
+ *  path (admin clear-request attestation + platform-signed envelope). Official seat claim/revoke is
+ *  shipped; remaining kinds (gates/recognition lists, redaction reasoning, district boundary ingest
+ *  with artifact digests, config ingest into DB) are deferred. Today's TypeScript registry
+ *  (`@oursay/jurisdiction-data` + `registerJurisdiction`) remains the interim deploy-time source for
+ *  standing config; see `docs/entities/partitioning/future.md` and `docs/entities/record/future.md`. */
 export interface JurisdictionConfig {
   id: string;
   level: string; // federal | provincial | municipal | state | …
@@ -234,6 +236,7 @@ export function getJurisdiction(id: string = jurisdictionConfig.id): Jurisdictio
  * deprecated `rules.signing.defaultScheme`, else the platform default (quick).
  */
 export function requiredSignScheme(type: RecordType, jurisdictionId?: string): SignScheme | null {
+  if (type === "platform_ops") return null;
   const j = getJurisdiction(jurisdictionId);
   const gate = j.gates?.[actionForType(type)];
   if (gate) return gate.signMin === "passkey" ? "webauthn-es256" : null;

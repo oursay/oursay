@@ -112,7 +112,7 @@ export type { DeriveInput, ThreadKey } from "./identity/derive.js";
 export { signEnvelope, verifyEnvelope, signingDigest, UNSIGNED } from "./identity/envelope.js";
 export type { SignResult } from "./identity/envelope.js";
 // WebAuthn (ES256) per-thread civic signing (Option A) — one verifier + one builder (dev/tests).
-export { verifyWebauthnAssertion, buildWebauthnAssertion, credentialPubkeyHex, base64urlEncode, base64urlDecode } from "./identity/webauthn.js";
+export { verifyWebauthnAssertion, buildWebauthnAssertion, credentialPubkeyHex, base64urlEncode, base64urlDecode, verifyWebauthnAssertionForChallenge } from "./identity/webauthn.js";
 export type { BuildAssertionInput } from "./identity/webauthn.js";
 // Thread-scoped device signing (Method 3 §5.4) — multi-device / cross-device edit.
 export { deriveDeviceThreadSigner, signEnvelopeWithDevice, deviceSignerDomainInfo } from "./identity/device.js";
@@ -126,6 +126,21 @@ export { signNullifierAttestation, verifyNullifierAttestation, nullifierAttestat
 export { signCredentialAuth, verifyCredentialAuth, credentialAuthDigest } from "./identity/platform-binding.js";
 export type { CredentialAuthPayload } from "./identity/platform-binding.js";
 export { verifyThreadBinding, bindingFromRow } from "./identity/verify.js";
+// Platform-ops: admin clear-request attestation + platform-signed envelopes (threadless).
+export {
+  platformOpsRequestDigest,
+  platformOpsRequestHash,
+  signPlatformOpsRequestP256,
+  verifyPlatformOpsRequestP256,
+  verifyPlatformOpsAdminAttestation,
+  buildPlatformOpsRequest,
+  buildPlatformOpsAdminAttestationP256,
+  buildPlatformOpsAdminAttestationWebauthn,
+  buildPlatformOpsContent,
+  platformOpsEntityId,
+  buildAndSignPlatformOpsEnvelope,
+  platformOpsSeatEntityId,
+} from "./identity/platform-ops.js";
 
 // Schema / model
 export {
@@ -156,6 +171,10 @@ export type {
   VoteContent,
   PetitionSignatureContent,
   ResultContent,
+  PlatformOpsKind,
+  PlatformOpsRequest,
+  PlatformOpsAdminAttestation,
+  PlatformOpsContent,
 } from "./schema/types.js";
 
 // Config

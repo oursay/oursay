@@ -3,13 +3,21 @@
 Deferred design intent for the `record/` entities (record-transaction, public-record, entity-projection). Not shipped.
 
 ## Platform-signed records
-A class of records authored by the **platform key** rather than a participant persona:
+A class of records authored by the **platform key** rather than a participant persona. Dual-sign ceremony (shipped framework):
+
+1. An **admin** attests a clear domain-separated request (`oursay/v1/platform-ops-request`) with an auth passkey (HTTP) or enrolled ops soft-key (CLI).
+2. The **platform** builds a `platform_ops` `TxEnvelope`, embeds the admin attestation in private content, and signs the envelope (`authorPubkey` = platform P-256 pubkey).
+3. Submit verifies admin role on the key holder + matching prepare memory (HTTP) + platform signature, then appends to the jurisdiction chain (outbox) and applies the mutable projection.
+
+First shipped kinds: `official_seat_claim` / `official_seat_revoke` (`POST /v1/platform-ops/prepare|submit`, `admin:seat` CLI).
+
+Still deferred as kinds on the same framework:
 - Final tallies and **tally amendments** (corrections to a published count).
-- **Censorship reasoning** (why a record was redacted/removed).
-- **District boundary revisions** (a redraw published as a signed record).
+- **Censorship reasoning** (why a record was redacted/removed) — wire after redaction HTTP lands.
+- **District boundary revisions** (a redraw published as a signed record; prefer artifact digests over embedding full geometry).
 - **Official profiles** (MLA / premier / agency), distinct from participant accounts.
 - **Post Archiving** when the platform has been required to archive the post/statement to comply with lawful requests.
-- **Jurisdiction policy / ops attestations** (deferred — see [partitioning/future.md](../partitioning/future.md) **Platform-signed jurisdiction policy**): gates and recognition-list changes, Official seat assign/change/revoke, district ingest/modification, and related platform sign-offs appended to the jurisdiction’s chain.
+- **Jurisdiction policy ingest** (gates, recognition lists, labels, limits) — see [partitioning/future.md](../partitioning/future.md).
 
 ## Signed count snapshots
 Platform-signed count manifests with deadline snapshots for poll/signature platform counts ([mvp-c13-signed-count-snapshots], R26).

@@ -25,6 +25,7 @@ export interface ExplorerTypeCounts {
   poll?: number;
   vote?: number;
   result?: number;
+  platform_ops?: number;
 }
 
 /** Tip header slice — enough to recompute chainTipHash fold without a second block fetch. */

@@ -9,6 +9,7 @@ import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data
 import { SEED_ADMIN_HANDLE } from "./seed-data/people.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
 import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
+import { ensureOpsServiceAccount } from "../src/helpers/ops-account.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 
@@ -104,6 +105,10 @@ async function main(): Promise<void> {
   console.log(`Granting platform admin → ${adminEmail}…`);
   // Bootstrap grant: granted_by_admin_id stays NULL (same as CLI first admin).
   await world.services.repos.platformRole.grant(adminMember.userId, "admin", null);
+  console.log(" done");
+
+  console.log("Provisioning ops service account + soft-key…");
+  await ensureOpsServiceAccount(world.services);
   console.log(" done");
 
   // Media catalog + accreditation for local Media mark / AB recognition demos.

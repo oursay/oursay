@@ -70,10 +70,13 @@ import { RecordStateService } from "./services/record-state.service.js";
 import { PersonaPageService } from "./services/persona-page.service.js";
 import { OfficialPageService } from "./services/official-page.service.js";
 import { OfficialSeatClaimService } from "./services/official-seat-claim.service.js";
+import { PlatformOpsService } from "./services/platform-ops.service.js";
 import { ProfilePageService } from "./services/profile-page.service.js";
 import { RecoveryService } from "./services/recovery.service.js";
 import { RegistrationService } from "./services/registration.service.js";
 import { ViewerContextService } from "./services/viewer-context.service.js";
+import { OpsSigningKeyRepo } from "./repo/ops-signing-key.repo.js";
+import { PlatformOpsPendingRepo } from "./repo/platform-ops-pending.repo.js";
 
 export interface BuildOptions {
   /** Injectable clock for deterministic tests. */
@@ -112,6 +115,10 @@ export interface Repos {
   mediaAccreditation: MediaAccreditationRepo;
   /** Per-action signing preferences (C1); floors stay enforced server-side regardless. */
   signingPrefs: SigningPrefsRepo;
+  /** Soft P-256 keys for headless platform-ops admin attestations. */
+  opsSigningKey: OpsSigningKeyRepo;
+  /** Short-lived platform-ops prepare memory. */
+  platformOpsPending: PlatformOpsPendingRepo;
 }
 
 export interface Services {
@@ -160,8 +167,10 @@ export interface Services {
   personaPageService: PersonaPageService;
   /** Auto-generated official seat pages (jurisdiction leaders; MLA catalog later). */
   officialPageService: OfficialPageService;
-  /** Platform-only seat claims (roster seat ↔ official membership). */
+  /** Platform-only seat claims (roster seat ↔ official membership). Mutable apply after platform-ops. */
   officialSeatClaimService: OfficialSeatClaimService;
+  /** Platform-ops prepare/submit (admin attestation + platform-signed envelope). */
+  platformOpsService: PlatformOpsService;
   /** Account-level public profile surface (P4/P5). */
   profilePageService: ProfilePageService;
   /** Unauthenticated public AREA CATALOG (jurisdiction index + effective-dated district directory +
@@ -210,6 +219,8 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     accreditationBody: new AccreditationBodyRepo(pool),
     mediaAccreditation: new MediaAccreditationRepo(pool),
     signingPrefs: new SigningPrefsRepo(pool),
+    opsSigningKey: new OpsSigningKeyRepo(pool),
+    platformOpsPending: new PlatformOpsPendingRepo(pool),
   };
 
   const mailer = opts.mailer ?? (await createMailerService(mailerConfig, opts.mailerOverrides));
@@ -420,6 +431,17 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     membershipRepo: repos.membership,
     userRepo: repos.user,
   });
+  const platformOpsService = new PlatformOpsService({
+    pendingRepo: repos.platformOpsPending,
+    opsKeyRepo: repos.opsSigningKey,
+    passkeyRepo: repos.passkey,
+    platformRoleRepo: repos.platformRole,
+    officialSeatClaimService,
+    recordStore,
+    getLedger,
+    platformBindingPrivKeyHex,
+    signedEnvelopeMaxAgeSec: civicConfig.signedEnvelopeMaxAgeSec,
+  });
 
   // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
   // (same `jurisdictions` list registered above). Official electoral boundaries only.
@@ -455,6 +477,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     personaPageService,
     officialPageService,
     officialSeatClaimService,
+    platformOpsService,
     profilePageService,
     areaCatalogService,
     ledgerInstance,

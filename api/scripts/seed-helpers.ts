@@ -14,6 +14,7 @@ import { Db } from "../src/db.js";
 import { buildServices } from "../src/container.js";
 import { kycConfig } from "../src/config.js";
 import { normalizeHandle } from "../src/helpers/handle.js";
+import { ensureOpsServiceAccount } from "../src/helpers/ops-account.js";
 import { NoopMailAdapter } from "../src/services/mailer/adapters/noop.js";
 import { injectFetch } from "../test/helpers/inject-fetch.js";
 import type { FastifyInstance } from "fastify";
@@ -186,12 +187,13 @@ export async function createSeedMember(world: SeedWorld, person: SeedPerson): Pr
   return { userId, token: session.token, handle: person.handle, client, passkey };
 }
 
-/** Wire claimed official seats after seed users exist (via OfficialSeatClaimService). */
+/** Wire claimed official seats after seed users exist (platform-ops signed path). */
 export async function applySeedSeatClaims(
   world: SeedWorld,
   people: readonly SeedPerson[],
   members: Map<string, SeedMember>,
 ): Promise<void> {
+  const ops = await ensureOpsServiceAccount(world.services);
   for (const person of people) {
     for (const seatHandle of person.seatClaims ?? []) {
       const member = members.get(person.handle);
@@ -199,7 +201,18 @@ export async function applySeedSeatClaims(
         console.warn(`  seat claim skipped (no member): ${person.handle} → ${seatHandle}`);
         continue;
       }
-      await world.services.officialSeatClaimService.claimSeat(member.userId, seatHandle);
+      const seat = await world.services.geoStore.getOfficialSeatByHandle(seatHandle);
+      if (!seat) {
+        console.warn(`  seat claim skipped (no seat): ${seatHandle}`);
+        continue;
+      }
+      await world.services.platformOpsService.submitWithOpsSoftKey({
+        opsUserId: ops.userId,
+        kind: "official_seat_claim",
+        jurisdictionId: seat.jurisdictionId,
+        payload: { seatHandle, userId: member.userId },
+        opsPrivKeyHex: ops.privKeyHex,
+      });
     }
   }
 }
@@ -212,7 +225,7 @@ export async function createPostFromTemplate(
 ): Promise<SeededPost> {
   const t: ThreadRef = { threadId: entityId, jurisdiction };
   const sign = signModeFor(jurisdiction);
-  await member.client.ensureJoined(t);
+  await member.client.ensurePasskeySigner(t);
 
   const rules = governanceForCreate(template, template.kind);
 

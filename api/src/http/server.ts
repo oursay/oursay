@@ -19,6 +19,7 @@ import { registerHealthRoutes } from "./routes/health.routes.js";
 import { registerLoginRoutes } from "./routes/login.routes.js";
 import { registerOtpRoutes } from "./routes/otp.routes.js";
 import { registerPasskeyRoutes } from "./routes/passkey.routes.js";
+import { registerPlatformOpsRoutes } from "./routes/platform-ops.routes.js";
 import { registerKycDevRoutes } from "./routes/kyc-dev.routes.js";
 import { registerMembershipDevRoutes } from "./routes/membership-dev.routes.js";
 import { registerKycRoutes } from "./routes/kyc.routes.js";
@@ -70,6 +71,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
         { name: "profile", description: "Private account profile" },
         { name: "me", description: "Authenticated self-scoped account surface" },
         { name: "kyc", description: "Identity and residency verification (Didit sessions, platform residency attest)" },
+        { name: "platform-ops", description: "Platform-signed ops (admin prepare/submit; seat assignment today)" },
         { name: "meta", description: "Health & docs" },
       ],
       components: {
@@ -94,6 +96,7 @@ export async function buildServer(services: Services, opts: BuildServerOptions =
   registerLoginRoutes(app, services);
   registerCivicDeviceRoutes(app, services);
   registerCivicRecordRoutes(app, services);
+  await registerPlatformOpsRoutes(app, services);
   registerExplorerRoutes(app, services);
   registerPublicRecordReadRoutes(app, services);
   registerPublicFeedRoutes(app, services);

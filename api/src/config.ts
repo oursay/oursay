@@ -185,6 +185,18 @@ export const civicConfig: CivicConfig = {
   chainId: env("CHAIN_ID", "ab-ca-gov"),
 };
 
+/** Soft P-256 key for the ops service account (CLI platform-ops attestations). Dev fallback is
+ *  insecure and deterministic; production must set PLATFORM_OPS_ADMIN_PRIVKEY. */
+const DEV_PLATFORM_OPS_ADMIN_PRIVKEY = "ab".repeat(32);
+
+export const platformOpsConfig = {
+  /** Ops soft-key private scalar (hex). Empty string when unset in production (CLI refuses). */
+  adminPrivKeyHex: secret("PLATFORM_OPS_ADMIN_PRIVKEY", DEV_PLATFORM_OPS_ADMIN_PRIVKEY),
+  /** Stable handle for the ops service account (not a civic persona for the feed). */
+  opsHandle: env("PLATFORM_OPS_HANDLE", "oursay_ops"),
+  opsEmail: env("PLATFORM_OPS_EMAIL", "ops@platform.oursay.dev"),
+};
+
 /**
  * The Alberta launch JURISDICTION (docs/GLOSSARY, docs/08 §6.0) — a provincial deployment. Default
  * governance is FINAL-action: votes and signatures are final (`allowChange`/`allowRevoke` off) unless

@@ -41,14 +41,15 @@ District redraws published as platform-signed records (see [record/future.md](..
 
 Standing jurisdiction configuration is authored today as TypeScript in `@oursay/jurisdiction-data` and registered in-process at API startup (`registerJurisdiction`). That is an **interim deploy-time** source of truth.
 
-**Intent (not shipped):** standing config should eventually be **admin-ingested into the database** and mutated by appending **platform-signed attestations to the jurisdiction’s chain** — the same transparency / audit posture the public record uses for civic actions. Policy changes must leave an append-only, independently verifiable trail.
+**Partial ship:** the `platform_ops` record framework (admin clear-request attestation + platform-signed envelope) is live. **Official seat assign/revoke** is the first kind on that path (`admin:seat`, `POST /v1/platform-ops/*`).
 
-Actions in this audit class include (non-exhaustive):
+**Still deferred on the same framework:** standing config should eventually be **admin-ingested into the database** and mutated by appending platform-ops attestations to the jurisdiction’s chain — the same transparency / audit posture the public record uses for civic actions. Policy changes must leave an append-only, independently verifiable trail.
+
+Remaining actions in this audit class (non-exhaustive):
 
 - Changing gates, labels, content limits, count exposure, graduation, and **`recognizedAccreditationBodyIds`**
-- Assigning / changing / revoking Official seats (and related membership role linkage)
 - Record redaction / censorship reasoning
-- District boundary ingestion and modification
+- District boundary ingestion and modification (shapefile ingest remains DB-only until wired; content should commit an artifact digest + metadata, not full geometry)
 - Other platform sign-offs that alter jurisdiction policy or roster state
 
-See also [record/future.md](../record/future.md) (**Platform-signed records**). Until that lands, recognition lists and other policy fields remain on `JurisdictionConfig` in the data package.
+See also [record/future.md](../record/future.md) (**Platform-signed records**). Until config ingest lands, recognition lists and other policy fields remain on `JurisdictionConfig` in the data package.

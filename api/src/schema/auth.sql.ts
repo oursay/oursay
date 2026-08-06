@@ -325,4 +325,30 @@ CREATE INDEX IF NOT EXISTS kyc_sessions_user ON auth.kyc_sessions (user_id);
 ALTER TABLE auth.kyc_sessions DROP CONSTRAINT IF EXISTS kyc_sessions_workflow_kind_check;
 ALTER TABLE auth.kyc_sessions ADD CONSTRAINT kyc_sessions_workflow_kind_check
   CHECK (workflow_kind IN ('identity', 'poa', 'recovery'));
+
+-- Ops soft-keys for headless CLI platform-ops attestations (P-256 SEC1 compressed hex).
+-- Same admin-role lookup path as auth passkeys; not usable for WebAuthn login.
+CREATE TABLE IF NOT EXISTS auth.ops_signing_keys (
+  id          UUID PRIMARY KEY,
+  user_id     UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  pubkey_hex  TEXT NOT NULL UNIQUE,
+  label       TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS ops_signing_keys_user ON auth.ops_signing_keys (user_id);
+
+-- Short-lived prepare memory for platform-ops HTTP/CLI submit (multi-instance safe).
+CREATE TABLE IF NOT EXISTS auth.platform_ops_pending (
+  request_id       UUID PRIMARY KEY,
+  request_hash     TEXT NOT NULL,
+  clear_message    JSONB NOT NULL,
+  kind             TEXT NOT NULL,
+  jurisdiction_id  TEXT NOT NULL,
+  prepared_by      UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  expires_at       TIMESTAMPTZ NOT NULL,
+  consumed_at      TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS platform_ops_pending_expires ON auth.platform_ops_pending (expires_at)
+  WHERE consumed_at IS NULL;
 `;

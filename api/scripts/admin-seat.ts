@@ -1,15 +1,16 @@
 /**
- * Claim / revoke / list official seat assignments (platform ops).
+ * Claim / revoke / list official seat assignments via platform-ops (signed to the public record).
  * Jurisdiction is taken from the seat row — any ingested roster works.
  *
- *   npm run admin:seat -w @oursay/api -- claim  <email> <seatHandle> [--granted-by <userId>]
+ *   npm run admin:seat -w @oursay/api -- claim  <email> <seatHandle>
  *   npm run admin:seat -w @oursay/api -- revoke <seatHandle> [--email <email>]
  *   npm run admin:seat -w @oursay/api -- list [--jurisdiction <jurisdictionId>]
  *
  * Development (NODE_ENV=development) always allowed.
  * Production requires OURSAY_ALLOW_PROD_ADMIN=1 (SSH on the deploy host only).
  *
- * Optional actor for audit: --granted-by <userId> or OURSAY_ADMIN_ACTOR_ID.
+ * Signing: uses the ops service account soft-key (PLATFORM_OPS_ADMIN_PRIVKEY) enrolled in
+ * auth.ops_signing_keys. HTTP admins use prepare/submit with an auth passkey instead.
  */
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -18,6 +19,7 @@ import { buildServices } from "../src/container.js";
 import { Db } from "../src/db.js";
 import { isServiceError } from "../src/errors.js";
 import { normalizeEmail } from "../src/helpers/email.js";
+import { ensureOpsServiceAccount } from "../src/helpers/ops-account.js";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(packageRoot, "..");
@@ -26,11 +28,11 @@ dotenv.config({ path: join(packageRoot, ".env") });
 
 const USAGE =
   "usage: admin-seat <claim|revoke|list> …\n" +
-  "  claim  <email> <seatHandle> [--granted-by <userId>]\n" +
+  "  claim  <email> <seatHandle>\n" +
   "  revoke <seatHandle> [--email <email>]\n" +
   "  list [--jurisdiction <jurisdictionId>]\n" +
   "  prod: set OURSAY_ALLOW_PROD_ADMIN=1\n" +
-  "  grant actor: --granted-by <userId> or OURSAY_ADMIN_ACTOR_ID";
+  "  ops soft-key: PLATFORM_OPS_ADMIN_PRIVKEY (dev fallback exists)";
 
 function assertAdminCliAllowed(): void {
   if (process.env.NODE_ENV === "development") return;
@@ -44,21 +46,15 @@ function assertAdminCliAllowed(): void {
 function parseArgs(argv: string[]): {
   cmd: string | undefined;
   positional: string[];
-  grantedBy: string | null;
   emailOpt: string | undefined;
   jurisdiction: string | undefined;
 } {
   const args = argv.filter((a) => a !== "--");
-  let grantedBy: string | null = process.env.OURSAY_ADMIN_ACTOR_ID?.trim() || null;
   let emailOpt: string | undefined;
   let jurisdiction: string | undefined;
   const positional: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const a = args[i]!;
-    if (a === "--granted-by") {
-      grantedBy = args[++i]?.trim() || null;
-      continue;
-    }
     if (a === "--email") {
       emailOpt = args[++i]?.trim() || undefined;
       continue;
@@ -70,7 +66,7 @@ function parseArgs(argv: string[]): {
     if (a.startsWith("-")) continue;
     positional.push(a);
   }
-  return { cmd: positional[0], positional: positional.slice(1), grantedBy, emailOpt, jurisdiction };
+  return { cmd: positional[0], positional: positional.slice(1), emailOpt, jurisdiction };
 }
 
 function auditLog(payload: Record<string, unknown>): void {
@@ -79,7 +75,7 @@ function auditLog(payload: Record<string, unknown>): void {
 
 async function main(): Promise<void> {
   assertAdminCliAllowed();
-  const { cmd, positional, grantedBy, emailOpt, jurisdiction } = parseArgs(process.argv.slice(2));
+  const { cmd, positional, emailOpt, jurisdiction } = parseArgs(process.argv.slice(2));
   if (!cmd || !["claim", "revoke", "list"].includes(cmd)) {
     console.error(USAGE);
     process.exit(2);
@@ -89,7 +85,7 @@ async function main(): Promise<void> {
   await db.init();
   try {
     const services = await buildServices(db);
-    const claim = services.officialSeatClaimService;
+    const ops = await ensureOpsServiceAccount(services);
 
     if (cmd === "list") {
       const seats = await services.geoStore.listClaimedOfficialSeatsAsOf(new Date(), jurisdiction);
@@ -123,14 +119,6 @@ async function main(): Promise<void> {
         process.exit(2);
       }
 
-      if (grantedBy) {
-        const actor = await services.repos.user.getById(grantedBy);
-        if (!actor) {
-          console.error(`[admin-seat] --granted-by user not found: ${grantedBy}`);
-          process.exit(1);
-        }
-      }
-
       const { canonical } = normalizeEmail(email);
       const profile = await services.repos.profile.getByEmailCanonical(canonical);
       if (!profile) {
@@ -138,22 +126,33 @@ async function main(): Promise<void> {
         process.exit(1);
       }
 
-      await claim.claimSeat(profile.userId, seatHandle);
       const seat = await services.geoStore.getOfficialSeatByHandle(seatHandle);
+      if (!seat) {
+        console.error(`[admin-seat] official seat not found: ${seatHandle}`);
+        process.exit(1);
+      }
+
+      const ref = await services.platformOpsService.submitWithOpsSoftKey({
+        opsUserId: ops.userId,
+        kind: "official_seat_claim",
+        jurisdictionId: seat.jurisdictionId,
+        payload: { seatHandle, userId: profile.userId },
+        opsPrivKeyHex: ops.privKeyHex,
+      });
       const user = await services.repos.user.getById(profile.userId);
       auditLog({
         action: "claim",
         seat_handle: seatHandle,
-        jurisdiction_id: seat?.jurisdictionId ?? null,
+        jurisdiction_id: seat.jurisdictionId,
         target_user_id: profile.userId,
         claimed_user_handle: user?.handle ?? null,
-        granted_by_admin_id: grantedBy,
+        ops_user_id: ops.userId,
+        tx_id: ref.txId,
+        entity_id: ref.entityId,
         at: new Date().toISOString(),
       });
       console.error(
-        `[admin-seat] claimed ${seatHandle}` +
-          (seat ? ` (${seat.jurisdictionId})` : "") +
-          ` for ${canonical} (${profile.userId})`,
+        `[admin-seat] claimed ${seatHandle} (${seat.jurisdictionId}) for ${canonical} — tx ${ref.txId}`,
       );
       return;
     }
@@ -165,7 +164,13 @@ async function main(): Promise<void> {
       process.exit(2);
     }
 
-    let expectedUserId: string | undefined;
+    const before = await services.geoStore.getOfficialSeatByHandle(seatHandle);
+    if (!before) {
+      console.error(`[admin-seat] official seat not found: ${seatHandle}`);
+      process.exit(1);
+    }
+
+    const payload: Record<string, unknown> = { seatHandle };
     if (emailOpt) {
       const { canonical } = normalizeEmail(emailOpt);
       const profile = await services.repos.profile.getByEmailCanonical(canonical);
@@ -173,23 +178,30 @@ async function main(): Promise<void> {
         console.error(`[admin-seat] no user for email ${emailOpt}`);
         process.exit(1);
       }
-      expectedUserId = profile.userId;
+      payload.expectedUserId = profile.userId;
     }
 
-    const before = await services.geoStore.getOfficialSeatByHandle(seatHandle);
-    await claim.releaseSeat(seatHandle, { expectedUserId });
+    const ref = await services.platformOpsService.submitWithOpsSoftKey({
+      opsUserId: ops.userId,
+      kind: "official_seat_revoke",
+      jurisdictionId: before.jurisdictionId,
+      payload,
+      opsPrivKeyHex: ops.privKeyHex,
+    });
     auditLog({
       action: "revoke",
       seat_handle: seatHandle,
-      jurisdiction_id: before?.jurisdictionId ?? null,
-      previous_claimed_user_handle: before?.claimedUserHandle ?? null,
-      granted_by_admin_id: grantedBy,
+      jurisdiction_id: before.jurisdictionId,
+      previous_claimed_user_handle: before.claimedUserHandle ?? null,
+      ops_user_id: ops.userId,
+      tx_id: ref.txId,
+      entity_id: ref.entityId,
       at: new Date().toISOString(),
     });
     console.error(
-      `[admin-seat] revoked ${seatHandle}` +
-        (before?.jurisdictionId ? ` (${before.jurisdictionId})` : "") +
-        (before?.claimedUserHandle ? ` was @${before.claimedUserHandle}` : " (already unclaimed)"),
+      `[admin-seat] revoked ${seatHandle} (${before.jurisdictionId})` +
+        (before.claimedUserHandle ? ` was @${before.claimedUserHandle}` : " (already unclaimed)") +
+        ` — tx ${ref.txId}`,
     );
   } catch (err) {
     if (isServiceError(err)) {

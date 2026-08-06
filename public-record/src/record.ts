@@ -7,6 +7,7 @@ import { validateContent } from "./schema/content.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
 import { platformPublicKey, signNullifierAttestation, verifyCredentialAuth } from "./identity/platform-binding.js";
+import { verifyPlatformOpsAdminAttestation } from "./identity/platform-ops.js";
 import type { PublicChain } from "./ledger/chain.js";
 import type { PrivateStore, StoredTx } from "./private/store.js";
 import {
@@ -21,6 +22,7 @@ import {
   parentAllowed,
   type EntityRules,
   type Op,
+  type PlatformOpsContent,
   type ReactionKind,
   type RecordType,
   type TxEnvelope,
@@ -176,6 +178,9 @@ export class RecordService {
    */
   async appendSigned(input: { envelope: TxEnvelope; salt: string; content: unknown }): Promise<Ref> {
     const { envelope, salt, content } = input;
+    if (envelope.type === "platform_ops") {
+      throw new Error("appendSigned: platform_ops must use appendPlatformOps");
+    }
     if (envelope.op !== "create" && envelope.op !== "update" && envelope.op !== "delete") {
       throw new Error(`appendSigned: unsupported op '${envelope.op}'`);
     }
@@ -333,6 +338,92 @@ export class RecordService {
         }
       } else if (envelope.nullifier) {
         throw new Error("appendSigned: a non-singleton update/delete must not carry a nullifier");
+      }
+    }
+
+    const { txHash } = await this.chain.append(envelope, { salt, content });
+    return { txId: envelope.txId, entityId: envelope.entityId, txHash };
+  }
+
+  /**
+   * Accept a PLATFORM-SIGNED `platform_ops` envelope (threadless). The platform key is the envelope
+   * author; an admin request attestation is nested in content and must already have been verified by
+   * the caller (or is re-checked here). Skips thread_keys / civic credential gates.
+   *
+   * Reuses PLATFORM_BINDING_PRIVKEY material for the envelope signature (same key as bindings —
+   * documented blast radius; a purpose-split PLATFORM_OPS_PRIVKEY is a later hardening).
+   */
+  async appendPlatformOps(input: {
+    envelope: TxEnvelope;
+    salt: string;
+    content: PlatformOpsContent;
+    /** When true (default), re-verify the nested admin attestation over content.request. */
+    verifyAdminAttestation?: boolean;
+  }): Promise<Ref> {
+    const { envelope, salt, content } = input;
+    if (!this.platformPrivKeyHex || !this.platformPubKeyHex) {
+      throw new Error("appendPlatformOps: platform binding key not configured");
+    }
+    if (envelope.type !== "platform_ops") throw new Error("appendPlatformOps: type must be platform_ops");
+    if (envelope.op !== "create" && envelope.op !== "update") {
+      throw new Error(`appendPlatformOps: unsupported op '${envelope.op}'`);
+    }
+    if (envelope.proof !== undefined) throw new Error("appendPlatformOps: ZK membership proof not yet supported");
+    if (envelope.nullifier) throw new Error("appendPlatformOps: must not carry a nullifier");
+    if (envelope.parentType || envelope.parentId) {
+      throw new Error("appendPlatformOps: platform_ops is a root type (no parent)");
+    }
+
+    const scheme = envelope.signScheme ?? "p256";
+    if (scheme !== "p256") throw new Error("appendPlatformOps: envelope must be p256-signed by the platform");
+    if (envelope.webauthn) throw new Error("appendPlatformOps: envelope must not carry webauthn");
+    if (envelope.signerPubkey) throw new Error("appendPlatformOps: envelope must not carry signerPubkey");
+    if (envelope.authorPubkey !== this.platformPubKeyHex) {
+      throw new Error("appendPlatformOps: authorPubkey must be the platform public key");
+    }
+    if (!verifyEnvelope(envelope)) throw new Error("appendPlatformOps: invalid platform signature");
+
+    const expected = contentCommitment({ id: envelope.txId, salt, content });
+    if (expected !== envelope.contentHash) {
+      throw new Error("appendPlatformOps: contentHash does not match salt+content");
+    }
+
+    if (this.signedEnvelopeMaxAgeSec > 0) {
+      const createdAtMs = Date.parse(envelope.createdAt);
+      if (Number.isNaN(createdAtMs)) throw new Error("appendPlatformOps: envelope createdAt is not a valid ISO 8601 timestamp");
+      const deltaSec = (this.now() - createdAtMs) / 1000;
+      if (deltaSec > this.signedEnvelopeMaxAgeSec) throw new Error("appendPlatformOps: envelope createdAt expired");
+      if (-deltaSec > this.signedEnvelopeFutureSkewSec) {
+        throw new Error("appendPlatformOps: envelope createdAt is in the future beyond allowed clock skew");
+      }
+    }
+
+    validateContent("platform_ops", envelope.op, content, content.jurisdictionId);
+
+    if (content.kind !== content.request.kind || content.jurisdictionId !== content.request.jurisdictionId) {
+      throw new Error("appendPlatformOps: content kind/jurisdiction must match nested request");
+    }
+    if (canonicalJson(content.payload) !== canonicalJson(content.request.payload)) {
+      throw new Error("appendPlatformOps: content.payload must match request.payload");
+    }
+
+    if (input.verifyAdminAttestation !== false) {
+      if (!verifyPlatformOpsAdminAttestation(content.request, content.adminAttestation)) {
+        throw new Error("appendPlatformOps: invalid admin request attestation");
+      }
+    }
+
+    if (envelope.op === "create") {
+      if (envelope.prevHash !== null) throw new Error("appendPlatformOps: a create must have prevHash=null");
+      const existing = await this.store.getHeadTx(envelope.entityId);
+      if (existing) throw new Error("appendPlatformOps: entity already exists; use update");
+    } else {
+      const head = await this.store.getHeadTx(envelope.entityId);
+      if (!head) throw new Error(`appendPlatformOps: entity ${envelope.entityId} not found`);
+      if (head.type !== "platform_ops") throw new Error("appendPlatformOps: entity is not platform_ops");
+      if (envelope.prevHash !== head.txHash) throw new Error("appendPlatformOps: stale prevHash");
+      if (head.authorPubkey !== this.platformPubKeyHex && head.authorPubkey !== PLATFORM_PUBKEY) {
+        throw new Error("appendPlatformOps: entity author is not the platform");
       }
     }
 

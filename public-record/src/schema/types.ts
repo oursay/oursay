@@ -4,9 +4,9 @@
 // reaction, …) is the fold of all its transactions, ordered by `seq`. The append-only chain
 // keeps only hashes; the raw content lives in the mutable Postgres store.
 
-/** The eight record (entity) types. `result` is the fourth ROOT type (WEB-APP-GAPS Part 6 #1): a
- *  poll's outcome published as its own gated record — automated at poll close (or graduation),
- *  attributed to the poll's author. */
+/** Civic + platform-ops record (entity) types. `result` is the fourth civic ROOT type (WEB-APP-GAPS
+ *  Part 6 #1). `platform_ops` is a threadless root authored by the platform key (admin request
+ *  attestation nested in content) — seats, districts, redaction, jurisdiction config, etc. */
 export type RecordType =
   | "post"
   | "comment"
@@ -15,7 +15,8 @@ export type RecordType =
   | "petition_signature"
   | "poll"
   | "vote"
-  | "result";
+  | "result"
+  | "platform_ops";
 
 /** The CRUD verb carried by a transaction. */
 export type Op = "create" | "update" | "delete";
@@ -47,6 +48,49 @@ export interface WebauthnAssertion {
   signature: string; // base64url, ASN.1 DER ECDSA over sha256(authData || sha256(clientDataJSON))
 }
 
+/** Discriminant for {@link PlatformOpsContent}. First shipped kinds = seat claim/revoke.
+ *  Deferred: district ingest, redaction/censorship reasoning, jurisdiction-config ingest. */
+export type PlatformOpsKind =
+  | "official_seat_claim"
+  | "official_seat_revoke";
+
+/** Domain-separated clear message an admin signs before the platform builds the envelope. */
+export interface PlatformOpsRequest {
+  ds: "oursay/v1/platform-ops-request";
+  v: 1;
+  requestId: string;
+  kind: PlatformOpsKind;
+  jurisdictionId: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Nested admin attestation over a clear {@link PlatformOpsRequest} (not a TxEnvelope). */
+export interface PlatformOpsAdminAttestation {
+  signerPubkey: string;
+  signScheme: SignScheme;
+  /** p256 compact hex; empty when signScheme is webauthn-es256. */
+  signature: string;
+  webauthn?: WebauthnAssertion;
+  /** ISO time the admin signed (may match request.createdAt). */
+  signedAt: string;
+  /** sha256(canonicalJson(clear request)) hex — must match the prepared request. */
+  requestHash: string;
+}
+
+/** Private content committed by platform_ops creates. */
+export interface PlatformOpsContent {
+  ds: "oursay/v1/platform-ops";
+  v: 1;
+  kind: PlatformOpsKind;
+  jurisdictionId: string;
+  /** Kind-specific payload (structurally validated lightly; deep rules deferred). */
+  payload: Record<string, unknown>;
+  adminAttestation: PlatformOpsAdminAttestation;
+  /** Clear request the admin signed (echoed for auditors reconstructing the digest). */
+  request: PlatformOpsRequest;
+}
+
 // The geographic stake (appliesToRegion) is a RegionRef owned by @oursay/geo — a serializable
 // reference (or and/or/not union) the resolver compiles into a Region. Type-only import: erased at
 // runtime, so this stays a pure schema module with no geo runtime dependency.
@@ -59,7 +103,8 @@ export const REACTION_KINDS: ReactionKind[] = ["check", "cross"];
 /** Max comment nesting depth (a comment may sit at most 3 levels below a root entity). */
 export const COMMENT_MAX_DEPTH = 3;
 
-/** Stub author identifier used for platform-authored governance transactions. */
+/** Stub author identifier used for unsigned platform-authored governance helpers (e.g. updateRules).
+ *  Cryptographic platform-ops envelopes use the real P-256 platform public key hex instead. */
 export const PLATFORM_PUBKEY = "platform";
 
 /**
@@ -115,6 +160,7 @@ export const PARENT_RULES: Record<RecordType, RecordType[]> = {
   petition: [],
   poll: [],
   result: [],
+  platform_ops: [],
   comment: ["post", "petition", "poll", "result", "comment"],
   reaction: ["post", "comment", "result"],
   petition_signature: ["petition"],
@@ -127,6 +173,7 @@ export const ALLOWED_OPS: Record<RecordType, Op[]> = {
   petition: ["create", "update", "delete"],
   poll: ["create", "update", "delete"],
   result: ["create", "update", "delete"], // update = platform/author amendment with reason
+  platform_ops: ["create", "update"], // update = amend an ops entity (future); create is the primary path
   comment: ["create", "update", "delete"],
   reaction: ["create", "update", "delete"],
   petition_signature: ["create", "delete"], // delete = revoke (governance-gated)

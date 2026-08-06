@@ -613,6 +613,7 @@ function activityKindForType(type: RecordType): ActivityKind {
   if (type === "post" || type === "result") return "statement";
   if (type === "petition") return "petition";
   if (type === "poll") return "poll";
+  if (type === "platform_ops") return "statement";
   return "comment";
 }
 

@@ -1,5 +1,8 @@
 // Platform-only official seat claims — links geo.official_seats to auth.jurisdiction_memberships.
 // Jurisdiction comes from the seat row (never hardcoded) so any ingested roster works.
+//
+// Mutable apply methods are the projection step AFTER a successful platform-ops append. Prefer
+// PlatformOpsService.prepare/submit (or submitWithOpsSoftKey for CLI) as the public write path.
 
 import type { GeoStore, OfficialSeatRow } from "@oursay/geo";
 import { ServiceError } from "../errors.js";
@@ -17,10 +20,10 @@ export class OfficialSeatClaimService {
   constructor(private readonly d: OfficialSeatClaimServiceDeps) {}
 
   /**
-   * Claim a roster seat for a user: set claimed_user_handle and assign the official role in the
-   * seat's jurisdiction. represented_district_slug comes from the seat (null when seat has none).
+   * Apply a claimed seat after a platform-ops `official_seat_claim` append.
+   * Prefer {@link PlatformOpsService} for the signed write path.
    */
-  async claimSeat(userId: string, seatHandle: string, asOf: Date = new Date()): Promise<void> {
+  async applyClaimSeat(userId: string, seatHandle: string, asOf: Date = new Date()): Promise<void> {
     const user = await this.d.userRepo.getById(userId);
     if (!user) throw new ServiceError("not_found", `user not found: ${userId}`);
 
@@ -49,14 +52,10 @@ export class OfficialSeatClaimService {
   }
 
   /**
-   * Release a roster seat: clear claimed_user_handle. If the former holder has no other claimed
-   * seats in that jurisdiction, revoke their official role there; otherwise keep official and
-   * re-point represented_district_slug to a remaining seat.
-   *
-   * Idempotent when the seat is already unclaimed. Optional expectedUserHandle / expectedUserId
-   * refuse the release when the current claimant does not match (ops safety).
+   * Apply a seat release after a platform-ops `official_seat_revoke` append.
+   * Prefer {@link PlatformOpsService} for the signed write path.
    */
-  async releaseSeat(
+  async applyReleaseSeat(
     seatHandle: string,
     opts: { expectedUserHandle?: string; expectedUserId?: string } = {},
     asOf: Date = new Date(),
@@ -109,6 +108,20 @@ export class OfficialSeatClaimService {
       "official",
       prefer.districtSlug,
     );
+  }
+
+  /** @deprecated Use PlatformOpsService + applyClaimSeat. Kept as alias for transitional call sites. */
+  async claimSeat(userId: string, seatHandle: string, asOf: Date = new Date()): Promise<void> {
+    return this.applyClaimSeat(userId, seatHandle, asOf);
+  }
+
+  /** @deprecated Use PlatformOpsService + applyReleaseSeat. Kept as alias for transitional call sites. */
+  async releaseSeat(
+    seatHandle: string,
+    opts: { expectedUserHandle?: string; expectedUserId?: string } = {},
+    asOf: Date = new Date(),
+  ): Promise<void> {
+    return this.applyReleaseSeat(seatHandle, opts, asOf);
   }
 }
 
