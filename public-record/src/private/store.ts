@@ -760,6 +760,41 @@ export class PrivateStore {
     return r.rows[0].jurisdiction as string;
   }
 
+  /**
+   * Authoritative jurisdiction for civic WRITE paths (join / prepare / submit). Fail-closed:
+   *   1. Root entity author's thread_keys jurisdiction (when the root exists).
+   *   2. entity_audience.jurisdiction_id when projected.
+   *   3. Single distinct thread_keys jurisdiction for the thread; throws
+   *      `thread_jurisdiction_conflict` when more than one distinct value exists.
+   * Returns null only when nothing has established a jurisdiction yet (first join / pre-create).
+   */
+  async resolveThreadJurisdiction(threadId: string): Promise<string | null> {
+    const root = await this.getEntityState(threadId);
+    if (root && root.parentId == null) {
+      const authorTk = await this.getThreadKey(root.authorPubkey);
+      if (authorTk?.jurisdiction) return authorTk.jurisdiction;
+    }
+
+    const audienceJur = await this.getEntityAudienceJurisdiction(threadId);
+    if (audienceJur) return audienceJur;
+
+    const r = await this.pool.query(
+      `SELECT DISTINCT jurisdiction FROM thread_keys WHERE thread_id = $1 ORDER BY jurisdiction ASC`,
+      [threadId],
+    );
+    if (r.rows.length === 0) return null;
+    if (r.rows.length > 1) {
+      throw Object.assign(
+        new Error(
+          `thread_jurisdiction_conflict: thread ${threadId} has ${r.rows.length} distinct jurisdictions ` +
+            `(${r.rows.map((x) => x.jurisdiction).join(", ")})`,
+        ),
+        { code: "thread_jurisdiction_conflict" },
+      );
+    }
+    return r.rows[0].jurisdiction as string;
+  }
+
   /** The hash of the latest non-deleted content revision (create/update) of an entity. */
   async getCurrentRevisionHash(entityId: string): Promise<string | undefined> {
     const r = await this.pool.query(
@@ -1075,7 +1110,7 @@ export class PrivateStore {
     try {
       await client.query("BEGIN");
       const existing = await client.query(
-        `SELECT t.pubkey, b.commitment
+        `SELECT t.pubkey, t.jurisdiction, b.commitment
          FROM thread_keys t LEFT JOIN thread_bindings b ON b.thread_pubkey = t.pubkey
          WHERE t.user_id = $1 AND t.thread_id = $2`,
         [input.userId, input.threadId],
@@ -1083,6 +1118,15 @@ export class PrivateStore {
       if (existing.rows.length > 0) {
         const row = existing.rows[0];
         const personaPubkey = row.pubkey as string;
+        const boundJurisdiction = row.jurisdiction as string;
+        if (boundJurisdiction !== input.jurisdiction) {
+          throw Object.assign(
+            new Error(
+              `jurisdiction_mismatch: join jurisdiction ${input.jurisdiction} differs from persona jurisdiction ${boundJurisdiction}`,
+            ),
+            { code: "jurisdiction_mismatch", threadJurisdiction: boundJurisdiction },
+          );
+        }
         const boundCommitment = row.commitment as string | null;
         if (boundCommitment !== null && boundCommitment !== input.commitment) {
           throw Object.assign(
@@ -1093,6 +1137,31 @@ export class PrivateStore {
         await client.query("COMMIT");
         return personaPubkey;
       }
+
+      // Fail closed when the thread already has a jurisdiction from other joiners.
+      const peers = await client.query(
+        `SELECT DISTINCT jurisdiction FROM thread_keys WHERE thread_id = $1 ORDER BY jurisdiction ASC`,
+        [input.threadId],
+      );
+      if (peers.rows.length > 1) {
+        throw Object.assign(
+          new Error(
+            `thread_jurisdiction_conflict: thread ${input.threadId} has ${peers.rows.length} distinct jurisdictions ` +
+              `(${peers.rows.map((x) => x.jurisdiction).join(", ")})`,
+          ),
+          { code: "thread_jurisdiction_conflict" },
+        );
+      }
+      if (peers.rows.length === 1 && (peers.rows[0].jurisdiction as string) !== input.jurisdiction) {
+        const threadJurisdiction = peers.rows[0].jurisdiction as string;
+        throw Object.assign(
+          new Error(
+            `jurisdiction_mismatch: join jurisdiction ${input.jurisdiction} differs from thread jurisdiction ${threadJurisdiction}`,
+          ),
+          { code: "jurisdiction_mismatch", threadJurisdiction },
+        );
+      }
+
       // Mint the persona's public display name (C7): deterministic from Pₜ, retry-on-collision by
       // widening the numeric suffix. Checked inside this transaction; the UNIQUE constraint is the
       // last-resort guard against a concurrent-join race (the losing join simply retries).
@@ -1117,13 +1186,21 @@ export class PrivateStore {
         );
       } else {
         const r = await client.query(
-          `SELECT t.pubkey, b.commitment
+          `SELECT t.pubkey, t.jurisdiction, b.commitment
            FROM thread_keys t LEFT JOIN thread_bindings b ON b.thread_pubkey = t.pubkey
            WHERE t.user_id = $1 AND t.thread_id = $2`,
           [input.userId, input.threadId],
         );
         const row = r.rows[0];
         personaPubkey = row.pubkey as string;
+        if ((row.jurisdiction as string) !== input.jurisdiction) {
+          throw Object.assign(
+            new Error(
+              `jurisdiction_mismatch: join jurisdiction ${input.jurisdiction} differs from persona jurisdiction ${row.jurisdiction}`,
+            ),
+            { code: "jurisdiction_mismatch", threadJurisdiction: row.jurisdiction as string },
+          );
+        }
         const boundCommitment = row.commitment as string | null;
         if (boundCommitment !== null && boundCommitment !== input.commitment) {
           throw Object.assign(

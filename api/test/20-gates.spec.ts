@@ -342,4 +342,76 @@ describe("20 gates: per-jurisdiction act gates + sign floors on the civic write 
     expect(snap!.tierAtAction).to.equal("unverified");
     expect(snap!.inJurisdiction).to.equal(false);
   });
+
+  it("C1: joining an Alberta root as oursay-global is rejected (jurisdiction_mismatch)", async function () {
+    this.timeout(60000);
+    const t = threadIn(AB);
+    const official = await joinMember(w, "g20-c1-author@example.com", "g20-c1-auth", t);
+    await w.services.repos.membership.setRole(official.userId, AB, "official", "edmonton-city-centre");
+    await official.client.append(t, {
+      op: "create",
+      type: "poll",
+      entityId: t.threadId,
+      content: { question: "Bypass?", options: ["yes", "no"] },
+    });
+
+    // Attacker tries to join the SAME Alberta root under the weaker global partition.
+    const { token } = await fullSessionAccount(w, "g20-c1-attacker@example.com");
+    const signer = deriveDeviceThreadSigner({
+      deviceRoot: randomBytes(32),
+      threadId: t.threadId,
+      jurisdiction: GLOBAL,
+    });
+    const joinRes = await w.app.inject({
+      method: "POST",
+      url: "/v1/civic/threads/join",
+      headers: bearer(token),
+      payload: {
+        threadId: t.threadId,
+        jurisdiction: GLOBAL,
+        signerPubkey: signer.signerPubkey,
+        commitment: sha256Hex(signer.signerPubkey),
+      },
+    });
+    expect(joinRes.statusCode, joinRes.payload).to.equal(403);
+    const details = joinRes.json().error.details as Record<string, unknown>;
+    expect(details.reason).to.equal("jurisdiction_mismatch");
+    expect(details.threadJurisdiction).to.equal(AB);
+
+    // Correct AB join still faces Alberta residency + passkey policy (not global anyone/quick).
+    const outsider = await joinMember(w, "g20-c1-outsider@example.com", "g20-c1-out", t);
+    const votePrep = await prepare(w, outsider, t, {
+      op: "create",
+      type: "vote",
+      entityId: randomUUID(),
+      parent: { type: "poll", id: t.threadId },
+      content: { option: "yes" },
+    });
+    expectGate403(votePrep, "residency", { action: "vote", jurisdictionId: AB });
+  });
+
+  it("C1: join with an unregistered jurisdiction id is rejected (unknown_jurisdiction)", async function () {
+    this.timeout(60000);
+    const t = threadIn(AB);
+    const { token } = await fullSessionAccount(w, "g20-c1-unknown@example.com");
+    const signer = deriveDeviceThreadSigner({
+      deviceRoot: randomBytes(32),
+      threadId: t.threadId,
+      jurisdiction: "not-a-real-jur",
+    });
+    const joinRes = await w.app.inject({
+      method: "POST",
+      url: "/v1/civic/threads/join",
+      headers: bearer(token),
+      payload: {
+        threadId: t.threadId,
+        jurisdiction: "not-a-real-jur",
+        signerPubkey: signer.signerPubkey,
+        commitment: sha256Hex(signer.signerPubkey),
+      },
+    });
+    expect(joinRes.statusCode, joinRes.payload).to.equal(400);
+    const details = joinRes.json().error.details as Record<string, unknown>;
+    expect(details.reason).to.equal("unknown_jurisdiction");
+  });
 });

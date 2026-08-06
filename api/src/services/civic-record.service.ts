@@ -26,6 +26,7 @@ import {
   isRootType,
   LedgerUnavailableError,
   opAllowed,
+  requireJurisdiction,
   requiredSignScheme,
   rulesOf,
   TxIdAlreadyOnChainError,
@@ -116,6 +117,10 @@ export class CivicRecordService {
    * device under that Pₜ. Subsequent joins for the same (user, thread) reuse the established Pₜ; a
    * different commitment under that persona is rejected. No `kycTier` is stored at join.
    *
+   * Jurisdiction is a client claim (crypto partition key) that must match the authoritative thread
+   * jurisdiction when one exists, and must be a registered id (fail-closed — no deployment-default
+   * fallback for unknown ids).
+   *
    * Returns the canonical Pₜ so the caller persists it before any prepare/submit.
    */
   async join(input: JoinThreadInput): Promise<JoinThreadResponse> {
@@ -126,6 +131,29 @@ export class CivicRecordService {
     }
     const threadId = nonEmpty(input.threadId, "threadId");
     const jurisdiction = nonEmpty(input.jurisdiction, "jurisdiction");
+
+    try {
+      requireJurisdiction(jurisdiction);
+    } catch {
+      throw new ServiceError("validation", `Unknown jurisdiction: ${jurisdiction}`, {
+        reason: "unknown_jurisdiction",
+        jurisdictionId: jurisdiction,
+      });
+    }
+
+    let canonical: string | null;
+    try {
+      canonical = await this.d.store.resolveThreadJurisdiction(threadId);
+    } catch (err) {
+      throw mapJurisdictionStoreError(err);
+    }
+    if (canonical != null && canonical !== jurisdiction) {
+      throw new ServiceError("forbidden", "Join jurisdiction does not match the thread jurisdiction", {
+        reason: "jurisdiction_mismatch",
+        jurisdictionId: jurisdiction,
+        threadJurisdiction: canonical,
+      });
+    }
 
     try {
       return await this.d.registry.joinThread({
@@ -155,9 +183,11 @@ export class CivicRecordService {
     if (!owner) throw new ServiceError("not_found", "Author persona is not registered (join the thread first)");
     if (owner.userId !== input.userId) throw new ServiceError("forbidden", "That persona belongs to another account");
 
+    const jurisdiction = await this.authoritativeJurisdiction(owner);
+
     // Early act-gate rejection (same check submit re-runs authoritatively) so the client learns it
     // is locked out BEFORE running a signing ceremony.
-    await this.d.gateService.assertAct(input.userId, actionForType(input.intent.type as RecordType), owner.jurisdiction);
+    await this.d.gateService.assertAct(input.userId, actionForType(input.intent.type as RecordType), jurisdiction);
 
     let prep: PreparedAppend;
     try {
@@ -196,13 +226,15 @@ export class CivicRecordService {
       throw new ServiceError("forbidden", "That author persona belongs to another account");
     }
 
+    const jurisdiction = await this.authoritativeJurisdiction(persona);
+
     // Signing floor: `passkey` ⇒ webauthn-es256 only; `quick` (null) ⇒ p256 also accepted.
     const scheme = envelope.signScheme ?? "p256";
-    const floor = requiredSignScheme(envelope.type, persona.jurisdiction);
+    const floor = requiredSignScheme(envelope.type, jurisdiction);
     if (floor === "webauthn-es256" && scheme !== "webauthn-es256") {
       throw new ServiceError("forbidden", "This action requires a passkey signature in this jurisdiction", {
         action: actionForType(envelope.type),
-        jurisdictionId: persona.jurisdiction,
+        jurisdictionId: jurisdiction,
         reason: "passkey_required",
       });
     }
@@ -222,7 +254,7 @@ export class CivicRecordService {
     }
 
     // Authoritative act-gate check (prepare's early check can be raced/bypassed by a stale client).
-    await this.d.gateService.assertAct(input.userId, actionForType(envelope.type), persona.jurisdiction);
+    await this.d.gateService.assertAct(input.userId, actionForType(envelope.type), jurisdiction);
 
     let ref: Ref;
     try {
@@ -235,7 +267,7 @@ export class CivicRecordService {
     // BEST-EFFORT: the tx is already pooled/appended, so a projection failure must never fail the
     // accepted write.
     try {
-      await this.project(input.userId, envelope, persona.jurisdiction);
+      await this.project(input.userId, envelope, jurisdiction);
     } catch {
       /* read models tolerate a missing snapshot row (pre-W3 rows have none) */
     }
@@ -245,6 +277,37 @@ export class CivicRecordService {
       /* Mentions tabs tolerate a missing index row */
     }
     return ref;
+  }
+
+  /**
+   * Resolve the thread's authoritative jurisdiction for gates/floors. Rejects when the persona row
+   * disagrees with the canonical thread jurisdiction (poisoned join defense).
+   */
+  private async authoritativeJurisdiction(persona: {
+    threadId: string;
+    jurisdiction: string;
+  }): Promise<string> {
+    let canonical: string | null;
+    try {
+      canonical = await this.d.store.resolveThreadJurisdiction(persona.threadId);
+    } catch (err) {
+      throw mapJurisdictionStoreError(err);
+    }
+    if (canonical == null) {
+      // Persona exists ⇒ at least one thread_keys row should establish jurisdiction.
+      throw new ServiceError("forbidden", "Thread jurisdiction could not be resolved", {
+        reason: "jurisdiction_mismatch",
+        jurisdictionId: persona.jurisdiction,
+      });
+    }
+    if (persona.jurisdiction !== canonical) {
+      throw new ServiceError("forbidden", "Persona jurisdiction does not match the thread jurisdiction", {
+        reason: "jurisdiction_mismatch",
+        jurisdictionId: persona.jurisdiction,
+        threadJurisdiction: canonical,
+      });
+    }
+    return canonical;
   }
 
   /**
@@ -506,6 +569,35 @@ function asServiceError(err: unknown, fallbackCode: "validation"): ServiceError 
   if (err instanceof LedgerUnavailableError) {
     return new ServiceError("unavailable", err.message);
   }
+  const jur = tryMapJurisdictionStoreError(err);
+  if (jur) return jur;
   const message = err instanceof Error ? err.message : "civic write failed";
   return new ServiceError(fallbackCode, message);
+}
+
+/** Map jurisdiction write-path store errors (`jurisdiction_mismatch`, conflict, unknown) to ServiceError. */
+function mapJurisdictionStoreError(err: unknown): ServiceError {
+  return tryMapJurisdictionStoreError(err) ?? new ServiceError(
+    "validation",
+    err instanceof Error ? err.message : "jurisdiction check failed",
+  );
+}
+
+function tryMapJurisdictionStoreError(err: unknown): ServiceError | null {
+  const code = err && typeof err === "object" && "code" in err ? String((err as { code: unknown }).code) : null;
+  const message = err instanceof Error ? err.message : "jurisdiction check failed";
+  const threadJurisdiction =
+    err && typeof err === "object" && "threadJurisdiction" in err
+      ? String((err as { threadJurisdiction: unknown }).threadJurisdiction)
+      : undefined;
+  if (code === "jurisdiction_mismatch" || code === "thread_jurisdiction_conflict") {
+    return new ServiceError("forbidden", message, {
+      reason: code,
+      ...(threadJurisdiction ? { threadJurisdiction } : {}),
+    });
+  }
+  if (code === "unknown_jurisdiction") {
+    return new ServiceError("validation", message, { reason: "unknown_jurisdiction" });
+  }
+  return null;
 }

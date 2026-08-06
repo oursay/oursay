@@ -84,13 +84,18 @@ export class IdentityRegistry {
       },
     });
 
+    // Credential attestation must use the persona/binding jurisdiction (authoritative), not a
+    // mismatched request body that somehow slipped past ensureThreadPersona.
+    const persona = await this.o.store.getThreadKey(personaPubkey);
+    const jurisdiction = persona?.jurisdiction ?? r.jurisdiction;
+
     const credentialSig = signCredentialAuth(
       {
         domain: "credential-auth-v1",
         personaPubkey,
         credentialPubkey: r.signerPubkey,
         threadId: r.threadId,
-        jurisdiction: r.jurisdiction,
+        jurisdiction,
         commitment: r.commitment,
       },
       this.o.platformBindingPrivKeyHex,
@@ -101,7 +106,7 @@ export class IdentityRegistry {
       personaPubkey,
       userId: r.userId,
       threadId: r.threadId,
-      jurisdiction: r.jurisdiction,
+      jurisdiction,
       credentialSig,
     });
 

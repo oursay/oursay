@@ -7,7 +7,9 @@ import {
   DEFAULT_CONTENT_LIMITS,
   DEFAULT_LABELS,
   getJurisdiction,
+  hasJurisdiction,
   registerJurisdiction,
+  requireJurisdiction,
   jurisdictionConfig,
 } from "../src/index.js";
 
@@ -70,6 +72,14 @@ describe("15 jurisdiction: router", () => {
     expect(getJurisdiction("bc-ca-gov").rules.allowChange).to.equal(true);
     expect(getJurisdiction("bc-ca-gov").level).to.equal("provincial");
     expect(getJurisdiction("does-not-exist").id).to.equal(jurisdictionConfig.id);
+  });
+
+  it("requireJurisdiction fails closed on unknown ids (no deployment-default fallback)", () => {
+    registerJurisdiction({ id: "bc-ca-gov", level: "provincial", rules: { allowChange: true } });
+    expect(hasJurisdiction("bc-ca-gov")).to.equal(true);
+    expect(requireJurisdiction("bc-ca-gov").id).to.equal("bc-ca-gov");
+    expect(hasJurisdiction("does-not-exist")).to.equal(false);
+    expect(() => requireJurisdiction("does-not-exist")).to.throw(/unknown jurisdiction/);
   });
 });
 

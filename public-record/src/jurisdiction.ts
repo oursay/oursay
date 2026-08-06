@@ -225,6 +225,23 @@ export function getJurisdiction(id: string = jurisdictionConfig.id): Jurisdictio
   return registry.get(id) ?? jurisdictionConfig;
 }
 
+/** True only when `id` is explicitly registered — no deployment-default fallback. */
+export function hasJurisdiction(id: string): boolean {
+  return registry.has(id);
+}
+
+/**
+ * Resolve a jurisdiction by id, fail-closed. Unlike {@link getJurisdiction}, unknown ids do NOT
+ * fall back to the deployment default — write paths (join / prepare / submit) must reject them.
+ */
+export function requireJurisdiction(id: string): JurisdictionConfig {
+  const j = registry.get(id);
+  if (!j) {
+    throw Object.assign(new Error(`unknown jurisdiction: ${id}`), { code: "unknown_jurisdiction" });
+  }
+  return j;
+}
+
 /**
  * The signature scheme a record TYPE must be signed with, or `null` when any accepted scheme is fine.
  * Resolved by type (not op), so it gates a vote's `create` AND `update`, and a petition_signature's
