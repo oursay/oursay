@@ -42,6 +42,17 @@ ALTER TABLE record_tx ADD COLUMN IF NOT EXISTS nullifier TEXT;
 ALTER TABLE record_tx ADD COLUMN IF NOT EXISTS block_height INT;
 CREATE INDEX IF NOT EXISTS record_tx_block_height ON record_tx (block_height) WHERE block_height IS NOT NULL;
 
+-- Active jurisdiction-policy projection. Full history and proofs live in platform_ops record_tx;
+-- these rows are the current, transactionally linked policy used by the application.
+CREATE TABLE IF NOT EXISTS jurisdiction_configs (
+  jurisdiction_id TEXT PRIMARY KEY,
+  config          JSONB NOT NULL,
+  source_entity_id UUID NOT NULL,
+  source_tx_id     UUID NOT NULL,
+  source_tx_hash   TEXT NOT NULL,
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Settlement pool / transactional outbox. Each record_tx insert atomically enqueues its commitment
 -- here (same Postgres transaction) as 'pending', so a crash before settlement can never orphan a
 -- record: the pending row is settled to immudb idempotently by BlockSettler (which batches pending

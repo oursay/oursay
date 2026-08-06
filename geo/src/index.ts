@@ -19,7 +19,7 @@ export type { RegionRef, RegionRefOp, RegionRefUnion, ParsedBaseRef } from "./re
 export { RegionResolver } from "./region-resolver.js";
 export type { GeoScope, ScopeInput, RegionResolverDeps, RegionRefContext } from "./region-resolver.js";
 
-export { ShapefileSource, ingestBoundaries, districtSlug } from "./ingest/source.js";
+export { ShapefileSource, ingestBoundaries, materializeDistricts, districtSlug } from "./ingest/source.js";
 export type {
   BoundarySource,
   RawDistrict,
@@ -30,6 +30,7 @@ export type {
 
 export {
   ingestOfficialSeats,
+  materializeOfficialSeats,
   loadOfficialSeatCatalog,
   oursayGlobalPlatformSeat,
 } from "./ingest/official-seats.js";

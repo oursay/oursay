@@ -27,6 +27,10 @@ export interface DistrictUpsert {
   sourceRef?: string | null;
   srid: number; // source EPSG of geometryGeoJSON
   geometryGeoJSON: unknown; // GeoJSON Polygon | MultiPolygon (source-CRS coordinates)
+  geometrySha256?: string;
+  sourceEntityId?: string;
+  sourceTxId?: string;
+  sourceTxHash?: string;
 }
 
 /** One district boundary revision's public metadata (no geometry). The public area catalog exposes
@@ -67,6 +71,9 @@ export interface OfficialSeatUpsert {
   representativeName: string;
   claimedUserHandle?: string | null;
   source: string;
+  sourceEntityId?: string;
+  sourceTxId?: string;
+  sourceTxHash?: string;
 }
 
 /** Public official seat metadata (no claim workflow internals). */
@@ -137,13 +144,15 @@ export class GeoStore {
 
   /** Upsert one district revision. Geometry is reprojected from `srid` to 4326 and normalized to
    *  MultiPolygon. Re-ingesting the same id is a no-op overwrite (idempotent). */
-  async upsertDistrict(d: DistrictUpsert): Promise<void> {
-    await this.pool.query(
+  async upsertDistrict(d: DistrictUpsert, client?: pg.PoolClient): Promise<void> {
+    const queryable = client ?? this.pool;
+    await queryable.query(
       `INSERT INTO geo.districts
          (id, jurisdiction_id, name, district_slug, effective_date, drawn_date, boundary_year,
-          source, source_ref, geom)
+          source, source_ref, geom, source_entity_id, source_tx_id, source_tx_hash, geometry_sha256)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,
-          ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($10), $11), 4326)))
+          ST_Multi(ST_Transform(ST_SetSRID(ST_GeomFromGeoJSON($10), $11), 4326)),
+          $12,$13,$14,$15)
        ON CONFLICT (id) DO UPDATE SET
           jurisdiction_id = EXCLUDED.jurisdiction_id,
           name            = EXCLUDED.name,
@@ -154,6 +163,10 @@ export class GeoStore {
           source          = EXCLUDED.source,
           source_ref      = EXCLUDED.source_ref,
           geom            = EXCLUDED.geom,
+          source_entity_id = COALESCE(EXCLUDED.source_entity_id, geo.districts.source_entity_id),
+          source_tx_id     = COALESCE(EXCLUDED.source_tx_id, geo.districts.source_tx_id),
+          source_tx_hash   = COALESCE(EXCLUDED.source_tx_hash, geo.districts.source_tx_hash),
+          geometry_sha256  = COALESCE(EXCLUDED.geometry_sha256, geo.districts.geometry_sha256),
           ingested_at     = now()`,
       [
         d.id,
@@ -167,17 +180,22 @@ export class GeoStore {
         d.sourceRef ?? null,
         JSON.stringify(d.geometryGeoJSON),
         d.srid,
+        d.sourceEntityId ?? null,
+        d.sourceTxId ?? null,
+        d.sourceTxHash ?? null,
+        d.geometrySha256 ?? null,
       ],
     );
   }
 
-  async upsertOfficialSeat(seat: OfficialSeatUpsert): Promise<void> {
-    await this.pool.query(
+  async upsertOfficialSeat(seat: OfficialSeatUpsert, client?: pg.PoolClient): Promise<void> {
+    const queryable = client ?? this.pool;
+    await queryable.query(
       `INSERT INTO geo.official_seats
          (id, jurisdiction_id, seat_kind, title, seat_handle, district_slug, district_short_slug,
           leader_role, effective_date, boundary_year, role, representative_name,
-          claimed_user_handle, source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+          claimed_user_handle, source, source_entity_id, source_tx_id, source_tx_hash)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
        ON CONFLICT (id) DO UPDATE SET
           jurisdiction_id       = EXCLUDED.jurisdiction_id,
           seat_kind             = EXCLUDED.seat_kind,
@@ -192,6 +210,9 @@ export class GeoStore {
           representative_name   = EXCLUDED.representative_name,
           claimed_user_handle   = EXCLUDED.claimed_user_handle,
           source                = EXCLUDED.source,
+          source_entity_id      = COALESCE(EXCLUDED.source_entity_id, geo.official_seats.source_entity_id),
+          source_tx_id          = COALESCE(EXCLUDED.source_tx_id, geo.official_seats.source_tx_id),
+          source_tx_hash        = COALESCE(EXCLUDED.source_tx_hash, geo.official_seats.source_tx_hash),
           ingested_at           = now()`,
       [
         seat.id,
@@ -208,6 +229,9 @@ export class GeoStore {
         seat.representativeName,
         seat.claimedUserHandle ?? null,
         seat.source,
+        seat.sourceEntityId ?? null,
+        seat.sourceTxId ?? null,
+        seat.sourceTxHash ?? null,
       ],
     );
   }

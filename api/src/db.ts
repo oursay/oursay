@@ -51,7 +51,8 @@ export class Db {
                auth.passkey_credentials, auth.ops_signing_keys, auth.platform_ops_pending,
                auth.profile_geocode_history, auth.profile_geocodes, auth.profiles,
                auth.account_roles, auth.media_accreditations, auth.accreditation_bodies,
-               geo.regions, geo.districts,
+               geo.regions, geo.official_seats, geo.districts,
+               public.jurisdiction_configs,
                public.mention_index, public.mention_map,
                public.record_outbox, public.record_tx, public.users CASCADE`,
     );

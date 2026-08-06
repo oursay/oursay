@@ -96,6 +96,16 @@ export async function ingestOfficialSeats(
   opts: IngestOfficialSeatsOptions,
   repoRoot: string,
 ): Promise<{ jurisdictionId: string; count: number }> {
+  const seats = await materializeOfficialSeats(opts, repoRoot);
+  for (const seat of seats) await store.upsertOfficialSeat(seat);
+  return { jurisdictionId: opts.jurisdictionId, count: seats.length };
+}
+
+/** Materialize deterministic full seat snapshots without writing them. */
+export async function materializeOfficialSeats(
+  opts: IngestOfficialSeatsOptions,
+  repoRoot: string,
+): Promise<OfficialSeatUpsert[]> {
   const catalogPath =
     opts.catalogPath ??
     join(
@@ -114,11 +124,7 @@ export async function ingestOfficialSeats(
     ...(opts.extraSeats ?? []),
   ];
 
-  for (const entry of entries) {
-    await store.upsertOfficialSeat(toUpsert(entry, opts));
-  }
-
-  return { jurisdictionId: opts.jurisdictionId, count: entries.length };
+  return entries.map((entry) => toUpsert(entry, opts));
 }
 
 /** Global jurisdiction platform leader seat for oursay-global (manual roster). Identity comes from

@@ -171,11 +171,8 @@ export const DEFAULT_CONTENT_LIMITS: JurisdictionContentLimits = {
  *  (k-anonymity floor) and `counts` (public count exposure) are the first such extensions.
  *
  *  FUTURE (transparency / audit): standing jurisdiction policy uses the **platform_ops** dual-sign
- *  path (admin clear-request attestation + platform-signed envelope). Official seat claim/revoke is
- *  shipped; remaining kinds (gates/recognition lists, redaction reasoning, district boundary ingest
- *  with artifact digests, config ingest into DB) are deferred. Today's TypeScript registry
- *  (`@oursay/jurisdiction-data` + `registerJurisdiction`) remains the interim deploy-time source for
- *  standing config; see `docs/entities/partitioning/future.md` and `docs/entities/record/future.md`. */
+ *  path (admin clear-request attestation + platform-signed envelope). Packaged jurisdiction data is
+ *  the bootstrap input; the active database projection is linked to its signed config transaction. */
 export interface JurisdictionConfig {
   id: string;
   level: string; // federal | provincial | municipal | state | …

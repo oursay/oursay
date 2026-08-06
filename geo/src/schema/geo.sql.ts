@@ -27,8 +27,16 @@ CREATE TABLE IF NOT EXISTS geo.districts (
   source          TEXT NOT NULL,                          -- provenance (file + authority)
   source_ref      TEXT,                                   -- original source id (EDNumber20 / ED_NUM)
   ingested_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-  geom            geometry(MultiPolygon, 4326) NOT NULL
+  geom            geometry(MultiPolygon, 4326) NOT NULL,
+  source_entity_id UUID,
+  source_tx_id     UUID,
+  source_tx_hash   TEXT,
+  geometry_sha256  TEXT
 );
+ALTER TABLE geo.districts ADD COLUMN IF NOT EXISTS source_entity_id UUID;
+ALTER TABLE geo.districts ADD COLUMN IF NOT EXISTS source_tx_id UUID;
+ALTER TABLE geo.districts ADD COLUMN IF NOT EXISTS source_tx_hash TEXT;
+ALTER TABLE geo.districts ADD COLUMN IF NOT EXISTS geometry_sha256 TEXT;
 CREATE INDEX IF NOT EXISTS districts_geom_gix    ON geo.districts USING GIST (geom);
 CREATE INDEX IF NOT EXISTS districts_jur_eff_idx ON geo.districts (jurisdiction_id, effective_date);
 CREATE INDEX IF NOT EXISTS districts_lineage_idx ON geo.districts (jurisdiction_id, district_slug, effective_date);
@@ -50,8 +58,14 @@ CREATE TABLE IF NOT EXISTS geo.official_seats (
   representative_name   TEXT NOT NULL,
   claimed_user_handle   TEXT,                                   -- platform-linked user profile when claimed
   source                TEXT NOT NULL,
-  ingested_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+  ingested_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  source_entity_id      UUID,
+  source_tx_id          UUID,
+  source_tx_hash        TEXT
 );
+ALTER TABLE geo.official_seats ADD COLUMN IF NOT EXISTS source_entity_id UUID;
+ALTER TABLE geo.official_seats ADD COLUMN IF NOT EXISTS source_tx_id UUID;
+ALTER TABLE geo.official_seats ADD COLUMN IF NOT EXISTS source_tx_hash TEXT;
 CREATE INDEX IF NOT EXISTS official_seats_jur_eff_idx
   ON geo.official_seats (jurisdiction_id, effective_date);
 CREATE INDEX IF NOT EXISTS official_seats_handle_idx

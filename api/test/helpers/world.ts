@@ -7,6 +7,8 @@ import { kycConfig } from "../../src/config.js";
 import { buildServices, type Services } from "../../src/container.js";
 import { Db } from "../../src/db.js";
 import { buildServer } from "../../src/http/server.js";
+import { jurisdictions } from "@oursay/jurisdiction-data";
+import { registerJurisdiction } from "@oursay/public-record";
 import type { PasskeyRepoInstrumentation } from "../../src/repo/passkey.repo.js";
 import { NoopMailAdapter } from "../../src/services/mailer/adapters/noop.js";
 
@@ -47,6 +49,7 @@ export async function getWorld(): Promise<World> {
 export async function resetWorld(): Promise<World> {
   const w = await getWorld();
   await w.db.reset();
+  for (const jurisdiction of jurisdictions) registerJurisdiction(jurisdiction);
   w.mail.clear();
   return w;
 }

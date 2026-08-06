@@ -35,6 +35,7 @@ import { ServiceError, systemNow, type Now } from "./errors.js";
 import { CivicDeviceRepo } from "./repo/civic-device.repo.js";
 import { GeocodeRepo } from "./repo/geocode.repo.js";
 import { KycRepo } from "./repo/kyc.repo.js";
+import { JurisdictionConfigRepo } from "./repo/jurisdiction-config.repo.js";
 import { KycSessionRepo } from "./repo/kyc-session.repo.js";
 import { MembershipRepo } from "./repo/membership.repo.js";
 import { AccreditationBodyRepo } from "./repo/accreditation-body.repo.js";
@@ -114,6 +115,8 @@ export interface Repos {
   platformRole: PlatformRoleRepo;
   /** Platform catalog of press-credential issuers ([v1-media-accreditation-bodies]). */
   accreditationBody: AccreditationBodyRepo;
+  /** Current platform-signed jurisdiction policy projection. */
+  jurisdictionConfig: JurisdictionConfigRepo;
   /** User Media accreditations + derived Media mark ([v1-media-accreditations]). */
   mediaAccreditation: MediaAccreditationRepo;
   /** Per-action signing preferences (C1); floors stay enforced server-side regardless. */
@@ -203,8 +206,16 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   // Env (`JURISDICTION_ID`) only selects the DEFAULT id; the rules live in the data package. The env
   // `jurisdictionConfig` is registered only as a fallback when it names an id the data package doesn't
   // ship (so a deployment can still point at a not-yet-packaged jurisdiction without clobbering data rules).
-  for (const j of jurisdictions) registerJurisdiction(j);
-  if (!jurisdictions.some((j) => j.id === jurisdictionConfig.id)) registerJurisdiction(jurisdictionConfig);
+  const jurisdictionConfigRepo = new JurisdictionConfigRepo(pool);
+  const projectedJurisdictions = await jurisdictionConfigRepo.list();
+  const effectiveJurisdictions = new Map(jurisdictions.map((j) => [j.id, j]));
+  if (!effectiveJurisdictions.has(jurisdictionConfig.id)) {
+    effectiveJurisdictions.set(jurisdictionConfig.id, jurisdictionConfig);
+  }
+  for (const projected of projectedJurisdictions) {
+    effectiveJurisdictions.set(projected.config.id, projected.config);
+  }
+  for (const j of effectiveJurisdictions.values()) registerJurisdiction(j);
 
   const repos: Repos = {
     user: new UserRepo(pool),
@@ -220,6 +231,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     membership: new MembershipRepo(pool),
     platformRole: new PlatformRoleRepo(pool),
     accreditationBody: new AccreditationBodyRepo(pool),
+    jurisdictionConfig: jurisdictionConfigRepo,
     mediaAccreditation: new MediaAccreditationRepo(pool),
     signingPrefs: new SigningPrefsRepo(pool),
     opsSigningKey: new OpsSigningKeyRepo(pool),
@@ -441,6 +453,8 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     opsKeyRepo: repos.opsSigningKey,
     passkeyRepo: repos.passkey,
     platformRoleRepo: repos.platformRole,
+    jurisdictionConfigRepo: repos.jurisdictionConfig,
+    geoStore,
     officialSeatClaimService,
     recordStore,
     getLedger,
@@ -450,7 +464,10 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
 
   // Public area catalog: thin read surface over GeoStore + the registered jurisdiction configs
   // (same `jurisdictions` list registered above). Official electoral boundaries only.
-  const areaCatalogService = new AreaCatalogService({ geoStore, jurisdictions });
+  const areaCatalogService = new AreaCatalogService({
+    geoStore,
+    jurisdictions: [...effectiveJurisdictions.values()],
+  });
 
   return {
     db,

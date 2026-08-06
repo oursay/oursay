@@ -1,12 +1,13 @@
 // Platform-ops prepare/submit: admin attests a clear request; platform signs the TxEnvelope and
-// applies the mutable projection. First kinds: official_seat_claim / official_seat_revoke.
-// Deferred: district ingest, redaction, jurisdiction-config ingest.
+// applies the mutable projection. Jurisdiction config, district, and roster projections commit in
+// the same Postgres transaction as their record/outbox rows.
 
 import { randomUUID } from "node:crypto";
 import {
   PrivateStore,
   PublicChain,
   RecordService,
+  canonicalJson,
   buildAndSignPlatformOpsEnvelope,
   buildPlatformOpsAdminAttestationP256,
   buildPlatformOpsContent,
@@ -14,12 +15,18 @@ import {
   platformOpsEntityId,
   platformOpsRequestHash,
   platformPublicKey,
+  registerJurisdiction,
+  requireJurisdiction,
+  validatePlatformOpsPayload,
   verifyPlatformOpsAdminAttestation,
   type PlatformOpsAdminAttestation,
   type PlatformOpsKind,
+  type PlatformOpsDistrictSnapshot,
+  type PlatformOpsOfficialSeatSnapshot,
   type PlatformOpsRequest,
   type Ref,
 } from "@oursay/public-record";
+import type { GeoStore } from "@oursay/geo";
 import type { PgWireLedgerConnector } from "@oursay/public-record";
 import { civicConfig } from "../config.js";
 import { ServiceError, systemNow, type Now } from "../errors.js";
@@ -28,6 +35,7 @@ import type { OpsSigningKeyRepo } from "../repo/ops-signing-key.repo.js";
 import type { PasskeyRepo } from "../repo/passkey.repo.js";
 import type { PlatformOpsPendingRepo } from "../repo/platform-ops-pending.repo.js";
 import type { PlatformRoleRepo } from "../repo/platform-role.repo.js";
+import type { JurisdictionConfigRepo } from "../repo/jurisdiction-config.repo.js";
 import type { OfficialSeatClaimService } from "./official-seat-claim.service.js";
 
 const PENDING_TTL_SEC = 300;
@@ -37,6 +45,8 @@ export interface PlatformOpsServiceDeps {
   opsKeyRepo: OpsSigningKeyRepo;
   passkeyRepo: PasskeyRepo;
   platformRoleRepo: PlatformRoleRepo;
+  jurisdictionConfigRepo: JurisdictionConfigRepo;
+  geoStore: GeoStore;
   officialSeatClaimService: OfficialSeatClaimService;
   recordStore: PrivateStore;
   getLedger: (chainId: string) => Promise<PgWireLedgerConnector>;
@@ -82,7 +92,12 @@ export class PlatformOpsService {
     payload: Record<string, unknown>;
   }): Promise<PlatformOpsPrepareResult> {
     await this.assertAdmin(input.preparedByUserId);
-    this.lightValidate(input.kind, input.payload);
+    try {
+      requireJurisdiction(input.jurisdictionId);
+    } catch {
+      throw new ServiceError("validation", `unknown jurisdiction: ${input.jurisdictionId}`);
+    }
+    this.lightValidate(input.kind, input.jurisdictionId, input.payload);
 
     const requestId = randomUUID();
     const clearMessage = buildPlatformOpsRequest({
@@ -161,7 +176,7 @@ export class PlatformOpsService {
       request,
       adminAttestation: input.adminAttestation,
     });
-    const entityId = platformOpsEntityId(request.kind, request.payload);
+    const entityId = platformOpsEntityId(request.kind, request.jurisdictionId, request.payload);
     const recordSvc = await this.recordServiceFor(request.jurisdictionId);
     const head = await this.d.recordStore.getHeadTx(entityId);
     const signed = buildAndSignPlatformOpsEnvelope({
@@ -172,7 +187,13 @@ export class PlatformOpsService {
       op: head ? "update" : "create",
     });
 
-    const ref = await recordSvc.appendPlatformOps(signed);
+    const project = this.projectFor(request, entityId, signed.txId);
+    const ref = await recordSvc.appendPlatformOps({ ...signed, project });
+    if (request.kind === "jurisdiction_config_set") {
+      registerJurisdiction(
+        (request.payload as { config: import("@oursay/public-record").JurisdictionConfig }).config,
+      );
+    }
     await this.applyKind(request);
     return { ...ref, kind: request.kind, jurisdictionId: request.jurisdictionId };
   }
@@ -206,27 +227,40 @@ export class PlatformOpsService {
     });
   }
 
+  /** Seed/import helper: append only when the kind's current full snapshot differs. */
+  async submitWithOpsSoftKeyIfChanged(input: {
+    opsUserId: string;
+    kind: PlatformOpsKind;
+    jurisdictionId: string;
+    payload: Record<string, unknown>;
+    opsPrivKeyHex: string;
+  }): Promise<{ changed: boolean; ref?: PlatformOpsSubmitResult }> {
+    const entityId = platformOpsEntityId(input.kind, input.jurisdictionId, input.payload);
+    const head = await this.d.recordStore.getHeadTx(entityId);
+    const current = head?.content as { kind?: unknown; payload?: unknown } | null | undefined;
+    if (
+      current?.kind === input.kind &&
+      canonicalJson(current.payload) === canonicalJson(input.payload)
+    ) {
+      return { changed: false };
+    }
+    return { changed: true, ref: await this.submitWithOpsSoftKey(input) };
+  }
+
   platformAuthorPubkey(): string {
     return this.platformPubKeyHex;
   }
 
-  private lightValidate(kind: PlatformOpsKind, payload: Record<string, unknown>): void {
-    if (kind === "official_seat_claim") {
-      if (typeof payload.seatHandle !== "string" || !payload.seatHandle) {
-        throw new ServiceError("validation", "official_seat_claim requires payload.seatHandle");
-      }
-      if (typeof payload.userId !== "string" || !payload.userId) {
-        throw new ServiceError("validation", "official_seat_claim requires payload.userId");
-      }
-      return;
+  private lightValidate(
+    kind: PlatformOpsKind,
+    jurisdictionId: string,
+    payload: Record<string, unknown>,
+  ): void {
+    try {
+      validatePlatformOpsPayload(kind, jurisdictionId, payload);
+    } catch (err) {
+      throw new ServiceError("validation", err instanceof Error ? err.message : String(err));
     }
-    if (kind === "official_seat_revoke") {
-      if (typeof payload.seatHandle !== "string" || !payload.seatHandle) {
-        throw new ServiceError("validation", "official_seat_revoke requires payload.seatHandle");
-      }
-      return;
-    }
-    throw new ServiceError("validation", `unsupported platform_ops kind: ${kind}`);
   }
 
   private async applyKind(request: PlatformOpsRequest): Promise<void> {
@@ -250,6 +284,50 @@ export class PlatformOpsService {
       });
       return;
     }
+  }
+
+  private projectFor(
+    request: PlatformOpsRequest,
+    entityId: string,
+    txId: string,
+  ): ((client: import("pg").PoolClient, txHash: string) => Promise<void>) | undefined {
+    if (request.kind === "jurisdiction_config_set") {
+      const config = (request.payload as {
+        config: import("@oursay/public-record").JurisdictionConfig;
+      }).config;
+      return (client, txHash) =>
+        this.d.jurisdictionConfigRepo.upsert(
+          { config, sourceEntityId: entityId, sourceTxId: txId, sourceTxHash: txHash },
+          client,
+        );
+    }
+    if (request.kind === "district_upsert") {
+      const district = (request.payload as { district: PlatformOpsDistrictSnapshot }).district;
+      return (client, txHash) =>
+        this.d.geoStore.upsertDistrict(
+          {
+            ...district,
+            sourceEntityId: entityId,
+            sourceTxId: txId,
+            sourceTxHash: txHash,
+          },
+          client,
+        );
+    }
+    if (request.kind === "official_seat_upsert") {
+      const seat = (request.payload as { seat: PlatformOpsOfficialSeatSnapshot }).seat;
+      return (client, txHash) =>
+        this.d.geoStore.upsertOfficialSeat(
+          {
+            ...seat,
+            sourceEntityId: entityId,
+            sourceTxId: txId,
+            sourceTxHash: txHash,
+          },
+          client,
+        );
+    }
+    return undefined;
   }
 
   private async resolveAdminSignerUserId(

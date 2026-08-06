@@ -4,7 +4,15 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { ingestBoundaries, ingestOfficialSeats, oursayGlobalPlatformSeat, ShapefileSource, paths } from "@oursay/geo";
+import {
+  materializeDistricts,
+  materializeOfficialSeats,
+  oursayGlobalPlatformSeat,
+  ShapefileSource,
+  paths,
+} from "@oursay/geo";
+import { jurisdictions } from "@oursay/jurisdiction-data";
+import { canonicalJson, registerJurisdiction, sha256Hex } from "@oursay/public-record";
 import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
 import { SEED_ADMIN_HANDLE } from "./seed-data/people.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
@@ -38,19 +46,35 @@ function alberta2019Source(): ShapefileSource {
   });
 }
 
-async function ensureGeoBoundaries(world: Awaited<ReturnType<typeof buildSeedWorld>>): Promise<void> {
-  const { rows } = await world.db.pool.query<{ n: string }>(
-    `SELECT COUNT(*)::text AS n FROM geo.districts`,
-  );
-  if (Number(rows[0]?.n ?? 0) > 0) {
-    console.log("geo.districts already populated — skipping ingest");
-    return;
+async function ingestAuditedJurisdictionData(
+  world: Awaited<ReturnType<typeof buildSeedWorld>>,
+  ops: { userId: string; privKeyHex: string },
+): Promise<void> {
+  for (const config of jurisdictions) {
+    await world.services.platformOpsService.submitWithOpsSoftKeyIfChanged({
+      opsUserId: ops.userId,
+      kind: "jurisdiction_config_set",
+      jurisdictionId: config.id,
+      payload: { config },
+      opsPrivKeyHex: ops.privKeyHex,
+    });
   }
+
   console.log("Ingesting Alberta 2019 districts…");
-  const result = await ingestBoundaries(world.services.geoStore, alberta2019Source());
-  console.log(`  → ${result.count} districts`);
-  const seatResult = await ingestOfficialSeats(
-    world.services.geoStore,
+  const districts = await materializeDistricts(world.services.geoStore, alberta2019Source());
+  for (const district of districts) {
+    const geometrySha256 = sha256Hex(canonicalJson(district.geometryGeoJSON));
+    await world.services.platformOpsService.submitWithOpsSoftKeyIfChanged({
+      opsUserId: ops.userId,
+      kind: "district_upsert",
+      jurisdictionId: district.jurisdictionId,
+      payload: { district: { ...district, geometrySha256 } },
+      opsPrivKeyHex: ops.privKeyHex,
+    });
+  }
+  console.log(`  → ${districts.length} districts`);
+
+  const abSeats = await materializeOfficialSeats(
     {
       jurisdictionId: "ab-ca-gov",
       effectiveDate: "2019-04-16",
@@ -58,8 +82,7 @@ async function ensureGeoBoundaries(world: Awaited<ReturnType<typeof buildSeedWor
     },
     paths.repoRoot,
   );
-  await ingestOfficialSeats(
-    world.services.geoStore,
+  const globalSeats = await materializeOfficialSeats(
     {
       jurisdictionId: "oursay-global",
       effectiveDate: "2019-04-16",
@@ -68,7 +91,16 @@ async function ensureGeoBoundaries(world: Awaited<ReturnType<typeof buildSeedWor
     },
     paths.repoRoot,
   );
-  console.log(`  → ${seatResult.count} official seats`);
+  for (const seat of [...abSeats, ...globalSeats]) {
+    await world.services.platformOpsService.submitWithOpsSoftKeyIfChanged({
+      opsUserId: ops.userId,
+      kind: "official_seat_upsert",
+      jurisdictionId: seat.jurisdictionId,
+      payload: { seat },
+      opsPrivKeyHex: ops.privKeyHex,
+    });
+  }
+  console.log(`  → ${abSeats.length + globalSeats.length} official seats`);
 }
 
 async function main(): Promise<void> {
@@ -92,8 +124,25 @@ async function main(): Promise<void> {
   // it refuses to run under NODE_ENV=production.
   console.log("Resetting dev DB…");
   await world.db.reset();
+  for (const jurisdiction of jurisdictions) registerJurisdiction(jurisdiction);
 
-  await ensureGeoBoundaries(world);
+  console.log("Provisioning ops service account + soft-key…");
+  const ops = await ensureOpsServiceAccount(world.services);
+  console.log(" done");
+
+  // The catalog row is mutable platform data outside this change's audit scope. Create it before
+  // committing configs that recognize its stable id.
+  const SEED_MEDIA_BODY = "ab-leg-gallery";
+  try {
+    await world.services.repos.accreditationBody.create(
+      SEED_MEDIA_BODY,
+      "Alberta Legislative Assembly Press Gallery",
+    );
+  } catch {
+    // Idempotent re-seed: body may already exist.
+  }
+
+  await ingestAuditedJurisdictionData(world, ops);
 
   const { people, posts, members } = await runSeedOrchestrator(world, defaultSeedRng);
 
@@ -107,22 +156,9 @@ async function main(): Promise<void> {
   await world.services.repos.platformRole.grant(adminMember.userId, "admin", null);
   console.log(" done");
 
-  console.log("Provisioning ops service account + soft-key…");
-  await ensureOpsServiceAccount(world.services);
-  console.log(" done");
-
   // Media catalog + accreditation for local Media mark / AB recognition demos.
-  const SEED_MEDIA_BODY = "ab-leg-gallery";
   const SEED_MEDIA_HANDLE = "global_public";
   console.log(`Seeding accreditation body ${SEED_MEDIA_BODY} + Media mark → ${SEED_MEDIA_HANDLE}…`);
-  try {
-    await world.services.repos.accreditationBody.create(
-      SEED_MEDIA_BODY,
-      "Alberta Legislative Assembly Press Gallery",
-    );
-  } catch {
-    // Idempotent re-seed: body may already exist.
-  }
   const mediaMember = members.get(SEED_MEDIA_HANDLE);
   if (mediaMember) {
     await world.services.repos.mediaAccreditation.grant({

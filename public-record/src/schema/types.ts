@@ -48,11 +48,72 @@ export interface WebauthnAssertion {
   signature: string; // base64url, ASN.1 DER ECDSA over sha256(authData || sha256(clientDataJSON))
 }
 
-/** Discriminant for {@link PlatformOpsContent}. First shipped kinds = seat claim/revoke.
- *  Deferred: district ingest, redaction/censorship reasoning, jurisdiction-config ingest. */
+/** Discriminant for auditable, dual-signed platform administration. */
 export type PlatformOpsKind =
   | "official_seat_claim"
-  | "official_seat_revoke";
+  | "official_seat_revoke"
+  | "jurisdiction_config_set"
+  | "district_upsert"
+  | "official_seat_upsert";
+
+/** Full-snapshot payloads for auditable jurisdiction administration. */
+export interface JurisdictionConfigSetPayload {
+  config: import("../jurisdiction.js").JurisdictionConfig;
+}
+
+export interface PlatformOpsDistrictSnapshot {
+  id: string;
+  jurisdictionId: string;
+  name: string;
+  districtSlug: string;
+  effectiveDate: string;
+  drawnDate?: string | null;
+  boundaryYear: number;
+  source: string;
+  sourceRef?: string | null;
+  srid: number;
+  /** Polygon or MultiPolygon in {@link srid}; committed so the projection is replayable. */
+  geometryGeoJSON: unknown;
+  /** sha256(canonicalJson(geometryGeoJSON)). */
+  geometrySha256: string;
+}
+
+export interface DistrictUpsertPayload {
+  district: PlatformOpsDistrictSnapshot;
+}
+
+export interface PlatformOpsOfficialSeatSnapshot {
+  id: string;
+  jurisdictionId: string;
+  seatKind: "jurisdiction_leader" | "district_mla";
+  title: string;
+  seatHandle: string;
+  districtSlug: string | null;
+  districtShortSlug: string | null;
+  leaderRole: string | null;
+  effectiveDate: string;
+  boundaryYear: number;
+  role: string;
+  representativeName: string;
+  claimedUserHandle?: string | null;
+  source: string;
+}
+
+export interface OfficialSeatUpsertPayload {
+  seat: PlatformOpsOfficialSeatSnapshot;
+}
+
+export interface PlatformOpsPayloadByKind {
+  official_seat_claim: { seatHandle: string; userId: string };
+  official_seat_revoke: {
+    seatHandle: string;
+    expectedUserId?: string;
+    expectedUserHandle?: string;
+  };
+  jurisdiction_config_set: JurisdictionConfigSetPayload;
+  district_upsert: DistrictUpsertPayload;
+  official_seat_upsert: OfficialSeatUpsertPayload;
+}
 
 /** Domain-separated clear message an admin signs before the platform builds the envelope. */
 export interface PlatformOpsRequest {

@@ -47,7 +47,22 @@ export { districtSlug };
  * same set (same effective_date) reuses the same id → idempotent overwrite.
  */
 export async function ingestBoundaries(store: GeoStore, source: BoundarySource): Promise<IngestResult> {
-  let count = 0;
+  const districts = await materializeDistricts(store, source);
+  for (const district of districts) await store.upsertDistrict(district);
+  return {
+    jurisdictionId: source.jurisdictionId,
+    boundaryYear: source.boundaryYear,
+    effectiveDate: source.effectiveDate,
+    count: districts.length,
+  };
+}
+
+/** Materialize deterministic full district snapshots without writing them. */
+export async function materializeDistricts(
+  store: GeoStore,
+  source: BoundarySource,
+): Promise<DistrictUpsert[]> {
+  const districts: DistrictUpsert[] = [];
   for await (const raw of source.read()) {
     const slug = districtSlug(raw.name);
     const id = await allocateRevisionId(store, source, slug);
@@ -64,15 +79,9 @@ export async function ingestBoundaries(store: GeoStore, source: BoundarySource):
       srid: source.srid,
       geometryGeoJSON: raw.geometryGeoJSON,
     };
-    await store.upsertDistrict(upsert);
-    count++;
+    districts.push(upsert);
   }
-  return {
-    jurisdictionId: source.jurisdictionId,
-    boundaryYear: source.boundaryYear,
-    effectiveDate: source.effectiveDate,
-    count,
-  };
+  return districts;
 }
 
 /** Pick the revision id for this seat+year+effectiveDate: reuse the existing id for the same

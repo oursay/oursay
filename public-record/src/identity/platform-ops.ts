@@ -19,17 +19,19 @@ import type {
 } from "../schema/types.js";
 import { platformPublicKey } from "./platform-binding.js";
 
-/**
- * Deterministic UUID for a seat-scoped platform-ops entity (`record_tx.entity_id` is UUID).
- * sha256(`oursay/v1/platform-ops/seat/<handle>`) → UUID-shaped bits (version/variant set).
- */
-export function platformOpsSeatEntityId(seatHandle: string): string {
-  const norm = seatHandle.replace(/^@/, "").trim().toLowerCase();
-  const digest = sha256(utf8ToBytes(`oursay/v1/platform-ops/seat/${norm}`));
+function deterministicPlatformOpsUuid(scope: string): string {
+  const digest = sha256(utf8ToBytes(`oursay/v1/platform-ops/${scope}`));
   digest[6] = (digest[6]! & 0x0f) | 0x40;
   digest[8] = (digest[8]! & 0x3f) | 0x80;
   const h = bytesToHex(digest.slice(0, 16));
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/** Deterministic jurisdiction-scoped UUID for a logical official seat. */
+export function platformOpsSeatEntityId(jurisdictionId: string, seatHandle: string): string {
+  const jurisdiction = jurisdictionId.trim().toLowerCase();
+  const norm = seatHandle.replace(/^@/, "").trim().toLowerCase();
+  return deterministicPlatformOpsUuid(`seat/${jurisdiction}/${norm}`);
 }
 
 /** sha256(canonicalJson(request)) — the bytes an admin p256-signs (or WebAuthn challenge). */
@@ -149,12 +151,39 @@ export function buildPlatformOpsContent(input: {
   };
 }
 
-/** Resolve a stable entity id for the kind (seat ops share one entity per handle). */
-export function platformOpsEntityId(kind: PlatformOpsKind, payload: Record<string, unknown>): string {
-  if (kind === "official_seat_claim" || kind === "official_seat_revoke") {
-    const handle = typeof payload.seatHandle === "string" ? payload.seatHandle : "";
+/** Resolve a stable jurisdiction-scoped entity id for a platform-managed logical entity. */
+export function platformOpsEntityId(
+  kind: PlatformOpsKind,
+  jurisdictionId: string,
+  payload: Record<string, unknown>,
+): string {
+  const jurisdiction = jurisdictionId.trim().toLowerCase();
+  if (!jurisdiction) throw new Error("platform_ops requires jurisdictionId");
+  if (kind === "official_seat_claim" || kind === "official_seat_revoke" || kind === "official_seat_upsert") {
+    const seat =
+      payload.seat && typeof payload.seat === "object"
+        ? (payload.seat as Record<string, unknown>)
+        : undefined;
+    const handle =
+      typeof payload.seatHandle === "string"
+        ? payload.seatHandle
+        : typeof seat?.seatHandle === "string"
+          ? seat.seatHandle
+          : "";
     if (!handle) throw new Error("platform_ops seat kind requires payload.seatHandle");
-    return platformOpsSeatEntityId(handle);
+    return platformOpsSeatEntityId(jurisdiction, handle);
+  }
+  if (kind === "jurisdiction_config_set") {
+    return deterministicPlatformOpsUuid(`jurisdiction-config/${jurisdiction}`);
+  }
+  if (kind === "district_upsert") {
+    const district =
+      payload.district && typeof payload.district === "object"
+        ? (payload.district as Record<string, unknown>)
+        : undefined;
+    const slug = typeof district?.districtSlug === "string" ? district.districtSlug.trim().toLowerCase() : "";
+    if (!slug) throw new Error("platform_ops district kind requires payload.district.districtSlug");
+    return deterministicPlatformOpsUuid(`district/${jurisdiction}/${slug}`);
   }
   throw new Error(`platform_ops: unsupported kind ${kind}`);
 }

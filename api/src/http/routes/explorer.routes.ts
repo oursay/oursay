@@ -15,6 +15,7 @@ const RECORD_TYPE_ENUM = [
   "poll",
   "vote",
   "result",
+  "platform_ops",
 ] as const;
 
 const typeCountsSchema = {

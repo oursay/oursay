@@ -1,5 +1,5 @@
 // Platform-ops HTTP: prepare (store clear request) + submit (admin attestation → platform envelope).
-// Requires full session + platform admin role. Deep payload validation deferred.
+// Requires full session + platform admin role; kind payloads are deeply validated by the service.
 
 import type { FastifyInstance } from "fastify";
 import type { PlatformOpsAdminAttestation, PlatformOpsKind } from "@oursay/public-record";
@@ -7,7 +7,13 @@ import type { Services } from "../../container.js";
 import { ServiceError } from "../../errors.js";
 import { bearerSecurity, errorSchema } from "../schemas.js";
 
-const KIND_ENUM = ["official_seat_claim", "official_seat_revoke"] as const;
+const KIND_ENUM = [
+  "official_seat_claim",
+  "official_seat_revoke",
+  "jurisdiction_config_set",
+  "district_upsert",
+  "official_seat_upsert",
+] as const;
 
 const clearMessageSchema = {
   type: "object",
@@ -46,6 +52,70 @@ const attestationSchema = {
   additionalProperties: false,
 } as const;
 
+const prepareBodySchema = {
+  oneOf: [
+    {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["official_seat_claim"] },
+        jurisdictionId: { type: "string" },
+        payload: {
+          type: "object",
+          properties: { seatHandle: { type: "string" }, userId: { type: "string" } },
+          required: ["seatHandle", "userId"],
+          additionalProperties: false,
+        },
+      },
+      required: ["kind", "jurisdictionId", "payload"],
+      additionalProperties: false,
+    },
+    {
+      type: "object",
+      properties: {
+        kind: { type: "string", enum: ["official_seat_revoke"] },
+        jurisdictionId: { type: "string" },
+        payload: {
+          type: "object",
+          properties: {
+            seatHandle: { type: "string" },
+            expectedUserId: { type: "string" },
+            expectedUserHandle: { type: "string" },
+          },
+          required: ["seatHandle"],
+          additionalProperties: false,
+        },
+      },
+      required: ["kind", "jurisdictionId", "payload"],
+      additionalProperties: false,
+    },
+    ...(["jurisdiction_config_set", "district_upsert", "official_seat_upsert"] as const).map(
+      (kind) => {
+        const field =
+          kind === "jurisdiction_config_set"
+            ? "config"
+            : kind === "district_upsert"
+              ? "district"
+              : "seat";
+        return {
+          type: "object",
+          properties: {
+            kind: { type: "string", enum: [kind] },
+            jurisdictionId: { type: "string" },
+            payload: {
+              type: "object",
+              properties: { [field]: { type: "object" } },
+              required: [field],
+              additionalProperties: false,
+            },
+          },
+          required: ["kind", "jurisdictionId", "payload"],
+          additionalProperties: false,
+        };
+      },
+    ),
+  ],
+} as const;
+
 export async function registerPlatformOpsRoutes(app: FastifyInstance, services: Services): Promise<void> {
   app.post(
     "/v1/platform-ops/prepare",
@@ -55,16 +125,7 @@ export async function registerPlatformOpsRoutes(app: FastifyInstance, services: 
         tags: ["platform-ops"],
         summary: "Prepare a platform-ops request (admin). Returns the clear message to attest.",
         security: bearerSecurity,
-        body: {
-          type: "object",
-          properties: {
-            kind: { type: "string", enum: KIND_ENUM },
-            jurisdictionId: { type: "string" },
-            payload: { type: "object", additionalProperties: true },
-          },
-          required: ["kind", "jurisdictionId", "payload"],
-          additionalProperties: false,
-        },
+        body: prepareBodySchema,
         response: {
           200: {
             type: "object",

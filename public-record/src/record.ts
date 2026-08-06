@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type pg from "pg";
 import { canonicalJson, contentCommitment, newSalt } from "./crypto/commitment.js";
 import { identityConfig } from "./config.js";
 import { canRevokeSignature, canChangeVote } from "./governance.js";
@@ -7,7 +8,7 @@ import { validateContent } from "./schema/content.js";
 import { verifyEnvelope } from "./identity/envelope.js";
 import { verifyThreadBinding } from "./identity/verify.js";
 import { platformPublicKey, signNullifierAttestation, verifyCredentialAuth } from "./identity/platform-binding.js";
-import { verifyPlatformOpsAdminAttestation } from "./identity/platform-ops.js";
+import { platformOpsEntityId, verifyPlatformOpsAdminAttestation } from "./identity/platform-ops.js";
 import type { PublicChain } from "./ledger/chain.js";
 import type { PrivateStore, StoredTx } from "./private/store.js";
 import {
@@ -375,6 +376,8 @@ export class RecordService {
     content: PlatformOpsContent;
     /** When true (default), re-verify the nested admin attestation over content.request. */
     verifyAdminAttestation?: boolean;
+    /** Mutable projection applied in the same transaction as record_tx + outbox. */
+    project?: (client: pg.PoolClient, txHash: string) => Promise<void>;
   }): Promise<Ref> {
     const { envelope, salt, content } = input;
     if (!this.platformPrivKeyHex || !this.platformPubKeyHex) {
@@ -422,6 +425,14 @@ export class RecordService {
     if (canonicalJson(content.payload) !== canonicalJson(content.request.payload)) {
       throw new Error("appendPlatformOps: content.payload must match request.payload");
     }
+    const expectedEntityId = platformOpsEntityId(
+      content.kind,
+      content.jurisdictionId,
+      content.payload,
+    );
+    if (envelope.entityId !== expectedEntityId) {
+      throw new Error("appendPlatformOps: entityId does not match kind/jurisdiction/payload");
+    }
 
     if (input.verifyAdminAttestation !== false) {
       if (!verifyPlatformOpsAdminAttestation(content.request, content.adminAttestation)) {
@@ -443,7 +454,7 @@ export class RecordService {
       }
     }
 
-    const { txHash } = await this.chain.append(envelope, { salt, content });
+    const { txHash } = await this.chain.append(envelope, { salt, content }, input.project);
     return { txId: envelope.txId, entityId: envelope.entityId, txHash };
   }
 

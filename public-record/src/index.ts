@@ -154,7 +154,7 @@ export {
   opAllowed,
   parentAllowed,
 } from "./schema/types.js";
-export { validateContent } from "./schema/content.js";
+export { validateContent, validatePlatformOpsPayload } from "./schema/content.js";
 export type {
   RecordType,
   Op,
@@ -175,6 +175,12 @@ export type {
   PlatformOpsRequest,
   PlatformOpsAdminAttestation,
   PlatformOpsContent,
+  PlatformOpsPayloadByKind,
+  JurisdictionConfigSetPayload,
+  DistrictUpsertPayload,
+  PlatformOpsDistrictSnapshot,
+  OfficialSeatUpsertPayload,
+  PlatformOpsOfficialSeatSnapshot,
 } from "./schema/types.js";
 
 // Config

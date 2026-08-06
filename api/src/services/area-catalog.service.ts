@@ -15,7 +15,7 @@ import type {
   JurisdictionGates,
   JurisdictionLabels,
 } from "@oursay/public-record";
-import { DEFAULT_GATES } from "@oursay/public-record";
+import { DEFAULT_GATES, getJurisdiction as getRegisteredJurisdiction } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 
 /** A jurisdiction as exposed publicly: id + level + optional display label, per-record-type labels,
@@ -93,7 +93,7 @@ const ASOF_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export class AreaCatalogService {
   private readonly geoStore: GeoStore;
-  private readonly jurisdictions: JurisdictionConfig[];
+  private readonly jurisdictionIds: string[];
   private readonly seatsByJurisdiction: Map<string, OfficialSeatRecord[]>;
 
   constructor(deps: {
@@ -102,7 +102,7 @@ export class AreaCatalogService {
     officialSeats?: OfficialSeatRecord[];
   }) {
     this.geoStore = deps.geoStore;
-    this.jurisdictions = deps.jurisdictions;
+    this.jurisdictionIds = deps.jurisdictions.map((j) => j.id);
     this.seatsByJurisdiction = new Map();
     for (const seat of deps.officialSeats ?? allOfficialSeats()) {
       const list = this.seatsByJurisdiction.get(seat.jurisdictionId) ?? [];
@@ -172,7 +172,7 @@ export class AreaCatalogService {
   /** The registered jurisdiction index — id + level + optional public label, per-record-type labels,
    *  content caps, and Media recognition body ids. Policy fields (rules/privacy/counts) stay internal. */
   listJurisdictions(): JurisdictionSummary[] {
-    return this.jurisdictions.map((j) => ({
+    return this.jurisdictionIds.map((id) => getRegisteredJurisdiction(id)).map((j) => ({
       id: j.id,
       level: j.level,
       ...(j.label !== undefined ? { label: j.label } : {}),
@@ -223,9 +223,10 @@ export class AreaCatalogService {
   }
 
   private requireJurisdictionConfig(id: string): JurisdictionConfig {
-    const j = this.jurisdictions.find((cfg) => cfg.id === id);
-    if (!j) throw new ServiceError("not_found", `unknown jurisdiction: ${id}`);
-    return j;
+    if (!this.jurisdictionIds.includes(id)) {
+      throw new ServiceError("not_found", `unknown jurisdiction: ${id}`);
+    }
+    return getRegisteredJurisdiction(id);
   }
 
   private resolveAsOf(asOf?: string): string {

@@ -2,6 +2,7 @@ import { canonicalJson } from "../crypto/commitment.js";
 import { hashLeaf } from "../crypto/merkle.js";
 import { chainConfig } from "../config.js";
 import type { PrivateStore } from "../private/store.js";
+import type pg from "pg";
 import type { TxEnvelope } from "../schema/types.js";
 import type { ChainRow, LedgerConnector } from "./connector.js";
 import { LedgerUnavailableError, TxIdAlreadyOnChainError } from "./errors.js";
@@ -42,7 +43,11 @@ export class PublicChain {
     return head?.txHash ?? null;
   }
 
-  async append(envelope: TxEnvelope, raw: { salt: string; content: unknown }): Promise<{ txHash: string }> {
+  async append(
+    envelope: TxEnvelope,
+    raw: { salt: string; content: unknown },
+    project?: (client: pg.PoolClient, txHash: string) => Promise<void>,
+  ): Promise<{ txHash: string }> {
     const envJson = canonicalJson(envelope);
     const txHash = hashLeaf(envJson);
 
@@ -92,6 +97,7 @@ export class PublicChain {
       },
       chainRow,
       this.chainId,
+      project,
     );
 
     return { txHash };

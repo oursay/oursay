@@ -306,10 +306,29 @@ export class PrivateStore {
    * without a pending outbox row to settle it (see BlockSettler). The outbox `payload` is the exact
    * ChainRow (commitments only — never plaintext/salt); `chainId` tags which chain it settles to.
    */
-  async appendTxAndEnqueue(input: AppendTxInput, chainRow: ChainRow, chainId: string): Promise<void> {
+  async appendTxAndEnqueue(
+    input: AppendTxInput,
+    chainRow: ChainRow,
+    chainId: string,
+    project?: (client: pg.PoolClient, txHash: string) => Promise<void>,
+  ): Promise<void> {
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
+      // Serialize one logical entity across concurrent admins, then re-check the head under the
+      // same transaction that appends the next revision.
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", [input.entityId]);
+      const headResult = await client.query<{ tx_hash: string }>(
+        "SELECT tx_hash FROM record_tx WHERE entity_id = $1 ORDER BY seq DESC LIMIT 1",
+        [input.entityId],
+      );
+      const currentHead = headResult.rows[0]?.tx_hash ?? null;
+      if (input.op === "create" && currentHead !== null) {
+        throw new Error("append: entity already exists; use update");
+      }
+      if ((input.op === "update" || input.op === "delete") && currentHead !== input.prevHash) {
+        throw new Error(currentHead === null ? "append: entity not found" : "append: stale prevHash");
+      }
       await client.query(
         `INSERT INTO record_tx
           (tx_id, type, entity_id, op, parent_type, parent_id, parent_revision_tx_id,
@@ -341,6 +360,7 @@ export class PrivateStore {
         `INSERT INTO record_outbox (tx_id, chain_id, payload) VALUES ($1, $2, $3)`,
         [input.txId, chainId, JSON.stringify(chainRow)],
       );
+      if (project) await project(client, input.txHash);
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
