@@ -211,4 +211,9 @@ body {
   html.dark .wysiwys-wire-tag {
     color: var(--color-brand-300);
   }
+
+  /* Lucide Globe draws slightly left-heavy — nudge for optical center in marks. */
+  .lucide-globe {
+    margin-left: 1px;
+  }
 }
