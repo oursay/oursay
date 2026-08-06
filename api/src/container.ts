@@ -42,7 +42,7 @@ import { MediaAccreditationRepo } from "./repo/media-accreditation.repo.js";
 import { PlatformRoleRepo } from "./repo/platform-role.repo.js";
 import { SigningPrefsRepo } from "./repo/signing-prefs.repo.js";
 import { OtpRepo } from "./repo/otp.repo.js";
-import { PasskeyRepo } from "./repo/passkey.repo.js";
+import { PasskeyRepo, type PasskeyRepoInstrumentation } from "./repo/passkey.repo.js";
 import { ProfileRepo } from "./repo/profile.repo.js";
 import { RateLimitRepo } from "./repo/ratelimit.repo.js";
 import { SessionRepo } from "./repo/session.repo.js";
@@ -93,6 +93,8 @@ export interface BuildOptions {
    *  config) so the suite never depends on the ambient KYC_PROVIDER a developer set for a live walk.
    *  Defaults to the process-wide kycConfig. */
   kyc?: KycConfig;
+  /** Test-only transaction instrumentation; production leaves this undefined. */
+  passkeyRepoInstrumentation?: PasskeyRepoInstrumentation;
 }
 
 export interface Repos {
@@ -207,7 +209,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
   const repos: Repos = {
     user: new UserRepo(pool),
     profile: new ProfileRepo(pool),
-    passkey: new PasskeyRepo(pool),
+    passkey: new PasskeyRepo(pool, opts.passkeyRepoInstrumentation),
     session: new SessionRepo(pool),
     otp: new OtpRepo(pool),
     rateLimit: new RateLimitRepo(pool),

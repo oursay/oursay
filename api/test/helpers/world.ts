@@ -7,6 +7,7 @@ import { kycConfig } from "../../src/config.js";
 import { buildServices, type Services } from "../../src/container.js";
 import { Db } from "../../src/db.js";
 import { buildServer } from "../../src/http/server.js";
+import type { PasskeyRepoInstrumentation } from "../../src/repo/passkey.repo.js";
 import { NoopMailAdapter } from "../../src/services/mailer/adapters/noop.js";
 
 export interface World {
@@ -14,6 +15,8 @@ export interface World {
   services: Services;
   app: FastifyInstance;
   mail: NoopMailAdapter;
+  /** Present in the shared test world; dedicated live-test worlds may omit it. */
+  passkeyRepoInstrumentation?: PasskeyRepoInstrumentation;
 }
 
 let world: World | undefined;
@@ -23,18 +26,20 @@ export async function getWorld(): Promise<World> {
   const db = new Db();
   await db.init();
   const mail = new NoopMailAdapter();
+  const passkeyRepoInstrumentation: PasskeyRepoInstrumentation = {};
   // The shared world always runs the offline stub KYC provider so the suite is deterministic even when
   // a developer has KYC_PROVIDER=didit in api/.env for a live walk. The live didit specs (33/34) build
   // their own didit-backed world/client instead of relying on this one.
   const services = await buildServices(db, {
     mailerOverrides: { noop: mail },
     kyc: { ...kycConfig, provider: "stub" },
+    passkeyRepoInstrumentation,
   });
   // Disable the HTTP rate-limiter for the shared test app — its in-memory counters would otherwise
   // accumulate across specs. The service-layer OTP rate limit (auth.otp_rate_limits) is still active
   // and is exercised directly in 01-otp / 06-ratelimit.
   const app = await buildServer(services, { rateLimit: false });
-  world = { db, services, app, mail };
+  world = { db, services, app, mail, passkeyRepoInstrumentation };
   return world;
 }
 

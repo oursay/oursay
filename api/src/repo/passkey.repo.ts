@@ -53,20 +53,18 @@ export type FinalizeRecoveryResult =
   | { ok: true }
   | { ok: false; reason: "session" | "challenge" };
 
+/** Optional transaction instrumentation. Production leaves this undefined; tests use it to
+ * deterministically exercise concurrency and rollback boundaries without mutable repo fields. */
+export interface PasskeyRepoInstrumentation {
+  afterRecoveryCredentialDelete?: () => Promise<void>;
+  beforeRecoveryCredentialInsert?: () => Promise<void>;
+}
+
 export class PasskeyRepo {
-  constructor(private readonly pool: pg.Pool) {}
-
-  /**
-   * Test-only barrier: awaited after credential delete and before session revoke during recovery
-   * finalize, so specs can race a concurrent login against that boundary.
-   */
-  _testAfterRecoveryCredentialDelete: (() => Promise<void>) | null = null;
-
-  /**
-   * Test-only hook: awaited after session/grant revocation and before the replacement insert.
-   * Throw to force a mid-transaction failure and assert rollback.
-   */
-  _testBeforeRecoveryInsert: (() => Promise<void>) | null = null;
+  constructor(
+    private readonly pool: pg.Pool,
+    private readonly instrumentation?: PasskeyRepoInstrumentation,
+  ) {}
 
   async insertCredential(c: InsertCredentialInput): Promise<void> {
     await this.pool.query(
@@ -341,9 +339,7 @@ export class PasskeyRepo {
       // lands a session that the following revoke catches, or fails its credential FK after wipe.
       await client.query(`DELETE FROM auth.passkey_credentials WHERE user_id = $1`, [input.userId]);
 
-      if (this._testAfterRecoveryCredentialDelete) {
-        await this._testAfterRecoveryCredentialDelete();
-      }
+      await this.instrumentation?.afterRecoveryCredentialDelete?.();
 
       await client.query(
         `UPDATE auth.sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
@@ -357,9 +353,7 @@ export class PasskeyRepo {
         [input.userId],
       );
 
-      if (this._testBeforeRecoveryInsert) {
-        await this._testBeforeRecoveryInsert();
-      }
+      await this.instrumentation?.beforeRecoveryCredentialInsert?.();
 
       const c = input.credential;
       await client.query(

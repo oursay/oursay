@@ -290,8 +290,8 @@ describe("05b recovery: atomic credential reset (A2)", () => {
     w = await resetWorld();
   });
   afterEach(() => {
-    w.services.repos.passkey._testAfterRecoveryCredentialDelete = null;
-    w.services.repos.passkey._testBeforeRecoveryInsert = null;
+    w.passkeyRepoInstrumentation!.afterRecoveryCredentialDelete = undefined;
+    w.passkeyRepoInstrumentation!.beforeRecoveryCredentialInsert = undefined;
   });
 
   it("after recovery enroll, pre-recovery credentials fail and only the replacement succeeds", async () => {
@@ -369,8 +369,11 @@ describe("05b recovery: atomic credential reset (A2)", () => {
     const challenge = (opts.json() as { challenge: string }).challenge;
     const response = deviceC.register(challenge);
 
-    // Pause finalize after credential wipe / before session revoke. Start the old-passkey login
-    // from outside the transaction so we don't nest pool work under the held client.
+    const loginOpts = await w.services.passkeyService.loginOptions({ emailRaw: null });
+    const loginAssertion = deviceA.authenticate(loginOpts.challenge);
+
+    // Hold finalize after credential deletion so the old assertion deterministically races the
+    // delete-before-revoke boundary under test.
     let releaseBarrier!: () => void;
     const barrier = new Promise<void>((resolve) => {
       releaseBarrier = resolve;
@@ -379,13 +382,10 @@ describe("05b recovery: atomic credential reset (A2)", () => {
     const atBarrier = new Promise<void>((resolve) => {
       reachedBarrier = resolve;
     });
-    w.services.repos.passkey._testAfterRecoveryCredentialDelete = async () => {
+    w.passkeyRepoInstrumentation!.afterRecoveryCredentialDelete = async () => {
       reachedBarrier();
       await barrier;
     };
-
-    const loginOpts = await w.services.passkeyService.loginOptions({ emailRaw: null });
-    const loginAssertion = deviceA.authenticate(loginOpts.challenge);
 
     const finalizePromise = w.app.inject({
       method: "POST",
@@ -393,8 +393,8 @@ describe("05b recovery: atomic credential reset (A2)", () => {
       headers: bearer(recovery.token),
       payload: { response },
     });
-
     await atBarrier;
+
     const loginPromise = w.services.passkeyService
       .loginVerify({ response: loginAssertion })
       .then((r) => ({ ok: true as const, token: r.session.token }))
@@ -522,11 +522,15 @@ describe("05b recovery: atomic credential reset (A2)", () => {
     const challenge = (opts.json() as { challenge: string }).challenge;
     const response = deviceC.register(challenge);
 
-    // Force failure after wipe/revoke so the transaction rolls back (cannot use a credential_id
-    // conflict — recovery DELETE removes all prior rows for the user before INSERT).
-    w.services.repos.passkey._testBeforeRecoveryInsert = async () => {
-      throw new Error("forced recovery insert failure");
-    };
+    // credential_id is globally unique. Park the replacement id under another user so recovery's
+    // per-user DELETE does not clear it and the replacement INSERT fails uniqueness (mirrors 46).
+    const other = await makeSharedAccount(w, { email: "rollback-other@example.com" });
+    await w.db.pool.query(
+      `INSERT INTO auth.passkey_credentials
+         (id, user_id, credential_id, public_key, counter, transports, aaguid, label)
+       VALUES ($1,$2,$3,$4,0,null,null,null)`,
+      [randomUUID(), other.userId, response.id, Buffer.from([1, 2, 3])],
+    );
 
     const failed = await w.app.inject({
       method: "POST",
@@ -535,12 +539,13 @@ describe("05b recovery: atomic credential reset (A2)", () => {
       payload: { response },
     });
     expect(failed.statusCode).to.equal(500);
-    w.services.repos.passkey._testBeforeRecoveryInsert = null;
 
     const listed = await w.services.repos.passkey.listByUserId(userId);
     expect(listed.some((c) => c.credentialId === oldCredId)).to.equal(true);
     expect(await w.services.authService.resolve(recovery.token)).to.not.be.null;
     expect(await w.services.repos.passkey.getActiveChallenge(challenge, "register")).to.not.be.null;
+
+    await w.db.pool.query(`DELETE FROM auth.passkey_credentials WHERE credential_id = $1`, [response.id]);
 
     const retry = await w.app.inject({
       method: "POST",
