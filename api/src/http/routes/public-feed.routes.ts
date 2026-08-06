@@ -35,6 +35,15 @@ const feedItemSchema = {
       items: { type: "string" },
       description: "Platform-scoped roles on the author account (`admin` today).",
     },
+    mediaMark: {
+      type: "boolean",
+      description: "Derived Media mark — author holds ≥1 currently valid Media accreditation.",
+    },
+    mediaAccredited: {
+      type: "boolean",
+      description:
+        "Author is media-accredited in this row's jurisdiction (valid body ∈ recognizedAccreditationBodyIds).",
+    },
     signTier: { type: "integer", description: "Envelope sign-tier projection: 0 quick · 1 passkey (2/3 future)." },
     appliesToDistrictIds: { type: "array", items: { type: "string" }, description: "Affected seat slugs; [] = jurisdiction-wide." },
     author: { type: "string", description: "Anonymized display: real name when revealed, persona otherwise." },
@@ -70,7 +79,8 @@ const feedItemSchema = {
     },
   },
   required: [
-    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "signTier", "appliesToDistrictIds",
+    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "mediaMark", "mediaAccredited",
+    "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "comments", "edits", "ts",
     "externallyAnchored",
   ],

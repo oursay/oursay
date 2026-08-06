@@ -21,6 +21,7 @@ import {
   type PrivateStore,
 } from "@oursay/public-record";
 import type { KycRepo } from "../repo/kyc.repo.js";
+import type { MediaAccreditationRepo } from "../repo/media-accreditation.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { PlatformRoleRepo } from "../repo/platform-role.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
@@ -70,6 +71,10 @@ export interface ResolvedAuthor {
   official: boolean;
   /** Platform-scoped roles on the account (`admin` today). Empty when none. */
   platformRoles: string[];
+  /** Derived Media mark: ≥1 currently valid Media accreditation. */
+  mediaMark: boolean;
+  /** Valid accreditation whose body is on this thread jurisdiction's recognition list. */
+  mediaAccredited: boolean;
 }
 
 /** Server-resolved mention display for read DTOs (client chips/links only — Slice 3). */
@@ -116,6 +121,8 @@ interface AuthorFacts {
   officialIn: Set<string>;
   /** Platform-scoped roles (`admin` today). */
   platformRoles: string[];
+  /** Valid accreditation body ids (Media mark when non-empty). */
+  mediaBodyIds: string[];
   /** Home seat slugs (officials: represented seat for that jurisdiction — Part 6 #5). */
   homeDistricts: string[];
 }
@@ -127,6 +134,7 @@ export interface IdentityReadServiceDeps {
   kycRepo: KycRepo;
   membershipRepo: MembershipRepo;
   platformRoleRepo: PlatformRoleRepo;
+  mediaAccreditationRepo: MediaAccreditationRepo;
   participantGeoService: ParticipantGeoService;
   geoStore: GeoStore;
   jurisdictions: JurisdictionConfig[];
@@ -167,6 +175,8 @@ export class ReadResolution {
         tier: "unverified",
         official: false,
         platformRoles: [],
+        mediaMark: false,
+        mediaAccredited: false,
       };
     }
 
@@ -175,6 +185,12 @@ export class ReadResolution {
     const tier = facts.tier;
     const official = facts.officialIn.has(ctx.jurisdiction);
     const platformRoles = facts.platformRoles;
+    const mediaMark = facts.mediaBodyIds.length > 0;
+    const recognized =
+      this.d.jurisdictions.find((j) => j.id === ctx.jurisdiction)?.recognizedAccreditationBodyIds ??
+      [];
+    const mediaAccredited =
+      mediaMark && facts.mediaBodyIds.some((id) => recognized.includes(id));
 
     // Self: always revealed to self; the hint shows the persona out-of-scope viewers see instead.
     if (this.viewer.userId && link.userId === this.viewer.userId) {
@@ -196,6 +212,8 @@ export class ReadResolution {
         tier,
         official,
         platformRoles,
+        mediaMark,
+        mediaAccredited,
       };
     }
 
@@ -217,6 +235,8 @@ export class ReadResolution {
         tier,
         official,
         platformRoles,
+        mediaMark,
+        mediaAccredited,
       };
     }
 
@@ -228,6 +248,8 @@ export class ReadResolution {
       tier,
       official,
       platformRoles,
+      mediaMark,
+      mediaAccredited,
     };
   }
 
@@ -377,12 +399,13 @@ export class ReadResolution {
   private async factsOf(userId: string): Promise<AuthorFacts> {
     const cached = this.facts.get(userId);
     if (cached) return cached;
-    const [user, profile, tierRaw, memberships, platformRoles, point] = await Promise.all([
+    const [user, profile, tierRaw, memberships, platformRoles, mediaBodyIds, point] = await Promise.all([
       this.d.userRepo.getById(userId),
       this.d.profileRepo.getByUserId(userId),
       this.d.kycRepo.latestTier(userId),
       this.d.membershipRepo.listForUser(userId),
       this.d.platformRoleRepo.listRoles(userId),
+      this.d.mediaAccreditationRepo.listValidBodyIds(userId),
       this.d.participantGeoService.currentPoint(userId),
     ]);
     const officialIn = new Set(memberships.filter((m) => m.role === "official").map((m) => m.jurisdictionId));
@@ -413,6 +436,7 @@ export class ReadResolution {
       tier,
       officialIn,
       platformRoles: [...platformRoles],
+      mediaBodyIds,
       homeDistricts: [...homeDistricts],
     };
     this.facts.set(userId, facts);

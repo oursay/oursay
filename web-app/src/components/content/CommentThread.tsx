@@ -76,6 +76,8 @@ export function CommentThread({
               official={node.official}
               signTier={node.signTier}
               platformRole={node.platformRole}
+              media={node.mediaMark}
+              mediaRecognized={node.mediaAccredited}
               authorGeo={node.authorGeo}
               identity={node.identity}
               timestamp={

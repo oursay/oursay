@@ -56,6 +56,8 @@ export function ShareCard({
         official={node.official}
         signTier={node.signTier}
         platformRole={node.platformRole}
+        media={node.mediaMark}
+        mediaRecognized={node.mediaAccredited}
         authorGeo={node.authorGeo}
         identity={node.identity}
         timestamp={
@@ -119,6 +121,8 @@ function ShareRecordCard({
           official={item.official}
           signTier={item.signTier}
           platformRole={item.platformRole}
+          media={item.mediaMark}
+          mediaRecognized={item.mediaAccredited}
           authorGeo={item.authorGeo}
           scopeSlot={
             <ScopeTag

@@ -12,6 +12,8 @@ interface CommentCardProps {
   official?: boolean;
   signTier?: SignTier;
   platformRole?: PlatformRole | null;
+  media?: boolean;
+  mediaRecognized?: boolean;
   /** Residency author's spatial relation to the open post. */
   authorGeo?: AuthorGeoRelation;
   /** Viewer-resolved author identity (persona / self affordances). */
@@ -46,6 +48,8 @@ export function CommentCard({
   official,
   signTier,
   platformRole,
+  media,
+  mediaRecognized,
   authorGeo,
   identity,
   timestamp,
@@ -75,6 +79,8 @@ export function CommentCard({
         official={official}
         signTier={signTier}
         platformRole={platformRole}
+        media={media}
+        mediaRecognized={mediaRecognized}
         authorGeo={authorGeo}
         identity={identity}
         timestamp={timestamp}

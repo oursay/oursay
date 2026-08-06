@@ -65,6 +65,10 @@ export interface FeedItem {
    * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
    */
   platformRole?: PlatformRole | null;
+  /** Derived Media mark (≥1 valid accreditation). */
+  mediaMark?: boolean;
+  /** Media-accredited in this row's jurisdiction (recognized body). */
+  mediaAccredited?: boolean;
   /**
    * District slugs the record AFFECTS: [] jurisdiction-wide, [slug] one riding,
    * [slug,...] several. Served by the API as `appliesToDistrictIds`; the fetch
@@ -141,6 +145,10 @@ export interface RecordDetail {
    * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
    */
   platformRole?: PlatformRole | null;
+  /** Derived Media mark (≥1 valid accreditation). */
+  mediaMark?: boolean;
+  /** Media-accredited in this row's jurisdiction (recognized body). */
+  mediaAccredited?: boolean;
   districts: string[];
   /** Author's home riding slugs — SERVER-INTERNAL, see FeedItem.authorDistricts. */
   authorDistricts?: string[];

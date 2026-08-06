@@ -53,6 +53,11 @@ const commentNodeSchema = {
       items: { type: "string" },
       description: "Platform-scoped roles on the author account (`admin` today).",
     },
+    mediaMark: { type: "boolean", description: "Derived Media mark — ≥1 valid Media accreditation." },
+    mediaAccredited: {
+      type: "boolean",
+      description: "Media-accredited in the parent thread's jurisdiction.",
+    },
     authorGeo: authorGeoSchema,
     ts: { type: "string" },
     edits: { type: "integer" },
@@ -71,7 +76,7 @@ const commentNodeSchema = {
     mentions: mentionsMapSchema,
     replies: { type: "array", items: { type: "object", additionalProperties: true } },
   },
-  required: ["id", "author", "handle", "tier", "official", "platformRoles", "authorGeo", "ts", "edits", "externallyAnchored", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
+  required: ["id", "author", "handle", "tier", "official", "platformRoles", "mediaMark", "mediaAccredited", "authorGeo", "ts", "edits", "externallyAnchored", "signTier", "body", "withheld", "up", "down", "identity", "replies"],
 } as const;
 
 const detailSchema = {
@@ -88,6 +93,11 @@ const detailSchema = {
       type: "array",
       items: { type: "string" },
       description: "Platform-scoped roles on the author account (`admin` today).",
+    },
+    mediaMark: { type: "boolean", description: "Derived Media mark — ≥1 valid Media accreditation." },
+    mediaAccredited: {
+      type: "boolean",
+      description: "Media-accredited in this record's jurisdiction.",
     },
     signTier: { type: "integer" },
     appliesToDistrictIds: { type: "array", items: { type: "string" } },
@@ -124,7 +134,8 @@ const detailSchema = {
     _vote: { type: "string", nullable: true, description: "The viewer's own voted option label on a poll; null when not voted." },
   },
   required: [
-    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "signTier", "appliesToDistrictIds",
+    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "mediaMark", "mediaAccredited",
+    "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "ts", "edits",
     "externallyAnchored",
   ],

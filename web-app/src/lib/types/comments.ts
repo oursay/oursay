@@ -26,6 +26,10 @@ export interface CommentNode {
    * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
    */
   platformRole?: PlatformRole | null;
+  /** Derived Media mark (≥1 valid accreditation). */
+  mediaMark?: boolean;
+  /** Media-accredited in the parent thread's jurisdiction. */
+  mediaAccredited?: boolean;
   /**
    * Author's riding slug(s) — SERVER-INTERNAL (mock corpus + read-model
    * filtering only). A member's district is never shared with other members;

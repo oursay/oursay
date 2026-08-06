@@ -265,6 +265,24 @@ ALTER TABLE auth.accreditation_bodies ADD CONSTRAINT accreditation_bodies_status
   CHECK (status IN ('active', 'retired'));
 CREATE INDEX IF NOT EXISTS accreditation_bodies_status_idx ON auth.accreditation_bodies (status);
 
+-- User-held Media accreditations ([v1-media-accreditations]). Media mark is derived (≥1 valid row).
+-- mediaAccredited in a jurisdiction = valid row whose body_id ∈ JurisdictionConfig.recognizedAccreditationBodyIds.
+CREATE TABLE IF NOT EXISTS auth.media_accreditations (
+  id                     UUID PRIMARY KEY,
+  user_id                UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  accreditation_body_id  TEXT NOT NULL REFERENCES auth.accreditation_bodies(id),
+  expires_at             TIMESTAMPTZ,
+  revoked_at             TIMESTAMPTZ,
+  granted_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+  granted_by_admin_id    UUID REFERENCES public.users(id) ON DELETE SET NULL,
+  note                   TEXT
+);
+CREATE INDEX IF NOT EXISTS media_accreditations_user_idx ON auth.media_accreditations (user_id);
+CREATE INDEX IF NOT EXISTS media_accreditations_body_idx ON auth.media_accreditations (accreditation_body_id);
+CREATE INDEX IF NOT EXISTS media_accreditations_valid_idx
+  ON auth.media_accreditations (user_id)
+  WHERE revoked_at IS NULL;
+
 -- C1: per-action signing preferences (quick | ask | passkey per SignAction). The gate floor is
 -- enforced server-side regardless; prefs only pick the method ABOVE the floor. JSONB keeps the
 -- action keyset a client concern (e.g. { "post": "ask", "vote": "passkey" }).

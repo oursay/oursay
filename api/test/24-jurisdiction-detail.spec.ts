@@ -73,7 +73,7 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(ab.body.graduationThreshold).to.equal(null);
     expect(ab.body.leader.name).to.equal("Danielle Smith");
     expect(ab.body.gates.poll.act).to.deep.equal({ role: "official" });
-    expect(ab.body.recognizedAccreditationBodyIds).to.deep.equal([]);
+    expect(ab.body.recognizedAccreditationBodyIds).to.deep.equal(["ab-leg-gallery"]);
   });
 
   it("GET /v1/public/jurisdictions/:id 404s unknown jurisdiction", async () => {

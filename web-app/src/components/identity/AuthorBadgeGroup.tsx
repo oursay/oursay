@@ -26,6 +26,8 @@ interface AuthorBadgeGroupProps {
   /** KYC tier 0–2 only. */
   tier: VerificationTier;
   platformRole?: PlatformRole | null;
+  media?: boolean;
+  mediaRecognized?: boolean;
   authorGeo?: AuthorGeoRelation;
   signedMode: PillDisplayMode;
   kycMode: PillDisplayMode;
@@ -37,6 +39,8 @@ export function AuthorBadgeGroup({
   official,
   tier,
   platformRole,
+  media,
+  mediaRecognized,
   authorGeo,
   signedMode,
   kycMode,
@@ -48,6 +52,8 @@ export function AuthorBadgeGroup({
       official={official}
       tier={tier}
       platformRole={platformRole}
+      media={media}
+      mediaRecognized={mediaRecognized}
       authorGeo={authorGeo}
       signedMode={signedMode}
       kycMode={kycMode}

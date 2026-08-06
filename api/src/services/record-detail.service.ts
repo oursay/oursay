@@ -43,6 +43,10 @@ export interface RecordDetailDto {
   official: boolean;
   /** Platform-scoped roles on the author account (`admin` today). */
   platformRoles: string[];
+  /** Derived Media mark (≥1 valid Media accreditation). */
+  mediaMark: boolean;
+  /** Author is media-accredited in this record's jurisdiction. */
+  mediaAccredited: boolean;
   signTier: number;
   appliesToDistrictIds: string[];
   author: string;
@@ -89,6 +93,10 @@ export interface CommentNodeDto {
   official: boolean;
   /** Platform-scoped roles on the author account (`admin` today). */
   platformRoles: string[];
+  /** Derived Media mark (≥1 valid Media accreditation). */
+  mediaMark: boolean;
+  /** Author is media-accredited in the parent thread's jurisdiction. */
+  mediaAccredited: boolean;
   authorGeo: AuthorGeoRelation;
   ts: string;
   edits: number;
@@ -194,6 +202,8 @@ export class RecordDetailService {
       tier: author.tier,
       official: author.official,
       platformRoles: author.platformRoles,
+      mediaMark: author.mediaMark,
+      mediaAccredited: author.mediaAccredited,
       signTier: root.signTier,
       appliesToDistrictIds: ctx.affectedDistricts,
       author: author.author,
@@ -302,6 +312,8 @@ export class RecordDetailService {
       tier: author.tier,
       official: author.official,
       platformRoles: author.platformRoles,
+      mediaMark: author.mediaMark,
+      mediaAccredited: author.mediaAccredited,
       authorGeo: author.authorGeo,
       ts: node.state.createdAt,
       edits: editCounts.get(node.state.entityId) ?? 0,

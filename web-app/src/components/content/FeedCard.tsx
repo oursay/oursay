@@ -92,6 +92,8 @@ export function FeedCard({
           official={item.official}
           signTier={item.signTier}
           platformRole={item.platformRole}
+          media={item.mediaMark}
+          mediaRecognized={item.mediaAccredited}
           authorGeo={item.authorGeo}
           onAuthorClick={onAuthorClick}
           onPersonaClick={onPersonaClick}

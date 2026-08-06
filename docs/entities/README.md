@@ -38,7 +38,7 @@ This library **formalizes** existing documentation; it does not replace it.
 | [Verification](./account/verification.md) | KYC attestation | — | `public.kyc_attestations` | [Gap] production provider |
 | [Admin](./account/admin.md) | admin role | — | account role (target) | [Gap] `[v1-admin-tools]` |
 | [AccreditationBody](./account/accreditation-body.md) | Press accreditation body | — | `auth.accreditation_bodies` | [MVP] catalog + admin CLI + `recognizedAccreditationBodyIds` on config |
-| [MediaAccreditation](./account/media-accreditation.md) | Media accreditation | — | `media_accreditations` (target) | [Gap] `[v1-media-accreditations]` |
+| [MediaAccreditation](./account/media-accreditation.md) | Media accreditation | — | `auth.media_accreditations` | [MVP] rows + mark wire; gate actor open |
 | [ProfileGeocode](./account/profile-geocode.md) | — | — | `auth.profile_geocodes` | [MVP] |
 | [Post](./civic-content/post.md) | Statement | `post` | `record_tx` | [MVP] |
 | [Petition](./civic-content/petition.md) | Petition | `petition` | `record_tx` | [MVP] |

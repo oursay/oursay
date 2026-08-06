@@ -23,6 +23,11 @@ const feedItemSchema = {
       items: { type: "string" },
       description: "Platform-scoped roles on the author account (`admin` today).",
     },
+    mediaMark: { type: "boolean", description: "Derived Media mark — ≥1 valid Media accreditation." },
+    mediaAccredited: {
+      type: "boolean",
+      description: "Media-accredited in this row's jurisdiction.",
+    },
     signTier: { type: "integer" },
     appliesToDistrictIds: { type: "array", items: { type: "string" } },
     author: { type: "string" },
@@ -46,7 +51,8 @@ const feedItemSchema = {
     externallyAnchored: { type: "boolean" },
   },
   required: [
-    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "signTier", "appliesToDistrictIds",
+    "id", "type", "jurisdiction", "tier", "official", "platformRoles", "mediaMark", "mediaAccredited",
+    "signTier", "appliesToDistrictIds",
     "author", "handle", "identity", "authorGeo", "title", "body", "withheld", "comments", "edits", "ts",
     "externallyAnchored",
   ],
@@ -80,6 +86,7 @@ const profileHeaderSchema = {
       items: { type: "string" },
       description: "Platform-scoped roles on the account (`admin` today).",
     },
+    mediaMark: { type: "boolean", description: "Derived Media mark — ≥1 valid Media accreditation." },
     bio: { type: "string" },
     iconType: { type: "string" },
     ageLabel: { type: "string" },
@@ -94,7 +101,7 @@ const profileHeaderSchema = {
       required: ["agrees", "disagrees", "statements", "comments"],
     },
   },
-  required: ["name", "handle", "role", "roles", "tier", "official", "platformRoles", "bio", "iconType", "ageLabel", "support"],
+  required: ["name", "handle", "role", "roles", "tier", "official", "platformRoles", "mediaMark", "bio", "iconType", "ageLabel", "support"],
 } as const;
 
 const typesQuery = {

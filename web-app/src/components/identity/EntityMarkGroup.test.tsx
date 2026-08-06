@@ -9,10 +9,12 @@ import {
 } from "@/components/identity/EntityMarkGroup";
 
 describe("resolveEntityMarks", () => {
-  it("orders Signed → Official → Platform → KYC", () => {
+  it("orders Signed → Official → Media → Platform → KYC", () => {
     const marks = resolveEntityMarks({
       signTier: 1,
       official: true,
+      media: true,
+      mediaRecognized: true,
       platformRole: "admin",
       tier: 2,
       authorGeo: "home",
@@ -20,18 +22,19 @@ describe("resolveEntityMarks", () => {
     expect(marks.map((m) => m.type)).toEqual([
       "signing",
       "official",
+      "media",
       "platform",
       "kyc",
     ]);
   });
 
-  it("does not emit Media even when media is true (reserved)", () => {
-    const marks = resolveEntityMarks({
-      media: true,
-      tier: 1,
-    });
-    expect(marks.every((m) => m.type !== "media")).toBe(true);
-    expect(marks).toEqual([{ type: "kyc", subtype: "identity" }]);
+  it("emits journalist Media mark; recognized context when mediaRecognized", () => {
+    expect(resolveEntityMarks({ media: true, tier: 0 })).toEqual([
+      { type: "media", subtype: "journalist" },
+    ]);
+    expect(resolveEntityMarks({ media: true, mediaRecognized: true, tier: 0 })).toEqual([
+      { type: "media", subtype: "journalist", context: "recognized" },
+    ]);
   });
 
   it("sources Official from official flag, not KYC tier", () => {

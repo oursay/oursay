@@ -37,6 +37,7 @@ import { KycRepo } from "./repo/kyc.repo.js";
 import { KycSessionRepo } from "./repo/kyc-session.repo.js";
 import { MembershipRepo } from "./repo/membership.repo.js";
 import { AccreditationBodyRepo } from "./repo/accreditation-body.repo.js";
+import { MediaAccreditationRepo } from "./repo/media-accreditation.repo.js";
 import { PlatformRoleRepo } from "./repo/platform-role.repo.js";
 import { SigningPrefsRepo } from "./repo/signing-prefs.repo.js";
 import { OtpRepo } from "./repo/otp.repo.js";
@@ -107,6 +108,8 @@ export interface Repos {
   platformRole: PlatformRoleRepo;
   /** Platform catalog of press-credential issuers ([v1-media-accreditation-bodies]). */
   accreditationBody: AccreditationBodyRepo;
+  /** User Media accreditations + derived Media mark ([v1-media-accreditations]). */
+  mediaAccreditation: MediaAccreditationRepo;
   /** Per-action signing preferences (C1); floors stay enforced server-side regardless. */
   signingPrefs: SigningPrefsRepo;
 }
@@ -205,6 +208,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     membership: new MembershipRepo(pool),
     platformRole: new PlatformRoleRepo(pool),
     accreditationBody: new AccreditationBodyRepo(pool),
+    mediaAccreditation: new MediaAccreditationRepo(pool),
     signingPrefs: new SigningPrefsRepo(pool),
   };
 
@@ -369,6 +373,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     kycRepo: repos.kyc,
     membershipRepo: repos.membership,
     platformRoleRepo: repos.platformRole,
+    mediaAccreditationRepo: repos.mediaAccreditation,
     participantGeoService,
     geoStore,
     jurisdictions: [...jurisdictions],
@@ -399,6 +404,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     kycRepo: repos.kyc,
     membershipRepo: repos.membership,
     platformRoleRepo: repos.platformRole,
+    mediaAccreditationRepo: repos.mediaAccreditation,
     geoStore,
     identityReadService,
     publicFeedService,

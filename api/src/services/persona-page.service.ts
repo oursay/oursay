@@ -163,6 +163,8 @@ export class PersonaPageService {
       tier: author.tier,
       official: author.official,
       platformRoles: author.platformRoles,
+      mediaMark: author.mediaMark,
+      mediaAccredited: author.mediaAccredited,
       authorGeo: author.authorGeo,
       ts: node.state.createdAt,
       edits: editCounts.get(node.state.entityId) ?? 0,

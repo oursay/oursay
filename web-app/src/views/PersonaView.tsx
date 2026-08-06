@@ -217,6 +217,8 @@ export function PersonaView({ personaName }: { personaName: string }) {
                   tier={node.tier}
                   signTier={node.signTier}
                   platformRole={node.platformRole}
+                  media={node.mediaMark}
+                  mediaRecognized={node.mediaAccredited}
                   identity={node.identity}
                   timestamp={
                     <TimestampWithAnchor

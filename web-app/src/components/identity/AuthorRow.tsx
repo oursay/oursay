@@ -30,6 +30,8 @@ interface AuthorRowProps {
   official?: boolean;
   signTier?: SignTier;
   platformRole?: PlatformRole | null;
+  media?: boolean;
+  mediaRecognized?: boolean;
   authorGeo?: AuthorGeoRelation;
   signedMode?: PillDisplayMode;
   kycMode?: PillDisplayMode;
@@ -69,6 +71,8 @@ export function AuthorRow({
   official,
   signTier,
   platformRole,
+  media,
+  mediaRecognized,
   authorGeo,
   signedMode = "icon",
   kycMode = "full",
@@ -94,6 +98,8 @@ export function AuthorRow({
       official={official}
       tier={tier}
       platformRole={platformRole}
+      media={media}
+      mediaRecognized={mediaRecognized}
       authorGeo={authorGeo}
       signedMode={signedMode}
       kycMode={kycMode}

@@ -106,6 +106,28 @@ async function main(): Promise<void> {
   await world.services.repos.platformRole.grant(adminMember.userId, "admin", null);
   console.log(" done");
 
+  // Media catalog + accreditation for local Media mark / AB recognition demos.
+  const SEED_MEDIA_BODY = "ab-leg-gallery";
+  const SEED_MEDIA_HANDLE = "global_public";
+  console.log(`Seeding accreditation body ${SEED_MEDIA_BODY} + Media mark → ${SEED_MEDIA_HANDLE}…`);
+  try {
+    await world.services.repos.accreditationBody.create(
+      SEED_MEDIA_BODY,
+      "Alberta Legislative Assembly Press Gallery",
+    );
+  } catch {
+    // Idempotent re-seed: body may already exist.
+  }
+  const mediaMember = members.get(SEED_MEDIA_HANDLE);
+  if (mediaMember) {
+    await world.services.repos.mediaAccreditation.grant({
+      userId: mediaMember.userId,
+      accreditationBodyId: SEED_MEDIA_BODY,
+      grantedByAdminId: adminMember.userId,
+    });
+  }
+  console.log(" done");
+
   const feed = await world.app.inject({ method: "GET", url: "/v1/public/feed?limit=80" });
   const feedCount =
     feed.statusCode === 200 ? ((feed.json() as { items?: unknown[] }).items?.length ?? 0) : 0;

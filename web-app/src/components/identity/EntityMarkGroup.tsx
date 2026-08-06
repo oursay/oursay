@@ -32,10 +32,11 @@ export type ResolveEntityMarksInput = {
    */
   official?: boolean;
   /**
-   * Media mark reserved — not emitted until wire exists.
-   * TODO(media-mark): emit `{ type: "media", subtype: "journalist" }` when true.
+   * Media mark — emit journalist (and recognized shade when mediaRecognized).
    */
   media?: boolean;
+  /** Jurisdiction-recognized Media accreditation for this thread/context. */
+  mediaRecognized?: boolean;
   platformRole?: PlatformRole | null;
   /** KYC tier 0–2 only. */
   tier: VerificationTier;
@@ -85,7 +86,13 @@ export function resolveEntityMarks(input: ResolveEntityMarksInput): EntityMarkSp
     marks.push({ type: "official", subtype: "official" });
   }
 
-  // Media reserved — do not emit until wire exists (input.media ignored).
+  if (input.media) {
+    marks.push(
+      input.mediaRecognized
+        ? { type: "media", subtype: "journalist", context: "recognized" }
+        : { type: "media", subtype: "journalist" },
+    );
+  }
 
   if (input.platformRole === "admin") {
     marks.push({ type: "platform", subtype: "admin" });
@@ -131,6 +138,7 @@ export function EntityMarkGroup({
   signTier,
   official,
   media,
+  mediaRecognized,
   platformRole,
   tier,
   authorGeo,
@@ -146,6 +154,7 @@ export function EntityMarkGroup({
         signTier,
         official,
         media,
+        mediaRecognized,
         platformRole,
         tier,
         authorGeo,

@@ -5660,6 +5660,14 @@ paths:
                           items:
                             type: string
                           description: Platform-scoped roles on the author account (`admin` today).
+                        mediaMark:
+                          type: boolean
+                          description: Derived Media mark — author holds ≥1 currently valid Media
+                            accreditation.
+                        mediaAccredited:
+                          type: boolean
+                          description: Author is media-accredited in this row's jurisdiction (valid body ∈
+                            recognizedAccreditationBodyIds).
                         signTier:
                           type: integer
                           description: "Envelope sign-tier projection: 0 quick · 1 passkey (2/3 future)."
@@ -5809,6 +5817,8 @@ paths:
                         - tier
                         - official
                         - platformRoles
+                        - mediaMark
+                        - mediaAccredited
                         - signTier
                         - appliesToDistrictIds
                         - author
@@ -5908,6 +5918,12 @@ paths:
                         items:
                           type: string
                         description: Platform-scoped roles on the author account (`admin` today).
+                      mediaMark:
+                        type: boolean
+                        description: Derived Media mark — ≥1 valid Media accreditation.
+                      mediaAccredited:
+                        type: boolean
+                        description: Media-accredited in this record's jurisdiction.
                       signTier:
                         type: integer
                       appliesToDistrictIds:
@@ -6065,6 +6081,8 @@ paths:
                       - tier
                       - official
                       - platformRoles
+                      - mediaMark
+                      - mediaAccredited
                       - signTier
                       - appliesToDistrictIds
                       - author
@@ -6103,6 +6121,12 @@ paths:
                           items:
                             type: string
                           description: Platform-scoped roles on the author account (`admin` today).
+                        mediaMark:
+                          type: boolean
+                          description: Derived Media mark — ≥1 valid Media accreditation.
+                        mediaAccredited:
+                          type: boolean
+                          description: Media-accredited in the parent thread's jurisdiction.
                         authorGeo:
                           type: string
                           enum:
@@ -6208,6 +6232,8 @@ paths:
                         - tier
                         - official
                         - platformRoles
+                        - mediaMark
+                        - mediaAccredited
                         - authorGeo
                         - ts
                         - edits
@@ -6289,6 +6315,12 @@ paths:
                           items:
                             type: string
                           description: Platform-scoped roles on the author account (`admin` today).
+                        mediaMark:
+                          type: boolean
+                          description: Derived Media mark — ≥1 valid Media accreditation.
+                        mediaAccredited:
+                          type: boolean
+                          description: Media-accredited in the parent thread's jurisdiction.
                         authorGeo:
                           type: string
                           enum:
@@ -6394,6 +6426,8 @@ paths:
                         - tier
                         - official
                         - platformRoles
+                        - mediaMark
+                        - mediaAccredited
                         - authorGeo
                         - ts
                         - edits
@@ -7063,6 +7097,9 @@ paths:
                     items:
                       type: string
                     description: Platform-scoped roles on the account (`admin` today).
+                  mediaMark:
+                    type: boolean
+                    description: Derived Media mark — ≥1 valid Media accreditation.
                   bio:
                     type: string
                   iconType:
@@ -7093,6 +7130,7 @@ paths:
                   - tier
                   - official
                   - platformRoles
+                  - mediaMark
                   - bio
                   - iconType
                   - ageLabel
@@ -7198,6 +7236,12 @@ paths:
                           items:
                             type: string
                           description: Platform-scoped roles on the author account (`admin` today).
+                        mediaMark:
+                          type: boolean
+                          description: Derived Media mark — ≥1 valid Media accreditation.
+                        mediaAccredited:
+                          type: boolean
+                          description: Media-accredited in this row's jurisdiction.
                         signTier:
                           type: integer
                         appliesToDistrictIds:
@@ -7311,6 +7355,8 @@ paths:
                         - tier
                         - official
                         - platformRoles
+                        - mediaMark
+                        - mediaAccredited
                         - signTier
                         - appliesToDistrictIds
                         - author

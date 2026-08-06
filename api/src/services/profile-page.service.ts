@@ -17,6 +17,7 @@ import { displayNameFor, normalizeHandle } from "../helpers/handle.js";
 import { effectiveUserIconType } from "../helpers/icon-type.js";
 import { resolveContentMentions } from "../helpers/resolve-mentions.js";
 import type { KycRepo } from "../repo/kyc.repo.js";
+import type { MediaAccreditationRepo } from "../repo/media-accreditation.repo.js";
 import type { MembershipRepo } from "../repo/membership.repo.js";
 import type { PlatformRoleRepo } from "../repo/platform-role.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
@@ -69,6 +70,8 @@ export interface ProfileHeaderDto {
   official: boolean;
   /** Platform-scoped roles (`admin` today). Empty when none. */
   platformRoles: string[];
+  /** Derived Media mark (≥1 valid Media accreditation). */
+  mediaMark: boolean;
   bio: string;
   /** DiceBear style id for this account (effective for KYC tier; default bottts-neutral). */
   iconType: string;
@@ -127,6 +130,7 @@ export interface ProfilePageServiceDeps {
   kycRepo: KycRepo;
   membershipRepo: MembershipRepo;
   platformRoleRepo: PlatformRoleRepo;
+  mediaAccreditationRepo: MediaAccreditationRepo;
   geoStore: GeoStore;
   identityReadService: IdentityReadService;
   publicFeedService: PublicFeedService;
@@ -137,10 +141,11 @@ export class ProfilePageService {
 
   async getHeader(handleRaw: string, viewer: ApiViewer): Promise<ProfileHeaderDto> {
     const ctx = await this.requireVisible(handleRaw, viewer);
-    const [tierRaw, memberships, platformRoles, support] = await Promise.all([
+    const [tierRaw, memberships, platformRoles, mediaMark, support] = await Promise.all([
       this.d.kycRepo.latestTier(ctx.userId),
       this.d.membershipRepo.listForUser(ctx.userId),
       this.d.platformRoleRepo.listRoles(ctx.userId),
+      this.d.mediaAccreditationRepo.hasMediaMark(ctx.userId),
       this.computeSupport(ctx.pubkeys),
     ]);
     const tier = normalizeTier(tierRaw);
@@ -156,6 +161,7 @@ export class ProfilePageService {
       tier,
       official,
       platformRoles: [...platformRoles],
+      mediaMark,
       bio: ctx.bio,
       iconType: effectiveUserIconType(ctx.iconType, tier !== "unverified" || official),
       ageLabel: formatAgeLabel(ctx.createdAt),

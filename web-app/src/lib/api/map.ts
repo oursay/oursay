@@ -197,6 +197,8 @@ function mapAttachedPoll(raw: unknown): AttachedPoll | undefined {
 export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
   const official = Boolean(raw.official);
   const platformRole = mapPlatformRole(raw.platformRoles);
+  const mediaMark = Boolean(raw.mediaMark);
+  const mediaAccredited = Boolean(raw.mediaAccredited);
   const item: FeedItem = {
     id: String(raw.id),
     kind: wireTypeToKind(String(raw.type)),
@@ -204,6 +206,8 @@ export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
     tier: tokenToTier(String(raw.tier)),
     official,
     platformRole,
+    mediaMark,
+    mediaAccredited,
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
     handle: mapWireHandle(raw.handle),
@@ -236,6 +240,8 @@ export function mapFeedItem(raw: Record<string, unknown>): FeedItem {
 export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
   const official = Boolean(raw.official);
   const platformRole = mapPlatformRole(raw.platformRoles);
+  const mediaMark = Boolean(raw.mediaMark);
+  const mediaAccredited = Boolean(raw.mediaAccredited);
   const detail: RecordDetail = {
     id: String(raw.id),
     kind: wireTypeToKind(String(raw.type)),
@@ -243,6 +249,8 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
     tier: tokenToTier(String(raw.tier)),
     official,
     platformRole,
+    mediaMark,
+    mediaAccredited,
     districts: (raw.appliesToDistrictIds as string[]) ?? [],
     author: String(raw.author),
     handle: mapWireHandle(raw.handle),
@@ -279,6 +287,8 @@ export function mapRecordDetail(raw: Record<string, unknown>): RecordDetail {
 export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
   const official = Boolean(raw.official);
   const platformRole = mapPlatformRole(raw.platformRoles);
+  const mediaMark = Boolean(raw.mediaMark);
+  const mediaAccredited = Boolean(raw.mediaAccredited);
   const node: CommentNode = {
     ...(typeof raw.id === "string" ? { id: raw.id } : {}),
     author: String(raw.author),
@@ -286,6 +296,8 @@ export function mapCommentNode(raw: Record<string, unknown>): CommentNode {
     tier: tokenToTier(String(raw.tier)),
     official,
     platformRole,
+    mediaMark,
+    mediaAccredited,
     ts: String(raw.ts),
     body: (raw.body as string[]) ?? [],
     up: (raw.up as number) ?? 0,
@@ -334,6 +346,7 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
     tier: tokenToTier(String(raw.tier)),
     official,
     platformRole: mapPlatformRole(raw.platformRoles),
+    mediaMark: Boolean(raw.mediaMark),
     bio: String(raw.bio ?? ""),
     iconType: String(raw.iconType ?? "bottts-neutral"),
     ageLabel: String(raw.ageLabel ?? ""),

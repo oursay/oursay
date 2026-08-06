@@ -17,6 +17,8 @@ interface RecordCardHeaderProps {
   official?: boolean;
   signTier?: SignTier;
   platformRole?: PlatformRole | null;
+  media?: boolean;
+  mediaRecognized?: boolean;
   /** Residency author's spatial relation to the context. */
   authorGeo?: AuthorGeoRelation;
   /** Record rows: stacked @handle. Comment rows: inline relative time. */
@@ -40,6 +42,8 @@ export function RecordCardHeader({
   official,
   signTier,
   platformRole,
+  media,
+  mediaRecognized,
   authorGeo,
   handle,
   timestamp,
@@ -63,6 +67,8 @@ export function RecordCardHeader({
       official={official}
       signTier={signTier}
       platformRole={platformRole}
+      media={media}
+      mediaRecognized={mediaRecognized}
       authorGeo={authorGeo}
       signedMode={signedMode}
       kycMode={kycMode}

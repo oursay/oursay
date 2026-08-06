@@ -63,6 +63,10 @@ export interface FeedItemDto {
   official: boolean;
   /** Platform-scoped roles on the author account (`admin` today). */
   platformRoles: string[];
+  /** Derived Media mark (≥1 valid Media accreditation). */
+  mediaMark: boolean;
+  /** Author is media-accredited in this row's jurisdiction (body ∈ recognition list). */
+  mediaAccredited: boolean;
   signTier: number;
   /** Affected seat slugs ([] ⇒ jurisdiction-wide). Served name per C2. */
   appliesToDistrictIds: string[];
@@ -253,6 +257,8 @@ export class PublicFeedService {
       tier: r.author.tier,
       official: r.author.official,
       platformRoles: r.author.platformRoles,
+      mediaMark: r.author.mediaMark,
+      mediaAccredited: r.author.mediaAccredited,
       signTier: row.signTier,
       appliesToDistrictIds: r.appliesToDistrictIds,
       author: r.author.author,
