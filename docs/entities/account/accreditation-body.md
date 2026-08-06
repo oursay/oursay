@@ -78,9 +78,11 @@ Two accreditation bodies are the same if their `id` strings match. Primary key: 
 | Layer | Path |
 |-------|------|
 | Spec | this file |
-| Code | **Gap** — no table/API yet (`[v1-media-accreditation-bodies]`) |
+| Schema | `auth.accreditation_bodies` in `api/src/schema/auth.sql.ts` |
+| Repo | `api/src/repo/accreditation-body.repo.ts` |
+| CLI | `npm run admin:accreditation-body -w @oursay/api -- create\|update\|retire\|activate\|list` |
 
 ## Gaps
 
-- **[v1-media-accreditation-bodies]** — catalog schema, admin tools, jurisdiction `recognizedAccreditationBodyIds` wiring.
+- **[v1-media-accreditation-bodies]** — ✅ catalog table + admin CLI landed. Remaining: public list API (if needed), jurisdiction `recognizedAccreditationBodyIds` wiring (`[align-w3-gates-schema]`).
 - V2+ (deferred): automated verification of press documents / provider-attested credentials — **not** V1.

@@ -36,6 +36,7 @@ import { GeocodeRepo } from "./repo/geocode.repo.js";
 import { KycRepo } from "./repo/kyc.repo.js";
 import { KycSessionRepo } from "./repo/kyc-session.repo.js";
 import { MembershipRepo } from "./repo/membership.repo.js";
+import { AccreditationBodyRepo } from "./repo/accreditation-body.repo.js";
 import { PlatformRoleRepo } from "./repo/platform-role.repo.js";
 import { SigningPrefsRepo } from "./repo/signing-prefs.repo.js";
 import { OtpRepo } from "./repo/otp.repo.js";
@@ -104,6 +105,8 @@ export interface Repos {
   membership: MembershipRepo;
   /** Platform-scoped account roles (admin today; [v1-a-admin-role]). */
   platformRole: PlatformRoleRepo;
+  /** Platform catalog of press-credential issuers ([v1-media-accreditation-bodies]). */
+  accreditationBody: AccreditationBodyRepo;
   /** Per-action signing preferences (C1); floors stay enforced server-side regardless. */
   signingPrefs: SigningPrefsRepo;
 }
@@ -201,6 +204,7 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     geocode: new GeocodeRepo(pool),
     membership: new MembershipRepo(pool),
     platformRole: new PlatformRoleRepo(pool),
+    accreditationBody: new AccreditationBodyRepo(pool),
     signingPrefs: new SigningPrefsRepo(pool),
   };
 

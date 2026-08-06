@@ -20,6 +20,7 @@ See [GLOSSARY.md](../../GLOSSARY.md) (**admin (role)**) and [01-CONTRIBUTOR-SPEC
 - **Wire:** `platformRoles: string[]` on `GET /v1/auth/session`, public profile header, and feed / comment / record-detail author shapes.
 - **CLI:** `npm run admin:role -w @oursay/api -- grant|revoke|list` — production requires `OURSAY_ALLOW_PROD_ADMIN=1`. Bootstrap grant may leave `granted_by_admin_id` NULL.
 - **Official seats CLI:** `npm run admin:seat -w @oursay/api -- claim|revoke|list` — claim/revoke by seat handle (jurisdiction taken from the seat row; same prod gate). Optional `--jurisdiction` on list; `--email` on revoke to confirm the current claimant.
+- **Accreditation-body catalog:** `auth.accreditation_bodies` (`id`, `name`, `status` active\|retired). CLI: `npm run admin:accreditation-body -w @oursay/api -- create|update|retire|activate|list` (same prod gate). Prerequisite for Media accreditations (`[v1-media-accreditations]` still open).
 - **Dev seed:** `npm run seed -w @oursay/api` grants `admin` to `whyte_public@seed.oursay.dev` (showcase author with posts/comments; not Official) so the Platform mark appears in the live corpus.
 - **Portal HTTP tools** (`POST /v1/portal/admin/*`) remain future — Phase V1-C.
 

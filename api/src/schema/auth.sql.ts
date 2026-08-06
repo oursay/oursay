@@ -250,6 +250,21 @@ ALTER TABLE auth.account_roles DROP CONSTRAINT IF EXISTS account_roles_role_chec
 ALTER TABLE auth.account_roles ADD CONSTRAINT account_roles_role_check
   CHECK (role IN ('admin', 'dev', 'mod', 'auditor', 'support'));
 
+-- Platform catalog of press-credential issuers ([v1-media-accreditation-bodies]).
+-- Referenced by future auth.media_accreditations and by JurisdictionConfig.recognizedAccreditationBodyIds.
+-- Retired bodies stay referencable for historical accreditations but are not newly grantable.
+CREATE TABLE IF NOT EXISTS auth.accreditation_bodies (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE auth.accreditation_bodies DROP CONSTRAINT IF EXISTS accreditation_bodies_status_check;
+ALTER TABLE auth.accreditation_bodies ADD CONSTRAINT accreditation_bodies_status_check
+  CHECK (status IN ('active', 'retired'));
+CREATE INDEX IF NOT EXISTS accreditation_bodies_status_idx ON auth.accreditation_bodies (status);
+
 -- C1: per-action signing preferences (quick | ask | passkey per SignAction). The gate floor is
 -- enforced server-side regardless; prefs only pick the method ABOVE the floor. JSONB keeps the
 -- action keyset a client concern (e.g. { "post": "ask", "vote": "passkey" }).
