@@ -62,7 +62,7 @@ export {
 
 // Jurisdiction (domain partition + router: id, level, default gating rules, per-action gates)
 export { DEFAULT_CONTENT_LIMITS, DEFAULT_GATES, DEFAULT_LABELS, actionForType, gateFor, getJurisdiction, hasJurisdiction, registerJurisdiction, requireJurisdiction, requiredSignScheme } from "./jurisdiction.js";
-export type { ActionGate, GateActor, GatedAction, JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionGates, JurisdictionGraduation, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules, SignMethod } from "./jurisdiction.js";
+export type { ActionGate, GateActor, GatedAction, JurisdictionConfig, JurisdictionContentLimits, JurisdictionCountExposure, JurisdictionGates, JurisdictionGraduation, JurisdictionLabels, JurisdictionPrivacy, JurisdictionRules, PlatformGateRole, SignMethod } from "./jurisdiction.js";
 // Persona display names (minted at join; the persona page key)
 export { personaNameForPubkey, randomReservedLabelCandidate } from "./identity/persona-name.js";
 export { PERSONA_NAME_ADJECTIVES, PERSONA_NAME_NOUNS, personaNamePoolStats } from "./identity/persona-name-dictionaries.js";

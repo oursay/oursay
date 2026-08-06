@@ -38,14 +38,18 @@ export const abCaGov: JurisdictionConfig = {
   recognizedAccreditationBodyIds: ["ab-leg-gallery"],
   // Locked gate matrix (WEB-APP-GAPS C5/Part 3 + Part 6 corrections):
   //   - statements/petitions/polls/votes/signatures carry a PASSKEY sign floor; comments/reactions quick.
-  //   - petition creation = residency-verified (Part 5 #2); poll/result creation = official ROLE only.
+  //   - petition creation = residency-verified (Part 5 #2); poll creation = Official OR media-accredited
+  //     OR platform admin; result stays official-only (interim — media host polls, not author results).
   //   - vote.act = jurisdiction residency; official-role holders are DENIED on vote (act-blocked) and
   //     petition_signature (count-excluded, reason `official_role`) — Part 6 #3.
   //   - petition_signature.act = anyone (sign-now-verify-later); its officialCount floor is residency.
   gates: {
     post: { act: "anyone", signMin: "passkey" },
     petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" },
-    poll: { act: { role: "official" }, signMin: "passkey" },
+    poll: {
+      act: [{ role: "official" }, { mediaAccredited: true }, { platformRole: "admin" }],
+      signMin: "passkey",
+    },
     result: { act: { role: "official" }, signMin: "passkey" },
     comment: { act: "anyone", signMin: "quick" },
     reaction: { act: "anyone", signMin: "quick" },
@@ -65,7 +69,7 @@ export const abCaGov: JurisdictionConfig = {
     "Ladder policy — levels graduate upward.",
     "Statements: open to any registered member (passkey-signed).",
     "Petitions: residency-verified authors only.",
-    "Polls: officials only (or via petition→poll graduation).",
+    "Polls: officials, accredited media, or platform admins (or via petition→poll graduation).",
     "Verified actions are written on-ledger.",
     "Platform counts: residency-verified residents only.",
   ],

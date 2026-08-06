@@ -49,7 +49,14 @@ function meetsActor(actor: GateActor, kycTier: VerificationTier): boolean {
   if (actor === "anyone") return true;
   if ("tiers" in actor) return actor.tiers.some((t) => kycTier >= t);
   if ("residencyIn" in actor) return kycTier >= 2;
+  // role / mediaAccredited / platformRole are not KYC floors — compose eligibility owns those.
   return true;
+}
+
+/** OR-aware: any matching actor admits (mirrors GateService.matchesAct for KYC-only warnings). */
+function meetsAct(act: GateActor | GateActor[], kycTier: VerificationTier): boolean {
+  const actors = Array.isArray(act) ? act : [act];
+  return actors.some((a) => meetsActor(a, kycTier));
 }
 
 type ActorRequirement = "identity" | "residency";
@@ -64,6 +71,11 @@ function actorRequirement(actor: GateActor): ActorRequirement {
   if ("residencyIn" in actor) return "residency";
   if ("tiers" in actor) return Math.min(...actor.tiers) >= 2 ? "residency" : "identity";
   return "identity";
+}
+
+function actRequirement(act: GateActor | GateActor[]): ActorRequirement {
+  const actors = Array.isArray(act) ? act : [act];
+  return actors.some((a) => actorRequirement(a) === "residency") ? "residency" : "identity";
 }
 
 function requirementPhrase(req: ActorRequirement): string {
@@ -144,13 +156,13 @@ export function warningsForAction(
 
   // Hard block: the viewer fails the action's `act` gate and cannot participate at
   // all. When present it supersedes the softer notices — show it alone.
-  if (!meetsActor(gate.act, ctx.kycTier)) {
+  if (!meetsAct(gate.act, ctx.kycTier)) {
     return [
       {
         kind: "blocker",
         jurisdictionId,
         jurisdictionLabel: label,
-        reason: requirementPhrase(actorRequirement(gate.act)),
+        reason: requirementPhrase(actRequirement(gate.act)),
       },
     ];
   }

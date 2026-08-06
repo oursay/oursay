@@ -369,7 +369,13 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
 
   // Per-action jurisdiction gates ([align-w3-gates-schema]). Built here — after kyc/participant-geo —
   // because gate resolution needs the caller's CURRENT tier, point, and role.
-  const gateService = new GateService({ kycService, participantGeoService, membershipRepo: repos.membership });
+  const gateService = new GateService({
+    kycService,
+    participantGeoService,
+    membershipRepo: repos.membership,
+    mediaAccreditationRepo: repos.mediaAccreditation,
+    platformRoleRepo: repos.platformRole,
+  });
 
   // The public read surface resolves geo `scope` AND KYC `tier` on the count endpoints: regionResolver +
   // participantGeoService (region-first, current-point mode) for geo, and KycRepo (current tier, set

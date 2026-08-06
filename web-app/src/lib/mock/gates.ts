@@ -25,10 +25,10 @@ import { toCanonical } from "@/lib/types";
  * - `oursay-global`: everything anyone·quick; vote/petition_signature enter the
  *   platform count at ID-verified-or-better.
  * - `ab-ca-gov`: posts/votes/signatures passkey-signed; petitions
- *   residency-verified authors; polls officials-only; votes need jurisdiction
- *   residency; signatures are sign-now-verify-later (platform count at
- *   residency); official-role holders are DENIED on vote and petition_signature
- *   (Part 6 #3).
+ *   residency-verified authors; polls Official OR media-accredited OR platform
+ *   admin; result official-only (interim); votes need jurisdiction residency;
+ *   signatures are sign-now-verify-later (platform count at residency);
+ *   official-role holders are DENIED on vote and petition_signature (Part 6 #3).
  */
 export const JURISDICTION_GATES: Record<JurisdictionId, JurisdictionGates> = {
   [GLOBAL_ID]: {
@@ -48,7 +48,10 @@ export const JURISDICTION_GATES: Record<JurisdictionId, JurisdictionGates> = {
   [ALBERTA_ID]: {
     post: { act: "anyone", signMin: "passkey" },
     petition: { act: { tiers: [2] }, signMin: "passkey" },
-    poll: { act: { role: "official" }, signMin: "passkey" },
+    poll: {
+      act: [{ role: "official" }, { mediaAccredited: true }, { platformRole: "admin" }],
+      signMin: "passkey",
+    },
     result: { act: { role: "official" }, signMin: "passkey" },
     comment: { act: "anyone", signMin: "quick" },
     reaction: { act: "anyone", signMin: "quick" },
@@ -64,6 +67,12 @@ export const JURISDICTION_GATES: Record<JurisdictionId, JurisdictionGates> = {
       deny: [{ role: "official" }],
     },
   },
+};
+
+/** Platform-catalog body ids OurSay recognizes for Media-gated acts (mirrors jurisdiction-data). */
+export const RECOGNIZED_ACCREDITATION_BODY_IDS: Record<JurisdictionId, string[]> = {
+  [GLOBAL_ID]: [],
+  [ALBERTA_ID]: ["ab-leg-gallery"],
 };
 
 /** Anyone·quick fallback for an unmodelled jurisdiction (mirrors DEFAULT_GATES). */

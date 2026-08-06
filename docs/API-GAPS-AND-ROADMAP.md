@@ -78,9 +78,9 @@ The **foundation** here is launch scope (see `[ROADMAP.md](./ROADMAP.md)` MVP an
 | **`[mvp-c14-count-amendments]`** | No auditable recount / invalidate-validate overlay | Formal corrections without silent SQL drift. |
 | Full public-record sync/stream | Still deferred (PRD Phase E / US-SYS-8) | Interim: `/v1/explorer/:chainId` block/tx reads only — inefficient MVP, not bulk sync |
 | **`[mvp-c-kyc-provider]`** | Equifax (etc.) not implemented; recovery re-verify incomplete | Real residency tier and provider-signed rows (R27). |
-| **`[v1-media-accreditation-bodies]`** | ✅ Catalog + admin CLI + jurisdiction recognition ids | `auth.accreditation_bodies`; `admin:accreditation-body`; `JurisdictionConfig.recognizedAccreditationBodyIds` (empty lists today; public area catalog). Chain-audited policy ingest deferred — `partitioning/future.md`. |
-| **`[v1-media-accreditations]`** | ✅ Rows + admin CLI + Media mark wire | `auth.media_accreditations`; `mediaMark` / `mediaAccredited` on public DTOs. Remaining: `{ mediaAccredited: true }` gate actor. |
-| **`[align-w3-gates-schema]`** (Media slice) | `{ mediaAccredited: true }` gate actor + OR act lists not wired | Official OR media-accredited poll create for `ab-ca-gov` still doctrine-only until encoded; recognition id list is on config. |
+| **`[v1-media-accreditation-bodies]`** | ✅ Catalog + admin CLI + jurisdiction recognition ids | `auth.accreditation_bodies`; `admin:accreditation-body`; `JurisdictionConfig.recognizedAccreditationBodyIds` (public area catalog). Chain-audited policy ingest deferred — `partitioning/future.md`. |
+| **`[v1-media-accreditations]`** | ✅ Rows + admin CLI + Media mark wire + act gate | `auth.media_accreditations`; `mediaMark` / `mediaAccredited` on public DTOs; profile `accreditationBodyIds`; `{ mediaAccredited: true }` gate actor. |
+| **`[align-w3-gates-schema]`** (Media slice) | ✅ Wired | `{ mediaAccredited: true }` + `{ platformRole }` + OR act lists; AB poll = Official OR media-accredited OR platform admin; result remains official-only (interim). |
 | **`[v1-admin-tools]`** | Role + seat + accreditation-body CLIs landed; HTTP/portal logged admin APIs still future (V1-C) | Moderation, districts, Media grants — see `entities/account/admin.md`. |
 
 ### App and ops (Phase D / E — not backend geo)

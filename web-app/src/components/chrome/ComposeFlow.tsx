@@ -38,6 +38,10 @@ interface ComposeFlowProps {
   kycTier: VerificationTier;
   /** Viewer's official role (orthogonal to KYC tier) — gates officials-only polls. */
   role?: "official";
+  /** Valid Media accreditation-body ids from self profile. */
+  accreditationBodyIds?: string[];
+  /** Platform-scoped roles from session/account. */
+  platformRoles?: string[];
   /** Selected jurisdiction id. */
   selectedJurisdiction?: string;
   onSelectJurisdiction: (id: string) => void;
@@ -122,6 +126,8 @@ export function ComposeFlow({
   jurisdictions,
   kycTier,
   role,
+  accreditationBodyIds,
+  platformRoles,
   selectedJurisdiction,
   onSelectJurisdiction,
   allowedTypes,
@@ -149,7 +155,12 @@ export function ComposeFlow({
   const pollOptions = composePollOptions;
   const setPollOptions = onComposePollOptionsChange ?? (() => {});
   const effectiveVisibility = composeVisibility ?? accountVisibility;
-  const viewer: ComposeViewer = { kycTier, role };
+  const viewer: ComposeViewer = {
+    kycTier,
+    role,
+    accreditationBodyIds,
+    platformRoles: platformRoles as ComposeViewer["platformRoles"],
+  };
 
   useEffect(() => {
     if (!open) {

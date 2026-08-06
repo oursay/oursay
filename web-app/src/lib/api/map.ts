@@ -347,6 +347,9 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
     official,
     platformRole: mapPlatformRole(raw.platformRoles),
     mediaMark: Boolean(raw.mediaMark),
+    accreditationBodyIds: Array.isArray(raw.accreditationBodyIds)
+      ? raw.accreditationBodyIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [],
     bio: String(raw.bio ?? ""),
     iconType: String(raw.iconType ?? "bottts-neutral"),
     ageLabel: String(raw.ageLabel ?? ""),

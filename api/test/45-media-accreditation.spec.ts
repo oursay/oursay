@@ -21,6 +21,7 @@ describe("45 media-accreditation + Media mark wire", () => {
     const before = await w.app.inject({ method: "GET", url: "/v1/public/profiles/reporter" });
     expect(before.statusCode).to.equal(200);
     expect(before.json().mediaMark).to.equal(false);
+    expect(before.json().accreditationBodyIds).to.deep.equal([]);
 
     await w.services.repos.mediaAccreditation.grant({
       userId: a.userId,
@@ -30,6 +31,7 @@ describe("45 media-accreditation + Media mark wire", () => {
 
     const after = await w.app.inject({ method: "GET", url: "/v1/public/profiles/reporter" });
     expect(after.json().mediaMark).to.equal(true);
+    expect(after.json().accreditationBodyIds).to.deep.equal([BODY]);
   });
 
   it("refuses grant against a retired body", async () => {

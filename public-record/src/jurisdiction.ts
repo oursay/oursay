@@ -27,13 +27,19 @@ export interface JurisdictionRules {
 
 // ── Per-action gates (WEB-APP-GAPS Part 3 + Part 6 corrections) ─────────────────────────────────
 
+/** Platform-scoped account roles (`auth.account_roles`). Distinct from jurisdiction Official
+ *  (`{ role: "official" }` on membership). Values mirror the api PlatformRole CHECK list. */
+export type PlatformGateRole = "admin" | "dev" | "mod" | "auditor" | "support";
+
 /** Who may perform an action. Tier ids are KYC verification-tier slugs kept as plain strings so this
  *  package stays free of the api KYC enum (mirrors {@link JurisdictionCountExposure.minTier}). */
 export type GateActor =
   | "anyone" // any registered account
   | { tiers: string[] } // set membership over the caller's CURRENT tier
   | { residencyIn: "jurisdiction" } // residency_verified AND current point ∈ the jurisdiction
-  | { role: "official" }; // authority is a platform-assigned, revocable ROLE — never a tier
+  | { role: "official" } // jurisdiction Official on membership — never a tier
+  | { mediaAccredited: true } // valid Media accreditation whose body ∈ recognizedAccreditationBodyIds
+  | { platformRole: PlatformGateRole }; // platform-wide role on auth.account_roles
 
 /** Minimum signing method for an action. `quick` accepts a software p256 envelope; `passkey`
  *  requires a UV-verified WebAuthn assertion (webauthn-es256). A user preference may exceed the
@@ -44,11 +50,12 @@ export type SignMethod = "quick" | "passkey";
  *  #2): anyone the `act` gate admits participates; below-floor actions bunch into unverified counts.
  *  `deny` names actors excluded from the action — enforcement is per action type (Part 6 #3): a
  *  denied `vote` is act-blocked at write time; a denied `petition_signature` is accepted on the
- *  record but EXCLUDED from official counts with reason tag `official_role`. */
+ *  record but EXCLUDED from official counts with reason tag `official_role`.
+ *  When `act` is an array, any matching actor may perform the action (OR). */
 export interface ActionGate {
-  act: GateActor;
+  act: GateActor | GateActor[];
   signMin: SignMethod;
-  officialCount?: GateActor; // absent ⇒ same as act
+  officialCount?: GateActor; // absent ⇒ same as act (OR when act is an array)
   deny?: GateActor[];
 }
 

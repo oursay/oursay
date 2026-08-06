@@ -667,6 +667,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         jurisdictions={state.subscriptions.map((s) => s.id)}
         kycTier={state.kycTier}
         role={app.viewer.role}
+        accreditationBodyIds={state.accreditationBodyIds}
+        platformRoles={state.platformRoles}
         selectedJurisdiction={state.composeJur}
         onSelectJurisdiction={app.selectComposeJurisdiction}
         allowedTypes={allowedComposeTypes}

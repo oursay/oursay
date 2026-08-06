@@ -26,6 +26,11 @@ export interface AccountContext {
   isOfficial: boolean;
   /** Platform roles from session (`admin` today). */
   platformRoles: string[];
+  /**
+   * Valid Media accreditation-body catalog ids from public self profile
+   * (credentials showcase shape + compose mediaAccredited).
+   */
+  accreditationBodyIds: string[];
   accountVisibility: AuthorVisibility;
   viewerDistricts: string[];
   signing: SigningPrefs;
@@ -108,12 +113,18 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     tier: string;
     official: boolean;
     platformRoles?: string[];
+    mediaMark?: boolean;
+    accreditationBodyIds?: string[];
   }>(`/v1/public/profiles/${encodeURIComponent(handle)}`).catch(() => null);
 
   const kycTier = publicSelf ? tokenToTier(publicSelf.tier) : 0;
 
   const platformRoles =
     session.platformRoles ?? publicSelf?.platformRoles ?? [];
+
+  const accreditationBodyIds = Array.isArray(publicSelf?.accreditationBodyIds)
+    ? publicSelf.accreditationBodyIds.filter((id): id is string => typeof id === "string" && id.length > 0)
+    : [];
 
   return {
     userId: session.userId,
@@ -124,6 +135,7 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     kycTier,
     isOfficial: publicSelf?.official ?? false,
     platformRoles: Array.isArray(platformRoles) ? platformRoles : [],
+    accreditationBodyIds,
     accountVisibility: profile.visibility,
     viewerDistricts: districtsRes?.districts ?? [],
     signing: signingRaw ? mapSigningPrefs(signingRaw) : { ...DEFAULT_SIGNING },

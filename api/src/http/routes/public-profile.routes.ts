@@ -87,6 +87,12 @@ const profileHeaderSchema = {
       description: "Platform-scoped roles on the account (`admin` today).",
     },
     mediaMark: { type: "boolean", description: "Derived Media mark — ≥1 valid Media accreditation." },
+    accreditationBodyIds: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Valid Media accreditation-body catalog ids held by this account (credentials showcase). Not present on feed/detail author shapes.",
+    },
     bio: { type: "string" },
     iconType: { type: "string" },
     ageLabel: { type: "string" },
@@ -101,7 +107,10 @@ const profileHeaderSchema = {
       required: ["agrees", "disagrees", "statements", "comments"],
     },
   },
-  required: ["name", "handle", "role", "roles", "tier", "official", "platformRoles", "mediaMark", "bio", "iconType", "ageLabel", "support"],
+  required: [
+    "name", "handle", "role", "roles", "tier", "official", "platformRoles", "mediaMark",
+    "accreditationBodyIds", "bio", "iconType", "ageLabel", "support",
+  ],
 } as const;
 
 const typesQuery = {

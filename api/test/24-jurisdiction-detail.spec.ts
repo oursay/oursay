@@ -72,7 +72,12 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(ab.body.labels.district).to.equal("riding");
     expect(ab.body.graduationThreshold).to.equal(null);
     expect(ab.body.leader.name).to.equal("Danielle Smith");
-    expect(ab.body.gates.poll.act).to.deep.equal({ role: "official" });
+    expect(ab.body.gates.poll.act).to.deep.equal([
+      { role: "official" },
+      { mediaAccredited: true },
+      { platformRole: "admin" },
+    ]);
+    expect(ab.body.gates.result.act).to.deep.equal({ role: "official" });
     expect(ab.body.recognizedAccreditationBodyIds).to.deep.equal(["ab-leg-gallery"]);
   });
 

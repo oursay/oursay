@@ -172,13 +172,32 @@ const gateActorSchema = {
       properties: { role: { type: "string", enum: ["official"] } },
       required: ["role"],
     },
+    {
+      type: "object",
+      properties: { mediaAccredited: { type: "boolean", const: true } },
+      required: ["mediaAccredited"],
+    },
+    {
+      type: "object",
+      properties: {
+        platformRole: { type: "string", enum: ["admin", "dev", "mod", "auditor", "support"] },
+      },
+      required: ["platformRole"],
+    },
+  ],
+} as const;
+
+const actSchema = {
+  oneOf: [
+    gateActorSchema,
+    { type: "array", items: gateActorSchema, minItems: 1 },
   ],
 } as const;
 
 const actionGateSchema = {
   type: "object",
   properties: {
-    act: gateActorSchema,
+    act: actSchema,
     signMin: { type: "string", enum: ["quick", "passkey"] },
     officialCount: gateActorSchema,
     deny: { type: "array", items: gateActorSchema },

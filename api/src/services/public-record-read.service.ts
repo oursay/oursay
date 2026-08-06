@@ -608,12 +608,12 @@ export class PublicRecordReadService {
 
     const actor = gate.officialCount ?? gate.act;
     let pass: boolean;
-    if (actor === "anyone") {
-      pass = true;
-    } else if (!userId) {
-      pass = false;
+    if (!userId) {
+      // anyone-only acts can still pass without a linked user; OR lists need a user for every non-anyone actor.
+      const actors = Array.isArray(actor) ? actor : [actor];
+      pass = actors.length > 0 && actors.every((a) => a === "anyone");
     } else {
-      pass = await this.d.gateService.matchesActor(userId, actor, ctx.jurisdictionId);
+      pass = await this.d.gateService.matchesAct(userId, actor, ctx.jurisdictionId);
     }
 
     memos.official.set(key, pass);

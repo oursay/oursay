@@ -78,17 +78,18 @@ Per-type maximum sizes enforced at create/update. Alberta example:
 
 **Changeable by default.** The platform defaults are intentionally as loose as possible — votes and signatures are *changeable* by default. A jurisdiction tightens to final-action semantics through **its own config**, never a platform default (`oursay-global`: true; `ab-ca-gov` launch: `allowChange: false` — final).
 
-### gates (per-action policy, target)
+### gates (per-action policy)
 
-The per-action gate map — **the** jurisdiction policy seam for who may act, how actions must be signed, and whose actions are included in the platform count. Replaces the earlier `signing.defaultScheme` knob, the platform-wide vote/signature scheme hard-override, and the `graduation.createTier` / `actTier` sketches. **Target — not yet present in code** (`[align-w3-gates-schema]`).
+The per-action gate map — **the** jurisdiction policy seam for who may act, how actions must be signed, and whose actions are included in the platform count. Replaces the earlier `signing.defaultScheme` knob, the platform-wide vote/signature scheme hard-override, and the `graduation.createTier` / `actTier` sketches. Encoded in `@oursay/public-record` + `@oursay/jurisdiction-data` (`[align-w3-gates-schema]`).
 
 ```ts
 type GateActor =
   | "anyone"                         // any registered account
   | { tiers: KycTier[] }             // KYC tier set membership
   | { residencyIn: "jurisdiction" }  // residency_verified AND point ∈ jurisdiction region
-  | { role: "official" }             // admin-assigned Official role on this jurisdiction membership — not a tier
-  | { mediaAccredited: true };       // valid Media accreditation whose body ∈ recognizedAccreditationBodyIds
+  | { role: "official" }             // Official role on this jurisdiction membership — not a tier
+  | { mediaAccredited: true }        // valid Media accreditation whose body ∈ recognizedAccreditationBodyIds
+  | { platformRole: "admin" | "dev" | "mod" | "auditor" | "support" }; // auth.account_roles (deliberate extension)
 
 interface ActionGate {
   act: GateActor | GateActor[];      // who may perform the action; array = any-of (OR)
@@ -99,7 +100,7 @@ interface ActionGate {
 
 interface JurisdictionGates {
   post: ActionGate; petition: ActionGate; poll: ActionGate;   // root creation
-  result: ActionGate;                                         // automated root (see note)
+  result: ActionGate;                                         // interim: often official-only; not a shared gate with poll
   comment: ActionGate; reaction: ActionGate;                  // attachments
   vote: ActionGate; petition_signature: ActionGate;           // singletons
 }
@@ -108,7 +109,7 @@ interface JurisdictionGates {
 Gates are set **per jurisdiction per record type** — the same jurisdiction may floor a
 `petition_signature` at passkey while leaving `comment` quick-signable.
 
-When `act` is an **array**, any matching actor may perform the action (OR). Example: AB poll create allows Official **or** media-accredited.
+When `act` is an **array**, any matching actor may perform the action (OR). Example: AB poll create allows Official **or** media-accredited **or** platform admin.
 
 Launch configs:
 
@@ -116,8 +117,8 @@ Launch configs:
 |---|---|---|
 | `post` (create) | anyone · quick | anyone · **passkey (uv)** |
 | `petition` (create) | anyone · quick | residency-verified · passkey |
-| `poll` (create) | anyone · quick | **official role OR media-accredited** · passkey (or petition→poll graduation) |
-| `result` | automated at poll close — attributed to the poll's author; mirrors `poll` | same |
+| `poll` (create) | anyone · quick | **official role OR media-accredited OR platform admin** · passkey (or petition→poll graduation) |
+| `result` | anyone · quick (interim) | **official role only** (interim — media may host/report polls, not author results; historical “mirrors poll” was placeholder copy, not current policy) |
 | `comment` / `reaction` | anyone · quick | anyone · quick |
 | `vote` | act: anyone · quick · platformCount `{identity_verified, residency_verified}` | act: **jurisdiction residency** · passkey |
 | `petition_signature` | act: anyone · quick · platformCount `{identity_verified, residency_verified}` | act: anyone (**sign now, verify later**), **deny: official role** · passkey · platformCount: **jurisdiction residency** |
@@ -130,7 +131,8 @@ Notes:
 - **`platformCount` is a counting floor, not a barrier.** Anyone the act gate admits is welcome to participate; actions below the floor land in the **unverified** counts until the author verifies to the required tier. Platform-count gates are recomputed at read time from current attestations, and always use the act gate as their floor.
 - **AB: official-role holders may not sign petitions** — `petition_signature` denies them at the act gate (submit rejected). Officials **may vote** (no deny on `vote`). A signature from someone who later gains the official role is excluded from the platform count with reason tag `official_role` — see the platform-count record ([record/future.md](../record/future.md)). Media accreditation does **not** change this deny rule.
 - **Media mark vs media-accredited:** the platform-wide Media mark means the user holds some valid catalog accreditation; **`{ mediaAccredited: true }`** additionally requires the body’s id on this jurisdiction’s `recognizedAccreditationBodyIds`. Residency alone never grants Media powers.
-- **`result`** is created automatically (poll close / graduation) and **attributed to the poll's author** — the gate exists for the completeness of the per-root-type rule and mirrors `poll`.
+- **`{ platformRole }`** is platform-wide (`auth.account_roles`), distinct from jurisdiction `{ role: "official" }`. AB poll lists `admin` today; other roles (e.g. `mod`) are config-only expansions later.
+- **`result` (interim):** AB keeps `result.act: { role: "official" }` — do **not** OR with poll. Product intent may later move to platform-attested results. Revisit when result shape/usage is finalized.
 - `counts.minTier` (public count *exposure*) must stay consistent with `platformCount` — for `ab-ca-gov` that means dropping `identity_verified` from `minTier` (config change tracked in `[align-w3-gates-schema]`).
 
 ### graduation (promotion policy, target)
@@ -180,7 +182,7 @@ Configuration object — no runtime state machine. Registered at API startup fro
 
 ## Examples
 
-**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, recognizedAccreditationBodyIds: ["ca-cja-example"], gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, signMin: "passkey" }, petition_signature: { act: "anyone", deny: [{ role: "official" }], signMin: "passkey", platformCount: { residencyIn: "jurisdiction" } }, poll: { act: [{ role: "official" }, { mediaAccredited: true }], signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }` — note `rules.allowChange: false` tightens the loose platform default (`allowChange` default **true**) to final; poll create is Official **or** media-accredited.
+**Valid:** `{ id: "ab-ca-gov", level: "provincial", label: "Alberta", rules: { allowChange: false }, counts: { votes: true, signatures: true, minTier: ["residency_verified"] }, recognizedAccreditationBodyIds: ["ab-leg-gallery"], gates: { post: { act: "anyone", signMin: "passkey" }, vote: { act: { residencyIn: "jurisdiction" }, signMin: "passkey" }, petition_signature: { act: "anyone", deny: [{ role: "official" }], signMin: "passkey", platformCount: { residencyIn: "jurisdiction" } }, poll: { act: [{ role: "official" }, { mediaAccredited: true }, { platformRole: "admin" }], signMin: "passkey" }, result: { act: { role: "official" }, signMin: "passkey" }, comment: { act: "anyone", signMin: "quick" }, reaction: { act: "anyone", signMin: "quick" }, petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" } } }` — note `rules.allowChange: false` tightens the loose platform default (`allowChange` default **true**) to final; poll create is Official **or** media-accredited **or** platform admin; result stays official-only (interim).
 
 **Invalid:** Using `level: "provincial"` as a partition key for signing keys or nullifier roots — level is metadata only.
 

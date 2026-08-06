@@ -47,6 +47,8 @@ function positiveInteger(value: unknown, label: string): number {
   return Number(value);
 }
 
+const PLATFORM_GATE_ROLES = new Set(["admin", "dev", "mod", "auditor", "support"]);
+
 function validateGateActor(value: unknown, label: string): void {
   if (value === "anyone") return;
   const actor = objectValue(value, label);
@@ -55,7 +57,19 @@ function validateGateActor(value: unknown, label: string): void {
   if (Array.isArray(actor.tiers) && actor.tiers.length > 0 && actor.tiers.every((v) => typeof v === "string" && v)) return;
   if (actor.residencyIn === "jurisdiction") return;
   if (actor.role === "official") return;
+  if (actor.mediaAccredited === true) return;
+  if (typeof actor.platformRole === "string" && PLATFORM_GATE_ROLES.has(actor.platformRole)) return;
   throw new Error(`${label} is unsupported`);
+}
+
+/** `act` may be a single GateActor or a non-empty OR array of actors. */
+function validateAct(value: unknown, label: string): void {
+  if (Array.isArray(value)) {
+    if (value.length === 0) throw new Error(`${label} must be a non-empty array when array-shaped`);
+    value.forEach((actor, i) => validateGateActor(actor, `${label}[${i}]`));
+    return;
+  }
+  validateGateActor(value, label);
 }
 
 function validateJurisdictionConfig(value: unknown, jurisdictionId: string): void {
@@ -77,7 +91,7 @@ function validateJurisdictionConfig(value: unknown, jurisdictionId: string): voi
     const gates = objectValue(config.gates, "jurisdiction config gates");
     for (const action of GATED_ACTIONS) {
       const gate = objectValue(gates[action], `jurisdiction config gates.${action}`);
-      validateGateActor(gate.act, `jurisdiction config gates.${action}.act`);
+      validateAct(gate.act, `jurisdiction config gates.${action}.act`);
       if (gate.signMin !== "quick" && gate.signMin !== "passkey") {
         throw new Error(`jurisdiction config gates.${action}.signMin is unsupported`);
       }

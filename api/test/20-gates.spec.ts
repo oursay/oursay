@@ -1,15 +1,16 @@
 // Per-jurisdiction ACT-GATE + SIGN-FLOOR enforcement on the civic write path ([align-w3-gates-schema];
 // WEB-APP-GAPS Part 3 + Part 6). This is the acceptance bar the read-model specs (15–18) defer to via
 // the openGates fixture seam. Table stakes, per the locked gate matrix:
-//   ab-ca-gov    — petition.act = residency tier; poll/result.act = official ROLE; vote.act =
-//                  jurisdiction residency with officials DENIED (act-blocked); petition_signature.act =
-//                  anyone (sign-now-verify-later — a denied official's signature is ACCEPTED on the
-//                  record and excluded from official counts at READ time, never write-blocked);
+//   ab-ca-gov    — petition.act = residency tier; poll.act = Official OR media-accredited OR platform
+//                  admin; result.act = official ROLE only (interim); vote.act = jurisdiction residency
+//                  with officials DENIED (act-blocked); petition_signature.act = anyone
+//                  (sign-now-verify-later — a denied official's signature is ACCEPTED on the record and
+//                  excluded from official counts at READ time, never write-blocked);
 //                  statements/petitions/polls/votes/signatures carry a PASSKEY sign floor.
 //   oursay-global— everything open to anyone at the QUICK floor: a software p256 envelope (signed by a
 //                  civic credential enrolled at join) settles end-to-end with sign_tier 0.
-// Every 403 must carry machine-readable `details.reason` (tier | residency | role | official_role |
-// passkey_required) — that string is the UI lock-state contract, so it is asserted verbatim.
+// Every 403 must carry machine-readable `details.reason` (tier | residency | role | media |
+// official_role | passkey_required) — that string is the UI lock-state contract, so it is asserted verbatim.
 
 import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
@@ -168,15 +169,54 @@ describe("20 gates: per-jurisdiction act gates + sign floors on the civic write 
     expectGate403(res, "residency", { action: "vote", jurisdictionId: AB });
   });
 
-  it("AB: poll and result creation are official-role-only (reason role)", async function () {
+  it("AB: non-admitted poll create is blocked (reason role); result stays official-only", async function () {
     this.timeout(60000);
     const t = threadIn(AB);
     const m = await joinMember(w, "g20-role@example.com", "g20-role", t);
-    await makeResident(w, m); // even a full resident is not an official
+    await makeResident(w, m); // even a full resident is not an official / media / admin
     const poll = await prepare(w, m, t, { op: "create", type: "poll", entityId: t.threadId, content: { question: "Q?", options: ["yes", "no"] } });
     expectGate403(poll, "role", { action: "poll", jurisdictionId: AB });
     const result = await prepare(w, m, t, { op: "create", type: "result", entityId: t.threadId, content: { summary: "..." } });
     expectGate403(result, "role", { action: "result", jurisdictionId: AB });
+  });
+
+  it("AB: media-accredited (recognized body) may prepare poll; still denied on result", async function () {
+    this.timeout(60000);
+    await w.services.repos.accreditationBody.create("ab-leg-gallery", "Alberta Legislative Press Gallery").catch(() => undefined);
+    const t = threadIn(AB);
+    const m = await joinMember(w, "g20-media@example.com", "g20-media", t);
+    await w.services.repos.mediaAccreditation.grant({
+      userId: m.userId,
+      accreditationBodyId: "ab-leg-gallery",
+      grantedByAdminId: null,
+    });
+    const poll = await prepare(w, m, t, { op: "create", type: "poll", entityId: t.threadId, content: { question: "Q?", options: ["yes", "no"] } });
+    expect(poll.statusCode, poll.payload).to.equal(200);
+    const result = await prepare(w, m, t, { op: "create", type: "result", entityId: randomUUID(), content: { summary: "..." } });
+    expectGate403(result, "role", { action: "result", jurisdictionId: AB });
+  });
+
+  it("AB: unrecognized accreditation body does not unlock poll create", async function () {
+    this.timeout(60000);
+    await w.services.repos.accreditationBody.create("ca-caj-example", "CAJ example").catch(() => undefined);
+    const t = threadIn(AB);
+    const m = await joinMember(w, "g20-unrec@example.com", "g20-unrec", t);
+    await w.services.repos.mediaAccreditation.grant({
+      userId: m.userId,
+      accreditationBodyId: "ca-caj-example",
+      grantedByAdminId: null,
+    });
+    const poll = await prepare(w, m, t, { op: "create", type: "poll", entityId: t.threadId, content: { question: "Q?", options: ["yes", "no"] } });
+    expectGate403(poll, "role", { action: "poll", jurisdictionId: AB });
+  });
+
+  it("AB: platform admin may prepare poll", async function () {
+    this.timeout(60000);
+    const t = threadIn(AB);
+    const m = await joinMember(w, "g20-admin@example.com", "g20-admin", t);
+    await w.services.repos.platformRole.grant(m.userId, "admin", null);
+    const poll = await prepare(w, m, t, { op: "create", type: "poll", entityId: t.threadId, content: { question: "Q?", options: ["yes", "no"] } });
+    expect(poll.statusCode, poll.payload).to.equal(200);
   });
 
   it("AB: an official is DENIED on vote (reason official_role) even as a verified resident", async function () {

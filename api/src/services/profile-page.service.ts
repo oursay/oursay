@@ -72,6 +72,8 @@ export interface ProfileHeaderDto {
   platformRoles: string[];
   /** Derived Media mark (≥1 valid Media accreditation). */
   mediaMark: boolean;
+  /** Valid accreditation-body catalog ids (credentials showcase shape; not on feed authors). */
+  accreditationBodyIds: string[];
   bio: string;
   /** DiceBear style id for this account (effective for KYC tier; default bottts-neutral). */
   iconType: string;
@@ -141,11 +143,11 @@ export class ProfilePageService {
 
   async getHeader(handleRaw: string, viewer: ApiViewer): Promise<ProfileHeaderDto> {
     const ctx = await this.requireVisible(handleRaw, viewer);
-    const [tierRaw, memberships, platformRoles, mediaMark, support] = await Promise.all([
+    const [tierRaw, memberships, platformRoles, mediaBodyIds, support] = await Promise.all([
       this.d.kycRepo.latestTier(ctx.userId),
       this.d.membershipRepo.listForUser(ctx.userId),
       this.d.platformRoleRepo.listRoles(ctx.userId),
-      this.d.mediaAccreditationRepo.hasMediaMark(ctx.userId),
+      this.d.mediaAccreditationRepo.listValidBodyIds(ctx.userId),
       this.computeSupport(ctx.pubkeys),
     ]);
     const tier = normalizeTier(tierRaw);
@@ -161,7 +163,8 @@ export class ProfilePageService {
       tier,
       official,
       platformRoles: [...platformRoles],
-      mediaMark,
+      mediaMark: mediaBodyIds.length > 0,
+      accreditationBodyIds: mediaBodyIds,
       bio: ctx.bio,
       iconType: effectiveUserIconType(ctx.iconType, tier !== "unverified" || official),
       ageLabel: formatAgeLabel(ctx.createdAt),

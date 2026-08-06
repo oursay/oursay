@@ -109,10 +109,11 @@ Used by gate actors such as `{ mediaAccredited: true }` (see [../partitioning/ju
 | Schema | `auth.media_accreditations` in `api/src/schema/auth.sql.ts` |
 | Repo | `api/src/repo/media-accreditation.repo.ts` |
 | CLI | `npm run admin:media-accreditation -w @oursay/api -- grant\|revoke\|list` |
-| Wire | `mediaMark` + `mediaAccredited` on feed/detail/comment/profile DTOs |
+| Wire | `mediaMark` + `mediaAccredited` on feed/detail/comment/profile DTOs; `accreditationBodyIds` on profile header only (credentials showcase shape) |
 
 ## Gaps
 
-- **[v1-media-accreditations]** — ✅ rows + admin CLI + derived Media mark / mediaAccredited wire landed. Remaining: `{ mediaAccredited: true }` gate actor + Official OR Media poll create (`[align-w3-gates-schema]` Media slice).
+- **[v1-media-accreditations]** — ✅ rows + admin CLI + derived Media mark / mediaAccredited wire + `{ mediaAccredited: true }` gate actor + Official OR Media OR platform-admin poll create for `ab-ca-gov`.
 - **[v1-media-accreditation-bodies]** — ✅ prerequisite catalog + recognition ids on jurisdiction config.
 - V2+ (deferred): automate proof of press credentials via supported document types — **out of scope for V1**.
+- Credentials showcase UI visuals (profile `accreditationBodyIds` shape landed; rendering deferred).

@@ -93,6 +93,8 @@ export interface PublicProfile {
   platformRole?: PlatformRole | null;
   /** Derived Media mark (≥1 valid accreditation). */
   mediaMark?: boolean;
+  /** Valid accreditation-body catalog ids (credentials showcase; profile header only). */
+  accreditationBodyIds?: string[];
   /** Short freeform bio shown at the top of the profile. */
   bio: string;
   /** DiceBear style id (user allowlist; default bottts-neutral). */

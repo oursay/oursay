@@ -24,11 +24,15 @@ export type JurisdictionLevel = "global" | "province";
  * back. `residencyIn` means residency-verified AND resident of the jurisdiction
  * (the mock approximates it as tier ≥ 2 when composing in that jurisdiction).
  */
+export type PlatformGateRole = "admin" | "dev" | "mod" | "auditor" | "support";
+
 export type GateActor =
   | "anyone"
   | { tiers: VerificationTier[] }
   | { residencyIn: "jurisdiction" }
-  | { role: "official" };
+  | { role: "official" }
+  | { mediaAccredited: true }
+  | { platformRole: PlatformGateRole };
 
 /** Minimum signing method a gate mandates (a user preference may exceed it). */
 export type SignFloor = "quick" | "passkey";
@@ -38,10 +42,11 @@ export type SignFloor = "quick" | "passkey";
  * `officialCount` is a COUNTING floor, never a participation barrier (Part 6 #2);
  * `deny` names actors excluded from the action (Part 6 #3): a denied `vote` is
  * act-blocked, a denied `petition_signature` is accepted but excluded from
- * official counts (reason `official_role`).
+ * official counts (reason `official_role`). When `act` is an array, any matching
+ * actor may perform the action (OR).
  */
 export interface ActionGate {
-  act: GateActor;
+  act: GateActor | GateActor[];
   signMin: SignFloor;
   officialCount?: GateActor;
   deny?: GateActor[];

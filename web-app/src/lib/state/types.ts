@@ -95,6 +95,16 @@ export interface AppState {
    * widen to seat-/jurisdiction-scoped lists.
    */
   isOfficial: boolean;
+  /**
+   * Platform-scoped roles from session (`admin` today). Used by compose act gates
+   * (`{ platformRole }`).
+   */
+  platformRoles: string[];
+  /**
+   * Valid Media accreditation-body catalog ids from self public profile
+   * (credentials showcase + compose mediaAccredited intersection).
+   */
+  accreditationBodyIds: string[];
   viewerDistricts: string[];
   /** Live-session wire handle (no leading @). */
   accountHandle?: string;
