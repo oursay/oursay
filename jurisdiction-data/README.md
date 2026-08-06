@@ -24,9 +24,11 @@ The API composition root (`api/src/container.ts`) imports `jurisdictions` and re
 
 Reaction tallies are never gated here (they stay publicly visible).
 
-## Media recognition (target)
+## Media recognition
 
-`recognizedAccreditationBodyIds: string[]` (target — not yet on `JurisdictionConfig` in code) lists platform-catalog **accreditation-body** ids OurSay **chooses to list** for the deployment (e.g. on `ab-ca-gov`) for **media-accredited** gate actors (e.g. poll create). Empty/absent ⇒ no media-accredited powers here; users may still show a platform-wide **Media mark** if they hold any valid accreditation. There is no per-jurisdiction Media gallery role. Gaps: `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`, `[align-w3-gates-schema]`.
+`recognizedAccreditationBodyIds: string[]` on `JurisdictionConfig` lists platform-catalog **accreditation-body** ids OurSay **chooses to list** for the deployment (e.g. on `ab-ca-gov`) for **media-accredited** gate actors (e.g. poll create). Empty/absent ⇒ no media-accredited powers here; users may still show a platform-wide **Media mark** if they hold any valid accreditation. There is no per-jurisdiction Media gallery role.
+
+Authored here and registered at API startup (same as gates/labels). Surfaced on the public area catalog. Catalog bodies themselves live in `auth.accreditation_bodies` (admin CLI). **Future:** standing policy (including this list) should be admin-ingested and mutated via platform-signed attestations on the jurisdiction chain — see `docs/entities/partitioning/future.md`. Gaps remaining: `[v1-media-accreditations]`, media-accredited gate actor (`[align-w3-gates-schema]` Media slice).
 
 ## Official seat roster (Alberta)
 

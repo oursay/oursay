@@ -30,7 +30,7 @@ Two jurisdictions are the same if their `id` strings match. Primary key: `id` (i
 | `counts.votes` | boolean | yes | yes | Whether poll tallies are exposable |
 | `counts.signatures` | boolean | yes | yes | Whether petition scalars are exposable |
 | `counts.minTier` | string[] | no | yes | Tier-gated exposure subset |
-| `recognizedAccreditationBodyIds` | string[] | no | yes | **Target** — platform catalog accreditation-body ids on OurSay’s recognition list for Media powers; see below |
+| `recognizedAccreditationBodyIds` | string[] | no | yes | Platform catalog accreditation-body ids on OurSay’s recognition list for Media powers; see below |
 | `labels` | map | no | yes | **Target** — user-facing labels per record type; see below |
 | `contentLimits` | map | no | yes | **Target** — hard content caps per type; see below |
 
@@ -48,13 +48,15 @@ Per-jurisdiction display labels for the canonical record types. Display only —
 
 `oursay-global` uses all defaults.
 
-### recognizedAccreditationBodyIds (Media powers, target)
+### recognizedAccreditationBodyIds (Media powers)
 
 List of **accreditation body** ids from the platform catalog ([../account/accreditation-body.md](../account/accreditation-body.md)) on OurSay’s recognition list for this jurisdiction. A user is **media-accredited** here when they hold a currently valid [Media accreditation](../account/media-accreditation.md) whose `accreditation_body_id` is in this list.
 
 - Absent / empty ⇒ no one is media-accredited in this jurisdiction (platform **Media mark** may still show if they hold any valid catalog accreditation).
 - The **Media mark alone does not grant** poll create or other Media-gated acts — gates must allow `{ mediaAccredited: true }` (or equivalent) **and** recognition must match.
 - There is **no** journalist→jurisdiction assignment table and **no** per-jurisdiction gallery role.
+- **Shipped:** optional field on `JurisdictionConfig`; authored in `@oursay/jurisdiction-data`; surfaced on `GET /v1/public/jurisdictions` (summary + detail).
+- **Future:** ingest / mutate via platform-signed jurisdiction-chain attestations — [future.md](./future.md) (**Platform-signed jurisdiction policy**).
 
 ### contentLimits (hard caps, target)
 

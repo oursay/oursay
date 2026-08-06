@@ -19,13 +19,15 @@ import { DEFAULT_GATES } from "@oursay/public-record";
 import { ServiceError } from "../errors.js";
 
 /** A jurisdiction as exposed publicly: id + level + optional display label, per-record-type labels,
- *  and content caps. No rules/privacy/counts (those stay platform-internal). */
+ *  content caps, and Media recognition body ids. No rules/privacy/counts (those stay platform-internal). */
 export interface JurisdictionSummary {
   id: string;
   level: string;
   label?: string;
   labels?: JurisdictionLabels;
   contentLimits?: JurisdictionContentLimits;
+  /** Platform-catalog accreditation-body ids on OurSay’s recognition list for this jurisdiction. */
+  recognizedAccreditationBodyIds?: string[];
 }
 
 export interface DistrictListItem extends DistrictCatalogRow {
@@ -54,6 +56,8 @@ export interface JurisdictionDetail {
   labels?: JurisdictionLabels;
   gates: JurisdictionGates;
   graduationThreshold: number | null;
+  /** Platform-catalog accreditation-body ids on OurSay’s recognition list for this jurisdiction. */
+  recognizedAccreditationBodyIds?: string[];
   leader?: {
     name: string;
     handle: string;
@@ -137,6 +141,9 @@ export class AreaCatalogService {
       ...(j.labels !== undefined ? { labels: j.labels } : {}),
       gates: j.gates ?? DEFAULT_GATES,
       graduationThreshold: graduationThreshold(j),
+      ...(j.recognizedAccreditationBodyIds !== undefined
+        ? { recognizedAccreditationBodyIds: j.recognizedAccreditationBodyIds }
+        : {}),
       ...(leader !== undefined ? { leader } : {}),
       ...(j.rulesCopy !== undefined ? { rulesCopy: j.rulesCopy } : {}),
     };
@@ -163,7 +170,7 @@ export class AreaCatalogService {
   }
 
   /** The registered jurisdiction index — id + level + optional public label, per-record-type labels,
-   *  and content caps. Policy fields (rules/privacy/counts) stay internal. */
+   *  content caps, and Media recognition body ids. Policy fields (rules/privacy/counts) stay internal. */
   listJurisdictions(): JurisdictionSummary[] {
     return this.jurisdictions.map((j) => ({
       id: j.id,
@@ -171,6 +178,9 @@ export class AreaCatalogService {
       ...(j.label !== undefined ? { label: j.label } : {}),
       ...(j.labels !== undefined ? { labels: j.labels } : {}),
       ...(j.contentLimits !== undefined ? { contentLimits: j.contentLimits } : {}),
+      ...(j.recognizedAccreditationBodyIds !== undefined
+        ? { recognizedAccreditationBodyIds: j.recognizedAccreditationBodyIds }
+        : {}),
     }));
   }
 

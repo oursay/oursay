@@ -17,8 +17,8 @@ Add per-jurisdiction **`labels`** (post/petition/poll/result/district user-facin
 → `[code-jurisdiction-labels-limits]`. <!-- see .agents/CODE-ALIGNMENT-PROMPTS.md -->
 
 ## Per-action gates + graduation config
-The per-action **`gates`** map (act / signMin / platformCount — including the jurisdiction-residency, official-role, and **media-accredited** gate kinds), **`recognizedAccreditationBodyIds`**, and the `graduation` promotion policy are now **target-specced in [jurisdiction.md](./jurisdiction.md)** with the locked launch matrices for `oursay-global` and `ab-ca-gov`; they absorb the earlier `createTier`/`actTier` sketches. Not yet in code. Media powers are credential-mediated ([../account/media-accreditation.md](../account/media-accreditation.md)) — not a per-jurisdiction gallery role.
-→ `[align-w3-gates-schema]`, `[v1-media-accreditation-bodies]`, `[v1-media-accreditations]`. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
+The per-action **`gates`** map (act / signMin / platformCount — including the jurisdiction-residency, official-role, and **media-accredited** gate kinds) and the `graduation` promotion policy are now **target-specced in [jurisdiction.md](./jurisdiction.md)** with the locked launch matrices for `oursay-global` and `ab-ca-gov`; they absorb the earlier `createTier`/`actTier` sketches. **`recognizedAccreditationBodyIds`** is on `JurisdictionConfig` (empty lists until catalog bodies are chosen). Media-accredited **gate actor** evaluation and Media accreditation rows are still open. Media powers are credential-mediated ([../account/media-accreditation.md](../account/media-accreditation.md)) — not a per-jurisdiction gallery role.
+→ `[align-w3-gates-schema]` (Media actor), `[v1-media-accreditations]`. <!-- see .agents/WEB-APP-ALIGNMENT-PROMPTS.md -->
 
 ## Poll count exposure & Media exclusivity window
 
@@ -36,3 +36,19 @@ A region is, in theory, multi-jurisdiction-capable; discussions remain jurisdict
 
 ## Platform-signed boundary revisions
 District redraws published as platform-signed records (see [record/future.md](../record/future.md)).
+
+## Platform-signed jurisdiction policy
+
+Standing jurisdiction configuration is authored today as TypeScript in `@oursay/jurisdiction-data` and registered in-process at API startup (`registerJurisdiction`). That is an **interim deploy-time** source of truth.
+
+**Intent (not shipped):** standing config should eventually be **admin-ingested into the database** and mutated by appending **platform-signed attestations to the jurisdiction’s chain** — the same transparency / audit posture the public record uses for civic actions. Policy changes must leave an append-only, independently verifiable trail.
+
+Actions in this audit class include (non-exhaustive):
+
+- Changing gates, labels, content limits, count exposure, graduation, and **`recognizedAccreditationBodyIds`**
+- Assigning / changing / revoking Official seats (and related membership role linkage)
+- Record redaction / censorship reasoning
+- District boundary ingestion and modification
+- Other platform sign-offs that alter jurisdiction policy or roster state
+
+See also [record/future.md](../record/future.md) (**Platform-signed records**). Until that lands, recognition lists and other policy fields remain on `JurisdictionConfig` in the data package.

@@ -63,6 +63,7 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     });
     expect(global.body.rulesCopy).to.be.an("array").with.length.greaterThan(0);
     expect(global.body.gates.vote.signMin).to.equal("quick");
+    expect(global.body.recognizedAccreditationBodyIds).to.deep.equal([]);
     expect(global.body).to.not.have.any.keys("rules", "counts", "privacy", "contentLimits");
 
     const ab = await get(w, "/v1/public/jurisdictions/ab-ca-gov");
@@ -72,6 +73,7 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(ab.body.graduationThreshold).to.equal(null);
     expect(ab.body.leader.name).to.equal("Danielle Smith");
     expect(ab.body.gates.poll.act).to.deep.equal({ role: "official" });
+    expect(ab.body.recognizedAccreditationBodyIds).to.deep.equal([]);
   });
 
   it("GET /v1/public/jurisdictions/:id 404s unknown jurisdiction", async () => {

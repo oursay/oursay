@@ -9,6 +9,7 @@ A class of records authored by the **platform key** rather than a participant pe
 - **District boundary revisions** (a redraw published as a signed record).
 - **Official profiles** (MLA / premier / agency), distinct from participant accounts.
 - **Post Archiving** when the platform has been required to archive the post/statement to comply with lawful requests.
+- **Jurisdiction policy / ops attestations** (deferred — see [partitioning/future.md](../partitioning/future.md) **Platform-signed jurisdiction policy**): gates and recognition-list changes, Official seat assign/change/revoke, district ingest/modification, and related platform sign-offs appended to the jurisdiction’s chain.
 
 ## Signed count snapshots
 Platform-signed count manifests with deadline snapshots for poll/signature platform counts ([mvp-c13-signed-count-snapshots], R26).

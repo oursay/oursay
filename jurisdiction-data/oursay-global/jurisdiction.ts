@@ -22,6 +22,8 @@ export const oursayGlobal: JurisdictionConfig = {
   },
   labels: { ...DEFAULT_LABELS },
   contentLimits: DEFAULT_CONTENT_LIMITS,
+  // No Media recognition list — open sandbox does not grant media-accredited powers via body ids.
+  recognizedAccreditationBodyIds: [],
   // Locked gate matrix (WEB-APP-GAPS C5/Part 3): everything open at the quick floor; official
   // counts on the singletons use the "ID-or-better" tier set (Part 5 #8). officialCount is a
   // COUNTING floor, never a participation barrier (Part 6 #2).

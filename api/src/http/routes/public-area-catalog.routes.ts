@@ -92,6 +92,12 @@ const jurisdictionsResponse = {
           label: { type: "string", description: "Public display name; absent ⇒ fall back to id." },
           labels: jurisdictionLabelsSchema,
           contentLimits: jurisdictionContentLimitsSchema,
+          recognizedAccreditationBodyIds: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Platform-catalog accreditation-body ids OurSay lists for Media-gated acts in this jurisdiction. Empty ⇒ no media-accredited powers here.",
+          },
         },
         required: ["id", "level"],
       },
@@ -202,6 +208,12 @@ const jurisdictionDetailResponse = {
       required: ["post", "petition", "poll", "result", "comment", "reaction", "vote", "petition_signature"],
     },
     graduationThreshold: { type: ["number", "null"] },
+    recognizedAccreditationBodyIds: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Platform-catalog accreditation-body ids OurSay lists for Media-gated acts in this jurisdiction. Empty ⇒ no media-accredited powers here.",
+    },
     leader: {
       type: "object",
       properties: {
@@ -254,7 +266,7 @@ export function registerPublicAreaCatalogRoutes(app: FastifyInstance, services: 
         tags: ["public"],
         summary:
           "List registered jurisdictions (id + level + optional public label, per-record-type labels, " +
-          "and content caps). No policy fields.",
+          "content caps, and recognizedAccreditationBodyIds). No policy fields (rules/privacy/counts).",
         response: { 200: jurisdictionsResponse },
       },
     },
@@ -266,7 +278,8 @@ export function registerPublicAreaCatalogRoutes(app: FastifyInstance, services: 
     {
       schema: {
         tags: ["public"],
-        summary: "Jurisdiction detail (gates, graduation threshold, leader, rules copy). No privacy/counts/rules.",
+        summary:
+          "Jurisdiction detail (gates, graduation threshold, recognizedAccreditationBodyIds, leader, rules copy). No privacy/counts/rules.",
         params: jurisdictionParams,
         response: { 200: jurisdictionDetailResponse, 404: errorSchema },
       },

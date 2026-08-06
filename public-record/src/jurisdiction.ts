@@ -164,7 +164,16 @@ export const DEFAULT_CONTENT_LIMITS: JurisdictionContentLimits = {
 
 /** A jurisdiction's configuration: its id, governmental level, and default rules. Censoring /
  *  expiry policy is a per-jurisdiction extension point that will hang off this shape; `privacy`
- *  (k-anonymity floor) and `counts` (public count exposure) are the first such extensions. */
+ *  (k-anonymity floor) and `counts` (public count exposure) are the first such extensions.
+ *
+ *  FUTURE (transparency / audit): standing jurisdiction policy — gates, recognition lists, Official
+ *  seat assign/change/revoke, record redaction, district ingestion/modification, and other platform
+ *  sign-offs — should eventually be **admin-ingested into the DB** and mutated by appending
+ *  **platform-signed attestations to the jurisdiction's chain**, with the same audit posture as
+ *  civic public-record actions. Today's TypeScript registry (`@oursay/jurisdiction-data` +
+ *  `registerJurisdiction`) is the interim deploy-time source of truth; see
+ *  `docs/entities/partitioning/future.md` (Platform-signed jurisdiction policy) and
+ *  `docs/entities/record/future.md` (Platform-signed records). */
 export interface JurisdictionConfig {
   id: string;
   level: string; // federal | provincial | municipal | state | …
@@ -186,6 +195,16 @@ export interface JurisdictionConfig {
   gates?: JurisdictionGates;
   /** Petition→poll graduation policy (config only; the forced-poll engine consumes it). */
   graduation?: JurisdictionGraduation;
+  /**
+   * Platform-catalog accreditation-body ids OurSay **chooses to recognize** for Media-gated acts in
+   * this jurisdiction (e.g. poll create where gates allow `{ mediaAccredited: true }`). Ids only —
+   * never free-text body names; bodies live in `auth.accreditation_bodies`. Empty/absent ⇒ no one is
+   * media-accredited here (platform Media mark may still show from any valid catalog accreditation).
+   *
+   * Interim: authored in `@oursay/jurisdiction-data`. Future: same platform-signed chain ingestion as
+   * other standing jurisdiction policy (see interface FUTURE note above).
+   */
+  recognizedAccreditationBodyIds?: string[];
   /** Optional public-facing jurisdiction leader (display only; no profile link yet). */
   leader?: { name: string; handle: string };
   /** User-facing rules copy for the jurisdiction view (display only). */

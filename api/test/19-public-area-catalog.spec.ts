@@ -60,7 +60,7 @@ describe("19 public area catalog", () => {
     await ingestBoundaries(w.services.geoStore, alberta2019Source("2019-10-01"));
   });
 
-  it("lists registered jurisdictions with labels, content limits, and no policy fields", async () => {
+  it("lists registered jurisdictions with labels, content limits, recognition ids, and no policy fields", async () => {
     const { status, body } = await get(w, "/v1/public/jurisdictions");
     expect(status).to.equal(200);
     const ids = body.items.map((j: any) => j.id);
@@ -75,6 +75,10 @@ describe("19 public area catalog", () => {
     // Hard content caps surface so clients can render limits without hardcoding.
     expect(ab.contentLimits.petition.text).to.equal(5000);
     expect(ab.contentLimits.poll.maxOptions).to.equal(10);
+    // Media recognition list (catalog body ids); empty until admin-listed bodies are wired in config.
+    expect(ab.recognizedAccreditationBodyIds).to.deep.equal([]);
+    const global = body.items.find((j: any) => j.id === "oursay-global");
+    expect(global.recognizedAccreditationBodyIds).to.deep.equal([]);
     for (const j of body.items) {
       expect(j).to.not.have.any.keys("rules", "counts", "privacy");
     }

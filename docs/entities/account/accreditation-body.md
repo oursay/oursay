@@ -81,8 +81,9 @@ Two accreditation bodies are the same if their `id` strings match. Primary key: 
 | Schema | `auth.accreditation_bodies` in `api/src/schema/auth.sql.ts` |
 | Repo | `api/src/repo/accreditation-body.repo.ts` |
 | CLI | `npm run admin:accreditation-body -w @oursay/api -- create\|update\|retire\|activate\|list` |
+| Jurisdiction recognition | `JurisdictionConfig.recognizedAccreditationBodyIds` in `@oursay/jurisdiction-data` (surfaced on public area catalog) |
 
 ## Gaps
 
-- **[v1-media-accreditation-bodies]** — ✅ catalog table + admin CLI landed. Remaining: public list API (if needed), jurisdiction `recognizedAccreditationBodyIds` wiring (`[align-w3-gates-schema]`).
+- **[v1-media-accreditation-bodies]** — ✅ catalog table + admin CLI + `recognizedAccreditationBodyIds` on jurisdiction config landed. Remaining: optional public body-catalog list API; platform-signed chain ingestion of standing policy ([../partitioning/future.md](../partitioning/future.md)).
 - V2+ (deferred): automated verification of press documents / provider-attested credentials — **not** V1.

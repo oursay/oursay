@@ -33,6 +33,10 @@ export const abCaGov: JurisdictionConfig = {
   // platform defaults. Content caps match the documented launch defaults.
   labels: { ...DEFAULT_LABELS, post: "Statement", district: "riding" },
   contentLimits: DEFAULT_CONTENT_LIMITS,
+  // Media recognition list: platform-catalog body ids OurSay chooses for media-accredited gates.
+  // Empty until catalog bodies are created via admin:accreditation-body and listed here (or, later,
+  // ingested as platform-signed jurisdiction policy — docs/entities/partitioning/future.md).
+  recognizedAccreditationBodyIds: [],
   // Locked gate matrix (WEB-APP-GAPS C5/Part 3 + Part 6 corrections):
   //   - statements/petitions/polls/votes/signatures carry a PASSKEY sign floor; comments/reactions quick.
   //   - petition creation = residency-verified (Part 5 #2); poll/result creation = official ROLE only.
