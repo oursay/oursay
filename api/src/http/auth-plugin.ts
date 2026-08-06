@@ -12,6 +12,8 @@ export interface AuthUser {
   userId: string;
   scope: "full" | "recovery" | "login" | "registration" | "recovery_kyc";
   token: string;
+  /** auth.sessions.id — required for recovery enroll binding; never client-supplied. */
+  sessionId: string;
 }
 
 declare module "fastify" {
@@ -40,7 +42,7 @@ export function registerAuth(app: FastifyInstance, services: Services): void {
     const token = bearerOrCookie(req);
     const session = token ? await services.authService.resolve(token) : null;
     if (!session || !token) throw new ServiceError("unauthorized", "Authentication required");
-    req.user = { userId: session.userId, scope: session.scope, token };
+    req.user = { userId: session.userId, scope: session.scope, token, sessionId: session.id };
   });
 
   app.decorate("requireFullScope", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -66,7 +68,7 @@ export function registerAuth(app: FastifyInstance, services: Services): void {
     if (!token) return;
     const session = await services.authService.resolve(token);
     if (session && session.scope === "full") {
-      req.user = { userId: session.userId, scope: session.scope, token };
+      req.user = { userId: session.userId, scope: session.scope, token, sessionId: session.id };
     }
   });
 }

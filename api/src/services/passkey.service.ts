@@ -163,9 +163,23 @@ export class PasskeyService {
     userDisplayName: string;
     scope: SessionScope;
     enrollmentAuthorization?: string | null;
+    /** Calling session id — required for recovery (binds the ceremony; never client-supplied). */
+    sessionId?: string | null;
   }): Promise<PublicKeyCredentialCreationOptionsJSON> {
     const needsGrant = this.requiresEnrollmentAuthorization(input.scope);
+    const isRecovery = input.scope === "recovery";
     const existing = await this.d.passkeyRepo.listByUserId(input.userId);
+
+    if (isRecovery) {
+      if (!input.sessionId) {
+        throw new ServiceError("forbidden", "Recovery enrollment requires an active recovery session");
+      }
+      const session = await this.d.authService.getActiveSession(input.sessionId);
+      if (!session || session.userId !== input.userId || session.scope !== "recovery") {
+        throw new ServiceError("forbidden", "Recovery enrollment requires an active recovery session");
+      }
+    }
+
     if (needsGrant) {
       if (existing.length === 0) {
         throw new ServiceError(
@@ -188,7 +202,11 @@ export class PasskeyService {
       userName: input.userName,
       userDisplayName: input.userDisplayName,
       attestationType: "none",
-      excludeCredentials: existing.map((c) => ({ id: c.credentialId, transports: splitTransports(c.transports) })),
+      // Recovery wipes prior credentials at verify; excluding them would block re-enrolling an
+      // authenticator that still holds the old resident key.
+      excludeCredentials: isRecovery
+        ? []
+        : existing.map((c) => ({ id: c.credentialId, transports: splitTransports(c.transports) })),
       // residentKey required: usernameless login needs a discoverable passkey. Android/GPM
       // can create a non-discoverable credential under "preferred", then fail the immediate
       // post-enroll assertion with empty allowCredentials.
@@ -207,6 +225,7 @@ export class PasskeyService {
       challenge: options.challenge,
       purpose: "register",
       expiresAt: expiryFrom(this.now(), this.challengeTtlSec),
+      sessionId: isRecovery ? input.sessionId! : null,
     });
 
     if (needsGrant) {
@@ -234,9 +253,71 @@ export class PasskeyService {
     label?: string | null;
     scope: SessionScope;
     enrollmentAuthorization?: string | null;
+    /** Calling session id — required for recovery; never client-supplied. */
+    sessionId?: string | null;
   }): Promise<{ credentialId: string }> {
     const challenge = extractChallenge(input.response.response.clientDataJSON);
     const needsGrant = this.requiresEnrollmentAuthorization(input.scope);
+    const isRecovery = input.scope === "recovery";
+
+    if (isRecovery) {
+      if (!input.sessionId) {
+        throw new ServiceError("forbidden", "Recovery enrollment requires an active recovery session");
+      }
+
+      const stored = await this.d.passkeyRepo.getActiveChallenge(challenge, "register");
+      if (
+        !stored ||
+        stored.userId !== input.userId ||
+        stored.sessionId !== input.sessionId
+      ) {
+        throw new ServiceError("challenge_invalid", "Registration challenge is invalid or expired");
+      }
+
+      let verification;
+      try {
+        verification = await verifyRegistrationResponse({
+          response: input.response,
+          expectedChallenge: challenge,
+          expectedOrigin: this.rp.origins,
+          expectedRPID: this.rp.rpID,
+          requireUserVerification: this.rp.requireUserVerification,
+        });
+      } catch (e) {
+        throw new ServiceError("passkey_verification_failed", (e as Error).message);
+      }
+
+      if (!verification.verified || !verification.registrationInfo) {
+        throw new ServiceError("passkey_verification_failed", "Passkey registration could not be verified");
+      }
+
+      const { credential, aaguid } = verification.registrationInfo;
+      const credentialRow = {
+        id: randomUUID(),
+        userId: input.userId,
+        credentialId: credential.id,
+        publicKey: toBuffer(credential.publicKey),
+        counter: credential.counter,
+        transports: credential.transports?.join(",") ?? null,
+        aaguid: aaguid ?? null,
+        label: normalizePasskeyLabel(input.label),
+      };
+
+      const result = await this.d.passkeyRepo.finalizeRecoveryEnrollment({
+        userId: input.userId,
+        recoverySessionId: input.sessionId,
+        challenge,
+        registerChallengeId: stored.id,
+        credential: credentialRow,
+      });
+      if (!result.ok) {
+        if (result.reason === "session") {
+          throw new ServiceError("forbidden", "Recovery enrollment requires an active recovery session");
+        }
+        throw new ServiceError("challenge_invalid", "Registration challenge is invalid or expired");
+      }
+      return { credentialId: credential.id };
+    }
 
     if (needsGrant) {
       if (!input.enrollmentAuthorization) {
@@ -316,7 +397,7 @@ export class PasskeyService {
       return { credentialId: credential.id };
     }
 
-    // Bootstrap scopes: consume challenge then insert (no enrollment grant).
+    // Bootstrap scopes (registration / login): consume challenge then insert (no enrollment grant).
     const stored = await this.d.passkeyRepo.consumeChallenge(challenge, "register");
     if (!stored || stored.userId !== input.userId) {
       throw new ServiceError("challenge_invalid", "Registration challenge is invalid or expired");

@@ -47,7 +47,7 @@ HTTP view (`PasskeyView`): `id`, `label`, `transports`, `createdAt`, `lastUsedAt
 [deleted — sessions credential_id SET NULL]
 ```
 
-Multi-device: user may have several passkeys (one per device).
+Multi-device: user may have several passkeys (one per device) via additive enroll. **Recovery re-enroll** is not additive — it deletes every prior account-login passkey and leaves exactly one replacement.
 
 ## Relationships
 
@@ -63,6 +63,7 @@ Multi-device: user may have several passkeys (one per device).
 - **Never** signs public record — civic signing uses per-thread WebAuthn credentials.
 - Distinct from civic `device_keys` (deprecated signing path).
 - Revoking passkey revokes its paired sessions.
+- Recovery-scoped enroll wipes all of the user's prior account-login passkeys in the same transaction as inserting the replacement.
 - Platform stores public key only.
 
 ## Permissions

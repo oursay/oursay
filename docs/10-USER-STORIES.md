@@ -79,7 +79,7 @@ Behaviour that is genuinely not jurisdiction-specific (account, auth, audit, mem
 
 **US-SYS-3 — Recover a lost device**  `[scope: MVP]`
 - **Story:** As a registered user, I want to recover my account by email if I lose my passkey/device, so that losing a device never locks me out.
-- **Acceptance:** A `recovery` OTP yields a recovery-scope session that may **only** enroll a fresh passkey; recovery **revokes all prior sessions**; the persona `Pₜ` and thread bindings are **preserved** (the user re-authorizes per thread by enrolling a fresh credential under the same `Pₜ`).
+- **Acceptance:** A `recovery` OTP yields a recovery-scope session that may **only** enroll a fresh passkey; recovery **revokes all prior sessions** at unlock and **deletes all prior account-login passkeys** when the replacement is enrolled; the persona `Pₜ` and thread bindings are **preserved** (the user re-authorizes per thread by enrolling a fresh credential under the same `Pₜ`).
 - **Eligibility:** any registered user (account-exists check, no enumeration).
 - **Config knobs:** none.
 - **Traces:** PRD §6; `08-IDENTITY-AND-DEVICE-POLICY.md` (recovery revocation model); GLOSSARY *Session scope*.

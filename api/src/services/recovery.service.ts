@@ -69,6 +69,7 @@ export class RecoveryService {
 
     // Recovery means the account holder may have lost a device — revoke every prior session before
     // handing back a fresh recovery-scoped one, so a lost/stolen device can't ride through recovery.
+    // Credential wipe happens later at recovery-scoped passkey re-enroll (atomic reset).
     await this.d.authService.revokeAllForUser(profile.userId);
 
     const session = await this.d.authService.issue(profile.userId, "recovery", input.userAgent ?? null);
@@ -82,7 +83,8 @@ export class RecoveryService {
 
   /**
    * Poll recovery biometric session. On Approved: revoke all sessions and issue a recovery-scoped
-   * session for passkey re-enroll (tier attestations are left unchanged).
+   * session for passkey re-enroll (tier attestations are left unchanged). Credential wipe happens
+   * at recovery-scoped passkey re-enroll (atomic reset).
    */
   async pollRecoveryKyc(
     userId: string,

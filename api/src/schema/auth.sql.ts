@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS auth.passkey_credentials (
 CREATE INDEX IF NOT EXISTS passkey_credentials_user ON auth.passkey_credentials (user_id);
 
 -- Short-lived WebAuthn ceremony challenges (register + login + enroll_auth step-up). Consumed once, expired on TTL.
+-- session_id (added below after auth.sessions exists) binds a recovery register ceremony to its recovery session.
 CREATE TABLE IF NOT EXISTS auth.webauthn_challenges (
   id              UUID PRIMARY KEY,
   user_id         UUID REFERENCES public.users(id) ON DELETE CASCADE, -- nullable (usernameless login)
@@ -124,7 +125,9 @@ CREATE INDEX IF NOT EXISTS enrollment_authorizations_user ON auth.enrollment_aut
 
 -- Opaque DB-backed sessions. The token itself is never stored — only its hash. Non-'full' scopes are
 -- limited sessions that may re-enroll a passkey but not perform full actions:
---   'recovery'     — issued by recovery OTP (lost passkey); recovery REVOKES all prior sessions.
+--   'recovery'     — issued by recovery OTP (lost passkey); recovery REVOKES all prior sessions at unlock.
+--                    Completing recovery-scoped passkey enroll is an atomic credential reset (wipe prior
+--                    account-login passkeys, invalidate enrollment grants, consume the recovery session).
 --   'login'        — issued by the gated cross-device login OTP (docs/08); enroll-only until the new
 --                    device enrolls a passkey and logs in with it. Login does NOT revoke other sessions.
 --   'recovery_kyc' — verified-account recovery after email OTP; biometric Didit only (no passkey enroll).
@@ -152,6 +155,9 @@ ALTER TABLE auth.sessions ADD CONSTRAINT sessions_scope_check
 -- below, which depends on it).
 ALTER TABLE auth.sessions ADD COLUMN IF NOT EXISTS credential_id UUID REFERENCES auth.passkey_credentials(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS sessions_credential ON auth.sessions (credential_id);
+
+-- Recovery register ceremonies bind to the calling recovery session (after auth.sessions exists).
+ALTER TABLE auth.webauthn_challenges ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES auth.sessions(id) ON DELETE SET NULL;
 
 -- Email OTP for the three purposes (docs/08): 'registration' (bootstrap), 'recovery' (lost passkey),
 -- and 'login' (gated cross-device sign-in — only sent after a trusted device opens the window). Codes

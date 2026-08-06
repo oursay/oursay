@@ -332,12 +332,12 @@ Account login (proving *who is signed in*) is deliberately separate from civic s
 | Purpose | Trigger / gate | Verify | Session | Revokes others? |
 |---------|----------------|--------|---------|-----------------|
 | `registration` | first-time bootstrap; 409 if email already registered | `POST /v1/auth/otp/verify` (+ profile) | **full** | n/a (new account) |
-| `recovery` | lost passkey; sent only if the account exists (no enumeration) | `POST /v1/auth/recovery/verify` | **recovery** (enroll-only) | **yes** — security reset |
+| `recovery` | lost passkey; sent only if the account exists (no enumeration) | `POST /v1/auth/recovery/verify` | **recovery** (enroll-only) | **yes** — security reset (sessions at unlock; all prior account-login passkeys at re-enroll) |
 | `login` | **gated** cross-device sign-in; sent only while an enable window is open | `POST /v1/auth/login/verify` | **login** (enroll-only) | **no** — additive |
 
 **Gated login (the new-device path).** Most of the time login OTP is *disabled*: a new/unenrolled device cannot sign in with email alone. A **trusted device** (a valid **full** session **with** an enrolled passkey) opens the window via `POST /v1/auth/login/enable`, which emails a `login` code. The window is the active `login` OTP itself — short-lived (bounded by `OTP_TTL_SEC`, default 10 min) and one per account (issuing a new one invalidates the prior). The new device redeems the code at `POST /v1/auth/login/verify` → a **limited `login`-scoped** session that may **only** enroll a passkey; the device then logs in with that passkey for full access. Without an open window, a bare `login` request sends nothing and verify fails — no enumeration, no bypass of the passkey requirement.
 
-This separates cleanly from **recovery**: gated login is *additive* (the holder still has access on a trusted device, so other sessions are kept), while recovery assumes *lost access* and revokes every prior session. Both end in a new passkey.
+This separates cleanly from **recovery**: gated login is *additive* (the holder still has access on a trusted device, so other sessions and passkeys are kept), while recovery assumes *lost access* — it revokes every prior session at unlock and deletes every prior account-login passkey when the replacement is enrolled. Both end in a new passkey.
 
 ---
 
@@ -350,7 +350,7 @@ This separates cleanly from **recovery**: gated login is *additive* (the holder 
 | Add device (account login) | From a trusted full session, enroll an additional **account-login passkey** (`auth.passkey_credentials`); independent per device, public metadata only. |
 | Sign in on a brand-new device | **Gated login OTP** (§6): trusted device opens the window → new device redeems a `login` code → enroll-only session → enroll a passkey. Additive; does not revoke other sessions. |
 | Cross-device edit | Any of the user's non-revoked `thread_civic_credentials` rows under Pₜ may sign the edit (§5.4 rule 6). |
-| Lost device | Revoke the device's `thread_civic_credentials` row (per thread) and/or its account-login passkey. For full account recovery use **recovery** (revokes prior sessions). Recovery **preserves Pₜ and bindings**; the user re-authorizes per thread by enrolling a fresh credential under the same Pₜ. Do not publish revoked keys as cross-thread correlators. |
+| Lost device | Revoke the device's `thread_civic_credentials` row (per thread) and/or its account-login passkey. For full account recovery use **recovery** (revokes prior sessions at unlock; wipes prior account-login passkeys at re-enroll). Recovery **preserves Pₜ and bindings**; the user re-authorizes per thread by enrolling a fresh credential under the same Pₜ. Do not publish revoked keys as cross-thread correlators. |
 | Platform holds signing keys | **Never.** |
 | Trustless dedupe | **Method 4 (ZK)** — permanent goal (§5.5). |
 

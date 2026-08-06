@@ -54,6 +54,11 @@ export class AuthService {
     return this.d.sessionRepo.getActiveByTokenHash(hashToken(token, this.d.config.secret));
   }
 
+  /** Active session by id, or null. */
+  async getActiveSession(id: string): Promise<SessionRecord | null> {
+    return this.d.sessionRepo.getActiveById(id);
+  }
+
   async revoke(token: string): Promise<void> {
     await this.d.sessionRepo.revokeByTokenHash(hashToken(token, this.d.config.secret));
   }

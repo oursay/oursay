@@ -37,7 +37,7 @@ Primary key: `auth.sessions.id` (UUID). Active session: `revoked_at IS NULL` AND
 |-------|---------|
 | `full` | Complete account access |
 | `registration` | **Target** — issued by OTP registration; may enroll the **first** passkey only. A `full` session is issued only after the user then logs in with that passkey. (See Gaps — today registration issues `full` directly.) |
-| `recovery` | Enroll passkey only; **revokes all prior sessions** |
+| `recovery` | Enroll passkey only; **revokes all prior sessions** at unlock; **deletes all prior account-login passkeys** when the replacement is enrolled (consumes the recovery session) |
 | `login` | Gated cross-device login; enroll-only; does **not** revoke others |
 
 ## States & lifecycle
@@ -59,7 +59,7 @@ Primary key: `auth.sessions.id` (UUID). Active session: `revoked_at IS NULL` AND
 ## Invariants
 
 - Token plaintext never persisted.
-- Recovery scope revokes all prior sessions; login scope does not.
+- Recovery scope revokes all prior sessions at unlock; recovery re-enroll deletes all prior account-login passkeys and consumes the recovery session. Login scope does neither.
 - Limited scopes may **only** enroll a passkey — not full civic actions until `full` session.
 
 ## Permissions

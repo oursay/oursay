@@ -125,6 +125,7 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
         userDisplayName: user?.displayName ?? user?.handle ?? "OurSay user",
         scope: req.user!.scope,
         enrollmentAuthorization: body.enrollmentAuthorization ?? null,
+        sessionId: req.user!.sessionId,
       });
     },
   );
@@ -176,6 +177,7 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
         label: body.label ?? null,
         scope: req.user!.scope,
         enrollmentAuthorization: body.enrollmentAuthorization ?? null,
+        sessionId: req.user!.sessionId,
       });
       reply.status(201).send(result);
     },

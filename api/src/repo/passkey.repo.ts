@@ -36,6 +36,8 @@ export interface ChallengeRecord {
   emailCanonical: string | null;
   challenge: string;
   purpose: ChallengePurpose;
+  /** Recovery register ceremonies bind to the calling recovery session; null otherwise. */
+  sessionId: string | null;
   expiresAt: string;
 }
 
@@ -47,8 +49,24 @@ export interface EnrollmentAuthorizationRecord {
   expiresAt: string;
 }
 
+export type FinalizeRecoveryResult =
+  | { ok: true }
+  | { ok: false; reason: "session" | "challenge" };
+
 export class PasskeyRepo {
   constructor(private readonly pool: pg.Pool) {}
+
+  /**
+   * Test-only barrier: awaited after credential delete and before session revoke during recovery
+   * finalize, so specs can race a concurrent login against that boundary.
+   */
+  _testAfterRecoveryCredentialDelete: (() => Promise<void>) | null = null;
+
+  /**
+   * Test-only hook: awaited after session/grant revocation and before the replacement insert.
+   * Throw to force a mid-transaction failure and assert rollback.
+   */
+  _testBeforeRecoveryInsert: (() => Promise<void>) | null = null;
 
   async insertCredential(c: InsertCredentialInput): Promise<void> {
     await this.pool.query(
@@ -110,18 +128,19 @@ export class PasskeyRepo {
     challenge: string;
     purpose: ChallengePurpose;
     expiresAt: Date;
+    sessionId?: string | null;
   }): Promise<void> {
     await this.pool.query(
-      `INSERT INTO auth.webauthn_challenges (id, user_id, email_canonical, challenge, purpose, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [c.id, c.userId, c.emailCanonical, c.challenge, c.purpose, c.expiresAt],
+      `INSERT INTO auth.webauthn_challenges (id, user_id, email_canonical, challenge, purpose, session_id, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [c.id, c.userId, c.emailCanonical, c.challenge, c.purpose, c.sessionId ?? null, c.expiresAt],
     );
   }
 
   /** Non-mutating lookup of an active (unconsumed, unexpired) challenge. */
   async getActiveChallenge(challenge: string, purpose: ChallengePurpose): Promise<ChallengeRecord | null> {
     const { rows } = await this.pool.query(
-      `SELECT id, user_id, email_canonical, challenge, purpose, expires_at
+      `SELECT id, user_id, email_canonical, challenge, purpose, session_id, expires_at
          FROM auth.webauthn_challenges
         WHERE challenge = $1 AND purpose = $2 AND consumed_at IS NULL AND expires_at > now()`,
       [challenge, purpose],
@@ -135,7 +154,7 @@ export class PasskeyRepo {
       `UPDATE auth.webauthn_challenges
           SET consumed_at = now()
         WHERE challenge = $1 AND purpose = $2 AND consumed_at IS NULL AND expires_at > now()
-      RETURNING id, user_id, email_canonical, challenge, purpose, expires_at`,
+      RETURNING id, user_id, email_canonical, challenge, purpose, session_id, expires_at`,
       [challenge, purpose],
     );
     return rows[0] ? mapChallenge(rows[0]) : null;
@@ -262,6 +281,103 @@ export class PasskeyRepo {
       client.release();
     }
   }
+
+  /**
+   * Atomic recovery credential reset: serialize on the user row, revalidate the calling recovery
+   * session, consume the register challenge, wipe prior passkeys, revoke all sessions and open
+   * enrollment grants, then insert exactly one replacement.
+   */
+  async finalizeRecoveryEnrollment(input: {
+    userId: string;
+    recoverySessionId: string;
+    challenge: string;
+    registerChallengeId: string;
+    credential: InsertCredentialInput;
+  }): Promise<FinalizeRecoveryResult> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Serialize all recovery resets for this account.
+      const userLock = await client.query(`SELECT id FROM public.users WHERE id = $1 FOR UPDATE`, [input.userId]);
+      if (!userLock.rows[0]) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "session" };
+      }
+
+      const sessionRes = await client.query(
+        `SELECT id FROM auth.sessions
+          WHERE id = $1
+            AND user_id = $2
+            AND scope = 'recovery'
+            AND revoked_at IS NULL
+            AND expires_at > now()`,
+        [input.recoverySessionId, input.userId],
+      );
+      if (!sessionRes.rows[0]) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "session" };
+      }
+
+      const challengeRes = await client.query(
+        `UPDATE auth.webauthn_challenges
+            SET consumed_at = now()
+          WHERE challenge = $1
+            AND purpose = 'register'
+            AND id = $2
+            AND user_id = $3
+            AND session_id = $4
+            AND consumed_at IS NULL
+            AND expires_at > now()
+        RETURNING id`,
+        [input.challenge, input.registerChallengeId, input.userId, input.recoverySessionId],
+      );
+      if (!challengeRes.rows[0]) {
+        await client.query("ROLLBACK");
+        return { ok: false, reason: "challenge" };
+      }
+
+      // Delete credentials before blanket session revoke so a concurrent old-passkey login either
+      // lands a session that the following revoke catches, or fails its credential FK after wipe.
+      await client.query(`DELETE FROM auth.passkey_credentials WHERE user_id = $1`, [input.userId]);
+
+      if (this._testAfterRecoveryCredentialDelete) {
+        await this._testAfterRecoveryCredentialDelete();
+      }
+
+      await client.query(
+        `UPDATE auth.sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`,
+        [input.userId],
+      );
+
+      await client.query(
+        `UPDATE auth.enrollment_authorizations
+            SET consumed_at = now()
+          WHERE user_id = $1 AND consumed_at IS NULL`,
+        [input.userId],
+      );
+
+      if (this._testBeforeRecoveryInsert) {
+        await this._testBeforeRecoveryInsert();
+      }
+
+      const c = input.credential;
+      await client.query(
+        `INSERT INTO auth.passkey_credentials
+           (id, user_id, credential_id, public_key, counter, transports, aaguid, label)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [c.id, c.userId, c.credentialId, c.publicKey, c.counter, c.transports, c.aaguid, c.label],
+      );
+
+      await client.query("COMMIT");
+      return { ok: true };
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
 }
 
 function mapCredential(r: any): PasskeyCredentialRecord {
@@ -286,6 +402,7 @@ function mapChallenge(r: any): ChallengeRecord {
     emailCanonical: r.email_canonical,
     challenge: r.challenge,
     purpose: r.purpose,
+    sessionId: r.session_id ?? null,
     expiresAt: r.expires_at.toISOString?.() ?? String(r.expires_at),
   };
 }

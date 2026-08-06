@@ -48,6 +48,17 @@ export class SessionRepo {
     return rows[0] ? map(rows[0]) : null;
   }
 
+  /** Active (not revoked, not expired) session by primary key. */
+  async getActiveById(id: string): Promise<SessionRecord | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, user_id, scope, credential_id, user_agent, created_at, expires_at, revoked_at
+         FROM auth.sessions
+        WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()`,
+      [id],
+    );
+    return rows[0] ? map(rows[0]) : null;
+  }
+
   async revokeByTokenHash(tokenHash: string): Promise<void> {
     await this.pool.query(
       `UPDATE auth.sessions SET revoked_at = now() WHERE token_hash = $1 AND revoked_at IS NULL`,

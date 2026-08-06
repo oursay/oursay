@@ -199,7 +199,7 @@ flowchart TD
    - branch (**verified account**): → `kyc_reverification_required` + **recovery_kyc** session `[screen: Confirm it’s you]` → `POST /v1/auth/recovery/kyc/session` (Didit biometric workflow 03) → poll until Approved → **recovery**-scoped session. Continue to step 3. **Built** (requires `KYC_PROVIDER=didit` + `DIDIT_WORKFLOW_RECOVER`).
 3. Enroll a fresh passkey  `-> POST /v1/auth/passkey/register/{options,verify}` → sign in (1.3) → full session.
 
-**End (success):** New passkey; **all prior sessions revoked** (security reset). Persona `Pₜ` and thread bindings **preserved**; per-thread civic credentials were revoked, so the user re-authorizes per thread by enrolling a fresh signer under the same `Pₜ` on next civic action (3.0). Existing KYC attestations are **kept** (biometric unlocks recovery; it does not re-award a tier).
+**End (success):** Exactly one new passkey; **all prior sessions revoked** and **all prior account-login passkeys deleted** (security reset at re-enroll). Persona `Pₜ` and thread bindings **preserved**; per-thread civic credentials were revoked, so the user re-authorizes per thread by enrolling a fresh signer under the same `Pₜ` on next civic action (3.0). Existing KYC attestations are **kept** (biometric unlocks recovery; it does not re-award a tier). Full access requires a subsequent passkey login.
 **End (error/abandon, verified):** Stuck at biometric gate until Approved or the user abandons.
 **Notes:** Contrast 1.4 — recovery is destructive to sessions by design.
 
