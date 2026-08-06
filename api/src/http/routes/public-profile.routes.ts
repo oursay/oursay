@@ -86,12 +86,11 @@ const profileHeaderSchema = {
       items: { type: "string" },
       description: "Platform-scoped roles on the account (`admin` today).",
     },
-    mediaMark: { type: "boolean", description: "Derived Media mark — ≥1 valid Media accreditation." },
     accreditationBodyIds: {
       type: "array",
       items: { type: "string" },
       description:
-        "Valid Media accreditation-body catalog ids held by this account (credentials showcase). Not present on feed/detail author shapes.",
+        "Valid Media accreditation-body catalog ids held by this account (credentials showcase). Media mark is inferred as length > 0. Not present on feed/detail author shapes.",
     },
     bio: { type: "string" },
     iconType: { type: "string" },
@@ -108,7 +107,7 @@ const profileHeaderSchema = {
     },
   },
   required: [
-    "name", "handle", "role", "roles", "tier", "official", "platformRoles", "mediaMark",
+    "name", "handle", "role", "roles", "tier", "official", "platformRoles",
     "accreditationBodyIds", "bio", "iconType", "ageLabel", "support",
   ],
 } as const;

@@ -23,7 +23,7 @@ See [GLOSSARY.md](../../GLOSSARY.md) (**admin (role)**) and [01-CONTRIBUTOR-SPEC
 - **Platform-ops HTTP:** `POST /v1/platform-ops/prepare` + `POST /v1/platform-ops/submit` (full session + `admin` role). Admin attests the clear request (auth passkey or enrolled ops soft-key); platform signs the record.
 - **Ops service account:** seeded/CLI-provisioned user (`oursay_ops` by default) with `admin` + soft key in `auth.ops_signing_keys` (`PLATFORM_OPS_ADMIN_PRIVKEY`).
 - **Accreditation-body catalog:** `auth.accreditation_bodies` (`id`, `name`, `status` active\|retired). CLI: `npm run admin:accreditation-body -w @oursay/api -- create|update|retire|activate|list` (same prod gate).
-- **Media accreditations:** `auth.media_accreditations` + derived `mediaMark` / `mediaAccredited` on public DTOs. CLI: `npm run admin:media-accreditation -w @oursay/api -- grant|revoke|list`.
+- **Media accreditations:** `auth.media_accreditations` + derived `mediaMark` / `mediaAccredited` on feed/detail/comment DTOs; profile exposes `accreditationBodyIds` (mark inferred). CLI: `npm run admin:media-accreditation -w @oursay/api -- grant|revoke|list`.
 - **Dev seed:** `npm run seed -w @oursay/api` grants `admin` to `whyte_public@seed.oursay.dev` and Media accreditation (`ab-leg-gallery`) to `global_public` so Platform + Journalist marks appear in the live corpus.
 - **Portal HTTP tools** (`POST /v1/portal/admin/*`) remain future — Phase V1-C.
 

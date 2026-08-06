@@ -113,7 +113,6 @@ export async function fetchAccountContext(): Promise<AccountContext | null> {
     tier: string;
     official: boolean;
     platformRoles?: string[];
-    mediaMark?: boolean;
     accreditationBodyIds?: string[];
   }>(`/v1/public/profiles/${encodeURIComponent(handle)}`).catch(() => null);
 

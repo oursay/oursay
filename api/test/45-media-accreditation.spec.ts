@@ -1,4 +1,4 @@
-// [v1-media-accreditations] MediaAccreditationRepo + Media mark / mediaAccredited on profile + feed.
+// [v1-media-accreditations] MediaAccreditationRepo + accreditationBodyIds on profile; mediaMark on feed authors.
 
 import { expect } from "chai";
 import { ServiceError } from "../src/errors.js";
@@ -14,13 +14,13 @@ describe("45 media-accreditation + Media mark wire", () => {
     await w.services.repos.accreditationBody.create(BODY, "Alberta Legislative Press Gallery");
   });
 
-  it("grants accreditation and exposes mediaMark on public profile", async () => {
+  it("grants accreditation and exposes accreditationBodyIds on public profile", async () => {
     const a = await makeAccount(w, { email: "reporter@example.com", handle: "@reporter" });
     await w.services.repos.profile.setVisibility(a.userId, "public");
 
     const before = await w.app.inject({ method: "GET", url: "/v1/public/profiles/reporter" });
     expect(before.statusCode).to.equal(200);
-    expect(before.json().mediaMark).to.equal(false);
+    expect(before.json()).to.not.have.property("mediaMark");
     expect(before.json().accreditationBodyIds).to.deep.equal([]);
 
     await w.services.repos.mediaAccreditation.grant({
@@ -30,7 +30,7 @@ describe("45 media-accreditation + Media mark wire", () => {
     });
 
     const after = await w.app.inject({ method: "GET", url: "/v1/public/profiles/reporter" });
-    expect(after.json().mediaMark).to.equal(true);
+    expect(after.json()).to.not.have.property("mediaMark");
     expect(after.json().accreditationBodyIds).to.deep.equal([BODY]);
   });
 

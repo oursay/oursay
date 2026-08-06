@@ -435,9 +435,10 @@ paths:
                       - message
                 required:
                   - error
-  /v1/auth/passkey/register/options:
+  /v1/auth/passkey/enroll-auth/options:
     post:
-      summary: Begin passkey enrollment (returns WebAuthn creation options)
+      summary: Begin enrollment step-up (returns WebAuthn assertion options for an
+        existing passkey)
       tags:
         - passkey
       security: &a1
@@ -452,6 +453,189 @@ paths:
                 type: object
                 additionalProperties: true
         "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/enroll-auth/verify:
+    post:
+      summary: Complete enrollment step-up (fresh assertion → short-lived enrollment
+        authorization)
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                response:
+                  type: object
+                  additionalProperties: true
+              required:
+                - response
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enrollmentAuthorization:
+                    type: string
+                    description: Opaque single-use grant; pass to register/options and
+                      register/verify.
+                  expiresAt:
+                    type: string
+                    format: date-time
+                required:
+                  - enrollmentAuthorization
+                  - expiresAt
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/auth/passkey/register/options:
+    post:
+      summary: Begin passkey enrollment (returns WebAuthn creation options)
+      tags:
+        - passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enrollmentAuthorization:
+                  type: string
+                  description: Required for full-session add-device; omit for bootstrap scopes.
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
           description: Default Response
           content:
             application/json:
@@ -488,6 +672,9 @@ paths:
                   additionalProperties: true
                 label:
                   type: string
+                enrollmentAuthorization:
+                  type: string
+                  description: Required for full-session add-device; omit for bootstrap scopes.
               required:
                 - response
               additionalProperties: false
@@ -525,6 +712,26 @@ paths:
                 required:
                   - error
         "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
           description: Default Response
           content:
             application/json:
@@ -2457,6 +2664,408 @@ paths:
                       - message
                 required:
                   - error
+  /v1/platform-ops/prepare:
+    post:
+      summary: Prepare a platform-ops request (admin). Returns the clear message to
+        attest.
+      tags:
+        - platform-ops
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - official_seat_claim
+                    jurisdictionId:
+                      type: string
+                    payload:
+                      type: object
+                      properties:
+                        seatHandle:
+                          type: string
+                        userId:
+                          type: string
+                      required:
+                        - seatHandle
+                        - userId
+                      additionalProperties: false
+                  required:
+                    - kind
+                    - jurisdictionId
+                    - payload
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - official_seat_revoke
+                    jurisdictionId:
+                      type: string
+                    payload:
+                      type: object
+                      properties:
+                        seatHandle:
+                          type: string
+                        expectedUserId:
+                          type: string
+                        expectedUserHandle:
+                          type: string
+                      required:
+                        - seatHandle
+                      additionalProperties: false
+                  required:
+                    - kind
+                    - jurisdictionId
+                    - payload
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - jurisdiction_config_set
+                    jurisdictionId:
+                      type: string
+                    payload:
+                      type: object
+                      properties:
+                        config:
+                          type: object
+                      required:
+                        - config
+                      additionalProperties: false
+                  required:
+                    - kind
+                    - jurisdictionId
+                    - payload
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - district_upsert
+                    jurisdictionId:
+                      type: string
+                    payload:
+                      type: object
+                      properties:
+                        district:
+                          type: object
+                      required:
+                        - district
+                      additionalProperties: false
+                  required:
+                    - kind
+                    - jurisdictionId
+                    - payload
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    kind:
+                      type: string
+                      enum:
+                        - official_seat_upsert
+                    jurisdictionId:
+                      type: string
+                    payload:
+                      type: object
+                      properties:
+                        seat:
+                          type: object
+                      required:
+                        - seat
+                      additionalProperties: false
+                  required:
+                    - kind
+                    - jurisdictionId
+                    - payload
+                  additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestId:
+                    type: string
+                  requestHash:
+                    type: string
+                  clearMessage:
+                    type: object
+                    properties:
+                      ds:
+                        type: string
+                      v:
+                        type: number
+                      requestId:
+                        type: string
+                      kind:
+                        type: string
+                        enum:
+                          - official_seat_claim
+                          - official_seat_revoke
+                          - jurisdiction_config_set
+                          - district_upsert
+                          - official_seat_upsert
+                      jurisdictionId:
+                        type: string
+                      payload:
+                        type: object
+                        additionalProperties: true
+                      createdAt:
+                        type: string
+                    required:
+                      - ds
+                      - v
+                      - requestId
+                      - kind
+                      - jurisdictionId
+                      - payload
+                      - createdAt
+                  expiresAt:
+                    type: string
+                required:
+                  - requestId
+                  - requestHash
+                  - clearMessage
+                  - expiresAt
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+  /v1/platform-ops/submit:
+    post:
+      summary: Submit a prepared platform-ops request with an admin attestation.
+      tags:
+        - platform-ops
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                requestId:
+                  type: string
+                adminAttestation:
+                  type: object
+                  properties:
+                    signerPubkey:
+                      type: string
+                    signScheme:
+                      type: string
+                      enum:
+                        - p256
+                        - webauthn-es256
+                    signature:
+                      type: string
+                    webauthn:
+                      type: object
+                      properties:
+                        authenticatorData:
+                          type: string
+                        clientDataJSON:
+                          type: string
+                        signature:
+                          type: string
+                      required:
+                        - authenticatorData
+                        - clientDataJSON
+                        - signature
+                      additionalProperties: false
+                    signedAt:
+                      type: string
+                    requestHash:
+                      type: string
+                  required:
+                    - signerPubkey
+                    - signScheme
+                    - signature
+                    - signedAt
+                    - requestHash
+                  additionalProperties: false
+              required:
+                - requestId
+                - adminAttestation
+              additionalProperties: false
+      security: *a1
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  txId:
+                    type: string
+                  entityId:
+                    type: string
+                  txHash:
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - official_seat_claim
+                      - official_seat_revoke
+                      - jurisdiction_config_set
+                      - district_upsert
+                      - official_seat_upsert
+                  jurisdictionId:
+                    type: string
+                required:
+                  - txId
+                  - entityId
+                  - txHash
+                  - kind
+                  - jurisdictionId
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                required:
+                  - error
   /v1/explorer/{chainId}:
     get:
       summary: Explorer chain tip + settled type counts
@@ -2583,6 +3192,9 @@ paths:
                         type: integer
                         minimum: 0
                       result:
+                        type: integer
+                        minimum: 0
+                      platform_ops:
                         type: integer
                         minimum: 0
                   pendingTxCount:
@@ -2764,6 +3376,9 @@ paths:
                             result:
                               type: integer
                               minimum: 0
+                            platform_ops:
+                              type: integer
+                              minimum: 0
                       required:
                         - chainId
                         - height
@@ -2936,6 +3551,9 @@ paths:
                       result:
                         type: integer
                         minimum: 0
+                      platform_ops:
+                        type: integer
+                        minimum: 0
                 required:
                   - chainId
                   - height
@@ -3064,6 +3682,7 @@ paths:
                             - poll
                             - vote
                             - result
+                            - platform_ops
                         op:
                           type: string
                           enum:
@@ -3245,6 +3864,7 @@ paths:
                       - poll
                       - vote
                       - result
+                      - platform_ops
                   op:
                     type: string
                     enum:
@@ -7097,9 +7717,13 @@ paths:
                     items:
                       type: string
                     description: Platform-scoped roles on the account (`admin` today).
-                  mediaMark:
-                    type: boolean
-                    description: Derived Media mark — ≥1 valid Media accreditation.
+                  accreditationBodyIds:
+                    type: array
+                    items:
+                      type: string
+                    description: Valid Media accreditation-body catalog ids held by this account
+                      (credentials showcase). Media mark is inferred as length >
+                      0. Not present on feed/detail author shapes.
                   bio:
                     type: string
                   iconType:
@@ -7130,7 +7754,7 @@ paths:
                   - tier
                   - official
                   - platformRoles
-                  - mediaMark
+                  - accreditationBodyIds
                   - bio
                   - iconType
                   - ageLabel
@@ -7789,33 +8413,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -7850,6 +8546,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -7881,6 +8597,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -7889,33 +8625,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -7950,6 +8758,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -7981,6 +8809,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -7989,33 +8837,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -8050,6 +8970,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -8081,6 +9021,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -8089,33 +9049,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -8150,6 +9182,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -8181,6 +9233,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -8189,33 +9261,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -8250,6 +9394,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -8281,6 +9445,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -8289,33 +9473,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -8350,6 +9606,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -8381,6 +9657,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -8389,33 +9685,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -8450,6 +9818,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -8481,6 +9869,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -8489,33 +9897,105 @@ paths:
                         properties:
                           act:
                             oneOf:
-                              - type: string
-                                enum:
-                                  - anyone
-                              - type: object
-                                properties:
-                                  tiers:
-                                    type: array
-                                    items:
-                                      type: string
-                                required:
-                                  - tiers
-                              - type: object
-                                properties:
-                                  residencyIn:
-                                    type: string
+                              - oneOf:
+                                  - type: string
                                     enum:
-                                      - jurisdiction
-                                required:
-                                  - residencyIn
-                              - type: object
-                                properties:
-                                  role:
-                                    type: string
-                                    enum:
-                                      - official
-                                required:
-                                  - role
+                                      - anyone
+                                  - type: object
+                                    properties:
+                                      tiers:
+                                        type: array
+                                        items:
+                                          type: string
+                                    required:
+                                      - tiers
+                                  - type: object
+                                    properties:
+                                      residencyIn:
+                                        type: string
+                                        enum:
+                                          - jurisdiction
+                                    required:
+                                      - residencyIn
+                                  - type: object
+                                    properties:
+                                      role:
+                                        type: string
+                                        enum:
+                                          - official
+                                    required:
+                                      - role
+                                  - type: object
+                                    properties:
+                                      mediaAccredited:
+                                        type: boolean
+                                        enum:
+                                          - true
+                                    required:
+                                      - mediaAccredited
+                                  - type: object
+                                    properties:
+                                      platformRole:
+                                        type: string
+                                        enum:
+                                          - admin
+                                          - dev
+                                          - mod
+                                          - auditor
+                                          - support
+                                    required:
+                                      - platformRole
+                              - type: array
+                                items:
+                                  oneOf:
+                                    - type: string
+                                      enum:
+                                        - anyone
+                                    - type: object
+                                      properties:
+                                        tiers:
+                                          type: array
+                                          items:
+                                            type: string
+                                      required:
+                                        - tiers
+                                    - type: object
+                                      properties:
+                                        residencyIn:
+                                          type: string
+                                          enum:
+                                            - jurisdiction
+                                      required:
+                                        - residencyIn
+                                    - type: object
+                                      properties:
+                                        role:
+                                          type: string
+                                          enum:
+                                            - official
+                                      required:
+                                        - role
+                                    - type: object
+                                      properties:
+                                        mediaAccredited:
+                                          type: boolean
+                                          enum:
+                                            - true
+                                      required:
+                                        - mediaAccredited
+                                    - type: object
+                                      properties:
+                                        platformRole:
+                                          type: string
+                                          enum:
+                                            - admin
+                                            - dev
+                                            - mod
+                                            - auditor
+                                            - support
+                                      required:
+                                        - platformRole
+                                minItems: 1
                           signMin:
                             type: string
                             enum:
@@ -8550,6 +10030,26 @@ paths:
                                       - official
                                 required:
                                   - role
+                              - type: object
+                                properties:
+                                  mediaAccredited:
+                                    type: boolean
+                                    enum:
+                                      - true
+                                required:
+                                  - mediaAccredited
+                              - type: object
+                                properties:
+                                  platformRole:
+                                    type: string
+                                    enum:
+                                      - admin
+                                      - dev
+                                      - mod
+                                      - auditor
+                                      - support
+                                required:
+                                  - platformRole
                           deny:
                             type: array
                             items:
@@ -8581,6 +10081,26 @@ paths:
                                         - official
                                   required:
                                     - role
+                                - type: object
+                                  properties:
+                                    mediaAccredited:
+                                      type: boolean
+                                      enum:
+                                        - true
+                                  required:
+                                    - mediaAccredited
+                                - type: object
+                                  properties:
+                                    platformRole:
+                                      type: string
+                                      enum:
+                                        - admin
+                                        - dev
+                                        - mod
+                                        - auditor
+                                        - support
+                                  required:
+                                    - platformRole
                         required:
                           - act
                           - signMin
@@ -10361,5 +11881,7 @@ tags:
   - name: kyc
     description: Identity and residency verification (Didit sessions, platform
       residency attest)
+  - name: platform-ops
+    description: Platform-signed ops (admin prepare/submit; seat assignment today)
   - name: meta
     description: Health & docs

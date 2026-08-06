@@ -70,9 +70,10 @@ export interface ProfileHeaderDto {
   official: boolean;
   /** Platform-scoped roles (`admin` today). Empty when none. */
   platformRoles: string[];
-  /** Derived Media mark (≥1 valid Media accreditation). */
-  mediaMark: boolean;
-  /** Valid accreditation-body catalog ids (credentials showcase shape; not on feed authors). */
+  /**
+   * Valid accreditation-body catalog ids (credentials showcase; not on feed authors).
+   * Media mark is inferred client-side as `accreditationBodyIds.length > 0`.
+   */
   accreditationBodyIds: string[];
   bio: string;
   /** DiceBear style id for this account (effective for KYC tier; default bottts-neutral). */
@@ -163,7 +164,6 @@ export class ProfilePageService {
       tier,
       official,
       platformRoles: [...platformRoles],
-      mediaMark: mediaBodyIds.length > 0,
       accreditationBodyIds: mediaBodyIds,
       bio: ctx.bio,
       iconType: effectiveUserIconType(ctx.iconType, tier !== "unverified" || official),

@@ -91,9 +91,10 @@ export interface PublicProfile {
    * Platform-scoped role mark (`admin` today). Mapped from wire `platformRoles`.
    */
   platformRole?: PlatformRole | null;
-  /** Derived Media mark (≥1 valid accreditation). */
-  mediaMark?: boolean;
-  /** Valid accreditation-body catalog ids (credentials showcase; profile header only). */
+  /**
+   * Valid accreditation-body catalog ids (credentials showcase; profile header only).
+   * Media mark is inferred as `accreditationBodyIds.length > 0`.
+   */
   accreditationBodyIds?: string[];
   /** Short freeform bio shown at the top of the profile. */
   bio: string;

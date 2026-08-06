@@ -109,7 +109,7 @@ Used by gate actors such as `{ mediaAccredited: true }` (see [../partitioning/ju
 | Schema | `auth.media_accreditations` in `api/src/schema/auth.sql.ts` |
 | Repo | `api/src/repo/media-accreditation.repo.ts` |
 | CLI | `npm run admin:media-accreditation -w @oursay/api -- grant\|revoke\|list` |
-| Wire | `mediaMark` + `mediaAccredited` on feed/detail/comment/profile DTOs; `accreditationBodyIds` on profile header only (credentials showcase shape) |
+| Wire | `mediaMark` + `mediaAccredited` on feed/detail/comment author DTOs; `accreditationBodyIds` on profile header (Media mark inferred as length > 0) |
 
 ## Gaps
 

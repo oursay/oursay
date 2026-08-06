@@ -204,7 +204,7 @@ export function ProfileView({
                   tier={displayTier}
                   official={displayOfficial}
                   platformRole={profile.platformRole}
-                  media={profile.mediaMark}
+                  media={(profile.accreditationBodyIds?.length ?? 0) > 0}
                   signedMode="icon"
                   kycMode="full"
                 />

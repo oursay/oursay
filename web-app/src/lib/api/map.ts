@@ -346,7 +346,6 @@ export function mapProfileHeader(raw: Record<string, unknown>): PublicProfile {
     tier: tokenToTier(String(raw.tier)),
     official,
     platformRole: mapPlatformRole(raw.platformRoles),
-    mediaMark: Boolean(raw.mediaMark),
     accreditationBodyIds: Array.isArray(raw.accreditationBodyIds)
       ? raw.accreditationBodyIds.filter((id): id is string => typeof id === "string" && id.length > 0)
       : [],
