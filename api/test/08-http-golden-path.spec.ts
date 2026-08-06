@@ -57,6 +57,7 @@ describe("08 golden path: HTTP register → enroll → logout → login → prof
       method: "POST",
       url: "/v1/auth/passkey/register/options",
       headers: bearer(regBody.session.token),
+      payload: {},
     });
     expect(regOpts.statusCode).to.equal(200);
     const enroll = await w.app.inject({

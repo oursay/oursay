@@ -25,6 +25,7 @@ import {
   pgConfig,
   registrationConfig,
   sessionConfig,
+  enrollAuthConfig,
   webauthnConfig,
   type KycConfig,
   type MailerVendor,
@@ -248,6 +249,8 @@ export async function buildServices(db: Db, opts: BuildOptions = {}): Promise<Se
     passkeyRepo: repos.passkey,
     profileRepo: repos.profile,
     authService,
+    sessionSecret: sessionConfig.secret,
+    enrollAuthTtlSec: enrollAuthConfig.ttlSec,
     now,
   });
   const loginService = new LoginService({

@@ -87,6 +87,7 @@ import {
 } from "@/lib/api/civic-helpers";
 import type { RegisterFormData } from "@/components/chrome/RegisterForm";
 import {
+  authorizePasskeyEnrollment,
   enrollPasskey,
   listPasskeys,
   loginWithPasskey,
@@ -704,14 +705,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return;
     }
     beginPasskeyBusy("profile", "creating");
-    void enrollPasskey()
-      .then(() => listPasskeys())
-      .then((passkeys) => {
+    void (async () => {
+      try {
+        const enrollmentAuthorization = await authorizePasskeyEnrollment();
+        await enrollPasskey(undefined, { enrollmentAuthorization });
+        const passkeys = await listPasskeys();
         setState((s) => ({ ...s, passkeys }));
         notify("Passkey added to this device.");
-      })
-      .catch((e: Error) => notify(e.message))
-      .finally(() => endPasskeyBusy());
+      } catch (e: unknown) {
+        notify(e instanceof Error ? e.message : "Could not add passkey.");
+      } finally {
+        endPasskeyBusy();
+      }
+    })();
   }, [notify, beginPasskeyBusy, endPasskeyBusy]);
 
   // Wireframe addDeviceEmailBtn: opens the account's OTP-login window so a

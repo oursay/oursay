@@ -33,8 +33,13 @@ async function registerWithPasskey(
     userId: reg.userId,
     userName: email,
     userDisplayName: "Login Tester",
+    scope: "registration",
   });
-  await w.services.passkeyService.registerVerify({ userId: reg.userId, response: auth.register(opts.challenge) });
+  await w.services.passkeyService.registerVerify({
+    userId: reg.userId,
+    response: auth.register(opts.challenge),
+    scope: "registration",
+  });
   const loginOpts = await w.services.passkeyService.loginOptions({});
   const login = await w.services.passkeyService.loginVerify({ response: auth.authenticate(loginOpts.challenge) });
   return { userId: reg.userId, token: login.session.token, auth };
@@ -113,6 +118,7 @@ describe("10 gated login: enable window + enroll-only session", () => {
       method: "POST",
       url: "/v1/auth/passkey/register/options",
       headers: bearer(body.session.token),
+      payload: {},
     });
     expect(opts.statusCode).to.equal(200);
     const enroll = await w.app.inject({

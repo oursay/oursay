@@ -1,5 +1,7 @@
-// WebAuthn passkey routes. Registration is authenticated (full OR recovery session, so recovery can
-// re-enroll). Login is passkey-only — no email/password — and issues a full session.
+// WebAuthn passkey routes. Registration is authenticated (full OR recovery/login/registration
+// session, so bootstrap flows can enroll). Full-session add-device requires a short-lived
+// enrollment authorization minted after a fresh assertion of an existing account passkey.
+// Login is passkey-only — no email/password — and issues a full session.
 
 import type { FastifyInstance } from "fastify";
 import type { RegistrationResponseJSON, AuthenticationResponseJSON } from "@simplewebauthn/server";
@@ -21,7 +23,67 @@ const passkeySchema = {
   required: ["id", "label", "transports", "createdAt", "lastUsedAt"],
 } as const;
 
+const enrollmentAuthorizationSchema = {
+  type: "object",
+  properties: {
+    enrollmentAuthorization: {
+      type: "string",
+      description: "Opaque single-use grant; pass to register/options and register/verify.",
+    },
+    expiresAt: { type: "string", format: "date-time" },
+  },
+  required: ["enrollmentAuthorization", "expiresAt"],
+} as const;
+
 export function registerPasskeyRoutes(app: FastifyInstance, services: Services): void {
+  // ── enrollment authorization (full session step-up) ───────────────────────
+  app.post(
+    "/v1/auth/passkey/enroll-auth/options",
+    {
+      preHandler: app.requireFullScope,
+      schema: {
+        tags: ["passkey"],
+        summary: "Begin enrollment step-up (returns WebAuthn assertion options for an existing passkey)",
+        security: bearerSecurity,
+        response: { 200: webauthnJson, 401: errorSchema, 403: errorSchema },
+      },
+    },
+    async (req) => {
+      return services.passkeyService.enrollAuthOptions(req.user!.userId);
+    },
+  );
+
+  app.post(
+    "/v1/auth/passkey/enroll-auth/verify",
+    {
+      preHandler: app.requireFullScope,
+      schema: {
+        tags: ["passkey"],
+        summary: "Complete enrollment step-up (fresh assertion → short-lived enrollment authorization)",
+        security: bearerSecurity,
+        body: {
+          type: "object",
+          properties: { response: webauthnJson },
+          required: ["response"],
+          additionalProperties: false,
+        },
+        response: {
+          200: enrollmentAuthorizationSchema,
+          400: errorSchema,
+          401: errorSchema,
+          403: errorSchema,
+        },
+      },
+    },
+    async (req) => {
+      const body = req.body as { response: AuthenticationResponseJSON };
+      return services.passkeyService.enrollAuthVerify({
+        userId: req.user!.userId,
+        response: body.response,
+      });
+    },
+  );
+
   // ── registration (authenticated) ─────────────────────────────────────────
   app.post(
     "/v1/auth/passkey/register/options",
@@ -31,7 +93,17 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
         tags: ["passkey"],
         summary: "Begin passkey enrollment (returns WebAuthn creation options)",
         security: bearerSecurity,
-        response: { 200: webauthnJson, 401: errorSchema },
+        body: {
+          type: "object",
+          properties: {
+            enrollmentAuthorization: {
+              type: "string",
+              description: "Required for full-session add-device; omit for bootstrap scopes.",
+            },
+          },
+          additionalProperties: false,
+        },
+        response: { 200: webauthnJson, 401: errorSchema, 403: errorSchema },
       },
     },
     async (req) => {
@@ -42,6 +114,7 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
           "Complete biometric recovery before enrolling a passkey",
         );
       }
+      const body = (req.body ?? {}) as { enrollmentAuthorization?: string };
       const [user, profile] = await Promise.all([
         services.repos.user.getById(userId),
         services.repos.profile.getByUserId(userId),
@@ -50,6 +123,8 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
         userId,
         userName: profile?.email ?? user?.handle ?? userId,
         userDisplayName: user?.displayName ?? user?.handle ?? "OurSay user",
+        scope: req.user!.scope,
+        enrollmentAuthorization: body.enrollmentAuthorization ?? null,
       });
     },
   );
@@ -64,7 +139,14 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
         security: bearerSecurity,
         body: {
           type: "object",
-          properties: { response: webauthnJson, label: { type: "string" } },
+          properties: {
+            response: webauthnJson,
+            label: { type: "string" },
+            enrollmentAuthorization: {
+              type: "string",
+              description: "Required for full-session add-device; omit for bootstrap scopes.",
+            },
+          },
           required: ["response"],
           additionalProperties: false,
         },
@@ -72,6 +154,7 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
           201: { type: "object", properties: { credentialId: { type: "string" } }, required: ["credentialId"] },
           400: errorSchema,
           401: errorSchema,
+          403: errorSchema,
         },
       },
     },
@@ -82,11 +165,17 @@ export function registerPasskeyRoutes(app: FastifyInstance, services: Services):
           "Complete biometric recovery before enrolling a passkey",
         );
       }
-      const body = req.body as { response: RegistrationResponseJSON; label?: string };
+      const body = req.body as {
+        response: RegistrationResponseJSON;
+        label?: string;
+        enrollmentAuthorization?: string;
+      };
       const result = await services.passkeyService.registerVerify({
         userId: req.user!.userId,
         response: body.response,
         label: body.label ?? null,
+        scope: req.user!.scope,
+        enrollmentAuthorization: body.enrollmentAuthorization ?? null,
       });
       reply.status(201).send(result);
     },

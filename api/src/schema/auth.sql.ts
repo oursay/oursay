@@ -91,18 +91,36 @@ CREATE TABLE IF NOT EXISTS auth.passkey_credentials (
 );
 CREATE INDEX IF NOT EXISTS passkey_credentials_user ON auth.passkey_credentials (user_id);
 
--- Short-lived WebAuthn ceremony challenges (register + login). Consumed once, expired on TTL.
+-- Short-lived WebAuthn ceremony challenges (register + login + enroll_auth step-up). Consumed once, expired on TTL.
 CREATE TABLE IF NOT EXISTS auth.webauthn_challenges (
   id              UUID PRIMARY KEY,
   user_id         UUID REFERENCES public.users(id) ON DELETE CASCADE, -- nullable (usernameless login)
   email_canonical TEXT,                          -- set for login-by-email
   challenge       TEXT NOT NULL,                 -- base64url
-  purpose         TEXT NOT NULL CHECK (purpose IN ('register','login')),
+  purpose         TEXT NOT NULL CHECK (purpose IN ('register','login','enroll_auth')),
   expires_at      TIMESTAMPTZ NOT NULL,
   consumed_at     TIMESTAMPTZ,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS webauthn_challenges_lookup ON auth.webauthn_challenges (challenge);
+-- Widen purpose CHECK on a persistent dev DB created before enroll_auth existed.
+ALTER TABLE auth.webauthn_challenges DROP CONSTRAINT IF EXISTS webauthn_challenges_purpose_check;
+ALTER TABLE auth.webauthn_challenges ADD CONSTRAINT webauthn_challenges_purpose_check
+  CHECK (purpose IN ('register','login','enroll_auth'));
+
+-- Short-lived single-use grant minted after a fresh assertion of an existing account passkey.
+-- Full-session add-device requires this; bootstrap scopes (registration/recovery/login) do not.
+-- register_challenge_id binds the grant to exactly one registration ceremony (set during register/options).
+CREATE TABLE IF NOT EXISTS auth.enrollment_authorizations (
+  id                    UUID PRIMARY KEY,
+  user_id               UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  token_hash            TEXT NOT NULL UNIQUE,
+  register_challenge_id UUID UNIQUE REFERENCES auth.webauthn_challenges(id) ON DELETE SET NULL,
+  expires_at            TIMESTAMPTZ NOT NULL,
+  consumed_at           TIMESTAMPTZ,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS enrollment_authorizations_user ON auth.enrollment_authorizations (user_id);
 
 -- Opaque DB-backed sessions. The token itself is never stored — only its hash. Non-'full' scopes are
 -- limited sessions that may re-enroll a passkey but not perform full actions:

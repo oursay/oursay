@@ -1,7 +1,10 @@
-// Data access for auth.passkey_credentials (account-login WebAuthn creds) and the short-lived
-// auth.webauthn_challenges that bind a ceremony to its challenge.
+// Data access for auth.passkey_credentials (account-login WebAuthn creds), short-lived
+// auth.webauthn_challenges that bind a ceremony to its challenge, and
+// auth.enrollment_authorizations (step-up grants for full-session add-device).
 
 import type pg from "pg";
+
+export type ChallengePurpose = "register" | "login" | "enroll_auth";
 
 export interface PasskeyCredentialRecord {
   id: string;
@@ -32,7 +35,15 @@ export interface ChallengeRecord {
   userId: string | null;
   emailCanonical: string | null;
   challenge: string;
-  purpose: "register" | "login";
+  purpose: ChallengePurpose;
+  expiresAt: string;
+}
+
+export interface EnrollmentAuthorizationRecord {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  registerChallengeId: string | null;
   expiresAt: string;
 }
 
@@ -97,7 +108,7 @@ export class PasskeyRepo {
     userId: string | null;
     emailCanonical: string | null;
     challenge: string;
-    purpose: "register" | "login";
+    purpose: ChallengePurpose;
     expiresAt: Date;
   }): Promise<void> {
     await this.pool.query(
@@ -107,8 +118,19 @@ export class PasskeyRepo {
     );
   }
 
+  /** Non-mutating lookup of an active (unconsumed, unexpired) challenge. */
+  async getActiveChallenge(challenge: string, purpose: ChallengePurpose): Promise<ChallengeRecord | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, user_id, email_canonical, challenge, purpose, expires_at
+         FROM auth.webauthn_challenges
+        WHERE challenge = $1 AND purpose = $2 AND consumed_at IS NULL AND expires_at > now()`,
+      [challenge, purpose],
+    );
+    return rows[0] ? mapChallenge(rows[0]) : null;
+  }
+
   /** Atomically consume a matching, unexpired, unconsumed challenge; null if none. */
-  async consumeChallenge(challenge: string, purpose: "register" | "login"): Promise<ChallengeRecord | null> {
+  async consumeChallenge(challenge: string, purpose: ChallengePurpose): Promise<ChallengeRecord | null> {
     const { rows } = await this.pool.query(
       `UPDATE auth.webauthn_challenges
           SET consumed_at = now()
@@ -117,6 +139,128 @@ export class PasskeyRepo {
       [challenge, purpose],
     );
     return rows[0] ? mapChallenge(rows[0]) : null;
+  }
+
+  /** Mark a challenge consumed (used when rolling back a failed bind of a just-created register challenge). */
+  async invalidateChallenge(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE auth.webauthn_challenges SET consumed_at = now() WHERE id = $1 AND consumed_at IS NULL`,
+      [id],
+    );
+  }
+
+  // ── enrollment authorizations ────────────────────────────────────────────
+
+  async insertEnrollmentAuth(c: {
+    id: string;
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<void> {
+    await this.pool.query(
+      `INSERT INTO auth.enrollment_authorizations (id, user_id, token_hash, expires_at)
+       VALUES ($1,$2,$3,$4)`,
+      [c.id, c.userId, c.tokenHash, c.expiresAt],
+    );
+  }
+
+  async getActiveEnrollmentAuth(tokenHash: string): Promise<EnrollmentAuthorizationRecord | null> {
+    const { rows } = await this.pool.query(
+      `SELECT id, user_id, token_hash, register_challenge_id, expires_at
+         FROM auth.enrollment_authorizations
+        WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()`,
+      [tokenHash],
+    );
+    return rows[0] ? mapEnrollmentAuth(rows[0]) : null;
+  }
+
+  /**
+   * Atomically bind an unbound, active enrollment authorization to a registration challenge.
+   * Returns null if the grant is missing, expired, consumed, wrong user, or already bound.
+   */
+  async bindEnrollmentAuthToChallenge(input: {
+    tokenHash: string;
+    userId: string;
+    registerChallengeId: string;
+  }): Promise<EnrollmentAuthorizationRecord | null> {
+    const { rows } = await this.pool.query(
+      `UPDATE auth.enrollment_authorizations
+          SET register_challenge_id = $3
+        WHERE token_hash = $1
+          AND user_id = $2
+          AND consumed_at IS NULL
+          AND expires_at > now()
+          AND register_challenge_id IS NULL
+      RETURNING id, user_id, token_hash, register_challenge_id, expires_at`,
+      [input.tokenHash, input.userId, input.registerChallengeId],
+    );
+    return rows[0] ? mapEnrollmentAuth(rows[0]) : null;
+  }
+
+  /**
+   * Consume the matching registration challenge + bound enrollment authorization and insert the
+   * credential in one transaction. Returns false if either consume raced (concurrent verify).
+   */
+  async finalizeAuthorizedEnrollment(input: {
+    challenge: string;
+    userId: string;
+    enrollmentTokenHash: string;
+    registerChallengeId: string;
+    credential: InsertCredentialInput;
+  }): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const challengeRes = await client.query(
+        `UPDATE auth.webauthn_challenges
+            SET consumed_at = now()
+          WHERE challenge = $1
+            AND purpose = 'register'
+            AND id = $2
+            AND user_id = $3
+            AND consumed_at IS NULL
+            AND expires_at > now()
+        RETURNING id`,
+        [input.challenge, input.registerChallengeId, input.userId],
+      );
+      if (!challengeRes.rows[0]) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+
+      const authRes = await client.query(
+        `UPDATE auth.enrollment_authorizations
+            SET consumed_at = now()
+          WHERE token_hash = $1
+            AND user_id = $2
+            AND register_challenge_id = $3
+            AND consumed_at IS NULL
+            AND expires_at > now()
+        RETURNING id`,
+        [input.enrollmentTokenHash, input.userId, input.registerChallengeId],
+      );
+      if (!authRes.rows[0]) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+
+      const c = input.credential;
+      await client.query(
+        `INSERT INTO auth.passkey_credentials
+           (id, user_id, credential_id, public_key, counter, transports, aaguid, label)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [c.id, c.userId, c.credentialId, c.publicKey, c.counter, c.transports, c.aaguid, c.label],
+      );
+
+      await client.query("COMMIT");
+      return true;
+    } catch (e) {
+      await client.query("ROLLBACK");
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 }
 
@@ -142,6 +286,16 @@ function mapChallenge(r: any): ChallengeRecord {
     emailCanonical: r.email_canonical,
     challenge: r.challenge,
     purpose: r.purpose,
+    expiresAt: r.expires_at.toISOString?.() ?? String(r.expires_at),
+  };
+}
+
+function mapEnrollmentAuth(r: any): EnrollmentAuthorizationRecord {
+  return {
+    id: r.id,
+    userId: r.user_id,
+    tokenHash: r.token_hash,
+    registerChallengeId: r.register_challenge_id ?? null,
     expiresAt: r.expires_at.toISOString?.() ?? String(r.expires_at),
   };
 }

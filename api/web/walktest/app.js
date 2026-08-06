@@ -214,7 +214,7 @@ function enableFullSessionActions() {
 // ── 4 · Enroll passkey ───────────────────────────────────────────────────────
 $("enroll").addEventListener("click", async () => {
   try {
-    const opts = await api("POST", "/v1/auth/passkey/register/options");
+    const opts = await api("POST", "/v1/auth/passkey/register/options", {});
     if (!opts.ok) return failEnroll(opts);
     const attResp = await startRegistration({ optionsJSON: opts.body });
     const verify = await api("POST", "/v1/auth/passkey/register/verify", { response: attResp, label: "walk page" });
@@ -311,7 +311,7 @@ $("recoverVerify").addEventListener("click", async () => {
 
 $("recoverEnroll").addEventListener("click", async () => {
   try {
-    const opts = await api("POST", "/v1/auth/passkey/register/options");
+    const opts = await api("POST", "/v1/auth/passkey/register/options", {});
     if (!opts.ok) {
       show("recovery", opts.body ?? `HTTP ${opts.status}`);
       return;
@@ -598,7 +598,7 @@ $("verifyLoginOtp").addEventListener("click", async () => {
 
 $("enrollLoginPasskey").addEventListener("click", async () => {
   try {
-    const opts = await api("POST", "/v1/auth/passkey/register/options");
+    const opts = await api("POST", "/v1/auth/passkey/register/options", {});
     if (!opts.ok) return failLoginFlow(opts);
     const attResp = await startRegistration({ optionsJSON: opts.body });
     const verify = await api("POST", "/v1/auth/passkey/register/verify", { response: attResp, label: "second device" });

@@ -3,7 +3,7 @@
  * Cookie sessions flow through the Next.js `/v1` proxy (same-origin).
  */
 
-import { startRegistration } from "@simplewebauthn/browser";
+import { startAuthentication, startRegistration } from "@simplewebauthn/browser";
 import type {
   PublicKeyCredentialCreationOptionsJSON,
   PublicKeyCredentialRequestOptionsJSON,
@@ -198,9 +198,30 @@ export async function verifyRecoveryOtp(
   return body;
 }
 
-export async function enrollPasskey(label?: string): Promise<void> {
+export async function authorizePasskeyEnrollment(): Promise<string> {
+  const options = await apiPost<PublicKeyCredentialRequestOptionsJSON>(
+    "/v1/auth/passkey/enroll-auth/options",
+  );
+  if (!options) throw new Error("passkey enroll-auth options missing");
+  const assertion = await startAuthentication({ optionsJSON: options });
+  const body = await apiPost<{ enrollmentAuthorization: string }>(
+    "/v1/auth/passkey/enroll-auth/verify",
+    { response: assertion },
+  );
+  if (!body?.enrollmentAuthorization) {
+    throw new Error("passkey enroll-auth verify returned no authorization");
+  }
+  return body.enrollmentAuthorization;
+}
+
+export async function enrollPasskey(
+  label?: string,
+  opts?: { enrollmentAuthorization?: string },
+): Promise<void> {
+  const enrollmentAuthorization = opts?.enrollmentAuthorization;
   const options = await apiPost<PublicKeyCredentialCreationOptionsJSON>(
     "/v1/auth/passkey/register/options",
+    enrollmentAuthorization ? { enrollmentAuthorization } : {},
   );
   if (!options) throw new Error("passkey register options missing");
   const attResp = await startRegistration({ optionsJSON: options });
@@ -208,6 +229,7 @@ export async function enrollPasskey(label?: string): Promise<void> {
   await apiPost("/v1/auth/passkey/register/verify", {
     response: attResp,
     ...(trimmed ? { label: trimmed } : {}),
+    ...(enrollmentAuthorization ? { enrollmentAuthorization } : {}),
   });
 }
 

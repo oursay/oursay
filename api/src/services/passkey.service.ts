@@ -4,6 +4,10 @@
 // civic record. After enrollment, passkey assertion is the day-to-day login; email OTP is only
 // bootstrap/recovery.
 //
+// Full-session add-device requires a short-lived enrollment authorization minted after a fresh
+// assertion of an existing account passkey. Bootstrap scopes (registration / recovery / login)
+// enroll without that grant.
+//
 // Challenges are persisted (auth.webauthn_challenges) and matched back from the ceremony response's
 // clientDataJSON, so verification is stateless across requests and works for usernameless login.
 
@@ -20,23 +24,37 @@ import {
 } from "@simplewebauthn/server";
 import { ServiceError, systemNow, type Now } from "../errors.js";
 import { expiryFrom } from "../helpers/otp.js";
+import {
+  hashEnrollmentAuthorization,
+  newEnrollmentAuthorizationToken,
+} from "../helpers/tokens.js";
 import { relyingParty, toBuffer, toUint8, type RelyingParty } from "../helpers/webauthn.js";
-import type { PasskeyRepo } from "../repo/passkey.repo.js";
+import type { ChallengePurpose, PasskeyRepo } from "../repo/passkey.repo.js";
 import type { ProfileRepo } from "../repo/profile.repo.js";
-import type { AuthService, IssuedSession } from "./auth.service.js";
+import type { AuthService, IssuedSession, SessionScope } from "./auth.service.js";
+
+const BOOTSTRAP_SCOPES: ReadonlySet<SessionScope> = new Set(["registration", "recovery", "login"]);
 
 export interface PasskeyServiceDeps {
   passkeyRepo: PasskeyRepo;
   profileRepo: ProfileRepo;
   authService: AuthService;
+  /** Session pepper — also hashes enrollment-authorization tokens. */
+  sessionSecret: string;
   rp?: RelyingParty;
   challengeTtlSec?: number;
+  enrollAuthTtlSec?: number;
   now?: Now;
 }
 
 export interface PasskeyLoginResult {
   userId: string;
   session: IssuedSession;
+}
+
+export interface EnrollmentAuthorizationResult {
+  enrollmentAuthorization: string;
+  expiresAt: string;
 }
 
 /** Public view of an enrolled account-login passkey. No key material — just management metadata. */
@@ -53,11 +71,88 @@ export class PasskeyService {
   private readonly now: Now;
   private readonly rp: RelyingParty;
   private readonly challengeTtlSec: number;
+  private readonly enrollAuthTtlSec: number;
 
   constructor(private readonly d: PasskeyServiceDeps) {
     this.now = d.now ?? systemNow;
     this.rp = d.rp ?? relyingParty();
     this.challengeTtlSec = d.challengeTtlSec ?? 300;
+    this.enrollAuthTtlSec = d.enrollAuthTtlSec ?? 300;
+  }
+
+  // ── enrollment authorization (full-session step-up) ───────────────────────
+
+  /** Begin a step-up assertion against the caller's existing passkeys (does not mint a session). */
+  async enrollAuthOptions(userId: string): Promise<PublicKeyCredentialRequestOptionsJSON> {
+    const creds = await this.d.passkeyRepo.listByUserId(userId);
+    if (creds.length === 0) {
+      throw new ServiceError(
+        "forbidden",
+        "No passkey enrolled; use account recovery to re-enroll",
+      );
+    }
+    const options = await generateAuthenticationOptions({
+      rpID: this.rp.rpID,
+      allowCredentials: creds.map((c) => ({
+        id: c.credentialId,
+        transports: splitTransports(c.transports),
+      })),
+      userVerification: "preferred",
+    });
+    await this.storeChallenge(options.challenge, "enroll_auth", userId, null);
+    return options;
+  }
+
+  /** Verify a fresh assertion and mint a short-lived, single-use enrollment authorization. */
+  async enrollAuthVerify(input: {
+    userId: string;
+    response: AuthenticationResponseJSON;
+  }): Promise<EnrollmentAuthorizationResult> {
+    const challenge = extractChallenge(input.response.response.clientDataJSON);
+    const stored = await this.d.passkeyRepo.consumeChallenge(challenge, "enroll_auth");
+    if (!stored || stored.userId !== input.userId) {
+      throw new ServiceError("forbidden", "Enrollment authorization challenge is invalid or expired");
+    }
+
+    const cred = await this.d.passkeyRepo.getByCredentialId(input.response.id);
+    if (!cred || cred.userId !== input.userId) {
+      throw new ServiceError("forbidden", "Passkey does not belong to this account");
+    }
+
+    let verification;
+    try {
+      verification = await verifyAuthenticationResponse({
+        response: input.response,
+        expectedChallenge: challenge,
+        expectedOrigin: this.rp.origins,
+        expectedRPID: this.rp.rpID,
+        credential: {
+          id: cred.credentialId,
+          publicKey: toUint8(cred.publicKey),
+          counter: cred.counter,
+          transports: splitTransports(cred.transports),
+        },
+        requireUserVerification: this.rp.requireUserVerification,
+      });
+    } catch (e) {
+      throw new ServiceError("passkey_verification_failed", (e as Error).message);
+    }
+
+    if (!verification.verified) {
+      throw new ServiceError("passkey_verification_failed", "Passkey assertion could not be verified");
+    }
+
+    await this.d.passkeyRepo.updateCounter(cred.credentialId, verification.authenticationInfo.newCounter, this.now());
+
+    const { token, hash } = newEnrollmentAuthorizationToken(this.d.sessionSecret);
+    const expiresAt = expiryFrom(this.now(), this.enrollAuthTtlSec);
+    await this.d.passkeyRepo.insertEnrollmentAuth({
+      id: randomUUID(),
+      userId: input.userId,
+      tokenHash: hash,
+      expiresAt,
+    });
+    return { enrollmentAuthorization: token, expiresAt: expiresAt.toISOString() };
   }
 
   // ── registration (authenticated) ─────────────────────────────────────────
@@ -66,8 +161,26 @@ export class PasskeyService {
     userId: string;
     userName: string;
     userDisplayName: string;
+    scope: SessionScope;
+    enrollmentAuthorization?: string | null;
   }): Promise<PublicKeyCredentialCreationOptionsJSON> {
+    const needsGrant = this.requiresEnrollmentAuthorization(input.scope);
     const existing = await this.d.passkeyRepo.listByUserId(input.userId);
+    if (needsGrant) {
+      if (existing.length === 0) {
+        throw new ServiceError(
+          "forbidden",
+          "No passkey enrolled; use account recovery to re-enroll",
+        );
+      }
+      if (!input.enrollmentAuthorization) {
+        throw new ServiceError(
+          "forbidden",
+          "Fresh passkey assertion required to enroll another passkey",
+        );
+      }
+    }
+
     const options = await generateRegistrationOptions({
       rpName: this.rp.rpName,
       rpID: this.rp.rpID,
@@ -85,7 +198,33 @@ export class PasskeyService {
         userVerification: "preferred",
       },
     });
-    await this.storeChallenge(options.challenge, "register", input.userId, null);
+
+    const challengeId = randomUUID();
+    await this.d.passkeyRepo.insertChallenge({
+      id: challengeId,
+      userId: input.userId,
+      emailCanonical: null,
+      challenge: options.challenge,
+      purpose: "register",
+      expiresAt: expiryFrom(this.now(), this.challengeTtlSec),
+    });
+
+    if (needsGrant) {
+      const tokenHash = hashEnrollmentAuthorization(input.enrollmentAuthorization!, this.d.sessionSecret);
+      const bound = await this.d.passkeyRepo.bindEnrollmentAuthToChallenge({
+        tokenHash,
+        userId: input.userId,
+        registerChallengeId: challengeId,
+      });
+      if (!bound) {
+        await this.d.passkeyRepo.invalidateChallenge(challengeId);
+        throw new ServiceError(
+          "forbidden",
+          "Enrollment authorization is invalid, expired, or already used",
+        );
+      }
+    }
+
     return options;
   }
 
@@ -93,8 +232,91 @@ export class PasskeyService {
     userId: string;
     response: RegistrationResponseJSON;
     label?: string | null;
+    scope: SessionScope;
+    enrollmentAuthorization?: string | null;
   }): Promise<{ credentialId: string }> {
     const challenge = extractChallenge(input.response.response.clientDataJSON);
+    const needsGrant = this.requiresEnrollmentAuthorization(input.scope);
+
+    if (needsGrant) {
+      if (!input.enrollmentAuthorization) {
+        throw new ServiceError(
+          "forbidden",
+          "Fresh passkey assertion required to enroll another passkey",
+        );
+      }
+      const existing = await this.d.passkeyRepo.listByUserId(input.userId);
+      if (existing.length === 0) {
+        throw new ServiceError(
+          "forbidden",
+          "No passkey enrolled; use account recovery to re-enroll",
+        );
+      }
+
+      const stored = await this.d.passkeyRepo.getActiveChallenge(challenge, "register");
+      if (!stored || stored.userId !== input.userId) {
+        throw new ServiceError("challenge_invalid", "Registration challenge is invalid or expired");
+      }
+
+      const tokenHash = hashEnrollmentAuthorization(input.enrollmentAuthorization, this.d.sessionSecret);
+      const grant = await this.d.passkeyRepo.getActiveEnrollmentAuth(tokenHash);
+      if (
+        !grant ||
+        grant.userId !== input.userId ||
+        grant.registerChallengeId !== stored.id
+      ) {
+        throw new ServiceError(
+          "forbidden",
+          "Enrollment authorization is invalid, expired, or not bound to this registration",
+        );
+      }
+
+      let verification;
+      try {
+        verification = await verifyRegistrationResponse({
+          response: input.response,
+          expectedChallenge: challenge,
+          expectedOrigin: this.rp.origins,
+          expectedRPID: this.rp.rpID,
+          requireUserVerification: this.rp.requireUserVerification,
+        });
+      } catch (e) {
+        throw new ServiceError("passkey_verification_failed", (e as Error).message);
+      }
+
+      if (!verification.verified || !verification.registrationInfo) {
+        throw new ServiceError("passkey_verification_failed", "Passkey registration could not be verified");
+      }
+
+      const { credential, aaguid } = verification.registrationInfo;
+      const credentialRow = {
+        id: randomUUID(),
+        userId: input.userId,
+        credentialId: credential.id,
+        publicKey: toBuffer(credential.publicKey),
+        counter: credential.counter,
+        transports: credential.transports?.join(",") ?? null,
+        aaguid: aaguid ?? null,
+        label: normalizePasskeyLabel(input.label),
+      };
+
+      const ok = await this.d.passkeyRepo.finalizeAuthorizedEnrollment({
+        challenge,
+        userId: input.userId,
+        enrollmentTokenHash: tokenHash,
+        registerChallengeId: stored.id,
+        credential: credentialRow,
+      });
+      if (!ok) {
+        throw new ServiceError(
+          "forbidden",
+          "Enrollment authorization is invalid, expired, or already used",
+        );
+      }
+      return { credentialId: credential.id };
+    }
+
+    // Bootstrap scopes: consume challenge then insert (no enrollment grant).
     const stored = await this.d.passkeyRepo.consumeChallenge(challenge, "register");
     if (!stored || stored.userId !== input.userId) {
       throw new ServiceError("challenge_invalid", "Registration challenge is invalid or expired");
@@ -252,9 +474,13 @@ export class PasskeyService {
     return { userId: cred.userId, session };
   }
 
+  private requiresEnrollmentAuthorization(scope: SessionScope): boolean {
+    return scope === "full" || !BOOTSTRAP_SCOPES.has(scope);
+  }
+
   private async storeChallenge(
     challenge: string,
-    purpose: "register" | "login",
+    purpose: ChallengePurpose,
     userId: string | null,
     emailCanonical: string | null,
   ): Promise<void> {

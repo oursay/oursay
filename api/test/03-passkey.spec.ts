@@ -33,10 +33,11 @@ describe("03 passkey: enroll, login, failures", () => {
       userId,
       userName: "passkey@example.com",
       userDisplayName: "Passkey User",
+      scope: "registration",
     });
     expect(regOptions.authenticatorSelection?.residentKey).to.equal("required");
     expect(regOptions.authenticatorSelection?.requireResidentKey).to.equal(true);
-    const reg = await w.services.passkeyService.registerVerify({ userId, response: auth.register(regOptions.challenge) });
+    const reg = await w.services.passkeyService.registerVerify({ userId, response: auth.register(regOptions.challenge), scope: "registration" });
     expect(reg.credentialId).to.be.a("string");
 
     const stored = await w.services.repos.passkey.getByCredentialId(reg.credentialId);
@@ -59,12 +60,12 @@ describe("03 passkey: enroll, login, failures", () => {
     const deviceB = newAuthenticator();
 
     // Device A enrolls.
-    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
-    await w.services.passkeyService.registerVerify({ userId, response: deviceA.register(optsA.challenge) });
+    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A", scope: "registration" });
+    await w.services.passkeyService.registerVerify({ userId, response: deviceA.register(optsA.challenge), scope: "registration" });
 
     // Device B enrolls a SECOND, independent credential for the same account.
-    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
-    const regB = await w.services.passkeyService.registerVerify({ userId, response: deviceB.register(optsB.challenge) });
+    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A", scope: "registration" });
+    const regB = await w.services.passkeyService.registerVerify({ userId, response: deviceB.register(optsB.challenge), scope: "registration" });
     expect(regB.credentialId).to.be.a("string");
 
     const stored = await w.services.repos.passkey.listByUserId(userId);
@@ -85,7 +86,7 @@ describe("03 passkey: enroll, login, failures", () => {
     const auth = newAuthenticator();
     const bogusChallenge = Buffer.from(randomBytes(32)).toString("base64url");
     await expectServiceError(
-      () => w.services.passkeyService.registerVerify({ userId, response: auth.register(bogusChallenge) }),
+      () => w.services.passkeyService.registerVerify({ userId, response: auth.register(bogusChallenge), scope: "registration" }),
       "challenge_invalid",
     );
   });
@@ -111,8 +112,8 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
   /** Enroll one passkey from a fresh authenticator and return its stored uuid `id`. */
   async function enroll(userId: string): Promise<string> {
     const auth = newAuthenticator();
-    const opts = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
-    const reg = await w.services.passkeyService.registerVerify({ userId, response: auth.register(opts.challenge) });
+    const opts = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A", scope: "registration" });
+    const reg = await w.services.passkeyService.registerVerify({ userId, response: auth.register(opts.challenge), scope: "registration" });
     const stored = await w.services.repos.passkey.getByCredentialId(reg.credentialId);
     return stored!.id;
   }
@@ -171,14 +172,14 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
   it("refuses to remove the passkey for the current session → 422", async () => {
     const userId = await makeUser(w, "@selfrevoke");
     const a = newAuthenticator();
-    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
-    const regA = await w.services.passkeyService.registerVerify({ userId, response: a.register(optsA.challenge) });
+    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A", scope: "registration" });
+    const regA = await w.services.passkeyService.registerVerify({ userId, response: a.register(optsA.challenge), scope: "registration" });
     const sessA = await w.services.passkeyService.loginVerify({
       response: a.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge),
     });
     const b = newAuthenticator();
-    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
-    await w.services.passkeyService.registerVerify({ userId, response: b.register(optsB.challenge) });
+    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A", scope: "registration" });
+    await w.services.passkeyService.registerVerify({ userId, response: b.register(optsB.challenge), scope: "registration" });
 
     const creds = await w.services.repos.passkey.listByUserId(userId);
     const aId = creds.find((c) => c.credentialId === regA.credentialId)!.id;
@@ -224,16 +225,16 @@ describe("03b passkey management: list + revoke (kick a device)", () => {
 
     // Device A: enroll + login → a session PAIRED to passkey A.
     const a = newAuthenticator();
-    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
-    const regA = await w.services.passkeyService.registerVerify({ userId, response: a.register(optsA.challenge) });
+    const optsA = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A", scope: "registration" });
+    const regA = await w.services.passkeyService.registerVerify({ userId, response: a.register(optsA.challenge), scope: "registration" });
     const sessA = await w.services.passkeyService.loginVerify({
       response: a.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge),
     });
 
     // Device B: enroll + login (a second passkey, so A isn't the last) → its own paired session.
     const b = newAuthenticator();
-    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A" });
-    await w.services.passkeyService.registerVerify({ userId, response: b.register(optsB.challenge) });
+    const optsB = await w.services.passkeyService.registerOptions({ userId, userName: "a@example.com", userDisplayName: "A", scope: "registration" });
+    await w.services.passkeyService.registerVerify({ userId, response: b.register(optsB.challenge), scope: "registration" });
     const sessB = await w.services.passkeyService.loginVerify({
       response: b.authenticate((await w.services.passkeyService.loginOptions({ emailRaw: null })).challenge),
     });

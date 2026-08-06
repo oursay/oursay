@@ -69,6 +69,15 @@ export const sessionConfig: SessionConfig = {
   cookieSecure: env("SESSION_COOKIE_SECURE", isProduction ? "true" : "false") === "true",
 };
 
+/** Short-lived grant minted after a fresh passkey assertion, required to add another passkey under a full session. */
+export interface EnrollAuthConfig {
+  ttlSec: number;
+}
+
+export const enrollAuthConfig: EnrollAuthConfig = {
+  ttlSec: Number(env("ENROLL_AUTH_TTL_SEC", "300")),
+};
+
 export interface OtpConfig {
   length: number;
   ttlSec: number;

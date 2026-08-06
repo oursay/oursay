@@ -102,6 +102,7 @@ describe("05 recovery: kyc_tier branch", () => {
       method: "POST",
       url: "/v1/auth/passkey/register/options",
       headers: { authorization: `Bearer ${result.session.token}` },
+      payload: {},
     });
     expect(enroll.statusCode).to.equal(403);
 
@@ -199,6 +200,7 @@ describe("05 recovery: kyc_tier branch", () => {
       method: "POST",
       url: "/v1/auth/passkey/register/options",
       headers: { authorization: `Bearer ${unlocked.passkeyReenroll.session.token}` },
+      payload: {},
     });
     expect(enroll.statusCode).to.equal(200);
   });
