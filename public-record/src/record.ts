@@ -129,6 +129,14 @@ export class RecordService {
     if (input.op === "create") {
       if (!input.type) throw new Error("prepareAppend: create requires a type");
       const entityId = input.entityId ?? randomUUID();
+      const existing = await this.store.getHeadTx(entityId);
+      if (existing) {
+        throw new Error(
+          existing.op === "delete"
+            ? "prepareAppend: entity already exists"
+            : "prepareAppend: entity already exists; use update",
+        );
+      }
       const r = await this.validateCreate({
         type: input.type,
         author: input.author,
@@ -278,6 +286,14 @@ export class RecordService {
 
     if (envelope.op === "create") {
       if (envelope.prevHash !== null) throw new Error("appendSigned: a create must have prevHash=null");
+      const existing = await this.store.getHeadTx(envelope.entityId);
+      if (existing) {
+        throw new Error(
+          existing.op === "delete"
+            ? "appendSigned: entity already exists"
+            : "appendSigned: entity already exists; use update",
+        );
+      }
       const r = await this.validateCreate({ type: envelope.type, author: envelope.authorPubkey, content, parent, entityId: envelope.entityId, jurisdictionId: tk.jurisdiction });
       if (tk.threadId !== r.rootEntityId) {
         throw new Error("appendSigned: thread key is not scoped to this action's root entity");
@@ -582,6 +598,14 @@ export class RecordService {
   }): Promise<Ref> {
     const { type, author } = input;
     const entityId = input.entityId ?? randomUUID();
+    const existingHead = await this.store.getHeadTx(entityId);
+    if (existingHead) {
+      throw new Error(
+        existingHead.op === "delete"
+          ? "create: entity already exists"
+          : "create: entity already exists; use update",
+      );
+    }
     const r = await this.validateCreate({ type, author, content: input.content, parent: input.parent, entityId });
 
     // Unsigned dev path keeps the legacy per-author-pubkey singleton check (the signed path uses the

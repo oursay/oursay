@@ -345,6 +345,70 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
     expect(await rejects(actMutation(mk.privKey, mk.threadPubkey, { op: "update", type: "post", entityId: postId, content: { title: "Test post", body: "hijack" } }))).to.equal(true);
   });
 
+  it("rejects a second create that reuses an existing entityId (C2 hijack)", async () => {
+    const alice = await newUser();
+    const postId = randomUUID();
+    const ak = await registerThread(alice, postId);
+    await act(alice, ak.privKey, ak.threadPubkey, {
+      type: "post",
+      entityId: postId,
+      content: { title: "Alice post", body: "original" },
+    });
+
+    // Mallory joins the same thread and tries a fresh create with Alice's entityId (prevHash=null).
+    // Bypass prepareAppend — an attacker signs their own envelope — to hit the appendSigned gate.
+    const mallory = await newUser();
+    const mk = await registerThread(mallory, postId);
+    const txId = randomUUID();
+    const salt = newSalt();
+    const hijackContent = { title: "Mallory post", body: "hijacked" };
+    const base: TxEnvelope = {
+      v: 1,
+      txId,
+      type: "post",
+      entityId: postId,
+      op: "create",
+      authorPubkey: "",
+      signature: "",
+      createdAt: new Date().toISOString(),
+      prevHash: null,
+      contentHash: contentCommitment({ id: txId, salt, content: hijackContent }),
+    };
+    const { envelope } = signEnvelope(base, mk.privKey);
+    let hijackMsg = "";
+    try {
+      await svc.appendSigned({ envelope, salt, content: hijackContent });
+    } catch (e) {
+      hijackMsg = (e as Error).message;
+    }
+    expect(hijackMsg).to.match(/entity already exists/);
+
+    const head = await store.getHeadTx(postId);
+    expect(head).to.not.equal(undefined);
+    expect(head!.authorPubkey).to.equal(ak.threadPubkey);
+    expect(head!.op).to.equal("create");
+
+    const state = await store.getEntityState(postId);
+    expect(state).to.not.equal(undefined);
+    expect(state!.authorPubkey).to.equal(ak.threadPubkey);
+    expect((state!.content as { body?: string }).body).to.equal("original");
+
+    const history = await store.getEntityHistory(postId);
+    expect(history.filter((tx) => tx.op === "create")).to.have.length(1);
+
+    // Alice retains authorship and can still update.
+    await actMutation(ak.privKey, ak.threadPubkey, {
+      op: "update",
+      type: "post",
+      entityId: postId,
+      content: { title: "Alice post", body: "still mine" },
+    });
+    const after = await store.getHeadTx(postId);
+    expect(after!.authorPubkey).to.equal(ak.threadPubkey);
+    expect(after!.op).to.equal("update");
+    expect((after!.content as { body?: string }).body).to.equal("still mine");
+  });
+
   it("freshness gate: accepts a fresh createdAt, rejects an expired one and excessive future skew", async () => {
     const NOW = Date.parse("2026-06-19T12:00:00.000Z");
     // a dedicated service with the gate ON (120s max age, 60s future skew) + an injected clock.

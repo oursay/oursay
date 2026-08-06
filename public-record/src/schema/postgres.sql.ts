@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS record_tx (
   erased_at             TIMESTAMPTZ
 );
 CREATE INDEX IF NOT EXISTS record_tx_entity_seq ON record_tx (entity_id, seq);
+-- One create per entity: prevents a second create from hijacking authorship/head (C2).
+CREATE UNIQUE INDEX IF NOT EXISTS record_tx_entity_one_create
+  ON record_tx (entity_id) WHERE op = 'create';
 CREATE INDEX IF NOT EXISTS record_tx_parent     ON record_tx (parent_id);
 CREATE INDEX IF NOT EXISTS record_tx_parent_rev ON record_tx (parent_revision_hash);
 CREATE INDEX IF NOT EXISTS record_tx_type       ON record_tx (type);

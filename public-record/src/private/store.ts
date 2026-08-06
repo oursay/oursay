@@ -344,6 +344,9 @@ export class PrivateStore {
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
+      if (isUniqueViolation(err) && uniqueViolationConstraint(err) === "record_tx_entity_one_create") {
+        throw new Error("append: entity already exists; use update");
+      }
       throw err;
     } finally {
       client.release();
@@ -1921,4 +1924,14 @@ function mapMentionMapRow(row: pg.QueryResultRow): MentionMapRow {
 /** Postgres unique_violation (23505) — partial unique races on related allocate. */
 function isUniqueViolation(err: unknown): boolean {
   return typeof err === "object" && err != null && (err as { code?: string }).code === "23505";
+}
+
+/** Constraint/index name on a unique_violation, from `constraint` or error text. */
+function uniqueViolationConstraint(err: unknown): string | undefined {
+  if (typeof err !== "object" || err == null) return undefined;
+  const named = (err as { constraint?: string }).constraint;
+  if (named) return named;
+  const msg = String((err as { message?: string }).message ?? err);
+  const m = /unique constraint "([^"]+)"|Key \([^)]+\)=.* violates unique constraint "([^"]+)"|duplicate key value violates unique constraint "([^"]+)"/i.exec(msg);
+  return m?.[1] ?? m?.[2] ?? m?.[3];
 }
