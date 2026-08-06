@@ -65,21 +65,71 @@ describe("resolveEntityMarks", () => {
 });
 
 describe("applyMarkModes / authorBadgeModes", () => {
-  it("post surface: signed icon, others full", () => {
-    const modes = authorBadgeModes("post");
-    expect(modes).toEqual({ signedMode: "icon", kycMode: "full" });
-    const applied = applyMarkModes(
-      resolveEntityMarks({ signTier: 1, tier: 1, official: true }),
-      modes,
-    );
-    expect(applied.map((m) => m.mode)).toEqual(["icon", "full", "full"]);
-  });
-
-  it("root comment: signed full, others icon", () => {
+  it("authorBadgeModes still encodes surface defaults (call-site hints)", () => {
+    expect(authorBadgeModes("post")).toEqual({ signedMode: "icon", kycMode: "full" });
     expect(authorBadgeModes("comment", 1)).toEqual({
       signedMode: "full",
       kycMode: "icon",
     });
+  });
+
+  it("interim: < 3 marks → all full (overrides surface modes)", () => {
+    const applied = applyMarkModes(
+      resolveEntityMarks({ signTier: 1, tier: 1 }),
+      authorBadgeModes("post"),
+    );
+    expect(applied.map((m) => [m.spec.type, m.mode])).toEqual([
+      ["signing", "full"],
+      ["kyc", "full"],
+    ]);
+  });
+
+  it("interim: ≥ 3 expands only highest of official > media > platform", () => {
+    const officialWins = applyMarkModes(
+      resolveEntityMarks({
+        signTier: 1,
+        official: true,
+        media: true,
+        platformRole: "admin",
+        tier: 2,
+      }),
+    );
+    expect(officialWins.map((m) => [m.spec.type, m.mode])).toEqual([
+      ["signing", "icon"],
+      ["official", "full"],
+      ["media", "icon"],
+      ["platform", "icon"],
+      ["kyc", "icon"],
+    ]);
+
+    // whyte_public-style: media + platform, no seat → Journalist expanded
+    const mediaWins = applyMarkModes(
+      resolveEntityMarks({
+        signTier: 1,
+        media: true,
+        platformRole: "admin",
+        tier: 1,
+      }),
+    );
+    expect(mediaWins.map((m) => [m.spec.type, m.mode])).toEqual([
+      ["signing", "icon"],
+      ["media", "full"],
+      ["platform", "icon"],
+      ["kyc", "icon"],
+    ]);
+
+    const platformOnly = applyMarkModes(
+      resolveEntityMarks({
+        signTier: 1,
+        platformRole: "admin",
+        tier: 1,
+      }),
+    );
+    expect(platformOnly.map((m) => [m.spec.type, m.mode])).toEqual([
+      ["signing", "icon"],
+      ["platform", "full"],
+      ["kyc", "icon"],
+    ]);
   });
 });
 

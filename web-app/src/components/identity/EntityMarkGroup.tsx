@@ -10,7 +10,11 @@ import { EntityMark, type EntityMarkSpec } from "./EntityMark";
 
 export type BadgeSurface = "post" | "comment";
 
-/** Depth-aware pill modes per DESIGN-DECISIONS §2 / product table. */
+/**
+ * Surface/depth mode hints (DESIGN-DECISIONS §2). Call sites still pass these
+ * into EntityMarkGroup; {@link applyMarkModes} currently overrides them with
+ * interim collapse.
+ */
 export function authorBadgeModes(
   surface: BadgeSurface,
   depth = 1,
@@ -68,9 +72,7 @@ function residencyContext(
  * Selection + order only (most → least important, left → right):
  * Signed → Official → Media → Platform → KYC.
  *
- * TODO(mark-collapse): when visible marks > 3, force all to icon mode; then
- * hide from right to left (KYC → Platform → Media → Official → Signed) as
- * space tightens. Order above is priority for keep.
+ * Display modes / collapse live in {@link applyMarkModes}.
  */
 export function resolveEntityMarks(input: ResolveEntityMarksInput): EntityMarkSpec[] {
   const marks: EntityMarkSpec[] = [];
@@ -112,14 +114,44 @@ export function resolveEntityMarks(input: ResolveEntityMarksInput): EntityMarkSp
   return marks;
 }
 
-/** Apply surface/depth modes: signing uses signedMode; all others use kycMode. */
+/**
+ * Role marks eligible for a single full expansion when the row is crowded.
+ * Priority (most → least): official → media → platform.
+ */
+const ROLE_EXPAND_PRIORITY = ["official", "media", "platform"] as const;
+
+function pickExpandedRole(
+  marks: EntityMarkSpec[],
+): (typeof ROLE_EXPAND_PRIORITY)[number] | null {
+  for (const type of ROLE_EXPAND_PRIORITY) {
+    if (marks.some((m) => m.type === type)) return type;
+  }
+  return null;
+}
+
+/**
+ * Interim mark-collapse modes (overrides surface signedMode/kycMode):
+ * - fewer than 3 marks → all `full`
+ * - 3 or more → only the highest present of official → media → platform is
+ *   `full`; everything else is `icon`
+ *
+ * TODO(mark-collapse): if more mark types land and icons still overflow,
+ * start dropping icons right → left (KYC → Platform → Media → Official →
+ * Signed). Display order above remains keep-priority.
+ */
 export function applyMarkModes(
   marks: EntityMarkSpec[],
-  modes: { signedMode: PillDisplayMode; kycMode: PillDisplayMode },
+  // Kept for call-site compatibility; interim collapse owns modes.
+  _modes?: { signedMode: PillDisplayMode; kycMode: PillDisplayMode },
 ): MarkWithMode[] {
+  void _modes;
+  if (marks.length < 3) {
+    return marks.map((spec) => ({ spec, mode: "full" }));
+  }
+  const expanded = pickExpandedRole(marks);
   return marks.map((spec) => ({
     spec,
-    mode: spec.type === "signing" ? modes.signedMode : modes.kycMode,
+    mode: expanded && spec.type === expanded ? "full" : "icon",
   }));
 }
 

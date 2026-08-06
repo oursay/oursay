@@ -27,7 +27,7 @@ Each folder has a barrel `index.ts`; the top-level [`index.ts`](index.ts) re-exp
 ## Domain rules encoded here
 
 - **Entity marks** — `EntityMark` paints one mark; `EntityMarkGroup` owns selection + modes. Order (most → least important): Signed → Official → Media (reserved) → Platform → KYC. Official comes from `official: boolean` (role), never from KYC `tier`. KYC is `0|1|2` only. Prefer `EntityMarkGroup`; `AuthorBadgeGroup` is a thin convenience shim.
-- **Collapse (deferred)** — TODO(mark-collapse): when marks > 3, force icons; then hide right-to-left (KYC → Platform → Media → Official → Signed).
+- **Collapse (interim)** — `< 3` marks → all full; `≥ 3` → expand only highest of official → media → platform (rest icon). TODO(mark-collapse): if icons still overflow after more mark types, drop right-to-left (KYC → Platform → Media → Official → Signed).
 - **EntityHeader (deferred)** — TODO(entity-header): rename `AuthorRow` when chrome + marks consolidate.
 - **Residency glyph ladder** — residency KYC mark refines by server-resolved `authorGeo`: `myDistrict` / `affected` / `jurisdiction` / none. Raw districts never reach the client.
 - **Inclusive Verified filter** — `FilterDropdown` cycles Any → Identity → Residency → Official. Official step is a role check (`VerifiedFilterLevel` 3), not a KYC tier. My Districts needs a residency-verified viewer; Affected (post pages) and My Jurisdiction(s) (author-residence, all list scopes) are viewer-independent. An engaged geography "Only" pins the effective Verified floor to Residency.
