@@ -33,15 +33,15 @@
 // public-record), so it bundles for the browser cleanly. In Node the constructor throws (no `navigator`).
 
 import { hkdf } from "@noble/hashes/hkdf";
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import {
   encodeEntityIdForDisplay,
   formatThreadPasskeyDisplayName,
   formatThreadPasskeyUserName,
 } from "@oursay/encode";
-import { p256 } from "@noble/curves/p256";
-import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import { p256 } from "@noble/curves/nist";
+import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/utils";
 import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
 import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
 import type { CustodyUnlockSource } from "./custody-binding.js";
@@ -56,7 +56,7 @@ const ACCOUNT_DEVICE_ID = "account";
 
 function p256PrivFrom(ikm: Uint8Array, info: string): Uint8Array {
   const okm = hkdf(sha256, ikm, utf8ToBytes("oursay/dev/p256"), utf8ToBytes(info), 48);
-  const n = p256.CURVE.n;
+  const n = p256.Point.CURVE().n;
   return numberToBytesBE((bytesToNumberBE(okm) % (n - 1n)) + 1n, 32);
 }
 function root32(ikm: Uint8Array, salt: string, info: string): Uint8Array {
@@ -77,7 +77,7 @@ function b64u(buf: ArrayBuffer | Uint8Array): string {
 function spkiToCompressedSec1(spki: Uint8Array): string {
   const point = spki.slice(spki.length - 65);
   if (point[0] !== 0x04) throw new Error("unexpected SPKI encoding (not an uncompressed P-256 point)");
-  return p256.ProjectivePoint.fromHex(bytesToHex(point)).toHex(true);
+  return p256.Point.fromHex(bytesToHex(point)).toHex(true);
 }
 
 export interface WebPasskeyOptions {

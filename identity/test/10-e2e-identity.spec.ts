@@ -12,7 +12,7 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { bytesToHex } from "@noble/hashes/utils";
 import {
   BlockSettler,
@@ -33,7 +33,7 @@ import type { Intent, ThreadRef } from "../src/shared/types.js";
 process.env.OURSAY_DEV_PASSKEY = "1";
 
 describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-record (mvp-a5b)", () => {
-  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const platformPriv = bytesToHex(p256.utils.randomSecretKey());
   const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
 
@@ -59,11 +59,11 @@ describe("10 e2e: DevPasskeyConnector → IdentityRegistry against real public-r
     chainId = randomUUID();
     ledger = new LedgerInstance();
     connector = await ledger.createDatabaseFor(chainId).then(() => ledger!.getConnector(chainId!));
-    const svc = new RecordService(new PublicChain(store, chainId, connector), store, {
+    const svc = new RecordService(new PublicChain(store, chainId, connector!), store, {
       platformBindingPrivKeyHex: platformPriv,
       signedEnvelopeMaxAgeSec: 0,
     });
-    settler = new BlockSettler(store, connector, chainId, blockConfig);
+    settler = new BlockSettler(store, connector!, chainId, blockConfig);
     registry = new IdentityRegistry({ store, svc, platformBindingPrivKeyHex: platformPriv });
 
     devDir = mkdtempSync(join(tmpdir(), "oursay-e2e-"));

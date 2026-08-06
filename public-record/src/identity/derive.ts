@@ -7,10 +7,10 @@
 // platform only ever sees the public thread key.
 
 import { hkdf } from "@noble/hashes/hkdf";
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
-import { p256 } from "@noble/curves/p256";
-import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import { p256 } from "@noble/curves/nist";
+import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/utils";
 
 /** Fixed application salt for HKDF (separates this KDF use from any other in the protocol). */
 const DERIVE_SALT = utf8ToBytes("oursay/v1/thread-derive");
@@ -37,7 +37,7 @@ export interface DeriveInput {
  */
 export function deriveThreadPrivateKey(input: DeriveInput): Uint8Array {
   const okm = hkdf(sha256, input.jurisdictionMaster, DERIVE_SALT, threadDomainInfo(input.threadId, input.jurisdiction), 48);
-  const n = p256.CURVE.n;
+  const n = p256.Point.CURVE().n;
   const scalar = (bytesToNumberBE(okm) % (n - 1n)) + 1n;
   return numberToBytesBE(scalar, 32);
 }

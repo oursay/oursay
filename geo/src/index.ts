@@ -29,6 +29,14 @@ export type {
 } from "./ingest/source.js";
 
 export {
+  AB_CA_GOV_BOUNDARY_SETS,
+  boundarySetsFor,
+  latestBoundarySet,
+  resolveBoundarySet,
+} from "./ingest/boundary-sets.js";
+export type { BoundarySetMeta } from "./ingest/boundary-sets.js";
+
+export {
   ingestOfficialSeats,
   materializeOfficialSeats,
   loadOfficialSeatCatalog,

@@ -13,10 +13,10 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
 import { hkdf } from "@noble/hashes/hkdf";
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, hexToBytes, randomBytes, utf8ToBytes } from "@noble/hashes/utils";
-import { p256 } from "@noble/curves/p256";
-import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import { p256 } from "@noble/curves/nist";
+import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/utils";
 import { buildWebauthnAssertion, credentialPubkeyHex } from "@oursay/public-record/identity/webauthn";
 import type { WebauthnAssertion } from "@oursay/public-record/schema/types";
 import type { DeviceCredential, PasskeyConnector, UnlockedSession } from "./connector.js";
@@ -31,7 +31,7 @@ const ENV_FLAG = "OURSAY_DEV_PASSKEY";
 /** HKDF-Expand to a valid P-256 private scalar in [1, n-1] (same pinned mapping as derive.ts). */
 function p256PrivFrom(ikm: Uint8Array, info: string): Uint8Array {
   const okm = hkdf(sha256, ikm, utf8ToBytes("oursay/dev/p256"), utf8ToBytes(info), 48);
-  const n = p256.CURVE.n;
+  const n = p256.Point.CURVE().n;
   return numberToBytesBE((bytesToNumberBE(okm) % (n - 1n)) + 1n, 32);
 }
 

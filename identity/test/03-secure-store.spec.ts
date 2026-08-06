@@ -9,10 +9,10 @@
 
 import { expect } from "chai";
 import { hkdf } from "@noble/hashes/hkdf";
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
-import { p256 } from "@noble/curves/p256";
-import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import { p256 } from "@noble/curves/nist";
+import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/utils";
 import { verifyEnvelope } from "@oursay/public-record/identity/envelope";
 import { buildWebauthnAssertion, credentialPubkeyHex } from "@oursay/public-record/identity/webauthn";
 import { WebCryptoMasterStore, MemoryKeyStore, IdentitySession } from "@oursay/identity/client";
@@ -23,7 +23,7 @@ import type { Intent, PreparedAppend, ThreadRef } from "@oursay/identity";
 const root32 = (ikm: Uint8Array, salt: string, info: string) => hkdf(sha256, ikm, utf8ToBytes(salt), utf8ToBytes(info), 32);
 function p256PrivFrom(ikm: Uint8Array, info: string): Uint8Array {
   const okm = hkdf(sha256, ikm, utf8ToBytes("oursay/dev/p256"), utf8ToBytes(info), 48);
-  const n = p256.CURVE.n;
+  const n = p256.Point.CURVE().n;
   return numberToBytesBE((bytesToNumberBE(okm) % (n - 1n)) + 1n, 32);
 }
 

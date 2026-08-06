@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { randomUUID } from "node:crypto";
-import { p256 } from "@noble/curves/p256";
-import { sha256 } from "@noble/hashes/sha256";
+import { p256 } from "@noble/curves/nist";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, concatBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { contentCommitment, newSalt } from "../src/crypto/commitment.js";
 import { deriveNullifierSecret, threadNullifier } from "../src/identity/nullifier.js";
@@ -54,16 +54,16 @@ function signWebauthn(base: TxEnvelope, credPriv: Uint8Array): TxEnvelope {
 
 describe("17 webauthn signing — verifier, policy (pure)", () => {
   it("verifies a valid webauthn-es256 envelope (persona/signer split): assertion ↔ signerPubkey", () => {
-    const personaPriv = p256.utils.randomPrivateKey();
-    const signerPriv = p256.utils.randomPrivateKey();
+    const personaPriv = p256.utils.randomSecretKey();
+    const signerPriv = p256.utils.randomSecretKey();
     const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
     expect(verifyWebauthnAssertion(env)).to.equal(true);
     expect(verifyEnvelope(env)).to.equal(true);
   });
 
   it("returns false (not throws) when signerPubkey is missing from a webauthn envelope", () => {
-    const signerPriv = p256.utils.randomPrivateKey();
-    const env = signWebauthn(voteBase(credentialPubkeyHex(p256.utils.randomPrivateKey()), credentialPubkeyHex(signerPriv)), signerPriv);
+    const signerPriv = p256.utils.randomSecretKey();
+    const env = signWebauthn(voteBase(credentialPubkeyHex(p256.utils.randomSecretKey()), credentialPubkeyHex(signerPriv)), signerPriv);
     const { signerPubkey: _drop, ...withoutSigner } = env;
     void _drop;
     expect(verifyWebauthnAssertion(withoutSigner as TxEnvelope)).to.equal(false);
@@ -71,25 +71,25 @@ describe("17 webauthn signing — verifier, policy (pure)", () => {
   });
 
   it("rejects a tampered envelope (challenge no longer matches the assertion)", () => {
-    const personaPriv = p256.utils.randomPrivateKey();
-    const signerPriv = p256.utils.randomPrivateKey();
+    const personaPriv = p256.utils.randomSecretKey();
+    const signerPriv = p256.utils.randomSecretKey();
     const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
     expect(verifyEnvelope({ ...env, contentHash: "deadbeef" })).to.equal(false);
     expect(verifyEnvelope({ ...env, createdAt: new Date(Date.now() + 1000).toISOString() })).to.equal(false);
   });
 
   it("rejects a swapped signerPubkey (sig won't verify against the substituted key)", () => {
-    const personaPriv = p256.utils.randomPrivateKey();
-    const signerPriv = p256.utils.randomPrivateKey();
+    const personaPriv = p256.utils.randomSecretKey();
+    const signerPriv = p256.utils.randomSecretKey();
     const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
-    expect(verifyEnvelope({ ...env, signerPubkey: credentialPubkeyHex(p256.utils.randomPrivateKey()) })).to.equal(false);
+    expect(verifyEnvelope({ ...env, signerPubkey: credentialPubkeyHex(p256.utils.randomSecretKey()) })).to.equal(false);
   });
 
   it("accepts when authorPubkey (Pₜ) differs from signerPubkey (device key)", () => {
     // The whole point of mvp-a5b: Pₜ on the record, device key signs. Crypto branch is happy when the
     // assertion verifies against signerPubkey; persona binding is enforced by the engine, not here.
-    const personaPriv = p256.utils.randomPrivateKey();
-    const signerPriv = p256.utils.randomPrivateKey();
+    const personaPriv = p256.utils.randomSecretKey();
+    const signerPriv = p256.utils.randomSecretKey();
     const personaPubkey = credentialPubkeyHex(personaPriv);
     const signerPubkey = credentialPubkeyHex(signerPriv);
     expect(personaPubkey).to.not.equal(signerPubkey);
@@ -98,7 +98,7 @@ describe("17 webauthn signing — verifier, policy (pure)", () => {
   });
 
   it("rejects when user-verification (UV) was not performed", () => {
-    const signerPriv = p256.utils.randomPrivateKey();
+    const signerPriv = p256.utils.randomSecretKey();
     const base = voteBase(credentialPubkeyHex(p256.utils.randomPrivateKey()), credentialPubkeyHex(signerPriv));
     const challenge = signingDigest(base);
     // Hand-build an assertion with UP set but UV CLEARED (flags = 0x01), validly signed.
@@ -110,22 +110,22 @@ describe("17 webauthn signing — verifier, policy (pure)", () => {
       webauthn: {
         authenticatorData: base64urlEncode(authData),
         clientDataJSON: base64urlEncode(clientDataBytes),
-        signature: base64urlEncode(sig.toDERRawBytes()),
+        signature: base64urlEncode(sig.toBytes('der')),
       },
     };
     expect(verifyEnvelope(env)).to.equal(false);
   });
 
   it("rejects a mutated authenticatorData (signature no longer valid)", () => {
-    const personaPriv = p256.utils.randomPrivateKey();
-    const signerPriv = p256.utils.randomPrivateKey();
+    const personaPriv = p256.utils.randomSecretKey();
+    const signerPriv = p256.utils.randomSecretKey();
     const env = signWebauthn(voteBase(credentialPubkeyHex(personaPriv), credentialPubkeyHex(signerPriv)), signerPriv);
     const bad = base64urlEncode(Uint8Array.from([1, 2, 3])); // junk authData
     expect(verifyEnvelope({ ...env, webauthn: { ...env.webauthn!, authenticatorData: bad } })).to.equal(false);
   });
 
   it("still verifies a legacy p256 envelope (scheme absent ⇒ p256)", () => {
-    const priv = p256.utils.randomPrivateKey();
+    const priv = p256.utils.randomSecretKey();
     const base: TxEnvelope = { ...voteBase("", ""), type: "comment", signScheme: undefined, parentType: "post", signerPubkey: undefined };
     const { envelope } = signEnvelope(base, priv);
     expect(envelope.signScheme).to.equal(undefined);
@@ -161,7 +161,7 @@ describe("17 webauthn signing — verifier, policy (pure)", () => {
 });
 
 describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () => {
-  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const platformPriv = bytesToHex(p256.utils.randomSecretKey());
   const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
 
@@ -189,7 +189,7 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
   async function newUser(): Promise<U> {
     const userId = randomUUID();
     await store.putUser({ id: userId });
-    const lm = p256.utils.randomPrivateKey();
+    const lm = p256.utils.randomSecretKey();
     await store.putJurisdictionMaster({ userId, jurisdiction, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
     return { userId, lm, nsecret: deriveNullifierSecret(lm, jurisdiction) };
   }
@@ -202,7 +202,7 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
 
   /** Two-phase join: ensureThreadPersona (first-wins Pₜ) + registerDeviceCredential (this signer). */
   async function joinDevice(u: U, rootId: string, opts: { signerPriv?: Uint8Array } = {}): Promise<JoinResult> {
-    const signerPriv = opts.signerPriv ?? p256.utils.randomPrivateKey();
+    const signerPriv = opts.signerPriv ?? p256.utils.randomSecretKey();
     const signerPubkey = credentialPubkeyHex(signerPriv);
     // Build a commitment for this user×thread. Same opening across devices → same commitment.
     const saltT = bytesToHex(sha256(utf8ToBytes(`${u.userId}|${rootId}`))); // deterministic 32-byte hex per (user, thread)
@@ -317,7 +317,7 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
           userId: u.userId,
           threadId,
           jurisdiction,
-          proposedPubkey: credentialPubkeyHex(p256.utils.randomPrivateKey()),
+          proposedPubkey: credentialPubkeyHex(p256.utils.randomSecretKey()),
           commitment: "f".repeat(64),
           kycTier,
           signBinding: () => "00".repeat(64),
@@ -342,7 +342,7 @@ describe("17 webauthn signing — appendSigned (persona/signer split, DB)", () =
   });
 
   it("rejects a p256-scheme vote (jurisdiction policy hard-requires webauthn-es256)", async () => {
-    const priv = p256.utils.randomPrivateKey();
+    const priv = p256.utils.randomSecretKey();
     const txId = randomUUID();
     const salt = newSalt();
     const base: TxEnvelope = {

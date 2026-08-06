@@ -2,7 +2,7 @@
 
 import { expect } from "chai";
 import { randomUUID } from "node:crypto";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { bytesToHex } from "@noble/hashes/utils";
 import { newSalt } from "../src/crypto/commitment.js";
 import { buildThreadBindingInputs } from "../src/identity/binding.js";
@@ -14,7 +14,7 @@ import { jurisdictionMaster } from "./fixtures/identity-vectors.js";
 
 describe("20 persona mint: clash with users.handle widens digits", () => {
   let w: World;
-  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const platformPriv = bytesToHex(p256.utils.randomSecretKey());
   const jurisdiction = "oursay-global";
 
   before(async () => {

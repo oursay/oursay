@@ -3,8 +3,8 @@
 // envelope as author. Reuses PLATFORM_BINDING_PRIVKEY by default (documented blast radius — a future
 // PLATFORM_OPS_PRIVKEY can split purpose). Mirror the pure style of platform-binding.ts.
 
-import { p256 } from "@noble/curves/p256";
-import { sha256 } from "@noble/hashes/sha256";
+import { p256 } from "@noble/curves/nist";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { canonicalJson, contentCommitment, newSalt } from "../crypto/commitment.js";
 import { signEnvelope } from "./envelope.js";

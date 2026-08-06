@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect } from "chai";
 import { p256 } from "@noble/curves/nist";
 import { bytesToHex } from "@noble/hashes/utils";
+import type { BoundarySource, RawDistrict } from "@oursay/geo";
 import { jurisdictions } from "@oursay/jurisdiction-data";
 import {
   buildPlatformOpsAdminAttestationP256,
@@ -11,6 +15,12 @@ import {
   registerJurisdiction,
   sha256Hex,
 } from "@oursay/public-record";
+import {
+  applyDistrictSource,
+  applyJurisdictionConfigs,
+  applyOfficialSeats,
+  verifyJurisdictionAudit,
+} from "../scripts/lib/audited-ingest.js";
 import { makeAccount } from "./helpers/account.js";
 import { resetWorld, type World } from "./helpers/world.js";
 
@@ -208,5 +218,84 @@ describe("47 jurisdiction actions audit", () => {
     });
     expect(explorer.statusCode).to.equal(200, explorer.body);
     expect((explorer.json() as { type: string }).type).to.equal("platform_ops");
+  });
+
+  it("audited-ingest helper applies config/district/seat and verify summary links them", async () => {
+    const admin = await makeAdminSigner(w, "audit_helper_admin");
+    const ops = { userId: admin.userId, handle: "audit_helper_admin", pubkeyHex: "", privKeyHex: admin.privKeyHex };
+    const config = {
+      id: "ab-ca-gov",
+      level: "provincial",
+      label: "Helper Alberta",
+      rules: { allowChange: false },
+    };
+    const first = await applyJurisdictionConfigs(w.services, ops, [config], () => undefined);
+    expect(first.changed).to.equal(1);
+    const second = await applyJurisdictionConfigs(w.services, ops, [config], () => undefined);
+    expect(second.changed).to.equal(0);
+    expect(second.skipped).to.equal(1);
+
+    const geometry = {
+      type: "Polygon" as const,
+      coordinates: [[[-114, 53], [-113, 53], [-113, 54], [-114, 53]]],
+    };
+    const source: BoundarySource = {
+      sourceId: "audit/helper",
+      jurisdictionId: "ab-ca-gov",
+      effectiveDate: "2026-06-01",
+      boundaryYear: 2026,
+      srid: 4326,
+      async *read(): AsyncIterable<RawDistrict> {
+        yield {
+          name: "Helper District",
+          sourceRef: "H-1",
+          geometryGeoJSON: geometry,
+        };
+      },
+    };
+    const districts = await applyDistrictSource(w.services, ops, source, () => undefined);
+    expect(districts.changed).to.equal(1);
+    expect((await applyDistrictSource(w.services, ops, source, () => undefined)).skipped).to.equal(1);
+
+    const catalogPath = join(tmpdir(), `oursay-audit-seats-${randomUUID()}.json`);
+    writeFileSync(
+      catalogPath,
+      JSON.stringify({ jurisdictionId: "ab-ca-gov", seats: [] }),
+      "utf8",
+    );
+    const seats = await applyOfficialSeats(
+      w.services,
+      ops,
+      {
+        jurisdictionId: "ab-ca-gov",
+        effectiveDate: "2026-06-01",
+        boundaryYear: 2026,
+        catalogPath,
+        extraSeats: [
+          {
+            seatHandle: "ab-helper-seat",
+            seatKind: "district_mla",
+            jurisdictionId: "ab-ca-gov",
+            jurisdictionShortSlug: "ab",
+            title: "District MLA",
+            name: "Helper MLA",
+            role: "MLA · Helper District",
+            districtSlug: "helper-district",
+            districtShortSlug: "helper",
+            source: "audit fixture",
+          },
+        ],
+      },
+      () => undefined,
+    );
+    expect(seats.changed).to.equal(1);
+    expect(seats.total).to.equal(1);
+
+    const summary = await verifyJurisdictionAudit(w.services, "ab-ca-gov");
+    expect(summary.config.present).to.equal(true);
+    expect(summary.config.sourceTxId).to.be.a("string");
+    expect(summary.districts.total).to.be.greaterThan(0);
+    expect(summary.districts.withAuditLink).to.equal(summary.districts.total);
+    expect(summary.seats.withAuditLink).to.equal(summary.seats.total);
   });
 });

@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { randomBytes, randomUUID } from "node:crypto";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { bytesToHex } from "@noble/hashes/utils";
 import { blockConfig } from "../src/config.js";
 import { contentCommitment, newSalt } from "../src/crypto/commitment.js";
@@ -27,7 +27,7 @@ import { getWorld, reclaimChains, rejects } from "./helpers/world.js";
  * ruled out). The reserved ZK `proof` slot is rejected until Method 4 is built.
  */
 describe("14 device signing: multi-device, cross-device edit, thread-scoped signers", () => {
-  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const platformPriv = bytesToHex(p256.utils.randomSecretKey());
   const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
 
@@ -62,7 +62,7 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
   async function newUser(): Promise<U> {
     const userId = randomUUID();
     await store.putUser({ id: userId });
-    const lm = p256.utils.randomPrivateKey();
+    const lm = p256.utils.randomSecretKey();
     await store.putJurisdictionMaster({ userId, jurisdiction, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
     // The per-(user, jurisdiction) nullifier root: one secret shared across the user's devices (§5.4).
     return { userId, lm, nroot: deriveNullifierSecret(lm, jurisdiction) };
@@ -82,7 +82,7 @@ describe("14 device signing: multi-device, cross-device edit, thread-scoped sign
   /** Enrol a hardware-backed device key for a user (PUBLIC, account-level — never on an envelope). */
   async function enrollDevice(u: U): Promise<Device> {
     const root = randomBytes(32); // the on-device signer root (IKM)
-    const devicePubkey = bytesToHex(p256.getPublicKey(p256.utils.randomPrivateKey())); // account-level pubkey
+    const devicePubkey = bytesToHex(p256.getPublicKey(p256.utils.randomSecretKey())); // account-level pubkey
     const deviceId = await store.enrollDeviceKey({ userId: u.userId, devicePubkey });
     return { deviceId, root, devicePubkey };
   }

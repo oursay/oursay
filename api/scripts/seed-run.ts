@@ -4,104 +4,20 @@
 
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  materializeDistricts,
-  materializeOfficialSeats,
-  oursayGlobalPlatformSeat,
-  ShapefileSource,
-  paths,
-} from "@oursay/geo";
+import { resolveBoundarySet } from "@oursay/geo";
 import { jurisdictions } from "@oursay/jurisdiction-data";
-import { canonicalJson, registerJurisdiction, sha256Hex } from "@oursay/public-record";
+import { registerJurisdiction } from "@oursay/public-record";
 import { DEV_STRATHCONA_ADDRESS, SHOWCASE_BINDINGS, seedUuid } from "./seed-data/content.js";
 import { SEED_ADMIN_HANDLE } from "./seed-data/people.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
 import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
 import { ensureOpsServiceAccount } from "../src/helpers/ops-account.js";
+import { ingestAuditedJurisdictionData } from "./lib/audited-ingest.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
 
 const DEV_DIR = join(process.cwd(), ".oursay-dev");
 const MANIFEST_PATH = join(DEV_DIR, "seed-manifest.json");
-
-function alberta2019Source(): ShapefileSource {
-  const shpPath = join(
-    paths.repoRoot,
-    "jurisdiction-data",
-    "ab-ca-gov",
-    "districts",
-    "ElectionsAlberta",
-    "2019",
-    "EDS_ENACTED_BILL33_15DEC2017.shp",
-  );
-  return new ShapefileSource({
-    sourceId: "seed/ElectionsAlberta/EDS_ENACTED_BILL33_15DEC2017",
-    jurisdictionId: "ab-ca-gov",
-    effectiveDate: "2019-04-16",
-    drawnDate: "2017-12-15",
-    boundaryYear: 2019,
-    srid: 3401,
-    shpPath,
-    fieldMap: { name: "EDName2017", ref: "EDNumber20" },
-  });
-}
-
-async function ingestAuditedJurisdictionData(
-  world: Awaited<ReturnType<typeof buildSeedWorld>>,
-  ops: { userId: string; privKeyHex: string },
-): Promise<void> {
-  for (const config of jurisdictions) {
-    await world.services.platformOpsService.submitWithOpsSoftKeyIfChanged({
-      opsUserId: ops.userId,
-      kind: "jurisdiction_config_set",
-      jurisdictionId: config.id,
-      payload: { config },
-      opsPrivKeyHex: ops.privKeyHex,
-    });
-  }
-
-  console.log("Ingesting Alberta 2019 districts…");
-  const districts = await materializeDistricts(world.services.geoStore, alberta2019Source());
-  for (const district of districts) {
-    const geometrySha256 = sha256Hex(canonicalJson(district.geometryGeoJSON));
-    await world.services.platformOpsService.submitWithOpsSoftKeyIfChanged({
-      opsUserId: ops.userId,
-      kind: "district_upsert",
-      jurisdictionId: district.jurisdictionId,
-      payload: { district: { ...district, geometrySha256 } },
-      opsPrivKeyHex: ops.privKeyHex,
-    });
-  }
-  console.log(`  → ${districts.length} districts`);
-
-  const abSeats = await materializeOfficialSeats(
-    {
-      jurisdictionId: "ab-ca-gov",
-      effectiveDate: "2019-04-16",
-      boundaryYear: 2019,
-    },
-    paths.repoRoot,
-  );
-  const globalSeats = await materializeOfficialSeats(
-    {
-      jurisdictionId: "oursay-global",
-      effectiveDate: "2019-04-16",
-      boundaryYear: 2019,
-      extraSeats: [oursayGlobalPlatformSeat()],
-    },
-    paths.repoRoot,
-  );
-  for (const seat of [...abSeats, ...globalSeats]) {
-    await world.services.platformOpsService.submitWithOpsSoftKeyIfChanged({
-      opsUserId: ops.userId,
-      kind: "official_seat_upsert",
-      jurisdictionId: seat.jurisdictionId,
-      payload: { seat },
-      opsPrivKeyHex: ops.privKeyHex,
-    });
-  }
-  console.log(`  → ${abSeats.length + globalSeats.length} official seats`);
-}
 
 async function main(): Promise<void> {
   console.log("\n=== OurSay dev seed ===\n");
@@ -142,7 +58,11 @@ async function main(): Promise<void> {
     // Idempotent re-seed: body may already exist.
   }
 
-  await ingestAuditedJurisdictionData(world, ops);
+  await ingestAuditedJurisdictionData(world.services, ops, {
+    configs: [...jurisdictions],
+    // Seed keeps the 2019 Bill-33 set for stable showcase district ids/slugs.
+    districtSource: resolveBoundarySet("ab-ca-gov", "2019").build(),
+  });
 
   const { people, posts, members } = await runSeedOrchestrator(world, defaultSeedRng);
 

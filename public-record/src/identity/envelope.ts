@@ -10,9 +10,9 @@
 // This module is browser-safe: it imports txHashOf from the pure leaf module ../crypto/txhash.js (not
 // ../ledger/chain.js), so it carries no config/dotenv/node dependency and bundles for the browser.
 
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { canonicalJson } from "../crypto/commitment.js";
 import { txHashOf } from "../crypto/txhash.js";
 import { verifyWebauthnAssertion } from "./webauthn.js";
@@ -49,7 +49,7 @@ export function signEnvelope(env: TxEnvelope, privKey: Uint8Array): SignResult {
   const threadPubkey = bytesToHex(p256.getPublicKey(privKey));
   const base: TxEnvelope = { ...env, authorPubkey: threadPubkey, signature: UNSIGNED };
   const sig = p256.sign(signingDigest(base), privKey);
-  const envelope: TxEnvelope = { ...base, signature: bytesToHex(sig.toCompactRawBytes()) };
+  const envelope: TxEnvelope = { ...base, signature: bytesToHex(sig.toBytes('compact')) };
   return { envelope, txHash: txHashOf(envelope) };
 }
 

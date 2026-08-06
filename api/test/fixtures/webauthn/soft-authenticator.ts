@@ -7,8 +7,8 @@
 // SHA-256(authData || SHA-256(clientDataJSON)). Crypto is @noble (already used across the monorepo).
 
 import { randomBytes } from "node:crypto";
-import { p256 } from "@noble/curves/p256";
-import { sha256 } from "@noble/hashes/sha256";
+import { p256 } from "@noble/curves/nist";
+import { sha256 } from "@noble/hashes/sha2";
 import type { AuthenticationResponseJSON, RegistrationResponseJSON } from "@simplewebauthn/server";
 
 const b64url = (b: Uint8Array): string => Buffer.from(b).toString("base64url");
@@ -64,7 +64,7 @@ export class SoftAuthenticator {
     private readonly rpID: string,
     private readonly origin: string,
   ) {
-    this.priv = p256.utils.randomPrivateKey();
+    this.priv = p256.utils.randomSecretKey();
     this.pub = p256.getPublicKey(this.priv, false);
     this.credId = new Uint8Array(randomBytes(20));
   }
@@ -118,7 +118,7 @@ export class SoftAuthenticator {
     const authData = concat(this.rpIdHash(), Uint8Array.of(flags), signCount);
     const clientDataJSON = this.clientData("webauthn.get", challenge);
     const digest = sha256(concat(authData, sha256(clientDataJSON)));
-    const signature = p256.sign(digest, this.priv, { lowS: true }).toDERRawBytes();
+    const signature = p256.sign(digest, this.priv, { lowS: true }).toBytes('der');
 
     return {
       id: b64url(this.credId),

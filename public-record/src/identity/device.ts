@@ -17,10 +17,10 @@
 // leaves the device; the platform only ever sees the public signer key.
 
 import { hkdf } from "@noble/hashes/hkdf";
-import { sha256 } from "@noble/hashes/sha256";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
-import { p256 } from "@noble/curves/p256";
-import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
+import { p256 } from "@noble/curves/nist";
+import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/utils";
 import { signingDigest, UNSIGNED } from "./envelope.js";
 import { txHashOf } from "../crypto/txhash.js";
 import type { SignResult } from "./envelope.js";
@@ -55,7 +55,7 @@ export interface DeviceThreadSigner {
  */
 export function deriveDeviceThreadSigner(input: DeriveDeviceSignerInput): DeviceThreadSigner {
   const okm = hkdf(sha256, input.deviceRoot, DEVICE_DERIVE_SALT, deviceSignerDomainInfo(input.threadId, input.jurisdiction), 48);
-  const n = p256.CURVE.n;
+  const n = p256.Point.CURVE().n;
   const scalar = (bytesToNumberBE(okm) % (n - 1n)) + 1n;
   const privKey = numberToBytesBE(scalar, 32);
   return { privKey, signerPubkey: bytesToHex(p256.getPublicKey(privKey)) };
@@ -76,6 +76,6 @@ export function signEnvelopeWithDevice(
   const signerPubkey = bytesToHex(p256.getPublicKey(deviceSignerPrivKey));
   const base: TxEnvelope = { ...env, authorPubkey: personaPubkey, signerPubkey, signature: UNSIGNED };
   const sig = p256.sign(signingDigest(base), deviceSignerPrivKey);
-  const envelope: TxEnvelope = { ...base, signature: bytesToHex(sig.toCompactRawBytes()) };
+  const envelope: TxEnvelope = { ...base, signature: bytesToHex(sig.toBytes('compact')) };
   return { envelope, txHash: txHashOf(envelope) };
 }

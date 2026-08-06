@@ -1,101 +1,67 @@
-// Boundary ingest CLI. Loads an Elections Alberta shapefile into geo.districts.
+// Boundary / seat ingest CLI — redirects operators to the signed @oursay/api path.
 //
-//   npm run -w @oursay/geo ingest            # primary: 2019 Bill-33 districts (87 ridings)
-//   npm run -w @oursay/geo ingest -- 2023    # secondary: dissolve 2023 voting areas → ridings
-//   npm run -w @oursay/geo ingest -- 2019 --reset   # wipe geo tables first (guarded)
+//   npm run -w @oursay/geo ingest                 # → latest Alberta set via admin:jurisdiction
+//   npm run -w @oursay/geo ingest -- 2023         # → --set 2023
+//   npm run -w @oursay/geo ingest -- 2019
+//   npm run -w @oursay/geo ingest -- 2019 --reset # wipe geo tables first (guarded; unsigned reset only)
 //
-// Ingest itself is an idempotent upsert (re-running the same set is a no-op overwrite). `--reset` is
-// the only destructive action and is guarded against NODE_ENV=production.
+// District and seat rows are written through platform-ops (district_upsert / official_seat_upsert).
+// Low-level ingestBoundaries / ingestOfficialSeats remain for unit tests only.
 
-import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { assertDestructiveAllowed } from "../../scripts/destructive-guard.js";
 import { paths, pgConfig } from "../src/config.js";
-import { ingestBoundaries, ShapefileSource, type BoundarySource } from "../src/ingest/source.js";
+import { resolveBoundarySet } from "../src/ingest/boundary-sets.js";
 import { GeoStore } from "../src/store.js";
 
-const DATA = join(paths.repoRoot, "jurisdiction-data", "ab-ca-gov", "districts", "ElectionsAlberta");
-
-/** Named Alberta boundary sets. EPSG comes from each .prj (NAD83 10TM; Resource=3402, Forest=3400). */
-function source(set: string): BoundarySource {
-  switch (set) {
-    case "2019":
-      // Bill-33 (enacted 2017-12-15), in force for the 2019 general election. Already district-level.
-      return new ShapefileSource({
-        sourceId: "ElectionsAlberta/EDS_ENACTED_BILL33_15DEC2017",
-        jurisdictionId: "ab-ca-gov",
-        effectiveDate: "2019-04-16",
-        drawnDate: "2017-12-15",
-        boundaryYear: 2019,
-        srid: 3401, // NAD83 / Alberta 10-TM (Resource), FE=0 — matches the .prj
-        shpPath: join(DATA, "2019", "EDS_ENACTED_BILL33_15DEC2017.shp"),
-        fieldMap: { name: "EDName2017", ref: "EDNumber20" },
-      });
-    case "2023":
-      // 4,765 voting areas → dissolve by ED_NUM into ridings (same Bill-33 seats, finer source).
-      return new ShapefileSource({
-        sourceId: "ElectionsAlberta/EA_Voting_Area_Boundaries_2023",
-        jurisdictionId: "ab-ca-gov",
-        effectiveDate: "2023-05-29",
-        drawnDate: "2017-12-15",
-        boundaryYear: 2023,
-        srid: 3400,
-        shpPath: join(DATA, "2025", "EA_Voting_Area_Boundaries_2023.shp"),
-        fieldMap: { name: "ED_NAME", ref: "ED_NUM" },
-        dissolveBy: "ED_NUM",
-      });
-    default:
-      throw new Error(`Unknown boundary set "${set}" (expected 2019 | 2023)`);
-  }
-}
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
-  const set = args.find((a) => !a.startsWith("-")) ?? "2019";
+  const setArg = args.find((a) => !a.startsWith("-")) ?? "latest";
   const reset = args.includes("--reset");
 
-  const store = new GeoStore(pgConfig);
-  await store.init();
-  if (reset) {
-    assertDestructiveAllowed("geo ingest --reset");
-    await store.reset();
-    console.log("geo: reset (geo.districts, geo.regions truncated)");
+  // Preserve historical aliases: bare "2019" / "2023" still work; default is now latest.
+  const setId = setArg === "latest" || setArg === "2019" || setArg === "2023" ? setArg : null;
+  if (!setId) {
+    console.error(`Unknown boundary set "${setArg}" (expected latest | 2019 | 2023)`);
+    process.exit(2);
   }
 
-  console.log(`geo: ingesting set ${set} …`);
-  const result = await ingestBoundaries(store, source(set));
-  const boundarySource = source(set);
+  if (reset) {
+    assertDestructiveAllowed("geo ingest --reset");
+    const store = new GeoStore(pgConfig);
+    await store.init();
+    await store.reset();
+    console.log("geo: reset (geo.districts, geo.regions truncated)");
+    await store.close();
+  }
 
-  const { ingestOfficialSeats, oursayGlobalPlatformSeat } = await import("../src/ingest/official-seats.js");
-  const seatResult = await ingestOfficialSeats(
-    store,
-    {
-      jurisdictionId: boundarySource.jurisdictionId,
-      effectiveDate: boundarySource.effectiveDate,
-      boundaryYear: boundarySource.boundaryYear,
-    },
-    paths.repoRoot,
+  // Validate the set exists before spawning the signed CLI.
+  const set = resolveBoundarySet("ab-ca-gov", setId);
+  console.log(
+    `geo: redirecting to signed ingest (ab-ca-gov set=${set.id}, effective ${set.effectiveDate})…`,
   );
-  await ingestOfficialSeats(
-    store,
-    {
-      jurisdictionId: "oursay-global",
-      effectiveDate: boundarySource.effectiveDate,
-      boundaryYear: boundarySource.boundaryYear,
-      extraSeats: [oursayGlobalPlatformSeat()],
-    },
-    paths.repoRoot,
-  );
+  console.log(`geo: repo root ${paths.repoRoot}`);
 
-  const total = await store.countDistricts(result.jurisdictionId);
-  const seatTotal = await store.countOfficialSeats();
-  console.log(
-    `geo: ingested ${result.count} districts (${result.jurisdictionId}, year ${result.boundaryYear}, ` +
-      `effective ${result.effectiveDate}); ${total} total in jurisdiction.`,
+  const r = spawnSync(
+    "npm",
+    [
+      "run",
+      "admin:jurisdiction",
+      "-w",
+      "@oursay/api",
+      "--",
+      "stand-up",
+      "ab-ca-gov",
+      "--set",
+      set.id,
+    ],
+    { cwd: repoRoot, stdio: "inherit", shell: true, env: process.env },
   );
-  console.log(
-    `geo: ingested ${seatResult.count} official seats for ${seatResult.jurisdictionId}; ${seatTotal} total official seats.`,
-  );
-  await store.close();
+  process.exit(r.status ?? 1);
 }
 
 main().catch((err) => {

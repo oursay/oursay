@@ -3,7 +3,7 @@
 // PUBLIC key only. A user may enroll several (multi-device). Revocation is owner-scoped.
 
 import { expect } from "chai";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { resetWorld, type World } from "./helpers/world.js";
 import { fullSessionAccount, limitedSessionAccount } from "./helpers/account.js";
 
@@ -11,7 +11,7 @@ const bearer = (token: string) => ({ authorization: `Bearer ${token}` });
 
 /** A fresh uncompressed SEC1 P-256 public key in hex — the platform never sees the private key. */
 function newDevicePubkey(): string {
-  return Buffer.from(p256.getPublicKey(p256.utils.randomPrivateKey(), false)).toString("hex");
+  return Buffer.from(p256.getPublicKey(p256.utils.randomSecretKey(), false)).toString("hex");
 }
 
 describe("11 civic devices: enroll, list, revoke (authenticated, pubkey-only)", () => {

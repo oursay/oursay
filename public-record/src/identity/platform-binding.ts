@@ -6,8 +6,8 @@
 // The platform key is provided by the caller (env-required in prod, ephemeral in tests) — this
 // module never reads config so it stays pure/testable. KMS-managed keys are a later milestone.
 
-import { p256 } from "@noble/curves/p256";
-import { sha256 } from "@noble/hashes/sha256";
+import { p256 } from "@noble/curves/nist";
+import { sha256 } from "@noble/hashes/sha2";
 import { bytesToHex, hexToBytes, utf8ToBytes } from "@noble/hashes/utils";
 import { canonicalJson } from "../crypto/commitment.js";
 import type { ThreadBindingPublic } from "./binding.js";
@@ -27,7 +27,7 @@ export function platformPublicKey(platformPrivKeyHex: string): string {
 export function signBinding(binding: ThreadBindingPublic, platformPrivKeyHex: string): string {
   if (!platformPrivKeyHex) throw new Error("platform binding private key not configured");
   const sig = p256.sign(bindingDigest(binding), hexToBytes(platformPrivKeyHex));
-  return bytesToHex(sig.toCompactRawBytes());
+  return bytesToHex(sig.toBytes('compact'));
 }
 
 export function verifyBinding(binding: ThreadBindingPublic, sigHex: string, platformPubKeyHex: string): boolean {
@@ -51,7 +51,7 @@ export function nullifierAttestationDigest(parentId: string, nullifier: string):
 export function signNullifierAttestation(parentId: string, nullifier: string, platformPrivKeyHex: string): string {
   if (!platformPrivKeyHex) throw new Error("platform binding private key not configured");
   const sig = p256.sign(nullifierAttestationDigest(parentId, nullifier), hexToBytes(platformPrivKeyHex));
-  return bytesToHex(sig.toCompactRawBytes());
+  return bytesToHex(sig.toBytes('compact'));
 }
 
 export function verifyNullifierAttestation(parentId: string, nullifier: string, sigHex: string, platformPubKeyHex: string): boolean {
@@ -94,7 +94,7 @@ export function credentialAuthDigest(p: CredentialAuthPayload): Uint8Array {
 export function signCredentialAuth(p: CredentialAuthPayload, platformPrivKeyHex: string): string {
   if (!platformPrivKeyHex) throw new Error("platform binding private key not configured");
   const sig = p256.sign(credentialAuthDigest(p), hexToBytes(platformPrivKeyHex));
-  return bytesToHex(sig.toCompactRawBytes());
+  return bytesToHex(sig.toBytes('compact'));
 }
 
 export function verifyCredentialAuth(p: CredentialAuthPayload, sigHex: string, platformPubKeyHex: string): boolean {

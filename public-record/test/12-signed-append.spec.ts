@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { randomUUID } from "node:crypto";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { bytesToHex } from "@noble/hashes/utils";
 import { blockConfig } from "../src/config.js";
 import { contentCommitment, newSalt } from "../src/crypto/commitment.js";
@@ -28,7 +28,7 @@ import { jurisdictionMaster } from "./fixtures/identity-vectors.js";
  */
 describe("12 signed append: register → sign → appendSigned → settle (verified-tier post)", () => {
   // Ephemeral platform binding key for this run (env-required in prod; never committed).
-  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const platformPriv = bytesToHex(p256.utils.randomSecretKey());
   const platformPub = platformPublicKey(platformPriv);
   const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";

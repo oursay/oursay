@@ -1,8 +1,8 @@
 // A1 unit suite (NO DB): promoted identity primitives — derivation, envelope signing, commitment.
 // Run standalone without Postgres/immudb: `npx mocha test/10-identity-crypto.spec.ts`.
 import { expect } from "chai";
-import { p256 } from "@noble/curves/p256";
-import { bytesToNumberBE } from "@noble/curves/abstract/utils";
+import { p256 } from "@noble/curves/nist";
+import { bytesToNumberBE } from "@noble/curves/utils";
 import { deriveThreadKey, deriveThreadPrivateKey } from "../src/identity/derive.js";
 import { deriveDeviceThreadSigner, signEnvelopeWithDevice } from "../src/identity/device.js";
 import { signEnvelope, verifyEnvelope, UNSIGNED } from "../src/identity/envelope.js";
@@ -34,7 +34,7 @@ describe("10 identity/derive: HKDF per-thread P-256 key", () => {
   it("produces a valid P-256 scalar in [1, n-1]", () => {
     const k = bytesToNumberBE(deriveThreadPrivateKey({ jurisdictionMaster: jurisdictionMaster(), threadId: THREAD_ID, jurisdiction: JURISDICTION }));
     expect(k > 0n).to.equal(true);
-    expect(k < p256.CURVE.n).to.equal(true);
+    expect(k < p256.Point.CURVE().n).to.equal(true);
   });
 });
 
@@ -75,7 +75,7 @@ describe("10 identity/device: thread-scoped device signer (Method 3)", () => {
     expect(deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID_2, jurisdiction: JURISDICTION }).signerPubkey).to.not.equal(a.signerPubkey);
     expect(deriveDeviceThreadSigner({ deviceRoot: deviceRoot(), threadId: THREAD_ID, jurisdiction: JURISDICTION_2 }).signerPubkey).to.not.equal(a.signerPubkey);
     const k = bytesToNumberBE(a.privKey);
-    expect(k > 0n && k < p256.CURVE.n).to.equal(true);
+    expect(k > 0n && k < p256.Point.CURVE().n).to.equal(true);
   });
 
   it("is distinct from the persona thread key derived from the same root (separate domain)", () => {

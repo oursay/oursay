@@ -25,17 +25,29 @@ A district `id` is a stable revision identity with a **year label** — but the 
 
 Boundaries load from a pluggable `BoundarySource`. `ShapefileSource` reads ESRI `.shp/.dbf` (pure-JS `shapefile`), maps DBF columns via a `fieldMap`, and — with an optional `dissolveBy` — groups finer features (e.g. voting areas) into ridings. Geometry is reprojected from the source EPSG to 4326 **in PostGIS** (`ST_Transform`); no `proj4`/native build.
 
+**Production / staging operators:** use the signed API CLIs (platform-ops). The geo package CLI redirects there:
+
 ```bash
-# Start the shared PostGIS stack (owned by public-record). First switch to the PostGIS image needs a
-# one-time recreate; the data volume is reused (same PG 16 major).
+# Start the shared PostGIS stack (owned by public-record).
 npm run db:up -w @oursay/public-record
 
-npm run -w @oursay/geo ingest                 # primary: 2019 Bill-33 districts (87 ridings)
-npm run -w @oursay/geo ingest -- 2023         # secondary: dissolve 2023 voting areas → ridings
+# Preferred: full jurisdiction stand-up (chain + config + districts + seats)
+npm run admin:jurisdiction -w @oursay/api -- stand-up ab-ca-gov              # latest set (2023)
+npm run admin:jurisdiction -w @oursay/api -- stand-up ab-ca-gov --set 2019
+
+# Or district / seat pieces:
+npm run admin:district-ingest -w @oursay/api -- --jurisdiction ab-ca-gov --set latest
+npm run admin:seat-ingest -w @oursay/api -- --jurisdiction ab-ca-gov --set latest
+
+# Compatibility wrapper (spawns the signed stand-up for ab-ca-gov):
+npm run -w @oursay/geo ingest                 # latest
+npm run -w @oursay/geo ingest -- 2023
 npm run -w @oursay/geo ingest -- 2019 --reset # wipe geo tables first (guarded; refuses in production)
 ```
 
-Ingest is an **idempotent upsert**: re-running the same set (same `effective_date`) overwrites in place.
+Low-level `ingestBoundaries` / `ingestOfficialSeats` remain for **unit tests** only — they write PostGIS directly without a public-record audit trail.
+
+Ingest is **idempotent**: re-running the same snapshot skips unchanged platform-ops entities; a changed geometry/roster appends an update.
 
 ### Alberta source data & CRS
 

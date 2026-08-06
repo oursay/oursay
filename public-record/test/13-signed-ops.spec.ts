@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import { randomUUID } from "node:crypto";
-import { p256 } from "@noble/curves/p256";
+import { p256 } from "@noble/curves/nist";
 import { bytesToHex } from "@noble/hashes/utils";
 import { blockConfig } from "../src/config.js";
 import { contentCommitment, newSalt } from "../src/crypto/commitment.js";
@@ -23,7 +23,7 @@ import { getWorld, reclaimChains, rejects } from "./helpers/world.js";
  * platform-attested nullifier as the authoritative one-per-(user,parent) dedupe.
  */
 describe("13 signed ops: all create types via prepare → sign → appendSigned", () => {
-  const platformPriv = bytesToHex(p256.utils.randomPrivateKey());
+  const platformPriv = bytesToHex(p256.utils.randomSecretKey());
   const jurisdiction = "ab-ca-gov";
   const kycTier = "residency_verified";
 
@@ -56,7 +56,7 @@ describe("13 signed ops: all create types via prepare → sign → appendSigned"
   async function newUser(): Promise<U> {
     const userId = randomUUID();
     await store.putUser({ id: userId });
-    const lm = p256.utils.randomPrivateKey(); // a valid 32-byte jurisdiction master (also a P-256 seed)
+    const lm = p256.utils.randomSecretKey(); // a valid 32-byte jurisdiction master (also a P-256 seed)
     await store.putJurisdictionMaster({ userId, jurisdiction, masterPubkey: bytesToHex(p256.getPublicKey(lm)) });
     return { userId, lm, nsecret: deriveNullifierSecret(lm, jurisdiction) };
   }
