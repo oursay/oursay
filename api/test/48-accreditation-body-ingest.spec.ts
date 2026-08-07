@@ -5,7 +5,7 @@ import { expect } from "chai";
 import { spawnSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { abCaGovAccreditationBodies } from "@oursay/jurisdiction-data";
+import { abCaGovAccreditationBodies, abCaGovRecognizedAccreditationBodyIds } from "@oursay/jurisdiction-data";
 import { ensureOpsServiceAccount } from "../src/helpers/ops-account.js";
 import { assertAccreditationBodyId } from "../src/repo/accreditation-body.repo.js";
 import { ingestAccreditationBodiesForJurisdiction } from "../scripts/lib/accreditation-body-ingest.js";
@@ -14,6 +14,15 @@ import { resetWorld, type World } from "./helpers/world.js";
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const AB = "ab-ca-gov";
 const GALLERY = abCaGovAccreditationBodies[0]!;
+
+async function seedCatalog(w: World, nameOverrides: Record<string, string> = {}): Promise<void> {
+  for (const body of abCaGovAccreditationBodies) {
+    await w.services.repos.accreditationBody.create(
+      body.id,
+      nameOverrides[body.id] ?? body.name,
+    );
+  }
+}
 
 describe("48 accreditation-body ingest", () => {
   let w: World;
@@ -54,14 +63,16 @@ describe("48 accreditation-body ingest", () => {
       log: () => undefined,
       auditLog: () => undefined,
     });
-    expect(first.created).to.equal(1);
+    expect(first.created).to.equal(abCaGovAccreditationBodies.length);
     const body = await w.services.repos.accreditationBody.getById(GALLERY.id);
     expect(body?.name).to.equal(GALLERY.name);
     expect(body?.status).to.equal("active");
 
     const projections = await w.services.repos.jurisdictionConfig.list();
     const ab = projections.find((p) => p.config.id === AB);
-    expect(ab?.config.recognizedAccreditationBodyIds).to.deep.equal([GALLERY.id]);
+    expect(ab?.config.recognizedAccreditationBodyIds).to.deep.equal(
+      abCaGovRecognizedAccreditationBodyIds,
+    );
 
     const second = await ingestAccreditationBodiesForJurisdiction(w.services, ops, {
       jurisdictionId: AB,
@@ -74,7 +85,7 @@ describe("48 accreditation-body ingest", () => {
   });
 
   it("without addBodies warns on name drift and keeps catalog name", async () => {
-    await w.services.repos.accreditationBody.create(GALLERY.id, "Catalog Drift Name");
+    await seedCatalog(w, { [GALLERY.id]: "Catalog Drift Name" });
     const ops = await ensureOpsServiceAccount(w.services);
     const result = await ingestAccreditationBodiesForJurisdiction(w.services, ops, {
       jurisdictionId: AB,
@@ -82,14 +93,14 @@ describe("48 accreditation-body ingest", () => {
       log: () => undefined,
       auditLog: () => undefined,
     });
-    expect(result.warnings.some((w) => /name drift/.test(w))).to.equal(true);
+    expect(result.warnings.some((msg) => /name drift/.test(msg))).to.equal(true);
     expect(result.renamed).to.equal(0);
     const body = await w.services.repos.accreditationBody.getById(GALLERY.id);
     expect(body?.name).to.equal("Catalog Drift Name");
   });
 
   it("activates retired bodies intended for recognition", async () => {
-    await w.services.repos.accreditationBody.create(GALLERY.id, GALLERY.name);
+    await seedCatalog(w);
     await w.services.repos.accreditationBody.retire(GALLERY.id);
     const ops = await ensureOpsServiceAccount(w.services);
     const result = await ingestAccreditationBodiesForJurisdiction(w.services, ops, {

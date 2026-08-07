@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { expect } from "chai";
 
 import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
+import { abCaGovRecognizedAccreditationBodyIds } from "@oursay/jurisdiction-data";
 import { resetWorld, type World } from "./helpers/world.js";
 
 const JURISDICTION = "ab-ca-gov";
@@ -76,7 +77,7 @@ describe("19 public area catalog", () => {
     expect(ab.contentLimits.petition.text).to.equal(5000);
     expect(ab.contentLimits.poll.maxOptions).to.equal(10);
     // Media recognition list (catalog body ids); empty until admin-listed bodies are wired in config.
-    expect(ab.recognizedAccreditationBodyIds).to.deep.equal(["ab-leg-gallery"]);
+    expect(ab.recognizedAccreditationBodyIds).to.deep.equal(abCaGovRecognizedAccreditationBodyIds);
     const global = body.items.find((j: any) => j.id === "oursay-global");
     expect(global.recognizedAccreditationBodyIds).to.deep.equal([]);
     for (const j of body.items) {

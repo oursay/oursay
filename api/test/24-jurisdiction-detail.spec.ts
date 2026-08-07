@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect } from "chai";
 
 import { ingestBoundaries, paths, ShapefileSource } from "@oursay/geo";
+import { abCaGovRecognizedAccreditationBodyIds } from "@oursay/jurisdiction-data";
 import { resetWorld, type World } from "./helpers/world.js";
 
 const JURISDICTION = "ab-ca-gov";
@@ -78,7 +79,7 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
       { platformRole: "admin" },
     ]);
     expect(ab.body.gates.result.act).to.deep.equal({ role: "official" });
-    expect(ab.body.recognizedAccreditationBodyIds).to.deep.equal(["ab-leg-gallery"]);
+    expect(ab.body.recognizedAccreditationBodyIds).to.deep.equal(abCaGovRecognizedAccreditationBodyIds);
   });
 
   it("GET /v1/public/jurisdictions/:id 404s unknown jurisdiction", async () => {

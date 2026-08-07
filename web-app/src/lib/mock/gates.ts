@@ -73,7 +73,13 @@ export const JURISDICTION_GATES: Record<JurisdictionId, JurisdictionGates> = {
 /** Platform-catalog body ids OurSay recognizes for Media-gated acts (mirrors jurisdiction-data). */
 export const RECOGNIZED_ACCREDITATION_BODY_IDS: Record<JurisdictionId, string[]> = {
   [GLOBAL_ID]: [],
-  [ALBERTA_ID]: ["ab-leg-gallery"],
+  [ALBERTA_ID]: [
+    "ab-leg-gallery",
+    "ca-caj",
+    "ca-parl-gallery",
+    "ab-edm-media",
+    "ab-calgary-media",
+  ],
 };
 
 /** Anyone·quick fallback for an unmodelled jurisdiction (mirrors DEFAULT_GATES). */
