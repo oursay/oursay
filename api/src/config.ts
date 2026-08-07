@@ -203,7 +203,7 @@ export const platformOpsConfig = {
   adminPrivKeyHex: secret("PLATFORM_OPS_ADMIN_PRIVKEY", DEV_PLATFORM_OPS_ADMIN_PRIVKEY),
   /** Stable handle for the ops service account (not a civic persona for the feed). */
   opsHandle: env("PLATFORM_OPS_HANDLE", "oursay_ops"),
-  opsEmail: env("PLATFORM_OPS_EMAIL", "ops@platform.oursay.dev"),
+  opsEmail: env("PLATFORM_OPS_EMAIL", "ops@oursay.ca"),
 };
 
 /**
