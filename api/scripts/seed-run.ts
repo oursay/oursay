@@ -12,6 +12,7 @@ import { SEED_ADMIN_HANDLE } from "./seed-data/people.js";
 import { defaultSeedRng, runSeedOrchestrator } from "./seed-orchestrator.js";
 import { buildSeedWorld, clearPasskeyDir } from "./seed-helpers.js";
 import { ensureOpsServiceAccount } from "../src/helpers/ops-account.js";
+import { ingestAccreditationBodiesForJurisdiction } from "./lib/accreditation-body-ingest.js";
 import { ingestAuditedJurisdictionData } from "./lib/audited-ingest.js";
 
 process.env.OURSAY_DEV_PASSKEY = "1";
@@ -46,18 +47,14 @@ async function main(): Promise<void> {
   const ops = await ensureOpsServiceAccount(world.services);
   console.log(" done");
 
-  // The catalog row is mutable platform data outside this change's audit scope. Create it before
-  // committing configs that recognize its stable id.
+  // Catalog + recognition list from packaged jurisdiction-data (dev may create unknown bodies).
   const SEED_MEDIA_BODY = "ab-leg-gallery";
-  try {
-    await world.services.repos.accreditationBody.create(
-      SEED_MEDIA_BODY,
-      "Alberta Legislative Assembly Press Gallery",
-    );
-  } catch {
-    // Idempotent re-seed: body may already exist.
-  }
-
+  console.log(`Ingesting accreditation bodies + config for ab-ca-gov (${SEED_MEDIA_BODY})…`);
+  await ingestAccreditationBodiesForJurisdiction(world.services, ops, {
+    jurisdictionId: "ab-ca-gov",
+    addBodies: true,
+  });
+  // oursay-global config (and any remaining) via the full audited ingest path.
   await ingestAuditedJurisdictionData(world.services, ops, {
     configs: [...jurisdictions],
     // Seed keeps the 2019 Bill-33 set for stable showcase district ids/slugs.
@@ -76,9 +73,9 @@ async function main(): Promise<void> {
   await world.services.repos.platformRole.grant(adminMember.userId, "admin", null);
   console.log(" done");
 
-  // Media catalog + accreditation for local Media mark / AB recognition demos.
+  // Media accreditation for local Media mark / AB recognition demos (body already ingested above).
   const SEED_MEDIA_HANDLE = "global_public";
-  console.log(`Seeding accreditation body ${SEED_MEDIA_BODY} + Media mark → ${SEED_MEDIA_HANDLE}…`);
+  console.log(`Granting Media accreditation (${SEED_MEDIA_BODY}) → ${SEED_MEDIA_HANDLE}…`);
   const mediaMember = members.get(SEED_MEDIA_HANDLE);
   if (mediaMember) {
     await world.services.repos.mediaAccreditation.grant({

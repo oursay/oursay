@@ -81,6 +81,8 @@ Two accreditation bodies are the same if their `id` strings match. Primary key: 
 | Schema | `auth.accreditation_bodies` in `api/src/schema/auth.sql.ts` |
 | Repo | `api/src/repo/accreditation-body.repo.ts` |
 | CLI | `npm run admin:accreditation-body -w @oursay/api -- create\|update\|retire\|activate\|list` |
+| Bulk ingest | `npm run admin:accreditation-body-ingest -w @oursay/api -- --jurisdiction <id> [--add-bodies\|--force]` — syncs packaged bodies into the catalog (fail-closed on unknown ids unless flagged), then applies recognition via `jurisdiction_config_set` |
+| Packaged AB list | `jurisdiction-data/ab-ca-gov/accreditation-bodies.ts` (ids + names OurSay chooses for the deployment) |
 | Jurisdiction recognition | `JurisdictionConfig.recognizedAccreditationBodyIds` in `@oursay/jurisdiction-data` (surfaced on public area catalog) |
 
 ## Gaps

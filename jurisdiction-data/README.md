@@ -7,6 +7,7 @@ jurisdiction-data/
   index.ts                       export const jurisdictions = [oursayGlobal, abCaGov]
   oursay-global/jurisdiction.ts  open sandbox — permissive counts, change/revoke allowed
   ab-ca-gov/jurisdiction.ts      Alberta launch — FINAL-action, tier-gated counts
+  ab-ca-gov/accreditation-bodies.ts  packaged Media body catalog + recognition ids
   ab-ca-gov/districts/           boundary shapefiles (ingested by @oursay/geo, not imported here)
 ```
 
@@ -28,7 +29,15 @@ Reaction tallies are never gated here (they stay publicly visible).
 
 `recognizedAccreditationBodyIds: string[]` on `JurisdictionConfig` lists platform-catalog **accreditation-body** ids OurSay **chooses to list** for the deployment (e.g. on `ab-ca-gov`) for **media-accredited** gate actors (e.g. poll create). Empty/absent ⇒ no media-accredited powers here; users may still show a platform-wide **Media mark** if they hold any valid accreditation. There is no per-jurisdiction Media gallery role.
 
-Authored here and registered at API startup (same as gates/labels). Surfaced on the public area catalog. Catalog bodies themselves live in `auth.accreditation_bodies` (admin CLI). **Future:** standing policy (including this list) should be admin-ingested and mutated via platform-signed attestations on the jurisdiction chain — see `docs/entities/partitioning/future.md`. Gaps remaining: `[v1-media-accreditations]`, media-accredited gate actor (`[align-w3-gates-schema]` Media slice).
+For Alberta, packaged bodies + recognition ids live in `ab-ca-gov/accreditation-bodies.ts` (imported by `jurisdiction.ts`). Ingest with:
+
+```powershell
+npm run admin:accreditation-body-ingest -w @oursay/api -- --jurisdiction ab-ca-gov
+# create unknown catalog rows (dev / intentional new bodies):
+npm run admin:accreditation-body-ingest -w @oursay/api -- --jurisdiction ab-ca-gov --add-bodies
+```
+
+Default is fail-closed on unknown catalog ids; recognition is then applied via `jurisdiction_config_set` (replace with the packaged list). Catalog bodies themselves live in `auth.accreditation_bodies`. Surfaced on the public area catalog.
 
 ## Official seat roster (Alberta)
 

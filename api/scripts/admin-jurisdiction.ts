@@ -1,13 +1,13 @@
 /**
  * Jurisdiction stand-up and granular signed ingest.
  *
- *   npm run admin:jurisdiction -w @oursay/api -- stand-up <jurisdictionId> [--set latest|2019|2023] [--evm]
+ *   npm run admin:jurisdiction -w @oursay/api -- stand-up <jurisdictionId> [--set latest|2019|2023] [--evm] [--add-bodies|--force]
  *   npm run admin:jurisdiction -w @oursay/api -- config <jurisdictionId>
  *   npm run admin:jurisdiction -w @oursay/api -- districts <jurisdictionId> [--set latest|2019|2023]
  *   npm run admin:jurisdiction -w @oursay/api -- seats <jurisdictionId> [--set latest|2019|2023]
  *   npm run admin:jurisdiction -w @oursay/api -- verify <jurisdictionId>
  *
- * stand-up: create/open immudb chain → ops account → config → districts (if any) → seats → verify.
+ * stand-up: create/open immudb chain → ops account → accreditation-body ingest + config → districts (if any) → seats → verify.
  * Seat claims remain `admin:seat claim`.
  */
 
@@ -23,6 +23,7 @@ import { Db } from "../src/db.js";
 import { isServiceError } from "../src/errors.js";
 import { ensureOpsServiceAccount, type EnsuredOpsAccount } from "../src/helpers/ops-account.js";
 import { assertAdminCliAllowed, hasFlag, parseFlag, positionals } from "./lib/admin-cli.js";
+import { ingestAccreditationBodiesForJurisdiction } from "./lib/accreditation-body-ingest.js";
 import {
   applyBoundaryAlignedSeats,
   applyDistrictSource,
@@ -38,8 +39,9 @@ dotenv.config({ path: join(packageRoot, ".env") });
 
 const USAGE =
   "usage: admin-jurisdiction <stand-up|config|districts|seats|verify> <jurisdictionId> [opts]\n" +
-  "  stand-up <id> [--set latest|2019|2023] [--evm]\n" +
+  "  stand-up <id> [--set latest|2019|2023] [--evm] [--add-bodies|--force]\n" +
   "  config|districts|seats|verify <id> [--set …]\n" +
+  "  stand-up runs accreditation-body ingest before config (fail-closed unless --add-bodies/--force)\n" +
   "  prod: set OURSAY_ALLOW_PROD_ADMIN=1\n" +
   "  ops soft-key: PLATFORM_OPS_ADMIN_PRIVKEY";
 
@@ -159,10 +161,30 @@ async function cmdVerify(jurisdictionId: string): Promise<void> {
   }
 }
 
-async function cmdStandUp(jurisdictionId: string, setId: string, withEvm: boolean): Promise<void> {
+async function cmdAccreditationBodies(
+  jurisdictionId: string,
+  addBodies: boolean,
+): Promise<void> {
+  requireConfig(jurisdictionId);
+  await withServices(async (services, ops) => {
+    await ingestAccreditationBodiesForJurisdiction(services, ops, {
+      jurisdictionId,
+      addBodies,
+      log: (m) => console.error(`[admin-jurisdiction] ${m}`),
+    });
+  });
+}
+
+async function cmdStandUp(
+  jurisdictionId: string,
+  setId: string,
+  withEvm: boolean,
+  addBodies: boolean,
+): Promise<void> {
   requireConfig(jurisdictionId);
   await ensureChain(jurisdictionId, withEvm);
-  await cmdConfig(jurisdictionId);
+  // Catalog sync + recognition list before/with config (helper also applies jurisdiction_config_set).
+  await cmdAccreditationBodies(jurisdictionId, addBodies);
   await cmdDistricts(jurisdictionId, setId);
   await cmdSeats(jurisdictionId, setId);
   await cmdVerify(jurisdictionId);
@@ -190,9 +212,10 @@ async function main(): Promise<void> {
 
   const setId = parseFlag(argv, "--set") ?? "latest";
   const withEvm = hasFlag(argv, "--evm");
+  const addBodies = hasFlag(argv, "--add-bodies") || hasFlag(argv, "--force");
 
   try {
-    if (cmd === "stand-up") await cmdStandUp(jurisdictionId, setId, withEvm);
+    if (cmd === "stand-up") await cmdStandUp(jurisdictionId, setId, withEvm, addBodies);
     else if (cmd === "config") await cmdConfig(jurisdictionId);
     else if (cmd === "districts") await cmdDistricts(jurisdictionId, setId);
     else if (cmd === "seats") await cmdSeats(jurisdictionId, setId);

@@ -4,12 +4,27 @@
 // startup, so every thread's `audienceScope.jurisdiction` resolves to the right policy on read. Env
 // (`JURISDICTION_ID`) still selects the DEFAULT id; the rules themselves live here, not in api/config.
 import type { JurisdictionConfig } from "@oursay/public-record";
+import {
+  abCaGovAccreditationBodies,
+  type PackagedAccreditationBody,
+} from "./ab-ca-gov/accreditation-bodies.js";
 import { abCaGov } from "./ab-ca-gov/jurisdiction.js";
 import { oursayGlobal } from "./oursay-global/jurisdiction.js";
 
 export const jurisdictions: JurisdictionConfig[] = [oursayGlobal, abCaGov];
 
 export { abCaGov, oursayGlobal };
+export {
+  abCaGovAccreditationBodies,
+  abCaGovRecognizedAccreditationBodyIds,
+  type PackagedAccreditationBody,
+} from "./ab-ca-gov/accreditation-bodies.js";
+
+/** Packaged accreditation bodies for a jurisdiction (empty when none authored). */
+export function accreditationBodiesFor(jurisdictionId: string): PackagedAccreditationBody[] {
+  if (jurisdictionId === "ab-ca-gov") return abCaGovAccreditationBodies;
+  return [];
+}
 export {
   abCaGovOfficialSeats,
   abCaGovJurisdictionLeader,

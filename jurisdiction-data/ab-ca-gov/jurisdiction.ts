@@ -1,5 +1,6 @@
 import type { JurisdictionConfig } from "@oursay/public-record";
 import { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS } from "@oursay/public-record";
+import { abCaGovRecognizedAccreditationBodyIds } from "./accreditation-bodies.js";
 import { abCaGovJurisdictionLeader } from "./officials.js";
 
 // ab-ca-gov — the Alberta provincial LAUNCH jurisdiction. Production-like gating: FINAL-action
@@ -33,9 +34,9 @@ export const abCaGov: JurisdictionConfig = {
   // platform defaults. Content caps match the documented launch defaults.
   labels: { ...DEFAULT_LABELS, post: "Statement", district: "riding" },
   contentLimits: DEFAULT_CONTENT_LIMITS,
-  // Media recognition list: platform-catalog body ids OurSay chooses for media-accredited gates.
-  // `ab-leg-gallery` is seeded in api seed + created via admin:accreditation-body for local demo.
-  recognizedAccreditationBodyIds: ["ab-leg-gallery"],
+  // Media recognition list: platform-catalog body ids OurSay chooses for media-accredited gates
+  // (see ./accreditation-bodies.ts). Not a government decision or partnership.
+  recognizedAccreditationBodyIds: abCaGovRecognizedAccreditationBodyIds,
   // Locked gate matrix (WEB-APP-GAPS C5/Part 3 + Part 6 corrections):
   //   - statements: quick floor (passkey optional; account default pref is `ask`);
   //     petitions/polls/votes/signatures stay PASSKEY; comments/reactions quick.

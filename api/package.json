@@ -19,6 +19,7 @@
     "admin:district-ingest": "tsx scripts/admin-district-ingest.ts",
     "admin:seat-ingest": "tsx scripts/admin-seat-ingest.ts",
     "admin:accreditation-body": "tsx scripts/admin-accreditation-body.ts",
+    "admin:accreditation-body-ingest": "tsx scripts/admin-accreditation-body-ingest.ts",
     "admin:media-accreditation": "tsx scripts/admin-media-accreditation.ts",
     "openapi:dump": "tsx scripts/openapi-dump.ts",
     "seed": "tsx scripts/seed.ts",

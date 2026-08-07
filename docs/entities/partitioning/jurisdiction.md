@@ -55,8 +55,9 @@ List of **accreditation body** ids from the platform catalog ([../account/accred
 - Absent / empty ⇒ no one is media-accredited in this jurisdiction (platform **Media mark** may still show if they hold any valid catalog accreditation).
 - The **Media mark alone does not grant** poll create or other Media-gated acts — gates must allow `{ mediaAccredited: true }` (or equivalent) **and** recognition must match.
 - There is **no** journalist→jurisdiction assignment table and **no** per-jurisdiction gallery role.
-- **Shipped:** optional field on `JurisdictionConfig`; authored in `@oursay/jurisdiction-data`; surfaced on `GET /v1/public/jurisdictions` (summary + detail).
-- **Future:** ingest / mutate via platform-signed jurisdiction-chain attestations — [future.md](./future.md) (**Platform-signed jurisdiction policy**).
+- **Shipped:** optional field on `JurisdictionConfig`; authored in `@oursay/jurisdiction-data` (Alberta: `ab-ca-gov/accreditation-bodies.ts`); surfaced on `GET /v1/public/jurisdictions` (summary + detail).
+- **Ingest:** `npm run admin:accreditation-body-ingest -w @oursay/api -- --jurisdiction <id>` syncs packaged catalog bodies (fail-closed on unknown ids unless `--add-bodies`/`--force`), then **replaces** recognition via signed `jurisdiction_config_set` (same path as other standing config). Catalog create/update audit matches `admin:accreditation-body`.
+- **Future:** broader standing-policy tooling — [future.md](./future.md) (**Platform-signed jurisdiction policy**).
 
 ### contentLimits (hard caps, target)
 
