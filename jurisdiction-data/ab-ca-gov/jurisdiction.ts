@@ -31,13 +31,15 @@ export const abCaGov: JurisdictionConfig = {
     minTier: ["residency_verified"],
   },
   // Alberta product labels: a `post` is a "Statement", a `district` is a "riding"; the rest are the
-  // platform defaults. Content caps follow platform defaults except poll.question (400).
+  // platform defaults. Content caps follow platform defaults except poll.question (400) and
+  // poll.option (200).
   labels: { ...DEFAULT_LABELS, post: "Statement", district: "riding" },
   contentLimits: {
     ...DEFAULT_CONTENT_LIMITS,
     poll: {
       ...DEFAULT_CONTENT_LIMITS.poll,
       question: 400,
+      option: 200,
     },
   },
   // Media recognition list: platform-catalog body ids OurSay chooses for media-accredited gates

@@ -95,7 +95,7 @@ describe("15 jurisdiction: labels + contentLimits resolve via getJurisdiction()"
       labels: { ...DEFAULT_LABELS, post: "Statement", district: "riding" },
       contentLimits: {
         ...DEFAULT_CONTENT_LIMITS,
-        poll: { ...DEFAULT_CONTENT_LIMITS.poll, question: 400 },
+        poll: { ...DEFAULT_CONTENT_LIMITS.poll, question: 400, option: 200 },
       },
     });
     const ab = getJurisdiction("ab-ca-gov");
@@ -105,6 +105,7 @@ describe("15 jurisdiction: labels + contentLimits resolve via getJurisdiction()"
     expect(ab.contentLimits?.petition?.text).to.equal(5000);
     expect(ab.contentLimits?.poll?.maxOptions).to.equal(10);
     expect(ab.contentLimits?.poll?.question).to.equal(400);
+    expect(ab.contentLimits?.poll?.option).to.equal(200);
   });
 
   it("resolves the global jurisdiction to all platform defaults", () => {
