@@ -24,11 +24,12 @@ import { toCanonical } from "@/lib/types";
  * Locked values (WEB-APP-GAPS Part 3 / C5):
  * - `oursay-global`: everything anyone·quick; vote/petition_signature enter the
  *   platform count at ID-verified-or-better.
- * - `ab-ca-gov`: posts/votes/signatures passkey-signed; petitions
- *   residency-verified authors; polls Official OR media-accredited OR platform
- *   admin; result official-only (interim); votes need jurisdiction residency;
- *   signatures are sign-now-verify-later (platform count at residency);
- *   official-role holders are DENIED on vote and petition_signature (Part 6 #3).
+ * - `ab-ca-gov`: statements quick floor (passkey optional / ask default);
+ *   votes/signatures/petitions/polls passkey-signed; petitions residency-verified
+ *   authors; polls Official OR media-accredited OR platform admin; result
+ *   official-only (interim); votes need jurisdiction residency; signatures are
+ *   sign-now-verify-later (platform count at residency); official-role holders
+ *   are DENIED on vote and petition_signature (Part 6 #3).
  */
 export const JURISDICTION_GATES: Record<JurisdictionId, JurisdictionGates> = {
   [GLOBAL_ID]: {
@@ -46,7 +47,7 @@ export const JURISDICTION_GATES: Record<JurisdictionId, JurisdictionGates> = {
     },
   },
   [ALBERTA_ID]: {
-    post: { act: "anyone", signMin: "passkey" },
+    post: { act: "anyone", signMin: "quick" },
     petition: { act: { tiers: [2] }, signMin: "passkey" },
     poll: {
       act: [{ role: "official" }, { mediaAccredited: true }, { platformRole: "admin" }],

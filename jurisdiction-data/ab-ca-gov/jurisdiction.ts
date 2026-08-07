@@ -37,14 +37,15 @@ export const abCaGov: JurisdictionConfig = {
   // `ab-leg-gallery` is seeded in api seed + created via admin:accreditation-body for local demo.
   recognizedAccreditationBodyIds: ["ab-leg-gallery"],
   // Locked gate matrix (WEB-APP-GAPS C5/Part 3 + Part 6 corrections):
-  //   - statements/petitions/polls/votes/signatures carry a PASSKEY sign floor; comments/reactions quick.
+  //   - statements: quick floor (passkey optional; account default pref is `ask`);
+  //     petitions/polls/votes/signatures stay PASSKEY; comments/reactions quick.
   //   - petition creation = residency-verified (Part 5 #2); poll creation = Official OR media-accredited
   //     OR platform admin; result stays official-only (interim — media host polls, not author results).
   //   - vote.act = jurisdiction residency; official-role holders are DENIED on vote (act-blocked) and
   //     petition_signature (count-excluded, reason `official_role`) — Part 6 #3.
   //   - petition_signature.act = anyone (sign-now-verify-later); its officialCount floor is residency.
   gates: {
-    post: { act: "anyone", signMin: "passkey" },
+    post: { act: "anyone", signMin: "quick" },
     petition: { act: { tiers: ["residency_verified"] }, signMin: "passkey" },
     poll: {
       act: [{ role: "official" }, { mediaAccredited: true }, { platformRole: "admin" }],
@@ -61,14 +62,17 @@ export const abCaGov: JurisdictionConfig = {
       deny: [{ role: "official" }],
     },
   },
-  // Graduation (Part 6 #9): moving %-of-verified threshold now; a fixed n (10% of the previous
-  // provincial election's valid votes) replaces it later. AB officials may promote early.
-  graduation: { threshold: { kind: "percentOfVerified", percent: 10, basis: "moving" }, officialEarlyPromotion: true },
+  // Graduation (Part 6 #9): DEMO uses a fixed 100-signature elevation threshold.
+  // Prod: consider ~177,732 fixed (10% of 1,777,315 votes cast in the 2023 provincial general
+  // election — Citizen Initiative Act threshold as published by Elections Alberta). OurSay petitions
+  // are a product feature, not a statutory initiative filing; the number is a graduation goal only.
+  // AB officials may promote early.
+  graduation: { threshold: { kind: "fixed", n: 100 }, officialEarlyPromotion: true },
   leader: { name: abCaGovJurisdictionLeader.name, handle: abCaGovJurisdictionLeader.handle },
   rulesCopy: [
     "Ladder policy — levels graduate upward.",
-    "Statements: open to any registered member (passkey-signed).",
-    "Petitions: residency-verified authors only.",
+    "Statements: open to any registered member (passkey optional; ask by default).",
+    "Petitions: residency-verified authors only (passkey-signed).",
     "Polls: officials, accredited media, or platform admins (or via petition→poll graduation).",
     "Verified actions are written on-ledger.",
     "Platform counts: residency-verified residents only.",

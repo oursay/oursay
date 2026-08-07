@@ -563,9 +563,9 @@ function buildJurData(): Record<string, JurisdictionSummary> {
       gates: JURISDICTION_GATES[ALBERTA_ID],
       rules: [
         "Ladder policy — levels graduate upward.",
-        "Statements: open to any registered member (passkey-signed).",
-        "Petitions: residency-verified authors only.",
-        "Polls: officials only (or via petition→poll graduation).",
+        "Statements: open to any registered member (passkey optional; ask by default).",
+        "Petitions: residency-verified authors only (passkey-signed).",
+        "Polls: officials, accredited media, or platform admins (or via petition→poll graduation).",
         "Verified actions are written on-ledger.",
         "Platform counts: residency-verified residents only.",
       ],

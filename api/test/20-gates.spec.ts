@@ -6,7 +6,8 @@
 //                  with officials DENIED (act-blocked); petition_signature.act = anyone
 //                  (sign-now-verify-later — a denied official's signature is ACCEPTED on the record and
 //                  excluded from official counts at READ time, never write-blocked);
-//                  statements/petitions/polls/votes/signatures carry a PASSKEY sign floor.
+//                  statements carry a QUICK sign floor (passkey optional); petitions/polls/votes/
+//                  signatures carry a PASSKEY sign floor.
 //   oursay-global— everything open to anyone at the QUICK floor: a software p256 envelope (signed by a
 //                  civic credential enrolled at join) settles end-to-end with sign_tier 0.
 // Every 403 must carry machine-readable `details.reason` (tier | residency | role | media |
@@ -229,20 +230,21 @@ describe("20 gates: per-jurisdiction act gates + sign floors on the civic write 
     expectGate403(res, "official_role", { action: "vote", jurisdictionId: AB });
   });
 
-  it("AB: a quick-shaped (p256) statement submit is floor-blocked (reason passkey_required)", async function () {
+  it("AB: a quick-shaped (p256) petition submit is floor-blocked (reason passkey_required)", async function () {
     this.timeout(60000);
     const t = threadIn(AB);
     const m = await joinMember(w, "g20-floor@example.com", "g20-floor", t);
-    // The act gate admits anyone on post — prepare succeeds…
-    const intent: Intent = { op: "create", type: "post", entityId: t.threadId, content: { title: "Test post", body: "quick?" } };
+    await makeResident(w, m); // act gate needs residency_verified; floor is still passkey
+    // Prepare succeeds (act admits residency-verified)…
+    const intent: Intent = { op: "create", type: "petition", entityId: t.threadId, content: { title: "Test petition", text: "quick?" } };
     const prep = await prepare(w, m, t, intent);
     expect(prep.statusCode, prep.payload).to.equal(200);
-    // …but AB's signMin for post is passkey, so a p256 envelope is rejected at the floor check
-    // (before signature verification — the floor is policy, not crypto).
+    // …but AB's signMin for petition is passkey, so a p256 envelope is rejected at the floor check
+    // (before signature verification — the floor is policy, not crypto). Statements use quick.
     const envelope = {
       v: 1,
       txId: randomUUID(),
-      type: "post",
+      type: "petition",
       entityId: t.threadId,
       op: "create",
       authorPubkey: m.sess.personaPubkey(t),
@@ -259,7 +261,7 @@ describe("20 gates: per-jurisdiction act gates + sign floors on the civic write 
       headers: bearer(m.token),
       payload: { envelope, salt: newSalt(), content: intent.content },
     });
-    expectGate403(res, "passkey_required", { action: "post", jurisdictionId: AB });
+    expectGate403(res, "passkey_required", { action: "petition", jurisdictionId: AB });
   });
 
   it("AB golden path: official creates the poll, a verified resident's passkey vote lands", async function () {

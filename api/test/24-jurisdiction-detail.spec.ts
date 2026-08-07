@@ -70,7 +70,7 @@ describe("24 jurisdiction detail: P7 jurisdiction + P8 district by slug", () => 
     expect(ab.status).to.equal(200);
     expect(ab.body.label).to.equal("Alberta");
     expect(ab.body.labels.district).to.equal("riding");
-    expect(ab.body.graduationThreshold).to.equal(null);
+    expect(ab.body.graduationThreshold).to.equal(100);
     expect(ab.body.leader.name).to.equal("Danielle Smith");
     expect(ab.body.gates.poll.act).to.deep.equal([
       { role: "official" },

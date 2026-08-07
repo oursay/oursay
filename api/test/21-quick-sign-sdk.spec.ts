@@ -5,8 +5,9 @@
 //   per-thread P-256 key — no per-thread WebAuthn ceremony) → prepare →
 //   IdentitySession.buildQuickSigned (no WebAuthn ceremony) → submit 201.
 // Also: cross-scheme singleton dedupe (the shared nullifier root spans quick + passkey), quick
-// updates (carry-forward nullifier), and the AB passkey floor rejecting the SDK quick path with the
-// same machine-readable `passkey_required` lock-state reason the UI keys off.
+// updates (carry-forward nullifier), AB statements accepting the SDK quick path (passkey optional),
+// and the AB petition passkey floor rejecting quick with the same machine-readable
+// `passkey_required` lock-state reason the UI keys off.
 
 import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
@@ -152,16 +153,29 @@ describe("21 quick-sign SDK: CivicHttpClient sign:'quick' produces the pinned p2
     expect((JSON.parse(head.envelope) as TxEnvelope).signScheme ?? "p256").to.equal("p256");
   });
 
-  it("AB: the SDK quick path is floor-blocked on a statement (403 passkey_required — same lock-state contract)", async function () {
+  it("AB: the SDK quick path succeeds on a statement (passkey optional)", async function () {
+    this.timeout(60000);
+    const t = threadIn(AB);
+    const m = await joinMember(w, "q21-ab-stmt@example.com", "q21-abs", t);
+    const ref = await m.client.createPost(t, { title: "Test post", body: "quick ok" }, { sign: "quick" });
+    expect(ref.entityId).to.equal(t.threadId);
+    const head = (await w.services.recordStore.getHeadTx(ref.entityId))!;
+    expect((JSON.parse(head.envelope) as TxEnvelope).signScheme ?? "p256").to.equal("p256");
+  });
+
+  it("AB: the SDK quick path is floor-blocked on a petition (403 passkey_required — same lock-state contract)", async function () {
     this.timeout(60000);
     const t = threadIn(AB);
     const m = await joinMember(w, "q21-ab-floor@example.com", "q21-abf", t);
-    const err = (await rejects(m.client.createPost(t, { title: "Test post", body: "quick?" }, { sign: "quick" }))) as CivicHttpError | null;
-    expect(err, "quick post in AB must be rejected").to.be.instanceOf(CivicHttpError);
+    await w.services.kycService.attest(m.userId, "residency_verified");
+    const err = (await rejects(
+      m.client.append(t, { op: "create", type: "petition", entityId: t.threadId, content: { title: "Test petition", text: "quick?" } }, { sign: "quick" }),
+    )) as CivicHttpError | null;
+    expect(err, "quick petition in AB must be rejected").to.be.instanceOf(CivicHttpError);
     expect(err!.status).to.equal(403);
     const details = (err!.body as { error: { details: Record<string, unknown> } }).error.details;
     expect(details.reason).to.equal("passkey_required");
-    expect(details.action).to.equal("post");
+    expect(details.action).to.equal("petition");
     expect(details.jurisdictionId).to.equal(AB);
   });
 
