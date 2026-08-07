@@ -340,17 +340,25 @@ export class ReadResolution {
    * (home > affected > jurisdiction > none) — exact port of the web-app's authorGeoRelation
    * (read-model/geography.ts), including the jurisdiction-wide drop-off: when a post affects its
    * whole jurisdiction, every in-jurisdiction resident is "affected" and the narrower
-   * "jurisdiction" rung can't exist.
+   * "jurisdiction" rung can't exist. "home" is scoped to the post's jurisdiction (shared riding
+   * must belong to that jurisdiction); district-less ones (e.g. Global) never resolve home.
    */
   private async authorGeoRelation(authorDistricts: string[], ctx: ThreadGeoContext): Promise<AuthorGeoRelation> {
     if (authorDistricts.length === 0) return "none";
 
-    // "home" needs a residency-verified viewer (the privileged relation).
-    if (this.viewer.kycRank >= 2 && overlaps(authorDistricts, this.viewer.homeDistricts)) {
+    const jurisdictionDistricts = await this.districtsOf(ctx.jurisdiction);
+
+    // "home": residency-verified viewer + shared riding in the post's jurisdiction.
+    if (
+      this.viewer.kycRank >= 2 &&
+      jurisdictionDistricts.length > 0 &&
+      authorDistricts.some(
+        (s) => this.viewer.homeDistricts.includes(s) && jurisdictionDistricts.includes(s),
+      )
+    ) {
       return "home";
     }
 
-    const jurisdictionDistricts = await this.districtsOf(ctx.jurisdiction);
     const inJurisdiction = authorDistricts.some((s) => jurisdictionDistricts.includes(s));
 
     if (jurisdictionWide(ctx.affectedDistricts, jurisdictionDistricts)) {

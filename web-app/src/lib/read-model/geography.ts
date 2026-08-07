@@ -176,17 +176,21 @@ export function effectiveMyJurisdiction(
 }
 
 /**
- * An author "in my district": only meaningful when the viewer is themselves
- * residency-verified (kycTier >= 2) and the author's riding overlaps one of the
- * viewer's home ridings. Drives the map-pin-house residency-neighbour glyph.
+ * An author "in my district" for the open post's jurisdiction: residency-verified
+ * viewer, shared home riding, and that riding belongs to the post's jurisdiction.
+ * District-less jurisdictions (e.g. Global, `jurisdictionDistricts = []`) never
+ * match — there is no district to co-reside in. Drives the map-pin-house glyph.
  */
 export function isHomeAuthor(
   authorDistricts: string[] | undefined,
   viewerKycTier: VerificationTier,
   viewerDistricts: string[],
+  jurisdictionDistricts: string[],
 ): boolean {
-  if (viewerKycTier < 2) return false;
-  return (authorDistricts ?? []).some((s) => viewerDistricts.includes(s));
+  if (viewerKycTier < 2 || jurisdictionDistricts.length === 0) return false;
+  return (authorDistricts ?? []).some(
+    (s) => viewerDistricts.includes(s) && jurisdictionDistricts.includes(s),
+  );
 }
 
 /** Inputs for resolving a Residency author's spatial relation to the open post. */
@@ -211,9 +215,10 @@ export interface AuthorGeoContext {
  * member's raw districts are never serialized to other members — DTOs carry
  * only this narrowest-relation projection (see AuthorGeoRelation in lib/types).
  *
- * - "home"         lives in one of the VIEWER's home ridings (needs a
- *                  residency-verified viewer). Viewer-centric and
- *                  post-independent, so it always outranks the rest.
+ * - "home"         co-resides with the viewer in a riding of the post's
+ *                  jurisdiction (needs a residency-verified viewer). Scoped to
+ *                  the post's jurisdiction — never resolves on district-less
+ *                  ones (e.g. Global). Outranks the rest when it applies.
  * - "affected"     lives in one of the post's affected ridings.
  * - "jurisdiction" lives elsewhere in the post's jurisdiction — allowed to
  *                  participate, but outside the affected area.
@@ -240,7 +245,14 @@ export function authorGeoRelation(
   const ds = authorDistricts ?? [];
   if (ds.length === 0) return "none";
 
-  if (isHomeAuthor(ds, ctx.viewerKycTier, ctx.viewerDistricts)) {
+  if (
+    isHomeAuthor(
+      ds,
+      ctx.viewerKycTier,
+      ctx.viewerDistricts,
+      ctx.jurisdictionDistricts,
+    )
+  ) {
     return "home";
   }
 

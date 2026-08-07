@@ -36,8 +36,9 @@ export type PillDisplayMode = "full" | "icon";
  *
  *   home > affected > jurisdiction > none
  *
- * - "home"         in one of the VIEWER's home districts (needs a
- *                  residency-verified viewer)
+ * - "home"         co-resides with the viewer in a district of the post's
+ *                  jurisdiction (needs a residency-verified viewer; never on
+ *                  district-less jurisdictions like Global)
  * - "affected"     resident of the open post's affected area
  * - "jurisdiction" in the post's jurisdiction but outside its affected area
  * - "none"         no contextual relation (or below Residency — the tiers

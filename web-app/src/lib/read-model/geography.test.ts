@@ -376,6 +376,25 @@ describe("authorGeoRelation — residency glyph ladder", () => {
     const allNamedCtx = { ...ctx, postDistricts: [...JUR] };
     expect(authorGeoRelation(["calgary-elbow"], allNamedCtx)).toBe("affected");
   });
+
+  it("district-less jurisdiction (e.g. Global): home never resolves despite shared ridings", () => {
+    const globalCtx = {
+      ...ctx,
+      postDistricts: [] as string[],
+      jurisdictionDistricts: [] as string[],
+    };
+    expect(authorGeoRelation(["edmonton-strathcona"], globalCtx)).toBe("none");
+    expect(authorGeoRelation(["calgary-elbow"], globalCtx)).toBe("none");
+  });
+
+  it("home requires the shared riding to belong to the post's jurisdiction", () => {
+    const otherJurCtx = {
+      ...ctx,
+      jurisdictionDistricts: ["yukon-riding"],
+      postDistricts: ["yukon-riding"],
+    };
+    expect(authorGeoRelation(["edmonton-strathcona"], otherJurCtx)).toBe("none");
+  });
 });
 
 describe("jurisdictionWidePost / isJurisdictionKeep", () => {
