@@ -76,6 +76,7 @@ describe("19 public area catalog", () => {
     // Hard content caps surface so clients can render limits without hardcoding.
     expect(ab.contentLimits.petition.text).to.equal(5000);
     expect(ab.contentLimits.poll.maxOptions).to.equal(10);
+    expect(ab.contentLimits.poll.question).to.equal(400);
     // Media recognition list (catalog body ids); empty until admin-listed bodies are wired in config.
     expect(ab.recognizedAccreditationBodyIds).to.deep.equal(abCaGovRecognizedAccreditationBodyIds);
     const global = body.items.find((j: any) => j.id === "oursay-global");
