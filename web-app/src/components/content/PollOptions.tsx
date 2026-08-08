@@ -22,11 +22,14 @@ function PollBarText({
   // The track is light violet in both themes, so the base label layer is always
   // dark (ink flips to near-white in dark mode). The clipped overlay switches to
   // white only over a selected bar's dark brand-700 fill — the "split" text.
+  // Both layers share the same flex layout so wrapping stays aligned under the clip.
+  const rowClass =
+    "flex min-h-5 w-full items-center justify-between gap-2 px-2 py-0.5 text-xs leading-snug";
   return (
-    <div className="relative h-5 w-full">
-      <div className="flex h-5 w-full items-center justify-between gap-2 px-2 text-xs leading-none text-brand-900">
-        <span className="truncate">{display}</span>
-        <span className="shrink-0 tabular-nums">{count}</span>
+    <div className="relative min-h-5 w-full">
+      <div className={`${rowClass} text-brand-900`}>
+        <span className="min-w-0 flex-1 break-words whitespace-normal">{display}</span>
+        <span className="shrink-0 self-center tabular-nums">{count}</span>
       </div>
       <div
         className="pointer-events-none absolute inset-y-0 left-0 overflow-hidden"
@@ -34,13 +37,13 @@ function PollBarText({
         style={{ width: `${pct}%` }}
       >
         <div
-          className={`flex h-5 items-center justify-between gap-2 px-2 text-xs leading-none ${
+          className={`${rowClass} ${
             voted ? "font-semibold text-white" : "text-brand-900"
           }`}
           style={{ width: innerWidth }}
         >
-          <span className="truncate">{display}</span>
-          <span className="shrink-0 tabular-nums">{count}</span>
+          <span className="min-w-0 flex-1 break-words whitespace-normal">{display}</span>
+          <span className="shrink-0 self-center tabular-nums">{count}</span>
         </div>
       </div>
     </div>
@@ -91,7 +94,7 @@ export function PollOptions({
               type="button"
               disabled={locked || !onVote}
               onClick={() => onVote?.(o.label)}
-              className={`relative block h-5 w-full overflow-hidden rounded border text-left ${
+              className={`relative block min-h-5 w-full overflow-hidden rounded border text-left ${
                 mine
                   ? "border-brand-600 bg-brand-100"
                   : "border-brand-200 bg-brand-100"
