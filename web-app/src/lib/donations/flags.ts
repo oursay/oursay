@@ -46,6 +46,35 @@ export const GITHUB_SPONSORS_URL = (
   process.env.NEXT_PUBLIC_GITHUB_SPONSORS_URL ?? ""
 ).trim();
 
+/**
+ * Which checkout path the donation modal uses.
+ * `github` (default) → Sponsors deep-links; `etransfer` → Interac email + copy UI.
+ */
+export type DonationModalProvider = "github" | "etransfer";
+
+function parseDonationModalProvider(
+  raw: string | undefined,
+): DonationModalProvider {
+  const v = (raw ?? "").trim().toLowerCase();
+  if (v === "etransfer" || v === "e-transfer" || v === "interac") return "etransfer";
+  return "github";
+}
+
+export const DONATION_MODAL_PROVIDER = parseDonationModalProvider(
+  process.env.NEXT_PUBLIC_DONATION_MODAL_PROVIDER,
+);
+
+/** Interac e-Transfer recipient. Empty → etransfer modal CTAs stay disabled. */
+export const ETRANSFER_EMAIL = (
+  process.env.NEXT_PUBLIC_ETRANSFER_EMAIL ?? ""
+).trim();
+
+/** True when the active modal provider has its required config. */
+export function donationProviderConfigured(): boolean {
+  if (DONATION_MODAL_PROVIDER === "etransfer") return Boolean(ETRANSFER_EMAIL);
+  return Boolean(GITHUB_SPONSORS_URL);
+}
+
 /** True when any donation UI surface is enabled. */
 export function donationsSurfacesEnabled(): boolean {
   return SHOW_DONATION_BANNER || SHOW_DONATION_MODAL_PUBLIC || SHOW_DONATION_MODAL_KYC;

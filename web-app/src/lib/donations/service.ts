@@ -1,11 +1,17 @@
 /**
- * Thin donation seam — GitHub Sponsors only (no payment gateway).
+ * Thin donation seam — GitHub Sponsors or Interac e-Transfer (no payment gateway).
  *
- * Checkout deep-links use `/sponsorships?frequency=&amount=` when custom amounts
- * are enabled on the Sponsors profile (GitHub honours these query params).
+ * Provider is selected via NEXT_PUBLIC_DONATION_MODAL_PROVIDER.
+ * Sponsors checkout deep-links use `/sponsorships?frequency=&amount=` when custom
+ * amounts are enabled on the Sponsors profile (GitHub honours these query params).
  */
 
-import { GITHUB_SPONSORS_URL } from "./flags";
+import {
+  DONATION_MODAL_PROVIDER,
+  ETRANSFER_EMAIL,
+  GITHUB_SPONSORS_URL,
+  type DonationModalProvider,
+} from "./flags";
 
 export type DonationSuggestedAmount = 1 | 5 | 20 | 50;
 export type DonationAmountChoice = DonationSuggestedAmount | "custom";
@@ -15,8 +21,16 @@ export const DONATION_SUGGESTED_AMOUNTS: readonly DonationSuggestedAmount[] = [
   1, 5, 20, 50,
 ];
 
+export function getDonationModalProvider(): DonationModalProvider {
+  return DONATION_MODAL_PROVIDER;
+}
+
 export function getSponsorsUrl(): string | null {
   return GITHUB_SPONSORS_URL || null;
+}
+
+export function getEtransferEmail(): string | null {
+  return ETRANSFER_EMAIL || null;
 }
 
 /** Profile URL → `/sponsorships` checkout base (strips trailing slash / query). */

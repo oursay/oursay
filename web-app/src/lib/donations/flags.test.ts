@@ -16,12 +16,31 @@ describe("donation flags", () => {
     delete process.env.NEXT_PUBLIC_SHOW_DONATION_BANNER;
     delete process.env.NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC;
     delete process.env.NEXT_PUBLIC_SHOW_DONATION_MODAL_KYC;
+    delete process.env.NEXT_PUBLIC_DONATION_MODAL_PROVIDER;
+    delete process.env.NEXT_PUBLIC_ETRANSFER_EMAIL;
     const mod = await import("./flags");
     expect(mod.SHOW_DEMO_BANNER).toBe(true);
     expect(mod.SHOW_DONATION_BANNER).toBe(false);
     expect(mod.SHOW_DONATION_MODAL_PUBLIC).toBe(false);
     expect(mod.SHOW_DONATION_MODAL_KYC).toBe(false);
+    expect(mod.DONATION_MODAL_PROVIDER).toBe("github");
     expect(mod.resolveFabBanner()).toBe("demo");
+  });
+
+  it("parses etransfer provider and email", async () => {
+    process.env.NEXT_PUBLIC_DONATION_MODAL_PROVIDER = "etransfer";
+    process.env.NEXT_PUBLIC_ETRANSFER_EMAIL = " donate@oursay.ca ";
+    const mod = await import("./flags");
+    expect(mod.DONATION_MODAL_PROVIDER).toBe("etransfer");
+    expect(mod.ETRANSFER_EMAIL).toBe("donate@oursay.ca");
+    expect(mod.donationProviderConfigured()).toBe(true);
+  });
+
+  it("donationProviderConfigured requires sponsors URL for github", async () => {
+    process.env.NEXT_PUBLIC_DONATION_MODAL_PROVIDER = "github";
+    delete process.env.NEXT_PUBLIC_GITHUB_SPONSORS_URL;
+    const mod = await import("./flags");
+    expect(mod.donationProviderConfigured()).toBe(false);
   });
 
   it("shows donation banner when demo is off and donation on", async () => {

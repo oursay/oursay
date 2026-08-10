@@ -660,6 +660,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ? continueAfterDonation
             : closeDonation
         }
+        onNotify={app.notify}
       />
       <ComposeFlow
         open={state.composeOpen}

@@ -87,4 +87,16 @@ describe("donation service", () => {
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
+
+  it("getEtransferEmail returns configured address", async () => {
+    process.env.NEXT_PUBLIC_ETRANSFER_EMAIL = "donate@oursay.ca";
+    const { getEtransferEmail } = await import("./service");
+    expect(getEtransferEmail()).toBe("donate@oursay.ca");
+  });
+
+  it("getDonationModalProvider reads flags", async () => {
+    process.env.NEXT_PUBLIC_DONATION_MODAL_PROVIDER = "e-transfer";
+    const { getDonationModalProvider } = await import("./service");
+    expect(getDonationModalProvider()).toBe("etransfer");
+  });
 });
