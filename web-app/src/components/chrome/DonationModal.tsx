@@ -6,6 +6,7 @@ import { Button, CheckboxIndicator, Modal } from "@/components/ui";
 import {
   DONATION_SUGGESTED_AMOUNTS,
   donationProviderConfigured,
+  donationsUnavailableMessage,
   getDonationModalProvider,
   getEtransferEmail,
   openGitHubSponsors,
@@ -36,8 +37,14 @@ function channelLabel(provider: DonationModalProvider): string {
 
 function modalCopy(
   variant: DonationModalVariant,
-  provider: DonationModalProvider,
+  provider: DonationModalProvider | null,
 ): { title: string; body: ReactNode } {
+  if (!provider) {
+    return {
+      title: "Donations unavailable",
+      body: donationsUnavailableMessage(),
+    };
+  }
   const channel = channelLabel(provider);
   if (variant === "public") {
     return {
@@ -93,7 +100,9 @@ async function copyToClipboard(text: string): Promise<boolean> {
 
 /**
  * Soft-ask for donations. Provider is NEXT_PUBLIC_DONATION_MODAL_PROVIDER
- * (`github` | `etransfer`). Enable via NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC / _KYC.
+ * (`github` | `etransfer`; unset = none). Enable auto-prompts via
+ * NEXT_PUBLIC_SHOW_DONATION_MODAL_PUBLIC / _KYC. Entry points should open this
+ * modal (or toast) — never deep-link externally without it.
  */
 export function DonationModal({
   open,
@@ -136,10 +145,16 @@ export function DonationModal({
     }
   };
 
-  const missingConfigHint =
-    provider === "etransfer"
-      ? "E-Transfer email is not configured in this environment."
-      : "Sponsors URL is not configured in this environment.";
+  const donateViaGithub = (selection: {
+    amount: DonationSuggestedAmount | "custom";
+    recurring: boolean;
+  }) => {
+    if (!openGitHubSponsors(selection)) {
+      onNotify?.(donationsUnavailableMessage());
+    }
+  };
+
+  const missingConfigHint = donationsUnavailableMessage();
 
   const skipLabel =
     variant === "kyc" ? "Proceed to verification" : "I'll donate next time";
@@ -154,6 +169,16 @@ export function DonationModal({
     >
       <div className="space-y-4">
         <p className="text-center text-sm text-muted">{copy.body}</p>
+
+        {!provider ? (
+          <button
+            type="button"
+            onClick={finish}
+            className="block w-full pt-1 text-center text-sm text-muted underline underline-offset-2 hover:text-ink-soft"
+          >
+            {skipLabel}
+          </button>
+        ) : null}
 
         {provider === "github" ? (
           <div>
@@ -263,13 +288,13 @@ export function DonationModal({
               {skipLabel}
             </button>
           </div>
-        ) : (
+        ) : provider === "github" ? (
           <div className="space-y-2">
             <Button
               fullWidth
               icon={Heart}
               disabled={!canDonate}
-              onClick={() => openGitHubSponsors({ amount, recurring })}
+              onClick={() => donateViaGithub({ amount, recurring })}
               title={
                 canDonate
                   ? "Open GitHub Sponsors with your selection"
@@ -282,7 +307,9 @@ export function DonationModal({
               fullWidth
               variant="outline"
               disabled={!canDonate}
-              onClick={() => openGitHubSponsors({ amount: "custom", recurring })}
+              onClick={() =>
+                donateViaGithub({ amount: "custom", recurring })
+              }
               title={
                 canDonate
                   ? "Choose a custom amount on GitHub Sponsors"
@@ -299,9 +326,9 @@ export function DonationModal({
               {skipLabel}
             </button>
           </div>
-        )}
+        ) : null}
 
-        {!canDonate ? (
+        {provider && !canDonate ? (
           <p className="text-xs text-muted">{missingConfigHint}</p>
         ) : null}
       </div>

@@ -99,4 +99,10 @@ describe("donation service", () => {
     const { getDonationModalProvider } = await import("./service");
     expect(getDonationModalProvider()).toBe("etransfer");
   });
+
+  it("getDonationModalProvider is null when unset", async () => {
+    delete process.env.NEXT_PUBLIC_DONATION_MODAL_PROVIDER;
+    const { getDonationModalProvider } = await import("./service");
+    expect(getDonationModalProvider()).toBeNull();
+  });
 });

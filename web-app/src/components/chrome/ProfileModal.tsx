@@ -78,7 +78,7 @@ interface ProfileModalProps {
   onRenamePasskey?: (id: string, label: string) => void;
   /** Remove a passkey ("kick" a device). Hidden on the last remaining passkey. */
   onRevokePasskey?: (id: string) => void;
-  /** Opens donation soft-ask (GitHub Sponsors or Interac e-Transfer). */
+  /** Opens donation soft-ask modal (or toast if no provider is configured). */
   onDonate?: () => void;
   /** Deferred account-settings destinations (wireframe no-ops → toast). */
   onOpenSetting?: (label: string) => void;

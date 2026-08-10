@@ -21,7 +21,7 @@ export const DONATION_SUGGESTED_AMOUNTS: readonly DonationSuggestedAmount[] = [
   1, 5, 20, 50,
 ];
 
-export function getDonationModalProvider(): DonationModalProvider {
+export function getDonationModalProvider(): DonationModalProvider | null {
   return DONATION_MODAL_PROVIDER;
 }
 

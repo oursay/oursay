@@ -1,10 +1,14 @@
 "use client";
 
 import { Heart } from "lucide-react";
-import { SHOW_DONATION_BANNER } from "@/lib/donations";
+import {
+  donationProviderConfigured,
+  donationsUnavailableMessage,
+  SHOW_DONATION_BANNER,
+} from "@/lib/donations";
 
 interface DonationBannerProps {
-  /** Opens the public donation modal (preferred) or Sponsors directly. */
+  /** Opens the public donation modal (or toast if donations are unconfigured). */
   onOpenDonate: () => void;
 }
 
@@ -17,6 +21,8 @@ interface DonationBannerProps {
 export function DonationBanner({ onOpenDonate }: DonationBannerProps) {
   if (!SHOW_DONATION_BANNER) return null;
 
+  const canDonate = donationProviderConfigured();
+
   return (
     <div className="pointer-events-none absolute bottom-5 left-0 right-12 z-30">
       <button
@@ -26,8 +32,14 @@ export function DonationBanner({ onOpenDonate }: DonationBannerProps) {
       >
         <Heart size={12} className="shrink-0 text-brand-600" aria-hidden />
         <span>
-          Verification is free — help fund the next check.{" "}
-          <span className="underline underline-offset-2">Donate</span>
+          {canDonate ? (
+            <>
+              Verification is free — help fund the next check.{" "}
+              <span className="underline underline-offset-2">Donate</span>
+            </>
+          ) : (
+            donationsUnavailableMessage()
+          )}
         </span>
       </button>
     </div>

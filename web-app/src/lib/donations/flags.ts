@@ -48,18 +48,26 @@ export const GITHUB_SPONSORS_URL = (
 
 /**
  * Which checkout path the donation modal uses.
- * `github` (default) → Sponsors deep-links; `etransfer` → Interac email + copy UI.
+ * Unset → no provider (donate CTAs toast; do not assume github/etransfer).
+ * `github` → Sponsors deep-links; `etransfer` → Interac email + copy UI.
+ *
+ * TODO(donations): fallback provider when unset — e.g. show a modal that
+ * points at a GitHub FUNDING.md / .github/FUNDING.yml, or a static “how to
+ * support us” message, instead of toasting. Keep the donate entrypoint as
+ * modal-or-toast (never a bare external link from profile/banner).
  */
 export type DonationModalProvider = "github" | "etransfer";
 
 function parseDonationModalProvider(
   raw: string | undefined,
-): DonationModalProvider {
+): DonationModalProvider | null {
   const v = (raw ?? "").trim().toLowerCase();
+  if (v === "github" || v === "sponsors") return "github";
   if (v === "etransfer" || v === "e-transfer" || v === "interac") return "etransfer";
-  return "github";
+  return null;
 }
 
+/** `null` when NEXT_PUBLIC_DONATION_MODAL_PROVIDER is unset or unrecognized. */
 export const DONATION_MODAL_PROVIDER = parseDonationModalProvider(
   process.env.NEXT_PUBLIC_DONATION_MODAL_PROVIDER,
 );
@@ -69,10 +77,33 @@ export const ETRANSFER_EMAIL = (
   process.env.NEXT_PUBLIC_ETRANSFER_EMAIL ?? ""
 ).trim();
 
-/** True when the active modal provider has its required config. */
+/** True when a provider is chosen and has its required config. */
 export function donationProviderConfigured(): boolean {
   if (DONATION_MODAL_PROVIDER === "etransfer") return Boolean(ETRANSFER_EMAIL);
-  return Boolean(GITHUB_SPONSORS_URL);
+  if (DONATION_MODAL_PROVIDER === "github") return Boolean(GITHUB_SPONSORS_URL);
+  return false;
+}
+
+/**
+ * User-facing reason fragment for `donationsUnavailableMessage`, or `null`
+ * when there’s nothing specific to say (e.g. no provider chosen).
+ */
+export function donationUnavailableReason(): string | null {
+  if (DONATION_MODAL_PROVIDER === "etransfer" && !ETRANSFER_EMAIL) {
+    return "the e-Transfer email isn’t available yet";
+  }
+  if (DONATION_MODAL_PROVIDER === "github" && !GITHUB_SPONSORS_URL) {
+    return "the sponsorship link isn’t available yet";
+  }
+  return null;
+}
+
+/** Toast / banner / modal copy when donations can’t proceed. */
+export function donationsUnavailableMessage(reason?: string | null): string {
+  const r = (reason === undefined ? donationUnavailableReason() : reason)?.trim();
+  return r
+    ? `OurSay is currently unable to accept donations because ${r}.`
+    : "OurSay is currently unable to accept donations.";
 }
 
 /** True when any donation UI surface is enabled. */

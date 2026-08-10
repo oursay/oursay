@@ -54,10 +54,9 @@ import {
   DEFERRED_PASSKEY_RECOVERY,
 } from "@/lib/api/deferred";
 import {
-  donationsSurfacesEnabled,
-  getSponsorsUrl,
+  donationProviderConfigured,
+  donationsUnavailableMessage,
   markPublicDonationAskShown,
-  openGitHubSponsors,
   PUBLIC_DONATION_DELAY_MS,
   resolveFabBanner,
   shouldOfferPublicDonationAsk,
@@ -127,7 +126,9 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   /** Guest soft-ask: once per 24h, after 30s on the page (skips while other chrome modals are open). */
   useEffect(() => {
-    if (!SHOW_DONATION_MODAL_PUBLIC || state.loggedIn) return;
+    if (!SHOW_DONATION_MODAL_PUBLIC || !donationProviderConfigured() || state.loggedIn) {
+      return;
+    }
     if (!shouldOfferPublicDonationAsk()) return;
 
     let cancelled = false;
@@ -199,20 +200,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     };
   }, [state.loggedIn, state.kycTier]);
 
-  const openPublicDonate = () => {
-    if (SHOW_DONATION_MODAL_PUBLIC) {
-      setDonationOpen("public");
+  /** Profile / banner donate: always modal, or toast when no provider is configured. */
+  const openDonate = () => {
+    if (!donationProviderConfigured()) {
+      app.notify(donationsUnavailableMessage());
       return;
     }
-    openGitHubSponsors();
-  };
-
-  const openProfileDonate = () => {
-    if (SHOW_DONATION_MODAL_PUBLIC || SHOW_DONATION_MODAL_KYC) {
-      setDonationOpen("public");
-      return;
-    }
-    openGitHubSponsors();
+    setDonationOpen("public");
   };
 
   const closeDonation = () => {
@@ -236,7 +230,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const startVerifyChoice = (choice: VerifyChoice) => {
-    if (SHOW_DONATION_MODAL_KYC) {
+    if (SHOW_DONATION_MODAL_KYC && donationProviderConfigured()) {
       setPendingKyc({ kind: "verify", choice });
       setDonationOpen("kyc");
       return;
@@ -534,7 +528,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <>
             {fabBanner === "demo" ? <DemoBanner /> : null}
             {fabBanner === "donation" ? (
-              <DonationBanner onOpenDonate={openPublicDonate} />
+              <DonationBanner onOpenDonate={openDonate} />
             ) : null}
             <Fab onClick={() => app.startCompose(inferredComposeJurisdiction)} />
           </>
@@ -605,11 +599,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         signing={state.signing}
         onSetSigning={app.setSigning}
         onSetPostSigning={app.setPostSigning}
-        onDonate={
-          donationsSurfacesEnabled() || getSponsorsUrl()
-            ? openProfileDonate
-            : undefined
-        }
+        onDonate={openDonate}
         onTierMatchedUpdate={openTierMatchedUpdate}
         onOpenSetting={(label) => {
           if (label === "Edit Profile") {
@@ -643,7 +633,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         open={authModal.kind === "recovery_kyc"}
         onClose={app.closeAuth}
         onStart={() => {
-          if (SHOW_DONATION_MODAL_KYC) {
+          if (SHOW_DONATION_MODAL_KYC && donationProviderConfigured()) {
             setPendingKyc({ kind: "recovery" });
             setDonationOpen("kyc");
             return;
