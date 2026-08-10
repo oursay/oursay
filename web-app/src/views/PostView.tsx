@@ -45,7 +45,10 @@ import { commentKey, commentShareTarget, recordShareTarget } from "@/lib/share";
 import { civicCommentParentForReply } from "@/lib/comment-tree";
 import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
+  clearCommentDraft,
+  loadCommentDraft,
   readThreadVisibilities,
+  saveCommentDraft,
   useApp,
 } from "@/lib/state";
 import { DEFERRED_EDIT_HISTORY } from "@/lib/api/deferred";
@@ -85,6 +88,18 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   );
   const commentMaxLength = app.contentLimitsFor(detail?.jurisdiction).comment.body;
   const rootReplyOver = rootReplyText.length > commentMaxLength;
+
+  // Restore the root-thread comment draft when the composer opens.
+  useEffect(() => {
+    if (!app.state.replyOpen || !detail) return;
+    const draft = loadCommentDraft(detail.id, detail.id);
+    setRootReplyText(draft?.text ?? "");
+  }, [app.state.replyOpen, detail?.id]);
+
+  const setRootReplyTextAndDraft = (text: string) => {
+    setRootReplyText(text);
+    if (detail) saveCommentDraft(detail.id, detail.id, { text });
+  };
 
   const toggleCommentReply = (nodePath: string) => {
     setOpenReplies((prev) => {
@@ -405,7 +420,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               rows={3}
               placeholder="Write a reply…"
               value={rootReplyText}
-              onChange={setRootReplyText}
+              onChange={setRootReplyTextAndDraft}
               roster={mentionRoster}
               maxLength={commentMaxLength}
               onSubmitHotkey={() => {
@@ -427,6 +442,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                     mentionSpans: resolved.mentionSpans,
                   },
                   (personaName) => {
+                    clearCommentDraft(detail.id, detail.id);
                     setRootReplyText("");
                     postCommentDone(replyPostedMessage(personaName), () => app.closeReply());
                   },
@@ -468,6 +484,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                       mentionSpans: resolved.mentionSpans,
                     },
                     (personaName) => {
+                      clearCommentDraft(detail.id, detail.id);
                       setRootReplyText("");
                       postCommentDone(replyPostedMessage(personaName), () => app.closeReply());
                     },
@@ -501,12 +518,31 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               openReplies.has(nodePath) ? (
                 <div className="mt-2 pl-8">
                   <ReplyComposer
-                    initialText={
-                      depth >= COMMENT_MAX_DEPTH ? `@${node.handle} ` : ""
-                    }
+                    initialText={(() => {
+                      const parentId = civicCommentParentForReply(
+                        node,
+                        nodePath,
+                        depth,
+                        fullComments,
+                      );
+                      const mentionPrefix =
+                        depth >= COMMENT_MAX_DEPTH ? `@${node.handle} ` : "";
+                      if (!parentId) return mentionPrefix;
+                      const draft = loadCommentDraft(detail.id, parentId);
+                      return draft?.text || mentionPrefix;
+                    })()}
                     autoFocus
                     maxLength={commentMaxLength}
                     roster={mentionRoster}
+                    onTextChange={(text) => {
+                      const parentId = civicCommentParentForReply(
+                        node,
+                        nodePath,
+                        depth,
+                        fullComments,
+                      );
+                      if (parentId) saveCommentDraft(detail.id, parentId, { text });
+                    }}
                     onCancel={() => toggleCommentReply(nodePath)}
                     onSubmit={(payload) => {
                       const parentId = civicCommentParentForReply(
@@ -531,6 +567,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                           mentionSpans: payload.mentionSpans,
                         },
                         (personaName) => {
+                          clearCommentDraft(detail.id, parentId);
                           postCommentDone(
                             replyPostedMessage(personaName),
                             () => toggleCommentReply(nodePath),

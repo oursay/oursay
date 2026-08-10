@@ -132,6 +132,12 @@ import {
   registrationProfileForApi,
   saveRegistrationDraft,
 } from "./registration-draft";
+import {
+  clearPostDraft,
+  loadPostDraft,
+  savePostDraft,
+  type PostDraftPayload,
+} from "./content-drafts";
 import { isValidEmailFormat } from "@/lib/email";
 import {
   authChooser,
@@ -164,6 +170,46 @@ const ALL_ACTIVITY: ActivityKind[] = [
   "poll",
   "reaction",
 ];
+
+function composeFieldsFromDraft(draft: PostDraftPayload | null): {
+  composeTitle: string;
+  composeBody: string;
+  composePollOptions: string[];
+  composeDistricts: string[];
+  composeVisibility: AuthorVisibility | undefined;
+} {
+  return {
+    composeTitle: draft?.title ?? "",
+    composeBody: draft?.body ?? "",
+    composePollOptions: draft?.pollOptions?.length
+      ? [...draft.pollOptions]
+      : ["", ""],
+    composeDistricts: draft?.districts ? [...draft.districts] : [],
+    composeVisibility: draft?.visibility,
+  };
+}
+
+function persistComposeDraft(
+  s: Pick<
+    AppState,
+    | "composeJur"
+    | "composeType"
+    | "composeTitle"
+    | "composeBody"
+    | "composePollOptions"
+    | "composeDistricts"
+    | "composeVisibility"
+  >,
+): void {
+  if (!s.composeJur || !s.composeType) return;
+  savePostDraft(s.composeJur, s.composeType, {
+    title: s.composeTitle,
+    body: s.composeBody,
+    pollOptions: s.composePollOptions,
+    districts: s.composeDistricts,
+    visibility: s.composeVisibility,
+  });
+}
 
 /** A record shape the civic-write actions need (FeedItem or RecordDetail both fit). */
 interface CivicTarget {
@@ -1936,17 +1982,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
   );
 
   const selectComposeJurisdiction = useCallback((name: string) => {
-    setState((s) => ({
-      ...s,
-      composeJur: name,
-      composeDistricts: [],
-      composeStep: s.composeStep === "compose" ? "compose" : "type",
-    }));
+    setState((s) => {
+      const kind = s.composeType;
+      if (!kind) {
+        return {
+          ...s,
+          composeJur: name,
+          composeDistricts: [],
+          composeStep: s.composeStep === "compose" ? "compose" : "type",
+        };
+      }
+      const draft = loadPostDraft(name, kind);
+      return {
+        ...s,
+        composeJur: name,
+        composeStep: s.composeStep === "compose" ? "compose" : "type",
+        ...composeFieldsFromDraft(draft),
+      };
+    });
   }, []);
-  const selectComposeType = useCallback(
-    (kind: RecordKind) => set({ composeType: kind, composeStep: "compose" }),
-    [set],
-  );
+  const selectComposeType = useCallback((kind: RecordKind) => {
+    setState((s) => {
+      const draft = s.composeJur ? loadPostDraft(s.composeJur, kind) : null;
+      return {
+        ...s,
+        composeType: kind,
+        composeStep: "compose",
+        ...composeFieldsFromDraft(draft),
+      };
+    });
+  }, []);
   const changeComposeType = useCallback(
     () => set({ composeStep: "type", composeType: undefined }),
     [set],
@@ -1971,6 +2036,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setComposeDistricts = useCallback((slugs: string[]) => {
     setState((s) => ({ ...s, composeDistricts: slugs }));
   }, []);
+
+  // Persist the open compose form to localStorage (per jurisdiction + record type).
+  useEffect(() => {
+    if (!state.composeOpen || !state.composeJur || !state.composeType) return;
+    persistComposeDraft(state);
+  }, [
+    state.composeOpen,
+    state.composeJur,
+    state.composeType,
+    state.composeTitle,
+    state.composeBody,
+    state.composePollOptions,
+    state.composeDistricts,
+    state.composeVisibility,
+  ]);
 
   const closeCompose = useCallback(
     () =>
@@ -2016,6 +2096,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const composeTitleFinal = resolved.fields.title ?? title;
     const composeBodyFinal = resolved.fields.body ?? body;
     const finish = (personaName?: string | null) => {
+      if (state.composeJur && state.composeType) {
+        clearPostDraft(state.composeJur, state.composeType);
+      }
       closeCompose();
       notify(
         effectiveVis === "public"

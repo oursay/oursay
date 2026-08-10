@@ -22,6 +22,8 @@ interface ReplyComposerProps {
   maxLength?: number;
   /** In-thread roster for @ typeahead; empty ⇒ unmatched @ → Someone. */
   roster?: MentionRoster;
+  /** Fires on every text change (for localStorage draft persistence). */
+  onTextChange?: (text: string) => void;
   onCancel: () => void;
   onSubmit: (payload: MentionSubmitPayload) => void;
 }
@@ -35,6 +37,7 @@ export function ReplyComposer({
   autoFocus = false,
   maxLength,
   roster = emptyMentionRoster(),
+  onTextChange,
   onCancel,
   onSubmit,
 }: ReplyComposerProps) {
@@ -48,6 +51,11 @@ export function ReplyComposer({
     mounted.current = true;
   }, [autoFocus]);
 
+  const updateText = (next: string) => {
+    setText(next);
+    onTextChange?.(next);
+  };
+
   const submit = () => {
     if (overLimit) return;
     const resolved = resolveComposeMentions(text, roster);
@@ -59,7 +67,7 @@ export function ReplyComposer({
     <div className="space-y-2 rounded-xl border border-border bg-surface p-3">
       <MentionComposer
         value={text}
-        onChange={setText}
+        onChange={updateText}
         roster={roster}
         autoFocus={autoFocus}
         rows={3}
