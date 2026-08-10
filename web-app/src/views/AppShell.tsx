@@ -332,17 +332,18 @@ export function AppShell({ children }: { children: ReactNode }) {
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }, [otpEmailParam, otpPurposeParam, pathname, router, searchParams, state.loggedIn, app]);
 
-  useEffect(() => {
-    if (process.env.NODE_ENV !== "development") return;
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-      if (e.key === "f" || e.key === "F") app.toggleFilter();
-      if (e.key === "o" || e.key === "O") app.toggleLoginOtpWindow();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [app]);
+  // NOTE: commented out, causing issues
+  // useEffect(() => {
+  //   if (process.env.MENU_KEYBOARD_SHORTCUTS !== "true") return;
+  //   const onKey = (e: KeyboardEvent) => {
+  //     const el = e.target as HTMLElement | null;
+  //     if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+  //     if (e.key === "f" || e.key === "F") app.toggleFilter();
+  //     if (e.key === "o" || e.key === "O") app.toggleLoginOtpWindow();
+  //   };
+  //   window.addEventListener("keydown", onKey);
+  //   return () => window.removeEventListener("keydown", onKey);
+  // }, [app]);
 
   const includedSubIds = state.subscriptions
     .filter((s) => s.included)
