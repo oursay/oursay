@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getRecordDetail, personaShownToOthers } from "@/lib/api";
+import { parentTypeForKind } from "@/lib/api/civic-helpers";
 import {
   COMMENT_MAX_DEPTH,
   VISIBILITY_LABEL,
@@ -414,13 +415,13 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                   app.notify("Write something before posting.");
                   return;
                 }
-                app.postComment(
+                  app.postComment(
                   {
                     threadId: detail.id,
                     jurisdiction: detail.jurisdiction,
                     targetTitle: detail.title,
                     parentId: detail.id,
-                    parentType: "post",
+                    parentType: parentTypeForKind(detail.kind),
                     body: resolved.text,
                     mentions: resolved.mentions,
                     mentionSpans: resolved.mentionSpans,
@@ -461,7 +462,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                       jurisdiction: detail.jurisdiction,
                       targetTitle: detail.title,
                       parentId: detail.id,
-                      parentType: "post",
+                      parentType: parentTypeForKind(detail.kind),
                       body: resolved.text,
                       mentions: resolved.mentions,
                       mentionSpans: resolved.mentionSpans,

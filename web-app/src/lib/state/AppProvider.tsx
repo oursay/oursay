@@ -79,7 +79,7 @@ import {
 } from "./cookies";
 import { ApiError, isMockOnly } from "@/lib/api/client";
 import { wireHandle } from "@/lib/handle";
-import type { CivicSignMode } from "@/lib/api/civic-helpers";
+import type { CivicParentType, CivicSignMode } from "@/lib/api/civic-helpers";
 import {
   parentTypeForKind,
   reactionKindForDir,
@@ -185,7 +185,8 @@ export interface CommentWriteContext {
   jurisdiction: string;
   targetTitle: string;
   parentId: string;
-  parentType: "post" | "comment";
+  /** Root comments use the record wire type (`post`/`petition`/`poll`); replies use `comment`. */
+  parentType: CivicParentType;
   body: string;
   mentions?: MentionCandidate[];
   mentionSpans?: string[];
