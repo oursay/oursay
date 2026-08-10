@@ -26,6 +26,11 @@ import { ALBERTA_ID } from "@/lib/types";
 import type { AuthorVisibility, DistrictSummary, RecordKind, VerificationTier } from "@/lib/types";
 import type { MentionRoster } from "@/lib/mentions/compose";
 import { emptyMentionRoster } from "@/lib/mentions/roster";
+import {
+  anyFieldOverLimit,
+  resolveContentLimits,
+  type ResolvedContentLimits,
+} from "@/lib/content-limits";
 
 export type ComposeStep = "where" | "type" | "compose";
 
@@ -67,6 +72,8 @@ interface ComposeFlowProps {
   onComposePollOptionsChange?: (v: string[]) => void;
   /** Typeahead roster for `@` in title/body/question (new-thread usually seeds self). */
   mentionRoster?: MentionRoster;
+  /** Page-session content caps for the selected jurisdiction. */
+  contentLimits?: ResolvedContentLimits;
   /** Submits (Global) or opens the passkey confirmation (Alberta). */
   onPost?: () => void;
 }
@@ -86,6 +93,7 @@ function ComposeMentionField({
   roster,
   placeholder,
   rows,
+  maxLength,
 }: {
   label: string;
   value: string;
@@ -93,6 +101,7 @@ function ComposeMentionField({
   roster: MentionRoster;
   placeholder?: string;
   rows: number;
+  maxLength?: number;
 }) {
   return (
     <label className="block">
@@ -106,6 +115,7 @@ function ComposeMentionField({
         placeholder={placeholder}
         rows={rows}
         className={MENTION_FIELD_CLASS}
+        maxLength={maxLength}
       />
     </label>
   );
@@ -147,6 +157,7 @@ export function ComposeFlow({
   onComposeBodyChange,
   onComposePollOptionsChange,
   mentionRoster = emptyMentionRoster(),
+  contentLimits: contentLimitsProp,
   onPost,
 }: ComposeFlowProps) {
   const [jurMenuOpen, setJurMenuOpen] = useState(false);
@@ -155,12 +166,34 @@ export function ComposeFlow({
   const pollOptions = composePollOptions;
   const setPollOptions = onComposePollOptionsChange ?? (() => {});
   const effectiveVisibility = composeVisibility ?? accountVisibility;
+  const caps = contentLimitsProp ?? resolveContentLimits();
   const viewer: ComposeViewer = {
     kycTier,
     role,
     accreditationBodyIds,
     platformRoles: platformRoles as ComposeViewer["platformRoles"],
   };
+
+  const titleMax =
+    selectedType === "petition" ? caps.petition.title : caps.post.title;
+  const bodyMax =
+    selectedType === "petition" ? caps.petition.text : caps.post.body;
+
+  const composeOverLimit =
+    selectedType === "poll"
+      ? anyFieldOverLimit([
+          { length: composeTitle.length, max: caps.poll.question },
+          ...pollOptions.map((o) => ({
+            length: o.length,
+            max: caps.poll.option,
+          })),
+        ])
+      : selectedType === "statement" || selectedType === "petition"
+        ? anyFieldOverLimit([
+            { length: composeTitle.length, max: titleMax },
+            { length: composeBody.length, max: bodyMax },
+          ])
+        : false;
 
   useEffect(() => {
     if (!open) {
@@ -395,6 +428,9 @@ export function ComposeFlow({
             <PollComposeBody
               options={pollOptions}
               onChange={setPollOptions}
+              maxOptions={caps.poll.maxOptions}
+              optionMaxLength={caps.poll.option}
+              questionMaxLength={caps.poll.question}
               question={composeTitle}
               onQuestionChange={(v) => onComposeTitleChange?.(v)}
               mentionRoster={mentionRoster}
@@ -412,6 +448,7 @@ export function ComposeFlow({
                 onChange={(v) => onComposeTitleChange?.(v)}
                 roster={mentionRoster}
                 rows={2}
+                maxLength={titleMax}
               />
               <ComposeMentionField
                 label="Details"
@@ -424,6 +461,7 @@ export function ComposeFlow({
                 onChange={(v) => onComposeBodyChange?.(v)}
                 roster={mentionRoster}
                 rows={4}
+                maxLength={bodyMax}
               />
             </>
           )}
@@ -448,13 +486,16 @@ export function ComposeFlow({
               <PollComposeBody
                 options={pollOptions}
                 onChange={setPollOptions}
+                maxOptions={caps.poll.maxOptions}
+                optionMaxLength={caps.poll.option}
+                questionMaxLength={caps.poll.question}
                 questionLabel="Poll question"
                 questionPlaceholder="Ask signers a follow-up question…"
               />
             </CollapsibleSection>
           ) : null}
 
-          <Button fullWidth onClick={onPost}>
+          <Button fullWidth onClick={onPost} disabled={composeOverLimit}>
             Post
           </Button>
         </div>

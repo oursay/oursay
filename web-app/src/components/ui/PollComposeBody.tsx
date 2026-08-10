@@ -4,12 +4,17 @@ import { Plus, X } from "lucide-react";
 import { MentionComposer } from "@/components/content/MentionComposer";
 import type { MentionRoster } from "@/lib/mentions/compose";
 import { ModalField } from "./ModalField";
+import { SoftLimitInput } from "./SoftLimitInput";
 
 interface PollComposeBodyProps {
   options: string[];
   onChange: (options: string[]) => void;
-  /** JurisdictionConfig.contentLimits.maxPollOptions (spec: <=10). */
+  /** JurisdictionConfig.contentLimits.poll.maxOptions. */
   maxOptions?: number;
+  /** Soft cap for each option string. */
+  optionMaxLength?: number;
+  /** Soft cap for the poll question. */
+  questionMaxLength?: number;
   /** Petition-attached polls label the question field differently. */
   questionLabel?: string;
   questionPlaceholder?: string;
@@ -33,6 +38,8 @@ export function PollComposeBody({
   options,
   onChange,
   maxOptions = 10,
+  optionMaxLength,
+  questionMaxLength,
   questionLabel = "Question",
   questionPlaceholder = "Ask a yes/no or multiple-choice question…",
   question = "",
@@ -53,15 +60,30 @@ export function PollComposeBody({
             placeholder={questionPlaceholder}
             rows={2}
             className={MENTION_FIELD_CLASS}
+            maxLength={questionMaxLength}
           />
         </label>
       ) : onQuestionChange ? (
-        <ModalField
-          label={questionLabel}
-          placeholder={questionPlaceholder}
-          value={question}
-          onChange={(e) => onQuestionChange(e.target.value)}
-        />
+        optionMaxLength != null || questionMaxLength != null ? (
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted">
+              {questionLabel}
+            </span>
+            <SoftLimitInput
+              value={question}
+              onChange={onQuestionChange}
+              maxLength={questionMaxLength ?? 200}
+              placeholder={questionPlaceholder}
+            />
+          </label>
+        ) : (
+          <ModalField
+            label={questionLabel}
+            placeholder={questionPlaceholder}
+            value={question}
+            onChange={(e) => onQuestionChange(e.target.value)}
+          />
+        )
       ) : (
         <ModalField label={questionLabel} placeholder={questionPlaceholder} />
       )}
@@ -72,15 +94,27 @@ export function PollComposeBody({
         </span>
         {options.map((option, i) => (
           <div key={i} className="flex items-center gap-2">
-            <input
-              type="text"
-              value={option}
-              placeholder={`Option ${i + 1}`}
-              onChange={(e) =>
-                onChange(options.map((o, j) => (j === i ? e.target.value : o)))
-              }
-              className="min-w-0 flex-1 rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-brand-400 focus:outline-none"
-            />
+            {optionMaxLength != null ? (
+              <SoftLimitInput
+                value={option}
+                placeholder={`Option ${i + 1}`}
+                maxLength={optionMaxLength}
+                aria-label={`Option ${i + 1}`}
+                onChange={(v) =>
+                  onChange(options.map((o, j) => (j === i ? v : o)))
+                }
+              />
+            ) : (
+              <input
+                type="text"
+                value={option}
+                placeholder={`Option ${i + 1}`}
+                onChange={(e) =>
+                  onChange(options.map((o, j) => (j === i ? e.target.value : o)))
+                }
+                className="min-w-0 flex-1 rounded-lg border border-border bg-surface-muted px-3 py-2 text-sm text-ink placeholder:text-muted focus:border-brand-400 focus:outline-none"
+              />
+            )}
             <button
               type="button"
               aria-label={`Remove option ${i + 1}`}

@@ -18,6 +18,8 @@ interface ReplyComposerProps {
   /** Prefilled text (e.g. a leading @handle mention at max depth). */
   initialText?: string;
   autoFocus?: boolean;
+  /** Soft character cap for the reply body. */
+  maxLength?: number;
   /** In-thread roster for @ typeahead; empty ⇒ unmatched @ → Someone. */
   roster?: MentionRoster;
   onCancel: () => void;
@@ -31,12 +33,14 @@ interface ReplyComposerProps {
 export function ReplyComposer({
   initialText = "",
   autoFocus = false,
+  maxLength,
   roster = emptyMentionRoster(),
   onCancel,
   onSubmit,
 }: ReplyComposerProps) {
   const [text, setText] = useState(initialText);
   const mounted = useRef(false);
+  const overLimit = maxLength != null && text.length > maxLength;
 
   // On open, place the caret after the prefilled "@handle " mention.
   useEffect(() => {
@@ -45,6 +49,7 @@ export function ReplyComposer({
   }, [autoFocus]);
 
   const submit = () => {
+    if (overLimit) return;
     const resolved = resolveComposeMentions(text, roster);
     if (!resolved.text.trim()) return;
     onSubmit(resolved);
@@ -59,13 +64,19 @@ export function ReplyComposer({
         autoFocus={autoFocus}
         rows={3}
         placeholder="Write a reply…"
+        maxLength={maxLength}
         onSubmitHotkey={submit}
       />
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" className="ml-auto" onClick={onCancel}>
           Cancel
         </Button>
-        <Button size="sm" className="rounded-full!" onClick={submit}>
+        <Button
+          size="sm"
+          className="rounded-full!"
+          onClick={submit}
+          disabled={overLimit}
+        >
           Reply
         </Button>
       </div>

@@ -151,6 +151,10 @@ import {
   setCivicPasskeyPhaseListener,
 } from "@/lib/api/civic-passkey-phase";
 import type { MentionCandidate } from "@oursay/identity";
+import {
+  resolveContentLimits,
+  type ResolvedContentLimits,
+} from "@/lib/content-limits";
 
 const ALL_KINDS: RecordKind[] = ["statement", "petition", "poll", "result"];
 const ALL_ACTIVITY: ActivityKind[] = [
@@ -415,6 +419,11 @@ export interface AppApi {
 
   /** Batch-hydrate reaction/vote/signature/share state from `/v1/me/record-state`. */
   hydrateRecordState: (ids: string[]) => void;
+  /**
+   * Page-session content caps for a jurisdiction (catalog snapshot + platform
+   * defaults). Same fallback shape the API uses when validating creates.
+   */
+  contentLimitsFor: (jurisdictionId?: string | null) => ResolvedContentLimits;
   /** Remember + sync per-thread anonymity (cookie in mock; PUT in live). */
   setThreadVisibility: (threadId: string, visibility: AuthorVisibility) => void;
 
@@ -2167,6 +2176,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [state.loggedIn],
   );
 
+  const contentLimitsFor = useCallback(
+    (jurisdictionId?: string | null): ResolvedContentLimits => {
+      const id = jurisdictionId?.trim();
+      return resolveContentLimits(
+        id ? state.contentLimitsByJurisdiction[id] : undefined,
+      );
+    },
+    [state.contentLimitsByJurisdiction],
+  );
+
   const setThreadVisibility = useCallback(
     (threadId: string, visibility: AuthorVisibility) => {
       writeThreadVisibility(threadId, visibility);
@@ -2388,6 +2407,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     hasShared,
     recordShare,
     hydrateRecordState,
+    contentLimitsFor,
     setThreadVisibility,
     openEditProfile,
     closeEditProfile,

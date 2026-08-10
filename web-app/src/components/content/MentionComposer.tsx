@@ -13,6 +13,7 @@ import {
   serializeComposeEditor,
   setCaretPlainOffset,
 } from "@/lib/mentions/compose-editor-dom";
+import { CharLimitCounter } from "@/components/ui/CharLimitCounter";
 
 interface MentionComposerProps {
   value: string;
@@ -22,6 +23,8 @@ interface MentionComposerProps {
   rows?: number;
   autoFocus?: boolean;
   className?: string;
+  /** Soft character cap — block typing past; allow paste over. */
+  maxLength?: number;
   /** Called when Enter should submit (Ctrl/Cmd+Enter). */
   onSubmitHotkey?: () => void;
 }
@@ -59,6 +62,12 @@ function tagLayoutKey(text: string, roster: MentionRoster): string {
     .join("|");
 }
 
+function selectedPlainLength(): number {
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return 0;
+  return sel.toString().length;
+}
+
 /**
  * Contenteditable composer with `@` typeahead.
  * Resolved tags are bold purple in the live DOM (not an overlay) so the caret
@@ -72,6 +81,7 @@ export function MentionComposer({
   rows = 3,
   autoFocus = false,
   className,
+  maxLength,
   onSubmitHotkey,
 }: MentionComposerProps) {
   const editorRef = useRef<HTMLDivElement>(null);
@@ -131,6 +141,14 @@ export function MentionComposer({
 
   const pick = (entry: MentionRosterEntry) => {
     const next = applyMentionSelection(value, caret, entry);
+    if (
+      maxLength != null &&
+      next.text.length > maxLength &&
+      value.length <= maxLength
+    ) {
+      // Completing a mention that would push past the soft cap — block (like overtyping).
+      return;
+    }
     onChange(next.text);
     setCaret(next.caret);
     setHighlight(0);
@@ -145,6 +163,8 @@ export function MentionComposer({
   const shellClass =
     className ?? "rounded-md border border-border bg-surface-muted";
 
+  const overLimit = maxLength != null && value.length > maxLength;
+
   return (
     <div className="relative">
       <div
@@ -155,9 +175,37 @@ export function MentionComposer({
         contentEditable
         suppressContentEditableWarning
         data-placeholder={placeholder}
-        className={`${shellClass} ${FIELD_PAD} text-ink outline-none empty:before:pointer-events-none empty:before:text-muted empty:before:content-[attr(data-placeholder)]`}
+        className={`${shellClass} ${FIELD_PAD} text-ink outline-none empty:before:pointer-events-none empty:before:text-muted empty:before:content-[attr(data-placeholder)] ${maxLength != null ? "pb-6" : ""}`}
         style={{ minHeight: `${rows * 1.25}rem` }}
         onInput={emitFromEditor}
+        onBeforeInput={(e) => {
+          if (maxLength == null) return;
+          const ie = e.nativeEvent as InputEvent;
+          const inputType = ie.inputType ?? "";
+          if (
+            inputType === "insertFromPaste" ||
+            inputType === "insertFromDrop" ||
+            inputType.startsWith("delete") ||
+            inputType === "historyUndo" ||
+            inputType === "historyRedo"
+          ) {
+            return;
+          }
+          const el = editorRef.current;
+          if (!el) return;
+          const plain = serializeComposeEditor(el);
+          let insertLen = ie.data?.length ?? 0;
+          if (
+            insertLen === 0 &&
+            (inputType === "insertParagraph" || inputType === "insertLineBreak")
+          ) {
+            insertLen = 1;
+          }
+          if (insertLen === 0 && !inputType.startsWith("insert")) return;
+          const replaceLen = selectedPlainLength();
+          const nextLen = plain.length - replaceLen + insertLen;
+          if (nextLen > maxLength) e.preventDefault();
+        }}
         onKeyUp={() => {
           const el = editorRef.current;
           if (el) setCaret(getCaretPlainOffset(el));
@@ -191,11 +239,15 @@ export function MentionComposer({
             }
           }
           if (onSubmitHotkey && e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            if (overLimit) return;
             e.preventDefault();
             onSubmitHotkey();
           }
         }}
       />
+      {maxLength != null ? (
+        <CharLimitCounter length={value.length} max={maxLength} />
+      ) : null}
       {suggestions.length > 0 ? (
         <ul
           className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-md border border-border bg-surface py-1 shadow-md"

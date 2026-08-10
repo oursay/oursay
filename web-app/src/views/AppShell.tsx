@@ -688,6 +688,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         onComposeBodyChange={app.setComposeBody}
         onComposePollOptionsChange={app.setComposePollOptions}
         mentionRoster={composeMentionRoster}
+        contentLimits={app.contentLimitsFor(state.composeJur)}
         onPost={app.submitCompose}
       />
       <ChooseSignModal

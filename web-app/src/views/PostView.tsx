@@ -82,6 +82,8 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     )),
     [detail, fullComments],
   );
+  const commentMaxLength = app.contentLimitsFor(detail?.jurisdiction).comment.body;
+  const rootReplyOver = rootReplyText.length > commentMaxLength;
 
   const toggleCommentReply = (nodePath: string) => {
     setOpenReplies((prev) => {
@@ -404,6 +406,31 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               value={rootReplyText}
               onChange={setRootReplyText}
               roster={mentionRoster}
+              maxLength={commentMaxLength}
+              onSubmitHotkey={() => {
+                if (rootReplyOver) return;
+                const resolved = resolveComposeMentions(rootReplyText, mentionRoster);
+                if (!resolved.text.trim()) {
+                  app.notify("Write something before posting.");
+                  return;
+                }
+                app.postComment(
+                  {
+                    threadId: detail.id,
+                    jurisdiction: detail.jurisdiction,
+                    targetTitle: detail.title,
+                    parentId: detail.id,
+                    parentType: "post",
+                    body: resolved.text,
+                    mentions: resolved.mentions,
+                    mentionSpans: resolved.mentionSpans,
+                  },
+                  (personaName) => {
+                    setRootReplyText("");
+                    postCommentDone(replyPostedMessage(personaName), () => app.closeReply());
+                  },
+                );
+              }}
             />
             <div className="flex items-center gap-2">
               <Button
@@ -420,7 +447,9 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
               <Button
                 size="sm"
                 className="rounded-full!"
+                disabled={rootReplyOver}
                 onClick={() => {
+                  if (rootReplyOver) return;
                   const resolved = resolveComposeMentions(rootReplyText, mentionRoster);
                   if (!resolved.text.trim()) {
                     app.notify("Write something before posting.");
@@ -475,6 +504,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                       depth >= COMMENT_MAX_DEPTH ? `@${node.handle} ` : ""
                     }
                     autoFocus
+                    maxLength={commentMaxLength}
                     roster={mentionRoster}
                     onCancel={() => toggleCommentReply(nodePath)}
                     onSubmit={(payload) => {
