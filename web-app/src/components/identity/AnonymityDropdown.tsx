@@ -5,6 +5,7 @@ import { Check, ChevronDown, VenetianMask } from "lucide-react";
 import type { AuthorVisibility } from "@/lib/types";
 import { VISIBILITY_LABEL, VISIBILITY_VALUES } from "@/lib/types";
 import { VISIBILITY_NARROWNESS } from "@/lib/read-model";
+import { VisibilityIcon } from "./VisibilityIcon";
 
 interface AnonymityDropdownProps {
   value: AuthorVisibility;
@@ -17,14 +18,15 @@ interface AnonymityDropdownProps {
   size?: "field" | "compact";
   /** Menu edge the option list anchors to (and option text justification). */
   align?: "left" | "right";
-  /** Mask icon in the trigger button; off when the parent supplies a titled label. */
+  /** Visibility glyph in the trigger; off when the parent supplies a titled label. */
   showButtonIcon?: boolean;
 }
 
 /**
- * Inline visibility selector — optional mask icon + current label + chevron.
+ * Inline visibility selector — optional glyph + current label + chevron.
  * Compose uses an external "Anonymity" title; PostView reply bar keeps the icon
- * in the trigger.
+ * in the trigger. Glyphs: mask (anonymous), gavel (officials), map-pin-house
+ * (my district); public has no icon.
  */
 export function AnonymityDropdown({
   value,
@@ -39,6 +41,7 @@ export function AnonymityDropdown({
   const floor = minVisibility ? VISIBILITY_NARROWNESS[minVisibility] : 0;
   const compact = size === "compact";
   const alignRight = align === "right";
+  const iconSize = compact ? 14 : 18;
 
   return (
     <div className="relative min-w-0">
@@ -107,6 +110,7 @@ export function AnonymityDropdown({
                   {selected && alignRight ? (
                     <Check size={14} className="shrink-0 text-ink" aria-hidden />
                   ) : null}
+
                   <span className="flex-1">{VISIBILITY_LABEL[v]}</span>
                   {selected && !alignRight ? (
                     <Check size={14} className="shrink-0 text-ink" aria-hidden />

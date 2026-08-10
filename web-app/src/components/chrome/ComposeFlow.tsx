@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { BarChart3, Check, ChevronDown, VenetianMask } from "lucide-react";
+import { BarChart3, Check, ChevronDown } from "lucide-react";
 import { listDistricts } from "@/lib/api";
 import { jurisdictionIconForId } from "@/lib/jurisdiction-icon";
 import { jurisdictionLabel } from "@/lib/mock";
@@ -18,7 +18,7 @@ import {
   ModalOptionRow,
   PollComposeBody,
 } from "@/components/ui";
-import { AnonymityDropdown } from "@/components/identity";
+import { AnonymityDropdown, VisibilityIcon } from "@/components/identity";
 import { MentionComposer } from "@/components/content/MentionComposer";
 import { AffectedDistrictsSelector } from "./AffectedDistrictsSelector";
 import { RECORD_TYPE_ICON, RECORD_TYPE_LABEL } from "@/components/content";
@@ -406,7 +406,11 @@ export function ComposeFlow({
             <div className="w-[42%] shrink-0">
               <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-muted">
                 Anonymity
-                <VenetianMask size={12} aria-hidden />
+                <VisibilityIcon
+                  visibility={effectiveVisibility}
+                  size={12}
+                  decorative
+                />
               </div>
               <AnonymityDropdown
                 showButtonIcon={false}

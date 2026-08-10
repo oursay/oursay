@@ -165,6 +165,7 @@ describe("25 record detail: kind-agnostic detail + comment tree, identity, inter
     expect(self.identity.isSelf).to.equal(true);
     expect(self.identity.handle).to.equal("carol");
     expect(self.identity.seenByOthersAs).to.equal(anon.author);
+    expect(self.identity.visibility).to.equal("anonymous");
   });
 
   it("viewer _my (reaction) and _vote resolve only through the viewer's own persona keys", async () => {

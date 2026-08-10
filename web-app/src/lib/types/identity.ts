@@ -10,6 +10,9 @@
  * author fields (`signTier`, `official`, `platformRole`, `tier`) by
  * EntityMarkGroup — not folded into this identity object.
  */
+
+import type { AuthorVisibility } from "./visibility";
+
 export interface AuthorIdentity {
   /** Real display name when revealed/self; per-thread persona name otherwise. */
   display: string;
@@ -28,9 +31,15 @@ export interface AuthorIdentity {
   threadId: string;
   /**
    * Self only, when own effective visibility is not public: the persona name
-   * out-of-scope viewers see instead (mask + persona name on own cards).
+   * out-of-scope viewers see instead (visibility glyph + persona name on own cards).
    */
   seenByOthersAs?: string;
+  /**
+   * Self only: effective thread visibility (account default ?? thread override).
+   * Drives the anonymity glyph on own posts/comments (mask / gavel / map-pin-house;
+   * none for public).
+   */
+  visibility?: AuthorVisibility;
 }
 
 /**

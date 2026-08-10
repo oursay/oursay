@@ -159,6 +159,7 @@ export function resolveAuthorIdentity(
       seed: wireHandle(handle) ?? handle,
       iconType: DEFAULT_USER_ICON_TYPE,
       threadId,
+      visibility: ownVisibility,
       seenByOthersAs:
         ownVisibility === "public" ? undefined : personaFor(handle, threadId),
     };

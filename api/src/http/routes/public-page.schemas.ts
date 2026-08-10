@@ -3,6 +3,7 @@
 // the identity + activity shapes have one definition. Mention metadata is shared by feed + detail.
 
 import { ACTIVITY_KINDS } from "../../services/profile-page.service.js";
+import { AUTHOR_VISIBILITIES } from "../../types/visibility.js";
 
 /** Viewer-resolved author identity (persona display or revealed handle). */
 export const identitySchema = {
@@ -17,6 +18,8 @@ export const identitySchema = {
     iconType: { type: "string" },
     threadId: { type: "string" },
     seenByOthersAs: { type: "string" },
+    /** Self only: effective thread visibility (drives anonymity glyph on own cards). */
+    visibility: { type: "string", enum: AUTHOR_VISIBILITIES },
   },
   required: ["display", "handle", "isPersona", "isSelf", "seed", "threadId"],
 } as const;

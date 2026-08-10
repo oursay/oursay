@@ -128,6 +128,7 @@ describe("22 public feed: unified list, viewer-optional identity, filters, curso
     expect(self.identity.handle).to.equal("jane");
     expect(self.identity.iconType).to.equal("rings");
     expect(self.identity.seenByOthersAs).to.equal(masked.author);
+    expect(self.identity.visibility).to.equal("anonymous");
   });
 
   it("id_verified visibility reveals only to identity-verified viewers (viewer-optional resolution)", async () => {

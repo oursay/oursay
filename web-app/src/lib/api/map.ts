@@ -6,6 +6,8 @@
 
 import type { AuthorIdentity } from "@/lib/types/identity";
 import type { PlatformRole } from "@/lib/types/identity";
+import type { AuthorVisibility } from "@/lib/types/visibility";
+import { AUTHOR_VISIBILITIES } from "@/lib/types/visibility";
 import type { ActivityItem, MentionItem, PublicProfile } from "@/lib/types/profile";
 import type { ProfileRoleTag } from "@/lib/types/role-tag";
 import type {
@@ -129,6 +131,11 @@ export function mapPlatformRole(raw: unknown): PlatformRole | null {
 function mapIdentity(raw: Record<string, unknown>): AuthorIdentity {
   const handle = mapOptionalWireHandle(raw.handle);
   const seed = wireHandle(String(raw.seed)) ?? String(raw.seed);
+  const visibility =
+    typeof raw.visibility === "string" &&
+    (AUTHOR_VISIBILITIES as readonly string[]).includes(raw.visibility)
+      ? (raw.visibility as AuthorVisibility)
+      : undefined;
   return {
     display: String(raw.display),
     handle,
@@ -138,6 +145,7 @@ function mapIdentity(raw: Record<string, unknown>): AuthorIdentity {
     iconType: raw.iconType != null ? String(raw.iconType) : undefined,
     threadId: String(raw.threadId),
     seenByOthersAs: raw.seenByOthersAs as string | undefined,
+    visibility,
   };
 }
 

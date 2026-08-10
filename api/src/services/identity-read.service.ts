@@ -51,6 +51,8 @@ export interface AuthorIdentityDto {
   iconType?: string;
   threadId: string;
   seenByOthersAs?: string;
+  /** Self only: effective thread visibility (anonymity glyph on own cards). */
+  visibility?: AuthorVisibility;
 }
 
 /** C6 relation enum (mirror of the web-app's AuthorGeoRelation). */
@@ -206,6 +208,7 @@ export class ReadResolution {
           seed: facts.handle,
           iconType: facts.iconType,
           threadId: ctx.threadId,
+          visibility: effective,
           ...(effective === "public" ? {} : { seenByOthersAs: link.personaName }),
         },
         authorGeo,

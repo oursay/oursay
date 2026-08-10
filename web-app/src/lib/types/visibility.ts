@@ -16,6 +16,17 @@ export type AuthorVisibility =
   | "id_verified"
   | "public";
 
+/** Full enum (API wire + identity DTO). Picker ships a subset via VISIBILITY_VALUES. */
+export const AUTHOR_VISIBILITIES: AuthorVisibility[] = [
+  "anonymous",
+  "my_officials",
+  "all_officials",
+  "my_district",
+  "my_jurisdiction",
+  "id_verified",
+  "public",
+];
+
 /** Selectable values, most private first (picker display order). */
 export const VISIBILITY_VALUES: AuthorVisibility[] = [
   "anonymous",

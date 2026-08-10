@@ -8,6 +8,7 @@ import {
   VISIBILITY_VALUES,
 } from "@/lib/types";
 import { VISIBILITY_NARROWNESS } from "@/lib/read-model";
+import { VisibilityIcon } from "./VisibilityIcon";
 
 interface VisibilityPickerProps {
   value: AuthorVisibility;
@@ -52,6 +53,14 @@ export function VisibilityPicker({
                   : "border-border bg-surface hover:bg-surface-muted"
             }`}
           >
+            <span className="inline-flex w-4 shrink-0 justify-center">
+              <VisibilityIcon
+                visibility={v}
+                size={16}
+                className={disabled ? "text-muted" : "text-ink-soft"}
+                decorative
+              />
+            </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-medium text-ink">
                 {VISIBILITY_LABEL[v]}

@@ -14,6 +14,7 @@ import type {
 } from "@/lib/types";
 import { displayHandle } from "@/lib/handle";
 import { AuthorBadgeGroup } from "./AuthorBadgeGroup";
+import { VisibilityIcon } from "./VisibilityIcon";
 
 /**
  * Author identity row. Badge group is right-justified (§2.4).
@@ -45,7 +46,8 @@ interface AuthorRowProps {
   scopeContinuationSlot?: ReactNode;
   /**
    * Viewer-resolved identity (API-served DTOs). Personas render the mask
-   * glyph + "anonymous in this thread"; self rows hint the persona others see.
+   * glyph + "anonymous in this thread"; self rows hint the persona others see
+   * with the visibility glyph for the thread setting.
    */
   identity?: AuthorIdentity;
   onAuthorClick?: () => void;
@@ -53,7 +55,7 @@ interface AuthorRowProps {
   onPersonaClick?: () => void;
 }
 
-/** Small mask glyph marking a per-thread persona. */
+/** Small mask glyph marking a per-thread persona (others' anonymous posts). */
 function PersonaMark({ size = 12 }: { size?: number }) {
   return (
     <VenetianMask
@@ -86,6 +88,8 @@ export function AuthorRow({
 }: AuthorRowProps) {
   const isComment = layout === "comment";
   const isPersona = identity?.isPersona ?? false;
+  const isSelf = identity?.isSelf ?? false;
+  const selfVisibility = isSelf ? identity?.visibility : undefined;
   const avatarSeed = identity?.seed ?? handle ?? author;
   // Personas: style from civic tier (bottts unverified / initial-face verified).
   // Profiles: server-resolved iconType on identity.
@@ -109,8 +113,8 @@ export function AuthorRow({
 
   if (!isComment) {
     const personaHint = identity?.seenByOthersAs;
-    // Secondary line: personas are anonymous; self rows show the mask + persona
-    // name others see; revealed authors show @handle.
+    // Secondary line: personas are anonymous; self rows show the visibility
+    // glyph + persona name others see; revealed authors show @handle.
     const secondary = isPersona ? (
       <button
         type="button"
@@ -130,7 +134,11 @@ export function AuthorRow({
         disabled={!onPersonaClick}
         className="flex min-w-0 items-center gap-1 truncate text-left text-xs text-muted disabled:cursor-default"
       >
-        <PersonaMark size={11} />
+        {selfVisibility ? (
+          <VisibilityIcon visibility={selfVisibility} size={11} />
+        ) : (
+          <PersonaMark size={11} />
+        )}
         <span className="truncate italic pr-1">{personaHint}</span>
       </button>
     ) : handle ? (
@@ -186,6 +194,12 @@ export function AuthorRow({
     );
   }
 
+  const commentMark = isPersona ? (
+    <PersonaMark size={11} />
+  ) : selfVisibility ? (
+    <VisibilityIcon visibility={selfVisibility} size={11} />
+  ) : null;
+
   return (
     <div className="flex items-center gap-2">
       <button
@@ -198,11 +212,7 @@ export function AuthorRow({
         <span className="min-w-0">
           <span className="flex items-baseline gap-1.5">
             <span className="truncate text-sm font-semibold text-ink">{author}</span>
-            {isPersona ? (
-              <span className="self-center">
-                <PersonaMark size={11} />
-              </span>
-            ) : null}
+            {commentMark ? <span className="self-center">{commentMark}</span> : null}
             {timestamp ? (
               <span className="shrink-0 text-xs text-muted">• {timestamp}</span>
             ) : null}

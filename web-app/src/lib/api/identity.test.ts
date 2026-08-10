@@ -124,12 +124,28 @@ describe("self identity", () => {
       viewer(2, { selfHandle: MY_HANDLE, selfVisibility: "my_district" }),
     );
     expect(masked.identity?.seenByOthersAs).toMatch(PERSONA_SHAPE);
+    expect(masked.identity?.visibility).toBe("my_district");
 
     const open = anonymizeFeedItem(
       item(MY_HANDLE, MY_NAME),
       viewer(2, { selfHandle: MY_HANDLE, selfVisibility: "public" }),
     );
     expect(open.identity?.seenByOthersAs).toBeUndefined();
+    expect(open.identity?.visibility).toBe("public");
+  });
+
+  it("exposes own effective visibility for anonymity glyphs", () => {
+    const anon = anonymizeFeedItem(
+      item(MY_HANDLE, MY_NAME),
+      viewer(0, { loggedIn: true, selfHandle: MY_HANDLE, selfVisibility: "anonymous" }),
+    );
+    expect(anon.identity?.visibility).toBe("anonymous");
+
+    const officials = anonymizeFeedItem(
+      item(MY_HANDLE, MY_NAME),
+      viewer(0, { loggedIn: true, selfHandle: MY_HANDLE, selfVisibility: "all_officials" }),
+    );
+    expect(officials.identity?.visibility).toBe("all_officials");
   });
 });
 
