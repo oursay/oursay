@@ -2,11 +2,10 @@ import {
   DETAIL_BY_ID,
   person,
   personDistricts,
-  THREAD_VISIBILITY_OVERRIDES,
+  mockThreadVisibility,
 } from "@/lib/mock";
 import { DEFAULT_USER_ICON_TYPE } from "@/lib/avatar";
 import { wireHandle } from "@/lib/handle";
-import { readThreadVisibilities } from "@/lib/state/cookies";
 import { isMockOnly } from "./client";
 import { jurisdictionSlugs } from "./geo-scope";
 import type { PostTypeEntry } from "@/lib/mock";
@@ -133,7 +132,7 @@ export function lookupPersona(
 
 function effectiveVisibility(handle: string, threadId: string): AuthorVisibility {
   const account = person(handle).visibility ?? "public";
-  const override = THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle];
+  const override = mockThreadVisibility(threadId, handle);
   return resolveVisibility(account, override);
 }
 
@@ -148,13 +147,11 @@ export function resolveAuthorIdentity(
     viewer.selfHandle &&
     wireHandle(handle)?.toLowerCase() === viewer.selfHandle.toLowerCase()
   ) {
-    // Demo cookie memory (thread anonymity picker) wins over static fixtures so
-    // a reload after change rehydrates the same visibility the UI just set.
-    const remembered = readThreadVisibilities()[threadId];
-    const fixture = THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle];
+    // Account default ?? thread override (fixtures + demo picker). Live serves
+    // the same on identity.visibility from the API — no client per-post store.
     const ownVisibility = resolveVisibility(
       viewer.selfVisibility ?? "anonymous",
-      remembered ?? fixture,
+      mockThreadVisibility(threadId, handle),
     );
     return {
       display: displayName,

@@ -18,3 +18,32 @@ export const THREAD_VISIBILITY_OVERRIDES: Record<
   // widening override (thread beats account in either direction).
   "stmt-dana-transit": { dwhitecloud: "id_verified" },
 };
+
+/**
+ * Demo-only runtime overrides from the anonymity picker. Live mode persists via
+ * PUT /v1/me/threads/:id/visibility and rehydrates from identity.visibility on
+ * the next detail fetch — no client per-post store.
+ */
+const runtimeThreadVisibility = new Map<string, Map<string, AuthorVisibility>>();
+
+export function setMockThreadVisibility(
+  threadId: string,
+  handle: string,
+  visibility: AuthorVisibility,
+): void {
+  let byHandle = runtimeThreadVisibility.get(threadId);
+  if (!byHandle) {
+    byHandle = new Map();
+    runtimeThreadVisibility.set(threadId, byHandle);
+  }
+  byHandle.set(handle.toLowerCase(), visibility);
+}
+
+export function mockThreadVisibility(
+  threadId: string,
+  handle: string,
+): AuthorVisibility | undefined {
+  const runtime = runtimeThreadVisibility.get(threadId)?.get(handle.toLowerCase());
+  if (runtime) return runtime;
+  return THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle];
+}

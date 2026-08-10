@@ -35,6 +35,7 @@ import {
   MY_HANDLE,
   jurisdictionLabel,
   jurisdictionSignRequirement,
+  setMockThreadVisibility,
 } from "@/lib/mock";
 import {
   outsideMyDistricts,
@@ -125,7 +126,6 @@ import {
 } from "@/lib/api/me";
 import { listJurisdictionContentLimits } from "@/lib/api/places";
 import type { EditProfileFormData } from "@/components/chrome/EditProfileModal";
-import { writeThreadVisibility } from "./cookies";
 import {
   clearRegistrationDraft,
   loadRegistrationDraft,
@@ -2272,14 +2272,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setThreadVisibility = useCallback(
     (threadId: string, visibility: AuthorVisibility) => {
-      writeThreadVisibility(threadId, visibility);
-      if (!isMockOnly()) {
-        void putThreadVisibility(threadId, visibility).catch((e: Error) =>
-          notify(e.message),
-        );
+      if (isMockOnly()) {
+        const handle = wireHandle(state.accountHandle);
+        if (handle) setMockThreadVisibility(threadId, handle, visibility);
+        return;
       }
+      void putThreadVisibility(threadId, visibility).catch((e: Error) =>
+        notify(e.message),
+      );
     },
-    [notify],
+    [notify, state.accountHandle],
   );
 
   const openEditProfile = useCallback(() => {

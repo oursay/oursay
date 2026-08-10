@@ -47,7 +47,6 @@ import { COMMENTS_SECTION_ID, scrollToCommentsSection } from "@/lib/scroll";
 import {
   clearCommentDraft,
   loadCommentDraft,
-  readThreadVisibilities,
   saveCommentDraft,
   useApp,
 } from "@/lib/state";
@@ -57,6 +56,27 @@ import { mentionRosterFromThread } from "@/lib/mentions/roster";
 
 function countNodes(nodes: CommentNode[]): number {
   return nodes.reduce((n, node) => n + 1 + countNodes(node.replies), 0);
+}
+
+/** Effective thread visibility for the signed-in viewer from the detail payload. */
+function selfVisibilityFromThread(
+  detail: RecordDetail,
+  comments: CommentNode[],
+): AuthorVisibility | undefined {
+  if (detail.identity?.isSelf && detail.identity.visibility) {
+    return detail.identity.visibility;
+  }
+  const walk = (nodes: CommentNode[]): AuthorVisibility | undefined => {
+    for (const node of nodes) {
+      if (node.identity?.isSelf && node.identity.visibility) {
+        return node.identity.visibility;
+      }
+      const nested = walk(node.replies);
+      if (nested) return nested;
+    }
+    return undefined;
+  };
+  return walk(comments);
 }
 
 export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
@@ -137,11 +157,21 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     void reloadDetail();
   }, [reloadDetail]);
 
-  // Restore this post's remembered thread anonymity (demo cookie memory).
+  // Drop client memory when the post or signed-in account changes — anonymity
+  // rehydrates from the record payload (identity.visibility), not a device cookie.
   useEffect(() => {
     setPendingVisibility(null);
-    setThreadVisibility(readThreadVisibilities()[id]);
-  }, [id]);
+    setThreadVisibility(undefined);
+  }, [id, app.state.accountHandle]);
+
+  // Server / mock detail is source of truth on load. Keep in-session picker edits
+  // (prev) so a reload after change cannot clobber the value we just set.
+  useEffect(() => {
+    if (!detail) return;
+    const fromServer = selfVisibilityFromThread(detail, fullComments);
+    if (fromServer === undefined) return;
+    setThreadVisibility((prev) => prev ?? fromServer);
+  }, [detail, fullComments]);
 
   useEffect(() => {
     if (!detail) return;

@@ -20,8 +20,6 @@ const SESSION_COOKIE = "oursay-session";
 /** Theme preference — persisted independently of auth so it survives logout. */
 export const THEME_COOKIE = "oursay-theme";
 const SIGNING_COOKIE = "oursay-signing";
-/** Per-thread anonymity memory (demo): { [postId]: AuthorVisibility }. */
-const THREAD_ANON_COOKIE = "oursay-thread-anon";
 const MAX_AGE = 60 * 60 * 24 * 365; // one year
 
 /** Logged-out / first-visit default: subscribed to Global + Alberta, feed scoped to Alberta. */
@@ -160,44 +158,4 @@ export function writeSigning(signing: SigningPrefs): void {
   if (typeof document === "undefined") return;
   const value = encodeURIComponent(JSON.stringify(signing));
   document.cookie = `${SIGNING_COOKIE}=${value}; path=/; max-age=${MAX_AGE}; samesite=lax`;
-}
-
-/**
- * Read remembered per-thread anonymity choices (demo memory). Anonymity is
- * thread-bound, so each post keeps its own chosen visibility across visits.
- */
-export function readThreadVisibilities(): Record<string, AuthorVisibility> {
-  if (typeof document === "undefined") return {};
-  const match = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${THREAD_ANON_COOKIE}=`));
-  if (!match) return {};
-  try {
-    const parsed = JSON.parse(
-      decodeURIComponent(match.slice(THREAD_ANON_COOKIE.length + 1)),
-    );
-    if (parsed && typeof parsed === "object") {
-      const next: Record<string, AuthorVisibility> = {};
-      for (const [postId, v] of Object.entries(parsed)) {
-        if (VISIBILITY_VALUES.includes(v as AuthorVisibility)) {
-          next[postId] = v as AuthorVisibility;
-        }
-      }
-      return next;
-    }
-  } catch {
-    // Malformed cookie — no remembered choices.
-  }
-  return {};
-}
-
-/** Remember a post's thread anonymity choice (client-only). */
-export function writeThreadVisibility(
-  postId: string,
-  visibility: AuthorVisibility,
-): void {
-  if (typeof document === "undefined") return;
-  const map = { ...readThreadVisibilities(), [postId]: visibility };
-  const value = encodeURIComponent(JSON.stringify(map));
-  document.cookie = `${THREAD_ANON_COOKIE}=${value}; path=/; max-age=${MAX_AGE}; samesite=lax`;
 }
