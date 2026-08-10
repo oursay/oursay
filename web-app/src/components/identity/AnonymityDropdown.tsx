@@ -5,7 +5,6 @@ import { Check, ChevronDown, VenetianMask } from "lucide-react";
 import type { AuthorVisibility } from "@/lib/types";
 import { VISIBILITY_LABEL, VISIBILITY_VALUES } from "@/lib/types";
 import { VISIBILITY_NARROWNESS } from "@/lib/read-model";
-import { VisibilityIcon } from "./VisibilityIcon";
 
 interface AnonymityDropdownProps {
   value: AuthorVisibility;
@@ -41,7 +40,6 @@ export function AnonymityDropdown({
   const floor = minVisibility ? VISIBILITY_NARROWNESS[minVisibility] : 0;
   const compact = size === "compact";
   const alignRight = align === "right";
-  const iconSize = compact ? 14 : 18;
 
   return (
     <div className="relative min-w-0">

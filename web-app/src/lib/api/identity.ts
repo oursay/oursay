@@ -6,6 +6,7 @@ import {
 } from "@/lib/mock";
 import { DEFAULT_USER_ICON_TYPE } from "@/lib/avatar";
 import { wireHandle } from "@/lib/handle";
+import { readThreadVisibilities } from "@/lib/state/cookies";
 import { isMockOnly } from "./client";
 import { jurisdictionSlugs } from "./geo-scope";
 import type { PostTypeEntry } from "@/lib/mock";
@@ -147,9 +148,13 @@ export function resolveAuthorIdentity(
     viewer.selfHandle &&
     wireHandle(handle)?.toLowerCase() === viewer.selfHandle.toLowerCase()
   ) {
+    // Demo cookie memory (thread anonymity picker) wins over static fixtures so
+    // a reload after change rehydrates the same visibility the UI just set.
+    const remembered = readThreadVisibilities()[threadId];
+    const fixture = THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle];
     const ownVisibility = resolveVisibility(
       viewer.selfVisibility ?? "anonymous",
-      THREAD_VISIBILITY_OVERRIDES[threadId]?.[handle],
+      remembered ?? fixture,
     );
     return {
       display: displayName,
@@ -192,6 +197,38 @@ export function resolveAuthorIdentity(
     seed: persona,
     threadId,
   };
+}
+
+/**
+ * Project the viewer's current thread anonymity onto a self identity so glyphs
+ * and persona hints update as soon as the picker changes (before/without reload).
+ */
+export function withSelfVisibility(
+  identity: AuthorIdentity | undefined,
+  visibility: AuthorVisibility,
+): AuthorIdentity | undefined {
+  if (!identity?.isSelf) return identity;
+  const handle = identity.handle ?? identity.seed;
+  return {
+    ...identity,
+    visibility,
+    seenByOthersAs:
+      visibility === "public"
+        ? undefined
+        : identity.seenByOthersAs ?? personaFor(handle, identity.threadId),
+  };
+}
+
+/** Apply {@link withSelfVisibility} through a comment tree. */
+export function withSelfVisibilityOnComments(
+  nodes: CommentNode[],
+  visibility: AuthorVisibility,
+): CommentNode[] {
+  return nodes.map((node) => ({
+    ...node,
+    identity: withSelfVisibility(node.identity, visibility),
+    replies: withSelfVisibilityOnComments(node.replies, visibility),
+  }));
 }
 
 /** The authorGeo resolution context for a record's own geography. */

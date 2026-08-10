@@ -7,7 +7,7 @@ import type {
   VerificationTier,
   ViewerContext,
 } from "@/lib/types";
-import { anonymizeFeedItem, personaFor, personaMapForThread } from "./identity";
+import { anonymizeFeedItem, personaFor, personaMapForThread, withSelfVisibility } from "./identity";
 import { getRecordDetail } from "./record";
 import { listAllFeedItems } from "./feed";
 
@@ -146,6 +146,20 @@ describe("self identity", () => {
       viewer(0, { loggedIn: true, selfHandle: MY_HANDLE, selfVisibility: "all_officials" }),
     );
     expect(officials.identity?.visibility).toBe("all_officials");
+  });
+
+  it("withSelfVisibility updates glyph + persona hint without a reload", () => {
+    const base = anonymizeFeedItem(
+      item(MY_HANDLE, MY_NAME),
+      viewer(0, { loggedIn: true, selfHandle: MY_HANDLE, selfVisibility: "anonymous" }),
+    ).identity!;
+    const publicSelf = withSelfVisibility(base, "public");
+    expect(publicSelf?.visibility).toBe("public");
+    expect(publicSelf?.seenByOthersAs).toBeUndefined();
+
+    const district = withSelfVisibility(publicSelf, "my_district");
+    expect(district?.visibility).toBe("my_district");
+    expect(district?.seenByOthersAs).toMatch(PERSONA_SHAPE);
   });
 });
 

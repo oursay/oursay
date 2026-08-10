@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getRecordDetail, personaShownToOthers } from "@/lib/api";
+import { getRecordDetail, personaShownToOthers, withSelfVisibility, withSelfVisibilityOnComments } from "@/lib/api";
 import { parentTypeForKind } from "@/lib/api/civic-helpers";
 import {
   COMMENT_MAX_DEPTH,
@@ -189,6 +189,11 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
   const tierMin = app.effectiveVerified;
   // Effective anonymity for anything the viewer posts in this thread.
   const threadVis = threadVisibility ?? app.state.accountVisibility;
+  // Overlay the picker's value onto self identities so anonymity glyphs flip
+  // immediately on change (reload rehydrates the same value afterward).
+  const selfIdentity = withSelfVisibility(detail.identity, threadVis);
+  const displayComments = withSelfVisibilityOnComments(shownComments, threadVis);
+  const displayFullComments = withSelfVisibilityOnComments(fullComments, threadVis);
 
   const trueTotal = countNodes(fullComments);
   const hidden = trueTotal - countNodes(shownComments);
@@ -218,7 +223,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
     const handle = wireHandle(app.state.accountHandle) ?? MY_HANDLE;
     const hint =
       serverPersona ??
-      (detail.identity?.isSelf ? detail.identity.seenByOthersAs : null);
+      (selfIdentity?.isSelf ? selfIdentity.seenByOthersAs : null);
     return `Reply posted — shown as ${personaShownToOthers(handle, detail.id, hint)}.`;
   };
 
@@ -262,7 +267,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           <RecordCardHeader
             author={detail.author}
             handle={detail.handle}
-            identity={detail.identity}
+            identity={selfIdentity}
             tier={detail.tier}
             official={detail.official}
             signTier={detail.signTier}
@@ -270,10 +275,10 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
             media={detail.mediaMark}
             mediaRecognized={detail.mediaAccredited}
             authorGeo={detail.authorGeo}
-            onAuthorClick={() => router.push(authorPath(detail.identity, detail.handle))}
+            onAuthorClick={() => router.push(authorPath(selfIdentity, detail.handle))}
             onPersonaClick={
-              personaHintPath(detail.identity)
-                ? () => router.push(personaHintPath(detail.identity)!)
+              personaHintPath(selfIdentity)
+                ? () => router.push(personaHintPath(selfIdentity)!)
                 : undefined
             }
             scopeSlot={
@@ -503,7 +508,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
           </p>
         ) : (
           <CommentThread
-            nodes={shownComments}
+            nodes={displayComments}
             viewer={app.viewer}
             now={now}
             tierMin={tierMin}
@@ -523,7 +528,7 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
                         node,
                         nodePath,
                         depth,
-                        fullComments,
+                        displayFullComments,
                       );
                       const mentionPrefix =
                         depth >= COMMENT_MAX_DEPTH ? `@${node.handle} ` : "";
@@ -621,11 +626,12 @@ export function PostView({ id, kind }: { id: string; kind: RecordKind }) {
         onCancel={() => setPendingVisibility(null)}
         onConfirm={() => {
           if (pendingVisibility === null) return;
-          setThreadVisibility(pendingVisibility);
-          app.setThreadVisibility(detail.id, pendingVisibility);
+          const next = pendingVisibility;
+          setThreadVisibility(next);
+          app.setThreadVisibility(detail.id, next);
           setPendingVisibility(null);
-          app.notify(
-            `Thread anonymity set to ${VISIBILITY_LABEL[pendingVisibility]}.`,
+          void reloadDetail().then(() =>
+            app.notify(`Thread anonymity set to ${VISIBILITY_LABEL[next]}.`),
           );
         }}
       />
