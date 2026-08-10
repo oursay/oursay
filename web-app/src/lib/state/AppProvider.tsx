@@ -123,6 +123,7 @@ import {
   putJurisdictionMemberships,
   putThreadVisibility,
 } from "@/lib/api/me";
+import { listJurisdictionContentLimits } from "@/lib/api/places";
 import type { EditProfileFormData } from "@/components/chrome/EditProfileModal";
 import { writeThreadVisibility } from "./cookies";
 import {
@@ -229,6 +230,7 @@ export const INITIAL_APP_STATE: AppState = {
   profileTypes: [...ALL_ACTIVITY],
 
   subscriptions: DEFAULT_SUBSCRIPTIONS,
+  contentLimitsByJurisdiction: {},
 
   filterOpen: false,
   jurSelectorOpen: false,
@@ -524,6 +526,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void import("@/lib/api/civic-custody").then((m) => m.warmCivicCustody(account.userId));
       })
       .catch(markLoggedOut);
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Snapshot jurisdiction content caps once at page load (public catalog). Kept for
+  // the session so composers match the API rejection source until the next reload.
+  useEffect(() => {
+    let active = true;
+    void listJurisdictionContentLimits()
+      .then((contentLimitsByJurisdiction) => {
+        if (!active) return;
+        setState((s) => ({ ...s, contentLimitsByJurisdiction }));
+      })
+      .catch(() => {
+        // Leave empty; composers fall back until the next successful load/reload.
+      });
     return () => {
       active = false;
     };

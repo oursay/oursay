@@ -10,8 +10,14 @@
 // env (`JURISDICTION_ID`) only selects the deployment DEFAULT id. The jurisdiction's id is realized as
 // the chain's `chainId` value at the ledger boundary — the ledger layer keeps the word "chain".
 
+import {
+  DEFAULT_CONTENT_LIMITS,
+  type JurisdictionContentLimits,
+} from "@oursay/content-limits";
 import { jurisdictionConfig } from "./config.js";
 import type { RecordType, SignScheme } from "./schema/types.js";
+
+export { DEFAULT_CONTENT_LIMITS, type JurisdictionContentLimits };
 
 /** Default gating rules for a jurisdiction. An entity may override these within what the
  *  jurisdiction permits (see {@link resolveRules} in governance.ts). Platform defaults are LOOSE
@@ -146,16 +152,6 @@ export interface JurisdictionLabels {
   district?: string;
 }
 
-/** Hard content caps per record type, enforced at create/update by per-type validators
- *  ([code-post-content-fields]) — this config only DEFINES + EXPOSES them. Per-type nested numeric
- *  caps; absent type/field ⇒ no cap from this seam. */
-export interface JurisdictionContentLimits {
-  post?: { title?: number; body?: number };
-  comment?: { body?: number };
-  petition?: { title?: number; text?: number };
-  poll?: { question?: number; option?: number; maxOptions?: number; description?: number };
-}
-
 /** Platform default user-facing labels (the "Statement → Petition → Poll → Result" hierarchy). */
 export const DEFAULT_LABELS: Required<JurisdictionLabels> = {
   post: "Statement",
@@ -163,14 +159,6 @@ export const DEFAULT_LABELS: Required<JurisdictionLabels> = {
   poll: "Poll",
   result: "Result",
   district: "District",
-};
-
-/** Platform default content caps (the documented Alberta/launch caps; also the global defaults). */
-export const DEFAULT_CONTENT_LIMITS: JurisdictionContentLimits = {
-  post: { title: 200, body: 2000 },
-  comment: { body: 2000 },
-  petition: { title: 200, text: 5000 },
-  poll: { question: 200, option: 100, maxOptions: 10, description: 2000 },
 };
 
 /** A jurisdiction's configuration: its id, governmental level, and default rules. Censoring /

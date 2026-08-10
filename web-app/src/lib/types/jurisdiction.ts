@@ -68,6 +68,13 @@ export type GatedAction =
 /** Per-action gate table for a jurisdiction (mirror of the backend `gates`). */
 export type JurisdictionGates = Record<GatedAction, ActionGate>;
 
+/**
+ * Hard per-type content caps from `GET /v1/public/jurisdictions`.
+ * Canonical type + platform defaults live in `@oursay/content-limits`
+ * (shared with API validators). Snapshotted into app state at page load.
+ */
+export type { JurisdictionContentLimits } from "@oursay/content-limits";
+
 /** Jurisdiction-leader role key for official seat links. */
 export type OfficialLeaderRole = "premier" | "platform" | "mla";
 

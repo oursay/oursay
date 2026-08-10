@@ -16,6 +16,7 @@
     "public-record",
     "identity",
     "slugs",
+    "content-limits",
     "encode",
     "geo",
     "jurisdiction-data",

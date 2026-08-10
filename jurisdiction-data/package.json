@@ -12,6 +12,7 @@
     "pull:leaders": "node scripts/pull-opennorth-ab.mjs"
   },
   "dependencies": {
+    "@oursay/content-limits": "*",
     "@oursay/public-record": "*",
     "@oursay/slugs": "*"
   },

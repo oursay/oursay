@@ -1,0 +1,17 @@
+{
+  "name": "@oursay/content-limits",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "OurSay platform content-cap types and defaults (JurisdictionContentLimits + DEFAULT_CONTENT_LIMITS). Zero runtime dependencies — isomorphic floor shared by public-record validators, jurisdiction-data configs, and web-app composers.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "typescript": "^5.8.2"
+  }
+}

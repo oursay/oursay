@@ -5,6 +5,7 @@ import type {
   AuthorIdentity,
   AuthorVisibility,
   GeoFilterMode,
+  JurisdictionContentLimits,
   JurisdictionMembership,
   RecordKind,
   SignAction,
@@ -140,6 +141,13 @@ export interface AppState {
 
   // Jurisdiction subscriptions (persisted to a cookie; Global default).
   subscriptions: JurisdictionMembership[];
+
+  /**
+   * Per-jurisdiction content caps from `GET /v1/public/jurisdictions`, snapshotted
+   * once at page load. Compose/comment UIs should read this map (not hardcode)
+   * so client validation matches the API rejection source for that session.
+   */
+  contentLimitsByJurisdiction: Record<string, JurisdictionContentLimits>;
 
   // Chrome popovers.
   filterOpen: boolean;

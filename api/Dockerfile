@@ -12,6 +12,7 @@ COPY identity ./identity
 COPY jurisdiction-data ./jurisdiction-data
 COPY encode ./encode
 COPY slugs ./slugs
+COPY content-limits ./content-limits
 COPY scripts ./scripts
 # Remaining workspaces are listed in the root package.json; stub their package.json so
 # `npm ci` can link the workspace graph without copying the whole monorepo.

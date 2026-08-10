@@ -1,5 +1,6 @@
+import { DEFAULT_CONTENT_LIMITS } from "@oursay/content-limits";
 import type { JurisdictionConfig } from "@oursay/public-record";
-import { DEFAULT_CONTENT_LIMITS, DEFAULT_LABELS } from "@oursay/public-record";
+import { DEFAULT_LABELS } from "@oursay/public-record";
 import { oursayGlobalPlatformSeat } from "./steward-seat.js";
 
 // oursay-global — the universal OurSay record and OPEN SANDBOX jurisdiction. Permissive by design:

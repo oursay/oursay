@@ -32,6 +32,7 @@ const extensionAlias = {
 
 const nextConfig: NextConfig = {
   transpilePackages: [
+    "@oursay/content-limits",
     "@oursay/encode",
     "@oursay/identity",
     "@oursay/public-record",

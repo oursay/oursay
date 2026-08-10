@@ -15,6 +15,7 @@ COPY identity/package.json ./identity/
 COPY jurisdiction-data/package.json ./jurisdiction-data/
 COPY encode/package.json ./encode/
 COPY slugs/package.json ./slugs/
+COPY content-limits/package.json ./content-limits/
 COPY web-app/package.json ./web-app/
 COPY evm-anchor/package.json ./evm-anchor/
 

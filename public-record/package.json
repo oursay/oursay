@@ -33,6 +33,7 @@
   "dependencies": {
     "@noble/curves": "^1.8.1",
     "@noble/hashes": "^1.7.1",
+    "@oursay/content-limits": "*",
     "@oursay/geo": "*",
     "dotenv": "^16.4.7",
     "ethers": "^6.17.0",

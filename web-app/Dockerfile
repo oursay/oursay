@@ -13,6 +13,7 @@ COPY encode ./encode
 COPY identity ./identity
 COPY public-record ./public-record
 COPY slugs ./slugs
+COPY content-limits ./content-limits
 COPY geo ./geo
 COPY scripts ./scripts
 # Remaining workspaces are listed in the root package.json; stub their package.json so

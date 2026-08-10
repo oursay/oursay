@@ -15,6 +15,7 @@ COPY public-record/package.json ./public-record/
 COPY geo/package.json ./geo/
 COPY slugs/package.json ./slugs/
 COPY encode/package.json ./encode/
+COPY content-limits/package.json ./content-limits/
 
 RUN npm ci
 RUN npm run compile -w @oursay/evm-anchor
