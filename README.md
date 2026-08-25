@@ -44,6 +44,8 @@ Verified users have confirmed their identity and residency through a pluggable K
 
 ---
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/oursay/oursay)
+
 ## Repository Structure
 
 ```
